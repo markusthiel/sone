@@ -289,6 +289,7 @@ export {
 export {
   SLASH_ITEMS,
   closeSlashMenu,
+  openSlashMenu,
   filterSlashItems,
   runSlashItem,
   setSlashIndex,

@@ -14,9 +14,11 @@
 
 import {
   closeSlashMenu,
+  insertImageUpload,
   runSlashItem,
   setSlashIndex,
   slashMenuState,
+  type ImageUploader,
   type SlashItem,
 } from '@sone/editor';
 import type { EditorView } from 'prosemirror-view';
@@ -32,9 +34,20 @@ interface SlashMenuProps {
   view: EditorView;
   /** Bumped by the editor on every transaction, so this re-reads plugin state. */
   revision: number;
+  /**
+   * Used by the Image item, which cannot be a plain command: opening a file
+   * picker needs a real user gesture and a DOM element, neither of which a
+   * ProseMirror command has.
+   */
+  uploadImage?: ImageUploader;
 }
 
-export function SlashMenu({ view, revision }: SlashMenuProps): ReactElement | null {
+export function SlashMenu({
+  view,
+  revision,
+  uploadImage,
+}: SlashMenuProps): ReactElement | null {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const menu = slashMenuState(view.state);
   const listRef = useRef<HTMLDivElement | null>(null);
   const [placement, setPlacement] = useState<{
@@ -122,6 +135,26 @@ export function SlashMenu({ view, revision }: SlashMenuProps): ReactElement | nu
     );
   }
 
+  /**
+   * Choose an item.
+   *
+   * Image is handled here rather than by its command: the slash text has to be
+   * removed before the picker opens, or it stays behind while a modal file
+   * dialog is up and the person cannot see what happened.
+   */
+  const choose = (item: SlashItem): void => {
+    if (item.id === 'image') {
+      closeSlashMenu(view);
+      const state = slashMenuState(view.state);
+      if (state) {
+        view.dispatch(view.state.tr.delete(state.from, view.state.selection.head));
+      }
+      fileInputRef.current?.click();
+      return;
+    }
+    runSlashItem(view, item);
+  };
+
   const groups = groupItems(menu.items);
   let flatIndex = -1;
 
@@ -140,6 +173,23 @@ export function SlashMenu({ view, revision }: SlashMenuProps): ReactElement | nu
       aria-label="Insert block"
       aria-activedescendant={`slash-item-${menu.items[menu.index]?.id ?? ''}`}
     >
+      {/* Outside the list so clicking it is not treated as choosing an item.
+          Hidden rather than absent: a file input has to exist in the DOM before
+          click() will open a picker. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
+        multiple
+        hidden
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          event.target.value = '';
+          if (!uploadImage) return;
+          for (const file of files) insertImageUpload(view, file, uploadImage);
+          view.focus();
+        }}
+      />
       {groups.map(([group, items]) => (
         <div className="slash-group" key={group}>
           <div className="slash-group-label">{GROUP_LABELS[group]}</div>
@@ -160,7 +210,7 @@ export function SlashMenu({ view, revision }: SlashMenuProps): ReactElement | nu
                 // otherwise, and the command then runs against a lost selection.
                 onPointerDown={(event) => {
                   event.preventDefault();
-                  runSlashItem(view, item);
+                  choose(item);
                 }}
                 onPointerEnter={() => setSlashIndex(view, index)}
               >

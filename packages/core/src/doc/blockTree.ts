@@ -49,6 +49,27 @@ export function pageContent(doc: Y.Doc): Y.XmlFragment {
   return doc.get(DOC_KEYS.content, Y.XmlFragment) as Y.XmlFragment;
 }
 
+/**
+ * Serialise block props.
+ *
+ * Keys sorted, so the same props always produce the same string. Two writers
+ * emitting different byte sequences for identical content means a CRDT update
+ * for a change nobody made, and a diff that looks like an edit.
+ *
+ * This was written inline in three places, one of which sorted and two of which
+ * did not. Shared here before a fourth could be added.
+ *
+ * An empty object serialises to null rather than "{}": absent and empty mean the
+ * same thing, and the shorter form keeps the document smaller.
+ */
+export function serialiseProps(props: Record<string, unknown>): string | null {
+  const keys = Object.keys(props).sort();
+  if (keys.length === 0) return null;
+  const ordered: Record<string, unknown> = {};
+  for (const key of keys) ordered[key] = props[key];
+  return JSON.stringify(ordered);
+}
+
 function parseProps(raw: unknown, warnings: string[], id: string): Record<string, unknown> {
   if (raw === undefined || raw === null || raw === '') return {};
   if (typeof raw !== 'string') {
@@ -259,7 +280,7 @@ export function buildBlock(block: NewBlock): Y.XmlElement {
   element.setAttribute(BLOCK_ATTRS.id, block.id);
 
   if (block.props && Object.keys(block.props).length > 0) {
-    element.setAttribute(BLOCK_ATTRS.props, JSON.stringify(block.props));
+    element.setAttribute(BLOCK_ATTRS.props, serialiseProps(block.props) ?? '');
   }
 
   // Omitted when zero, keeping documents smaller and diffs readable.
@@ -340,8 +361,52 @@ export function updateBlockProps(
     if (Object.keys(next).length === 0) {
       element.removeAttribute(BLOCK_ATTRS.props);
     } else {
-      element.setAttribute(BLOCK_ATTRS.props, JSON.stringify(next));
+      element.setAttribute(BLOCK_ATTRS.props, serialiseProps(next) ?? '');
     }
+  });
+  return true;
+}
+
+/**
+ * Change one block's props in a document.
+ *
+ * Exists so a surface that is not the editor — a task list, an outline, a
+ * future API — can toggle a checkbox or set a property without a ProseMirror
+ * view. Everything else about a block goes through the editor; props are the
+ * part that is meaningful on its own.
+ *
+ * Found by id rather than by position, because the caller holds an id and
+ * nothing else: a task list built a moment ago may describe a document that has
+ * since changed. Returns false when the block is gone, which is a normal
+ * outcome rather than an error.
+ *
+ * Props are merged, not replaced. A caller that knows about `checked` should not
+ * have to know what else a block carries, and replacing would silently drop
+ * properties written by a newer version of SONE (ADR-0013).
+ */
+export function setBlockProps(
+  doc: Y.Doc,
+  blockId: string,
+  patch: Record<string, unknown>,
+): boolean {
+  // findBlockElement already walks the fragment by id, including nested blocks.
+  // A second search here would be a second definition of "where is this block",
+  // and two of those drift.
+  const element = findBlockElement(doc, blockId);
+  if (!element) return false;
+
+  const current = parseProps(element.getAttribute(BLOCK_ATTRS.props), [], blockId);
+  const next: Record<string, unknown> = { ...current, ...patch };
+
+  // Keys set to undefined are removed rather than serialised as null: a prop
+  // that is absent and a prop that is null mean different things to a reader
+  // that checks for presence.
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) delete next[key];
+  }
+
+  doc.transact(() => {
+    element.setAttribute(BLOCK_ATTRS.props, serialiseProps(next) ?? '');
   });
   return true;
 }

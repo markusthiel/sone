@@ -17,7 +17,7 @@ import { createEditor, seedEmptyPage } from '@sone/editor';
 import { ApiError, api } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { BlockMenu } from './BlockMenu.tsx';
 import { SelectionToolbar } from './SelectionToolbar.tsx';
@@ -30,6 +30,22 @@ interface EditorSurfaceProps {
 }
 
 export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElement {
+  // One uploader, shared by paste, drop and the Image slash item, so all three
+  // report failures the same way.
+  const uploader = useCallback(
+    async (file: File) => {
+      try {
+        const result = await api.uploadFile(pageId, file);
+        return { url: result.url, filename: result.filename };
+      } catch (error) {
+        throw new Error(
+          messageFor(error instanceof ApiError ? error.code : 'network_error'),
+        );
+      }
+    },
+    [pageId],
+  );
+
   const mountRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   // The view goes in state, not only a ref, because the slash menu is a React
@@ -63,18 +79,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
       awareness: handle.awareness,
       editable: () => canEditRef.current,
       onStateChange: () => setRevision((n) => n + 1),
-      uploadImage: async (file) => {
-        try {
-          const result = await api.uploadFile(pageId, file);
-          return { url: result.url, filename: result.filename };
-        } catch (error) {
-          // Translated here, so the message shown on the failed block is the
-          // same wording the rest of the app uses for that code.
-          throw new Error(
-            messageFor(error instanceof ApiError ? error.code : 'network_error'),
-          );
-        }
-      },
+      uploadImage: uploader,
     });
     viewRef.current = created;
     setView(created);
@@ -87,7 +92,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
     // Keyed on the document, not the handle: the handle object is recreated on
     // every notification, and rebuilding the editor for each of those would
     // make typing impossible.
-  }, [handle.doc, handle.awareness, pageId]);
+  }, [handle.doc, handle.awareness, uploader]);
 
   // Tell ProseMirror to re-evaluate `editable` when the role changes. Without
   // this the editor keeps its previous editability until the next transaction,
@@ -107,7 +112,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
       />
       {view && handle.canEdit && (
         <>
-          <SlashMenu view={view} revision={revision} />
+          <SlashMenu view={view} revision={revision} uploadImage={uploader} />
           <BlockMenu view={view} revision={revision} />
           <SelectionToolbar view={view} revision={revision} />
         </>

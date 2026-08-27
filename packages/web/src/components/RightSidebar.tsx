@@ -22,14 +22,16 @@ import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type PageDetail } from '../api/client.ts';
 import { useOutline, scrollToBlock } from '../hooks/useOutline.ts';
+import { useTasks, type Task } from '../hooks/useTasks.ts';
 import { messageFor } from './Auth.tsx';
 import { ChevronRightIcon, PageIcon, TagIcon } from './icons.tsx';
 
-export const RIGHT_TABS = ['outline', 'properties'] as const;
+export const RIGHT_TABS = ['outline', 'tasks', 'properties'] as const;
 export type RightTab = (typeof RIGHT_TABS)[number];
 
 const TAB_LABELS: Record<RightTab, string> = {
   outline: 'Outline',
+  tasks: 'Tasks',
   properties: 'Properties',
 };
 
@@ -112,6 +114,7 @@ export function RightSidebar({
 
         <div className="right-body" role="tabpanel">
           {tab === 'outline' && <OutlinePanel handle={handle} />}
+          {tab === 'tasks' && <TasksPanel handle={handle} />}
           {tab === 'properties' && <PropertiesPanel pageId={pageId} handle={handle} />}
         </div>
       </aside>
@@ -154,6 +157,94 @@ function OutlinePanel({ handle }: { handle: PageHandle | null }): ReactElement {
         </button>
       ))}
     </nav>
+  );
+}
+
+function TasksPanel({ handle }: { handle: PageHandle | null }): ReactElement {
+  const { tasks, toggle } = useTasks(handle?.doc ?? null);
+  const canEdit = handle?.canEdit ?? false;
+
+  if (!handle) {
+    return <p className="panel-empty">Open a page to see its tasks.</p>;
+  }
+  if (tasks.length === 0) {
+    return (
+      <p className="panel-empty">
+        No tasks yet. Type <code>[] </code> at the start of a line to make one.
+      </p>
+    );
+  }
+
+  const open = tasks.filter((task) => !task.done);
+  const done = tasks.filter((task) => task.done);
+
+  return (
+    <div className="tasks">
+      {/* A count, because the useful question about a task list is how much is
+          left rather than what is in it. */}
+      <p className="tasks-summary">
+        {open.length} of {tasks.length} open
+      </p>
+
+      {open.map((task) => (
+        <TaskRow key={task.id} task={task} canEdit={canEdit} onToggle={toggle} />
+      ))}
+
+      {done.length > 0 && (
+        <>
+          {/* Completed tasks are kept, below, rather than hidden. Hiding them
+              loses the record of what was done, and a list that empties itself
+              gives no sense of progress. */}
+          <p className="tasks-label">Done</p>
+          {done.map((task) => (
+            <TaskRow key={task.id} task={task} canEdit={canEdit} onToggle={toggle} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+function TaskRow({
+  task,
+  canEdit,
+  onToggle,
+}: {
+  task: Task;
+  canEdit: boolean;
+  onToggle: (taskId: string, done: boolean) => void;
+}): ReactElement {
+  return (
+    <label
+      className="task-row"
+      data-done={task.done ? 'true' : 'false'}
+      style={{ paddingInlineStart: `${8 + Math.min(task.indent, 4) * 14}px` }}
+    >
+      <input
+        type="checkbox"
+        checked={task.done}
+        // Disabled rather than hidden for a reader: the state is information,
+        // and removing the control while keeping the box would look broken.
+        disabled={!canEdit}
+        onChange={(event) => onToggle(task.id, event.target.checked)}
+      />
+      <span className="task-text">
+        {task.text || <span className="muted">Untitled task</span>}
+      </span>
+      {/* Jumping to the block is what makes the panel a way of navigating rather
+          than a second place to keep the same list. */}
+      <button
+        type="button"
+        className="task-goto"
+        aria-label="Go to this task"
+        onClick={(event) => {
+          event.preventDefault();
+          scrollToBlock(task.id);
+        }}
+      >
+        <ChevronRightIcon />
+      </button>
+    </label>
   );
 }
 
