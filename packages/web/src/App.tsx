@@ -10,6 +10,7 @@ import { useEffect, useState , type ReactElement } from 'react';
 import { LoginScreen, SetupScreen, SignupScreen, messageFor } from './components/Auth.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
 import { SearchScreen } from './components/Search.tsx';
+import { Settings } from './components/Settings.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
 import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
@@ -80,6 +81,7 @@ export function App(): ReactElement {
         'Workspace'
       }
       displayName={state.session.user.displayName}
+      session={state.session}
       route={route}
       navigate={navigate}
       onLogout={() => void logout()}
@@ -91,6 +93,7 @@ function Workspace({
   workspaceId,
   workspaceName,
   displayName,
+  session,
   route,
   navigate,
   onLogout,
@@ -98,6 +101,7 @@ function Workspace({
   workspaceId: string;
   workspaceName: string;
   displayName: string;
+  session: import('./api/client.ts').SessionInfo;
   route: ReturnType<typeof useRoute>['route'];
   navigate: (to: string) => void;
   onLogout: () => void;
@@ -170,10 +174,11 @@ function Workspace({
         )}
 
         {route.kind === 'settings' && (
-          <div className="page-body">
-            <h1>Settings</h1>
-            <p className="muted">Not built yet.</p>
-          </div>
+          <Settings
+            section={route.section}
+            session={session}
+            workspaceId={workspaceId}
+          />
         )}
 
         {route.kind === 'home' && pages.length === 0 && (

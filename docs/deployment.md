@@ -183,6 +183,26 @@ client in the image, not a change to the database. The backup command reports
 this explicitly rather than passing on `pg_dump`'s own wording, which does not
 say what to do about it.
 
+## Which version is running
+
+The About section of Settings shows two versions, and the difference matters:
+
+- **Server** — from `/api/version`, the code handling requests.
+- **This browser** — baked into the client bundle at build time.
+
+When they disagree, the browser is holding a cached bundle from an earlier
+deployment and says so with a reload button. Without that distinction, asking
+"which version am I running?" over HTTP returns the server's answer about code
+that is not the code executing — which is how bug reports arrive for versions
+that no longer contain the bug.
+
+The running version also appears at the bottom of the sidebar, so the answer is
+one glance rather than a navigation.
+
+`/api/version` needs no authentication. That is deliberate: the version is not a
+secret, and being able to read it without logging in is what makes it useful
+when logging in is what is broken.
+
 ## Health and readiness
 
 - `GET /api/health` — liveness. No database call. This is what the container

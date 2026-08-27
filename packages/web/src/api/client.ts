@@ -122,6 +122,15 @@ export interface SearchResult {
   rank: number;
 }
 
+export interface VersionInfo {
+  version: string;
+  commit: string;
+  /** Document format version. Determines which clients can open documents. */
+  documentSchema: number;
+  /** Sync protocol version. Determines which clients can connect. */
+  syncProtocol: number;
+}
+
 export interface InvitationInfo {
   workspaceName: string;
   email: string | null;
@@ -133,6 +142,10 @@ export interface InvitationInfo {
 
 export const api = {
   instance: () => request<InstanceInfo>('/api/instance'),
+
+  // Unauthenticated: the version is not a secret, and being able to read it
+  // without logging in is what makes it useful when something is wrong.
+  version: () => request<VersionInfo>('/api/version'),
 
   session: () => request<SessionInfo>('/api/auth/session'),
 

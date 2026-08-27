@@ -586,3 +586,41 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* --- settings --- */
+
+.settings-section { margin-block-start: 28px; }
+.settings-section h2 { font-size: 1.1rem; margin-block-end: 8px; }
+
+.settings-list {
+  display: grid;
+  /* Labels size to content, values take the rest — so a long email does not
+     push the labels into two lines. */
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+.settings-list dt { color: var(--sone-text-muted); font-size: 0.9rem; }
+.settings-list dd { margin: 0; font-size: 0.9rem; }
+
+.settings-warning {
+  padding: 10px 12px;
+  border: 1px solid var(--sone-border);
+  border-inline-start: 3px solid #ffb224;
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+  font-size: 0.9rem;
+}
+.settings-warning button {
+  min-height: 32px;
+  padding-inline: 10px;
+  margin-inline-start: 4px;
+}
+
+.sidebar-version {
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  color: var(--sone-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sidebar-version:hover { color: var(--sone-text); text-decoration: none; }

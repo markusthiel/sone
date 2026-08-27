@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The running version is visible in the app.** Settings → About shows the
+server's version and the version of the client bundle in your browser
+separately, and says so when they disagree — a browser holding a cached bundle
+from an earlier deployment otherwise reports the server's version about code
+that is not running. The version also appears at the bottom of the sidebar.
+
 **Fixed: every page rendered blank.** Opening any page threw during editor
 construction, React unmounted the tree, and the result was a white screen with
 nothing to report. Reported from the first real deployment; nothing in 361

@@ -22,9 +22,15 @@ services:
     # HTTP/1.1 header". Building on the host avoids the problem entirely rather
     # than working around it.
     #
-    # The default requires a published image, which does not exist until the
-    # image build workflow has a runner with daemon access.
-    image: ${SONE_IMAGE:-forgejo.thiel.tools/thiel/sone:latest}
+    # Defaults to :main because :latest does not exist yet — that tag is only
+    # published for a version tag that is not a pre-release (ADR-0013), and the
+    # only tag so far is v0.1.0-rc.1. Following the docs with :latest today
+    # produces a 404 on pull, which reads like a broken deployment rather than
+    # an unreleased project.
+    #
+    # Switching this default to :latest is a step in the 0.1.0 release
+    # checklist, so it happens when the tag it names starts existing.
+    image: ${SONE_IMAGE:-forgejo.thiel.tools/thiel/sone:main}
     restart: unless-stopped
     depends_on:
       db:
