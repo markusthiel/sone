@@ -21,6 +21,11 @@ is never moved.
 Then point the deployment at `refs/tags/v0.1.0`. **No container image is
 needed for that**; see docs/deployment.md.
 
+The `build-image` workflow is manual-only while no runner has Docker daemon
+access. If it is ever re-enabled on tags and fails, the tag is still fine — a
+tag points at a commit, and whether an image was built afterwards does not
+change what that commit contains.
+
 ## Full checklist
 
 1. **Verify the migration chain from empty.** Not from your development
