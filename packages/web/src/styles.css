@@ -288,3 +288,186 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   color: #fff;
   font-weight: 600;
 }
+
+/* ---------------------------------------------------------------------------
+ * Editor
+ *
+ * ProseMirror owns this DOM. Every rule below styles what its toDOM produces,
+ * addressed through the data attributes the schema emits — never through
+ * element names, which the schema is free to change.
+ *
+ * Indentation is `data-indent`, because nesting is an attribute rather than
+ * XML structure (ADR-0018). One CSS rule per level rather than a calc() on an
+ * attribute value, since attr() in calc() is still not usable.
+ * ------------------------------------------------------------------------- */
+
+.editor-surface {
+  min-height: 40vh;
+}
+
+.ProseMirror {
+  outline: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  /* Room for list markers and, later, drag handles, which sit outside the text
+     column so they never reflow it. */
+  padding-inline-start: 1.5rem;
+}
+
+.ProseMirror [data-block] {
+  position: relative;
+  margin-block: 2px;
+}
+
+/* Logical property, so indentation follows text direction (ADR-0016).
+ *
+ * Written out per level rather than computed: attr() is not usable inside
+ * calc() in any shipping browser. Beyond level eight the offset stops growing —
+ * the tree still nests correctly, and a document scrolling sideways is worse
+ * than an outline that stops getting wider. */
+.ProseMirror [data-indent='1'] { margin-inline-start: 1.75rem; }
+.ProseMirror [data-indent='2'] { margin-inline-start: 3.5rem; }
+.ProseMirror [data-indent='3'] { margin-inline-start: 5.25rem; }
+.ProseMirror [data-indent='4'] { margin-inline-start: 7rem; }
+.ProseMirror [data-indent='5'] { margin-inline-start: 8.75rem; }
+.ProseMirror [data-indent='6'] { margin-inline-start: 10.5rem; }
+.ProseMirror [data-indent='7'] { margin-inline-start: 12.25rem; }
+.ProseMirror [data-indent='8'] { margin-inline-start: 14rem; }
+
+.ProseMirror h1[data-block] { font-size: 1.9rem; font-weight: 700; margin-block: 0.6em 0.2em; }
+.ProseMirror h2[data-block] { font-size: 1.45rem; font-weight: 650; margin-block: 0.6em 0.2em; }
+.ProseMirror h3[data-block] { font-size: 1.2rem; font-weight: 650; margin-block: 0.5em 0.2em; }
+.ProseMirror h4[data-block],
+.ProseMirror h5[data-block],
+.ProseMirror h6[data-block] { font-size: 1.05rem; font-weight: 650; }
+
+/* --- lists --- */
+
+/* Markers are drawn rather than provided by <ul>, because these are flat
+   siblings and a real list would have to be reconstructed from indents. */
+.ProseMirror [data-block='bulletList'],
+.ProseMirror [data-block='numberedList'],
+.ProseMirror [data-block='todo'] {
+  padding-inline-start: 1.4em;
+}
+
+.ProseMirror [data-block='bulletList']::before {
+  content: '•';
+  position: absolute;
+  inset-inline-start: 0;
+  color: var(--sone-text-muted);
+}
+/* The marker changes with depth, the way a printed outline does. */
+.ProseMirror [data-block='bulletList'][data-indent='1']::before { content: '◦'; }
+.ProseMirror [data-block='bulletList'][data-indent='2']::before { content: '▪'; }
+
+/* data-number comes from the listNumbers plugin: CSS counters cannot express
+   "restart when the previous sibling was shallower" on flat siblings. */
+.ProseMirror [data-block='numberedList']::before {
+  content: attr(data-number) '.';
+  position: absolute;
+  inset-inline-start: 0;
+  color: var(--sone-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ProseMirror [data-block='todo']::before {
+  content: '☐';
+  position: absolute;
+  inset-inline-start: 0;
+  color: var(--sone-text-muted);
+}
+.ProseMirror [data-block='todo'][data-checked='true']::before { content: '☑'; }
+.ProseMirror [data-block='todo'][data-checked='true'] {
+  color: var(--sone-text-muted);
+  text-decoration: line-through;
+}
+
+/* --- other blocks --- */
+
+.ProseMirror blockquote[data-block] {
+  margin-inline: 0;
+  padding-inline-start: 0.9em;
+  border-inline-start: 3px solid var(--sone-border);
+  color: var(--sone-text-muted);
+}
+
+.ProseMirror aside[data-block] {
+  padding: 10px 12px;
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+}
+
+.ProseMirror pre[data-block] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  padding: 10px 12px;
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+  overflow-x: auto;
+}
+
+.ProseMirror [data-block='divider'] hr {
+  border: 0;
+  border-block-start: 1px solid var(--sone-border);
+  margin-block: 1em;
+}
+
+.ProseMirror [data-block='image'] img { max-width: 100%; border-radius: var(--sone-radius); }
+
+.ProseMirror [data-block='collectionView'] {
+  padding: 12px;
+  border: 1px dashed var(--sone-border);
+  border-radius: var(--sone-radius);
+  color: var(--sone-text-muted);
+}
+.ProseMirror [data-block='collectionView']::after {
+  content: 'Database view — not yet implemented';
+  font-size: 0.9em;
+}
+
+/* --- inline --- */
+
+.ProseMirror code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+.ProseMirror a { text-decoration: underline; }
+
+/* --- empty state --- */
+
+/* A placeholder only on a genuinely empty document. Showing one on every empty
+   paragraph turns a half-written page into a wall of grey hints. */
+.ProseMirror > [data-block]:only-child:empty::after {
+  content: 'Write something, or type / for blocks';
+  color: var(--sone-text-muted);
+  pointer-events: none;
+}
+
+/* --- collaboration --- */
+
+/* y-prosemirror's cursor classes. The colour comes from the peer's presence
+   state, applied inline by the plugin. */
+.ProseMirror .ProseMirror-yjs-cursor {
+  position: relative;
+  border-inline-start: 2px solid currentColor;
+  margin-inline: -1px;
+  word-break: normal;
+  pointer-events: none;
+}
+.ProseMirror .ProseMirror-yjs-cursor > div {
+  position: absolute;
+  inset-block-start: -1.3em;
+  inset-inline-start: -2px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  padding-inline: 4px;
+  border-radius: 3px;
+  color: #fff;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.ProseMirror-selectednode {
+  outline: 2px solid var(--sone-accent);
+  outline-offset: 2px;
+}
+
+[data-editable='false'] .ProseMirror { cursor: default; }

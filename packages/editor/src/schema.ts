@@ -18,7 +18,25 @@
  */
 
 import { BLOCK_ATTRS } from '@sone/core';
-import { Schema, type MarkSpec, type NodeSpec } from 'prosemirror-model';
+import { Schema, type MarkSpec, type Node as PMNode, type NodeSpec } from 'prosemirror-model';
+
+/**
+ * DOM attributes every block carries.
+ *
+ * `data-block-id` so a drag handle, a node view or a link target can find a
+ * block in the DOM without walking ProseMirror positions. `data-indent` because
+ * indentation is an attribute now (ADR-0018) and CSS is what turns it into
+ * visible nesting — computing pixel margins in JavaScript would fight the
+ * browser on every reflow.
+ */
+function blockDOMAttrs(node: PMNode): Record<string, string> {
+  const attrs: Record<string, string> = { 'data-block': node.type.name };
+  const id = node.attrs[BLOCK_ATTRS.id];
+  if (typeof id === 'string' && id !== '') attrs['data-block-id'] = id;
+  const indent = readIndent(node.attrs);
+  if (indent > 0) attrs['data-indent'] = String(indent);
+  return attrs;
+}
 
 /**
  * Attributes shared by every block node.
@@ -75,7 +93,7 @@ const nodes: Record<string, NodeSpec> = {
     content: 'inline*',
     attrs: blockAttrs,
     parseDOM: [{ tag: 'p' }],
-    toDOM: () => ['p', 0],
+    toDOM: (node) => ['p', blockDOMAttrs(node), 0],
   },
 
   heading: {
@@ -87,7 +105,11 @@ const nodes: Record<string, NodeSpec> = {
       tag: `h${level}`,
       attrs: { level },
     })),
-    toDOM: (node) => [`h${node.attrs['level'] as number}`, 0],
+    toDOM: (node) => [
+      `h${node.attrs['level'] as number}`,
+      blockDOMAttrs(node),
+      0,
+    ],
   },
 
   // Lists are flat textblocks carrying an indent, not nested containers.
@@ -101,16 +123,19 @@ const nodes: Record<string, NodeSpec> = {
     group: 'block',
     content: 'inline*',
     attrs: blockAttrs,
-    parseDOM: [{ tag: 'li[data-type=bullet]' }],
-    toDOM: () => ['li', { 'data-type': 'bullet' }, 0],
+    // A div rather than li: these are flat siblings with an indent, not
+    // children of a ul, and nesting li outside a list is invalid markup that
+    // browsers render inconsistently. CSS draws the marker.
+    parseDOM: [{ tag: 'div[data-block=bulletList]' }, { tag: 'li' }],
+    toDOM: (node) => ['div', blockDOMAttrs(node), 0],
   },
 
   numberedList: {
     group: 'block',
     content: 'inline*',
     attrs: blockAttrs,
-    parseDOM: [{ tag: 'li[data-type=numbered]' }],
-    toDOM: () => ['li', { 'data-type': 'numbered' }, 0],
+    parseDOM: [{ tag: 'div[data-block=numberedList]' }, { tag: 'li' }],
+    toDOM: (node) => ['div', blockDOMAttrs(node), 0],
   },
 
   todo: {
@@ -126,9 +151,9 @@ const nodes: Record<string, NodeSpec> = {
       },
     ],
     toDOM: (node) => [
-      'li',
+      'div',
       {
-        'data-type': 'todo',
+        ...blockDOMAttrs(node),
         'data-checked': String(node.attrs['checked'] === true),
       },
       0,
@@ -140,7 +165,14 @@ const nodes: Record<string, NodeSpec> = {
     content: 'inline*',
     attrs: { ...blockAttrs, collapsed: { default: false } },
     parseDOM: [{ tag: 'details' }],
-    toDOM: () => ['details', 0],
+    toDOM: (node) => [
+      'div',
+      {
+        ...blockDOMAttrs(node),
+        'data-collapsed': String(node.attrs['collapsed'] === true),
+      },
+      0,
+    ],
   },
 
   quote: {
@@ -148,7 +180,7 @@ const nodes: Record<string, NodeSpec> = {
     content: 'inline*',
     attrs: blockAttrs,
     parseDOM: [{ tag: 'blockquote' }],
-    toDOM: () => ['blockquote', 0],
+    toDOM: (node) => ['blockquote', blockDOMAttrs(node), 0],
   },
 
   callout: {
@@ -156,7 +188,7 @@ const nodes: Record<string, NodeSpec> = {
     content: 'inline*',
     attrs: blockAttrs,
     parseDOM: [{ tag: 'aside' }],
-    toDOM: () => ['aside', 0],
+    toDOM: (node) => ['aside', blockDOMAttrs(node), 0],
   },
 
   code: {
@@ -170,14 +202,16 @@ const nodes: Record<string, NodeSpec> = {
     marks: '',
     defining: true,
     parseDOM: [{ tag: 'pre', preserveWhitespace: 'full' }],
-    toDOM: () => ['pre', ['code', 0]],
+    toDOM: (node) => ['pre', blockDOMAttrs(node), ['code', 0]],
   },
 
   divider: {
     group: 'block',
     attrs: blockAttrs,
     parseDOM: [{ tag: 'hr' }],
-    toDOM: () => ['hr'],
+    // Wrapped so the indent attribute has somewhere to live: an hr cannot
+    // carry children and CSS cannot indent a replaced element consistently.
+    toDOM: (node) => ['div', blockDOMAttrs(node), ['hr']],
   },
 
   image: {
@@ -196,8 +230,9 @@ const nodes: Record<string, NodeSpec> = {
       },
     ],
     toDOM: (node) => [
-      'img',
-      { src: node.attrs['url'] as string, alt: node.attrs['alt'] as string },
+      'div',
+      blockDOMAttrs(node),
+      ['img', { src: node.attrs['url'] as string, alt: node.attrs['alt'] as string }],
     ],
   },
 
@@ -222,6 +257,7 @@ const nodes: Record<string, NodeSpec> = {
     toDOM: (node) => [
       'div',
       {
+        ...blockDOMAttrs(node),
         'data-sone-collection': node.attrs['collectionId'] as string,
         'data-sone-view': node.attrs['viewId'] as string,
       },

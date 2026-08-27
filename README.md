@@ -126,9 +126,9 @@ estimates.
    Docker setup. *Substantially complete: schema, document store,
    materialiser, rebuild command, auth, sessions, invitations, share links and
    the WebSocket sync server, the HTTP API and the maintenance job are in.*
-2. **Editor and web client** (5–9) — *In progress: the web client shell, auth,
-   page tree, live-synced titles, presence and search work. The editable block
-   surface is the remaining piece and needs the vendored ProseMirror.*
+2. **Editor and web client** (5–9) — *Largely working: shell, auth, page tree,
+   collaborative block editing with markdown shortcuts, indentation, presence
+   and search. Remaining: slash menu, drag handles, images.*
 3. **Collections** (10–14) — fields, table and board views, filters, sorting.
 4. **Sharing** (15–17) — share tokens, guests, editable links, granular
    permissions.

@@ -13,6 +13,7 @@
  * is the kind of bug that destroys trust in an editor.
  */
 
+import { BLOCK_ATTRS } from '@sone/core';
 import type { Awareness } from 'y-protocols/awareness';
 import { EditorState, type Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
@@ -26,11 +27,13 @@ import {
   yXmlFragmentToProsemirrorJSON,
 } from 'y-prosemirror';
 import { keymap } from 'prosemirror-keymap';
+import { XmlElement as YXmlElement } from 'yjs';
 import type * as Y from 'yjs';
 
 import { blockIds, type IdGenerator } from './blockIds.js';
 import { soneInputRules } from './inputRules.js';
 import { soneKeymap } from './keymap.js';
+import { listNumbers } from './listNumbers.js';
 import { schema } from './schema.js';
 
 export interface EditorOptions {
@@ -38,8 +41,15 @@ export interface EditorOptions {
   fragment: Y.XmlFragment;
   /** Presence, for remote cursors. Omit for a solo editor. */
   awareness?: Awareness;
-  /** False renders the document without allowing edits. */
-  editable?: boolean;
+  /**
+   * Whether the document may be edited.
+   *
+   * A function, not a boolean: a role can change while the document is open
+   * (the server sends RoleChanged rather than disconnecting), and ProseMirror
+   * calls this on every state change, so a live read keeps the editor in step
+   * without recreating it.
+   */
+  editable?: () => boolean;
   /** Injected in tests so ids are deterministic. */
   generateId?: IdGenerator;
   /** Node views for atoms that mount their own renderer, e.g. collectionView. */
@@ -69,9 +79,43 @@ export function createEditorState(opts: EditorOptions): EditorState {
     soneInputRules(),
     ...soneKeymap(),
     blockIds(opts.generateId ? { generateId: opts.generateId } : {}),
+    listNumbers(),
   );
 
   return EditorState.create({ schema, plugins });
+}
+
+/**
+ * Give an empty page one empty paragraph to type into.
+ *
+ * A fresh Y.XmlFragment is empty, but the ProseMirror schema requires `block+`
+ * — so binding an editor to it yields an invalid document. y-prosemirror does
+ * not seed one for you.
+ *
+ * Only the first client to open a page needs to do this, and doing it in a Yjs
+ * transaction means two clients racing converge on one or two empty
+ * paragraphs rather than a corrupt document. Two is harmless and the second
+ * disappears on the next edit; a missing one prevents typing at all.
+ */
+export function seedEmptyPage(
+  fragment: Y.XmlFragment,
+  generateId: IdGenerator = () => {
+    const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+    return c?.randomUUID ? c.randomUUID() : `${Date.now().toString(16)}`;
+  },
+): boolean {
+  if (fragment.length > 0) return false;
+
+  const doc = fragment.doc;
+  const insert = (): void => {
+    const paragraph = new YXmlElement('paragraph');
+    paragraph.setAttribute(BLOCK_ATTRS.id, generateId());
+    fragment.insert(0, [paragraph]);
+  };
+
+  if (doc) doc.transact(insert);
+  else insert();
+  return true;
 }
 
 export function createEditor(
@@ -80,7 +124,7 @@ export function createEditor(
 ): EditorView {
   const view = new EditorView(mount, {
     state: createEditorState(opts),
-    editable: () => opts.editable !== false,
+    editable: () => opts.editable?.() !== false,
     ...(opts.nodeViews ? { nodeViews: opts.nodeViews } : {}),
     dispatchTransaction(transaction) {
       const next = view.state.apply(transaction);
@@ -133,3 +177,4 @@ export { readProps, writeProps, BLOCK_TYPE_ORDER } from './schema.js';
 export { blockIds, assignMissingIds, collectBlockIds } from './blockIds.js';
 export { soneKeymap, toggleBlockType, toggleTodo, insertDivider } from './keymap.js';
 export { soneInputRules, INPUT_RULE_HELP } from './inputRules.js';
+export { listNumbers, computeListNumbers } from './listNumbers.js';

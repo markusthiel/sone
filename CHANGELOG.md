@@ -53,9 +53,13 @@ A web client exists. Setup, sign-in, invitations, a page tree, live-synced page
 titles, presence, search and share links all work in the browser. Two windows
 on the same page see each other's changes and each other's cursors.
 
-Not working yet: the editable block surface. Page bodies render read-only until
-the editor lands, so a page can be created, titled and shared but its content
-cannot yet be typed. Everything above is reachable only
+**Pages are editable.** Paragraphs, headings, bullet and numbered lists, todos,
+quotes, callouts, code blocks and dividers, with markdown shortcuts (`# `, `- `,
+`1. `, `[] `, `> `, ``` ), bold and italic, Tab and Shift-Tab to indent, and
+remote cursors showing where other people are typing.
+
+Not working yet: a slash menu, drag handles, images, and database views — the
+last of these renders a placeholder rather than pretending to work. Everything above is reachable only
 over the API and the sync protocol.
 
 **Upgrades.** The intended experience for every release, major or not, is
