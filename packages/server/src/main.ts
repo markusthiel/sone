@@ -32,11 +32,13 @@ import {
   pendingDocumentMigrations,
 } from './db/version.js';
 import { registerAuthRoutes } from './http/auth.js';
-import { registerHealthRoutes, SONE_VERSION } from './http/health.js';
+import { registerHealthRoutes, SONE_COMMIT, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
 import { Router } from './http/router.js';
 import { registerWorkspaceRoutes } from './http/workspaces.js';
 import { registerFavouriteRoutes } from './http/favourites.js';
+import { registerAdminRoutes } from './admin/routes.js';
+import { SettingsStore } from './admin/settings.js';
 import { registerFileRoutes } from './files/routes.js';
 import { LocalFileStore } from './files/store.js';
 import { createStaticHandler } from './http/static.js';
@@ -156,6 +158,21 @@ async function main(): Promise<void> {
   registerPageRoutes(router, { pool });
   registerWorkspaceRoutes(router, { pool });
   registerFavouriteRoutes(router, { pool });
+
+  // Settings resolve from the database over the environment, so the few values
+  // an administrator changes do not require a redeploy.
+  const settings = new SettingsStore(pool, {
+    signupMode: config.signupMode,
+    instanceName: 'SONE',
+    allowWorkspaceCreation: true,
+    defaultLocale: 'en',
+  });
+  registerAdminRoutes(router, {
+    pool,
+    settings,
+    version: SONE_VERSION,
+    commit: SONE_COMMIT,
+  });
   registerFileRoutes(router, {
     pool,
     // Only the local backend exists so far. The interface is in place so an S3

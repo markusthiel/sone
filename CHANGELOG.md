@@ -13,6 +13,22 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An administration area.** Settings now has a sub-navigation: Account,
+Appearance and Workspace for everyone, and — for instance administrators —
+Instance, Accounts, Workspaces, Maintenance and About.
+
+Whoever set the instance up administers it. Administrators can promote others,
+deactivate accounts, see every workspace's size, read what the maintenance
+checks are reporting, and change a few settings without editing a compose file
+and restarting: who may sign up, the instance name, whether members may create
+workspaces.
+
+Two things it deliberately does not do. It cannot read what is in a workspace —
+that needs membership, which is a decision somebody takes rather than a button.
+And it cannot delete an account: deactivating keeps the person's work and signs
+them out immediately, where deleting would take every page they created with
+them.
+
 **Tags.** Add them in the properties panel. `Meeting` and `meeting` are one tag,
 and the first spelling used is the one shown. Typing a tag name into search
 finds the pages carrying it — no filter syntax to learn.
