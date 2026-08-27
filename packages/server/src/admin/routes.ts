@@ -1,0 +1,373 @@
+/**
+ * SONE — instance administration.
+ *
+ * Everything here is behind one guard, and the guard is the point: an instance
+ * administrator runs the server, which is a different thing from a workspace
+ * owner running their workspace. Anyone may create a workspace (ADR-0007), so
+ * conflating the two would make everyone an administrator.
+ *
+ * The routes are deliberately read-heavy. An administrator's first need is to
+ * see what is going on — how many accounts, how much storage, what the
+ * maintenance job is complaining about — and the writes are the few things that
+ * otherwise require editing a compose file and restarting.
+ *
+ * What is *not* here, and why: nothing reads or exports page content. An
+ * instance administrator can see that a workspace exists and how large it is,
+ * and cannot read what is in it. They could grant themselves membership through
+ * the database, and that is a different thing from the application handing it
+ * over — the first leaves a trace and takes a decision, the second is a button.
+ */
+
+import type { Pool } from 'pg';
+
+import { queryOne, queryRows } from '../db/pool.js';
+import { requireSession } from '../http/auth.js';
+import { SETTING_KEYS, SettingError, type SettingKey, type SettingsStore } from './settings.js';
+import type { RequestContext, Router } from '../http/router.js';
+
+export interface AdminDeps {
+  pool: Pool;
+  settings: SettingsStore;
+  /** Reported so an administrator can check what is deployed. */
+  version: string;
+  commit: string;
+}
+
+/**
+ * Resolve the caller and refuse anyone who does not administer the instance.
+ *
+ * 404 rather than 403 for a non-administrator, so the existence of an admin API
+ * is not something an ordinary account can confirm. There is nothing secret
+ * about it, but a probe that gets a different answer for "not allowed" and "not
+ * there" is how somebody maps a system.
+ */
+async function requireAdmin(
+  pool: Pool,
+  ctx: RequestContext,
+): Promise<{ userId: string } | null> {
+  const auth = await requireSession(pool, ctx);
+  if (!auth) return null;
+
+  const row = await queryOne<{ is_instance_admin: boolean; deactivated_at: Date | null }>(
+    pool,
+    `SELECT is_instance_admin, deactivated_at FROM users WHERE id = $1`,
+    [auth.userId],
+  );
+
+  if (!row?.is_instance_admin || row.deactivated_at !== null) {
+    ctx.fail(404, 'not_found');
+    return null;
+  }
+  return { userId: auth.userId };
+}
+
+export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
+  /** What is on this instance, in numbers. */
+  router.get('/api/admin/overview', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    const counts = await queryOne<{
+      users: string;
+      admins: string;
+      deactivated: string;
+      workspaces: string;
+      pages: string;
+      folders: string;
+      files: string;
+      file_bytes: string;
+    }>(
+      deps.pool,
+      `SELECT
+         (SELECT count(*) FROM users WHERE NOT is_guest)::text AS users,
+         (SELECT count(*) FROM users WHERE is_instance_admin)::text AS admins,
+         (SELECT count(*) FROM users WHERE deactivated_at IS NOT NULL)::text AS deactivated,
+         (SELECT count(*) FROM workspaces)::text AS workspaces,
+         (SELECT count(*) FROM pages WHERE kind = 'page' AND archived_at IS NULL)::text AS pages,
+         (SELECT count(*) FROM pages WHERE kind = 'folder' AND archived_at IS NULL)::text AS folders,
+         (SELECT count(*) FROM files)::text AS files,
+         -- Distinct storage keys, not rows: storage is content-addressed, so
+         -- the same image on five pages is five rows and one file. Summing rows
+         -- would report several times the disk actually used.
+         (SELECT coalesce(sum(size_bytes), 0) FROM (
+            SELECT DISTINCT ON (storage_key) size_bytes FROM files
+          ) unique_files)::text AS file_bytes`,
+    );
+
+    const settings = await deps.settings.resolve();
+
+    ctx.send(200, {
+      version: deps.version,
+      commit: deps.commit,
+      counts: {
+        users: Number(counts?.users ?? 0),
+        admins: Number(counts?.admins ?? 0),
+        deactivated: Number(counts?.deactivated ?? 0),
+        workspaces: Number(counts?.workspaces ?? 0),
+        pages: Number(counts?.pages ?? 0),
+        folders: Number(counts?.folders ?? 0),
+        files: Number(counts?.files ?? 0),
+        fileBytes: Number(counts?.file_bytes ?? 0),
+      },
+      settings: settings.values,
+      settingSources: settings.sources,
+    });
+  });
+
+  /** Every account. */
+  router.get('/api/admin/users', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    const rows = await queryRows<{
+      id: string;
+      email: string | null;
+      display_name: string;
+      is_instance_admin: boolean;
+      is_guest: boolean;
+      deactivated_at: Date | null;
+      created_at: Date;
+      workspace_count: string;
+    }>(
+      deps.pool,
+      `SELECT u.id, u.email, u.display_name, u.is_instance_admin, u.is_guest,
+              u.deactivated_at, u.created_at,
+              (SELECT count(*) FROM workspace_members m WHERE m.user_id = u.id)::text
+                AS workspace_count
+         FROM users u
+        ORDER BY u.is_guest, u.display_name COLLATE "und-x-icu"`,
+    );
+
+    ctx.send(200, {
+      users: rows.map((row) => ({
+        id: row.id,
+        email: row.email,
+        displayName: row.display_name,
+        isInstanceAdmin: row.is_instance_admin,
+        isGuest: row.is_guest,
+        deactivatedAt: row.deactivated_at,
+        createdAt: row.created_at,
+        workspaceCount: Number(row.workspace_count),
+        isSelf: row.id === admin.userId,
+      })),
+    });
+  });
+
+  /**
+   * Change an account: promote, demote, deactivate, reactivate.
+   *
+   * Two safeguards, both about not locking everyone out:
+   *
+   *   - The last instance administrator cannot be demoted or deactivated. An
+   *     instance with no administrator has no way back except editing the
+   *     database by hand, and the person who does it is usually the one who
+   *     just lost access.
+   *   - An administrator cannot deactivate themselves. Demoting yourself is a
+   *     deliberate handover and is allowed while another admin exists;
+   *     deactivating yourself is never what was meant.
+   */
+  router.patch('/api/admin/users/:userId', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    const userId = ctx.params['userId'] ?? '';
+    const target = await queryOne<{
+      id: string;
+      is_instance_admin: boolean;
+      deactivated_at: Date | null;
+    }>(
+      deps.pool,
+      `SELECT id, is_instance_admin, deactivated_at FROM users WHERE id = $1`,
+      [userId],
+    );
+    if (!target) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    let body: { isInstanceAdmin?: boolean; deactivated?: boolean };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const losingAdmin =
+      (body.isInstanceAdmin === false && target.is_instance_admin) ||
+      (body.deactivated === true && target.is_instance_admin);
+
+    if (losingAdmin) {
+      const remaining = await queryOne<{ n: string }>(
+        deps.pool,
+        `SELECT count(*)::text AS n FROM users
+          WHERE is_instance_admin AND deactivated_at IS NULL AND id <> $1`,
+        [userId],
+      );
+      if (Number(remaining?.n ?? 0) === 0) {
+        ctx.fail(409, 'last_administrator');
+        return;
+      }
+    }
+
+    if (body.deactivated === true && userId === admin.userId) {
+      ctx.fail(409, 'cannot_deactivate_yourself');
+      return;
+    }
+
+    if (typeof body.isInstanceAdmin === 'boolean') {
+      await deps.pool.query(`UPDATE users SET is_instance_admin = $2 WHERE id = $1`, [
+        userId,
+        body.isInstanceAdmin,
+      ]);
+    }
+
+    if (typeof body.deactivated === 'boolean') {
+      await deps.pool.query(
+        `UPDATE users SET deactivated_at = $2 WHERE id = $1`,
+        [userId, body.deactivated ? new Date() : null],
+      );
+      if (body.deactivated) {
+        // Sessions are revoked immediately. Leaving them alive would mean a
+        // deactivated account keeps working until its cookie expires, which is
+        // not what anybody means by deactivating it.
+        await deps.pool.query(`DELETE FROM sessions WHERE user_id = $1`, [userId]);
+      }
+    }
+
+    ctx.send(200, { id: userId });
+  });
+
+  /** Workspaces on the instance, with size. Not their contents. */
+  router.get('/api/admin/workspaces', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    const rows = await queryRows<{
+      id: string;
+      name: string;
+      created_at: Date;
+      member_count: string;
+      page_count: string;
+      owner: string | null;
+    }>(
+      deps.pool,
+      `SELECT w.id, w.name, w.created_at,
+              (SELECT count(*) FROM workspace_members m WHERE m.workspace_id = w.id)::text
+                AS member_count,
+              (SELECT count(*) FROM pages p
+                WHERE p.workspace_id = w.id AND p.archived_at IS NULL)::text AS page_count,
+              (SELECT u.display_name FROM users u WHERE u.id = w.created_by) AS owner
+         FROM workspaces w
+        ORDER BY w.name COLLATE "und-x-icu"`,
+    );
+
+    ctx.send(200, {
+      workspaces: rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        createdAt: row.created_at,
+        memberCount: Number(row.member_count),
+        pageCount: Number(row.page_count),
+        owner: row.owner,
+      })),
+    });
+  });
+
+  /** Change an instance setting, or clear it back to the environment. */
+  router.patch('/api/admin/settings', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    let body: Record<string, unknown>;
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const unknown = Object.keys(body).filter((key) => !(key in SETTING_KEYS));
+    if (unknown.length > 0) {
+      // Rejected rather than ignored: a typo silently stored is a setting
+      // somebody believes they changed.
+      ctx.fail(422, 'unknown_setting');
+      return;
+    }
+
+    try {
+      for (const [key, value] of Object.entries(body)) {
+        await deps.settings.set(key as SettingKey, value, admin.userId);
+      }
+    } catch (err) {
+      if (err instanceof SettingError) {
+        ctx.fail(422, err.code);
+        return;
+      }
+      throw err;
+    }
+
+    const resolved = await deps.settings.resolve();
+    ctx.send(200, { settings: resolved.values, settingSources: resolved.sources });
+  });
+
+  /**
+   * What the maintenance job is complaining about.
+   *
+   * These are the views migrations 0002, 0003, 0005 and 0007 created for
+   * anomalies a constraint cannot express, because CRDT updates arrive out of
+   * order and a constraint would reject data that is merely early.
+   */
+  router.get('/api/admin/maintenance', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    const counts = await queryOne<{
+      orphaned: string;
+      stale_search: string;
+      inside_pages: string;
+      failed: string;
+      pending: string;
+    }>(
+      deps.pool,
+      `SELECT
+         (SELECT count(*) FROM orphaned_pages)::text AS orphaned,
+         (SELECT count(*) FROM stale_search_rows)::text AS stale_search,
+         (SELECT count(*) FROM pages_inside_pages)::text AS inside_pages,
+         (SELECT count(*) FROM materialization_state WHERE status = 'failed')::text AS failed,
+         (SELECT count(*) FROM materialization_state WHERE status = 'stale')::text AS pending`,
+    );
+
+    // The failing pages themselves, capped: a list of thousands helps nobody,
+    // and the first few are usually the same problem.
+    const failures = await queryRows<{ page_id: string; last_error: string | null }>(
+      deps.pool,
+      `SELECT page_id, last_error FROM materialization_state
+        WHERE status = 'failed' ORDER BY materialized_at DESC LIMIT 20`,
+    );
+
+    ctx.send(200, {
+      counts: {
+        orphanedPages: Number(counts?.orphaned ?? 0),
+        staleSearchRows: Number(counts?.stale_search ?? 0),
+        entriesInsidePages: Number(counts?.inside_pages ?? 0),
+        failedMaterialisations: Number(counts?.failed ?? 0),
+        pendingMaterialisations: Number(counts?.pending ?? 0),
+      },
+      failures: failures.map((row) => ({
+        pageId: row.page_id,
+        error: row.last_error,
+      })),
+    });
+  });
+}
+
+/** Is this account an instance administrator? Used outside the admin routes. */
+export async function isInstanceAdmin(pool: Pool, userId: string): Promise<boolean> {
+  const row = await queryOne<{ is_instance_admin: boolean }>(
+    pool,
+    `SELECT is_instance_admin FROM users WHERE id = $1 AND deactivated_at IS NULL`,
+    [userId],
+  );
+  return row?.is_instance_admin === true;
+}

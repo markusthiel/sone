@@ -119,6 +119,62 @@ export interface PageDetail extends Omit<PageSummary, 'archived' | 'idx'> {
   role: 'viewer' | 'commenter' | 'editor' | 'admin';
 }
 
+export interface AdminOverview {
+  version: string;
+  commit: string;
+  counts: {
+    users: number;
+    admins: number;
+    deactivated: number;
+    workspaces: number;
+    pages: number;
+    folders: number;
+    files: number;
+    fileBytes: number;
+  };
+  settings: InstanceSettings;
+  settingSources: Record<string, 'database' | 'environment'>;
+}
+
+export interface InstanceSettings {
+  signupMode: 'open' | 'invite' | 'closed';
+  instanceName: string;
+  allowWorkspaceCreation: boolean;
+  defaultLocale: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string | null;
+  displayName: string;
+  isInstanceAdmin: boolean;
+  isGuest: boolean;
+  deactivatedAt: string | null;
+  createdAt: string;
+  workspaceCount: number;
+  isSelf: boolean;
+}
+
+export interface AdminWorkspace {
+  id: string;
+  name: string;
+  createdAt: string;
+  memberCount: number;
+  pageCount: number;
+  owner: string | null;
+}
+
+export interface MaintenanceReport {
+  counts: {
+    orphanedPages: number;
+    staleSearchRows: number;
+    entriesInsidePages: number;
+    failedMaterialisations: number;
+    pendingMaterialisations: number;
+  };
+  failures: Array<{ pageId: string; error: string | null }>;
+}
+
 export interface WorkspaceTag {
   /** Normalised, for matching. */
   key: string;
@@ -246,6 +302,38 @@ export const api = {
     }>(`/api/workspaces/${workspaceId}/pages`, input),
 
   page: (pageId: string) => request<PageDetail>(`/api/pages/${pageId}`),
+
+  /**
+   * Instance administration.
+   *
+   * Every one of these answers 404 for an account that does not administer the
+   * instance, so a caller cannot tell "not allowed" from "not there". The
+   * interface treats a 404 from `adminOverview` as "you are not an
+   * administrator" and simply does not show the section.
+   */
+  adminOverview: () => request<AdminOverview>('/api/admin/overview'),
+  adminUsers: () => request<{ users: AdminUser[] }>('/api/admin/users'),
+  adminWorkspaces: () =>
+    request<{ workspaces: AdminWorkspace[] }>('/api/admin/workspaces'),
+  adminMaintenance: () => request<MaintenanceReport>('/api/admin/maintenance'),
+
+  adminUpdateUser: (
+    userId: string,
+    changes: { isInstanceAdmin?: boolean; deactivated?: boolean },
+  ) =>
+    request<{ id: string }>(`/api/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(changes),
+    }),
+
+  adminUpdateSettings: (changes: Partial<Record<string, unknown>>) =>
+    request<{
+      settings: InstanceSettings;
+      settingSources: Record<string, 'database' | 'environment'>;
+    }>('/api/admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(changes),
+    }),
 
   setTags: (pageId: string, tags: string[]) =>
     request<{ id: string; tags: string[] }>(`/api/pages/${pageId}`, {

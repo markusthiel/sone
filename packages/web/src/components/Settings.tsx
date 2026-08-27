@@ -24,6 +24,14 @@ import {
   type TextScale,
   type ThemePreference,
 } from '../hooks/useAppearance.ts';
+import { paths } from '../routes/paths.ts';
+import {
+  InstancePanel,
+  MaintenancePanel,
+  UsersPanel,
+  WorkspacesPanel,
+  useIsInstanceAdmin,
+} from './Admin.tsx';
 import { messageFor } from './Auth.tsx';
 
 interface SettingsProps {
@@ -32,22 +40,106 @@ interface SettingsProps {
   workspaceId: string;
 }
 
+/**
+ * The sections, in the order they are offered.
+ *
+ * Instance sections are listed here and filtered at render, rather than being a
+ * separate list: one place decides what exists, so an added section cannot be
+ * missing from the navigation or reachable without appearing in it.
+ */
+const SECTIONS = [
+  { id: 'account', label: 'Account', group: 'You' },
+  { id: 'appearance', label: 'Appearance', group: 'You' },
+  { id: 'workspace', label: 'Workspace', group: 'You' },
+  { id: 'instance', label: 'Instance', group: 'Administration', admin: true },
+  { id: 'accounts', label: 'Accounts', group: 'Administration', admin: true },
+  { id: 'workspaces', label: 'Workspaces', group: 'Administration', admin: true },
+  { id: 'maintenance', label: 'Maintenance', group: 'Administration', admin: true },
+  { id: 'about', label: 'About', group: 'Administration' },
+] as const;
+
 export function Settings({ section, session, workspaceId }: SettingsProps): ReactElement {
+  const { isAdmin } = useIsInstanceAdmin();
+
+  // Only sections this account can actually open. An administration section
+  // shown to someone who cannot use it would fail with an error that looks like
+  // a bug rather than like a decision.
+  const available = SECTIONS.filter((entry) => !('admin' in entry) || isAdmin === true);
+  const current = available.some((entry) => entry.id === section)
+    ? section
+    : available[0]!.id;
+
+  const groups = [...new Set(available.map((entry) => entry.group))];
+
   return (
-    <div className="page-body">
-      <h1>Settings</h1>
-      {section === 'about' ? (
-        <About />
-      ) : section === 'appearance' ? (
-        <AppearanceSettings />
-      ) : (
-        <>
-          <Account session={session} workspaceId={workspaceId} />
-          <AppearanceSettings />
-          <About />
-        </>
-      )}
+    <div className="settings-screen">
+      <nav className="settings-nav" aria-label="Settings sections">
+        {groups.map((group) => (
+          <div className="settings-nav-group" key={group}>
+            <p className="sidebar-label">{group}</p>
+            {available
+              .filter((entry) => entry.group === group)
+              .map((entry) => (
+                <a
+                  key={entry.id}
+                  className="settings-nav-item"
+                  href={paths.settings(entry.id)}
+                  {...(entry.id === current ? { 'aria-current': 'page' as const } : {})}
+                >
+                  {entry.label}
+                </a>
+              ))}
+          </div>
+        ))}
+      </nav>
+
+      <div className="settings-body">
+        <h1>{available.find((entry) => entry.id === current)?.label ?? 'Settings'}</h1>
+
+        {current === 'account' && <Account session={session} workspaceId={workspaceId} />}
+        {current === 'appearance' && <AppearanceSettings />}
+        {current === 'workspace' && (
+          <WorkspaceSettings session={session} workspaceId={workspaceId} />
+        )}
+        {current === 'instance' && <InstancePanel />}
+        {current === 'accounts' && <UsersPanel />}
+        {current === 'workspaces' && <WorkspacesPanel />}
+        {current === 'maintenance' && <MaintenancePanel />}
+        {current === 'about' && <About />}
+      </div>
     </div>
+  );
+}
+
+/**
+ * The current workspace: who is in it, and what this account may do.
+ *
+ * Distinct from the instance sections above it. A workspace owner runs their
+ * workspace; an instance administrator runs the server. Anyone may create a
+ * workspace, so the two cannot be the same permission.
+ */
+function WorkspaceSettings({
+  session,
+  workspaceId,
+}: {
+  session: SessionInfo;
+  workspaceId: string;
+}): ReactElement {
+  const workspace = session.workspaces.find((entry) => entry.id === workspaceId);
+
+  return (
+    <section className="settings-section">
+      <h2>{workspace?.name ?? 'This workspace'}</h2>
+      <dl className="settings-list">
+        <dt>Your role</dt>
+        <dd>{workspace?.role ?? 'unknown'}</dd>
+      </dl>
+      <p className="muted settings-note">
+        Members and invitations are managed from the workspace switcher. There
+        are no seat limits and no paid tiers — every feature is available to
+        every installation (ADR-0007).
+      </p>
+    </section>
   );
 }
 

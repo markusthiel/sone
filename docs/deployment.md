@@ -194,6 +194,34 @@ Losing these does not corrupt anything, but it does mean people have to log in
 again and rebuild their shortcuts. The backup command captures them with the
 rest of the database.
 
+## Settings: environment or database
+
+Configuration comes from two places, and which one applies matters when
+something appears to be ignored.
+
+The environment holds anything needed before the database is reachable: the
+database URL, the secret key, the port, the storage path. A server that cannot
+start cannot be configured from a screen it never shows.
+
+A few values can be changed by an instance administrator in Settings →
+Instance, and those are stored in the database and **override the
+environment**: `SONE_SIGNUP_MODE`, the instance name, and whether members may
+create workspaces. If an environment variable seems to have no effect, check
+that screen — it says which values are overridden.
+
+## The first administrator
+
+Whoever created the first workspace administers the instance. On an existing
+deployment migration 0010 promotes that account automatically.
+
+The last administrator cannot be demoted or deactivated, so an instance cannot
+lock itself out. Recovering from a genuinely lost administrator means a database
+edit:
+
+```sql
+UPDATE users SET is_instance_admin = true WHERE email = 'you@example.org';
+```
+
 ## Files
 
 Uploads land under `SONE_STORAGE_PATH` (`/var/lib/sone/files` in the image), and

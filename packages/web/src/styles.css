@@ -1913,3 +1913,90 @@ select {
   font-size: var(--sone-text-xs);
 }
 .tag-suggestion:hover { background: var(--sone-bg-hover); }
+
+/* ---------------------------------------------------------------------------
+ * Settings, with a sub-navigation
+ *
+ * Two columns on a wide screen, stacked on a narrow one. The navigation is a
+ * list of links rather than tabs: sections are bookmarkable, and an
+ * administrator sent a link to Maintenance should land on Maintenance.
+ * ------------------------------------------------------------------------- */
+
+.settings-screen {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--sone-space-7);
+  max-inline-size: 900px;
+  padding: var(--sone-space-6);
+}
+
+@media (max-width: 799px) {
+  .settings-screen { grid-template-columns: minmax(0, 1fr); gap: var(--sone-space-5); }
+}
+
+.settings-nav { display: flex; flex-direction: column; gap: var(--sone-space-5); }
+.settings-nav-group { display: flex; flex-direction: column; gap: 1px; }
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-4);
+  border-radius: var(--sone-radius);
+  color: var(--sone-text);
+  text-decoration: none;
+  font-size: var(--sone-text-md);
+}
+.settings-nav-item:hover { background: var(--sone-bg-hover); }
+.settings-nav-item[aria-current='page'] {
+  background: var(--sone-bg-hover);
+  font-weight: 600;
+}
+
+.settings-body { min-inline-size: 0; }
+.settings-body h1 { margin-block-start: 0; }
+
+.settings-note { font-size: var(--sone-text-sm); line-height: 1.5; max-inline-size: 60ch; }
+.setting-source { display: block; margin-block-start: var(--sone-space-1); font-size: var(--sone-text-xs); }
+
+/* --- admin tables --- */
+
+.admin-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  overflow: hidden;
+}
+
+.admin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sone-space-4);
+  padding: var(--sone-space-4);
+  border-block-end: 1px solid var(--sone-border);
+}
+.admin-row:last-child { border-block-end: 0; }
+/* A deactivated account is dimmed rather than hidden: it still exists, and
+   seeing it is how somebody reactivates it. */
+.admin-row[data-inactive='true'] { opacity: 0.55; }
+
+.admin-row-main { display: flex; flex-direction: column; gap: var(--sone-space-1); min-inline-size: 0; }
+.admin-name { font-weight: 500; }
+.admin-meta { font-size: var(--sone-text-xs); color: var(--sone-text-muted); }
+
+.admin-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-5);
+  flex-wrap: wrap;
+}
+.admin-toggle { display: inline-flex; align-items: center; gap: var(--sone-space-2); font-size: var(--sone-text-sm); }
+
+.admin-subheading { margin-block: var(--sone-space-6) var(--sone-space-3); font-size: var(--sone-text-md); }
+.admin-explain { display: block; font-size: var(--sone-text-xs); line-height: 1.45; max-inline-size: 60ch; }
+
+.btn.destructive { border-color: var(--sone-danger); color: var(--sone-danger); }
+.btn.destructive:hover:not(:disabled) { background: var(--sone-danger); color: #fff; }
