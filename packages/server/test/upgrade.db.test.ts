@@ -252,6 +252,70 @@ describe('version fence (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_
     assert.match(err.message, /0\.2\.0/, 'the message must name the version to restore');
   });
 
+  test('a development build following a pre-release is not a downgrade', () => {
+    // This broke a running instance. Pre-release identifiers compare as
+    // strings, so "0.1.0-dev.abc" sorts BEFORE "0.1.0-rc.1" — every build of
+    // main after tagging a release candidate looked like a downgrade, the
+    // server refused to start, and nothing answered at all. Not even
+    // /api/version, so the only visible symptom was a blank page.
+    //
+    // The version the image workflow generates is `git describe` output, which
+    // sorts after the tag it follows. This asserts that property directly,
+    // because the workflow cannot be tested here but the ordering can.
+    assert.ok(
+      compareVersions('0.1.0-rc.1-7-g8ff137f', '0.1.0-rc.1') > 0,
+      'a describe-style dev version must sort after its tag',
+    );
+    assert.ok(
+      compareVersions('0.1.0-rc.1-7-g8ff137f', '0.1.0-rc.1-2-gabc1234') > 0,
+      'more commits since the tag must sort later',
+    );
+    assert.ok(
+      compareVersions('0.1.0', '0.1.0-rc.1-7-g8ff137f') > 0,
+      'the release itself must still outrank builds leading up to it',
+    );
+
+    // And the shape that caused the outage is still correctly identified as
+    // older, so the guard is not simply weakened.
+    assert.ok(
+      compareVersions('0.1.0-dev.89ecc20', '0.1.0-rc.1') < 0,
+      'the old scheme really was a downgrade; the fence was right',
+    );
+  });
+
+  test('SONE_ALLOW_DOWNGRADE permits a start and warns', async () => {
+    // An operator whose version labels are misleading needs a way forward that
+    // is not "restore a backup". Deliberate, loud, never a default.
+    await checkAndRecordVersion(db, '0.2.0', SCHEMA_VERSION);
+
+    const warnings: string[] = [];
+    const result = await checkAndRecordVersion(db, '0.1.0', SCHEMA_VERSION, {
+      allowDowngrade: true,
+      log: (message) => warnings.push(message),
+    });
+
+    assert.ok(result, 'the start must be permitted');
+    assert.equal(warnings.length, 1, 'exactly one warning');
+    assert.match(warnings[0]!, /SONE_ALLOW_DOWNGRADE/);
+    assert.match(warnings[0]!, /data may be lost/, 'must state the risk');
+  });
+
+  test('SONE_ALLOW_DOWNGRADE does not bypass the document format check', async () => {
+    // That check is about whether the code can read the data, not about a
+    // label, so no escape hatch applies to it.
+    await checkAndRecordVersion(db, '0.1.0', SCHEMA_VERSION + 5);
+
+    const err = await checkAndRecordVersion(db, '0.1.0', SCHEMA_VERSION, {
+      allowDowngrade: true,
+      log: () => {},
+    })
+      .then(() => null)
+      .catch((e: unknown) => e);
+
+    assert.ok(err instanceof VersionFenceError);
+    assert.equal(err.code, 'schema_regression');
+  });
+
   test('a build that cannot read existing documents is refused', async () => {
     await checkAndRecordVersion(db, '0.2.0', 3);
     const err = await checkAndRecordVersion(db, '0.3.0', 2)

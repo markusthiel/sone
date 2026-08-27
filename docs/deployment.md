@@ -183,6 +183,44 @@ client in the image, not a change to the database. The backup command reports
 this explicitly rather than passing on `pg_dump`'s own wording, which does not
 say what to do about it.
 
+## The server refuses to start on an apparent downgrade
+
+If **`/api/version` itself returns nothing**, no application code is involved:
+the server is not running. The most likely reason is the version fence.
+
+Migrations are forward-only, so SONE refuses to start against a database last
+used by a newer version. That guard is right, but it compares version *strings*,
+and a string can be misleading. One case in particular:
+
+```
+this database was last used by SONE 0.1.0-rc.1, but this is 0.1.0-dev.89ecc20.
+Downgrading is not supported.
+```
+
+Pre-release identifiers compare alphabetically, so `dev` sorts before `rc`. An
+instance first started from the `v0.1.0-rc.1` tag and then pointed at `:main`
+therefore looked like a downgrade — and the container exits, so nothing answers
+at all and the only visible symptom is a blank page.
+
+Fixed at the source: development builds are now versioned from `git describe`,
+e.g. `0.1.0-rc.1-7-g8ff137f`, which sorts after the tag it follows. An image
+built after that fix starts normally.
+
+To recover an instance already in this state, either pull an image newer than
+the fix, or start once with:
+
+```
+SONE_ALLOW_DOWNGRADE=true
+```
+
+Remove it afterwards. It logs a warning on every start and it is not a setting.
+The document-format check is deliberately **not** bypassable by it: that one is
+about whether the code can read the data rather than about a label.
+
+Always check the container logs when nothing answers. The startup sequence
+reports the version, the migration state and the fence result in plain text, and
+a refusal to start says exactly why.
+
 ## First question when something is wrong: which version is serving?
 
 ```

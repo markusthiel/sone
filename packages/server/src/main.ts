@@ -96,7 +96,9 @@ async function main(): Promise<void> {
   // Allowing either would write old-format data into a new-format database,
   // from which the only recovery is a backup restore.
   try {
-    const fence = await checkAndRecordVersion(pool, SONE_VERSION, SCHEMA_VERSION);
+    const fence = await checkAndRecordVersion(pool, SONE_VERSION, SCHEMA_VERSION, {
+      allowDowngrade: config.allowDowngrade,
+    });
     if (fence.isFirstStart) {
       console.log('first start against this database');
     } else if (fence.isUpgrade) {

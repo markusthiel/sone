@@ -86,10 +86,27 @@ jobs:
               *) TAGS="$TAGS ${IMAGE}:latest" ;;
             esac
           else
-            # A development build must never look like a release, so it always
-            # carries a -dev suffix and the short commit.
-            BASE="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/-.*//' || echo 0.0.0)"
-            VERSION="${BASE}-dev.$(git rev-parse --short HEAD)"
+            # git describe output, e.g. 0.1.0-rc.1-7-g8ff137f: the last tag,
+            # how many commits since, and the commit.
+            #
+            # NOT "<base>-dev.<commit>", which is what this used to produce and
+            # which broke a running instance. The version fence refuses a
+            # downgrade, and pre-release identifiers compare as strings — so
+            # "0.1.0-dev.abc" sorts BEFORE "0.1.0-rc.1". Every build of main
+            # after tagging a release candidate therefore looked like a
+            # downgrade, and the server refused to start. Nothing answered, not
+            # even /api/version, so the symptom was a blank page with no way to
+            # tell why.
+            #
+            # describe output sorts after the tag it follows, which is both
+            # correct and readable: "7 commits after rc.1".
+            DESCRIBED="$(git describe --tags --always 2>/dev/null | sed 's/^v//')"
+            case "$DESCRIBED" in
+              # No tags in the repository yet: describe returns a bare commit,
+              # which is not a version.
+              *.*) VERSION="$DESCRIBED" ;;
+              *)   VERSION="0.0.0-dev.${DESCRIBED}" ;;
+            esac
             TAGS="${IMAGE}:main"
           fi
 

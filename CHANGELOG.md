@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the server refused to start after switching from the release candidate
+to a development build.** Development builds were versioned `0.1.0-dev.<commit>`,
+which sorts *before* `0.1.0-rc.1` because pre-release identifiers compare
+alphabetically — so the version fence read it as a downgrade and refused. The
+container exited, nothing answered, and the symptom was a blank page with no
+explanation. Development builds are now versioned from `git describe`
+(`0.1.0-rc.1-7-g8ff137f`), which sorts after the tag it follows.
+
+`SONE_ALLOW_DOWNGRADE=true` now exists to recover an instance stuck in that
+state. It warns on every start and does not bypass the document-format check.
+
 **A white page now explains itself.** If the application bundle fails to load or
 throws before React starts, the page says so, names the error, offers a reload,
 and states plainly that pages are stored on the server and unaffected. React's
