@@ -144,6 +144,16 @@ export function MoreIcon(props: IconProps): ReactElement {
   );
 }
 
+/** An arrow into a container, for moving something somewhere else. */
+export function MoveIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5A1.5 1.5 0 0 1 17.5 19h-13A1.5 1.5 0 0 1 3 17.5Z" />
+      <path d="M11 15.5h5M14 13l2.5 2.5L14 18" />
+    </svg>
+  );
+}
+
 export function TrashIcon(props: IconProps): ReactElement {
   return (
     <svg {...base(props)}>

@@ -18,7 +18,14 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import type { PageNode } from '../api/client.ts';
-import { FolderPlusIcon, MoreIcon, PencilIcon, PlusIcon, TrashIcon } from './icons.tsx';
+import {
+  FolderPlusIcon,
+  MoreIcon,
+  MoveIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+} from './icons.tsx';
 
 interface EntryMenuProps {
   node: PageNode;
@@ -26,6 +33,7 @@ interface EntryMenuProps {
   onCreate: (parentPageId: string, kind: 'page' | 'folder') => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartRename: (pageId: string) => void;
+  onStartMove: (pageId: string) => void;
 }
 
 /** Descendant count, for telling someone what a delete will take with it. */
@@ -38,6 +46,7 @@ export function EntryMenu({
   onCreate,
   onDelete,
   onStartRename,
+  onStartMove,
 }: EntryMenuProps): ReactElement {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -98,6 +107,18 @@ export function EntryMenu({
             }}
           >
             <PencilIcon /> Rename
+          </button>
+
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onStartMove(node.id);
+            }}
+          >
+            <MoveIcon /> Move to…
           </button>
 
           {isFolder && (

@@ -1752,3 +1752,77 @@ select {
 /* The old whole-document hint is replaced by the per-block one, which covers
    the same case — an empty page is an empty paragraph with the caret in it. */
 .ProseMirror > [data-block]:only-child:empty::after { content: none; }
+
+/* --- dialogs --- */
+
+.dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sone-space-6);
+  background: rgb(0 0 0 / 40%);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-4);
+  inline-size: min(440px, 100%);
+  max-block-size: min(70vh, 560px);
+  padding: var(--sone-space-6);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius-lg);
+  background: var(--sone-bg);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 22%);
+}
+
+.dialog-title { margin: 0; font-size: 1rem; }
+.dialog-filter { min-height: var(--sone-control-lg); }
+
+.dialog-list {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  margin-inline: calc(var(--sone-space-4) * -1);
+}
+
+.dialog-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+  inline-size: 100%;
+  min-block-size: var(--sone-tap);
+  padding-inline-end: var(--sone-space-4);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text);
+  text-align: start;
+  font-size: var(--sone-text-md);
+}
+.dialog-item:hover:not(:disabled) { background: var(--sone-bg-hover); }
+/* Unavailable destinations are shown, not hidden: a folder missing from the
+   list looks like a bug or a permissions problem, while one listed with a
+   reason says what is going on. */
+.dialog-item:disabled { opacity: 0.45; cursor: default; }
+.dialog-item svg { flex: none; inline-size: 1em; block-size: 1em; color: var(--sone-text-muted); }
+.dialog-item-label { flex: none; }
+.dialog-item-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sone-text-xs);
+  color: var(--sone-text-muted);
+}
+.dialog-item-why {
+  flex: none;
+  font-size: var(--sone-text-xs);
+  color: var(--sone-text-muted);
+}
+
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--sone-space-4); }

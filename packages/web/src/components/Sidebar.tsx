@@ -40,6 +40,7 @@ interface SidebarProps {
   onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder') => void;
   onRename: (pageId: string, title: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
+  onStartMove: (pageId: string) => void;
   onLogout: () => void;
 }
 
@@ -70,6 +71,7 @@ export function Sidebar({
   onCreatePage,
   onRename,
   onDelete,
+  onStartMove,
   onLogout,
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
@@ -161,6 +163,7 @@ export function Sidebar({
             onCancelRename={() => setRenaming(null)}
             onStartRename={setRenaming}
             onDelete={onDelete}
+            onStartMove={onStartMove}
           />
         )}
 
@@ -200,6 +203,7 @@ function TreeLevel({
   onCancelRename,
   onStartRename,
   onDelete,
+  onStartMove,
 }: {
   nodes: PageNode[];
   currentPageId: string | null;
@@ -211,6 +215,7 @@ function TreeLevel({
   onCancelRename: () => void;
   onStartRename: (pageId: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
+  onStartMove: (pageId: string) => void;
 }): ReactElement {
   return (
     <>
@@ -287,6 +292,7 @@ function TreeLevel({
                     onCreate={onCreatePage}
                     onDelete={onDelete}
                     onStartRename={onStartRename}
+                    onStartMove={onStartMove}
                   />
                 </>
               )}
@@ -309,6 +315,7 @@ function TreeLevel({
                   onCancelRename={onCancelRename}
                   onStartRename={onStartRename}
                   onDelete={onDelete}
+                  onStartMove={onStartMove}
                 />
               </div>
             )}

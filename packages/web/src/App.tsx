@@ -9,6 +9,7 @@ import { useEffect, useState , type ReactElement } from 'react';
 
 import { LoginScreen, SetupScreen, SignupScreen, messageFor } from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
+import { MoveDialog } from './components/MoveDialog.tsx';
 import { SidebarIcon } from './components/icons.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
 import {
@@ -131,8 +132,10 @@ function Workspace({
     workspaceId,
     displayName,
   });
-  const { tree, pages, createPage, archivePage, renameEntry, applyTitle } =
+  const { tree, pages, createPage, archivePage, renameEntry, moveEntry, applyTitle } =
     usePages(workspaceId);
+  // The entry a move dialog is open for, if any.
+  const [movingId, setMovingId] = useState<string | null>(null);
   const {
     visible: sidebarVisible,
     toggle: toggleSidebar,
@@ -196,6 +199,7 @@ function Workspace({
         onClose={closeSidebar}
         onCreatePage={(parent, kind) => void onCreateEntry(parent, kind)}
         onRename={(id, title) => void renameEntry(id, title)}
+        onStartMove={setMovingId}
         onDelete={(id, descendants) => {
           // Confirmed, and the count is in the question. Deleting a folder
           // takes its contents, and someone who has not opened it in a month
@@ -298,6 +302,18 @@ function Workspace({
           </div>
         )}
       </div>
+
+      {movingId && (
+        <MoveDialog
+          entry={findNode(tree, movingId)!}
+          tree={tree}
+          onCancel={() => setMovingId(null)}
+          onMove={(parent) => {
+            setMovingId(null);
+            void moveEntry(movingId, parent);
+          }}
+        />
+      )}
 
       <RightSidebar
         handle={handle}

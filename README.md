@@ -132,8 +132,9 @@ estimates.
 2. **Editor and web client** (5–9) — *Largely working: shell, auth, page tree,
    collaborative block editing with markdown shortcuts, a slash menu, block
    actions, indentation, presence, search, folders, multiple workspaces, and a
-   right-hand outline and properties panel, images, tables and markdown paste.
-   Remaining: drag-and-drop, tags, favourites, an admin area.*
+   right-hand outline, tasks and properties panel, images, tables, markdown
+   paste, and moving entries between folders. Remaining: drag-and-drop, tags,
+   favourites, an admin area.*
 3. **Collections** (10–14) — fields, table and board views, filters, sorting.
 4. **Sharing** (15–17) — share tokens, guests, editable links, granular
    permissions.

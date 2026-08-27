@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Entries can be moved between folders.** "Move to…" in a row's menu opens a
+folder picker with a filter. Destinations that would not work are listed with
+the reason rather than hidden — a folder missing from a list looks like a bug or
+a permissions problem.
+
+A folder cannot be moved into itself or into anything inside it. That would
+leave the whole branch existing but unreachable from the root, with the ancestor
+paths that every share link is computed from recursing forever.
+
 **Choosing a block type is now one edit, not three.** Deleting the typed
 command, splitting the block and applying the type were three separate changes,
 and each one is written to the document and gives the collaborative layer a

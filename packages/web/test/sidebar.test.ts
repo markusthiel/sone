@@ -11,6 +11,7 @@ import { test } from 'node:test';
 
 import { buildPageTree, type PageSummary } from '../src/api/client.ts';
 import { findAncestors } from '../src/components/Sidebar.tsx';
+import { destinations } from '../src/components/MoveDialog.tsx';
 
 const page = (
   id: string,
@@ -94,4 +95,64 @@ test('a folder with no children is distinguishable from one with children', () =
   const byId = new Map(tree.map((node) => [node.id, node]));
   assert.equal(byId.get('empty')!.children.length, 0);
   assert.equal(byId.get('full')!.children.length, 1);
+});
+
+// --- move destinations -----------------------------------------------------
+
+test('the folder being moved and its subtree are offered but disabled', () => {
+  // Marked rather than hidden. A folder missing from the list looks like a bug
+  // or a permissions problem; one listed with a reason says what is going on.
+  const tree = buildPageTree([
+    page('outer', null, 'folder'),
+    page('middle', 'outer', 'folder'),
+    page('inner', 'middle', 'folder'),
+    page('elsewhere', null, 'folder'),
+  ]);
+  const outer = tree.find((node) => node.id === 'outer')!;
+
+  const options = destinations(tree, outer);
+  const byId = new Map(options.map((option) => [option.id, option]));
+
+  assert.ok(byId.get('outer')?.disabled, 'a folder cannot contain itself');
+  assert.ok(byId.get('middle')?.disabled, 'nor can its own child');
+  assert.ok(byId.get('inner')?.disabled, 'nor a grandchild');
+  assert.equal(byId.get('elsewhere')?.disabled, undefined, 'an unrelated folder is fine');
+});
+
+test('the workspace root is offered to a folder and refused to a page', () => {
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('doc', 'folder', 'page'),
+  ]);
+  const folder = tree.find((node) => node.id === 'folder')!;
+  const doc = folder.children[0]!;
+
+  assert.equal(destinations(tree, folder)[0]!.disabled, undefined);
+  assert.ok(
+    destinations(tree, doc)[0]!.disabled,
+    'a root full of loose pages is the pile folders exist to replace',
+  );
+});
+
+test('the current parent is marked rather than offered', () => {
+  // Moving something to where it already is does nothing, and an option that
+  // does nothing is worse than one that is not there.
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('doc', 'folder', 'page'),
+  ]);
+  const doc = tree[0]!.children[0]!;
+  const option = destinations(tree, doc).find((entry) => entry.id === 'folder');
+  assert.equal(option?.disabled, 'Already here');
+});
+
+test('only folders are destinations', () => {
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('doc', 'folder', 'page'),
+    page('other', null, 'folder'),
+  ]);
+  const other = tree.find((node) => node.id === 'other')!;
+  const ids = destinations(tree, other).map((entry) => entry.id);
+  assert.ok(!ids.includes('doc'), 'a page cannot hold anything');
 });

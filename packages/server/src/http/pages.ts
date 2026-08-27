@@ -22,7 +22,12 @@ import {
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
 
-import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/claims.js';
+import {
+  effectiveRole,
+  loadPageLocation,
+  resolveSessionClaims,
+  type AccessClaims,
+} from '../auth/claims.js';
 import { appendUpdate } from '../doc/docStore.js';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { collateClause, workspaceI18n } from '../i18n/locale.js';
@@ -117,6 +122,121 @@ async function rematerialize(
   } finally {
     loaded.doc.destroy();
   }
+}
+
+interface MoveInput {
+  pageId: string;
+  entry: { workspaceId: string; ancestorIds: string[] };
+  parentPageId: string | null;
+  claims: AccessClaims;
+  actorId: string | null;
+}
+
+type MoveResult = 'ok' | { status: number; code: string };
+
+/**
+ * Move an entry into a folder, or to the workspace root.
+ *
+ * Four rules, and the third is the one that matters most:
+ *
+ *  1. Only a folder may hold children, and only a folder may sit at the root
+ *     (ADR-0019). A page must land in a folder.
+ *  2. The destination must be in the same workspace. Moving across workspaces
+ *     would carry a page out of the permissions that were granted on it.
+ *  3. **A folder cannot move into itself or into one of its own descendants.**
+ *     That would detach the subtree from the tree entirely: it would still
+ *     exist, be unreachable from the root, and `ancestor_ids` — which every
+ *     share link and subtree grant is computed from — would recurse forever.
+ *     Checked against the destination's ancestors, which the projection already
+ *     maintains.
+ *  4. The caller needs edit rights on both ends. Rights on the entry alone
+ *     would let someone move a page into a folder they cannot see, and rights
+ *     on the destination alone would let them take a page they cannot edit.
+ */
+async function moveEntry(pool: Pool, input: MoveInput): Promise<MoveResult> {
+  const { pageId, entry, parentPageId } = input;
+
+  if (parentPageId === pageId) {
+    return { status: 409, code: 'cannot_move_into_itself' };
+  }
+
+  const self = await queryOne<{ kind: string }>(
+    pool,
+    `SELECT kind FROM pages WHERE id = $1`,
+    [pageId],
+  );
+  if (!self) return { status: 404, code: 'not_found' };
+
+  if (parentPageId === null) {
+    if (self.kind !== 'folder') {
+      return { status: 409, code: 'pages_need_a_folder' };
+    }
+  } else {
+    const parent = await queryOne<{
+      id: string;
+      workspace_id: string;
+      kind: string;
+      ancestor_ids: string[];
+    }>(
+      pool,
+      `SELECT id, workspace_id, kind, ancestor_ids FROM pages WHERE id = $1`,
+      [parentPageId],
+    );
+    if (!parent || parent.workspace_id !== entry.workspaceId) {
+      return { status: 404, code: 'parent_not_found' };
+    }
+    if (parent.kind !== 'folder') {
+      return { status: 409, code: 'parent_is_not_a_folder' };
+    }
+    if (parent.ancestor_ids.includes(pageId)) {
+      return { status: 409, code: 'cannot_move_into_own_subtree' };
+    }
+
+    const parentRole = effectiveRole(input.claims, {
+      id: parent.id,
+      workspaceId: parent.workspace_id,
+      ancestorIds: parent.ancestor_ids,
+    });
+    if (parentRole === null) return { status: 404, code: 'parent_not_found' };
+    if (parentRole === 'viewer' || parentRole === 'commenter') {
+      return { status: 403, code: 'not_authorized' };
+    }
+  }
+
+  // Placed last among its new siblings. Sorted by (idx, id), because a
+  // fractional-index midpoint is deterministic and two clients can produce the
+  // same key (ADR-0015).
+  const siblings = await queryRows<{ idx: string }>(
+    pool,
+    `SELECT idx FROM pages
+      WHERE workspace_id = $1 AND parent_page_id IS NOT DISTINCT FROM $2 AND id <> $3
+      ORDER BY idx DESC, id DESC LIMIT 1`,
+    [entry.workspaceId, parentPageId, pageId],
+  );
+  const idx = generateKeyBetween(siblings[0]?.idx ?? null, null);
+
+  // Written to the document, not the row: the parent lives in the CRDT
+  // (ADR-0002), so writing the projection would be undone by the next
+  // materialisation and the move would silently revert.
+  const result = await applyToDocument(
+    pool,
+    pageId,
+    (doc) => {
+      const page = doc.getMap(DOC_KEYS.page);
+      page.set(PAGE_KEYS.parentPageId, parentPageId);
+      page.set(PAGE_KEYS.idx, idx);
+    },
+    input.actorId,
+  );
+
+  // Re-projected immediately, and the materialiser cascades ancestor_ids to
+  // every descendant — without which a share link on the destination would not
+  // cover what was just moved into it.
+  if (result.changed) {
+    await rematerialize(pool, pageId, entry.workspaceId, input.actorId);
+  }
+
+  return 'ok';
 }
 
 export function registerPageRoutes(router: Router, deps: PageDeps): void {
@@ -376,16 +496,41 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       return;
     }
 
-    const body = await readBody<{ title?: string }>(ctx);
+    const body = await readBody<{
+      title?: string;
+      parentPageId?: string | null;
+    }>(ctx);
     if (!body) return;
+
+    const actorId =
+      claims!.principal.kind === 'anonymous' ? null : claims!.principal.userId;
+
+    // --- moving --------------------------------------------------------
+
+    if ('parentPageId' in body) {
+      const moved = await moveEntry(deps.pool, {
+        pageId,
+        entry: page,
+        parentPageId: body.parentPageId ?? null,
+        claims: claims!,
+        actorId,
+      });
+      if (moved !== 'ok') {
+        ctx.fail(moved.status, moved.code);
+        return;
+      }
+      if (typeof body.title !== 'string') {
+        ctx.send(200, { id: pageId, parentPageId: body.parentPageId ?? null });
+        return;
+      }
+    }
+
     if (typeof body.title !== 'string') {
       ctx.fail(422, 'missing_fields');
       return;
     }
 
     const title = body.title.trim().slice(0, 512);
-    const actorId =
-      claims!.principal.kind === 'anonymous' ? null : claims!.principal.userId;
 
     const result = await applyToDocument(
       deps.pool,

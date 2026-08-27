@@ -231,6 +231,12 @@ export const api = {
 
   page: (pageId: string) => request<PageDetail>(`/api/pages/${pageId}`),
 
+  moveEntry: (pageId: string, parentPageId: string | null) =>
+    request<{ id: string; parentPageId: string | null }>(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ parentPageId }),
+    }),
+
   renameEntry: (pageId: string, title: string) =>
     request<{ id: string; title: string }>(`/api/pages/${pageId}`, {
       method: 'PATCH',
