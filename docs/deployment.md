@@ -3,6 +3,50 @@
 One application container plus Postgres. Nothing else is required — no Redis,
 no search cluster, no separate nginx (ADR-0005).
 
+## When Portainer cannot build
+
+A repository stack may fail with:
+
+```
+compose build operation failed: listing workers for Build: failed to list
+workers: Unavailable: connection error: desc = "error reading server preface:
+http2: failed reading the frame payload: http2: frame too large, note that the
+frame header looked like an HTTP/1.1 header"
+```
+
+BuildKit talks gRPC over a hijacked HTTP connection, and something between
+Portainer and the Docker daemon is answering HTTP/1.1 — usually the Portainer
+Agent, or a reverse proxy in front of the Docker endpoint. BuildKit builds do not
+survive that path.
+
+Do not work around it inside Portainer. Build on the host once and deploy an
+image:
+
+```sh
+# On the Docker host, in a checkout of the tag you want:
+git clone https://forgejo.thiel.tools/thiel/sone
+cd sone
+git checkout v0.1.0-rc.1
+
+docker build -f docker/Dockerfile \
+  --build-arg SONE_VERSION="$(git describe --tags --always)" \
+  --build-arg SONE_COMMIT="$(git rev-parse HEAD)" \
+  -t sone-local:latest .
+```
+
+Then in Portainer use **Web editor** — which works fine for a stack that does
+not build — paste `docker-compose.yml`, and set:
+
+```
+SONE_IMAGE = sone-local:latest
+```
+
+plus the usual variables. That stack pulls nothing and builds nothing; it just
+runs the image already on the host.
+
+Rebuilding for a new version means repeating the `docker build` and redeploying
+the stack.
+
 ## No image published yet
 
 Until the first release there is nothing to pull, and
@@ -33,6 +77,14 @@ Stacks → Add stack → **Repository**:
 - Compose path: `docker-compose.build.yml`
 - Environment variables: `SONE_SECRET_KEY`, `POSTGRES_PASSWORD`,
   `SONE_PUBLIC_URL`
+
+This requires Portainer to be able to build. If it cannot — see the section
+above — build on the host instead.
+
+**A web-editor stack cannot use `docker-compose.build.yml`.** Pasting compose
+text gives Docker no build context, so `build: context: .` refers to a directory
+that does not exist. Either use a repository stack, or build on the host and use
+`docker-compose.yml` with `SONE_IMAGE`.
 
 **A tag reference is what makes a deployment reproducible, and it needs no
 container image.** Portainer clones the repository at that reference and builds
@@ -68,6 +120,12 @@ one the workflow simply queues, indefinitely and without an error — see
 depends on it: build from source until it is worth setting up.
 
 ## Things that will bite you
+
+**Do not change `PORT`.** The compose file maps `${SONE_PORT:-3000}` on the host
+to 3000 in the container, so a different host port is `SONE_PORT` alone. `PORT`
+is the container's own side, and the healthcheck baked into the image asks 3000 —
+change one without the other and the container is judged unhealthy and restarted
+in a loop.
 
 **`SONE_PUBLIC_URL` must be the address users actually reach.** Share links are
 generated against it, and it decides whether the session cookie is marked

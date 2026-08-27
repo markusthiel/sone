@@ -12,10 +12,19 @@ name: sone
 
 services:
   app:
-    # Requires a published image. Until the first release there is none, and
-    # this fails with "failed to resolve reference … not found" — use
-    # docker-compose.build.yml instead, which builds from source.
-    image: forgejo.thiel.tools/thiel/sone:latest
+    # Overridable so a locally built image can be used without editing this
+    # file: set SONE_IMAGE=sone-local:latest after building on the host.
+    #
+    # That is the reliable path when Portainer cannot build. BuildKit speaks
+    # gRPC over a hijacked connection, and the Portainer Agent — or any reverse
+    # proxy in front of the Docker endpoint — answers HTTP/1.1, which fails
+    # with "http2: frame too large, note that the frame header looked like an
+    # HTTP/1.1 header". Building on the host avoids the problem entirely rather
+    # than working around it.
+    #
+    # The default requires a published image, which does not exist until the
+    # image build workflow has a runner with daemon access.
+    image: ${SONE_IMAGE:-forgejo.thiel.tools/thiel/sone:latest}
     restart: unless-stopped
     depends_on:
       db:
