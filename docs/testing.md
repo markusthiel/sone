@@ -15,6 +15,27 @@ pnpm --filter @sone/server test:db
 Without `SONE_TEST_DATABASE_URL` the database suites skip rather than fail, so
 `pnpm test` stays useful on a machine with no Postgres.
 
+## One database per test file
+
+Node's test runner executes test *files* in parallel, one process per file,
+with concurrency defaulting to the CPU count. Each file therefore creates and
+drops its own database, named after itself.
+
+This is not tidiness. Sharing one database across parallel files fails loudly
+and misleadingly: `CREATE EXTENSION IF NOT EXISTS pgcrypto` races itself into a
+duplicate-key error, `TRUNCATE ... CASCADE` deadlocks between files, and a file
+that has just truncated leaves another mid-test staring at rows whose foreign
+keys have vanished. Every symptom looks like an application bug.
+
+It stayed hidden because the machine this was written on has one CPU, so the
+runner serialised the files and the suite passed. CI has more cores and 39 tests
+failed at once.
+
+Anything shelling out to `pg_dump` or `pg_restore` must use `testDatabaseUrl()`
+from the harness, not `SONE_TEST_DATABASE_URL`. The latter names the base
+database used only to create the per-file ones; dumping it captures an empty
+schema while the test's data sits elsewhere.
+
 ## Why no mocked database
 
 The database tests run against a real Postgres. A mocked `pg` client would

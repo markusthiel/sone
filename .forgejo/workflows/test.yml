@@ -40,11 +40,17 @@ jobs:
       SONE_TEST_DATABASE_URL: postgres://sone:sone@db:5432/sone_test
 
     steps:
-      - name: Install git
+      - name: Install tools
         run: |
           set -eu
           apt-get update -qq
-          apt-get install -y -qq --no-install-recommends git ca-certificates
+          # postgresql-client provides pg_dump/pg_restore, which the backup
+          # tests shell out to. Installed up front rather than before the step
+          # that happens to need it: the backup suite runs during `pnpm test`,
+          # and installing later meant six tests failed with "spawn pg_dump
+          # ENOENT" — a missing tool reported as a product bug.
+          apt-get install -y -qq --no-install-recommends \
+            git ca-certificates postgresql-client
 
       - name: Check out
         run: |
@@ -96,7 +102,6 @@ jobs:
       - name: Verify the migration chain from empty
         run: |
           set -eu
-          apt-get install -y -qq --no-install-recommends postgresql-client
           # A fresh database, not the one the tests just used. An upgrade path
           # that only works on a database which grew alongside the code is not
           # an upgrade path (docs/releasing.md).
