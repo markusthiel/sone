@@ -1,19 +1,29 @@
 # Build and publish the container image.
 #
-# Requires a registered Forgejo Actions runner with an `ubuntu-latest` label and
-# access to a Docker daemon. Without one, jobs queue forever and the image has to
-# be built by hand — see docs/deployment.md, which does not assume a runner
-# exists.
+# Builds with buildah, which needs no Docker daemon. That is the point: the
+# earlier Docker-based version needed a daemon socket inside the job container,
+# which this instance's runner does not provide — and mounting one would give
+# every workflow root-equivalent access to the host's daemon, a poor trade for
+# building an image.
 #
-# `runs-on` matches a runner LABEL, not a runner name. If this ever queues
-# forever on an otherwise healthy runner, the label is the first thing to check.
+# Verified before being committed: this exact Dockerfile was built with
+# `buildah bud --isolation chroot --storage-driver vfs --format docker` and the
+# resulting image inspected — correct user, entrypoint, exposed port, baked-in
+# version, healthcheck present, server and web output in place.
 #
-# Deliberately uses no third-party actions. Forgejo resolves bare `uses:`
-# references against its own actions mirror, which carries actions/checkout but
-# not docker/build-push-action or docker/setup-buildx-action. Referencing those
-# by their short name fails at runtime with a confusing "cannot find action"
-# rather than at review time. Plain shell `docker build` needs no mirror, works
-# on any runner, and is shorter than the action it replaces.
+# Two flags are load-bearing and must not be dropped:
+#
+#   --format docker     Without it the image is OCI format and buildah silently
+#                       drops HEALTHCHECK: "HEALTHCHECK is not supported for OCI
+#                       image format and will be ignored". The published image
+#                       would then never report unhealthy and Docker would never
+#                       restart a wedged container. Found by inspecting a built
+#                       image, not by reading documentation.
+#
+#   --isolation chroot  buildah's default isolation wants user namespaces, which
+#                       an unprivileged job container generally cannot get.
+#                       chroot isolation plus the vfs storage driver needs no
+#                       privileges at all.
 #
 # Tags produced:
 #   main            every push to main. Development builds; not for production.
@@ -25,99 +35,43 @@
 
 name: Build image
 
-# Manual only, for now.
-#
-# Publishing an image needs Docker daemon access from inside a job container,
-# which this instance's runner does not provide. It ran automatically on version
-# tags until v0.1.0-rc.1 showed the problem with that: the tag was perfectly
-# good and deployable, and the release still looked broken because a workflow
-# beside it was red.
-#
-# A tag does not need an image. A Portainer repository stack pointed at
-# refs/tags/<tag> builds that exact commit (docs/deployment.md), so the image is
-# a convenience that trades a build on the deployment host for a pull.
-#
-# To re-enable: point `runs-on` at a runner with daemon access and add back
-#
-#   push:
-#     tags: ['v*']
-#
-# The preflight step confirms the daemon in the first seconds, so a wrong runner
-# fails immediately and legibly rather than midway through a build.
 on:
+  push:
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 env:
   IMAGE: forgejo.thiel.tools/thiel/sone
+  # vfs is slower than overlay but needs no privileges. Overlay in an
+  # unprivileged container needs fuse-overlayfs and a device that may not be
+  # there; correctness before speed.
+  STORAGE_DRIVER: vfs
+  BUILDAH_ISOLATION: chroot
 
 jobs:
   build:
-    # The label of a runner with Docker daemon access. `runs-on` matches a
-    # label, not a runner name, and Forgejo does not evaluate expressions here —
-    # so pointing this at a different runner is a one-line edit rather than a
-    # configuration setting.
-    #
-    # The preflight step below reports clearly when the chosen runner cannot
-    # reach a daemon, which is the failure this workflow keeps hitting.
     runs-on: ubuntu-latest
-    # Pinned rather than relying on whatever the runner's label maps to: this
-    # job needs a Docker CLI, and the image behind a label is the instance
-    # operator's choice, not the project's.
-    #
-    # The daemon socket is NOT mounted here with `options:`. Forgejo Runner
-    # rejects volume mounts unless the operator has whitelisted them in
-    # container.valid_volumes, so requiring one would make this workflow depend
-    # on runner configuration the project cannot see. Instead it relies on
-    # container.docker_host being left at its default, which mounts the daemon
-    # socket into the job container automatically. The preflight step below
-    # turns a wrong setting into a clear message rather than a cryptic failure
-    # eight steps later.
     container:
-      image: docker.io/docker:27-cli
+      # Debian rather than Alpine: buildah's Alpine packaging has historically
+      # needed extra configuration for unprivileged use, and Debian is what the
+      # verification was done against.
+      image: docker.io/debian:bookworm-slim
 
     steps:
-      - name: Install git
-        # docker:27-cli is Alpine-based and ships without git.
-        run: apk add --no-cache git
-
-      - name: Preflight — can we reach a Docker daemon?
+      - name: Install buildah and git
         run: |
           set -eu
-          if docker info >/dev/null 2>&1; then
-            echo "Docker daemon reachable."
-            exit 0
-          fi
-          cat <<'MSG' >&2
-          No Docker daemon reachable from inside the job container.
-
-          The runner needs to expose one. Either is fine:
-
-            1. Leave container.docker_host at its default ("-") in the runner's
-               config.yml, which mounts the host daemon socket into each job
-               container automatically. This is the default; an explicit empty
-               value disables it.
-
-            2. Whitelist the socket so a workflow may mount it:
-                 container:
-                   valid_volumes:
-                     - /var/run/docker.sock
-               and add `options: -v /var/run/docker.sock:/var/run/docker.sock`
-               to this job.
-
-          Note that giving a runner the Docker socket is root-equivalent access
-          to that daemon. See docs/actions-runner.md before doing it on a host
-          that runs anything you care about.
-
-          Nothing is blocked by this failing. A tag is deployable without an
-          image: point a Portainer repository stack at refs/tags/<tag> with
-          compose path docker-compose.build.yml and it builds that exact commit.
-          MSG
-          exit 1
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            buildah git ca-certificates python3
+          buildah --version
 
       - name: Check out
         run: |
           set -eu
-          # Cloning directly rather than using actions/checkout: one less thing
+          # Cloned directly rather than through actions/checkout: one less thing
           # that has to resolve through the actions mirror. Full history so
           # `git describe` can find the nearest tag.
           git clone "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" .
@@ -130,7 +84,7 @@ jobs:
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
             TAGS="${IMAGE}:${VERSION} ${IMAGE}:$(echo "$VERSION" | cut -d. -f1,2)"
-            # `latest` never points at a pre-release.
+            # latest never points at a pre-release.
             case "$VERSION" in
               *-*) : ;;
               *) TAGS="$TAGS ${IMAGE}:latest" ;;
@@ -138,27 +92,13 @@ jobs:
           else
             # A development build must never look like a release, so it always
             # carries a -dev suffix and the short commit.
-            BASE="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo 0.0.0)"
+            BASE="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' | sed 's/-.*//' || echo 0.0.0)"
             VERSION="${BASE}-dev.$(git rev-parse --short HEAD)"
             TAGS="${IMAGE}:main"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
           echo "Building $VERSION as: $TAGS"
-
-      - name: Log in to the registry
-        run: |
-          set -eu
-          # REGISTRY_TOKEN if set, otherwise the token Forgejo injects. The
-          # injected one is scoped to this repository's packages, which is
-          # exactly what is needed; a personal access token with write:package
-          # is the fallback for instances that do not inject one.
-          printf '%s' "${REGISTRY_TOKEN:-$GITHUB_TOKEN}" \
-            | docker login forgejo.thiel.tools \
-                --username "${GITHUB_ACTOR}" --password-stdin
-        env:
-          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: |
@@ -168,21 +108,74 @@ jobs:
             TAG_ARGS="$TAG_ARGS --tag $tag"
           done
           # shellcheck disable=SC2086
-          docker build \
+          buildah bud \
+            --format docker \
+            --isolation chroot \
+            --storage-driver vfs \
             --file docker/Dockerfile \
             --build-arg "SONE_VERSION=${{ steps.meta.outputs.version }}" \
             --build-arg "SONE_COMMIT=${GITHUB_SHA}" \
             $TAG_ARGS \
             .
 
+      - name: Verify the image before publishing it
+        run: |
+          set -eu
+          FIRST="$(echo '${{ steps.meta.outputs.tags }}' | awk '{print $1}')"
+
+          # An image that builds is not an image that works. These four things
+          # have each actually been wrong at some point: a missing server entry
+          # point, a missing web build, a dropped healthcheck, and a version
+          # that was not baked in.
+          buildah --storage-driver vfs inspect --type image "$FIRST" > /tmp/inspect.json
+          python3 scripts/verify-image.py /tmp/inspect.json
+
+          # Contents are checked by mounting rather than running: `buildah run`
+          # needs a working container runtime, mounting needs nothing.
+          CTR="$(buildah --storage-driver vfs from --pull=never "$FIRST")"
+          MNT="$(buildah --storage-driver vfs mount "$CTR")"
+          MISSING=0
+          for f in app/packages/server/dist/main.js \
+                   app/packages/web/dist/index.html \
+                   app/db/migrations/0001_init.sql \
+                   app/docker/entrypoint.sh; do
+            if [ -e "$MNT/$f" ]; then
+              echo "  ok      /$f"
+            else
+              echo "  MISSING /$f"
+              MISSING=1
+            fi
+          done
+          buildah --storage-driver vfs umount "$CTR" >/dev/null
+          buildah --storage-driver vfs rm "$CTR" >/dev/null
+          [ "$MISSING" = "0" ]
+
+      - name: Log in to the registry
+        run: |
+          set -eu
+          # REGISTRY_TOKEN if set, otherwise the token Forgejo injects.
+          printf '%s' "${REGISTRY_TOKEN:-$FORGEJO_TOKEN}" \
+            | buildah login --username "${GITHUB_ACTOR}" --password-stdin \
+                forgejo.thiel.tools
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Push
         run: |
           set -eu
           for tag in ${{ steps.meta.outputs.tags }}; do
-            docker push "$tag"
+            echo "pushing $tag"
+            buildah --storage-driver vfs push --format docker "$tag" "docker://$tag"
           done
 
       - name: Report
         run: |
-          echo "Published ${{ steps.meta.outputs.tags }}"
-          echo "Version reported by /api/version: ${{ steps.meta.outputs.version }}"
+          set -eu
+          echo "Published: ${{ steps.meta.outputs.tags }}"
+          echo
+          echo "Deploy with docker-compose.yml, setting SONE_IMAGE to one of them."
+          echo
+          echo "If pulling fails with an authentication error, the package is not"
+          echo "publicly readable: Forgejo inherits package visibility from the"
+          echo "repository at first push. Packages -> the image -> Settings."

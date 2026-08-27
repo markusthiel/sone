@@ -13,7 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing since 0.1.0-rc.1.
+**Container images are published automatically.** Built with buildah rather
+than Docker, so the CI runner needs no daemon socket — which also means no
+workflow gets root-equivalent access to the host's daemon. Images land at
+`forgejo.thiel.tools/thiel/sone`.
+
+Known issue: the image carries about 26 MB of build tooling it does not need,
+because neither `pnpm prune --prod` nor `pnpm install --prod` removes the
+devDependencies of workspace packages. Not a correctness problem; the fix
+changes the runtime layout and is scheduled before 1.0.
 
 ## 0.1.0-rc.1
 

@@ -5,7 +5,11 @@ Two workflows exist and they have very different requirements:
 | Workflow | Needs | Status |
 |---|---|---|
 | `test.yml` | a runner. No Docker daemon. | Works with a plain runner |
-| `build-image.yml` | a runner **plus** Docker daemon access from inside a job container | Needs extra setup |
+| `build-image.yml` | a runner. No Docker daemon. | Works with a plain runner |
+
+Neither needs Docker daemon access any more. `build-image.yml` builds with
+buildah, which produces OCI/Docker images without a daemon — so the runner needs
+no socket, and no workflow gets root-equivalent access to the host's daemon.
 
 `test.yml` is the one worth having: typecheck, the full suite including the
 database tests, the migration chain from an empty database, and a check that the
@@ -103,10 +107,13 @@ do not take.
 
 ## The Docker daemon inside a job
 
-Only `build-image.yml` needs this. `test.yml` does not.
+**No longer required.** `build-image.yml` uses buildah with chroot isolation and
+the vfs storage driver, which needs no daemon and no privileges. This section is
+kept for the case where a workflow genuinely needs `docker` — none currently
+does.
 
-The build job runs `docker build`, so it needs a daemon. There are two reasons
-it might not have one, and they need different fixes:
+There are two reasons a job might not reach a daemon, and they need different
+fixes:
 
 **The runner container has no socket at all.** If the runner itself was started
 without `-v /var/run/docker.sock:/var/run/docker.sock`, no amount of runner
