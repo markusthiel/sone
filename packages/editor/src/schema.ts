@@ -17,7 +17,7 @@
  * modelling it as one would make every style change a tree operation.
  */
 
-import { BLOCK_ATTRS } from '@sone/core';
+import { BLOCK_ATTRS, serialiseProps } from '@sone/core';
 import { Schema, type MarkSpec, type Node as PMNode, type NodeSpec } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
 
@@ -75,16 +75,15 @@ export function readProps(attrs: Record<string, unknown>): Record<string, unknow
 }
 
 /** Encode props for storage, omitting the attribute entirely when empty. */
-export function writeProps(props: Record<string, unknown>): string | null {
-  const keys = Object.keys(props);
-  if (keys.length === 0) return null;
-  // Keys are sorted so the same props always serialise identically. Without
-  // this, two clients writing equivalent props produce different strings and
-  // the CRDT records a change where none happened.
-  const ordered: Record<string, unknown> = {};
-  for (const key of keys.sort()) ordered[key] = props[key];
-  return JSON.stringify(ordered);
-}
+/**
+ * Serialise block props.
+ *
+ * Delegates to @sone/core. Two implementations of the same serialisation is how
+ * two writers end up producing different strings for identical props, which
+ * records a CRDT change where none happened — the reason the sorting exists at
+ * all. Kept as a re-export so callers in this package do not have to know.
+ */
+export const writeProps = serialiseProps;
 
 /**
  * Add SONE's block attributes to generated node specs.

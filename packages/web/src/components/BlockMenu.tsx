@@ -18,6 +18,7 @@ import {
   BLOCK_TYPE_ORDER,
   TABLE_ACTIONS,
   isInTable,
+  openSlashMenu,
   deleteBlockSubtree,
   duplicateBlockSubtree,
   indentBlockSubtree,
@@ -32,6 +33,8 @@ import type { Command } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
+
+import { GripIcon, PlusIcon } from './icons.tsx';
 
 interface BlockMenuProps {
   view: EditorView;
@@ -152,29 +155,56 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
 
   return (
     <>
-      <button
-        type="button"
-        className="block-handle"
-        style={{ top: anchor.top, left: anchor.left }}
-        aria-label={
-          size > 1 ? `Block actions (${size} blocks including children)` : 'Block actions'
-        }
-        aria-expanded={open}
-        onPointerDown={(event) => {
-          // The editor loses focus on mousedown, so a click handler would act
-          // on a lost selection.
-          event.preventDefault();
-          setOpen((previous) => !previous);
-        }}
-      >
-        ⋮⋮
-      </button>
+      {/* Two controls in the gutter, as Craft has.
+       *
+       * The + is the point: requiring `/` means knowing the shortcut exists,
+       * and someone who does not will conclude the editor cannot insert
+       * anything. A visible control beats one that has to be explained.
+       *
+       * The ⋮⋮ opens the block menu. It previously rendered and did nothing
+       * useful, which is worse than not being there — a control that looks
+       * interactive and is not teaches people to distrust the whole surface. */}
+      <div className="block-gutter" style={{ top: anchor.top, left: anchor.left }}>
+        <button
+          type="button"
+          className="block-insert"
+          aria-label="Insert a block"
+          onPointerDown={(event) => {
+            // The editor loses focus on mousedown, so a click handler would act
+            // on a selection that has already collapsed.
+            event.preventDefault();
+            setOpen(false);
+            openSlashMenu(view);
+          }}
+        >
+          <PlusIcon />
+        </button>
+
+        <button
+          type="button"
+          className="block-handle"
+          aria-label={
+            size > 1
+              ? `Block actions (${size} blocks including children)`
+              : 'Block actions'
+          }
+          aria-expanded={open}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            setOpen((previous) => !previous);
+          }}
+        >
+          <GripIcon />
+        </button>
+      </div>
 
       {open && (
         <div
           className="block-menu"
           ref={panelRef}
-          style={{ top: anchor.top, left: anchor.left + 28 }}
+          // Offset past both gutter buttons, so the menu does not cover the
+          // control that opened it.
+          style={{ top: anchor.top, left: anchor.left + 56 }}
           role="menu"
         >
           {size > 1 && (

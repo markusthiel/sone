@@ -120,6 +120,20 @@ export function SidebarIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A drag grip: two columns of dots, the conventional handle affordance. */
+export function GripIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <circle cx="9.5" cy="6" r="1" />
+      <circle cx="9.5" cy="12" r="1" />
+      <circle cx="9.5" cy="18" r="1" />
+      <circle cx="14.5" cy="6" r="1" />
+      <circle cx="14.5" cy="12" r="1" />
+      <circle cx="14.5" cy="18" r="1" />
+    </svg>
+  );
+}
+
 export function MoreIcon(props: IconProps): ReactElement {
   return (
     <svg {...base(props)}>

@@ -29,6 +29,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 
 import { splitBlock } from 'prosemirror-commands';
+import { TextSelection } from 'prosemirror-state';
 
 import { insertDivider, toggleBlockType } from './keymap.js';
 import { insertTable } from './tables.js';
@@ -153,6 +154,17 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
       const type = node('code');
       return type ? toggleBlockType(type)(state, dispatch) : false;
     },
+  },
+  {
+    id: 'image',
+    title: 'Image',
+    hint: 'Upload a picture',
+    keywords: ['image', 'picture', 'photo', 'upload', 'file', 'img'],
+    group: 'blocks',
+    // A file picker cannot be opened from a command — a command has no view and
+    // no user gesture. The interface handles this id specially; the command
+    // reports that it is applicable so the item is never shown disabled.
+    run: (state) => inBlock(state),
   },
   {
     id: 'table',
@@ -360,6 +372,39 @@ export function slashMenu(): Plugin<SlashMenuState | null> {
       },
     },
   });
+}
+
+/**
+ * Open the menu without typing a slash.
+ *
+ * For a `+` button beside the block: requiring `/` means knowing the shortcut
+ * exists, and a control someone can see beats one they have to be told about.
+ *
+ * Implemented by inserting the slash the plugin already watches for, rather than
+ * by a second way of opening the same menu. One code path means the query, the
+ * keyboard handling and the deletion on choosing all behave identically however
+ * the menu was opened.
+ *
+ * A block with content gets a new block first, so `+` means "insert something
+ * here" rather than "convert this" — the same rule as choosing an item.
+ */
+export function openSlashMenu(view: EditorView): boolean {
+  if (!inBlock(view.state)) return false;
+
+  if (blockHasContent(view.state)) {
+    // Move to the end of the block before splitting, or the trailing text moves
+    // into the new block and becomes whatever is chosen.
+    const { $from } = view.state.selection;
+    const end = $from.end();
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(end))),
+    );
+    splitBlock(view.state, view.dispatch);
+  }
+
+  view.dispatch(view.state.tr.insertText('/'));
+  view.focus();
+  return true;
 }
 
 /** Close the menu, leaving the typed text alone. */

@@ -372,8 +372,8 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   outline: none;
   white-space: pre-wrap;
   word-wrap: break-word;
-  /* Room for list markers and, later, drag handles, which sit outside the text
-     column so they never reflow it. */
+  /* Room for list markers and for the two gutter controls, which sit outside
+     the text column so they never reflow it. */
   padding-inline-start: 1.5rem;
 }
 
@@ -699,30 +699,56 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
  * does not exist on a phone (ADR-0016).
  * ------------------------------------------------------------------------- */
 
-.block-handle {
+.block-gutter {
   position: fixed;
   z-index: 30;
-  /* Below the 44px tap minimum used elsewhere, because this sits beside a line
-     of text and a 44px square would overlap the neighbouring lines. 28px with
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.block-insert,
+.block-handle {
+  /* Below the 44px tap minimum used elsewhere, because these sit beside a line
+     of text and a 44px square would overlap the neighbouring lines. 26px with
      a padding-expanded hit area is the compromise. */
   inline-size: 24px;
-  min-block-size: 24px;
+  min-block-size: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: 5px;
   background: transparent;
   color: var(--sone-text-muted);
-  font-size: 0.8rem;
-  line-height: 1;
-  letter-spacing: -2px;
   cursor: pointer;
-  /* Extends the touch target past the visual box without affecting layout. */
-  box-shadow: 0 0 0 6px transparent;
+  /* Quiet until the row is approached. Not hidden: opacity only lowers the
+     visual weight, and on touch there is no hover so they stay visible
+     (ADR-0016). */
+  opacity: 0.45;
+  transition: opacity 120ms ease, background 120ms ease;
 }
+.block-insert svg,
+.block-handle svg { inline-size: 1.05em; block-size: 1.05em; }
+
+.editor-surface:hover ~ .block-gutter,
+.block-gutter:hover .block-insert,
+.block-gutter:hover .block-handle,
+.block-insert:focus-visible,
+.block-handle:focus-visible,
+.block-handle[aria-expanded='true'] { opacity: 1; }
+
+.block-insert:hover,
 .block-handle:hover,
 .block-handle[aria-expanded='true'] {
   background: var(--sone-bg-hover);
   color: var(--sone-text);
+}
+
+@media (hover: none) {
+  .block-insert,
+  .block-handle { opacity: 0.7; }
 }
 
 .block-menu {
@@ -1166,49 +1192,52 @@ select {
 /* ---------------------------------------------------------------------------
  * The page tree
  *
- * Nesting is drawn with a guide line down each branch rather than by indenting
- * rows further. Indentation alone reads as a flat list of rows at different
- * offsets — which is exactly how it looked — because nothing on screen connects
- * a child to its parent. A single hairline does that work.
+ * Indentation only, no guide lines.
  *
- * The line comes from a container per level, which is why children are nested in
- * the markup instead of flattened with a margin per depth.
+ * A previous version drew a hairline down each branch. On screen it was heavy
+ * and busy — several parallel lines at once, competing with the labels they were
+ * meant to organise. Craft draws none and reads better: the work is done by
+ * generous row spacing, a small muted icon, and indentation that is clearly a
+ * step rather than a nudge.
+ *
+ * The nesting markup stays, so a guide can be reintroduced as a very light hint
+ * later without restructuring anything.
  * ------------------------------------------------------------------------- */
 
 .tree-children {
   position: relative;
-  /* Indentation and the line's position are the same number, kept together so
-     they cannot drift apart. */
-  margin-inline-start: 13px;
-  padding-inline-start: 9px;
-}
-
-.tree-children::before {
-  content: '';
-  position: absolute;
-  inset-block: 2px;
-  /* Logical property: the guide moves to the other side under right-to-left. */
-  inset-inline-start: 0;
-  inline-size: 1px;
-  background: var(--sone-border);
-}
-
-/* The branch a selected entry sits in is emphasised, so the eye can follow
-   where the current page belongs without reading every label. */
-.tree-node:has(> .tree-row .tree-link[aria-current='page']) > .tree-children::before,
-.tree-children:has(.tree-link[aria-current='page'])::before {
-  background: var(--sone-text-muted);
+  /* One clear step per level. Small enough that six levels still fit a narrow
+     sidebar, large enough to read as a step. */
+  margin-inline-start: 18px;
 }
 
 .tree-row {
-  border-radius: var(--sone-radius);
+  border-radius: 6px;
+  /* Roomier than a dense list. Rows that touch each other read as a block of
+     text rather than as separate things. */
+  min-height: 32px;
+  padding-inline-end: 2px;
 }
 
-/* Folders read slightly heavier than pages, which is enough to tell the two
-   apart at a glance without a second colour or a second size. */
-.tree-row[data-kind='folder'] > .tree-link { font-weight: 550; }
-.tree-row[data-kind='page'] > .tree-link { color: var(--sone-text); }
-.tree-row[data-kind='page'] > .tree-link svg { color: var(--sone-text-muted); }
+.tree-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  /* Regular weight for both kinds. Bold folders made every level shout, and the
+     icon already says which is which. */
+  font-weight: 450;
+  padding-block: 5px;
+}
+
+.tree-row[data-kind='folder'] > .tree-link { font-weight: 500; }
+
+/* Icons sit quietly behind the label rather than beside it as equals. */
+.tree-link svg { color: var(--sone-text-muted); opacity: 0.75; }
+.tree-row[aria-current] .tree-link svg,
+.tree-link[aria-current='page'] svg { opacity: 1; }
+
+.tree-link[aria-current='page'] { font-weight: 600; }
 
 .tree-new-folder {
   display: flex;
@@ -1436,3 +1465,73 @@ select {
 /* On a narrow screen a wide table has to scroll rather than squeeze every
    column to nothing. The wrapper comes from prosemirror-tables' TableView. */
 .ProseMirror .tableWrapper { overflow-x: auto; }
+
+/* --- tasks panel --- */
+
+.tasks { display: flex; flex-direction: column; gap: 1px; }
+
+.tasks-summary {
+  margin: 4px 8px 8px;
+  font-size: 0.8rem;
+  color: var(--sone-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tasks-label {
+  margin: 12px 8px 4px;
+  padding-block-start: 8px;
+  border-block-start: 1px solid var(--sone-border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sone-text-muted);
+}
+
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-block-size: 32px;
+  padding-block: 5px;
+  padding-inline-end: 4px;
+  border-radius: var(--sone-radius);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.task-row:hover { background: var(--sone-bg-hover); }
+
+.task-row input[type='checkbox'] {
+  flex: none;
+  /* Nudged down to sit on the first line of a wrapping label rather than
+     centred against the whole block. */
+  margin-block-start: 2px;
+  inline-size: 15px;
+  block-size: 15px;
+  accent-color: var(--sone-accent);
+}
+
+.task-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.task-row[data-done='true'] .task-text {
+  color: var(--sone-text-muted);
+  text-decoration: line-through;
+}
+
+.task-goto {
+  flex: none;
+  inline-size: 22px;
+  min-block-size: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.task-row:hover .task-goto,
+.task-goto:focus-visible { opacity: 1; }
+.task-goto svg { inline-size: 0.9em; block-size: 0.9em; }
+@media (hover: none) { .task-goto { opacity: 0.6; } }

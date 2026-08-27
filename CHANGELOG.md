@@ -13,6 +13,21 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A + beside every block.** Inserting no longer requires knowing that `/`
+exists. The ⋮⋮ handle beside it opens the block menu — it previously rendered
+and did nothing useful, which is worse than not being there.
+
+**`/image` opens a file picker**, so an image can be inserted without having one
+on the clipboard.
+
+**The page tree has no guide lines.** They were heavy and busy on screen —
+several parallel lines competing with the labels they were meant to organise.
+Spacing, a muted icon and a clear indentation step do the work instead.
+
+**A Tasks tab** in the right-hand panel: every to-do on the page with a count of
+what is open, tickable from the panel, and a jump to the block. Completed tasks
+stay listed below rather than disappearing.
+
 **Tables.** `/table` inserts one, Tab moves between cells, columns can be
 resized by dragging, and the block menu grows a Table section inside one — add
 and delete rows and columns, toggle header row or column, merge and split cells.
