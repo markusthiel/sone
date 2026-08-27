@@ -18,8 +18,11 @@ one: Forgejo shows the workflow as waiting, indefinitely and without an error.
 ## Labels are the part that catches people
 
 `runs-on:` in a workflow matches a **label**, not a runner name. This project's
-workflow uses `runs-on: docker`, so the runner must declare a `docker` label or
-the job queues forever even with a healthy runner connected.
+workflow uses `runs-on: ubuntu-latest`, because that is the label the existing
+runner on this instance declares. If you point the project at a runner with
+different labels, change `runs-on` to match — a healthy, connected runner whose
+labels do not include the one a workflow asks for sits idle while the job queues
+forever, which is the most misleading possible symptom.
 
 Label syntax is `name:docker://image`, where the image is what a job runs inside
 by default. A workflow can override it with `container.image`, which
@@ -58,9 +61,9 @@ services:
       FORGEJO_INSTANCE_URL: https://forgejo.thiel.tools
       FORGEJO_RUNNER_REGISTRATION_TOKEN: ${RUNNER_TOKEN:?set RUNNER_TOKEN}
       FORGEJO_RUNNER_NAME: thiel-docker-01
-      # `docker` is the label this project's workflow requires. The image is the
-      # default job container; build-image.yml overrides it with docker:27-cli.
-      FORGEJO_RUNNER_LABELS: docker:docker://node:22-bookworm
+      # `ubuntu-latest` is the label this project's workflow requires. The
+      # image is only the default job container; build-image.yml pins its own.
+      FORGEJO_RUNNER_LABELS: ubuntu-latest:docker://node:22-bookworm
     volumes:
       # Persisted, or the container registers as a new runner on every restart
       # and the runner list fills with dead entries.
@@ -85,6 +88,28 @@ container starts and does nothing, check its logs for a complaint about a
 missing variable before assuming a Forgejo-side problem — most images also
 accept a mounted `config.yml`, which is the more portable route if the variables
 do not take.
+
+## The Docker daemon inside a job
+
+The build job runs `docker build`, so it needs a daemon. Forgejo Runner's
+`container.docker_host` defaults to `"-"`, which mounts the host daemon socket
+into each job container automatically — with the default, nothing more is
+needed.
+
+If it has been set to an empty value, either restore the default or whitelist
+the socket so a workflow may mount it:
+
+```yaml
+container:
+  valid_volumes:
+    - /var/run/docker.sock
+```
+
+The workflow deliberately does **not** mount the socket itself with `options:`.
+Runner rejects volume mounts that are not whitelisted, so a workflow requiring
+one would depend on configuration the project cannot see. A preflight step
+checks for a reachable daemon and prints both fixes, so this fails in the first
+seconds with an explanation rather than midway through with a cryptic error.
 
 ## Verifying it works
 
@@ -114,8 +139,9 @@ In rough order of likelihood:
 1. No runner registered, or it registered against a different scope than the
    repository. A user-level runner does not serve an organisation's
    repositories.
-2. The runner has no `docker` label. This is the most common cause of a
-   connected, healthy, idle runner.
+2. The runner's labels do not include the one the workflow asks for
+   (`ubuntu-latest`). This is the most common cause of a connected, healthy,
+   idle runner.
 3. Actions are disabled for the repository. Settings → Actions, per repository —
    it is not on by default everywhere.
 4. The runner cannot reach the instance URL from inside its container.

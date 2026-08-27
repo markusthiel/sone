@@ -1,8 +1,12 @@
 # Build and publish the container image.
 #
-# Requires a registered Forgejo Actions runner with a `docker` label and access
-# to a Docker daemon. Without one, jobs queue forever and the image has to be
-# built by hand — see docs/deployment.md, which does not assume a runner exists.
+# Requires a registered Forgejo Actions runner with an `ubuntu-latest` label and
+# access to a Docker daemon. Without one, jobs queue forever and the image has to
+# be built by hand — see docs/deployment.md, which does not assume a runner
+# exists.
+#
+# `runs-on` matches a runner LABEL, not a runner name. If this ever queues
+# forever on an otherwise healthy runner, the label is the first thing to check.
 #
 # Deliberately uses no third-party actions. Forgejo resolves bare `uses:`
 # references against its own actions mirror, which carries actions/checkout but
@@ -31,17 +35,56 @@ env:
 
 jobs:
   build:
-    runs-on: docker
-    # An image that already has the Docker CLI and git, so the job needs no
-    # package installation step. The daemon comes from the mounted socket.
+    runs-on: ubuntu-latest
+    # Pinned rather than relying on whatever the runner's label maps to: this
+    # job needs a Docker CLI, and the image behind a label is the instance
+    # operator's choice, not the project's.
+    #
+    # The daemon socket is NOT mounted here with `options:`. Forgejo Runner
+    # rejects volume mounts unless the operator has whitelisted them in
+    # container.valid_volumes, so requiring one would make this workflow depend
+    # on runner configuration the project cannot see. Instead it relies on
+    # container.docker_host being left at its default, which mounts the daemon
+    # socket into the job container automatically. The preflight step below
+    # turns a wrong setting into a clear message rather than a cryptic failure
+    # eight steps later.
     container:
       image: docker.io/docker:27-cli
-      options: -v /var/run/docker.sock:/var/run/docker.sock
 
     steps:
       - name: Install git
         # docker:27-cli is Alpine-based and ships without git.
         run: apk add --no-cache git
+
+      - name: Preflight — can we reach a Docker daemon?
+        run: |
+          set -eu
+          if docker info >/dev/null 2>&1; then
+            echo "Docker daemon reachable."
+            exit 0
+          fi
+          cat <<'MSG' >&2
+          No Docker daemon reachable from inside the job container.
+
+          The runner needs to expose one. Either is fine:
+
+            1. Leave container.docker_host at its default ("-") in the runner's
+               config.yml, which mounts the host daemon socket into each job
+               container automatically. This is the default; an explicit empty
+               value disables it.
+
+            2. Whitelist the socket so a workflow may mount it:
+                 container:
+                   valid_volumes:
+                     - /var/run/docker.sock
+               and add `options: -v /var/run/docker.sock:/var/run/docker.sock`
+               to this job.
+
+          Note that giving a runner the Docker socket is root-equivalent access
+          to that daemon. See docs/actions-runner.md before doing it on a host
+          that runs anything you care about.
+          MSG
+          exit 1
 
       - name: Check out
         run: |
