@@ -49,8 +49,12 @@ docker compose up -d
 
 `.github/workflows/build-image.yml` builds and pushes on every push to `main`
 (tagged `main`) and on every version tag (`X.Y.Z`, `X.Y`, and `latest` for
-non-pre-releases). It needs a registered Forgejo Actions runner with Docker
-access; without one, build by hand as shown at the end of this document.
+non-pre-releases).
+
+It needs a registered Forgejo Actions runner carrying a `docker` label. Without
+one the workflow simply queues, indefinitely and without an error — see
+[actions-runner.md](actions-runner.md). Nothing about deploying or testing SONE
+depends on it: build from source until it is worth setting up.
 
 ## Things that will bite you
 

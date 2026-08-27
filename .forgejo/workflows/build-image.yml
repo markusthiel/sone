@@ -1,16 +1,23 @@
 # Build and publish the container image.
 #
-# Requires a registered Forgejo Actions runner with Docker access. Without one
-# this file does nothing and the image must be built by hand — see
-# docs/deployment.md.
+# Requires a registered Forgejo Actions runner with a `docker` label and access
+# to a Docker daemon. Without one, jobs queue forever and the image has to be
+# built by hand — see docs/deployment.md, which does not assume a runner exists.
+#
+# Deliberately uses no third-party actions. Forgejo resolves bare `uses:`
+# references against its own actions mirror, which carries actions/checkout but
+# not docker/build-push-action or docker/setup-buildx-action. Referencing those
+# by their short name fails at runtime with a confusing "cannot find action"
+# rather than at review time. Plain shell `docker build` needs no mirror, works
+# on any runner, and is shorter than the action it replaces.
 #
 # Tags produced:
 #   main            every push to main. Development builds; not for production.
-#   X.Y.Z / X.Y     a version tag.
+#   X.Y.Z and X.Y   a version tag.
 #   latest          a version tag that is not a pre-release.
 #
-# A released tag is never moved (ADR-0013), so `latest` is the only mutable
-# pointer here besides `main`.
+# A released tag is never moved (ADR-0013), so `latest` and `main` are the only
+# mutable pointers here.
 
 name: Build image
 
@@ -19,77 +26,92 @@ on:
     branches: [main]
     tags: ['v*']
 
+env:
+  IMAGE: ghcr.io/markusthiel/sone
+
 jobs:
   build:
     runs-on: docker
+    # An image that already has the Docker CLI and git, so the job needs no
+    # package installation step. The daemon comes from the mounted socket.
+    container:
+      image: docker.io/docker:27-cli
+      options: -v /var/run/docker.sock:/var/run/docker.sock
+
     steps:
+      - name: Install git
+        # docker:27-cli is Alpine-based and ships without git.
+        run: apk add --no-cache git
+
       - name: Check out
-        uses: actions/checkout@v4
-        with:
-          # Full history so `git describe` can find the nearest tag.
-          fetch-depth: 0
-
-      - name: Work out the version
-        id: version
         run: |
-          set -euo pipefail
-          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
-            # v0.1.0 -> 0.1.0
+          set -eu
+          # Cloning directly rather than using actions/checkout: one less thing
+          # that has to resolve through the actions mirror. Full history so
+          # `git describe` can find the nearest tag.
+          git clone "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" .
+          git checkout "${GITHUB_SHA}"
+
+      - name: Work out version and tags
+        id: meta
+        run: |
+          set -eu
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
-          else
-            # A development build must not look like a release, so it always
-            # carries a -dev suffix and the short commit.
-            VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo 0.0.0)-dev.$(git rev-parse --short HEAD)"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "Building $VERSION"
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to the registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          # Forgejo injects a token scoped to this repository's packages. If the
-          # runner is configured without it, create a personal access token with
-          # write:package and store it as REGISTRY_TOKEN.
-          password: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Compute tags
-        id: tags
-        run: |
-          set -euo pipefail
-          IMAGE=ghcr.io/markusthiel/sone
-          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
-            V="${GITHUB_REF_NAME#v}"
-            TAGS="$IMAGE:$V"
-            # Minor line pointer, e.g. 0.1 for 0.1.3.
-            MINOR="$(echo "$V" | cut -d. -f1,2)"
-            TAGS="$TAGS,$IMAGE:$MINOR"
-            # latest never points at a pre-release (ADR-0013).
-            case "$V" in
+            TAGS="${IMAGE}:${VERSION} ${IMAGE}:$(echo "$VERSION" | cut -d. -f1,2)"
+            # `latest` never points at a pre-release.
+            case "$VERSION" in
               *-*) : ;;
-              *) TAGS="$TAGS,$IMAGE:latest" ;;
+              *) TAGS="$TAGS ${IMAGE}:latest" ;;
             esac
           else
-            TAGS="$IMAGE:main"
+            # A development build must never look like a release, so it always
+            # carries a -dev suffix and the short commit.
+            BASE="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo 0.0.0)"
+            VERSION="${BASE}-dev.$(git rev-parse --short HEAD)"
+            TAGS="${IMAGE}:main"
           fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          echo "Building $VERSION as: $TAGS"
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile
-          push: true
-          tags: ${{ steps.tags.outputs.tags }}
-          build-args: |
-            SONE_VERSION=${{ steps.version.outputs.version }}
-            SONE_COMMIT=${{ steps.version.outputs.commit }}
-          # Layer cache in the registry, so a source-only change does not
-          # reinstall every dependency.
-          cache-from: type=registry,ref=ghcr.io/markusthiel/sone:buildcache
-          cache-to: type=registry,ref=ghcr.io/markusthiel/sone:buildcache,mode=max
+      - name: Log in to the registry
+        run: |
+          set -eu
+          # REGISTRY_TOKEN if set, otherwise the token Forgejo injects. The
+          # injected one is scoped to this repository's packages, which is
+          # exactly what is needed; a personal access token with write:package
+          # is the fallback for instances that do not inject one.
+          printf '%s' "${REGISTRY_TOKEN:-$GITHUB_TOKEN}" \
+            | docker login ghcr.io \
+                --username "${GITHUB_ACTOR}" --password-stdin
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        run: |
+          set -eu
+          TAG_ARGS=""
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            TAG_ARGS="$TAG_ARGS --tag $tag"
+          done
+          # shellcheck disable=SC2086
+          docker build \
+            --file docker/Dockerfile \
+            --build-arg "SONE_VERSION=${{ steps.meta.outputs.version }}" \
+            --build-arg "SONE_COMMIT=${GITHUB_SHA}" \
+            $TAG_ARGS \
+            .
+
+      - name: Push
+        run: |
+          set -eu
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            docker push "$tag"
+          done
+
+      - name: Report
+        run: |
+          echo "Published ${{ steps.meta.outputs.tags }}"
+          echo "Version reported by /api/version: ${{ steps.meta.outputs.version }}"
