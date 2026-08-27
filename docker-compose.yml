@@ -32,6 +32,10 @@ services:
       SONE_MAX_UPLOAD_MB: ${SONE_MAX_UPLOAD_MB:-100}
     volumes:
       - sone_files:/var/lib/sone/files
+      # Backups land here. Mount a host path instead if you want them off the
+      # Docker volume — a backup on the same disk as the data it protects is
+      # only half a backup.
+      - sone_backups:/var/lib/sone/backups
     ports:
       - "${SONE_PORT:-3000}:3000"
     healthcheck:
@@ -63,3 +67,4 @@ services:
 volumes:
   sone_db:
   sone_files:
+  sone_backups:

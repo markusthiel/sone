@@ -30,9 +30,14 @@ ENV NODE_ENV=production \
     SONE_VERSION=$SONE_VERSION \
     SONE_COMMIT=$SONE_COMMIT
 
-RUN addgroup -g 10001 sone \
+# postgresql-client provides pg_dump / pg_restore, which the backup and
+# restore commands shell out to. Without it those commands fail at the moment
+# they are needed most. Pinned to the major version matching the compose file's
+# Postgres: pg_dump refuses to dump a server newer than itself.
+RUN apk add --no-cache postgresql17-client tar \
+ && addgroup -g 10001 sone \
  && adduser -u 10001 -G sone -S -h /app sone \
- && mkdir -p /var/lib/sone/files \
+ && mkdir -p /var/lib/sone/files /var/lib/sone/backups \
  && chown -R sone:sone /var/lib/sone
 
 COPY --from=build --chown=sone:sone /app/node_modules ./node_modules
@@ -43,5 +48,5 @@ COPY --chown=sone:sone docker/entrypoint.sh           ./docker/entrypoint.sh
 
 USER sone
 EXPOSE 3000
-VOLUME ["/var/lib/sone/files"]
+VOLUME ["/var/lib/sone/files", "/var/lib/sone/backups"]
 ENTRYPOINT ["/app/docker/entrypoint.sh"]

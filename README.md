@@ -143,7 +143,17 @@ Four contracts version independently — the persisted document format, the sync
 wire protocol, the database schema, and the HTTP API — and `/api/version`
 reports them, because one number cannot express four axes.
 
-Migrations are forward-only. A rollback is a backup restore.
+Migrations are forward-only, and the server refuses to start on a downgrade
+rather than corrupting data. A rollback is a backup restore:
+
+```sh
+docker compose exec app node packages/server/scripts/backup.mjs
+docker compose exec app node packages/server/scripts/restore.mjs --archive <dir>
+```
+
+Document formats migrate automatically when a page is opened, so an upgrade is
+a restart rather than a maintenance window. What remains manual, and why it
+should be rare, is in [ADR-0014](docs/adr/0014-automatic-upgrades.md).
 
 **Pre-1.0, the persisted document format may change in a minor release** and a
 document migration may be required. Do not put anything you care about into a

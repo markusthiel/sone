@@ -24,6 +24,11 @@ import { SCHEMA_VERSION } from '@sone/core';
 
 import { loadConfig, type Config } from './config.js';
 import { closePool, createPool, verifyDatabaseAssumptions } from './db/pool.js';
+import {
+  VersionFenceError,
+  checkAndRecordVersion,
+  pendingDocumentMigrations,
+} from './db/version.js';
 import { registerHealthRoutes, SONE_VERSION } from './http/health.js';
 import { Router } from './http/router.js';
 import { Maintenance } from './maintenance/job.js';
@@ -79,6 +84,38 @@ async function main(): Promise<void> {
     console.error(err instanceof Error ? err.message : String(err));
     await closePool();
     process.exit(78);
+  }
+
+  // --- version fence -------------------------------------------------------
+  // Refuses a downgrade or an invalid version skip before serving anything.
+  // Allowing either would write old-format data into a new-format database,
+  // from which the only recovery is a backup restore.
+  try {
+    const fence = await checkAndRecordVersion(pool, SONE_VERSION, SCHEMA_VERSION);
+    if (fence.isFirstStart) {
+      console.log('first start against this database');
+    } else if (fence.isUpgrade) {
+      console.log(
+        `upgraded from ${fence.previous!.appVersion} to ${SONE_VERSION}` +
+          (fence.isMajorUpgrade ? ' (major)' : ''),
+      );
+    }
+
+    const pending = await pendingDocumentMigrations(pool, SCHEMA_VERSION);
+    if (pending.length > 0) {
+      const total = pending.reduce((sum, p) => sum + p.pages, 0);
+      console.log(
+        `${total} document(s) still at an older schema version; ` +
+          `they migrate automatically when opened`,
+      );
+    }
+  } catch (err) {
+    if (err instanceof VersionFenceError) {
+      console.error(err.message);
+      await closePool();
+      process.exit(78);
+    }
+    throw err;
   }
 
   const http = createServer();

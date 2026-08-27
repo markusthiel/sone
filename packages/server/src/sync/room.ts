@@ -25,6 +25,8 @@ import * as decoding from 'lib0/decoding';
 import * as encoding from 'lib0/encoding';
 import * as Y from 'yjs';
 
+import { DocumentVersionError, migrateDocument } from '@sone/core';
+
 import { withTransaction } from '../db/pool.js';
 import {
   COMPACT_THRESHOLD,
@@ -110,7 +112,43 @@ export class DocumentRoom {
 
   static async open(opts: RoomOptions): Promise<DocumentRoom> {
     const { doc, throughSeq } = await loadDoc(opts.pool, opts.pageId);
-    return new DocumentRoom(opts, doc, throughSeq);
+
+    // Documents migrate lazily, here, on open. Not as a batch job: a batch
+    // over every document turns an upgrade into a maintenance window, whereas
+    // this way the upgrade is a restart and documents update as people visit
+    // them. See ADR-0014.
+    //
+    // A document from a NEWER SONE throws rather than being served, which is
+    // how an accidental downgrade fails loudly instead of corrupting data.
+    let migrated;
+    try {
+      migrated = migrateDocument(doc, 'migration');
+    } catch (err) {
+      doc.destroy();
+      if (err instanceof DocumentVersionError) {
+        throw err;
+      }
+      throw err;
+    }
+
+    const room = new DocumentRoom(opts, doc, throughSeq);
+
+    if (migrated.changed) {
+      console.log(
+        `[room ${opts.pageId}] migrated document schema ` +
+          `v${migrated.from} -> v${migrated.to}: ${migrated.applied.join('; ')}`,
+      );
+      // The migration produced an update via the 'migration' origin, which
+      // onDocUpdate already queued for persistence. Flush it immediately
+      // rather than waiting for the debounce: an upgraded document that is
+      // opened and closed without an edit must still be saved, or it migrates
+      // again on every open.
+      await room.flush().catch((flushErr) => {
+        console.error(`[room ${opts.pageId}] failed to persist migration`, flushErr);
+      });
+    }
+
+    return room;
   }
 
   // --- subscribers ---------------------------------------------------------

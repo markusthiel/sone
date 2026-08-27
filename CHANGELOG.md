@@ -33,9 +33,19 @@ Working so far:
   language-neutral configuration
 - A maintenance job that prunes expired sessions, compacts document histories
   and revalidates open connections
+- Backup and restore, verified end to end: dump, destroy the database, restore,
+  and the documents still open
+- Automatic upgrades — document formats migrate lazily when a page is opened,
+  and the server refuses a downgrade instead of corrupting data
 
 Not working yet: there is no user interface. Everything above is reachable only
 over the API and the sync protocol.
+
+**Upgrades.** The intended experience for every release, major or not, is
+`docker compose pull && docker compose up -d`. Database migrations and document
+format migrations both run automatically; see
+[ADR-0014](docs/adr/0014-automatic-upgrades.md) for what remains manual and why
+it should be rare.
 
 **Pre-1.0 warning.** Until 1.0, the persisted document format may change in a
 minor release and a document migration may be required. Do not put anything you

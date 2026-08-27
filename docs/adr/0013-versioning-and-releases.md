@@ -30,10 +30,14 @@ otherwise produces version numbers nobody can act on.
 - **PATCH** — `docker compose pull && docker compose up -d`. Nothing else.
 - **MINOR** — the same, plus new features may appear. Migrations may run, but
   automatically and without intervention.
-- **MAJOR** — the operator must read the release notes and do something:
-  a configuration change, a manual migration step, an unavoidable breaking
-  change, or an upgrade path that requires passing through an intermediate
-  version.
+- **MAJOR** — the operator must read the release notes and do something.
+
+  MAJOR is meant to be rare, and [ADR-0014](0014-automatic-upgrades.md) is the
+  machinery that keeps it that way: database migrations, document format
+  migrations, configuration renames and protocol changes are all handled
+  automatically. The target is **at most one manual step per major release**,
+  named first in the changelog. Anything needing more is split across releases
+  with automatic steps in between.
 
 That is a narrower promise than library SemVer and a more useful one for a
 self-hosted product. A user asking "can I just upgrade?" gets the answer from
@@ -52,7 +56,10 @@ After 1.0, a `SCHEMA_VERSION` bump requires a MAJOR release.
 
 ### Upgrades are forward-only
 
-Migrations have no `down`. A rollback means restoring a backup.
+Migrations have no `down`. A rollback means restoring a backup — a real path,
+implemented and tested end to end, not a sentence in a README. The version
+fence in `instance_meta` refuses a downgrade at startup rather than letting
+old code write old-format data into a new-format database.
 
 This is deliberate: reversible migrations are a fiction as soon as one drops a
 column, and maintaining the pretence costs real effort for a path nobody can
