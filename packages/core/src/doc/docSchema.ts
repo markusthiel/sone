@@ -79,6 +79,15 @@ export const PAGE_KEYS = {
   title: 'title',
   /** 'page' or 'folder'. Absent means 'page' (ADR-0019). */
   kind: 'kind',
+  /**
+   * Tag names carried by this page, as a Y.Array of strings (ADR-0020).
+   *
+   * Names rather than ids: an id needs a workspace-level registry, and a
+   * registry is not part of any document, so it could not be rebuilt from the
+   * CRDT log. A Y.Array rather than a JSON string so two people adding
+   * different tags at once merge instead of overwriting each other.
+   */
+  tags: 'tags',
   icon: 'icon',
   coverUrl: 'coverUrl',
   parentPageId: 'parentPageId',

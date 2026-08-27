@@ -1849,3 +1849,67 @@ select {
   fill: currentColor;
   opacity: 0.85;
 }
+
+/* --- tags --- */
+
+.tag-editor { display: flex; flex-direction: column; gap: var(--sone-space-2); }
+
+.tag-chips { display: flex; flex-wrap: wrap; gap: var(--sone-space-2); }
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-1);
+  padding: 2px var(--sone-space-3);
+  border-radius: 999px;
+  background: var(--sone-bg-hover);
+  font-size: var(--sone-text-xs);
+  line-height: 1.6;
+}
+.tag-chip svg { inline-size: 0.9em; block-size: 0.9em; color: var(--sone-text-muted); }
+.tag-chip button {
+  min-block-size: 0;
+  min-inline-size: 0;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: 1rem;
+  line-height: 1;
+}
+.tag-chip button:hover { color: var(--sone-danger); }
+
+.tag-input-wrap { position: relative; }
+.tag-input {
+  inline-size: 100%;
+  min-block-size: var(--sone-control);
+  padding: var(--sone-space-1) var(--sone-space-3);
+  font-size: var(--sone-text-xs);
+}
+
+.tag-suggestions {
+  position: absolute;
+  z-index: 45;
+  inset-inline: 0;
+  inset-block-start: 100%;
+  margin-block-start: var(--sone-space-1);
+  padding: var(--sone-space-1);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 14%);
+}
+
+.tag-suggestion {
+  display: block;
+  inline-size: 100%;
+  min-block-size: var(--sone-control);
+  padding: var(--sone-space-1) var(--sone-space-3);
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text);
+  text-align: start;
+  font-size: var(--sone-text-xs);
+}
+.tag-suggestion:hover { background: var(--sone-bg-hover); }

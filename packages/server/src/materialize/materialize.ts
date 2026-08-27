@@ -20,6 +20,7 @@
  * ghost row in a view. The simple thing that cannot drift wins.
  */
 
+import { tagKey } from '@sone/core';
 import {
   isDerived,
   type FieldType,
@@ -240,6 +241,22 @@ export async function materializeDocument(
       parsed.page.kind,
     ],
   );
+
+  // Tags, replaced wholesale for this page.
+  //
+  // Deleted then inserted rather than diffed: the set is small, the document is
+  // the truth, and a diff would have to decide what an absent row means — which
+  // is the kind of question that produces tags that cannot be removed.
+  await db.query(`DELETE FROM page_tags WHERE page_id = $1`, [pageId]);
+  if (parsed.page.tags.length > 0) {
+    const keys = parsed.page.tags.map((tag) => tagKey(tag));
+    await db.query(
+      `INSERT INTO page_tags (page_id, workspace_id, tag_key, tag_label)
+       SELECT $1, $2, unnest($3::text[]), unnest($4::text[])
+       ON CONFLICT (page_id, tag_key) DO NOTHING`,
+      [pageId, opts.workspaceId, keys, parsed.page.tags],
+    );
+  }
 
   if (parentChanged) {
     // The page moved: every descendant's ancestor path is now wrong, and so
@@ -483,6 +500,11 @@ export async function materializeDocument(
        $1, $2,
        setweight(to_tsvector($3::regconfig, $4), 'A') ||
        setweight(to_tsvector('simple',      $4), 'A') ||
+       -- Tags at weight B: below the title, above the body. A page tagged
+       -- "meeting" is more about meetings than one that mentions the word once,
+       -- and typing a tag name into search should find it without anyone
+       -- learning a filter syntax (ADR-0020).
+       setweight(to_tsvector('simple',      $6), 'B') ||
        setweight(to_tsvector($3::regconfig, $5), 'D') ||
        setweight(to_tsvector('simple',      $5), 'D'),
        $3::regconfig, now()
@@ -492,7 +514,17 @@ export async function materializeDocument(
            built_with = EXCLUDED.built_with,
            updated_at = now(),
            workspace_id = EXCLUDED.workspace_id`,
-    [pageId, opts.workspaceId, searchConfig, parsed.page.title, searchText],
+    [
+      pageId,
+      opts.workspaceId,
+      searchConfig,
+      parsed.page.title,
+      searchText,
+      // Only the 'simple' dictionary for tags: a tag is a label rather than
+      // prose, and stemming "meetings" into "meet" would make it match text
+      // that has nothing to do with the tag.
+      parsed.page.tags.join(' '),
+    ],
   );
 
   // --- bookkeeping --------------------------------------------------------

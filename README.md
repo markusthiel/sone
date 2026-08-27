@@ -133,8 +133,8 @@ estimates.
    collaborative block editing with markdown shortcuts, a slash menu, block
    actions, indentation, presence, search, folders, multiple workspaces, and a
    right-hand outline, tasks and properties panel, images, tables, markdown
-   paste, and moving entries between folders. Remaining: drag-and-drop, tags,
-   favourites, an admin area.*
+   paste, moving entries between folders, tags and favourites. Remaining:
+   drag-and-drop, tag colours, an admin area.*
 3. **Collections** (10–14) — fields, table and board views, filters, sorting.
 4. **Sharing** (15–17) — share tokens, guests, editable links, granular
    permissions.
