@@ -26,8 +26,37 @@ import * as Y from 'yjs';
 import { SoneClient } from '../src/client.js';
 import type { SocketLike } from '../src/connection.js';
 
-const TEST_DATABASE_URL = process.env['SONE_TEST_DATABASE_URL'];
-const hasDatabase = Boolean(TEST_DATABASE_URL);
+const BASE_DATABASE_URL = process.env['SONE_TEST_DATABASE_URL'];
+const hasDatabase = Boolean(BASE_DATABASE_URL);
+
+/**
+ * This suite's own database.
+ *
+ * Node's test runner runs files in parallel, so a suite that migrates and
+ * truncates a shared database fights every other suite doing the same — see
+ * the note in the server harness. Own database, own problems.
+ */
+const DATABASE_NAME = 'sone_t_client_e2e';
+
+function urlForDatabase(name: string): string {
+  const url = new URL(BASE_DATABASE_URL!);
+  url.pathname = `/${name}`;
+  return url.toString();
+}
+
+const TEST_DATABASE_URL = hasDatabase ? urlForDatabase(DATABASE_NAME) : undefined;
+
+async function recreateDatabase(): Promise<void> {
+  const { Client } = await import('pg');
+  const admin = new Client({ connectionString: urlForDatabase('postgres') });
+  await admin.connect();
+  try {
+    await admin.query(`DROP DATABASE IF EXISTS "${DATABASE_NAME}"`);
+    await admin.query(`CREATE DATABASE "${DATABASE_NAME}"`);
+  } finally {
+    await admin.end().catch(() => {});
+  }
+}
 
 /** `ws` matches the browser API closely enough to satisfy SocketLike. */
 const socketFactory = (url: string): SocketLike => {
@@ -90,6 +119,7 @@ describe('client end to end', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
   const clients: SoneClient[] = [];
 
   before(async () => {
+    await recreateDatabase();
     db = new Pool({ connectionString: TEST_DATABASE_URL, max: 6 });
 
     const [{ SyncServer }, { migrate }] = await Promise.all([

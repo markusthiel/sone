@@ -48,12 +48,12 @@ import {
   restoreBackup,
 } from '../src/backup/backup.js';
 import {
-  TEST_DATABASE_URL,
   closeTestPool,
   getTestPool,
   hasDatabase,
   resetDatabase,
   seedWorkspace,
+  testDatabaseUrl,
   uuid,
   type Fixture,
 } from './support/db.js';
@@ -361,7 +361,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const out = path.join(workDir, 'counts');
     const manifest = await createBackup({
       pool: db,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       outputDir: out,
       filesPath: null,
       appVersion: '0.1.0',
@@ -385,7 +385,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const out = path.join(workDir, 'roundtrip');
     const manifest = await createBackup({
       pool: db,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       outputDir: out,
       filesPath: null,
       appVersion: '0.1.0',
@@ -405,7 +405,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const report = await restoreBackup({
       pool: db,
       archiveDir: dir,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       filesPath: null,
       requireEmpty: true,
       log: () => {},
@@ -437,7 +437,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const out = path.join(workDir, 'corrupt');
     await createBackup({
       pool: db,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       outputDir: out,
       filesPath: null,
       appVersion: '0.1.0',
@@ -452,7 +452,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const err = await restoreBackup({
       pool: db,
       archiveDir: dir,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       filesPath: null,
       requireEmpty: false,
       log: () => {},
@@ -483,7 +483,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const err = await restoreBackup({
       pool: db,
       archiveDir: dir,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       filesPath: null,
       log: () => {},
     })
@@ -499,7 +499,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const out = path.join(workDir, 'nonempty');
     await createBackup({
       pool: db,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       outputDir: out,
       filesPath: null,
       appVersion: '0.1.0',
@@ -511,7 +511,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const err = await restoreBackup({
       pool: db,
       archiveDir: dir,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       filesPath: null,
       requireEmpty: true,
       log: () => {},
@@ -531,7 +531,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const out = path.join(workDir, 'withfiles');
     const manifest = await createBackup({
       pool: db,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       outputDir: out,
       filesPath: filesDir,
       appVersion: '0.1.0',
@@ -546,7 +546,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const report = await restoreBackup({
       pool: db,
       archiveDir: dir,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       filesPath: restoreTarget,
       requireEmpty: false,
       log: () => {},
@@ -563,7 +563,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const out = path.join(workDir, 'nofiles');
     await createBackup({
       pool: db,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       outputDir: out,
       filesPath: null,
       appVersion: '0.1.0',
@@ -575,7 +575,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     const report = await restoreBackup({
       pool: db,
       archiveDir: dir,
-      databaseUrl: TEST_DATABASE_URL!,
+      databaseUrl: testDatabaseUrl(),
       filesPath: path.join(workDir, 'target'),
       requireEmpty: false,
       log: () => {},
