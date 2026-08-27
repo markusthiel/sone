@@ -932,20 +932,21 @@ test('every item has distinct keywords and a hint', () => {
   }
 });
 
-test('every item command applies to an empty paragraph', () => {
-  // A menu entry that silently does nothing is worse than no entry.
+test('every item names something the schema can produce', () => {
+  // A menu entry that silently does nothing is worse than no entry, and an
+  // action naming a node type that does not exist is exactly that.
   for (const item of SLASH_ITEMS) {
-    let state = EditorState.create({
-      schema,
-      doc: schema.nodeFromJSON({ type: 'doc', content: [paragraph('', 'a1')] }),
-      plugins: [],
-    });
-    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1)));
-    assert.equal(
-      item.run(state, undefined),
-      true,
-      `${item.id} does not apply to an empty paragraph`,
-    );
+    if (item.action.kind === 'convert') {
+      assert.ok(
+        schema.nodes[item.action.type],
+        `${item.id} converts to an unknown node type ${item.action.type}`,
+      );
+    } else if (item.action.kind === 'insert') {
+      assert.ok(item.action.build(), `${item.id} builds nothing`);
+    } else {
+      // `external` is handled by the interface, which has to know the id.
+      assert.equal(item.id, 'image');
+    }
   }
 });
 

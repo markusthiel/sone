@@ -24,16 +24,37 @@
  */
 
 import { BLOCK_ATTRS } from '@sone/core';
-import type { Command, EditorState, Transaction } from 'prosemirror-state';
-import { Plugin, PluginKey } from 'prosemirror-state';
+import type { Node as PMNode } from 'prosemirror-model';
+import {
+  Plugin,
+  PluginKey,
+  TextSelection,
+  type EditorState,
+  type Transaction,
+} from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 
-import { splitBlock } from 'prosemirror-commands';
-import { TextSelection } from 'prosemirror-state';
-
-import { insertDivider, toggleBlockType } from './keymap.js';
-import { insertTable } from './tables.js';
 import { schema } from './schema.js';
+import { buildTable } from './tables.js';
+
+/**
+ * What choosing an item does.
+ *
+ * Described as data rather than as a command so the whole action fits in one
+ * transaction. It used to be three dispatches — delete the query, split the
+ * block, then run a command — and each one writes to Yjs and lets
+ * y-prosemirror restore the selection from a relative position. Between them
+ * the caret could end up several blocks away, which is what "I suddenly jump
+ * some lines further into a text and cannot find the heading" was.
+ *
+ *   convert  — the block becomes this type, or a new block of it is added
+ *   insert   — a node is placed (a divider, a table)
+ *   external — the interface handles it, because it needs a file picker
+ */
+export type SlashAction =
+  | { kind: 'convert'; type: string; attrs?: Record<string, unknown> }
+  | { kind: 'insert'; build: () => PMNode | null }
+  | { kind: 'external' };
 
 export interface SlashItem {
   id: string;
@@ -49,7 +70,7 @@ export interface SlashItem {
    */
   keywords: string[];
   group: 'text' | 'lists' | 'blocks';
-  run: Command;
+  action: SlashAction;
 }
 
 const node = (name: string) => schema.nodes[name];
@@ -62,21 +83,15 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'Plain paragraph',
     keywords: ['text', 'paragraph', 'p', 'plain', 'body'],
     group: 'text',
-    run: (state, dispatch) => {
-      const paragraph = node('paragraph');
-      return paragraph ? toggleBlockType(paragraph)(state, dispatch) : false;
-    },
+    action: { kind: 'convert', type: 'paragraph' },
   },
   ...[1, 2, 3].map((level) => ({
     id: `heading-${level}`,
     title: `Heading ${level}`,
     hint: level === 1 ? 'Largest section title' : `Level ${level} section title`,
-    keywords: [`h${level}`, 'heading', 'title', 'section', `#`.repeat(level)],
+    keywords: [`h${level}`, 'heading', 'title', 'section', '#'.repeat(level)],
     group: 'text' as const,
-    run: ((state, dispatch) => {
-      const heading = node('heading');
-      return heading ? toggleBlockType(heading, { level })(state, dispatch) : false;
-    }) as Command,
+    action: { kind: 'convert' as const, type: 'heading', attrs: { level } },
   })),
   {
     id: 'bulletList',
@@ -84,10 +99,7 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'An unordered list',
     keywords: ['bullet', 'list', 'ul', 'unordered', 'dash', 'point'],
     group: 'lists',
-    run: (state, dispatch) => {
-      const type = node('bulletList');
-      return type ? toggleBlockType(type)(state, dispatch) : false;
-    },
+    action: { kind: 'convert', type: 'bulletList' },
   },
   {
     id: 'numberedList',
@@ -95,10 +107,7 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'An ordered list',
     keywords: ['number', 'numbered', 'list', 'ol', 'ordered', '1.'],
     group: 'lists',
-    run: (state, dispatch) => {
-      const type = node('numberedList');
-      return type ? toggleBlockType(type)(state, dispatch) : false;
-    },
+    action: { kind: 'convert', type: 'numberedList' },
   },
   {
     id: 'todo',
@@ -106,10 +115,7 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'A checkable task',
     keywords: ['todo', 'task', 'check', 'checkbox', 'tick', 'done'],
     group: 'lists',
-    run: (state, dispatch) => {
-      const type = node('todo');
-      return type ? toggleBlockType(type, { checked: false })(state, dispatch) : false;
-    },
+    action: { kind: 'convert', type: 'todo', attrs: { checked: false } },
   },
   {
     id: 'toggle',
@@ -117,10 +123,7 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'Collapsible section',
     keywords: ['toggle', 'collapse', 'details', 'fold', 'accordion'],
     group: 'lists',
-    run: (state, dispatch) => {
-      const type = node('toggle');
-      return type ? toggleBlockType(type, { collapsed: false })(state, dispatch) : false;
-    },
+    action: { kind: 'convert', type: 'toggle', attrs: { collapsed: false } },
   },
   {
     id: 'quote',
@@ -128,10 +131,7 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'Quoted passage',
     keywords: ['quote', 'blockquote', 'citation', 'cite'],
     group: 'blocks',
-    run: (state, dispatch) => {
-      const type = node('quote');
-      return type ? toggleBlockType(type)(state, dispatch) : false;
-    },
+    action: { kind: 'convert', type: 'quote' },
   },
   {
     id: 'callout',
@@ -139,10 +139,7 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'Highlighted note',
     keywords: ['callout', 'note', 'info', 'warning', 'aside', 'tip'],
     group: 'blocks',
-    run: (state, dispatch) => {
-      const type = node('callout');
-      return type ? toggleBlockType(type)(state, dispatch) : false;
-    },
+    action: { kind: 'convert', type: 'callout' },
   },
   {
     id: 'code',
@@ -150,10 +147,7 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'Preformatted code block',
     keywords: ['code', 'snippet', 'pre', 'monospace', 'terminal'],
     group: 'blocks',
-    run: (state, dispatch) => {
-      const type = node('code');
-      return type ? toggleBlockType(type)(state, dispatch) : false;
-    },
+    action: { kind: 'convert', type: 'code' },
   },
   {
     id: 'image',
@@ -161,10 +155,9 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'Upload a picture',
     keywords: ['image', 'picture', 'photo', 'upload', 'file', 'img'],
     group: 'blocks',
-    // A file picker cannot be opened from a command — a command has no view and
-    // no user gesture. The interface handles this id specially; the command
-    // reports that it is applicable so the item is never shown disabled.
-    run: (state) => inBlock(state),
+    // A file picker needs a user gesture and a DOM element, neither of which a
+    // transaction has. The interface handles this one.
+    action: { kind: 'external' },
   },
   {
     id: 'table',
@@ -172,7 +165,7 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'Rows and columns',
     keywords: ['table', 'grid', 'rows', 'columns', 'spreadsheet'],
     group: 'blocks',
-    run: insertTable({ rows: 3, columns: 3, headerRow: true }),
+    action: { kind: 'insert', build: () => buildTable({ rows: 3, columns: 3 }) },
   },
   {
     id: 'divider',
@@ -180,7 +173,10 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     hint: 'Horizontal rule',
     keywords: ['divider', 'rule', 'hr', 'separator', 'line', '---'],
     group: 'blocks',
-    run: insertDivider,
+    action: {
+      kind: 'insert',
+      build: () => schema.nodes['divider']?.create() ?? null,
+    },
   },
 ];
 
@@ -375,34 +371,51 @@ export function slashMenu(): Plugin<SlashMenuState | null> {
 }
 
 /**
+ * The block containing the selection, as a position and node.
+ *
+ * Returns the outermost flat block, which is the one a slash command acts on.
+ */
+function blockAt(state: EditorState): { pos: number; node: PMNode; depth: number } | null {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    const attrs = node.type.spec.attrs;
+    if (attrs && BLOCK_ATTRS.id in attrs) {
+      return { pos: $from.before(depth), node, depth };
+    }
+  }
+  return null;
+}
+
+/**
  * Open the menu without typing a slash.
  *
- * For a `+` button beside the block: requiring `/` means knowing the shortcut
- * exists, and a control someone can see beats one they have to be told about.
+ * For the `+` button: requiring `/` means knowing the shortcut exists, and a
+ * control someone can see beats one they have to be told about.
  *
- * Implemented by inserting the slash the plugin already watches for, rather than
- * by a second way of opening the same menu. One code path means the query, the
- * keyboard handling and the deletion on choosing all behave identically however
- * the menu was opened.
- *
- * A block with content gets a new block first, so `+` means "insert something
- * here" rather than "convert this" — the same rule as choosing an item.
+ * One transaction. Splitting and then inserting as two dispatches gave
+ * y-prosemirror an intermediate state to restore a relative selection against,
+ * and the caret could come back somewhere else.
  */
 export function openSlashMenu(view: EditorView): boolean {
-  if (!inBlock(view.state)) return false;
+  const block = blockAt(view.state);
+  if (!block) return false;
+  if (block.node.type.spec.code) return false;
 
-  if (blockHasContent(view.state)) {
-    // Move to the end of the block before splitting, or the trailing text moves
-    // into the new block and becomes whatever is chosen.
-    const { $from } = view.state.selection;
-    const end = $from.end();
-    view.dispatch(
-      view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(end))),
-    );
-    splitBlock(view.state, view.dispatch);
+  const tr = view.state.tr;
+  const hasContent = block.node.textContent.trim().length > 0;
+
+  if (hasContent) {
+    // Split at the end of the block, so nothing is carried into the new one.
+    const end = block.pos + block.node.nodeSize - 1;
+    tr.setSelection(TextSelection.near(tr.doc.resolve(end)));
+    tr.split(tr.selection.from, 1, [
+      { type: block.node.type, attrs: { ...block.node.attrs, [BLOCK_ATTRS.id]: null } },
+    ]);
   }
 
-  view.dispatch(view.state.tr.insertText('/'));
+  tr.insertText('/', tr.selection.from);
+  view.dispatch(tr.scrollIntoView());
   view.focus();
   return true;
 }
@@ -418,67 +431,79 @@ export function setSlashIndex(view: EditorView, index: number): void {
 }
 
 /**
- * Apply an item.
+ * Apply an item, in a single transaction.
  *
- * The slash and the query are deleted first, in the same transaction that
- * closes the menu, so an undo returns to the typed text rather than to a state
- * with a stale menu. The item's own command then runs on the resulting state —
- * separately, because a block type change and a text deletion are different
- * edits and merging them makes the deletion undoable only together with the
- * conversion.
+ * Three dispatches used to do this — delete the query, split the block, run a
+ * command — and each one writes to Yjs and lets y-prosemirror restore the
+ * selection from a relative position captured against the previous state. The
+ * caret could end up several blocks away, which is what "I suddenly jump some
+ * lines further into a text and cannot find the heading" was.
  *
- * ## Convert in place, or insert a new block
+ * The convert case also no longer creates a paragraph and then changes its
+ * type: the split names the target type directly, so the block is never briefly
+ * something else.
  *
- * This is the part that was wrong. The commands convert the *current* block, so
- * typing text and then reaching for `/heading` turned the paragraph that text
- * was in into a heading — the writing became the heading and no new block
- * appeared. From the outside the heading looks like it went somewhere else
- * entirely.
- *
- * So: an empty block is converted, and a block with content gets a new block
- * after it. That is what Notion does and what the gesture means — in an empty
- * block `/` says "this block is a heading", after text it says "add a heading
- * here".
- *
- * When the caret is not at the end, the split carries the trailing text into the
- * new block, which is the same thing Enter does at that position. Consistency
- * with Enter is worth more than a special case, and typing `/` mid-sentence is
- * not a thing people do on purpose.
+ * Returns false for an `external` item, which the interface handles.
  */
 export function runSlashItem(view: EditorView, item: SlashItem): boolean {
   const state = slashMenuState(view.state);
   if (!state) return false;
+  if (item.action.kind === 'external') return false;
 
-  const tr = view.state.tr.delete(state.from, view.state.selection.head);
+  const tr = view.state.tr;
   tr.setMeta(slashMenuPluginKey, { close: true });
-  view.dispatch(tr);
 
-  if (blockHasContent(view.state)) {
-    // A new block for the new thing, leaving the writing alone.
-    splitBlock(view.state, view.dispatch);
-  }
+  // The slash and the query, gone first so "has content" means text the person
+  // wrote rather than the command they just typed.
+  tr.delete(state.from, view.state.selection.head);
 
-  const applied = item.run(view.state, view.dispatch);
-  view.focus();
-  return applied;
-}
+  const block = blockAt(
+    // A cheap way to resolve the block against the post-delete document without
+    // applying the transaction: positions after a delete at the caret are
+    // unchanged for the block itself.
+    { ...view.state, doc: tr.doc, selection: tr.selection } as EditorState,
+  );
+  if (!block) return false;
 
-/**
- * Does the block containing the selection have text of its own?
- *
- * Checked after the slash and query have been removed, so "content" means text
- * the person wrote rather than the command they just typed.
- */
-function blockHasContent(state: EditorState): boolean {
-  const { $from } = state.selection;
-  for (let depth = $from.depth; depth > 0; depth--) {
-    const node = $from.node(depth);
-    const attrs = node.type.spec.attrs;
-    if (attrs && BLOCK_ATTRS.id in attrs) {
-      return node.textContent.trim().length > 0;
+  const hasContent = block.node.textContent.trim().length > 0;
+
+  if (item.action.kind === 'insert') {
+    const node = item.action.build();
+    if (!node) return false;
+    if (hasContent) {
+      // After the block, leaving the writing alone.
+      tr.insert(block.pos + block.node.nodeSize, node);
+    } else {
+      tr.replaceWith(block.pos, block.pos + block.node.nodeSize, node);
     }
+    view.dispatch(tr.scrollIntoView());
+    view.focus();
+    return true;
   }
-  return false;
+
+  const targetType = schema.nodes[item.action.type];
+  if (!targetType) return false;
+  const attrs = {
+    ...block.node.attrs,
+    ...(item.action.attrs ?? {}),
+    // A new block gets its own id from the plugin; a converted one keeps its.
+    ...(hasContent ? { [BLOCK_ATTRS.id]: null } : {}),
+  };
+
+  if (hasContent) {
+    // Split straight into the target type: the new block is never briefly a
+    // paragraph that then changes.
+    const end = block.pos + block.node.nodeSize - 1;
+    tr.setSelection(TextSelection.near(tr.doc.resolve(end)));
+    tr.split(tr.selection.from, 1, [{ type: targetType, attrs }]);
+  } else {
+    tr.setNodeMarkup(block.pos, targetType, attrs);
+    tr.setSelection(TextSelection.near(tr.doc.resolve(block.pos + 1)));
+  }
+
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
+  return true;
 }
 
 /** Exported so tests can drive the plugin without a view. */

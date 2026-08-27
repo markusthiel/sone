@@ -21,8 +21,54 @@
   --sone-text-muted: #6b6b66;
   --sone-accent: #3e63dd;
   --sone-danger: #e5484d;
-  --sone-radius: 6px;
+  /* ---------------------------------------------------------------------
+   * Scale
+   *
+   * Three control sizes and one spacing step, named by use rather than by
+   * number. Written down because the alternative is what was happening: every
+   * control picked its own height and padding, some of them by accident, and
+   * the result reads as unfinished even when nothing is individually wrong.
+   *
+   * A checkbox rendered 44px tall because a global button minimum applied to
+   * it. That is the failure this section exists to prevent — a size chosen
+   * once, in the wrong place, applying everywhere.
+   *
+   * Control heights:
+   *   marker  — a mark beside text: a checkbox, a disclosure triangle. Sized to
+   *             the text, not to the thumb, because it sits inside a line.
+   *   compact — a control in a dense list: a tree row, a menu item, a gutter
+   *             button. Comfortable with a mouse, reachable with a thumb
+   *             because its hit area is padded past its box.
+   *   tap     — a control on its own: a form button, a primary action. The
+   *             smallest size reliably hittable with a thumb.
+   * ------------------------------------------------------------------- */
+  --sone-marker: 16px;
+  --sone-control: 26px;
+  --sone-control-lg: 34px;
   --sone-tap: 44px;
+
+  /* Spacing, in one geometric-ish run. Anything between these is a decision
+     that has to justify itself. */
+  --sone-space-1: 2px;
+  --sone-space-2: 4px;
+  --sone-space-3: 6px;
+  --sone-space-4: 8px;
+  --sone-space-5: 12px;
+  --sone-space-6: 16px;
+  --sone-space-7: 24px;
+
+  /* Radii follow the control they sit on: a small control with a large radius
+     reads as a pill by accident. */
+  --sone-radius-sm: 4px;
+  --sone-radius: 6px;
+  --sone-radius-lg: 8px;
+
+  /* Text sizes for the interface. The editor has its own scale, set per person
+     (see Appearance), because reading prose and scanning a sidebar are
+     different jobs. */
+  --sone-text-xs: 0.75rem;
+  --sone-text-sm: 0.85rem;
+  --sone-text-md: 0.9rem;
 
   color-scheme: light dark;
 }
@@ -229,8 +275,8 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .sidebar-search {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 34px;
+  gap: var(--sone-space-3);
+  min-height: var(--sone-control-lg);
   margin-block-end: 6px;
   padding: 6px 8px;
   border-radius: var(--sone-radius);
@@ -259,7 +305,7 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .tree-twisty {
   flex: none;
   inline-size: 20px;
-  min-block-size: 28px;
+  min-block-size: var(--sone-control);
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -493,8 +539,8 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
      sits beside the text at any text size instead of floating above a wrapping
      task. */
   inset-block-start: 0.22em;
-  inline-size: 15px;
-  block-size: 15px;
+  inline-size: var(--sone-marker);
+  block-size: var(--sone-marker);
   /* Both, and explicitly. min-height beats height, so without this a global
      button minimum — which is what happened — stretches the box into a tall
      rounded rectangle overlapping its own label. */
@@ -688,9 +734,9 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   inline-size: 288px;
   max-block-size: 320px;
   overflow-y: auto;
-  padding: 4px;
+  padding: var(--sone-space-2);
   border: 1px solid var(--sone-border);
-  border-radius: 8px;
+  border-radius: var(--sone-radius-lg);
   background: var(--sone-bg);
   /* Enough elevation to read as floating above text without a heavy shadow. */
   box-shadow: 0 6px 24px rgb(0 0 0 / 14%), 0 1px 3px rgb(0 0 0 / 8%);
@@ -718,13 +764,13 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: var(--sone-space-1);
   inline-size: 100%;
   /* Below the 44px tap target used elsewhere: this is a scrolling list where
      more visible options matter more, and it is reachable by keyboard. 40px is
      still comfortably hittable. */
-  min-block-size: 40px;
-  padding: 6px 8px;
+  min-block-size: var(--sone-control-lg);
+  padding: var(--sone-space-3) var(--sone-space-4);
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
@@ -847,11 +893,11 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 
 .block-insert,
 .block-handle {
-  /* Below the 44px tap minimum used elsewhere, because these sit beside a line
-     of text and a 44px square would overlap the neighbouring lines. 26px with
-     a padding-expanded hit area is the compromise. */
-  inline-size: 24px;
-  min-block-size: 26px;
+  /* --sone-control, not --sone-tap: these sit beside a line of text and a 44px
+     square would overlap the lines above and below. The hit area is padded past
+     the box instead. */
+  inline-size: var(--sone-control);
+  min-block-size: var(--sone-control);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -895,9 +941,9 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   inline-size: 220px;
   max-block-size: 70vh;
   overflow-y: auto;
-  padding: 4px;
+  padding: var(--sone-space-2);
   border: 1px solid var(--sone-border);
-  border-radius: 8px;
+  border-radius: var(--sone-radius-lg);
   background: var(--sone-bg);
   box-shadow: 0 6px 24px rgb(0 0 0 / 14%), 0 1px 3px rgb(0 0 0 / 8%);
   overscroll-behavior: contain;
@@ -930,8 +976,8 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .block-menu-item {
   display: block;
   inline-size: 100%;
-  min-block-size: 36px;
-  padding: 6px 8px;
+  min-block-size: var(--sone-control-lg);
+  padding: var(--sone-space-3) var(--sone-space-4);
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
@@ -994,8 +1040,8 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .entry-menu-wrap { position: relative; flex: none; }
 
 .entry-more {
-  inline-size: 26px;
-  min-block-size: 26px;
+  inline-size: var(--sone-control);
+  min-block-size: var(--sone-control);
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -1035,10 +1081,10 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .entry-menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sone-space-4);
   inline-size: 100%;
-  min-block-size: 34px;
-  padding: 6px 8px;
+  min-block-size: var(--sone-control-lg);
+  padding: var(--sone-space-3) var(--sone-space-4);
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
@@ -1166,10 +1212,10 @@ select {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: var(--sone-space-1);
   inline-size: 100%;
-  min-block-size: 38px;
-  padding: 6px 8px;
+  min-block-size: var(--sone-control-lg);
+  padding: var(--sone-space-3) var(--sone-space-4);
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
@@ -1360,8 +1406,8 @@ select {
 .tree-link {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
+  gap: var(--sone-space-4);
+  font-size: var(--sone-text-md);
   /* Regular weight for both kinds. Bold folders made every level shout, and the
      icon already says which is which. */
   font-weight: 450;
@@ -1476,8 +1522,8 @@ select {
 }
 
 .toolbar-button {
-  min-inline-size: 30px;
-  min-block-size: 30px;
+  min-inline-size: var(--sone-control-lg);
+  min-block-size: var(--sone-control-lg);
   padding-inline: 6px;
   border: 0;
   border-radius: 5px;
@@ -1646,8 +1692,8 @@ select {
   /* Nudged down to sit on the first line of a wrapping label rather than
      centred against the whole block. */
   margin-block-start: 2px;
-  inline-size: 15px;
-  block-size: 15px;
+  inline-size: var(--sone-marker);
+  block-size: var(--sone-marker);
   accent-color: var(--sone-accent);
 }
 
@@ -1660,8 +1706,8 @@ select {
 
 .task-goto {
   flex: none;
-  inline-size: 22px;
-  min-block-size: 22px;
+  inline-size: var(--sone-control);
+  min-block-size: var(--sone-control);
   padding: 0;
   border: 0;
   border-radius: 4px;

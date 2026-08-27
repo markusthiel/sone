@@ -13,6 +13,18 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Choosing a block type is now one edit, not three.** Deleting the typed
+command, splitting the block and applying the type were three separate changes,
+and each one is written to the document and gives the collaborative layer a
+chance to restore the caret from a position measured against the previous state.
+The caret could end up several blocks away, so the new heading had to be hunted
+for. It is a single change now, and the new block is created as the chosen type
+rather than as a paragraph that then becomes one.
+
+**A size scale.** Three control sizes and one spacing run, written down and
+used. The unfinished feel was not missing components — it was every control
+picking its own height and padding, some of them by accident.
+
 **Fixed: to-do checkboxes and toggle triangles were the wrong size and
 position.** A global rule gave every `button` on the page a 44px minimum height,
 including a 15px checkbox — and a minimum beats an explicit height, so the box
