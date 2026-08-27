@@ -234,6 +234,15 @@ export {
 export { soneInputRules, INPUT_RULE_HELP } from './inputRules.js';
 export { listNumbers, computeListNumbers } from './listNumbers.js';
 export {
+  canLink,
+  linkAt,
+  normaliseHref,
+  removeLink,
+  selectLink,
+  setLink,
+  type LinkRange,
+} from './links.js';
+export {
   SLASH_ITEMS,
   closeSlashMenu,
   filterSlashItems,

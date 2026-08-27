@@ -1292,3 +1292,55 @@ select {
 .folder-list svg { flex: none; inline-size: 1.05em; block-size: 1.05em; color: var(--sone-text-muted); }
 .folder-list-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .folder-list-meta { flex: none; font-size: 0.78rem; color: var(--sone-text-muted); }
+
+/* --- selection toolbar --- */
+
+.selection-toolbar {
+  position: fixed;
+  z-index: 44;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--sone-border);
+  border-radius: 8px;
+  background: var(--sone-bg);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 16%), 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.toolbar-button {
+  min-inline-size: 30px;
+  min-block-size: 30px;
+  padding-inline: 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--sone-text);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.toolbar-button:hover:not(:disabled) { background: var(--sone-bg-hover); }
+.toolbar-button[aria-pressed='true'] { background: var(--sone-bg-hover); color: var(--sone-accent); }
+.toolbar-button:disabled { opacity: 0.35; cursor: default; }
+
+.toolbar-divider {
+  inline-size: 1px;
+  block-size: 20px;
+  margin-inline: 3px;
+  background: var(--sone-border);
+}
+
+.link-editor { display: flex; align-items: center; gap: 4px; }
+.link-editor input {
+  inline-size: 200px;
+  min-block-size: 30px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+.link-editor button {
+  min-block-size: 30px;
+  padding-inline: 10px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}

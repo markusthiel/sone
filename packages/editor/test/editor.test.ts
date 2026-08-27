@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { BLOCK_ATTRS, pageContent, readBlockTree } from '@sone/core';
+import { splitBlock } from 'prosemirror-commands';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import type { Command } from 'prosemirror-state';
 import * as Y from 'yjs';
@@ -946,4 +947,45 @@ test('every item command applies to an empty paragraph', () => {
       `${item.id} does not apply to an empty paragraph`,
     );
   }
+});
+
+// --- slash menu placement --------------------------------------------------
+
+test('a slash command in an empty block converts that block', () => {
+  const state = stateWith({ type: 'doc', content: [paragraph('', 'a1')] });
+  const withCaret = state.apply(
+    state.tr.setSelection(TextSelection.create(state.doc, 1)),
+  );
+  // The block is empty, so the chosen type replaces it.
+  const heading = schema.nodes['heading']!;
+  const next = run(withCaret, toggleBlockType(heading, { level: 1 }), 'convert');
+  assert.equal(next.doc.childCount, 1);
+  assert.equal(next.doc.firstChild!.type.name, 'heading');
+});
+
+test('a block with text keeps its text when a new type is inserted after it', () => {
+  // The bug this covers: typing text and then reaching for /heading turned the
+  // paragraph the text was in into a heading. The writing became the heading
+  // and no new block appeared, so from the outside the heading looked like it
+  // had gone somewhere else entirely.
+  //
+  // The full path needs a view, so it is covered in mount.test.ts. This pins
+  // down the rule the path depends on: a split leaves the original text where
+  // it was, and the command then applies to the new block.
+  let state = stateWith({ type: 'doc', content: [paragraph('Hello world', 'a1')] });
+  state = state.apply(
+    state.tr.setSelection(TextSelection.create(state.doc, 12)),
+  );
+
+  state = run(state, splitBlock, 'split');
+  assert.equal(state.doc.childCount, 2);
+  assert.equal(state.doc.child(0).textContent, 'Hello world');
+  assert.equal(state.doc.child(1).textContent, '');
+
+  const heading = schema.nodes['heading']!;
+  state = run(state, toggleBlockType(heading, { level: 1 }), 'to heading');
+
+  assert.equal(state.doc.child(0).type.name, 'paragraph', 'the writing stays a paragraph');
+  assert.equal(state.doc.child(0).textContent, 'Hello world');
+  assert.equal(state.doc.child(1).type.name, 'heading', 'the heading is the new block');
 });
