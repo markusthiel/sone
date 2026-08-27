@@ -3,7 +3,25 @@
 See [ADR-0013](adr/0013-versioning-and-releases.md) for what the version number
 means and why.
 
-## Checklist
+## The short version
+
+```sh
+pnpm -r test              # or wait for CI
+# add the CHANGELOG entry for the version
+node scripts/release.mjs 0.1.0
+git push origin main v0.1.0
+```
+
+`release.mjs` refuses to proceed when a step was skipped: a dirty working tree,
+a tag that already exists, a version that does not move forwards, or — the one
+that actually gets missed — a missing changelog entry. Release notes are the
+only part of a release that cannot be added afterwards, because a released tag
+is never moved.
+
+Then point the deployment at `refs/tags/v0.1.0`. **No container image is
+needed for that**; see docs/deployment.md.
+
+## Full checklist
 
 1. **Verify the migration chain from empty.** Not from your development
    database — from nothing. An upgrade path that only works on a database that
@@ -36,7 +54,9 @@ means and why.
    git push origin v0.1.0
    ```
 
-8. Build and push images with `SONE_VERSION` and `SONE_COMMIT` baked in.
+8. *Optional.* Build and push images with `SONE_VERSION` and `SONE_COMMIT`
+   baked in. A tag alone is enough to deploy reproducibly; an image only saves
+   the deployment host a build.
 
    Images live in the project's own Forgejo container registry, which is the
    same host as the source. One less account for anyone mirroring the project,

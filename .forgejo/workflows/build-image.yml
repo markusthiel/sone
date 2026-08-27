@@ -43,6 +43,13 @@ env:
 
 jobs:
   build:
+    # The label of a runner with Docker daemon access. `runs-on` matches a
+    # label, not a runner name, and Forgejo does not evaluate expressions here —
+    # so pointing this at a different runner is a one-line edit rather than a
+    # configuration setting.
+    #
+    # The preflight step below reports clearly when the chosen runner cannot
+    # reach a daemon, which is the failure this workflow keeps hitting.
     runs-on: ubuntu-latest
     # Pinned rather than relying on whatever the runner's label maps to: this
     # job needs a Docker CLI, and the image behind a label is the instance
