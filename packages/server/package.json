@@ -16,10 +16,10 @@
   "dependencies": {
     "@sone/core": "workspace:*",
     "pg": "^8.13.0",
-    "yjs": "^13.6.20",
+    "yjs": "13.6.32",
     "ws": "^8.18.0",
-    "lib0": "^0.2.99",
-    "y-protocols": "^1.0.6"
+    "lib0": "0.2.117",
+    "y-protocols": "1.0.7"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

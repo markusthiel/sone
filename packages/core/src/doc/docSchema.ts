@@ -86,6 +86,20 @@ export const BLOCK_ATTRS = {
   id: 'id',
   /** JSON-encoded block-specific settings. Never derived values. */
   props: 'props',
+  /**
+   * Indentation level, as a decimal string. Absent means 0.
+   *
+   * The parent-child relationship between text blocks is expressed by
+   * indentation rather than by XML nesting (ADR-0018). ProseMirror forbids a
+   * node containing both inline text and block children, so a list item that
+   * has text *and* sub-items cannot be a real container — the constraint is
+   * absolute and was discovered only when the schema refused to build.
+   *
+   * A first-class attribute rather than a props key, because the tree reader
+   * needs it on every block and parsing JSON per block to find it would be
+   * wasteful.
+   */
+  indent: 'indent',
 } as const;
 
 export const COLLECTION_KEYS = {
@@ -112,22 +126,47 @@ export const VIEW_KEYS = {
 } as const;
 
 /**
- * Block types that may contain other blocks.
+ * Block types that hold other blocks structurally, as XML children.
  *
- * Used by the materialiser to decide whether to descend, and by the editor
- * schema to set `content`. A type absent from this set is a leaf, which is the
- * correct default for a new or third-party type.
+ * Only types with no text of their own qualify. A block that has both text and
+ * children — a list item with sub-items — cannot be one of these, because
+ * ProseMirror rejects a node mixing inline and block content. Those use the
+ * `indent` attribute instead (ADR-0018).
+ *
+ * Keeping the two mechanisms separated by that rule is what stops them
+ * overlapping: a type is either textless-and-structural, or textual-and-flat,
+ * never both.
  */
-export const CONTAINER_BLOCK_TYPES: ReadonlySet<string> = new Set([
+export const STRUCTURAL_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  'columns',
+  'column',
+]);
+
+/**
+ * Text blocks that may have indented children beneath them.
+ *
+ * Advisory rather than enforced: indentation is a property of a block, so any
+ * block can be indented under any other. This set exists so the editor can
+ * offer indentation where it is meaningful and the renderer can draw list
+ * markers.
+ */
+export const INDENTABLE_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  'paragraph',
+  'heading',
   'bulletList',
   'numberedList',
   'todo',
   'toggle',
   'quote',
   'callout',
-  'columns',
-  'column',
+  'code',
+  'image',
+  'divider',
+  'collectionView',
 ]);
+
+/** Retained for compatibility with existing imports; prefer the two above. */
+export const CONTAINER_BLOCK_TYPES = STRUCTURAL_BLOCK_TYPES;
 
 /**
  * Block types holding inline text that ProseMirror manages.

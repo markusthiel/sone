@@ -102,6 +102,13 @@ jobs:
           corepack enable
           pnpm install --frozen-lockfile
 
+      - name: Check for duplicate CRDT copies
+        # Two copies of Yjs in one process break instanceof, so a document made
+        # by one is unrecognisable to the other — documents that silently refuse
+        # to sync. Caught once already by a thirty-line type error that named
+        # neither cause nor fix.
+        run: node scripts/check-single-crdt.mjs
+
       - name: Typecheck
         # Each package's typecheck builds its own dependencies first, so this
         # works on a fresh clone. That was not true at first: @sone/core

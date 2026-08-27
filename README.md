@@ -71,7 +71,9 @@ Four invariants, each with a specific failure mode behind it:
 1. Derived values (formulas, rollups, lookups, audit timestamps) are never
    written into a CRDT.
 2. Within a page, block order is position in the page's single ProseMirror
-   fragment — Yjs resolves concurrent insertion itself (ADR-0015). Elsewhere
+   fragment, and parent-child nesting of text blocks is an `indent` attribute
+   rather than XML nesting — ProseMirror forbids a node holding both inline
+   text and block children (ADR-0015, ADR-0018). Elsewhere
    (page tree, collection rows, fields, views) order is a fractional index
    string, and every such sort is `(idx, id)`, never `idx` alone: the midpoint
    algorithm is deterministic, so two clients inserting into the same gap
@@ -102,10 +104,9 @@ used rather than admired.
 ```
 packages/core      data model, block tree, schema and document migrations
 packages/client    sync connection, document store, presence — no React
-packages/editor    block layer on the vendored ProseMirror (not started)
+packages/editor    block layer on ProseMirror: schema, keymap, input rules
 packages/server    sync server, HTTP API, auth, materialisation
 packages/web       React client — no WebSocket, no Y.Doc
-vendor/prosemirror git subtree, not an npm dependency
 db/migrations      Postgres schema
 docs/adr           architecture decision records
 docker             image, entrypoint, healthcheck
