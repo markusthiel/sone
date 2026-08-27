@@ -43,6 +43,7 @@ import {
   moveBlockUp,
   outdentBlockSubtree,
 } from './blockOps.js';
+import { toggleCollapsed } from './collapse.js';
 import { canLink, selectLink } from './links.js';
 import { readIndent, schema, writeIndent } from './schema.js';
 
@@ -295,6 +296,9 @@ export function soneKeymap(): Plugin[] {
 
     'Mod-Enter': toggleTodo,
     'Mod-Shift-Minus': insertDivider,
+    // Collapse or expand the toggle the caret is in. Mod-. because it is free
+    // on every platform and adjacent to nothing destructive.
+    'Mod-.': toggleCollapsed,
 
     // Reordering. Alt rather than Mod, because Mod-Shift-Up is a text selection
     // shortcut on every platform and taking it away would be worse than not

@@ -13,6 +13,21 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: heading levels and checked boxes never reached the projection.** A
+block's ProseMirror attributes — a heading's level, a to-do's checked state, a
+toggle's collapsed state, an image's URL — were written to the document and then
+ignored when reading it back. The outline showed every heading at one size, the
+task panel showed every task as open, and ticking a box in the panel changed
+nothing on the page. None of it looked broken enough to investigate.
+
+**Toggles collapse.** Click the triangle, or `Mod-.` inside one. A collapsed
+toggle shows how many blocks it is hiding, and the content stays in the document
+— still synced, still searchable. Collapsing is stored in the page, so it is the
+same for everyone looking at it.
+
+**To-do boxes are clickable.** They were drawn with CSS, which cannot take a
+click, so the only way to tick one was a keyboard shortcut.
+
 **A + beside every block.** Inserting no longer requires knowing that `/`
 exists. The ⋮⋮ handle beside it opens the block menu — it previously rendered
 and did nothing useful, which is worse than not being there.
