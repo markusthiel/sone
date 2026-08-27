@@ -7,6 +7,115 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>SONE</title>
+
+    <script>
+      /*
+       * Last-resort error reporting, before any application code runs.
+       *
+       * React's error boundary catches render-time throws. It cannot catch a
+       * module that fails to evaluate, a syntax error in the bundle, a chunk
+       * that 404s, or a rejected promise — and in all of those cases React
+       * never mounts, so the page is simply white with nothing to report.
+       *
+       * That happened, twice, and the second time cost a deployment cycle to
+       * work out that the browser was running a cached bundle. A white page is
+       * the worst possible failure: it is indistinguishable from a network
+       * problem, a bad deploy, or data loss.
+       *
+       * Deliberately inline and dependency-free: this has to work when the
+       * bundle is exactly what is broken.
+       */
+      (function () {
+        var reported = false;
+
+        function show(title, detail) {
+          if (reported) return;
+          reported = true;
+          var root = document.getElementById('root');
+          if (!root) return;
+          root.innerHTML = '';
+
+          var wrap = document.createElement('div');
+          wrap.style.cssText =
+            'max-width:40rem;margin:0 auto;padding:24px 20px;' +
+            'font:15px/1.55 -apple-system,BlinkMacSystemFont,system-ui,sans-serif';
+
+          var h = document.createElement('h2');
+          h.textContent = title;
+          h.style.marginTop = '0';
+
+          var p = document.createElement('p');
+          p.style.color = '#6b6b66';
+          p.textContent =
+            'SONE could not start. Your pages are stored on the server and are ' +
+            'not affected by this. If a new version was just deployed, the ' +
+            'browser may be holding an old cached copy — a hard reload usually ' +
+            'fixes that.';
+
+          var btn = document.createElement('button');
+          btn.textContent = 'Reload';
+          btn.style.cssText =
+            'min-height:44px;padding:0 14px;border:1px solid #3e63dd;' +
+            'border-radius:6px;background:#3e63dd;color:#fff;cursor:pointer';
+          btn.onclick = function () {
+            window.location.reload();
+          };
+
+          var pre = document.createElement('pre');
+          pre.textContent = detail;
+          pre.style.cssText =
+            'margin-top:16px;padding:10px 12px;border-radius:6px;' +
+            'background:#f8f8f7;font-family:ui-monospace,Menlo,monospace;' +
+            'font-size:12px;white-space:pre-wrap;word-break:break-word;' +
+            'max-height:40vh;overflow:auto';
+
+          wrap.appendChild(h);
+          wrap.appendChild(p);
+          wrap.appendChild(btn);
+          wrap.appendChild(pre);
+          root.appendChild(wrap);
+        }
+
+        window.addEventListener('error', function (event) {
+          // Resource errors (a chunk that 404s) have no `error` object, and the
+          // target says more than the message would.
+          var detail = event.error
+            ? event.error.stack || String(event.error)
+            : 'Failed to load: ' +
+              ((event.target && (event.target.src || event.target.href)) || event.message);
+          show('SONE failed to start', detail);
+        }, true);
+
+        window.addEventListener('unhandledrejection', function (event) {
+          var reason = event.reason;
+          show(
+            'SONE failed to start',
+            (reason && (reason.stack || reason.message)) || String(reason),
+          );
+        });
+
+        /*
+         * Watchdog: if nothing has rendered after a few seconds and no error
+         * fired either, say so. Silence is the case that leaves someone with
+         * nothing at all — and "nothing rendered and nothing threw" is itself
+         * a useful thing to be told, because it points at the network rather
+         * than at the code.
+         */
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            var root = document.getElementById('root');
+            if (root && root.childElementCount === 0) {
+              show(
+                'SONE did not start',
+                'The page loaded but nothing rendered, and no error was raised.\n\n' +
+                  'Most likely the application bundle did not load. Check the\n' +
+                  'browser console and the network tab for a failed request.',
+              );
+            }
+          }, 8000);
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

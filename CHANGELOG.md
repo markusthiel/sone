@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A white page now explains itself.** If the application bundle fails to load or
+throws before React starts, the page says so, names the error, offers a reload,
+and states plainly that pages are stored on the server and unaffected. React's
+error boundary cannot help in those cases because it never mounts.
+
 **The running version is visible in the app.** Settings → About shows the
 server's version and the version of the client bundle in your browser
 separately, and says so when they disagree — a browser holding a cached bundle
