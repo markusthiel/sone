@@ -11,7 +11,6 @@
  */
 
 import {
-  BLOCK_KEYS,
   COLLECTION_KEYS,
   DOC_KEYS,
   FIELD_KEYS,
@@ -19,16 +18,24 @@ import {
   PAGE_KEYS,
   VIEW_KEYS,
   compareSiblings,
+  readBlockTree,
   type StoredValue,
 } from '@sone/core';
 import * as Y from 'yjs';
 
-import { normaliseText, propsToText, xmlFragmentToText } from './plainText.js';
+import { normaliseText, propsToText } from './plainText.js';
 
 export interface ReadBlock {
   id: string;
   type: string;
   parentId: string | null;
+  /**
+   * Depth-first ordinal within the page, zero-padded so it sorts
+   * lexicographically in the `idx` column.
+   *
+   * Derived from tree position, not authored: within a page Yjs owns order and
+   * there is no fractional index to carry (ADR-0015).
+   */
   idx: string;
   props: Record<string, unknown>;
   plainText: string;
@@ -109,59 +116,27 @@ function readPageMeta(doc: Y.Doc, warnings: string[]): ReadPage {
   };
 }
 
+/**
+ * Project the block tree into flat rows.
+ *
+ * The tree walk itself lives in @sone/core so the editor and the materialiser
+ * cannot disagree about how props are encoded or where a block boundary is.
+ * This function only flattens the result and derives the sort key.
+ */
 function readBlocks(doc: Y.Doc, warnings: string[]): ReadBlock[] {
-  const blocks = doc.getMap(DOC_KEYS.blocks);
-  const content = doc.getMap(DOC_KEYS.content);
-  const out: ReadBlock[] = [];
+  const { blocks, warnings: treeWarnings } = readBlockTree(doc);
+  warnings.push(...treeWarnings);
 
-  for (const [id, raw] of blocks.entries()) {
-    if (!(raw instanceof Y.Map)) {
-      warnings.push(`block ${id}: not a Y.Map, skipped`);
-      continue;
-    }
-    const type = asString(raw.get(BLOCK_KEYS.type));
-    if (type === null) {
-      warnings.push(`block ${id}: missing type, skipped`);
-      continue;
-    }
-    const idx = asString(raw.get(BLOCK_KEYS.idx));
-    if (idx === null) {
-      warnings.push(`block ${id}: missing idx, defaulted`);
-    }
-
-    const props = asRecord(raw.get(BLOCK_KEYS.props));
-
-    let inline = '';
-    const fragment = content.get(id);
-    if (
-      fragment instanceof Y.XmlFragment ||
-      fragment instanceof Y.XmlElement ||
-      fragment instanceof Y.XmlText
-    ) {
-      try {
-        inline = xmlFragmentToText(fragment);
-      } catch (err) {
-        warnings.push(
-          `block ${id}: content extraction failed (${
-            err instanceof Error ? err.message : String(err)
-          })`,
-        );
-      }
-    }
-
-    out.push({
-      id,
-      type,
-      parentId: asString(raw.get(BLOCK_KEYS.parentId)),
-      idx: idx ?? 'a0',
-      props,
-      plainText: normaliseText([inline, propsToText(type, props)].join(' ')),
-    });
-  }
-
-  // (idx, id), never idx alone — concurrent inserts into the same gap produce
-  // identical keys. See compareSiblings in @sone/core.
-  return out.sort(compareSiblings);
+  return blocks.map((block) => ({
+    id: block.id,
+    type: block.type,
+    parentId: block.parentId,
+    // Padded so the text column sorts in reading order. Six digits allows
+    // 999,999 blocks per page, far past the point a page is usable.
+    idx: String(block.position).padStart(6, '0'),
+    props: block.props,
+    plainText: normaliseText([block.text, propsToText(block.type, block.props)].join(' ')),
+  }));
 }
 
 function readProperties(doc: Y.Doc, warnings: string[]): Map<string, StoredValue> {

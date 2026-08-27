@@ -18,6 +18,7 @@ import type {
   WorkspaceId,
 } from './ids.js';
 
+
 /**
  * Block types shipped by SONE itself. Third-party types are plain strings
  * registered through BlockTypeDef, so this union is deliberately open.
@@ -45,16 +46,24 @@ export type CoreBlockType =
 export type BlockType = CoreBlockType | (string & {});
 
 /**
- * Inline content is ProseMirror's business, not ours. We persist it as the
- * Y.XmlFragment attached to the block and never mirror it into props — two
- * representations of the same text is how you get divergence.
+ * A block, as projected out of the document.
+ *
+ * Inline content is ProseMirror's business, not ours: it lives in the page's
+ * Y.XmlFragment and is never mirrored into props. Two representations of the
+ * same text is how documents diverge.
+ *
+ * Note there is no fractional index here. Within a page, order is the position
+ * of the element in the fragment and Yjs resolves concurrent insertion itself
+ * (ADR-0015). `position` is the depth-first ordinal the materialiser derives,
+ * not authored data.
  */
 export interface Block {
   id: BlockId;
   type: BlockType;
-  /** null only for the root block of a document. */
+  /** Null for a top-level block. */
   parentId: BlockId | null;
-  index: FractionalIndex;
+  /** Depth-first ordinal within the page. Derived, not stored in the CRDT. */
+  position: number;
   /**
    * Block-type-specific settings: heading level, code language, callout
    * colour. Never derived values — see ADR-0002.

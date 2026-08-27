@@ -12,13 +12,15 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-  BLOCK_KEYS,
   COLLECTION_KEYS,
   DOC_KEYS,
   FIELD_KEYS,
   META_KEYS,
   PAGE_KEYS,
-  generateKeyBetween,
+  appendBlocks,
+  pageContent,
+  setPageBlocks,
+  type NewBlock,
 } from '@sone/core';
 import * as Y from 'yjs';
 
@@ -27,6 +29,10 @@ import { normaliseText } from '../src/materialize/plainText.js';
 import { toShadowColumns, valueToSearchText } from '../src/materialize/values.js';
 
 // --- helpers ---------------------------------------------------------------
+
+/** Deterministic uuid from a short tag, so failures are reproducible. */
+const uuid = (tag: string): string =>
+  `00000000-0000-4000-8000-${tag.padStart(12, '0')}`;
 
 function makeDoc(): Y.Doc {
   const doc = new Y.Doc();
@@ -37,30 +43,8 @@ function makeDoc(): Y.Doc {
   return doc;
 }
 
-function addBlock(
-  doc: Y.Doc,
-  id: string,
-  type: string,
-  idx: string,
-  text?: string,
-  props: Record<string, unknown> = {},
-): void {
-  const block = new Y.Map();
-  block.set(BLOCK_KEYS.type, type);
-  block.set(BLOCK_KEYS.parentId, null);
-  block.set(BLOCK_KEYS.idx, idx);
-  const propsMap = new Y.Map();
-  for (const [k, v] of Object.entries(props)) propsMap.set(k, v);
-  block.set(BLOCK_KEYS.props, propsMap);
-  doc.getMap(DOC_KEYS.blocks).set(id, block);
-
-  if (text !== undefined) {
-    const fragment = new Y.XmlFragment();
-    doc.getMap(DOC_KEYS.content).set(id, fragment);
-    const el = new Y.XmlElement('paragraph');
-    fragment.insert(0, [el]);
-    el.insert(0, [new Y.XmlText(text)]);
-  }
+function addBlock(doc: Y.Doc, block: NewBlock): void {
+  appendBlocks(doc, [block]);
 }
 
 // --- page metadata ---------------------------------------------------------
@@ -95,80 +79,129 @@ test('non-string title does not crash the read', () => {
 
 // --- blocks ----------------------------------------------------------------
 
-test('blocks are returned in fractional index order', () => {
+test('blocks are returned in document order', () => {
+  // Order is fragment position now. There is no index to collide, because Yjs
+  // resolves concurrent insertion itself (ADR-0015).
   const doc = makeDoc();
-  const a = generateKeyBetween(null, null);
-  const c = generateKeyBetween(a, null);
-  const b = generateKeyBetween(a, c);
-
-  // Inserted deliberately out of order.
-  addBlock(doc, '00000000-0000-0000-0000-0000000000c1', 'paragraph', c, 'third');
-  addBlock(doc, '00000000-0000-0000-0000-0000000000a1', 'paragraph', a, 'first');
-  addBlock(doc, '00000000-0000-0000-0000-0000000000b1', 'paragraph', b, 'second');
+  setPageBlocks(doc, [
+    { id: uuid('a1'), type: 'paragraph', text: 'first' },
+    { id: uuid('b1'), type: 'paragraph', text: 'second' },
+    { id: uuid('c1'), type: 'paragraph', text: 'third' },
+  ]);
 
   const parsed = readDocument(doc);
   assert.deepEqual(
     parsed.blocks.map((blk) => blk.plainText),
     ['first', 'second', 'third'],
   );
+  // The derived sort key must order the same way as a text column.
+  const keys = parsed.blocks.map((b) => b.idx);
+  assert.deepEqual(keys, [...keys].sort());
 });
 
-test('identical indexes are ordered by id, giving a stable total order', () => {
-  // The concurrent-insert case: two clients produced the same key.
+test('a nested tree is flattened depth-first, in reading order', () => {
   const doc = makeDoc();
-  addBlock(doc, '00000000-0000-0000-0000-00000000000b', 'paragraph', 'a1', 'bee');
-  addBlock(doc, '00000000-0000-0000-0000-00000000000a', 'paragraph', 'a1', 'ay');
+  setPageBlocks(doc, [
+    {
+      id: uuid('l1'),
+      type: 'bulletList',
+      text: 'outer',
+      children: [
+        { id: uuid('l2'), type: 'bulletList', text: 'inner' },
+        { id: uuid('l3'), type: 'bulletList', text: 'also inner' },
+      ],
+    },
+    { id: uuid('p1'), type: 'paragraph', text: 'after' },
+  ]);
 
   const parsed = readDocument(doc);
   assert.deepEqual(
-    parsed.blocks.map((blk) => blk.plainText),
-    ['ay', 'bee'],
-    'tie must be broken by id, not by insertion order',
+    parsed.blocks.map((b) => b.plainText),
+    ['outer', 'inner', 'also inner', 'after'],
   );
+  assert.equal(parsed.blocks[1]!.parentId, uuid('l1'));
+  assert.equal(parsed.blocks[3]!.parentId, null);
 });
 
-test('block without a type is skipped with a warning', () => {
+test("a container's text does not swallow its children's", () => {
+  // Otherwise the search index would score a nested list once per descendant.
   const doc = makeDoc();
-  const broken = new Y.Map();
-  broken.set(BLOCK_KEYS.idx, 'a1');
-  doc.getMap(DOC_KEYS.blocks).set('00000000-0000-0000-0000-00000000dead', broken);
-  addBlock(doc, '00000000-0000-0000-0000-00000000good', 'paragraph', 'a2', 'kept');
+  setPageBlocks(doc, [
+    {
+      id: uuid('c1'),
+      type: 'callout',
+      text: 'parent text',
+      children: [{ id: uuid('c2'), type: 'paragraph', text: 'child text' }],
+    },
+  ]);
+
+  const parsed = readDocument(doc);
+  assert.equal(parsed.blocks[0]!.plainText, 'parent text');
+  assert.equal(parsed.blocks[1]!.plainText, 'child text');
+});
+
+test('an element without a block id is skipped with a warning', () => {
+  const doc = makeDoc();
+  const fragment = pageContent(doc);
+  const orphan = new Y.XmlElement('paragraph');
+  orphan.insert(0, [new Y.XmlText('no id')]);
+  fragment.insert(0, [orphan]);
+  addBlock(doc, { id: uuid('ok'), type: 'paragraph', text: 'kept' });
 
   const parsed = readDocument(doc);
   assert.equal(parsed.blocks.length, 1);
   assert.equal(parsed.blocks[0]!.plainText, 'kept');
-  assert.ok(parsed.warnings.some((w) => w.includes('missing type')));
+  assert.ok(parsed.warnings.some((w) => w.includes('no block id')));
+});
+
+test('malformed props degrade that block and nothing else', () => {
+  const doc = makeDoc();
+  addBlock(doc, { id: uuid('bad'), type: 'paragraph', text: 'text' });
+  const fragment = pageContent(doc);
+  (fragment.get(0) as Y.XmlElement).setAttribute('props', '{not json');
+
+  const parsed = readDocument(doc);
+  assert.equal(parsed.blocks.length, 1);
+  assert.deepEqual(parsed.blocks[0]!.props, {});
+  assert.ok(parsed.warnings.some((w) => w.includes('not valid JSON')));
 });
 
 test('block props contribute searchable text for non-inline types', () => {
   const doc = makeDoc();
-  addBlock(doc, '00000000-0000-0000-0000-0000000code1', 'code', 'a1', undefined, {
-    source: 'SELECT 1',
-    language: 'sql',
+  addBlock(doc, {
+    id: uuid('code'),
+    type: 'code',
+    props: { source: 'SELECT 1', language: 'sql' },
   });
   const parsed = readDocument(doc);
   assert.match(parsed.blocks[0]!.plainText, /SELECT 1/);
   assert.match(parsed.blocks[0]!.plainText, /sql/);
 });
 
-test('nested inline content is flattened', () => {
+test('inline marks are flattened, block boundaries are not crossed', () => {
   const doc = makeDoc();
-  const fragment = new Y.XmlFragment();
-  doc.getMap(DOC_KEYS.content).set('00000000-0000-0000-0000-00000000nest', fragment);
+  const fragment = pageContent(doc);
   const para = new Y.XmlElement('paragraph');
+  para.setAttribute('id', uuid('nest'));
   fragment.insert(0, [para]);
   const link = new Y.XmlElement('link');
   para.insert(0, [new Y.XmlText('see '), link]);
   link.insert(0, [new Y.XmlText('the docs')]);
 
-  const block = new Y.Map();
-  block.set(BLOCK_KEYS.type, 'paragraph');
-  block.set(BLOCK_KEYS.idx, 'a1');
-  doc.getMap(DOC_KEYS.blocks).set('00000000-0000-0000-0000-00000000nest', block);
-
   const parsed = readDocument(doc);
-  assert.match(parsed.blocks[0]!.plainText, /see/);
-  assert.match(parsed.blocks[0]!.plainText, /the docs/);
+  assert.equal(parsed.blocks[0]!.plainText, 'see the docs');
+});
+
+test('props round-trip through the encoded attribute', () => {
+  const doc = makeDoc();
+  addBlock(doc, {
+    id: uuid('h1'),
+    type: 'heading',
+    text: 'Title',
+    props: { level: 2, collapsed: false },
+  });
+  const parsed = readDocument(doc);
+  assert.deepEqual(parsed.blocks[0]!.props, { level: 2, collapsed: false });
 });
 
 // --- collections -----------------------------------------------------------

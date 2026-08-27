@@ -20,9 +20,11 @@ import {
   META_KEYS,
   PAGE_KEYS,
   SCHEMA_VERSION,
+  appendBlocks,
   documentSchemaVersion,
   isClientSchemaCompatible,
   migrateDocument,
+  readBlockTree,
 } from '@sone/core';
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
@@ -330,13 +332,21 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     return path.join(outputDir, found);
   }
 
-  async function makePage(id: string, title: string): Promise<void> {
+  /**
+   * Create a page with one block.
+   *
+   * `blockId` is explicit because block ids are globally unique — blocks.id is
+   * the primary key, not (page_id, id). A client copying a block to another
+   * page must regenerate the id; the server refuses a collision rather than
+   * silently reassigning it.
+   */
+  async function makePage(id: string, title: string, blockId: string): Promise<void> {
     const doc = new Y.Doc();
     doc.getMap(DOC_KEYS.meta).set(META_KEYS.schemaVersion, SCHEMA_VERSION);
     const page = doc.getMap(DOC_KEYS.page);
     page.set(PAGE_KEYS.title, title);
     page.set(PAGE_KEYS.idx, 'a0');
-    doc.getMap(DOC_KEYS.blocks).set('b1', 'content');
+    appendBlocks(doc, [{ id: blockId, type: 'paragraph', text: 'content' }]);
     await withTransaction(db, (client) =>
       materializeYDoc(client, id, doc, { throughSeq: 1, workspaceId: fx.workspaceId }),
     );
@@ -345,8 +355,8 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
   }
 
   test('a backup records counts and checksums', async () => {
-    await makePage(uuid(1), 'First');
-    await makePage(uuid(2), 'Second');
+    await makePage(uuid(1), 'First', uuid(501));
+    await makePage(uuid(2), 'Second', uuid(502));
 
     const out = path.join(workDir, 'counts');
     const manifest = await createBackup({
@@ -369,8 +379,8 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
 
   test('a full round trip restores documents that still open', async () => {
     // The test that makes forward-only migrations defensible.
-    await makePage(uuid(1), 'Survives the round trip');
-    await makePage(uuid(2), 'Also survives');
+    await makePage(uuid(1), 'Survives the round trip', uuid(503));
+    await makePage(uuid(2), 'Also survives', uuid(504));
 
     const out = path.join(workDir, 'roundtrip');
     const manifest = await createBackup({
@@ -417,12 +427,12 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       loaded.doc.getMap(DOC_KEYS.page).get(PAGE_KEYS.title),
       'Survives the round trip',
     );
-    assert.equal(loaded.doc.getMap(DOC_KEYS.blocks).get('b1'), 'content');
+    assert.equal(readBlockTree(loaded.doc).blocks[0]?.text, 'content');
     loaded.doc.destroy();
   });
 
   test('a corrupted archive is refused before anything is touched', async () => {
-    await makePage(uuid(1), 'Precious');
+    await makePage(uuid(1), 'Precious', uuid(505));
 
     const out = path.join(workDir, 'corrupt');
     await createBackup({
@@ -484,7 +494,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
   });
 
   test('restoring into a non-empty database is refused by default', async () => {
-    await makePage(uuid(1), 'Existing');
+    await makePage(uuid(1), 'Existing', uuid(506));
 
     const out = path.join(workDir, 'nonempty');
     await createBackup({
@@ -513,7 +523,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
   });
 
   test('files are archived and restored', async () => {
-    await makePage(uuid(1), 'With attachment');
+    await makePage(uuid(1), 'With attachment', uuid(507));
     const filesDir = path.join(workDir, 'files-src');
     await mkdir(path.join(filesDir, 'ab'), { recursive: true });
     await writeFile(path.join(filesDir, 'ab', 'attachment.bin'), 'payload', 'utf8');
@@ -549,7 +559,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
   });
 
   test('a backup without files warns on restore rather than failing silently', async () => {
-    await makePage(uuid(1), 'No files');
+    await makePage(uuid(1), 'No files', uuid(508));
     const out = path.join(workDir, 'nofiles');
     await createBackup({
       pool: db,

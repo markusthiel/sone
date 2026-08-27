@@ -61,11 +61,13 @@ Four invariants, each with a specific failure mode behind it:
 
 1. Derived values (formulas, rollups, lookups, audit timestamps) are never
    written into a CRDT.
-2. Sibling order is a fractional index string, never an array position — and
-   every sibling sort is `(idx, id)`, never `idx` alone. The midpoint
+2. Within a page, block order is position in the page's single ProseMirror
+   fragment — Yjs resolves concurrent insertion itself (ADR-0015). Elsewhere
+   (page tree, collection rows, fields, views) order is a fractional index
+   string, and every such sort is `(idx, id)`, never `idx` alone: the midpoint
    algorithm is deterministic, so two clients inserting into the same gap
-   while offline generate the *identical* key; without the id as tie-breaker
-   they render the same document in different orders.
+   while offline generate the *identical* key, and without the id as
+   tie-breaker they render the same list in different orders.
 3. Relations are stored on one side only; the inverse is a query.
 4. The projection is rewritten in full per page, never diffed (ADR-0008).
 
@@ -89,15 +91,21 @@ used rather than admired.
 ## Layout
 
 ```
-packages/core      data model, types, schema versioning
+packages/core      data model, block tree, schema and document migrations
+packages/client     sync connection, document store, queries — no React
 packages/editor    block layer on the vendored ProseMirror
-packages/server    sync server, REST API, auth, materialisation
-packages/web       React client
+packages/server    sync server, HTTP API, auth, materialisation
+packages/web       React client — no WebSocket, no Y.Doc
 vendor/prosemirror git subtree, not an npm dependency
 db/migrations      Postgres schema
 docs/adr           architecture decision records
 docker             image, entrypoint, healthcheck
 ```
+
+The `client` / `web` split is not stylistic: a store reachable only through
+React hooks cannot be tested without a renderer, and in a local-first client
+every interesting bug is in the store. See
+[ADR-0016](docs/adr/0016-web-client-architecture.md).
 
 ## Roadmap
 

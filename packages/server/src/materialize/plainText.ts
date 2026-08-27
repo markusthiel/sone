@@ -4,45 +4,14 @@
  * Feeds the search index. Deliberately lossy: formatting, colours and marks
  * are dropped. The output is never read back into a CRDT (ADR-0002), so
  * losing information here is safe by construction.
+ *
+ * Inline text extraction itself lives in @sone/core's blockTree, next to the
+ * tree walk it belongs to. What remains here is normalisation and the
+ * per-block-type props projection, both of which are materialiser concerns.
  */
-
-import * as Y from 'yjs';
 
 /** Guard against a pathological block consuming the whole index. */
 const MAX_BLOCK_TEXT = 64 * 1024;
-
-/**
- * Extract text from a Y.XmlFragment, the shape ProseMirror stores.
- *
- * Walks recursively because inline content nests: a paragraph containing a
- * link containing text. Depth-limited so a malformed document cannot cause
- * unbounded recursion on the write path.
- */
-export function xmlFragmentToText(
-  node: Y.XmlFragment | Y.XmlElement | Y.XmlText | Y.XmlHook,
-  depth = 0,
-): string {
-  if (depth > 32) return '';
-
-  if (node instanceof Y.XmlText) return node.toString();
-  if (node instanceof Y.XmlHook) return '';
-
-  const parts: string[] = [];
-  for (let i = 0; i < node.length; i++) {
-    // Widened deliberately: Y.XmlFragment.get() is typed narrowly, but a
-    // document written by another client may hold any Xml node here.
-    const child: unknown = node.get(i);
-    if (
-      child instanceof Y.XmlElement ||
-      child instanceof Y.XmlText ||
-      child instanceof Y.XmlFragment ||
-      child instanceof Y.XmlHook
-    ) {
-      parts.push(xmlFragmentToText(child, depth + 1));
-    }
-  }
-  return parts.join(' ');
-}
 
 /**
  * Normalise extracted text: collapse whitespace, strip control characters,

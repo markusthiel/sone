@@ -38,6 +38,11 @@ Working so far:
 - Automatic upgrades — document formats migrate lazily when a page is opened,
   and the server refuses a downgrade instead of corrupting data
 
+The document format was corrected before any data existed: the block tree now
+lives in one ProseMirror fragment per page rather than one per block, which is
+what makes multi-block selection possible at all
+([ADR-0015](docs/adr/0015-one-fragment-per-page.md)).
+
 Not working yet: there is no user interface. Everything above is reachable only
 over the API and the sync protocol.
 

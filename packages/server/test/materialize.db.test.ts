@@ -11,12 +11,15 @@ import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, test } from 'node:test';
 
 import {
-  BLOCK_KEYS,
   COLLECTION_KEYS,
   DOC_KEYS,
   FIELD_KEYS,
   META_KEYS,
   PAGE_KEYS,
+  appendBlocks,
+  pageContent,
+  readBlockTree,
+  type NewBlock,
 } from '@sone/core';
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
@@ -70,19 +73,8 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     return doc;
   }
 
-  function addBlock(doc: Y.Doc, id: string, idx: string, text: string): void {
-    const block = new Y.Map();
-    block.set(BLOCK_KEYS.type, 'paragraph');
-    block.set(BLOCK_KEYS.parentId, null);
-    block.set(BLOCK_KEYS.idx, idx);
-    block.set(BLOCK_KEYS.props, new Y.Map());
-    doc.getMap(DOC_KEYS.blocks).set(id, block);
-
-    const fragment = new Y.XmlFragment();
-    doc.getMap(DOC_KEYS.content).set(id, fragment);
-    const el = new Y.XmlElement('paragraph');
-    fragment.insert(0, [el]);
-    el.insert(0, [new Y.XmlText(text)]);
+  function addBlock(doc: Y.Doc, id: string, text: string): void {
+    appendBlocks(doc, [{ id, type: 'paragraph', text } satisfies NewBlock]);
   }
 
   const project = (pageId: string, doc: Y.Doc, throughSeq = 1) =>
@@ -99,8 +91,8 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
   test('projects a page and its blocks', async () => {
     const pageId = uuid(1);
     const doc = pageDoc({ title: 'Hello world' });
-    addBlock(doc, uuid(11), 'a1', 'first paragraph');
-    addBlock(doc, uuid(12), 'a2', 'second paragraph');
+    addBlock(doc, uuid(11), 'first paragraph');
+    addBlock(doc, uuid(12), 'second paragraph');
 
     const result = await project(pageId, doc);
     assert.equal(result.blockCount, 2);
@@ -125,7 +117,7 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     // The central promise of ADR-0008.
     const pageId = uuid(1);
     const doc = pageDoc({ title: 'Stable' });
-    addBlock(doc, uuid(11), 'a1', 'content');
+    addBlock(doc, uuid(11), 'content');
 
     await project(pageId, doc);
     const first = await db.query(
@@ -147,12 +139,13 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     // implementation leaves ghost rows that show up in views.
     const pageId = uuid(1);
     const doc = pageDoc({ title: 'Shrinking' });
-    addBlock(doc, uuid(11), 'a1', 'kept');
-    addBlock(doc, uuid(12), 'a2', 'removed');
+    addBlock(doc, uuid(11), 'kept');
+    addBlock(doc, uuid(12), 'removed');
     await project(pageId, doc);
 
-    doc.getMap(DOC_KEYS.blocks).delete(uuid(12));
-    doc.getMap(DOC_KEYS.content).delete(uuid(12));
+    // Remove the second block from the page body.
+    const fragment = pageContent(doc);
+    fragment.delete(1, 1);
     await project(pageId, doc, 2);
 
     const blocks = await db.query(`SELECT id FROM blocks WHERE page_id = $1`, [pageId]);
@@ -164,7 +157,7 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     const pageId = uuid(1);
     const doc = pageDoc({ title: 'Large' });
     for (let i = 0; i < 1500; i++) {
-      addBlock(doc, uuid(1000 + i), `a${String(i).padStart(5, '0')}1`, `line ${i}`);
+      addBlock(doc, uuid(1000 + i), `line ${i}`);
     }
     const result = await project(pageId, doc);
     assert.equal(result.blockCount, 1500);
@@ -508,7 +501,7 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
   test('search index finds a page by block content', async () => {
     const pageId = uuid(1);
     const doc = pageDoc({ title: 'Meeting notes' });
-    addBlock(doc, uuid(11), 'a1', 'discussed the quarterly budget');
+    addBlock(doc, uuid(11), 'discussed the quarterly budget');
     await project(pageId, doc);
 
     const hits = await db.query<{ page_id: string }>(
@@ -528,7 +521,7 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
 
     await project(titled, pageDoc({ title: 'Budget' }));
     const other = pageDoc({ title: 'Notes' });
-    addBlock(other, uuid(11), 'a1', 'budget was mentioned in passing');
+    addBlock(other, uuid(11), 'budget was mentioned in passing');
     await project(mentioned, other);
 
     const hits = await db.query<{ page_id: string }>(
@@ -581,10 +574,9 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     await project(pageId, pageDoc({ title: 'Doc' }));
 
     const doc = new Y.Doc();
-    const blocks = doc.getMap(DOC_KEYS.blocks);
     for (let i = 0; i < 20; i++) {
       const before = Y.encodeStateVector(doc);
-      blocks.set(`b${i}`, i);
+      appendBlocks(doc, [{ id: uuid(200 + i), type: 'paragraph', text: `line ${i}` }]);
       await appendUpdate(db, pageId, Y.encodeStateAsUpdate(doc, before), fx.userId);
     }
 
@@ -598,7 +590,7 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     assert.equal(pending.rows[0]!.n, '0', 'folded updates must be deleted');
 
     const loaded = await loadDoc(db, pageId);
-    assert.equal(loaded.doc.getMap(DOC_KEYS.blocks).size, 20, 'state survived');
+    assert.equal(readBlockTree(loaded.doc).blocks.length, 20, 'state survived');
     loaded.doc.destroy();
   });
 
@@ -610,7 +602,7 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     const child = uuid(2);
 
     const rootDoc = pageDoc({ title: 'Root' });
-    addBlock(rootDoc, uuid(11), 'a1', 'root content');
+    addBlock(rootDoc, uuid(11), 'root content');
     const childDoc = pageDoc({ title: 'Child', parentPageId: root });
 
     for (const [id, doc] of [

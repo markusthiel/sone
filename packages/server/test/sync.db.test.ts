@@ -11,7 +11,13 @@ import { createServer, type Server } from 'node:http';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { once } from 'node:events';
 
-import { DOC_KEYS, META_KEYS, PAGE_KEYS } from '@sone/core';
+import {
+  DOC_KEYS,
+  META_KEYS,
+  PAGE_KEYS,
+  appendBlocks,
+  readBlockTree,
+} from '@sone/core';
 import type { Pool } from 'pg';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
@@ -381,7 +387,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
 
     const localA = new Y.Doc();
     const before = Y.encodeStateVector(localA);
-    localA.getMap(DOC_KEYS.blocks).set('b1', 'hello from A');
+    appendBlocks(localA, [{ id: uuid(101), type: 'paragraph', text: 'hello from A' }]);
     clientA.send(syncUpdateFrame(handleA, Y.encodeStateAsUpdate(localA, before)));
 
     const localB = new Y.Doc();
@@ -405,7 +411,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
       }
     }
 
-    assert.equal(localB.getMap(DOC_KEYS.blocks).get('b1'), 'hello from A');
+    assert.equal(readBlockTree(localB).blocks[0]?.text, 'hello from A');
     clientA.close();
     clientB.close();
   });
@@ -503,7 +509,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
 
     const local = new Y.Doc();
     const before = Y.encodeStateVector(local);
-    local.getMap(DOC_KEYS.blocks).set('sneaky', 'should not land');
+    appendBlocks(local, [{ id: uuid(102), type: 'paragraph', text: 'should not land' }]);
     client.send(syncUpdateFrame(handle, Y.encodeStateAsUpdate(local, before)));
 
     const err = await client.waitForType(ServerMessage.Error);
@@ -813,7 +819,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     const handle1 = (await openDoc(first, uuid(1))).handle;
     const local = new Y.Doc();
     const before = Y.encodeStateVector(local);
-    local.getMap(DOC_KEYS.blocks).set('written', 'while connected');
+    appendBlocks(local, [{ id: uuid(103), type: 'paragraph', text: 'while connected' }]);
     first.send(syncUpdateFrame(handle1, Y.encodeStateAsUpdate(local, before)));
     await sleep(1200);
     first.close();
@@ -842,7 +848,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
       }
     }
 
-    assert.equal(fresh.getMap(DOC_KEYS.blocks).get('written'), 'while connected');
+    assert.equal(readBlockTree(fresh).blocks[0]?.text, 'while connected');
     second.close();
   });
 });

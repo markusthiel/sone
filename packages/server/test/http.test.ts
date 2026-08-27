@@ -12,7 +12,7 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
-import { DOC_KEYS, META_KEYS, PAGE_KEYS } from '@sone/core';
+import { DOC_KEYS, META_KEYS, PAGE_KEYS, appendBlocks } from '@sone/core';
 
 import { BodyError, MAX_BODY_BYTES, Router } from '../src/http/router.js';
 import { checkReadiness, registerHealthRoutes } from '../src/http/health.js';
@@ -336,7 +336,7 @@ describe('maintenance (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     const doc = new Y.Doc();
     for (let i = 0; i <= COMPACT_THRESHOLD; i++) {
       const before = Y.encodeStateVector(doc);
-      doc.getMap(DOC_KEYS.blocks).set(`b${i}`, i);
+      appendBlocks(doc, [{ id: uuid(300 + i), type: 'paragraph', text: `b${i}` }]);
       await appendUpdate(db, uuid(1), Y.encodeStateAsUpdate(doc, before), null);
     }
 
@@ -360,7 +360,7 @@ describe('maintenance (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
   test('leaves a small backlog alone', async () => {
     await makePage(uuid(1));
     const doc = new Y.Doc();
-    doc.getMap(DOC_KEYS.blocks).set('only', 1);
+    appendBlocks(doc, [{ id: uuid(400), type: 'paragraph', text: 'only' }]);
     await appendUpdate(db, uuid(1), Y.encodeStateAsUpdate(doc), null);
 
     assert.equal(await compactBacklog(db), 0, 'compaction is not free; do not run it eagerly');
