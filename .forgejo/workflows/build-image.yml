@@ -25,17 +25,26 @@
 
 name: Build image
 
-# Not run on every push to main. Publishing an image needs Docker daemon access
-# from inside a job container, which this instance's runner does not currently
-# provide — so running it per push would mean a red build on every commit for a
-# capability nothing yet depends on. Deployment builds from source today
-# (docker-compose.build.yml).
+# Manual only, for now.
 #
-# Re-enable the push trigger once the runner exposes a daemon; the preflight
-# step will confirm it in the first seconds.
+# Publishing an image needs Docker daemon access from inside a job container,
+# which this instance's runner does not provide. It ran automatically on version
+# tags until v0.1.0-rc.1 showed the problem with that: the tag was perfectly
+# good and deployable, and the release still looked broken because a workflow
+# beside it was red.
+#
+# A tag does not need an image. A Portainer repository stack pointed at
+# refs/tags/<tag> builds that exact commit (docs/deployment.md), so the image is
+# a convenience that trades a build on the deployment host for a pull.
+#
+# To re-enable: point `runs-on` at a runner with daemon access and add back
+#
+#   push:
+#     tags: ['v*']
+#
+# The preflight step confirms the daemon in the first seconds, so a wrong runner
+# fails immediately and legibly rather than midway through a build.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
 
 env:
@@ -98,6 +107,10 @@ jobs:
           Note that giving a runner the Docker socket is root-equivalent access
           to that daemon. See docs/actions-runner.md before doing it on a host
           that runs anything you care about.
+
+          Nothing is blocked by this failing. A tag is deployable without an
+          image: point a Portainer repository stack at refs/tags/<tag> with
+          compose path docker-compose.build.yml and it builds that exact commit.
           MSG
           exit 1
 
