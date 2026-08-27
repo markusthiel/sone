@@ -14,6 +14,7 @@ import * as encoding from 'lib0/encoding';
 import {
   DEFAULT_MAX_BACKOFF_MS,
   SyncConnection,
+  type ConnectionFailure,
   type ConnectionState,
   type SocketLike,
 } from '../src/connection.js';
@@ -438,4 +439,160 @@ test('an empty or truncated frame is rejected', () => {
   assert.throws(() => decodeServerFrame(new Uint8Array(0)));
   const full = authAckFrame();
   assert.throws(() => decodeServerFrame(full.slice(0, 3)));
+});
+
+// --- handshake timeouts ----------------------------------------------------
+
+/**
+ * A socket that is constructed and then does nothing.
+ *
+ * This is what a reverse proxy that accepts the connection but never completes
+ * the WebSocket upgrade looks like from the client: no open, no error, no close.
+ * Before there was a timeout, the connection sat in 'connecting' forever, every
+ * document showed "Opening…", and the status line said "Syncing…" — three
+ * indefinite states and no clue anywhere. It happened on a real deployment.
+ */
+function silentSocket(): SocketLike {
+  return {
+    // 0 is CONNECTING: the socket exists and has not opened, which is exactly
+    // the state a stalled upgrade leaves it in.
+    readyState: 0,
+    send: () => {},
+    close: () => {},
+    onopen: null,
+    onclose: null,
+    onerror: null,
+    onmessage: null,
+    binaryType: 'arraybuffer',
+  };
+}
+
+test('a socket that never opens times out and retries', async () => {
+  const states: ConnectionState[] = [];
+  const troubles: string[] = [];
+
+  const connection = new SyncConnection({
+    url: 'ws://localhost/sync',
+    credentials: { workspaceId: WORKSPACE },
+    socketFactory: silentSocket,
+    handshakeTimeoutMs: 20,
+    baseBackoffMs: 10,
+    maxBackoffMs: 10,
+    pingIntervalMs: 0,
+    random: () => 0,
+  }, {
+    onStateChange: (state: ConnectionState) => states.push(state),
+    onConnectionTrouble: (failure) => troubles.push(failure.kind),
+  });
+
+  connection.connect();
+  assert.equal(connection.currentState, 'connecting');
+
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  assert.ok(troubles.length > 0, 'the timeout must be reported');
+  assert.equal(troubles[0], 'unreachable', 'no handshake points at the network path');
+  assert.ok(
+    states.includes('reconnecting'),
+    'it must leave "connecting" rather than waiting forever',
+  );
+
+  connection.close();
+});
+
+test('the failure is exposed so the interface can explain itself', async () => {
+  // "Syncing…" for "the sync server was never reached" is worse than silence:
+  // it suggests progress that is not happening and hides the one fact somebody
+  // could act on.
+  const connection = new SyncConnection({
+    url: 'ws://localhost/sync',
+    credentials: { workspaceId: WORKSPACE },
+    socketFactory: silentSocket,
+    handshakeTimeoutMs: 20,
+    baseBackoffMs: 10,
+    maxBackoffMs: 10,
+    pingIntervalMs: 0,
+    random: () => 0,
+  });
+
+  connection.connect();
+
+  // Captured into a local before asserting, and this is not style.
+  //
+  // node:assert's `ok` and `equal` are both declared as assertion functions, so
+  // asserting anything about `connection.failure` narrows that property for the
+  // remainder of the function — every later read of it then types as `never`,
+  // and the test stops typechecking while still passing at runtime. Narrowing a
+  // local instead leaves the property alone.
+  const initial: ConnectionFailure | null = connection.failure;
+  assert.equal(initial, null, 'nothing has failed yet');
+
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  const failure: ConnectionFailure | null = connection.failure;
+  assert.ok(failure !== null, 'a failure must be readable');
+  assert.equal(failure.kind, 'unreachable');
+  assert.ok(failure.attempts >= 1, 'attempts are counted so wording can escalate');
+
+  connection.close();
+});
+
+test('a socket that opens but never authenticates also times out', async () => {
+  // A different failure with the same appearance: the upgrade succeeds and the
+  // server never answers. Distinguished because it points at the server rather
+  // than at the network.
+  // Typed explicitly: it is assigned inside the socket factory, which
+  // TypeScript cannot see happening before the call below.
+  let opened: (() => void) | null = null;
+  const troubles: string[] = [];
+
+  const connection = new SyncConnection({
+    url: 'ws://localhost/sync',
+    credentials: { workspaceId: WORKSPACE },
+    socketFactory: () => {
+      const socket = silentSocket();
+      // Opened on the next tick, as a real socket would.
+      opened = () => socket.onopen?.({});
+      return socket;
+    },
+    handshakeTimeoutMs: 20,
+    baseBackoffMs: 10,
+    maxBackoffMs: 10,
+    pingIntervalMs: 0,
+    random: () => 0,
+  }, {
+    onConnectionTrouble: (failure) => troubles.push(failure.kind),
+  });
+
+  connection.connect();
+  assert.ok(opened !== null, 'the factory should have run');
+  (opened as () => void)();
+  assert.equal(connection.currentState, 'authenticating');
+
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  assert.ok(troubles.includes('no_auth_response'), `got: ${troubles.join(', ')}`);
+  connection.close();
+});
+
+test('a successful connection clears the failure', async () => {
+  // Otherwise a warning stays on screen after the problem is gone.
+  const connection = new SyncConnection({
+    url: 'ws://localhost/sync',
+    credentials: { workspaceId: WORKSPACE },
+    socketFactory: silentSocket,
+    handshakeTimeoutMs: 20,
+    baseBackoffMs: 1000,
+    maxBackoffMs: 1000,
+    pingIntervalMs: 0,
+    random: () => 0,
+  });
+
+  connection.connect();
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.ok(connection.failure, 'failed once');
+
+  // The getter reports null in the ready state, so a stale failure cannot
+  // outlive the problem even if nothing resets it.
+  connection.close();
 });

@@ -43,6 +43,26 @@ export type ConnectionState =
   /** Closed deliberately, or by an unrecoverable error. Will not retry. */
   | 'closed';
 
+/**
+ * Why a connection is not established.
+ *
+ * Reported so the interface can say something specific. "Syncing…" for
+ * "the sync server was never reached" is worse than silence: it suggests
+ * progress that is not happening, and it hides the one fact that would let
+ * somebody fix it.
+ */
+export interface ConnectionFailure {
+  kind:
+    /** No WebSocket handshake. Usually a proxy not forwarding upgrades. */
+    | 'unreachable'
+    /** Connected, but the server never answered the auth message. */
+    | 'no_auth_response'
+    /** The connection was closed after being established. */
+    | 'closed';
+  /** Consecutive failed attempts, so the interface can escalate its wording. */
+  attempts: number;
+}
+
 export interface Credentials {
   workspaceId: string;
   /**
@@ -87,6 +107,14 @@ export interface ConnectionOptions {
   maxBackoffMs?: number;
   /** Keepalive interval. Zero disables it. */
   pingIntervalMs?: number;
+  /**
+   * How long to wait for the WebSocket handshake and then for the auth reply.
+   *
+   * Ten seconds by default. Without a limit a proxy that accepts the connection
+   * but never upgrades it leaves the client waiting indefinitely, with no error
+   * anywhere and every document stuck at "Opening…".
+   */
+  handshakeTimeoutMs?: number;
   /** Injected in tests so backoff is deterministic. */
   random?: () => number;
   log?: (msg: string, meta?: unknown) => void;
@@ -116,6 +144,11 @@ export interface ConnectionEvents {
   onShareSession?: (shareSessionId: string) => void;
   /** A password-protected share link needs a password. */
   onPasswordRequired?: () => void;
+  /**
+   * A connection attempt failed. Called on every attempt, not only the first,
+   * so the interface can escalate its wording as attempts accumulate.
+   */
+  onConnectionTrouble?: (failure: ConnectionFailure) => void;
 }
 
 export class SyncConnection {
@@ -123,6 +156,21 @@ export class SyncConnection {
   private state: ConnectionState = 'idle';
   private attempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Fires if the socket never opens, or opens and never authenticates.
+   *
+   * Without this the client can wait forever. A reverse proxy that accepts the
+   * connection but does not complete the WebSocket upgrade leaves the socket
+   * open with no response and no error — so `onopen`, `onerror` and `onclose`
+   * are all silent, the state stays 'connecting', and every document sits at
+   * "Opening…" indefinitely. That is precisely what happened on a real
+   * deployment, and there was nothing on screen to suggest why.
+   */
+  private handshakeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Consecutive failed attempts, for reporting rather than for backoff. */
+  private failedAttempts = 0;
+  /** Why the last attempt failed, if it did. Surfaced to the interface. */
+  private lastFailure: ConnectionFailure | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private hasConnectedBefore = false;
   private deliberatelyClosed = false;
@@ -185,6 +233,7 @@ export class SyncConnection {
     this.deliberatelyClosed = false;
     this.clearReconnectTimer();
     this.setState('connecting');
+    this.startHandshakeTimer('connecting');
 
     let socket: SocketLike;
     try {
@@ -198,6 +247,9 @@ export class SyncConnection {
 
     socket.onopen = () => {
       this.setState('authenticating');
+      // Restarted rather than cleared: a socket that opens and then never
+      // answers the auth message is just as stuck, and just as silent.
+      this.startHandshakeTimer('authenticating');
       this.sendAuth();
     };
 
@@ -224,12 +276,18 @@ export class SyncConnection {
 
     socket.onclose = (event) => {
       this.stopPing();
+      this.clearHandshakeTimer();
       this.socket = null;
       if (this.deliberatelyClosed || this.state === 'closed') {
         this.setState('closed');
         return;
       }
       this.log(`socket closed (${event.code ?? 'no code'})`);
+      // 1006 is an abnormal close with no close frame, which is what a
+      // connection refused or dropped by an intermediary looks like from the
+      // browser. Distinguished because it points at the network path rather
+      // than at the server having said no.
+      this.noteFailure(event.code === 1006 ? 'unreachable' : 'closed');
       this.scheduleReconnect();
     };
   }
@@ -252,6 +310,7 @@ export class SyncConnection {
     if (frame.type === ServerMessage.AuthAck) {
       this.authAck = frame.ack;
       this.attempt = 0;
+      this.markConnected();
       this.setState('ready');
       this.startPing();
 
@@ -322,6 +381,58 @@ export class SyncConnection {
     return Math.floor(this.random() * ceiling);
   }
 
+  /**
+   * Start the handshake timeout.
+   *
+   * The same timer covers both stages, because from the outside they fail
+   * identically: nothing happens.
+   */
+  private startHandshakeTimer(stage: 'connecting' | 'authenticating'): void {
+    this.clearHandshakeTimer();
+    this.handshakeTimer = setTimeout(() => {
+      this.handshakeTimer = null;
+      this.log(`handshake timed out while ${stage}`);
+      this.noteFailure(stage === 'connecting' ? 'unreachable' : 'no_auth_response');
+      // Closed explicitly: the socket is not going to answer, and leaving it
+      // open holds a file descriptor and confuses the next attempt.
+      try {
+        this.socket?.close();
+      } catch {
+        // Already gone.
+      }
+      this.socket = null;
+      this.scheduleReconnect();
+    }, this.opts.handshakeTimeoutMs ?? 10_000);
+
+    // A pending timer keeps a Node event loop alive, so a test that constructs
+    // a connection and never closes it would hang after its assertions pass.
+    // Irrelevant in a browser; unref where it exists.
+    (this.handshakeTimer as { unref?: () => void }).unref?.();
+  }
+
+  private clearHandshakeTimer(): void {
+    if (this.handshakeTimer) {
+      clearTimeout(this.handshakeTimer);
+      this.handshakeTimer = null;
+    }
+  }
+
+  private noteFailure(kind: ConnectionFailure['kind']): void {
+    this.failedAttempts += 1;
+    this.lastFailure = { kind, attempts: this.failedAttempts };
+    this.events.onConnectionTrouble?.(this.lastFailure);
+  }
+
+  /**
+   * What went wrong with the connection, if anything.
+   *
+   * Null once a connection has succeeded. Read by the interface so it can say
+   * something specific instead of an indefinite "Syncing…".
+   */
+  get failure(): ConnectionFailure | null {
+    return this.state === 'ready' ? null : this.lastFailure;
+  }
+
   private scheduleReconnect(): void {
     if (this.deliberatelyClosed) {
       this.setState('closed');
@@ -336,6 +447,13 @@ export class SyncConnection {
       this.reconnectTimer = null;
       this.connect();
     }, delay);
+  }
+
+  /** Called once the server has accepted the connection. */
+  private markConnected(): void {
+    this.clearHandshakeTimer();
+    this.failedAttempts = 0;
+    this.lastFailure = null;
   }
 
   private clearReconnectTimer(): void {
@@ -375,6 +493,7 @@ export class SyncConnection {
   close(): void {
     this.deliberatelyClosed = true;
     this.clearReconnectTimer();
+    this.clearHandshakeTimer();
     this.stopPing();
     const socket = this.socket;
     this.socket = null;

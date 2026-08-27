@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a stalled connection waited forever and said "Syncing…".** A proxy that
+accepts the connection but never completes the WebSocket upgrade produced no
+open, no error and no close, so the client sat in "connecting" indefinitely,
+every page showed "Opening…", and nothing on screen suggested why. There is now
+a ten-second handshake timeout, and the status line names the cause — "Cannot
+reach the sync server", with the likely fix on hover.
+
 **A right-hand panel with tabs.** Outline and properties, toggled from the top
 bar. The outline lists the page's headings and scrolls to one when clicked; it
 is derived from the document through the same tree walk the server uses, so it

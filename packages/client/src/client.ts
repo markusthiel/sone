@@ -5,7 +5,12 @@
  * separate from both so each stays testable in isolation.
  */
 
-import { SyncConnection, type ConnectionOptions, type ConnectionState } from './connection.js';
+import {
+  SyncConnection,
+  type ConnectionFailure,
+  type ConnectionOptions,
+  type ConnectionState,
+} from './connection.js';
 import { DocumentStore, type PageHandle, type PresenceState } from './store.js';
 
 export interface SoneClientOptions extends ConnectionOptions {
@@ -15,6 +20,13 @@ export interface SoneClientOptions extends ConnectionOptions {
   onPasswordRequired?: () => void;
   /** Persist the anonymous share session so presence survives a reload. */
   onShareSession?: (shareSessionId: string) => void;
+  /**
+   * A connection attempt failed, with why.
+   *
+   * Passed through so the interface can say what is wrong instead of showing an
+   * indefinite "Syncing…" for a connection that was never established.
+   */
+  onConnectionTrouble?: (failure: ConnectionFailure) => void;
 }
 
 export class SoneClient {
@@ -29,6 +41,9 @@ export class SoneClient {
 
     this.connection = new SyncConnection(opts, {
       onFrame: (frame) => store.handleFrame(frame),
+      ...(opts.onConnectionTrouble
+        ? { onConnectionTrouble: opts.onConnectionTrouble }
+        : {}),
       onReconnect: () => store.handleReconnect(),
       onStateChange: (state, previous) => {
         // A transition away from ready means every document is stale until the
@@ -69,6 +84,17 @@ export class SoneClient {
   }
 
   /** True when there are local changes the server has not acknowledged. */
+  /**
+   * Why the connection is not established, if it is not.
+   *
+   * Surfaced so the interface can say something specific. "Syncing…" for "the
+   * sync server was never reached" suggests progress that is not happening and
+   * hides the one fact somebody could act on.
+   */
+  get connectionFailure(): ConnectionFailure | null {
+    return this.connection.failure;
+  }
+
   get hasUnsyncedChanges(): boolean {
     return this.store.stats.unsynced > 0;
   }

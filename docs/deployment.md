@@ -135,8 +135,15 @@ in production, and a silent login failure if the instance is actually served
 over plain http.
 
 **The reverse proxy must forward WebSocket upgrades** for `/sync`, or the app
-loads and then never syncs, which looks like a broken editor rather than a proxy
-problem. For nginx:
+loads and then never syncs.
+
+The app now says so: the status line reads "Cannot reach the sync server" with
+the detail on hover, rather than an indefinite "Syncing…". Pages show
+"Opening…" because no document can be opened without a connection, and edits are
+kept locally until one works — nothing is lost, but nothing reaches anyone else
+either.
+
+For nginx:
 
 ```nginx
 location /sync {

@@ -5,7 +5,12 @@
  * framework-free (ADR-0016).
  */
 
-import { SoneClient, type ConnectionState, type PageHandle } from '@sone/client';
+import {
+  SoneClient,
+  type ConnectionFailure,
+  type ConnectionState,
+  type PageHandle,
+} from '@sone/client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const SHARE_SESSION_KEY = 'sone.shareSession';
@@ -33,11 +38,14 @@ export interface ClientCredentials {
 export function useSoneClient(credentials: ClientCredentials | null): {
   client: SoneClient | null;
   state: ConnectionState;
+  /** Why the connection is not up, if it is not. */
+  failure: ConnectionFailure | null;
   fatal: { code: string } | null;
   passwordRequired: boolean;
   submitPassword: (password: string) => void;
 } {
   const [state, setState] = useState<ConnectionState>('idle');
+  const [failure, setFailure] = useState<ConnectionFailure | null>(null);
   const [fatal, setFatal] = useState<{ code: string } | null>(null);
   const [passwordRequired, setPasswordRequired] = useState(false);
   const clientRef = useRef<SoneClient | null>(null);
@@ -73,7 +81,12 @@ export function useSoneClient(credentials: ClientCredentials | null): {
         userId: null,
         isAnonymous: Boolean(credentials.shareToken),
       },
-      onStateChange: setState,
+      onStateChange: (next) => {
+        setState(next);
+        // Cleared on success, so a warning does not outlive the problem.
+        if (next === 'ready') setFailure(null);
+      },
+      onConnectionTrouble: setFailure,
       onFatal: (code) => setFatal({ code }),
       onPasswordRequired: () => setPasswordRequired(true),
       onShareSession: (id) => {
@@ -104,6 +117,7 @@ export function useSoneClient(credentials: ClientCredentials | null): {
   return {
     client,
     state,
+    failure,
     fatal,
     passwordRequired,
     submitPassword: (password: string) => {

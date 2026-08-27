@@ -325,6 +325,92 @@ describe('client end to end', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
     assert.deepEqual(fatals, ['auth_failed']);
   });
 
+  // --- server-side edits reaching a connected client -----------------------
+
+  /**
+   * The reported symptom: renaming a page did not show up in the sidebar, and
+   * pages sat at "Opening…" forever.
+   *
+   * A rename goes through the HTTP API, which writes the CRDT document directly
+   * rather than through a sync room. For a client that already has the page
+   * open, that update has to travel five hops: appendUpdate inserts into
+   * doc_updates, a database trigger fires NOTIFY, the update bus delivers it,
+   * the room applies it, the room fans it out.
+   *
+   * Nothing covered that whole path, which is exactly the sort of chain where
+   * one missing link produces "nothing happens" with no error anywhere.
+   */
+  test('a rename made on the server reaches a connected client', async () => {
+    const pageId = uuid(900);
+    await seedPage(pageId, 'Before');
+
+    const client = makeClient({});
+    client.connect();
+    await waitFor(() => client.state === 'ready', 'client ready');
+
+    const handle = client.openPage(pageId);
+    await waitFor(() => handle.status === 'synced', 'document synced');
+    assert.equal(
+      handle.doc.getMap(DOC_KEYS.page).get(PAGE_KEYS.title),
+      'Before',
+      'the client should see the seeded title',
+    );
+
+    // Exactly what the HTTP rename route does.
+    const { applyToDocument } = await import('@sone/server/src/doc/docStore.js');
+    const result = await applyToDocument(
+      db,
+      pageId,
+      (doc) => {
+        doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.title, 'After');
+      },
+      null,
+    );
+    assert.equal(result.changed, true, 'the server-side edit must produce a delta');
+
+    await waitFor(
+      () => handle.doc.getMap(DOC_KEYS.page).get(PAGE_KEYS.title) === 'After',
+      'the rename to reach the connected client',
+    );
+  });
+
+  test('a block added on the server reaches a connected client', async () => {
+    // Page content was also reported as not arriving, so the same path is
+    // checked for the block tree rather than only for a map key.
+    const pageId = uuid(901);
+    await seedPage(pageId, 'Content page');
+
+    const client = makeClient({});
+    client.connect();
+    await waitFor(() => client.state === 'ready', 'client ready');
+    const handle = client.openPage(pageId);
+    await waitFor(() => handle.status === 'synced', 'document synced');
+
+    const { applyToDocument } = await import('@sone/server/src/doc/docStore.js');
+    await applyToDocument(
+      db,
+      pageId,
+      (doc) => {
+        const fragment = doc.getXmlFragment(DOC_KEYS.content);
+        const paragraph = new Y.XmlElement('paragraph');
+        paragraph.setAttribute('id', uuid(902));
+        paragraph.insert(0, [new Y.XmlText('added on the server')]);
+        fragment.insert(fragment.length, [paragraph]);
+      },
+      null,
+    );
+
+    await waitFor(
+      () =>
+        handle.doc
+          .getXmlFragment(DOC_KEYS.content)
+          .toString()
+          .includes('added on the server'),
+      'the new block to reach the connected client',
+    );
+  });
+
+
   // --- documents -----------------------------------------------------------
 
   test('opens a page and syncs its existing content', async () => {

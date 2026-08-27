@@ -123,7 +123,7 @@ function Workspace({
   onSwitchWorkspace: (workspaceId: string) => void;
   onLogout: () => void;
 }): ReactElement {
-  const { client, state: connectionState } = useSoneClient({
+  const { client, state: connectionState, failure } = useSoneClient({
     workspaceId,
     displayName,
   });
@@ -217,7 +217,11 @@ function Workspace({
           >
             ☰
           </button>
-          <PageStatus handle={handle} connectionState={connectionState} />
+          <PageStatus
+            handle={handle}
+            connectionState={connectionState}
+            failure={failure}
+          />
           <div className="topbar-end">
             <RightPanelToggle open={rightOpen} onToggle={() => setRightOpen((v) => !v)} />
           </div>
