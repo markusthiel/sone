@@ -58,6 +58,8 @@ export class BackupError extends Error {
     readonly code:
       | 'pg_dump_missing'
       | 'pg_dump_failed'
+      /** The client is older than the server. Actionable; see the message. */
+      | 'version_mismatch'
       | 'psql_failed'
       | 'unknown_format'
       | 'checksum_mismatch'
@@ -96,15 +98,43 @@ async function run(
     });
 
     child.on('close', (code) => {
-      if (code === 0) resolve();
-      else {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      const detail = stderr.trim().slice(0, 2000);
+
+      // A version mismatch is the one failure here with a specific, actionable
+      // cause, and pg_dump's own wording does not say what to do about it.
+      // pg_dump can dump a server of its own version or older, never newer.
+      if (/server version mismatch/i.test(detail)) {
+        // pg_dump's detail line carries a build suffix in parentheses, so this
+        // reads up to the separator rather than matching a bare token:
+        //   server version: 17.11 (Debian ...); pg_dump version: 15.19 (...)
+        const versions = /server version: ([^;]+); pg_dump version: (.+)/.exec(detail);
+        const explanation = versions
+          ? `The server is ${versions[1]!.trim()} but pg_dump is ${versions[2]!.trim()}.`
+          : 'The installed pg_dump is older than the server.';
         reject(
           new BackupError(
-            `${command} exited with code ${code}: ${stderr.trim().slice(0, 2000)}`,
-            command === 'psql' ? 'psql_failed' : 'pg_dump_failed',
+            `${explanation} pg_dump cannot dump a server newer than itself. ` +
+              `Install a postgresql-client whose major version is at least the ` +
+              `server's. In the SONE image this is pinned to match the Postgres ` +
+              `in docker-compose.yml; if you point SONE at a newer external ` +
+              `Postgres, the image needs a newer client too.\n\n${detail}`,
+            'version_mismatch',
           ),
         );
+        return;
       }
+
+      reject(
+        new BackupError(
+          `${command} exited with code ${code}: ${detail}`,
+          command === 'psql' ? 'psql_failed' : 'pg_dump_failed',
+        ),
+      );
     });
   });
 }

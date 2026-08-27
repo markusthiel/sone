@@ -101,6 +101,18 @@ volumes:
   - /mnt/backups/sone:/var/lib/sone/backups
 ```
 
+## Backups and the Postgres client version
+
+`pg_dump` refuses to dump a server newer than itself. The image pins
+`postgresql17-client` to match the Postgres in `docker-compose.yml`, so the
+bundled setup is consistent.
+
+If you point SONE at an **external** Postgres that is newer than 17, backups
+will fail with a version-mismatch error naming both versions. The fix is a newer
+client in the image, not a change to the database. The backup command reports
+this explicitly rather than passing on `pg_dump`'s own wording, which does not
+say what to do about it.
+
 ## Health and readiness
 
 - `GET /api/health` — liveness. No database call. This is what the container

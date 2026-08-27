@@ -468,6 +468,51 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     assert.equal(pages.rows[0]!.title, 'Precious');
   });
 
+  test('a pg_dump older than the server gives an actionable error', async () => {
+    // CI hit this for real: Debian bookworm ships client 15 while the service
+    // container runs Postgres 17, and pg_dump refuses to dump a server newer
+    // than itself. Its own message says "aborting because of server version
+    // mismatch" and nothing about what to do, so the wording is mapped.
+    //
+    // Reproduced by putting an older pg_dump first on PATH. Skipped when no
+    // older client is installed, since the point is the message rather than
+    // the platform.
+    const { existsSync } = await import('node:fs');
+    const olderClient = ['/usr/lib/postgresql/15/bin', '/usr/lib/postgresql/14/bin'].find(
+      (dir) => existsSync(`${dir}/pg_dump`),
+    );
+    if (!olderClient) {
+      // Nothing to test against on this machine.
+      return;
+    }
+
+    const originalPath = process.env['PATH'];
+    process.env['PATH'] = `${olderClient}:${originalPath}`;
+    try {
+      const err = await createBackup({
+        pool: db,
+        databaseUrl: testDatabaseUrl(),
+        outputDir: path.join(workDir, 'mismatch'),
+        filesPath: null,
+        appVersion: '0.1.0',
+        documentSchemaVersion: SCHEMA_VERSION,
+        log: () => {},
+      })
+        .then(() => null)
+        .catch((e: BackupError) => e);
+
+      assert.ok(err instanceof BackupError);
+      assert.equal(err.code, 'version_mismatch');
+      assert.match(err.message, /cannot dump a server newer than itself/);
+      assert.match(err.message, /postgresql-client/, 'must name the fix');
+      // Both versions are surfaced, so an operator does not have to run
+      // pg_dump by hand to find out which is which.
+      assert.match(err.message, /The server is .* but pg_dump is /);
+    } finally {
+      process.env['PATH'] = originalPath;
+    }
+  });
+
   test('an archive from a newer backup format is refused', async () => {
     const dir = path.join(workDir, 'future');
     await mkdir(dir, { recursive: true });
