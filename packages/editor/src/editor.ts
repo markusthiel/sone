@@ -35,6 +35,7 @@ import { soneInputRules } from './inputRules.js';
 import { soneKeymap } from './keymap.js';
 import { listNumbers } from './listNumbers.js';
 import { schema } from './schema.js';
+import { slashMenu } from './slashMenu.js';
 
 export interface EditorOptions {
   /** The page body fragment. See pageContent() in @sone/core. */
@@ -55,6 +56,13 @@ export interface EditorOptions {
   /** Node views for atoms that mount their own renderer, e.g. collectionView. */
   nodeViews?: EditorView['props']['nodeViews'];
   onChange?: (state: EditorState) => void;
+  /**
+   * Called after every transaction, not only document changes.
+   *
+   * The slash menu opens, filters and closes without the document changing, so
+   * a renderer watching only `onChange` would never see it.
+   */
+  onStateChange?: (state: EditorState) => void;
 }
 
 export function createEditorState(opts: EditorOptions): EditorState {
@@ -80,6 +88,11 @@ export function createEditorState(opts: EditorOptions): EditorState {
     ...soneKeymap(),
     blockIds(opts.generateId ? { generateId: opts.generateId } : {}),
     listNumbers(),
+    // After the keymap, so the menu's handleKeyDown sees Enter and the arrows
+    // first while it is open. ProseMirror asks plugins in order and stops at
+    // the first that handles a key; the other way round, Enter would split the
+    // block instead of picking an item.
+    slashMenu(),
   );
 
   return EditorState.create({ schema, plugins });
@@ -130,6 +143,7 @@ export function createEditor(
       const next = view.state.apply(transaction);
       view.updateState(next);
       if (transaction.docChanged) opts.onChange?.(next);
+      opts.onStateChange?.(next);
     },
     attributes: {
       // Spellcheck on, autocorrect off: a notes app contains a lot of
@@ -178,3 +192,15 @@ export { blockIds, assignMissingIds, collectBlockIds } from './blockIds.js';
 export { soneKeymap, toggleBlockType, toggleTodo, insertDivider } from './keymap.js';
 export { soneInputRules, INPUT_RULE_HELP } from './inputRules.js';
 export { listNumbers, computeListNumbers } from './listNumbers.js';
+export {
+  SLASH_ITEMS,
+  closeSlashMenu,
+  filterSlashItems,
+  runSlashItem,
+  setSlashIndex,
+  slashMenu,
+  slashMenuPluginKey,
+  slashMenuState,
+  type SlashItem,
+  type SlashMenuState,
+} from './slashMenu.js';

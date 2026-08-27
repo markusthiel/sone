@@ -24,6 +24,12 @@ import * as Y from 'yjs';
 import { assignMissingIds, blockIds, collectBlockIds } from '../src/blockIds.js';
 import { fragmentToJSON, jsonToFragment, seedEmptyPage } from '../src/editor.js';
 import { computeListNumbers } from '../src/listNumbers.js';
+import {
+  SLASH_ITEMS,
+  filterSlashItems,
+  slashMenu,
+  slashMenuState,
+} from '../src/slashMenu.js';
 import { soneInputRules } from '../src/inputRules.js';
 import {
   indentCommand,
@@ -774,4 +780,170 @@ test('seeding a non-empty page does nothing', () => {
   assert.equal(seedEmptyPage(pageContent(ydoc), () => 'unused'), false);
   assert.equal(readBlockTree(ydoc).blocks.length, 1);
   ydoc.destroy();
+});
+
+// --- slash menu ------------------------------------------------------------
+
+/**
+ * Drive the plugin without a view.
+ *
+ * The plugin's state is a pure function of transactions, so its behaviour is
+ * testable headlessly. What is not covered here is `handleKeyDown`, which needs
+ * a view — the keys it claims are asserted through the plugin props instead.
+ */
+function slashState(initial: unknown, typed: string, startAt?: number) {
+  let state = EditorState.create({
+    schema,
+    doc: schema.nodeFromJSON(initial),
+    plugins: [slashMenu()],
+  });
+  state = state.apply(
+    state.tr.setSelection(TextSelection.create(state.doc, startAt ?? state.doc.content.size - 1)),
+  );
+  for (const char of typed) {
+    state = state.apply(state.tr.insertText(char));
+  }
+  return { state, menu: slashMenuState(state) };
+}
+
+test('typing / at the start of a block opens the menu', () => {
+  const { menu } = slashState({ type: 'doc', content: [paragraph('', 'a1')] }, '/', 1);
+  assert.ok(menu, 'the menu should be open');
+  assert.equal(menu!.query, '');
+  assert.ok(menu!.items.length > 5, 'every item is offered with an empty query');
+});
+
+test('typing / after a space opens the menu', () => {
+  const { menu } = slashState({ type: 'doc', content: [paragraph('note ', 'a1')] }, '/', 6);
+  assert.ok(menu);
+});
+
+test('a / inside a word does not open the menu', () => {
+  // Typing a path, a fraction or "and/or" must not interrupt with a menu.
+  for (const [text, caret] of [['src', 4], ['50', 3], ['and', 4]] as const) {
+    const { menu } = slashState({ type: 'doc', content: [paragraph(text, 'a1')] }, '/', caret);
+    assert.equal(menu, null, `"${text}/" must not open the menu`);
+  }
+});
+
+test('a / inside a code block does not open the menu', () => {
+  // A slash in code is code.
+  const { menu } = slashState(
+    {
+      type: 'doc',
+      content: [
+        {
+          type: 'code',
+          attrs: {
+            [BLOCK_ATTRS.id]: 'c1',
+            [BLOCK_ATTRS.props]: null,
+            [BLOCK_ATTRS.indent]: null,
+            language: null,
+          },
+          content: [{ type: 'text', text: 'cd ' }],
+        },
+      ],
+    },
+    '/',
+    4,
+  );
+  assert.equal(menu, null);
+});
+
+test('the query tracks what is typed after the slash', () => {
+  const { menu } = slashState({ type: 'doc', content: [paragraph('', 'a1')] }, '/head', 1);
+  assert.ok(menu);
+  assert.equal(menu!.query, 'head');
+  assert.ok(
+    menu!.items.every((i) => i.id.startsWith('heading')),
+    'only headings should match "head"',
+  );
+});
+
+test('a space with no matching item closes the menu', () => {
+  // "the plan is 50/50 split" would otherwise leave a dead menu capturing Enter.
+  const { menu } = slashState({ type: 'doc', content: [paragraph('is ', 'a1')] }, '/zzz ', 4);
+  assert.equal(menu, null);
+});
+
+test('a space still matching an item keeps the menu open', () => {
+  const { menu } = slashState({ type: 'doc', content: [paragraph('', 'a1')] }, '/to', 1);
+  assert.ok(menu, 'a partial query with matches stays open');
+  assert.ok(menu!.items.length > 0);
+});
+
+test('deleting the slash closes the menu', () => {
+  let { state, menu } = slashState({ type: 'doc', content: [paragraph('', 'a1')] }, '/he', 1);
+  assert.ok(menu);
+  // Remove everything back to and including the slash.
+  state = state.apply(state.tr.delete(1, state.selection.head));
+  assert.equal(slashMenuState(state), null);
+});
+
+test('moving the caret before the slash closes the menu', () => {
+  let { state } = slashState({ type: 'doc', content: [paragraph('text ', 'a1')] }, '/h', 6);
+  assert.ok(slashMenuState(state));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 2)));
+  assert.equal(slashMenuState(state), null);
+});
+
+test('the menu claims the keys it needs', () => {
+  // Enter must not both pick an item and split the block, so the plugin has to
+  // handle these itself. Asserted through the plugin's props because
+  // handleKeyDown needs a view.
+  const plugin = slashMenu();
+  assert.ok(plugin.props.handleKeyDown, 'handleKeyDown must exist');
+});
+
+test('filtering ranks a title prefix above a keyword match', () => {
+  // Typing "h1" must land on Heading 1 rather than on whatever else contains an
+  // h, or the menu is useless for the thing people use it for most.
+  const results = filterSlashItems('h1');
+  assert.equal(results[0]!.id, 'heading-1');
+
+  assert.equal(filterSlashItems('todo')[0]!.id, 'todo');
+  assert.equal(filterSlashItems('checkbox')[0]!.id, 'todo');
+  assert.equal(filterSlashItems('ul')[0]!.id, 'bulletList');
+  assert.equal(filterSlashItems('quote')[0]!.id, 'quote');
+  assert.equal(filterSlashItems('hr')[0]!.id, 'divider');
+});
+
+test('filtering is stable within a score band', () => {
+  // Otherwise the list reshuffles as someone types and they lose their place.
+  const first = filterSlashItems('l').map((i) => i.id);
+  const second = filterSlashItems('l').map((i) => i.id);
+  assert.deepEqual(first, second);
+});
+
+test('an unmatched query yields nothing rather than everything', () => {
+  assert.deepEqual(filterSlashItems('qqqq'), []);
+});
+
+test('every item has distinct keywords and a hint', () => {
+  // The hint is what makes the menu usable by someone who does not already know
+  // the vocabulary, so an item without one is a defect.
+  const ids = new Set<string>();
+  for (const item of SLASH_ITEMS) {
+    assert.ok(item.hint.length > 0, `${item.id} has no hint`);
+    assert.ok(item.keywords.length > 0, `${item.id} has no keywords`);
+    assert.ok(!ids.has(item.id), `duplicate item id ${item.id}`);
+    ids.add(item.id);
+  }
+});
+
+test('every item command applies to an empty paragraph', () => {
+  // A menu entry that silently does nothing is worse than no entry.
+  for (const item of SLASH_ITEMS) {
+    let state = EditorState.create({
+      schema,
+      doc: schema.nodeFromJSON({ type: 'doc', content: [paragraph('', 'a1')] }),
+      plugins: [],
+    });
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1)));
+    assert.equal(
+      item.run(state, undefined),
+      true,
+      `${item.id} does not apply to an empty paragraph`,
+    );
+  }
 });

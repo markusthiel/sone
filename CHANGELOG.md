@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A slash menu.** Type `/` at the start of a block or after a space to insert
+any block type, filtered as you type — `/h1`, `/todo`, `/ul`, `/hr` all land
+where you would expect. Arrow keys, Enter, Tab and Escape do what they should,
+and a slash inside a word or inside code does not interrupt you.
+
 **Container images are published automatically.** Built with buildah rather
 than Docker, so the CI runner needs no daemon socket — which also means no
 workflow gets root-equivalent access to the host's daemon. Images land at
