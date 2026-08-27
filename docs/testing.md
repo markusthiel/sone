@@ -28,8 +28,12 @@ that has just truncated leaves another mid-test staring at rows whose foreign
 keys have vanished. Every symptom looks like an application bug.
 
 It stayed hidden because the machine this was written on has one CPU, so the
-runner serialised the files and the suite passed. CI has more cores and 39 tests
-failed at once.
+runner serialised the files and the suite passed. It surfaces on any machine
+with more cores. To reproduce it deliberately:
+
+```sh
+pnpm --filter @sone/server exec tsx --test --test-concurrency=8 test/*.test.ts
+```
 
 Anything shelling out to `pg_dump` or `pg_restore` must use `testDatabaseUrl()`
 from the harness, not `SONE_TEST_DATABASE_URL`. The latter names the base

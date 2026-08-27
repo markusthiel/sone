@@ -19,8 +19,11 @@
  *     whose foreign keys have vanished
  *
  * This went unnoticed because the machine it was written on has one CPU, so the
- * runner serialised the files and the suite passed. CI has more cores, and 39
- * tests failed at once for reasons that all looked like application bugs.
+ * runner serialised the files and the suite passed. It surfaces on any machine
+ * with more cores, where the symptoms all look like application bugs rather
+ * than like a harness that cannot share a database.
+ *
+ * Reproduce it on a single-CPU machine with --test-concurrency=8.
  *
  * So each test file gets its own database, named after the file. Files are then
  * genuinely independent: they can truncate, drop schemas and install extensions
