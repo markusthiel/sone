@@ -36,6 +36,8 @@ import { registerHealthRoutes, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
 import { Router } from './http/router.js';
 import { registerWorkspaceRoutes } from './http/workspaces.js';
+import { registerFileRoutes } from './files/routes.js';
+import { LocalFileStore } from './files/store.js';
 import { createStaticHandler } from './http/static.js';
 import { Maintenance } from './maintenance/job.js';
 import { PROTOCOL_VERSION } from './sync/protocol.js';
@@ -152,6 +154,17 @@ async function main(): Promise<void> {
   });
   registerPageRoutes(router, { pool });
   registerWorkspaceRoutes(router, { pool });
+  registerFileRoutes(router, {
+    pool,
+    // Only the local backend exists so far. The interface is in place so an S3
+    // one can be added without anything above it changing.
+    store: new LocalFileStore(
+      config.storage.backend === 'local'
+        ? config.storage.path
+        : '/var/lib/sone/files',
+    ),
+    maxUploadBytes: config.maxUploadBytes,
+  });
 
   // The built client is served by this process, so a deployment is one
   // container plus Postgres rather than app plus a separate nginx.

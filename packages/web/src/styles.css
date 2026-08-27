@@ -1344,3 +1344,26 @@ select {
   font-size: 0.85rem;
   white-space: nowrap;
 }
+
+/* --- images --- */
+
+.ProseMirror [data-block='image'] img {
+  display: block;
+  max-width: 100%;
+  border-radius: var(--sone-radius);
+}
+
+/* An upload in flight, and one that failed. Both are drawn, because a block
+   that renders as nothing looks like content that was lost. */
+.ProseMirror [data-block='image'][data-state] {
+  padding: 12px;
+  border: 1px dashed var(--sone-border);
+  border-radius: var(--sone-radius);
+  font-size: 0.85rem;
+  color: var(--sone-text-muted);
+}
+.ProseMirror [data-block='image'][data-state='failed'] {
+  border-color: var(--sone-danger);
+  border-style: solid;
+  color: var(--sone-danger);
+}

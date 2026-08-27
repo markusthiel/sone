@@ -35,6 +35,7 @@ import { blockIds, type IdGenerator } from './blockIds.js';
 import { soneInputRules } from './inputRules.js';
 import { soneKeymap } from './keymap.js';
 import { listNumbers } from './listNumbers.js';
+import { imagePaste, type ImageUploader } from './imagePaste.js';
 import { markdownPaste } from './markdownPaste.js';
 import { schema } from './schema.js';
 import { slashMenu } from './slashMenu.js';
@@ -65,6 +66,14 @@ export interface EditorOptions {
    * distinction a consumer using this to track unsaved work would mark every
    * freshly opened page as edited before anyone touched it.
    */
+  /**
+   * Uploads an image and returns its URL.
+   *
+   * Injected because this package must not know about HTTP endpoints
+   * (ADR-0016). Omitted means pasting an image does nothing, which is the right
+   * behaviour for a read-only surface.
+   */
+  uploadImage?: ImageUploader;
   onChange?: (state: EditorState) => void;
   /**
    * Called after every transaction, not only document changes.
@@ -99,6 +108,11 @@ export function createEditorState(opts: EditorOptions): EditorState {
     blockIds(opts.generateId ? { generateId: opts.generateId } : {}),
     listNumbers(),
     markdownPaste(),
+    // After markdownPaste: a paste carrying both files and text is an image
+    // paste, and the text is usually the filename.
+    ...(opts.uploadImage
+      ? [imagePaste({ upload: opts.uploadImage, ...(opts.generateId ? { generateId: opts.generateId } : {}) })]
+      : []),
     // After the keymap, so the menu's handleKeyDown sees Enter and the arrows
     // first while it is open. ProseMirror asks plugins in order and stops at
     // the first that handles a key; the other way round, Enter would split the
@@ -235,6 +249,12 @@ export {
 } from './blockOps.js';
 export { soneInputRules, INPUT_RULE_HELP } from './inputRules.js';
 export { listNumbers, computeListNumbers } from './listNumbers.js';
+export {
+  imagePaste,
+  insertImageUpload,
+  type ImageUploader,
+  type UploadedImage,
+} from './imagePaste.js';
 export {
   looksLikeMarkdown,
   markdownPaste,

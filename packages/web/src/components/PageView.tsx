@@ -15,6 +15,7 @@ import { ErrorBoundary } from './ErrorBoundary.tsx';
 
 interface PageViewProps {
   handle: PageHandle;
+  pageId: string;
   /**
    * Called when the title changes, including by another client.
    *
@@ -25,7 +26,7 @@ interface PageViewProps {
   onTitleChange?: (title: string) => void;
 }
 
-export function PageView({ handle, onTitleChange }: PageViewProps): ReactElement {
+export function PageView({ handle, pageId, onTitleChange }: PageViewProps): ReactElement {
   const pageMap = handle.doc.getMap(DOC_KEYS.page);
   const [title, setTitle] = useState<string>(
     () => (pageMap.get(PAGE_KEYS.title) as string | undefined) ?? '',
@@ -91,7 +92,7 @@ export function PageView({ handle, onTitleChange }: PageViewProps): ReactElement
           leaves the title, the sidebar and navigation working. Losing the
           editor is bad; losing the way out of the page is worse. */}
       <ErrorBoundary where="The editor">
-        <EditorSurface handle={handle} />
+        <EditorSurface handle={handle} pageId={pageId} />
       </ErrorBoundary>
     </div>
   );

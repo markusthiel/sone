@@ -229,11 +229,31 @@ const nodes: Record<string, NodeSpec> = {
         }),
       },
     ],
-    toDOM: (node) => [
-      'div',
-      blockDOMAttrs(node),
-      ['img', { src: node.attrs['url'] as string, alt: node.attrs['alt'] as string }],
-    ],
+    toDOM: (node) => {
+      const props = readProps(node.attrs);
+      const url = node.attrs['url'];
+      const attrs = blockDOMAttrs(node);
+
+      // An image block without a URL is not an error: an upload may be in
+      // flight, or may have failed. Both states are rendered, because a block
+      // that renders as nothing looks like content that was lost.
+      if (typeof url !== 'string' || url === '') {
+        const failed = props['failed'] === true;
+        attrs['data-state'] = failed ? 'failed' : 'uploading';
+        const label = failed
+          ? `Could not upload ${String(props['filename'] ?? 'image')}${
+              props['error'] ? `: ${String(props['error'])}` : ''
+            }`
+          : `Uploading ${String(props['filename'] ?? 'image')}…`;
+        return ['div', attrs, ['span', label]];
+      }
+
+      return [
+        'div',
+        attrs,
+        ['img', { src: url, alt: (node.attrs['alt'] as string) ?? '' }],
+      ];
+    },
   },
 
   /**
