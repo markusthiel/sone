@@ -13,6 +13,9 @@
 import type { PageHandle } from '@sone/client';
 import { pageContent } from '@sone/core';
 import { createEditor, seedEmptyPage } from '@sone/editor';
+
+import { ApiError, api } from '../api/client.ts';
+import { messageFor } from './Auth.tsx';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
@@ -22,9 +25,11 @@ import { SlashMenu } from './SlashMenu.tsx';
 
 interface EditorSurfaceProps {
   handle: PageHandle;
+  /** Needed to upload files, which are authorised through their page. */
+  pageId: string;
 }
 
-export function EditorSurface({ handle }: EditorSurfaceProps): ReactElement {
+export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElement {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   // The view goes in state, not only a ref, because the slash menu is a React
@@ -58,6 +63,18 @@ export function EditorSurface({ handle }: EditorSurfaceProps): ReactElement {
       awareness: handle.awareness,
       editable: () => canEditRef.current,
       onStateChange: () => setRevision((n) => n + 1),
+      uploadImage: async (file) => {
+        try {
+          const result = await api.uploadFile(pageId, file);
+          return { url: result.url, filename: result.filename };
+        } catch (error) {
+          // Translated here, so the message shown on the failed block is the
+          // same wording the rest of the app uses for that code.
+          throw new Error(
+            messageFor(error instanceof ApiError ? error.code : 'network_error'),
+          );
+        }
+      },
     });
     viewRef.current = created;
     setView(created);
@@ -70,7 +87,7 @@ export function EditorSurface({ handle }: EditorSurfaceProps): ReactElement {
     // Keyed on the document, not the handle: the handle object is recreated on
     // every notification, and rebuilding the editor for each of those would
     // make typing impossible.
-  }, [handle.doc, handle.awareness]);
+  }, [handle.doc, handle.awareness, pageId]);
 
   // Tell ProseMirror to re-evaluate `editable` when the role changes. Without
   // this the editor keeps its previous editability until the next transaction,

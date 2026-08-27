@@ -249,6 +249,7 @@ function Workspace({
         {route.kind === 'page' && !isFolder && handle && (
           <PageView
             handle={handle}
+            pageId={routePageId!}
             // Keeps the sidebar in step with the heading as it is typed. The
             // tree comes from the projection over HTTP, so without this it
             // showed the old name until something refetched.
@@ -435,8 +436,8 @@ function ShareSession({
         <div className="topbar">
           <PageStatus handle={handle} connectionState={state} />
         </div>
-        {handle ? (
-          <PageView handle={handle} />
+        {handle && pageId ? (
+          <PageView handle={handle} pageId={pageId} />
         ) : (
           <div className="page-body">
             <p className="muted">Opening…</p>

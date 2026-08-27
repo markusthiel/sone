@@ -240,6 +240,50 @@ export const api = {
   archivePage: (pageId: string) =>
     request<void>(`/api/pages/${pageId}`, { method: 'DELETE' }),
 
+  /**
+   * Upload a file to a page.
+   *
+   * Sent as raw bytes rather than multipart: there is one file per request, and
+   * a multipart parser on the server would be a dependency and a parsing
+   * surface for no gain. The filename travels in the query string because a
+   * header would need encoding rules of its own.
+   */
+  uploadFile: async (
+    pageId: string,
+    file: File,
+  ): Promise<{
+    id: string;
+    url: string;
+    filename: string;
+    mimeType: string;
+    sizeBytes: number;
+    inline: boolean;
+  }> => {
+    const response = await fetch(
+      `/api/pages/${pageId}/files?filename=${encodeURIComponent(file.name)}`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: file,
+      },
+    );
+
+    const text = await response.text();
+    if (!response.ok) {
+      let code = 'unknown_error';
+      try {
+        const parsed = JSON.parse(text) as { error?: string };
+        if (typeof parsed.error === 'string') code = parsed.error;
+      } catch {
+        // A non-JSON error body means something upstream answered.
+      }
+      throw new ApiError(response.status, code);
+    }
+
+    return JSON.parse(text) as never;
+  },
+
   search: (workspaceId: string, query: string) =>
     request<{ query: string; results: SearchResult[] }>(
       `/api/workspaces/${workspaceId}/search?q=${encodeURIComponent(query)}`,

@@ -25,6 +25,12 @@ const MESSAGES: Record<string, string> = {
   invitation_invalid: 'This invitation has expired or has already been used.',
   no_workspace: 'Your account is not a member of any workspace yet.',
   network_error: 'Could not reach the server.',
+  file_too_large: 'That file is too large.',
+  unsupported_file_type: 'That file type is not supported.',
+  empty_file: 'That file is empty.',
+  file_missing_from_storage:
+    'The file is recorded but missing from storage. The instance may have been ' +
+    'restored without its files.',
   unknown_error: 'Something went wrong.',
 };
 

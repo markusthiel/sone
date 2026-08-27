@@ -178,6 +178,23 @@ volumes:
   - /mnt/backups/sone:/var/lib/sone/backups
 ```
 
+## Files
+
+Uploads land under `SONE_STORAGE_PATH` (`/var/lib/sone/files` in the image), and
+`SONE_MAX_UPLOAD_MB` caps a single file at 100 MB by default.
+
+Storage is content-addressed: the key is the SHA-256 of the contents, so
+identical files are stored once no matter how many pages reference them. That
+also means a file is never rewritten in place, so the volume only grows —
+deleting a page removes its rows, and reclaiming the bytes is not implemented
+yet.
+
+**Back this volume up with the database, not separately.** A database restored
+without its files leaves image blocks that report "recorded but missing from
+storage"; files restored without the database are unreferenced bytes. The backup
+command captures files before the database, so a restore never references a file
+that was not captured.
+
 ## Backups and the Postgres client version
 
 `pg_dump` refuses to dump a server newer than itself. The image pins

@@ -13,6 +13,19 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Images.** Paste or drop one into a page and it uploads. A placeholder appears
+straight away and fills in when the upload finishes; a failure leaves the block
+in place with the reason on it rather than disappearing.
+
+Storage is content-addressed, so the same screenshot pasted into five pages is
+one file on disk. Files are authorised through the page they hang on, so a file
+in a page you cannot see is a file you cannot fetch.
+
+The declared content type is ignored — the bytes decide. SVG is deliberately not
+an inline type: an SVG is a document that can carry script, and serving one from
+the application's own origin would be a cross-site scripting vector. PDFs are
+stored and downloaded rather than rendered in place.
+
 **Fixed: the page you just created never finished syncing.** A document opened
 while the connection was still authenticating had its open request dropped, and
 nothing retried it — so the newest page, which the app navigates to immediately
