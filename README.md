@@ -38,8 +38,12 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Migrations run on start. Data lives in two named volumes, `sone_db` and
-`sone_files`.
+One application container plus Postgres, serving both the API and the web
+client. Migrations run on start.
+
+Read [docs/deployment.md](docs/deployment.md) before putting it behind a reverse
+proxy — the WebSocket upgrade and the database locale both have to be right, and
+both fail in ways that look like application bugs.
 
 **SONE does not encrypt document content from the server operator.** Search,
 the web client and link sharing all require server-side access to content.

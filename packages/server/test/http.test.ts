@@ -412,3 +412,123 @@ describe('maintenance (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     assert.equal(skipped.length, 1, 'exactly one pass must be skipped');
   });
 });
+
+// --- static files ----------------------------------------------------------
+
+describe('static file serving', () => {
+  let root: string;
+  let server: Server;
+  let base: string;
+
+  before(async () => {
+    const { mkdtemp, mkdir, writeFile } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const path = await import('node:path');
+
+    root = await mkdtemp(path.join(tmpdir(), 'sone-static-'));
+    await writeFile(path.join(root, 'index.html'), '<!doctype html>APP SHELL', 'utf8');
+    await mkdir(path.join(root, 'assets'), { recursive: true });
+    await writeFile(path.join(root, 'assets', 'index-AbCdEfGh.js'), 'console.log(1)', 'utf8');
+
+    const { createStaticHandler } = await import('../src/http/static.js');
+    const handler = await createStaticHandler({ root }, () => {});
+
+    server = createServer((req, res) => {
+      void handler(req, res).then((handled) => {
+        if (!handled && !res.headersSent) {
+          res.writeHead(404, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'not_found' }));
+        }
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (typeof address === 'object' && address) base = `http://127.0.0.1:${address.port}`;
+  });
+
+  after(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    const { rm } = await import('node:fs/promises');
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test('serves the app shell at the root', async () => {
+    const res = await fetch(`${base}/`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type') ?? '', /text\/html/);
+    assert.match(await res.text(), /APP SHELL/);
+  });
+
+  test('a client-side route returns the shell with status 200', async () => {
+    // Not 404: the URL is valid (ADR-0016), the server simply does not resolve
+    // it. A 404 here would make the browser show an error page for a real page.
+    const res = await fetch(`${base}/p/00000000-0000-4000-8000-000000000001/some-slug`);
+    assert.equal(res.status, 200);
+    assert.match(await res.text(), /APP SHELL/);
+  });
+
+  test('index.html is never cached', async () => {
+    // A cached shell keeps requesting asset hashes that no longer exist after
+    // an upgrade — a blank page that only a hard refresh fixes.
+    const res = await fetch(`${base}/`);
+    assert.equal(res.headers.get('cache-control'), 'no-cache');
+  });
+
+  test('hashed assets are immutable', async () => {
+    const res = await fetch(`${base}/assets/index-AbCdEfGh.js`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('cache-control') ?? '', /immutable/);
+  });
+
+  test('a conditional request gets 304', async () => {
+    const first = await fetch(`${base}/assets/index-AbCdEfGh.js`);
+    const etag = first.headers.get('etag');
+    assert.ok(etag);
+    const second = await fetch(`${base}/assets/index-AbCdEfGh.js`, {
+      headers: { 'if-none-match': etag },
+    });
+    assert.equal(second.status, 304);
+  });
+
+  test('API paths are not served the shell', async () => {
+    // Otherwise a mistyped API path returns HTML, and the client sees a
+    // successful request full of nonsense instead of a 404.
+    const res = await fetch(`${base}/api/whatever`);
+    assert.equal(res.status, 404);
+    assert.deepEqual(await res.json(), { error: 'not_found' });
+  });
+
+  test('path traversal cannot escape the root', async () => {
+    for (const attempt of [
+      '/%2e%2e%2f%2e%2e%2fetc%2fpasswd',
+      '/assets/%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd',
+      '/..%2f..%2fetc%2fpasswd',
+    ]) {
+      const res = await fetch(`${base}${attempt}`);
+      const body = await res.text();
+      assert.ok(!body.includes('root:'), `${attempt} must not read /etc/passwd`);
+      // Falls through to the shell, which is the correct answer: it is just an
+      // unrecognised client route.
+      assert.match(body, /APP SHELL/);
+    }
+  });
+
+  test('a POST is not served a file', async () => {
+    const res = await fetch(`${base}/`, { method: 'POST' });
+    assert.equal(res.status, 404);
+  });
+
+  test('a HEAD request sends headers without a body', async () => {
+    const res = await fetch(`${base}/assets/index-AbCdEfGh.js`, { method: 'HEAD' });
+    assert.equal(res.status, 200);
+    assert.equal(await res.text(), '');
+  });
+
+  test('a missing build degrades to API-only rather than failing', async () => {
+    // Running the server without a built client is a legitimate development
+    // setup, with Vite serving the frontend on its own port.
+    const { createStaticHandler } = await import('../src/http/static.js');
+    const handler = await createStaticHandler({ root: '/nonexistent/path' }, () => {});
+    assert.equal(handler.available, false);
+  });
+});
