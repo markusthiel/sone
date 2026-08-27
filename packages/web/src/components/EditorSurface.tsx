@@ -14,7 +14,9 @@ import type { PageHandle } from '@sone/client';
 import { pageContent } from '@sone/core';
 import { createEditor, seedEmptyPage } from '@sone/editor';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useRef, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
+
+import { SlashMenu } from './SlashMenu.tsx';
 
 interface EditorSurfaceProps {
   handle: PageHandle;
@@ -23,6 +25,13 @@ interface EditorSurfaceProps {
 export function EditorSurface({ handle }: EditorSurfaceProps): ReactElement {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
+  // The view goes in state, not only a ref, because the slash menu is a React
+  // child that needs it — a ref alone would not trigger the render that mounts
+  // the menu.
+  const [view, setView] = useState<EditorView | null>(null);
+  // Bumped on every transaction. The slash menu opens, filters and closes
+  // without the document changing, so nothing else would prompt a re-render.
+  const [revision, setRevision] = useState(0);
 
   // `canEdit` is read through a ref so the editor sees the current value
   // without being recreated. A role can change while a page is open — the
@@ -42,16 +51,19 @@ export function EditorSurface({ handle }: EditorSurfaceProps): ReactElement {
     // write to a document it has no right to change.
     if (canEditRef.current) seedEmptyPage(fragment);
 
-    const view = createEditor(mount, {
+    const created = createEditor(mount, {
       fragment,
       awareness: handle.awareness,
       editable: () => canEditRef.current,
+      onStateChange: () => setRevision((n) => n + 1),
     });
-    viewRef.current = view;
+    viewRef.current = created;
+    setView(created);
 
     return () => {
-      view.destroy();
+      created.destroy();
       viewRef.current = null;
+      setView(null);
     };
     // Keyed on the document, not the handle: the handle object is recreated on
     // every notification, and rebuilding the editor for each of those would
@@ -66,12 +78,15 @@ export function EditorSurface({ handle }: EditorSurfaceProps): ReactElement {
   }, [handle.canEdit]);
 
   return (
-    <div
-      className="editor-surface"
-      ref={mountRef}
-      // Focus lands on the ProseMirror element inside, which manages its own
-      // tabindex and ARIA attributes.
-      data-editable={handle.canEdit ? 'true' : 'false'}
-    />
+    <>
+      <div
+        className="editor-surface"
+        ref={mountRef}
+        // Focus lands on the ProseMirror element inside, which manages its own
+        // tabindex and ARIA attributes.
+        data-editable={handle.canEdit ? 'true' : 'false'}
+      />
+      {view && handle.canEdit && <SlashMenu view={view} revision={revision} />}
+    </>
   );
 }

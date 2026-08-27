@@ -471,3 +471,89 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 }
 
 [data-editable='false'] .ProseMirror { cursor: default; }
+
+/* ---------------------------------------------------------------------------
+ * Slash menu
+ *
+ * Fixed positioning, because it follows the caret and the caret's coordinates
+ * come from getBoundingClientRect — viewport-relative. Absolute positioning
+ * would need an offset parent with no transforms anywhere above it, which is a
+ * constraint the rest of the layout should not have to honour.
+ * ------------------------------------------------------------------------- */
+
+.slash-menu {
+  position: fixed;
+  z-index: 40;
+  inline-size: 288px;
+  max-block-size: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--sone-border);
+  border-radius: 8px;
+  background: var(--sone-bg);
+  /* Enough elevation to read as floating above text without a heavy shadow. */
+  box-shadow: 0 6px 24px rgb(0 0 0 / 14%), 0 1px 3px rgb(0 0 0 / 8%);
+  /* The menu is driven from the keyboard; a stray tap should not scroll it
+     under the thumb on a phone. */
+  overscroll-behavior: contain;
+}
+
+.slash-group + .slash-group {
+  margin-block-start: 4px;
+  padding-block-start: 4px;
+  border-block-start: 1px solid var(--sone-border);
+}
+
+.slash-group-label {
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sone-text-muted);
+}
+
+.slash-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  inline-size: 100%;
+  /* Below the 44px tap target used elsewhere: this is a scrolling list where
+     more visible options matter more, and it is reachable by keyboard. 40px is
+     still comfortably hittable. */
+  min-block-size: 40px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* Driven by data-selected rather than :hover, so the keyboard and the mouse
+   highlight the same thing. A :hover rule would light up a second row while the
+   keyboard selection sits elsewhere. */
+.slash-item[data-selected='true'] {
+  background: var(--sone-bg-hover);
+}
+.slash-item:hover { background: transparent; }
+
+.slash-title {
+  font-size: 0.92rem;
+  font-weight: 550;
+  line-height: 1.3;
+}
+
+.slash-hint {
+  font-size: 0.78rem;
+  color: var(--sone-text-muted);
+  line-height: 1.3;
+}
+
+.slash-empty {
+  margin: 0;
+  padding: 10px 8px;
+  font-size: 0.88rem;
+  color: var(--sone-text-muted);
+}
