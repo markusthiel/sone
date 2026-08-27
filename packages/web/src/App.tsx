@@ -9,6 +9,11 @@ import { useEffect, useState , type ReactElement } from 'react';
 
 import { LoginScreen, SetupScreen, SignupScreen, messageFor } from './components/Auth.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
+import {
+  RightPanelToggle,
+  RightSidebar,
+  readRightPanelOpen,
+} from './components/RightSidebar.tsx';
 import { SearchScreen } from './components/Search.tsx';
 import { Settings } from './components/Settings.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -124,6 +129,17 @@ function Workspace({
   });
   const { tree, pages, createPage, archivePage, renameEntry } = usePages(workspaceId);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(readRightPanelOpen);
+
+  // Remembered per browser: reopening the panel on every navigation is the kind
+  // of small friction that makes an app feel inattentive.
+  useEffect(() => {
+    try {
+      localStorage.setItem('sone.rightPanel', String(rightOpen));
+    } catch {
+      // Storage disabled; the panel simply starts closed next time.
+    }
+  }, [rightOpen]);
 
   const pageId = route.kind === 'page' ? route.pageId : null;
   const handle = usePage(client, pageId);
@@ -152,7 +168,12 @@ function Workspace({
   };
 
   return (
-    <div className="app with-sidebar">
+    <div
+      className="app with-sidebar"
+      // Drives the grid: a third column only exists when the panel is open, so
+      // the reading column is not narrowed for a panel nobody asked for.
+      data-right-panel={rightOpen ? 'open' : 'closed'}
+    >
       <Sidebar
         workspaceId={workspaceId}
         workspaceName={workspaceName}
@@ -197,6 +218,9 @@ function Workspace({
             ☰
           </button>
           <PageStatus handle={handle} connectionState={connectionState} />
+          <div className="topbar-end">
+            <RightPanelToggle open={rightOpen} onToggle={() => setRightOpen((v) => !v)} />
+          </div>
         </div>
 
         {route.kind === 'page' && handle && <PageView handle={handle} />}
@@ -241,6 +265,13 @@ function Workspace({
           </div>
         )}
       </div>
+
+      <RightSidebar
+        handle={handle}
+        pageId={pageId}
+        open={rightOpen}
+        onClose={() => setRightOpen(false)}
+      />
     </div>
   );
 }

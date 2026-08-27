@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A right-hand panel with tabs.** Outline and properties, toggled from the top
+bar. The outline lists the page's headings and scrolls to one when clicked; it
+is derived from the document through the same tree walk the server uses, so it
+cannot disagree about where a heading is. Properties shows kind, timestamps,
+your access and sync state. A column on wide screens, a drawer on narrow ones,
+and it remembers whether it was open and which tab you were on.
+
 **Fixed: the server restarted in a loop and served nothing.** The folders
 migration applied its changes but never recorded itself, so every start retried
 it and failed on a column that already existed. The migration is now idempotent

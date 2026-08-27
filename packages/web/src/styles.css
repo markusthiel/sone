@@ -1032,3 +1032,133 @@ select {
 .workspace-create button { min-height: 34px; padding-inline: 10px; white-space: nowrap; }
 
 .small { font-size: 0.85rem; padding-inline: 8px; }
+
+/* ---------------------------------------------------------------------------
+ * Right panel
+ *
+ * A column on wide screens, a drawer on narrow ones, from the same markup — the
+ * same arrangement as the left sidebar.
+ *
+ * The backdrop is positioned and hidden OUTSIDE any media query, for the reason
+ * the left one had to learn: styled only inside the narrow block, it becomes an
+ * unstyled button in the page grid on a wide screen, takes a column of its own,
+ * and destroys the layout.
+ * ------------------------------------------------------------------------- */
+
+.scrim-right {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgb(0 0 0 / 40%);
+  border: 0;
+}
+
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  border-inline-start: 1px solid var(--sone-border);
+  background: var(--sone-bg-subtle);
+  overflow: hidden;
+}
+
+/* Closed means gone, not narrow: a zero-width column still draws its border. */
+.app[data-right-panel='closed'] .right-panel { display: none; }
+
+@media (min-width: 1100px) {
+  .app.with-sidebar[data-right-panel='open'] {
+    grid-template-columns: 260px minmax(0, 1fr) 300px;
+  }
+}
+
+/* Below 1100px the reading column would be squeezed to nothing, so the panel
+   becomes a drawer even on a screen wide enough for the left sidebar. */
+@media (max-width: 1099px) {
+  .right-panel {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inline-size: min(320px, 90vw);
+    z-index: 20;
+  }
+  .app[data-right-panel='open'] .scrim-right { display: block; }
+}
+
+.right-tabs {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 8px;
+  border-block-end: 1px solid var(--sone-border);
+}
+
+.right-tab {
+  flex: 1;
+  min-block-size: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.right-tab:hover { background: var(--sone-bg-hover); }
+.right-tab[aria-selected='true'] {
+  background: var(--sone-bg);
+  color: var(--sone-text);
+  font-weight: 600;
+}
+
+.right-body { flex: 1; min-block-size: 0; overflow-y: auto; padding: 8px; }
+
+.panel-empty { margin: 8px; font-size: 0.85rem; color: var(--sone-text-muted); }
+.panel-empty code {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--sone-bg-hover);
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+.outline { display: flex; flex-direction: column; gap: 1px; }
+
+.outline-entry {
+  min-block-size: 30px;
+  padding-block: 4px;
+  padding-inline-end: 8px;
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text);
+  text-align: start;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  cursor: pointer;
+  /* Wrapped rather than truncated: a heading cut to one line is often cut
+     exactly where it stops being identifiable. */
+  overflow-wrap: break-word;
+}
+.outline-entry:hover { background: var(--sone-bg-hover); }
+.outline-entry[data-level='1'] { font-weight: 600; }
+.outline-entry[data-level='2'] { font-weight: 550; }
+
+.properties { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 4px; }
+.properties dt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: var(--sone-text-muted);
+}
+.properties dt svg { inline-size: 0.95em; block-size: 0.95em; }
+.properties dd { margin: 0; font-size: 0.82rem; overflow-wrap: anywhere; }
+
+.topbar-end { margin-inline-start: auto; display: flex; gap: 4px; }
+
+.panel-toggle svg {
+  inline-size: 1em;
+  block-size: 1em;
+  transition: transform 140ms ease;
+}
+.panel-toggle[aria-expanded='true'] svg { transform: rotate(180deg); }
