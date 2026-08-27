@@ -31,6 +31,7 @@ import type { EditorView } from 'prosemirror-view';
 import { splitBlock } from 'prosemirror-commands';
 
 import { insertDivider, toggleBlockType } from './keymap.js';
+import { insertTable } from './tables.js';
 import { schema } from './schema.js';
 
 export interface SlashItem {
@@ -152,6 +153,14 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
       const type = node('code');
       return type ? toggleBlockType(type)(state, dispatch) : false;
     },
+  },
+  {
+    id: 'table',
+    title: 'Table',
+    hint: 'Rows and columns',
+    keywords: ['table', 'grid', 'rows', 'columns', 'spreadsheet'],
+    group: 'blocks',
+    run: insertTable({ rows: 3, columns: 3, headerRow: true }),
   },
   {
     id: 'divider',

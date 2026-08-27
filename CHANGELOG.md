@@ -13,6 +13,19 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Tables.** `/table` inserts one, Tab moves between cells, columns can be
+resized by dragging, and the block menu grows a Table section inside one — add
+and delete rows and columns, toggle header row or column, merge and split cells.
+
+Cell contents are ordinary blocks, so a list or a heading inside a cell works.
+Table text is searchable, which is the point of putting anything important in
+one.
+
+Built on prosemirror-tables rather than by hand: rectangular cell selection,
+merging, resizing and repairing a malformed table are each harder than they
+look, and a CRDT merge can produce a table with ragged rows that has to be
+repaired rather than rendered defensively.
+
 **Images.** Paste or drop one into a page and it uploads. A placeholder appears
 straight away and fills in when the upload finishes; a failure leaves the block
 in place with the reason on it rather than disappearing.

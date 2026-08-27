@@ -19,6 +19,7 @@
 
 import { BLOCK_ATTRS } from '@sone/core';
 import { Schema, type MarkSpec, type Node as PMNode, type NodeSpec } from 'prosemirror-model';
+import { tableNodes } from 'prosemirror-tables';
 
 /**
  * DOM attributes every block carries.
@@ -83,6 +84,47 @@ export function writeProps(props: Record<string, unknown>): string | null {
   const ordered: Record<string, unknown> = {};
   for (const key of keys.sort()) ordered[key] = props[key];
   return JSON.stringify(ordered);
+}
+
+/**
+ * Add SONE's block attributes to generated node specs.
+ *
+ * `tableNodes()` does not take extra attributes for the table and row nodes, so
+ * they are added here. Every block needs `id`, `props` and `indent` or the tree
+ * reader will not see it (ADR-0015, ADR-0018), and the DOM attributes are needed
+ * so styling and drag targets can find a block.
+ */
+function withBlockAttrs(specs: Record<string, NodeSpec>): Record<string, NodeSpec> {
+  const out: Record<string, NodeSpec> = {};
+
+  for (const [name, spec] of Object.entries(specs)) {
+    const originalToDOM = spec.toDOM;
+    out[name] = {
+      ...spec,
+      attrs: { ...blockAttrs, ...(spec.attrs ?? {}) },
+      toDOM: originalToDOM
+        ? (node) => {
+            const rendered = originalToDOM(node) as [string, ...unknown[]];
+            const [tag, maybeAttrs, ...rest] = rendered;
+            // The generated spec may or may not emit an attribute object, so
+            // both shapes are handled rather than assumed.
+            // ProseMirror's toDOM output is [tag, attrs?, ...children], where
+            // a child may be the number 0 (the content hole) or a nested array.
+            // Only a plain object in that slot is an attribute map. The `typeof`
+            // check already excludes 0, so no separate test for it.
+            const isAttrs =
+              maybeAttrs !== null &&
+              typeof maybeAttrs === 'object' &&
+              !Array.isArray(maybeAttrs);
+            return isAttrs
+              ? [tag, { ...blockDOMAttrs(node), ...(maybeAttrs as object) }, ...rest]
+              : [tag, blockDOMAttrs(node), ...(maybeAttrs === undefined ? [] : [maybeAttrs]), ...rest];
+          }
+        : undefined,
+    } as NodeSpec;
+  }
+
+  return out;
 }
 
 const nodes: Record<string, NodeSpec> = {
@@ -307,6 +349,34 @@ const nodes: Record<string, NodeSpec> = {
     parseDOM: [{ tag: 'div[data-type=column]' }],
     toDOM: () => ['div', { 'data-type': 'column' }, 0],
   },
+
+  /**
+   * Tables, from prosemirror-tables.
+   *
+   * Used rather than hand-rolled. Cell selection across a rectangle, splitting
+   * and merging cells, column resizing and repairing a malformed table are all
+   * genuinely hard, and that package is maintained by ProseMirror's author. It
+   * is MIT and pinned exactly, like everything else (ADR-0017).
+   *
+   * The generated specs are extended with SONE's block attributes rather than
+   * used as they come. Without an `id` the tree reader skips an element and
+   * everything inside it — so a table would be invisible to the projection and
+   * to search, which is precisely where a table's contents most need to be
+   * findable.
+   *
+   * Rows and cells are textless containers holding blocks, which is the shape
+   * ADR-0018 permits: a node either has text or holds blocks, never both.
+   */
+  ...withBlockAttrs(
+    tableNodes({
+      tableGroup: 'block',
+      // Blocks, not inline: a cell holding a list or a heading is normal in a
+      // notes app, and restricting cells to text would be a limit people hit
+      // immediately.
+      cellContent: 'block+',
+      cellAttributes: {},
+    }),
+  ),
 
   text: { group: 'inline' },
 };
