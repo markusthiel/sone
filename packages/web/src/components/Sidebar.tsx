@@ -18,6 +18,7 @@ import type { PageNode } from '../api/client.ts';
 import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
+import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import {
   ChevronRightIcon,
   FolderIcon,
@@ -28,7 +29,9 @@ import {
 } from './icons.tsx';
 
 interface SidebarProps {
+  workspaceId: string;
   workspaceName: string;
+  onSwitchWorkspace: (workspaceId: string) => void;
   tree: PageNode[];
   currentPageId: string | null;
   open: boolean;
@@ -56,7 +59,9 @@ function readCollapsed(): Set<string> {
 }
 
 export function Sidebar({
+  workspaceId,
   workspaceName,
+  onSwitchWorkspace,
   tree,
   currentPageId,
   open,
@@ -108,9 +113,12 @@ export function Sidebar({
       )}
       <nav className={`sidebar${open ? ' open' : ''}`} aria-label="Pages">
         <div className="sidebar-head">
-          <span className="workspace-name" title={workspaceName}>
-            {workspaceName}
-          </span>
+          <WorkspaceMenu
+            currentId={workspaceId}
+            currentName={workspaceName}
+            onSwitch={onSwitchWorkspace}
+            onCreated={onSwitchWorkspace}
+          />
           <div className="sidebar-head-actions">
             {/* Only a folder button at the root: pages live in folders
                 (ADR-0019), so a "new page" here would refuse. */}

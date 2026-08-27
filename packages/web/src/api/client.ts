@@ -119,6 +119,25 @@ export interface PageDetail extends Omit<PageSummary, 'archived' | 'idx'> {
   role: 'viewer' | 'commenter' | 'editor' | 'admin';
 }
 
+export interface WorkspaceSummary {
+  id: string;
+  name: string;
+  role: string;
+  defaultLocale: string;
+  pageCount: number;
+  memberCount: number;
+}
+
+export interface WorkspaceMember {
+  userId: string;
+  displayName: string;
+  /** Null unless the caller administers the workspace. */
+  email: string | null;
+  role: string;
+  isGuest: boolean;
+  joinedAt: string;
+}
+
 export interface SearchResult {
   pageId: string;
   title: string;
@@ -175,6 +194,25 @@ export const api = {
     request<InvitationInfo>(`/api/auth/invitation/${encodeURIComponent(token)}`),
 
   logout: () => post<void>('/api/auth/logout'),
+
+  workspaces: () => request<{ workspaces: WorkspaceSummary[] }>('/api/workspaces'),
+
+  createWorkspace: (name: string) =>
+    post<{ id: string; name: string; role: string; defaultFolderId: string | null }>(
+      '/api/workspaces',
+      { name },
+    ),
+
+  renameWorkspace: (workspaceId: string, name: string) =>
+    request<{ id: string; name: string }>(`/api/workspaces/${workspaceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+
+  members: (workspaceId: string) =>
+    request<{ members: WorkspaceMember[]; viewerRole: string }>(
+      `/api/workspaces/${workspaceId}/members`,
+    ),
 
   pages: (workspaceId: string) =>
     request<{ pages: PageSummary[] }>(`/api/workspaces/${workspaceId}/pages`),

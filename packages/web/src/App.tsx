@@ -21,7 +21,7 @@ import { paths } from './routes/paths.ts';
 export function App(): ReactElement {
   const { route, navigate } = useRoute();
   useLinkInterception(navigate);
-  const { state, reload, logout } = useSession();
+  const { state, reload, logout, selectWorkspace } = useSession();
 
   // --- unauthenticated routes ---------------------------------------------
 
@@ -84,6 +84,16 @@ export function App(): ReactElement {
       session={state.session}
       route={route}
       navigate={navigate}
+      onSwitchWorkspace={(id) => {
+        selectWorkspace(id);
+        // Back to the root: a page id from the previous workspace is not
+        // reachable in the new one, and leaving it in the URL would show a
+        // not-found for a page that exists.
+        navigate(paths.home());
+        // The session response carries the workspace list, so a freshly created
+        // workspace has to be picked up before it can be selected.
+        void reload();
+      }}
       onLogout={() => void logout()}
     />
   );
@@ -96,6 +106,7 @@ function Workspace({
   session,
   route,
   navigate,
+  onSwitchWorkspace,
   onLogout,
 }: {
   workspaceId: string;
@@ -104,6 +115,7 @@ function Workspace({
   session: import('./api/client.ts').SessionInfo;
   route: ReturnType<typeof useRoute>['route'];
   navigate: (to: string) => void;
+  onSwitchWorkspace: (workspaceId: string) => void;
   onLogout: () => void;
 }): ReactElement {
   const { client, state: connectionState } = useSoneClient({
@@ -142,7 +154,9 @@ function Workspace({
   return (
     <div className="app with-sidebar">
       <Sidebar
+        workspaceId={workspaceId}
         workspaceName={workspaceName}
+        onSwitchWorkspace={onSwitchWorkspace}
         tree={tree}
         currentPageId={pageId}
         open={drawerOpen}

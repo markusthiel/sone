@@ -35,6 +35,7 @@ import { registerAuthRoutes } from './http/auth.js';
 import { registerHealthRoutes, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
 import { Router } from './http/router.js';
+import { registerWorkspaceRoutes } from './http/workspaces.js';
 import { createStaticHandler } from './http/static.js';
 import { Maintenance } from './maintenance/job.js';
 import { PROTOCOL_VERSION } from './sync/protocol.js';
@@ -150,6 +151,7 @@ async function main(): Promise<void> {
     secureCookies: config.publicUrl.startsWith('https://'),
   });
   registerPageRoutes(router, { pool });
+  registerWorkspaceRoutes(router, { pool });
 
   // The built client is served by this process, so a deployment is one
   // container plus Postgres rather than app plus a separate nginx.

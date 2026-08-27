@@ -24,6 +24,7 @@ import {
   hasDatabase,
   resetDatabase,
 } from './support/db.js';
+import { expectStatus } from './support/http.js';
 
 const PASSWORD = 'correct-horse-battery-staple';
 
@@ -70,19 +71,6 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     cookie: string;
     workspaceId: string;
     userId: string;
-  }
-
-  /**
-   * Assert a status, including the body in the message when it does not match.
-   *
-   * Passing `await res.text()` as an assertion message reads the body
-   * unconditionally, so the later `.json()` fails with "Body has already been
-   * read" — which then masks the real failure. Read it only when it is needed.
-   */
-  async function expectStatus(res: Response, expected: number): Promise<void> {
-    if (res.status === expected) return;
-    const body = await res.text().catch(() => '<unreadable>');
-    assert.fail(`expected ${expected}, got ${res.status}: ${body}`);
   }
 
   const json = (body: unknown): RequestInit => ({
