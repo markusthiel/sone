@@ -44,13 +44,31 @@ jobs:
         run: |
           set -eu
           apt-get update -qq
-          # postgresql-client provides pg_dump/pg_restore, which the backup
-          # tests shell out to. Installed up front rather than before the step
-          # that happens to need it: the backup suite runs during `pnpm test`,
-          # and installing later meant six tests failed with "spawn pg_dump
-          # ENOENT" — a missing tool reported as a product bug.
           apt-get install -y -qq --no-install-recommends \
-            git ca-certificates postgresql-client
+            git ca-certificates curl gnupg
+
+          # postgresql-client-17, from PGDG rather than Debian.
+          #
+          # pg_dump refuses to dump a server newer than itself, and Debian
+          # bookworm ships client 15 while the service container runs Postgres
+          # 17 — so `apt-get install postgresql-client` produces six backup
+          # test failures reading "aborting because of server version
+          # mismatch". The client major version must be at least the server's;
+          # newer is fine, older is refused.
+          #
+          # This must stay in step with the Postgres version in the service
+          # block below and in docker-compose.yml.
+          install -d /usr/share/postgresql-common/pgdg
+          curl -sS --fail \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            > /etc/apt/sources.list.d/pgdg.list
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends postgresql-client-17
+
+          pg_dump --version
 
       - name: Check out
         run: |
