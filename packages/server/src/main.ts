@@ -19,6 +19,8 @@
  */
 
 import { createServer } from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { SCHEMA_VERSION } from '@sone/core';
 
@@ -33,6 +35,7 @@ import { registerAuthRoutes } from './http/auth.js';
 import { registerHealthRoutes, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
 import { Router } from './http/router.js';
+import { createStaticHandler } from './http/static.js';
 import { Maintenance } from './maintenance/job.js';
 import { PROTOCOL_VERSION } from './sync/protocol.js';
 import { SyncServer } from './sync/server.js';
@@ -146,13 +149,30 @@ async function main(): Promise<void> {
   });
   registerPageRoutes(router, { pool });
 
+  // The built client is served by this process, so a deployment is one
+  // container plus Postgres rather than app plus a separate nginx.
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const staticHandler = await createStaticHandler({
+    root: path.resolve(here, '../../web/dist'),
+  });
+
   http.on('request', (req, res) => {
-    void router.handle(req, res, config.publicUrl).then((handled) => {
-      if (!handled && !res.headersSent) {
-        res.writeHead(404, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ error: 'not_found' }));
+    void (async () => {
+      try {
+        if (await router.handle(req, res, config.publicUrl)) return;
+        if (await staticHandler(req, res)) return;
+        if (!res.headersSent) {
+          res.writeHead(404, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'not_found' }));
+        }
+      } catch (err) {
+        console.error('[http] unhandled request error', err);
+        if (!res.headersSent) {
+          res.writeHead(500, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'internal' }));
+        }
       }
-    });
+    })();
   });
 
   const maintenance = new Maintenance({ pool, sync });
