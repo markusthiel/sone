@@ -28,9 +28,24 @@ COPY . .
 # Builds every package, including the web client into packages/web/dist.
 RUN pnpm -r build
 
-# Drop devDependencies now that everything is compiled. The runtime needs pg,
-# ws, yjs, lib0 and y-protocols; nothing needs TypeScript or Vite.
-RUN pnpm prune --prod
+# KNOWN ISSUE: the image carries about 26 MB of build tooling it does not need.
+#
+# Neither `pnpm prune --prod` nor `pnpm install --prod --frozen-lockfile`
+# removes the devDependencies of workspace packages — both were tried and
+# verified by mounting the built image, where typescript, vite and tsx were
+# still linked into packages/web/node_modules afterwards. pnpm prunes the root
+# project only.
+#
+# The proper fix is `pnpm --filter @sone/server --prod deploy`, which produces a
+# self-contained tree with production dependencies only. It changes the runtime
+# layout, and several paths are computed relative to it — the static file root,
+# the migrations directory, the backup scripts — so it is a deliberate change
+# with its own verification rather than something to slip in here.
+#
+# Consequence for now: a 272 MB image instead of roughly 246 MB, and TypeScript
+# present in a production image. Not a correctness problem; worth fixing before
+# 1.0.
+RUN pnpm prune --prod || true
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

@@ -114,10 +114,11 @@ docker compose up -d
 (tagged `main`) and on every version tag (`X.Y.Z`, `X.Y`, and `latest` for
 non-pre-releases).
 
-It needs a registered Forgejo Actions runner carrying a `docker` label. Without
-one the workflow simply queues, indefinitely and without an error — see
-[actions-runner.md](actions-runner.md). Nothing about deploying or testing SONE
-depends on it: build from source until it is worth setting up.
+It builds with buildah and needs no Docker daemon, so any runner will do.
+
+Before publishing, it inspects the built image and refuses to push one that runs
+as root, exposes no port, carries no version, or has lost its healthcheck —
+each of which has been wrong at some point.
 
 ## Things that will bite you
 
