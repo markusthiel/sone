@@ -12,11 +12,10 @@ name: sone
 
 services:
   app:
+    # Requires a published image. Until the first release there is none, and
+    # this fails with "failed to resolve reference … not found" — use
+    # docker-compose.build.yml instead, which builds from source.
     image: ghcr.io/markusthiel/sone:latest
-    # Uncomment to build from source instead of pulling:
-    # build:
-    #   context: .
-    #   dockerfile: docker/Dockerfile
     restart: unless-stopped
     depends_on:
       db:

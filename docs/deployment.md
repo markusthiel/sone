@@ -3,11 +3,54 @@
 One application container plus Postgres. Nothing else is required — no Redis,
 no search cluster, no separate nginx (ADR-0005).
 
+## No image published yet
+
+Until the first release there is nothing to pull, and
+`docker compose up` fails with:
+
+```
+failed to resolve reference "ghcr.io/markusthiel/sone:latest": not found
+```
+
+Build from source instead:
+
 ```sh
 cp .env.example .env
 # set SONE_SECRET_KEY and POSTGRES_PASSWORD
+docker compose -f docker-compose.build.yml up -d --build
+```
+
+`docker-compose.build.yml` is self-contained rather than an override file,
+because Portainer's stack editor takes a single compose path.
+
+### In Portainer
+
+Stacks → Add stack → **Repository**:
+
+- Repository URL: `https://github.com/markusthiel/sone`
+- Reference: `refs/heads/main`
+- Compose path: `docker-compose.build.yml`
+- Environment variables: `SONE_SECRET_KEY`, `POSTGRES_PASSWORD`,
+  `SONE_PUBLIC_URL`
+
+Enable automatic updates or use "Pull and redeploy" to pick up new commits.
+Building on the deployment host takes a few minutes the first time; afterwards
+Docker's layer cache makes a source-only change much quicker.
+
+Note that a Git-repository stack builds from the repository, not from your local
+checkout — so a commit has to be pushed before it can be deployed.
+
+## Once an image is published
+
+```sh
+cp .env.example .env
 docker compose up -d
 ```
+
+`.github/workflows/build-image.yml` builds and pushes on every push to `main`
+(tagged `main`) and on every version tag (`X.Y.Z`, `X.Y`, and `latest` for
+non-pre-releases). It needs a registered Forgejo Actions runner with Docker
+access; without one, build by hand as shown at the end of this document.
 
 ## Things that will bite you
 

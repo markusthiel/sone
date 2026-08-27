@@ -32,11 +32,16 @@ rather than a marketing promise:
 
 ## Deployment
 
+No image is published yet, so build from source:
+
 ```sh
 cp .env.example .env
 # set SONE_SECRET_KEY and POSTGRES_PASSWORD
-docker compose up -d
+docker compose -f docker-compose.build.yml up -d --build
 ```
+
+Once there is a release, `docker compose up -d` pulls the published image
+instead.
 
 One application container plus Postgres, serving both the API and the web
 client. Migrations run on start.
