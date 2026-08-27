@@ -44,7 +44,7 @@ describe(
       });
 
       const router = new Router();
-      registerAuthRoutes(router, { pool: db, signupMode: 'open', secureCookies: false });
+      registerAuthRoutes(router, { pool: db, signupMode: () => Promise.resolve('open' as const), secureCookies: false });
       registerAdminRoutes(router, {
         pool: db,
         settings,
@@ -376,6 +376,35 @@ describe(
       assert.equal(validate('instanceName', '  Team wiki '), 'Team wiki');
       assert.equal(validate('instanceName', '   '), undefined);
       assert.equal(validate('instanceName', 'x'.repeat(200)), undefined);
+    });
+
+    test('changing the signup setting takes effect without a restart', () => {
+      // The point of the whole settings table. This was a value read once at
+      // startup: an administrator could change it, see it saved, see the
+      // interface report the new value — and registration carried on using
+      // whatever the environment said when the container booted. A switch that
+      // does nothing is worse than no switch, because it is believed.
+      //
+      // Asserted through the store rather than through a registration attempt,
+      // because the auth routes in this harness are wired to a fixed mode; what
+      // matters is that the value the route reads changes when a write happens.
+      return (async () => {
+        const admin = await setup();
+
+        assert.equal(await settings.get('signupMode'), 'invite', 'the environment default');
+
+        await fetch(`${base}/api/admin/settings`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: admin.cookie },
+          body: JSON.stringify({ signupMode: 'closed' }),
+        });
+
+        assert.equal(
+          await settings.get('signupMode'),
+          'closed',
+          'a reader asking again gets the new value',
+        );
+      })();
     });
 
     // --- what administration does not include ------------------------------

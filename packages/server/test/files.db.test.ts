@@ -49,7 +49,7 @@ describe(
       storageRoot = await mkdtemp(path.join(tmpdir(), 'sone-files-'));
 
       const router = new Router();
-      registerAuthRoutes(router, { pool: db, signupMode: 'open', secureCookies: false });
+      registerAuthRoutes(router, { pool: db, signupMode: () => Promise.resolve('open' as const), secureCookies: false });
       registerPageRoutes(router, { pool: db });
       registerFileRoutes(router, {
         pool: db,

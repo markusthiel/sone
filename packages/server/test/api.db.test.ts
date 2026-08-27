@@ -38,7 +38,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const router = new Router();
     registerAuthRoutes(router, {
       pool: db,
-      signupMode: 'invite',
+      signupMode: () => Promise.resolve('invite' as const),
       secureCookies: false,
     });
     registerPageRoutes(router, { pool: db });

@@ -178,6 +178,37 @@ volumes:
   - /mnt/backups/sone:/var/lib/sone/backups
 ```
 
+## Configuration: environment or interface
+
+Two places, and the split matters when something appears not to take effect.
+
+Anything needed before the database opens stays in the environment:
+`SONE_DATABASE_URL`, `SONE_SECRET_KEY`, `SONE_PORT`, `SONE_PUBLIC_URL`,
+`SONE_STORAGE_PATH`. A server that cannot start cannot be configured from a
+screen it never shows.
+
+A few values can be changed in Settings → Instance and are stored in the
+database, where they **override the environment**: who may sign up, the instance
+name, whether members may create workspaces, the default locale. The screen says
+which values are overridden, because "I set this in the compose file and it is
+being ignored" is otherwise an afternoon of confusion.
+
+To return one to the environment value, clear it in the interface rather than
+editing the compose file.
+
+## Recovering administrator access
+
+If the last administrator account is lost, promote another directly:
+
+```sql
+UPDATE users SET is_instance_admin = true, deactivated_at = NULL
+ WHERE email = 'you@example.org';
+```
+
+The application refuses to demote or deactivate the last administrator, so this
+should only be needed after a database was restored or an account was removed
+outside the application.
+
 ## What is in the database but not in the documents
 
 Almost everything is rebuildable from the CRDT log (ADR-0002), but some data is
@@ -189,6 +220,7 @@ reconstructed:
 - share links
 - **favourites** — a person's shortcuts, which belong to them rather than to the
   page they point at
+- instance settings and which accounts administer the instance
 
 Losing these does not corrupt anything, but it does mean people have to log in
 again and rebuild their shortcuts. The backup command captures them with the

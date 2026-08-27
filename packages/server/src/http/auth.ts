@@ -35,7 +35,18 @@ export const SESSION_COOKIE = 'sone_session';
 
 export interface AuthDeps {
   pool: Pool;
-  signupMode: SignupMode;
+  /**
+   * Who may create an account.
+   *
+   * A function, not a value.
+   *
+   * It was a value read once at startup, which meant an administrator could
+   * change the setting, see it saved, see the interface report the new value —
+   * and registration would carry on using whatever the environment said when
+   * the container booted. A switch that does nothing is worse than no switch,
+   * because it is believed.
+   */
+  signupMode: () => Promise<SignupMode>;
   /** True when the public URL is https, so the cookie can be marked Secure. */
   secureCookies: boolean;
 }
@@ -180,7 +191,7 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
     );
     ctx.send(200, {
       needsSetup: Number(row?.n ?? 0) === 0,
-      signupMode: deps.signupMode,
+      signupMode: await deps.signupMode(),
       suggestedLocale: negotiateLocale(ctx.req.headers['accept-language']),
     });
   });
@@ -267,7 +278,7 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
     }
 
     try {
-      const result = await register(deps.pool, deps.signupMode, {
+      const result = await register(deps.pool, await deps.signupMode(), {
         email: body.email,
         password: body.password,
         displayName: body.displayName ?? '',

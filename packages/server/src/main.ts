@@ -148,9 +148,21 @@ async function main(): Promise<void> {
     documentSchemaVersion: SCHEMA_VERSION,
     syncProtocolVersion: PROTOCOL_VERSION,
   });
+  // Settings resolve from the database over the environment, so the few values
+  // an administrator changes take effect without a redeploy. Created before the
+  // routes that read it.
+  const settings = new SettingsStore(pool, {
+    signupMode: config.signupMode,
+    instanceName: 'SONE',
+    allowWorkspaceCreation: true,
+    defaultLocale: 'en',
+  });
+
   registerAuthRoutes(router, {
     pool,
-    signupMode: config.signupMode,
+    // Read per request, not captured at startup: an administrator who changes
+    // this in the interface expects the next registration attempt to obey it.
+    signupMode: () => settings.get('signupMode'),
     // Secure cookies only over https, or the browser drops them on a plain
     // http development instance and login silently fails.
     secureCookies: config.publicUrl.startsWith('https://'),
@@ -159,14 +171,6 @@ async function main(): Promise<void> {
   registerWorkspaceRoutes(router, { pool });
   registerFavouriteRoutes(router, { pool });
 
-  // Settings resolve from the database over the environment, so the few values
-  // an administrator changes do not require a redeploy.
-  const settings = new SettingsStore(pool, {
-    signupMode: config.signupMode,
-    instanceName: 'SONE',
-    allowWorkspaceCreation: true,
-    defaultLocale: 'en',
-  });
   registerAdminRoutes(router, {
     pool,
     settings,
