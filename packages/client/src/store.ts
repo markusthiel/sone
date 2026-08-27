@@ -272,10 +272,35 @@ export class DocumentStore {
     const requestId = this.nextRequestId++;
     entry.requestId = requestId;
     this.byRequest.set(requestId, entry);
+
     if (!this.opts.connection.send(encodeOpen(requestId, entry.pageId))) {
-      // Not ready yet. handleReconnect re-issues once authenticated, so this
-      // is a no-op rather than an error.
-      this.setStatus(entry, 'offline');
+      // The connection is not ready, so the frame was dropped. Marked pending
+      // and re-issued by handleAuthenticated.
+      //
+      // The comment here used to say handleReconnect would re-issue it. That
+      // was false: onReconnect deliberately does not fire on the first connect,
+      // so a document opened during the first few hundred milliseconds — which
+      // is exactly when a freshly created page is opened — waited forever.
+      // Header said "Syncing…", page said "Opening…", nothing happened.
+      entry.requestId = null;
+      this.byRequest.delete(requestId);
+      this.setStatus(entry, 'opening');
+    }
+  }
+
+  /**
+   * The connection has authenticated, for the first time or again.
+   *
+   * Re-issues an open for every document that does not have a live handle. On a
+   * first connect that is whatever was opened while connecting; after a
+   * reconnect it is everything, because handles are per-connection.
+   */
+  handleAuthenticated(): void {
+    for (const entry of this.entries.values()) {
+      if (entry.handle !== null) continue;
+      if (entry.requestId !== null) continue;
+      this.setStatus(entry, 'opening');
+      this.requestOpen(entry);
     }
   }
 

@@ -138,6 +138,16 @@ export interface ConnectionEvents {
   onFrame?: (frame: ServerFrame) => void;
   /** Fired after a successful re-authentication, never on the first connect. */
   onReconnect?: () => void;
+  /**
+   * Fired on every successful authentication, including the first.
+   *
+   * Needed because anything queued before the connection was ready has to be
+   * re-issued, and `onReconnect` deliberately does not fire on the first
+   * connect. A document opened during those first few hundred milliseconds —
+   * which is exactly when a freshly created page is opened — otherwise had its
+   * open frame dropped with nothing to retry it.
+   */
+  onAuthenticated?: () => void;
   /** Fatal: the connection will not retry. */
   onFatal?: (code: string, detail: string) => void;
   /** Anonymous share session id, so the caller can persist it. */
@@ -313,6 +323,10 @@ export class SyncConnection {
       this.markConnected();
       this.setState('ready');
       this.startPing();
+
+      // Before onReconnect, so anything queued is re-issued whether or not this
+      // is the first connection.
+      this.events.onAuthenticated?.();
 
       if (frame.ack.shareSessionId) {
         this.events.onShareSession?.(frame.ack.shareSessionId);

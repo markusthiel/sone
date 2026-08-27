@@ -13,6 +13,20 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the page you just created never finished syncing.** A document opened
+while the connection was still authenticating had its open request dropped, and
+nothing retried it — so the newest page, which the app navigates to immediately
+after creating it, sat at "Opening…" with the header stuck on "Syncing…"
+indefinitely. Pending opens are now re-issued on every authentication, including
+the first.
+
+**Pasting markdown works.** Text copied from another notes app, a README, a chat
+or an LLM arrived as literal characters — `## Heading` stayed a paragraph
+reading "## Heading". Headings, lists, checklists, quotes, fenced code, rules,
+bold, italic, strikethrough, inline code and links are converted, and
+indentation becomes nesting. Only when the text is recognisably markdown:
+pasting a code sample or a quotation leaves it exactly as it was.
+
 **Fixed: a slash command after text took over the paragraph instead of adding a
 block.** Typing text and then reaching for `/heading` turned the writing into a
 heading, so the heading appeared to jump somewhere else. Now an empty block is
