@@ -176,6 +176,9 @@ importers:
       '@sone/editor':
         specifier: workspace:*
         version: link:../editor
+      prosemirror-commands:
+        specifier: 1.7.2
+        version: 1.7.2
       prosemirror-state:
         specifier: 1.4.4
         version: 1.4.4

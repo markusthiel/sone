@@ -43,6 +43,7 @@ import {
   moveBlockUp,
   outdentBlockSubtree,
 } from './blockOps.js';
+import { canLink, selectLink } from './links.js';
 import { readIndent, schema, writeIndent } from './schema.js';
 
 /**
@@ -280,6 +281,17 @@ export function soneKeymap(): Plugin[] {
     'Mod-i': toggleMark(schema.marks['em']!),
     'Mod-Shift-x': toggleMark(schema.marks['strikethrough']!),
     'Mod-e': toggleMark(schema.marks['inlineCode']!),
+
+    // Mod-K is the link shortcut everywhere, so it must not fall through to the
+    // browser's search bar. It only selects the link — the interface opens an
+    // editor for it, because a URL cannot be typed into a keymap.
+    'Mod-k': (state, dispatch) => {
+      if (!canLink(state)) return false;
+      // Returns true even without dispatching, so the key is consumed and the
+      // interface can react to the selection it leaves behind.
+      selectLink(state, dispatch);
+      return true;
+    },
 
     'Mod-Enter': toggleTodo,
     'Mod-Shift-Minus': insertDivider,

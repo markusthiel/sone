@@ -17,6 +17,7 @@ import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { BlockMenu } from './BlockMenu.tsx';
+import { SelectionToolbar } from './SelectionToolbar.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
 
 interface EditorSurfaceProps {
@@ -91,6 +92,7 @@ export function EditorSurface({ handle }: EditorSurfaceProps): ReactElement {
         <>
           <SlashMenu view={view} revision={revision} />
           <BlockMenu view={view} revision={revision} />
+          <SelectionToolbar view={view} revision={revision} />
         </>
       )}
     </>

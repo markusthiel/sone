@@ -13,6 +13,18 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a slash command after text took over the paragraph instead of adding a
+block.** Typing text and then reaching for `/heading` turned the writing into a
+heading, so the heading appeared to jump somewhere else. Now an empty block is
+converted and a block with text gets a new block after it — which is what the
+gesture means in each case.
+
+**Links.** There was no way to make one: the mark existed and rendered, and
+nothing could apply it. `Mod-K`, or a selection toolbar with bold, italic,
+strikethrough, code and link. Addresses are normalised, so `example.org` becomes
+`https://example.org` rather than a path on your own instance, and
+`javascript:` and `data:` links are refused rather than sanitised.
+
 **Fixed: editing a page's heading did not rename it in the sidebar.** The title
 lives in the document and the sidebar reads the projection over HTTP, so the
 change reached the server and the tree went on showing the old name until

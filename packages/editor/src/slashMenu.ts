@@ -28,6 +28,8 @@ import type { Command, EditorState, Transaction } from 'prosemirror-state';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 
+import { splitBlock } from 'prosemirror-commands';
+
 import { insertDivider, toggleBlockType } from './keymap.js';
 import { schema } from './schema.js';
 
@@ -370,6 +372,24 @@ export function setSlashIndex(view: EditorView, index: number): void {
  * separately, because a block type change and a text deletion are different
  * edits and merging them makes the deletion undoable only together with the
  * conversion.
+ *
+ * ## Convert in place, or insert a new block
+ *
+ * This is the part that was wrong. The commands convert the *current* block, so
+ * typing text and then reaching for `/heading` turned the paragraph that text
+ * was in into a heading — the writing became the heading and no new block
+ * appeared. From the outside the heading looks like it went somewhere else
+ * entirely.
+ *
+ * So: an empty block is converted, and a block with content gets a new block
+ * after it. That is what Notion does and what the gesture means — in an empty
+ * block `/` says "this block is a heading", after text it says "add a heading
+ * here".
+ *
+ * When the caret is not at the end, the split carries the trailing text into the
+ * new block, which is the same thing Enter does at that position. Consistency
+ * with Enter is worth more than a special case, and typing `/` mid-sentence is
+ * not a thing people do on purpose.
  */
 export function runSlashItem(view: EditorView, item: SlashItem): boolean {
   const state = slashMenuState(view.state);
@@ -379,9 +399,32 @@ export function runSlashItem(view: EditorView, item: SlashItem): boolean {
   tr.setMeta(slashMenuPluginKey, { close: true });
   view.dispatch(tr);
 
+  if (blockHasContent(view.state)) {
+    // A new block for the new thing, leaving the writing alone.
+    splitBlock(view.state, view.dispatch);
+  }
+
   const applied = item.run(view.state, view.dispatch);
   view.focus();
   return applied;
+}
+
+/**
+ * Does the block containing the selection have text of its own?
+ *
+ * Checked after the slash and query have been removed, so "content" means text
+ * the person wrote rather than the command they just typed.
+ */
+function blockHasContent(state: EditorState): boolean {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    const attrs = node.type.spec.attrs;
+    if (attrs && BLOCK_ATTRS.id in attrs) {
+      return node.textContent.trim().length > 0;
+    }
+  }
+  return false;
 }
 
 /** Exported so tests can drive the plugin without a view. */

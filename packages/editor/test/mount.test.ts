@@ -222,6 +222,99 @@ describe('editor mounting', () => {
     }
   });
 
+  test('a slash command after text adds a block instead of taking over', async () => {
+    // Reported from real use: type some text, reach for /heading, and the
+    // heading "jumps somewhere else". It did not jump — the paragraph the text
+    // was in became the heading, so the writing turned into a title and no new
+    // block appeared where the caret was.
+    //
+    // Driven through the whole path: type the query so the plugin opens, then
+    // run the item as Enter does.
+    const { runSlashItem, slashMenuState } = await import('../src/slashMenu.js');
+    const { TextSelection } = await import('prosemirror-state');
+
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    seedEmptyPage(fragment);
+
+    const view = createEditor(mountPoint(), { fragment, editable: () => true });
+    try {
+      view.dispatch(view.state.tr.insertText('Hello world', 1));
+      view.dispatch(
+        view.state.tr.setSelection(
+          TextSelection.near(view.state.doc.resolve(view.state.doc.content.size - 1)),
+        ),
+      );
+
+      // A space then the query, since a slash mid-word must not open the menu.
+      for (const character of ' /h1') {
+        const { from, to } = view.state.selection;
+        const handled = view.state.plugins.some((plugin) => {
+          const handler = plugin.props?.handleTextInput;
+          return (
+            handler?.call(plugin, view, from, to, character, () => view.state.tr) === true
+          );
+        });
+        if (!handled) view.dispatch(view.state.tr.insertText(character, from, to));
+      }
+
+      const menu = slashMenuState(view.state);
+      assert.ok(menu, 'the menu should be open');
+      const item = menu!.items[menu!.index];
+      assert.ok(item);
+      runSlashItem(view, item!);
+
+      const blocks = view.state.doc.children.map((node) => ({
+        type: node.type.name,
+        text: node.textContent,
+      }));
+
+      assert.equal(blocks.length, 2, `expected two blocks, got ${JSON.stringify(blocks)}`);
+      assert.equal(blocks[0]!.type, 'paragraph', 'the writing stays a paragraph');
+      assert.match(blocks[0]!.text, /^Hello world/);
+      assert.equal(blocks[1]!.type, 'heading', 'the heading is a new block');
+      assert.equal(blocks[1]!.text, '', 'and it is empty, ready to type into');
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('a slash command in an empty block converts it rather than adding one', async () => {
+    // The other half of the rule: in an empty block `/` means "this block is a
+    // heading", so adding a second block there would leave an empty paragraph
+    // above every heading.
+    const { runSlashItem, slashMenuState } = await import('../src/slashMenu.js');
+
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    seedEmptyPage(fragment);
+
+    const view = createEditor(mountPoint(), { fragment, editable: () => true });
+    try {
+      for (const character of '/h1') {
+        const { from, to } = view.state.selection;
+        const handled = view.state.plugins.some((plugin) => {
+          const handler = plugin.props?.handleTextInput;
+          return (
+            handler?.call(plugin, view, from, to, character, () => view.state.tr) === true
+          );
+        });
+        if (!handled) view.dispatch(view.state.tr.insertText(character, from, to));
+      }
+
+      const menu = slashMenuState(view.state);
+      assert.ok(menu);
+      runSlashItem(view, menu!.items[menu!.index]!);
+
+      assert.equal(view.state.doc.childCount, 1, 'still one block');
+      assert.equal(view.state.doc.firstChild!.type.name, 'heading');
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
   test('destroying the editor twice does not throw', () => {
     // React strict mode mounts, unmounts and remounts effects, so a cleanup
     // that cannot run twice shows up as a crash only in development.
