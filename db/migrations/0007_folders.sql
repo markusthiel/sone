@@ -1,4 +1,4 @@
--- 0007_folders
+-- SONE 0007_folders
 --
 -- Folders as a distinct kind within the existing page tree (ADR-0019).
 --
@@ -11,18 +11,38 @@
 -- rebuildable from the CRDT log like everything else. A folder that existed only
 -- as a row here would make the projection non-derivable, which is the guarantee
 -- that makes the CRDT complexity worth carrying (ADR-0002).
+--
+-- IF NOT EXISTS throughout, and this is not decoration. The first version of
+-- this file omitted both the transaction and the schema_migrations row, so it
+-- applied its changes and was never recorded — every subsequent start retried it
+-- and failed on "column kind already exists", which stopped the server booting
+-- and left a blank page. Deployed instances are in exactly that state, and this
+-- has to be able to run against them.
+--
+-- Editing an applied migration normally breaks the append-only rule. It does not
+-- here: this file never recorded itself anywhere, so no instance believes it has
+-- been applied. That rule protects *recorded* migrations.
+
+BEGIN;
 
 ALTER TABLE pages
-  ADD COLUMN kind text NOT NULL DEFAULT 'page'
-    CHECK (kind IN ('page', 'folder'));
+  ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'page';
 
--- Existing rows are pages, which the default already gives them. Stated
--- explicitly so the intent survives someone reading only this migration.
-UPDATE pages SET kind = 'page' WHERE kind IS NULL;
+-- Added separately and guarded, because ADD COLUMN IF NOT EXISTS skips the
+-- whole clause when the column is already there — including the CHECK.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'pages_kind_check'
+  ) THEN
+    ALTER TABLE pages
+      ADD CONSTRAINT pages_kind_check CHECK (kind IN ('page', 'folder'));
+  END IF;
+END $$;
 
 -- The sidebar lists a parent's children ordered by (idx, id) and groups by
 -- kind, so kind belongs in that index rather than in one of its own.
-CREATE INDEX pages_tree_kind_idx
+CREATE INDEX IF NOT EXISTS pages_tree_kind_idx
   ON pages (workspace_id, parent_page_id, kind, idx, id)
   WHERE archived_at IS NULL;
 
@@ -49,6 +69,9 @@ CREATE OR REPLACE VIEW pages_inside_pages AS
     AND parent.archived_at IS NULL;
 
 COMMENT ON VIEW pages_inside_pages IS
-  'Entries whose parent is a page rather than a folder. Should be empty; the API '
-  'refuses to create these, so a row here means a client wrote it directly or an '
-  'update arrived out of order and has not settled.';
+  'Entries whose parent is a page rather than a folder. Should be empty: the API refuses to create these, so a row here means a client wrote one directly or an update arrived out of order and has not settled yet.';
+
+INSERT INTO schema_migrations (version) VALUES ('0007_folders')
+  ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

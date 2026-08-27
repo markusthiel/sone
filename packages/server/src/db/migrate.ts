@@ -86,6 +86,35 @@ export async function migrate(
     const client = await db.connect();
     try {
       await client.query(migration.sql);
+
+      // Recorded here if the file did not record itself.
+      //
+      // The convention is that each file inserts its own row, and it is a
+      // convention with no enforcement — so forgetting it is possible, and the
+      // consequence is severe out of all proportion to the mistake: the
+      // migration's changes are applied, nothing is recorded, and every
+      // subsequent start retries it and fails on "already exists". The server
+      // then never boots, and the only visible symptom is a blank page.
+      //
+      // That happened with 0007_folders on a deployed instance. The runner no
+      // longer depends on every file remembering.
+      const recorded = await client.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM schema_migrations WHERE version = $1`,
+        [migration.version],
+      );
+      if (Number(recorded.rows[0]?.n ?? 0) === 0) {
+        await client.query(
+          `INSERT INTO schema_migrations (version) VALUES ($1)
+             ON CONFLICT (version) DO NOTHING`,
+          [migration.version],
+        );
+        log(
+          `[migrate] ${migration.version} did not record itself; recorded by the ` +
+            `runner. Add "INSERT INTO schema_migrations (version) VALUES ` +
+            `('${migration.version}');" to the file.`,
+        );
+      }
+
       applied.push(migration.version);
       log(`[migrate] applied ${migration.version}`);
     } catch (err) {
