@@ -102,6 +102,13 @@ jobs:
           corepack enable
           pnpm install --frozen-lockfile
 
+      - name: Check migrations are well-formed
+        # A migration that does not record itself applies its changes, is never
+        # recorded, and then fails on every restart — the server stops booting
+        # and the only symptom is a blank page. That reached a deployed
+        # instance; it is checked mechanically now.
+        run: node scripts/check-migrations.mjs
+
       - name: Check workspace dependency build order
         # A typecheck script that does not build its workspace dependencies
         # passes where a build has already run and fails on a clean checkout.

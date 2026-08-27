@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the server restarted in a loop and served nothing.** The folders
+migration applied its changes but never recorded itself, so every start retried
+it and failed on a column that already existed. The migration is now idempotent
+and recovers an affected instance on the next start, with nothing to do by
+hand. The migration runner records a version itself when a file omits it, so
+this class of failure can no longer stop an instance booting, and a check now
+rejects such a file before it can be deployed.
+
 **Multiple workspaces.** Click the workspace name to switch between them or
 create a new one. Everything in the data model already allowed several — the
 session has always returned a list — but nothing could create a second, so an

@@ -695,3 +695,67 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     );
   });
 });
+
+// --- the migration runner --------------------------------------------------
+
+describe(
+  'migration runner (database)',
+  { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not set' : false },
+  () => {
+    test('a migration that does not record itself is recorded by the runner', async () => {
+      // This is the failure that stopped a deployed instance booting. 0007
+      // applied its changes and never inserted its schema_migrations row, so
+      // every restart retried it and failed on "column kind already exists".
+      // Nothing answered, and the visible symptom was a blank page.
+      //
+      // The convention is that each file records itself, and it has no
+      // enforcement — so the runner no longer depends on every file
+      // remembering.
+      const db = await getTestPool();
+      const { mkdtemp, writeFile } = await import('node:fs/promises');
+      const { tmpdir } = await import('node:os');
+      const path = await import('node:path');
+      const { migrate } = await import('../src/db/migrate.js');
+
+      const dir = await mkdtemp(path.join(tmpdir(), 'sone-migrations-'));
+
+      // A minimal first migration that does create the bookkeeping table,
+      // because the runner needs somewhere to record.
+      await writeFile(
+        path.join(dir, '0001_base.sql'),
+        `BEGIN;
+         CREATE TABLE IF NOT EXISTS schema_migrations (
+           version text PRIMARY KEY,
+           applied_at timestamptz NOT NULL DEFAULT now()
+         );
+         INSERT INTO schema_migrations (version) VALUES ('0001_base')
+           ON CONFLICT (version) DO NOTHING;
+         COMMIT;`,
+        'utf8',
+      );
+
+      // And one that forgets, exactly as 0007 did.
+      await writeFile(
+        path.join(dir, '0002_forgetful.sql'),
+        `CREATE TABLE runner_probe (id integer);`,
+        'utf8',
+      );
+
+      const messages: string[] = [];
+      const first = await migrate(db, dir, (m) => messages.push(m));
+      assert.deepEqual(first.applied, ['0001_base', '0002_forgetful']);
+      assert.ok(
+        messages.some((m) => m.includes('did not record itself')),
+        'the omission must be reported, not silently patched',
+      );
+
+      // The second run is the one that used to fail: without a recorded row the
+      // runner retries, and CREATE TABLE errors on a table that exists.
+      const second = await migrate(db, dir, () => {});
+      assert.deepEqual(second.applied, [], 'nothing left to apply');
+      assert.ok(second.skipped.includes('0002_forgetful'));
+
+      await db.query(`DROP TABLE IF EXISTS runner_probe`);
+    });
+  },
+);

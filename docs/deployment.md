@@ -183,6 +183,43 @@ client in the image, not a change to the database. The backup command reports
 this explicitly rather than passing on `pg_dump`'s own wording, which does not
 say what to do about it.
 
+## The server restarts in a loop with a migration error
+
+```
+[migrate] applying 0007_folders.sql
+[migrate] FAILED 0007_folders
+[migrate] failed: column "kind" of relation "pages" already exists
+```
+
+A migration applied its changes but was never recorded, so every start retries
+it and fails on something that now exists. The server never finishes booting,
+nothing answers, and the only visible symptom is a blank page.
+
+Fixed at the source: the affected migration is idempotent, and the runner now
+records a version itself when the file did not — so a file forgetting to record
+itself can no longer stop an instance booting. `scripts/check-migrations.mjs`
+rejects such a file before it reaches a deployment, and CI runs it.
+
+**To recover an instance already looping:** deploy an image containing the fix
+and restart. Nothing needs to be done by hand — the affected migration applies
+cleanly against a database that already has its changes.
+
+If you are ever stuck on a version without the fix, recording the migration by
+hand is safe when its changes are demonstrably present:
+
+```sql
+INSERT INTO schema_migrations (version) VALUES ('0007_folders')
+  ON CONFLICT (version) DO NOTHING;
+```
+
+Check first that the change really did apply, or the schema will be missing
+something the code assumes:
+
+```sql
+SELECT column_name FROM information_schema.columns
+ WHERE table_name = 'pages' AND column_name = 'kind';
+```
+
 ## The server refuses to start on an apparent downgrade
 
 If **`/api/version` itself returns nothing**, no application code is involved:
