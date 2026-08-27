@@ -15,9 +15,17 @@ import { ErrorBoundary } from './ErrorBoundary.tsx';
 
 interface PageViewProps {
   handle: PageHandle;
+  /**
+   * Called when the title changes, including by another client.
+   *
+   * The sidebar reads titles from the projection over HTTP, so without this it
+   * shows the old name until something refetches — which is what made editing a
+   * heading look like it had not synced.
+   */
+  onTitleChange?: (title: string) => void;
 }
 
-export function PageView({ handle }: PageViewProps): ReactElement {
+export function PageView({ handle, onTitleChange }: PageViewProps): ReactElement {
   const pageMap = handle.doc.getMap(DOC_KEYS.page);
   const [title, setTitle] = useState<string>(
     () => (pageMap.get(PAGE_KEYS.title) as string | undefined) ?? '',
@@ -29,15 +37,22 @@ export function PageView({ handle }: PageViewProps): ReactElement {
     const observer = (): void => {
       const next = (pageMap.get(PAGE_KEYS.title) as string | undefined) ?? '';
       setTitle((current) => (current === next ? current : next));
+      // Reported for remote changes too, so a rename from another client
+      // reaches the sidebar without a refetch.
+      onTitleChange?.(next);
     };
     pageMap.observe(observer);
     return () => pageMap.unobserve(observer);
-  }, [pageMap]);
+  }, [pageMap, onTitleChange]);
 
   const commitTitle = (next: string): void => {
     setTitle(next);
     if (!handle.canEdit) return;
     pageMap.set(PAGE_KEYS.title, next);
+    // Told directly rather than waiting for the observer: a local write does
+    // fire it, but going straight there keeps the sidebar in step with the
+    // caret rather than one tick behind.
+    onTitleChange?.(next);
   };
 
   return (

@@ -110,6 +110,16 @@ export function ChevronRightIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A panel beside a content area, for showing and hiding a sidebar. */
+export function SidebarIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M9.5 4.5v15" />
+    </svg>
+  );
+}
+
 export function MoreIcon(props: IconProps): ReactElement {
   return (
     <svg {...base(props)}>

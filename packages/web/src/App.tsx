@@ -8,6 +8,7 @@
 import { useEffect, useState , type ReactElement } from 'react';
 
 import { LoginScreen, SetupScreen, SignupScreen, messageFor } from './components/Auth.tsx';
+import { FolderView } from './components/FolderView.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
 import {
   RightPanelToggle,
@@ -21,6 +22,7 @@ import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
 import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
 import { useSession } from './hooks/useSession.ts';
+import type { PageNode } from './api/client.ts';
 import { paths } from './routes/paths.ts';
 
 export function App(): ReactElement {
@@ -127,7 +129,8 @@ function Workspace({
     workspaceId,
     displayName,
   });
-  const { tree, pages, createPage, archivePage, renameEntry } = usePages(workspaceId);
+  const { tree, pages, createPage, archivePage, renameEntry, applyTitle } =
+    usePages(workspaceId);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(readRightPanelOpen);
 
@@ -141,7 +144,14 @@ function Workspace({
     }
   }, [rightOpen]);
 
-  const pageId = route.kind === 'page' ? route.pageId : null;
+  const routePageId = route.kind === 'page' ? route.pageId : null;
+
+  // A folder has no document, so no sync handle is opened for one. Looked up in
+  // the tree rather than fetched: the tree already knows every entry's kind, and
+  // a request to find out would delay the render for nothing.
+  const selected = routePageId ? findNode(tree, routePageId) : null;
+  const isFolder = selected?.kind === 'folder';
+  const pageId = isFolder ? null : routePageId;
   const handle = usePage(client, pageId);
 
   // Close the drawer on navigation. Without this, tapping a page on a phone
@@ -227,9 +237,26 @@ function Workspace({
           </div>
         </div>
 
-        {route.kind === 'page' && handle && <PageView handle={handle} />}
+        {route.kind === 'page' && isFolder && selected && (
+          <FolderView
+            folder={selected}
+            trail={ancestorNodes(tree, selected.id)}
+            onCreate={(parent, kind) => void onCreateEntry(parent, kind)}
+            onRename={(id, title) => void renameEntry(id, title)}
+          />
+        )}
 
-        {route.kind === 'page' && !handle && (
+        {route.kind === 'page' && !isFolder && handle && (
+          <PageView
+            handle={handle}
+            // Keeps the sidebar in step with the heading as it is typed. The
+            // tree comes from the projection over HTTP, so without this it
+            // showed the old name until something refetched.
+            onTitleChange={(title) => applyTitle(routePageId!, title)}
+          />
+        )}
+
+        {route.kind === 'page' && !isFolder && !handle && (
           <div className="page-body">
             <p className="muted">Opening…</p>
           </div>
@@ -418,4 +445,27 @@ function ShareSession({
       </div>
     </div>
   );
+}
+
+/** Find a node anywhere in the tree. */
+function findNode(nodes: PageNode[], pageId: string): PageNode | null {
+  for (const node of nodes) {
+    if (node.id === pageId) return node;
+    const found = findNode(node.children, pageId);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** Ancestor nodes of an entry, outermost first, for a breadcrumb. */
+function ancestorNodes(nodes: PageNode[], pageId: string): PageNode[] {
+  const walk = (list: PageNode[], trail: PageNode[]): PageNode[] | null => {
+    for (const node of list) {
+      if (node.id === pageId) return trail;
+      const found = walk(node.children, [...trail, node]);
+      if (found) return found;
+    }
+    return null;
+  };
+  return walk(nodes, []) ?? [];
 }
