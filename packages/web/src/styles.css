@@ -557,3 +557,32 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   font-size: 0.88rem;
   color: var(--sone-text-muted);
 }
+
+/* --- crash surface ---
+ *
+ * Deliberately plain: this renders when something has already gone wrong, so it
+ * must not depend on anything that might be part of the failure. No layout
+ * containers, no computed positions.
+ */
+
+.crash {
+  max-width: 40rem;
+  margin-inline: auto;
+  padding: 24px 20px;
+}
+
+.crash h2 { margin-block-start: 0; }
+
+.crash-detail {
+  max-height: 40vh;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  /* Wrapped rather than scrolled sideways: a stack trace read one line at a
+     time through a horizontal scrollbar is not read at all. */
+  white-space: pre-wrap;
+  word-break: break-word;
+}

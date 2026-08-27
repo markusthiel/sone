@@ -33,7 +33,9 @@
     "yjs": "13.6.32"
   },
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.10.0",
+    "jsdom": "^30.0.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }
