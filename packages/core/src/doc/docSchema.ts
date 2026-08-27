@@ -63,8 +63,22 @@ export const META_KEYS = {
   createdWith: 'createdWith',
 } as const;
 
+/**
+ * What a tree entry is.
+ *
+ * A folder organises; a page holds writing. A folder may contain both kinds, a
+ * page may contain nothing (ADR-0019).
+ *
+ * An absent value reads as 'page', so every document written before folders
+ * existed is a page without needing a migration.
+ */
+export const ENTRY_KINDS = ['page', 'folder'] as const;
+export type EntryKind = (typeof ENTRY_KINDS)[number];
+
 export const PAGE_KEYS = {
   title: 'title',
+  /** 'page' or 'folder'. Absent means 'page' (ADR-0019). */
+  kind: 'kind',
   icon: 'icon',
   coverUrl: 'coverUrl',
   parentPageId: 'parentPageId',

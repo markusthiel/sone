@@ -46,6 +46,8 @@ export interface MaintenanceReport {
   revalidatedConnections: number;
   staleSearchRows: number;
   orphanedPages: number;
+  /** Entries whose parent is a page rather than a folder (ADR-0019). */
+  entriesInsidePages: number;
   errors: string[];
   durationMs: number;
 }
@@ -93,6 +95,7 @@ export class Maintenance {
       revalidatedConnections: 0,
       staleSearchRows: 0,
       orphanedPages: 0,
+      entriesInsidePages: 0,
       errors: [],
       durationMs: 0,
     };
@@ -152,6 +155,17 @@ export class Maintenance {
           WHERE created_at < now() - interval '1 hour'`,
       );
       report.orphanedPages = Number(orphans[0]?.n ?? 0);
+
+      // A page may contain nothing (ADR-0019). The API refuses to create the
+      // situation; this notices if a client wrote it directly or an
+      // out-of-order update has not settled. Given a grace period for the same
+      // reason as orphans: CRDT updates arrive in any order, so a violation
+      // that is minutes old is probably still resolving.
+      const misplaced = await queryRows<{ n: string }>(
+        this.opts.pool,
+        `SELECT count(*)::text AS n FROM pages_inside_pages`,
+      );
+      report.entriesInsidePages = Number(misplaced[0]?.n ?? 0);
     });
 
     report.durationMs = Date.now() - started;
@@ -167,6 +181,12 @@ export class Maintenance {
       this.log(
         `${report.orphanedPages} page(s) have been orphaned for over an hour; ` +
           `see the orphaned_pages view`,
+      );
+    }
+    if (report.entriesInsidePages > 0) {
+      this.log(
+        `${report.entriesInsidePages} entr(ies) sit inside a page rather than a ` +
+          `folder; see the pages_inside_pages view`,
       );
     }
 

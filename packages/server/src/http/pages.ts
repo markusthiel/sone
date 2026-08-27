@@ -17,6 +17,7 @@ import {
   PAGE_KEYS,
   SCHEMA_VERSION,
   generateKeyBetween,
+  type EntryKind,
 } from '@sone/core';
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
@@ -115,12 +116,13 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       idx: string;
       title: string;
       icon: unknown;
+      kind: string;
       archived_at: Date | null;
       last_edited_at: Date;
       ancestor_ids: string[];
     }>(
       deps.pool,
-      `SELECT id, parent_page_id, collection_id, idx, title, icon,
+      `SELECT id, parent_page_id, collection_id, idx, title, icon, kind,
               archived_at, last_edited_at, ancestor_ids
          FROM pages
         WHERE workspace_id = $1
@@ -147,6 +149,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         idx: row.idx,
         title: row.title,
         icon: row.icon,
+        kind: row.kind === 'folder' ? 'folder' : 'page',
         archived: row.archived_at !== null,
         lastEditedAt: row.last_edited_at,
       })),
@@ -169,18 +172,50 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       title?: string;
       parentPageId?: string | null;
       afterPageId?: string | null;
+      kind?: string;
     }>(ctx);
     if (!body) return;
 
     const parentPageId = body.parentPageId ?? null;
 
+    // Defaults to a page, so a client that predates folders keeps working.
+    const kind: EntryKind = body.kind === 'folder' ? 'folder' : 'page';
+    if (body.kind !== undefined && body.kind !== 'page' && body.kind !== 'folder') {
+      ctx.fail(422, 'invalid_kind');
+      return;
+    }
+
     if (parentPageId) {
-      const parent = await loadPageLocation(deps.pool, parentPageId);
-      if (!parent || parent.workspaceId !== workspaceId) {
+      const parent = await queryOne<{
+        id: string;
+        workspace_id: string;
+        kind: string;
+        ancestor_ids: string[];
+      }>(
+        deps.pool,
+        `SELECT id, workspace_id, kind, ancestor_ids FROM pages WHERE id = $1`,
+        [parentPageId],
+      );
+      if (!parent || parent.workspace_id !== workspaceId) {
         ctx.fail(404, 'parent_not_found');
         return;
       }
-      const role = effectiveRole(claims, parent);
+
+      // A folder may contain both kinds; a page may contain nothing
+      // (ADR-0019). Enforced here rather than in the database, where CRDT
+      // updates arriving out of order would make a constraint reject
+      // legitimate data. The pages_inside_pages view reports violations that
+      // arrive anyway.
+      if (parent.kind !== 'folder') {
+        ctx.fail(409, 'parent_is_not_a_folder');
+        return;
+      }
+
+      const role = effectiveRole(claims, {
+        id: parent.id,
+        workspaceId: parent.workspace_id,
+        ancestorIds: parent.ancestor_ids,
+      });
       if (role === null || role === 'viewer' || role === 'commenter') {
         ctx.fail(403, 'not_authorized');
         return;
@@ -211,6 +246,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     doc.getMap(DOC_KEYS.meta).set(META_KEYS.createdWith, 'sone-server');
     const page = doc.getMap(DOC_KEYS.page);
     page.set(PAGE_KEYS.title, title);
+    // Written into the document rather than only into the projection, so a
+    // folder is rebuildable from the CRDT log like everything else (ADR-0019).
+    page.set(PAGE_KEYS.kind, kind);
     page.set(PAGE_KEYS.idx, idx);
     page.set(PAGE_KEYS.parentPageId, parentPageId);
     page.set(PAGE_KEYS.collectionId, null);
@@ -240,7 +278,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       doc.destroy();
     }
 
-    ctx.send(201, { id: pageId, idx, parentPageId, title });
+    ctx.send(201, { id: pageId, idx, parentPageId, title, kind });
   });
 
   /** Page metadata. The body itself arrives over the sync connection. */
@@ -253,6 +291,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       collection_id: string | null;
       title: string;
       icon: unknown;
+      kind: string;
       cover_url: string | null;
       archived_at: Date | null;
       created_at: Date;
@@ -260,7 +299,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       ancestor_ids: string[];
     }>(
       deps.pool,
-      `SELECT id, workspace_id, parent_page_id, collection_id, title, icon,
+      `SELECT id, workspace_id, parent_page_id, collection_id, title, icon, kind,
               cover_url, archived_at, created_at, last_edited_at, ancestor_ids
          FROM pages WHERE id = $1`,
       [pageId],
@@ -300,6 +339,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       collectionId: page.collection_id,
       title: page.title,
       icon: page.icon,
+      kind: page.kind === 'folder' ? 'folder' : 'page',
       coverUrl: page.cover_url,
       archived: page.archived_at !== null,
       createdAt: page.created_at,

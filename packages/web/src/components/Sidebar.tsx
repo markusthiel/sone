@@ -24,7 +24,7 @@ interface SidebarProps {
   currentPageId: string | null;
   open: boolean;
   onClose: () => void;
-  onCreatePage: (parentPageId: string | null) => void;
+  onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder') => void;
   onLogout: () => void;
 }
 
@@ -97,15 +97,26 @@ export function Sidebar({
           <span className="workspace-name" title={workspaceName}>
             {workspaceName}
           </span>
-          <button
-            className="quiet"
-            type="button"
-            onClick={() => onCreatePage(null)}
-            title="New page"
-            aria-label="New page"
-          >
-            +
-          </button>
+          <div className="sidebar-head-actions">
+            <button
+              className="quiet"
+              type="button"
+              onClick={() => onCreatePage(null, 'folder')}
+              title="New folder"
+              aria-label="New folder"
+            >
+              ⊞
+            </button>
+            <button
+              className="quiet"
+              type="button"
+              onClick={() => onCreatePage(null, 'page')}
+              title="New page"
+              aria-label="New page"
+            >
+              +
+            </button>
+          </div>
         </div>
 
         <a className="sidebar-search" href={paths.search()}>
@@ -153,18 +164,23 @@ function TreeLevel({
   currentPageId: string | null;
   collapsed: Set<string>;
   onToggle: (pageId: string) => void;
-  onCreatePage: (parentPageId: string | null) => void;
+  onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder') => void;
 }): ReactElement {
   return (
     <>
       {nodes.map((node) => {
         const hasChildren = node.children.length > 0;
         const isCollapsed = collapsed.has(node.id);
-        const title = node.title || 'Untitled';
+        const isFolder = node.kind === 'folder';
+        const title = node.title || (isFolder ? 'Untitled folder' : 'Untitled');
 
         return (
           <div key={node.id}>
-            <div className="tree-row" style={{ marginInlineStart: `${node.depth * 12}px` }}>
+            <div
+              className="tree-row"
+              data-kind={node.kind}
+              style={{ marginInlineStart: `${node.depth * 12}px` }}
+            >
               <button
                 className="tree-twisty"
                 type="button"
@@ -186,24 +202,54 @@ function TreeLevel({
                 ▶
               </button>
 
-              <a
-                className="tree-link"
-                href={paths.page(node.id, node.title)}
-                {...(node.id === currentPageId ? { 'aria-current': 'page' as const } : {})}
-              >
-                {node.icon?.kind === 'emoji' ? `${node.icon.value} ` : ''}
-                {title}
-              </a>
+              {isFolder ? (
+                // A folder has no document to open, so clicking its name
+                // expands it rather than navigating to an empty page. That is
+                // the whole difference between a folder and a page.
+                <button
+                  className="tree-link tree-folder"
+                  type="button"
+                  onClick={() => hasChildren && onToggle(node.id)}
+                >
+                  <span aria-hidden="true">{node.icon?.kind === 'emoji' ? node.icon.value : '📁'}</span>{' '}
+                  {title}
+                </button>
+              ) : (
+                <a
+                  className="tree-link"
+                  href={paths.page(node.id, node.title)}
+                  {...(node.id === currentPageId ? { 'aria-current': 'page' as const } : {})}
+                >
+                  {node.icon?.kind === 'emoji' ? `${node.icon.value} ` : ''}
+                  {title}
+                </a>
+              )}
 
-              <button
-                className="tree-add"
-                type="button"
-                onClick={() => onCreatePage(node.id)}
-                title={`New page inside ${title}`}
-                aria-label={`New page inside ${title}`}
-              >
-                +
-              </button>
+              {/* Only a folder offers "new inside this". A page contains
+                  nothing (ADR-0019), so offering it there would produce a
+                  refusal the person could not have predicted. */}
+              {isFolder && (
+                <>
+                  <button
+                    className="tree-add"
+                    type="button"
+                    onClick={() => onCreatePage(node.id, 'folder')}
+                    title={`New folder inside ${title}`}
+                    aria-label={`New folder inside ${title}`}
+                  >
+                    ⊞
+                  </button>
+                  <button
+                    className="tree-add"
+                    type="button"
+                    onClick={() => onCreatePage(node.id, 'page')}
+                    title={`New page inside ${title}`}
+                    aria-label={`New page inside ${title}`}
+                  >
+                    +
+                  </button>
+                </>
+              )}
             </div>
 
             {hasChildren && !isCollapsed && (

@@ -7,7 +7,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { ApiError, api, buildPageTree, type PageNode, type PageSummary } from '../api/client.ts';
+import {
+  ApiError,
+  api,
+  buildPageTree,
+  type EntryKind,
+  type PageNode,
+  type PageSummary,
+} from '../api/client.ts';
 
 export function usePages(workspaceId: string | null): {
   pages: PageSummary[];
@@ -15,7 +22,11 @@ export function usePages(workspaceId: string | null): {
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
-  createPage: (input: { title?: string; parentPageId?: string | null }) => Promise<string | null>;
+  createPage: (input: {
+    title?: string;
+    parentPageId?: string | null;
+    kind?: EntryKind;
+  }) => Promise<string | null>;
   archivePage: (pageId: string) => Promise<void>;
 } {
   const [pages, setPages] = useState<PageSummary[]>([]);
@@ -45,7 +56,7 @@ export function usePages(workspaceId: string | null): {
   }, [reload]);
 
   const createPage = useCallback(
-    async (input: { title?: string; parentPageId?: string | null }) => {
+    async (input: { title?: string; parentPageId?: string | null; kind?: EntryKind }) => {
       if (!workspaceId) return null;
       try {
         const created = await api.createPage(workspaceId, input);
