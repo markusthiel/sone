@@ -848,6 +848,216 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.equal(res.status, 403);
   });
 
+  // --- moving --------------------------------------------------------------
+
+  const move = (
+    session: Session,
+    pageId: string,
+    parentPageId: string | null,
+  ): Promise<Response> =>
+    fetch(
+      `${base}/api/pages/${pageId}`,
+      auth(session, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ parentPageId }),
+      }),
+    );
+
+  test('a page can be moved to another folder', async () => {
+    const session = await setup();
+    const from = await createFolder(session, 'From');
+    const to = await createFolder(session, 'To');
+    const pageId = await createPage(session, 'Wandering', from);
+
+    await expectStatus(await move(session, pageId, to), 200);
+
+    const row = await db.query<{ parent_page_id: string }>(
+      `SELECT parent_page_id FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.equal(row.rows[0]!.parent_page_id, to);
+  });
+
+  test('a move writes the document, so it survives a rebuild', async () => {
+    // The parent lives in the CRDT (ADR-0002). Writing the projection would be
+    // undone by the next materialisation and the move would silently revert.
+    const session = await setup();
+    const from = await createFolder(session, 'From');
+    const to = await createFolder(session, 'To');
+    const pageId = await createPage(session, 'Wandering', from);
+
+    await move(session, pageId, to);
+    await db.query(`UPDATE pages SET parent_page_id = $2 WHERE id = $1`, [pageId, from]);
+
+    const { rebuild } = await import('../src/materialize/rebuild.js');
+    await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
+
+    const row = await db.query<{ parent_page_id: string }>(
+      `SELECT parent_page_id FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.equal(row.rows[0]!.parent_page_id, to, 'restored from the document');
+  });
+
+  test('a folder can be moved to the workspace root', async () => {
+    const session = await setup();
+    const outer = await createFolder(session, 'Outer');
+    const inner = await createFolder(session, 'Inner', outer);
+
+    await expectStatus(await move(session, inner, null), 200);
+    const row = await db.query<{ parent_page_id: string | null }>(
+      `SELECT parent_page_id FROM pages WHERE id = $1`,
+      [inner],
+    );
+    assert.equal(row.rows[0]!.parent_page_id, null);
+  });
+
+  test('a page cannot be moved to the workspace root', async () => {
+    // A root full of loose pages is the pile folders exist to replace.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Page', folder);
+
+    const res = await move(session, pageId, null);
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'pages_need_a_folder' });
+  });
+
+  test('an entry cannot be moved into a page', async () => {
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const target = await createPage(session, 'A page', folder);
+    const moving = await createPage(session, 'Another page', folder);
+
+    const res = await move(session, moving, target);
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'parent_is_not_a_folder' });
+  });
+
+  test('a folder cannot be moved into itself', async () => {
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const res = await move(session, folder, folder);
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'cannot_move_into_itself' });
+  });
+
+  test('a folder cannot be moved into its own subtree', async () => {
+    // The rule that matters most. Detaching a subtree from the tree leaves it
+    // existing, unreachable from the root, with ancestor_ids — which every
+    // share link and subtree grant is computed from — recursing forever.
+    const session = await setup();
+    const outer = await createFolder(session, 'Outer');
+    const middle = await createFolder(session, 'Middle', outer);
+    const inner = await createFolder(session, 'Inner', middle);
+
+    for (const target of [middle, inner]) {
+      const res = await move(session, outer, target);
+      assert.equal(res.status, 409, `moving into ${target} should be refused`);
+      assert.deepEqual(await res.json(), { error: 'cannot_move_into_own_subtree' });
+    }
+
+    // And nothing changed.
+    const row = await db.query<{ parent_page_id: string | null }>(
+      `SELECT parent_page_id FROM pages WHERE id = $1`,
+      [outer],
+    );
+    assert.equal(row.rows[0]!.parent_page_id, null);
+  });
+
+  test('a move updates the ancestors of everything beneath it', async () => {
+    // Without the cascade, a share link on the destination would not cover what
+    // was just moved into it — and a subtree grant is computed from
+    // ancestor_ids.
+    const session = await setup();
+    const from = await createFolder(session, 'From');
+    const to = await createFolder(session, 'To');
+    const middle = await createFolder(session, 'Middle', from);
+    const leaf = await createPage(session, 'Leaf', middle);
+
+    await expectStatus(await move(session, middle, to), 200);
+
+    const row = await db.query<{ ancestor_ids: string[] }>(
+      `SELECT ancestor_ids FROM pages WHERE id = $1`,
+      [leaf],
+    );
+    assert.deepEqual(row.rows[0]!.ancestor_ids, [to, middle]);
+  });
+
+  test('a moved entry lands last among its new siblings', async () => {
+    const session = await setup();
+    const from = await createFolder(session, 'From');
+    const to = await createFolder(session, 'To');
+    const first = await createPage(session, 'Already there', to);
+    const moving = await createPage(session, 'Arriving', from);
+
+    await move(session, moving, to);
+
+    const rows = await db.query<{ id: string }>(
+      `SELECT id FROM pages WHERE parent_page_id = $1 ORDER BY idx, id`,
+      [to],
+    );
+    assert.deepEqual(rows.rows.map((r) => r.id), [first, moving]);
+  });
+
+  test('a destination in another workspace is refused', async () => {
+    // Moving across workspaces would carry a page out of the permissions
+    // granted on it.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Page', folder);
+
+    const other = await db.query<{ id: string }>(
+      `INSERT INTO workspaces (name, created_by) VALUES ('Other', $1) RETURNING id`,
+      [session.userId],
+    );
+    // The id is supplied explicitly: pages.id has no default, because it is the
+    // document id and comes from the client that created the document.
+    const foreign = await db.query<{ id: string }>(
+      `INSERT INTO pages (id, workspace_id, title, idx, kind, ancestor_ids)
+       VALUES (gen_random_uuid(), $1, 'Foreign', 'a0', 'folder', '{}') RETURNING id`,
+      [other.rows[0]!.id],
+    );
+
+    const res = await move(session, pageId, foreign.rows[0]!.id);
+    assert.equal(res.status, 404);
+  });
+
+  test('a viewer cannot move an entry', async () => {
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const other = await createFolder(session, 'Other');
+    const pageId = await createPage(session, 'Page', folder);
+
+    const hash = await hashPassword(PASSWORD);
+    const guest = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash, is_guest)
+       VALUES ('mover@example.org','M',$1,true) RETURNING id`,
+      [hash],
+    );
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
+      [session.workspaceId, guest.rows[0]!.id],
+    );
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+       VALUES ($1,$2,'viewer',false,$3)`,
+      [pageId, guest.rows[0]!.id, session.userId],
+    );
+    const login = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'mover@example.org', password: PASSWORD }),
+    );
+
+    const res = await fetch(`${base}/api/pages/${pageId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: cookieFrom(login) },
+      body: JSON.stringify({ parentPageId: other }),
+    });
+    assert.equal(res.status, 403);
+  });
+
   // --- search --------------------------------------------------------------
 
   test('search finds a page by title', async () => {
