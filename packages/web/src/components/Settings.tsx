@@ -167,7 +167,7 @@ function About(): ReactElement {
           This browser is running an older build than the server. Reload to pick
           up the current version — until then, what you see may not match what
           the server does.{' '}
-          <button type="button" onClick={() => window.location.reload()}>
+          <button type="button" className="btn" onClick={() => window.location.reload()}>
             Reload
           </button>
         </p>

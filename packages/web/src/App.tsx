@@ -9,6 +9,7 @@ import { useEffect, useState , type ReactElement } from 'react';
 
 import { LoginScreen, SetupScreen, SignupScreen, messageFor } from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
+import { SidebarIcon } from './components/icons.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
 import {
   RightPanelToggle,
@@ -22,6 +23,7 @@ import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
 import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
 import { useSession } from './hooks/useSession.ts';
+import { useSidebar } from './hooks/useSidebar.ts';
 import type { PageNode } from './api/client.ts';
 import { paths } from './routes/paths.ts';
 
@@ -42,7 +44,7 @@ export function App(): ReactElement {
         <div className="card">
           <h1>Cannot start</h1>
           <p className="error">{messageFor(state.code)}</p>
-          <button type="button" onClick={() => void reload()}>
+          <button type="button" className="btn" onClick={() => void reload()}>
             Try again
           </button>
         </div>
@@ -131,7 +133,11 @@ function Workspace({
   });
   const { tree, pages, createPage, archivePage, renameEntry, applyTitle } =
     usePages(workspaceId);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const {
+    visible: sidebarVisible,
+    toggle: toggleSidebar,
+    close: closeSidebar,
+  } = useSidebar(route);
   const [rightOpen, setRightOpen] = useState(readRightPanelOpen);
 
   // Remembered per browser: reopening the panel on every navigation is the kind
@@ -154,12 +160,6 @@ function Workspace({
   const pageId = isFolder ? null : routePageId;
   const handle = usePage(client, pageId);
 
-  // Close the drawer on navigation. Without this, tapping a page on a phone
-  // leaves the drawer covering the page that was just opened.
-  useEffect(() => {
-    setDrawerOpen(false);
-  }, [route]);
-
   // The root redirects to the first page rather than showing an empty shell.
   useEffect(() => {
     if (route.kind !== 'home') return;
@@ -180,9 +180,11 @@ function Workspace({
   return (
     <div
       className="app with-sidebar"
-      // Drives the grid: a third column only exists when the panel is open, so
-      // the reading column is not narrowed for a panel nobody asked for.
+      // Drives the grid: a column exists only when it is showing, so the
+      // reading column is not narrowed for a panel nobody asked for and the
+      // sidebar leaves no empty strip behind when hidden.
       data-right-panel={rightOpen ? 'open' : 'closed'}
+      data-sidebar={sidebarVisible ? 'shown' : 'hidden'}
     >
       <Sidebar
         workspaceId={workspaceId}
@@ -190,8 +192,8 @@ function Workspace({
         onSwitchWorkspace={onSwitchWorkspace}
         tree={tree}
         currentPageId={pageId}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        open={sidebarVisible}
+        onClose={closeSidebar}
         onCreatePage={(parent, kind) => void onCreateEntry(parent, kind)}
         onRename={(id, title) => void renameEntry(id, title)}
         onDelete={(id, descendants) => {
@@ -214,18 +216,17 @@ function Workspace({
 
       <div className="main">
         <div className="topbar">
-          {/* Hidden by CSS at widths where the sidebar is always visible: a
-              button to reveal something already on screen has nothing to do,
-              and pressing it used to break the layout. */}
+          {/* Always present, at every width. It used to be hidden above 800px
+              on the theory that a permanent column needs no toggle — which left
+              no way to reclaim the space, and no way to undo a collapse. */}
           <button
-            className="quiet drawer-toggle"
+            className="quiet sidebar-toggle"
             type="button"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Open navigation"
-            aria-expanded={drawerOpen}
-            style={{ minWidth: 40 }}
+            onClick={toggleSidebar}
+            aria-label={sidebarVisible ? 'Hide the sidebar' : 'Show the sidebar'}
+            aria-expanded={sidebarVisible}
           >
-            ☰
+            <SidebarIcon />
           </button>
           <PageStatus
             handle={handle}

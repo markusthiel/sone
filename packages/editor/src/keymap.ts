@@ -126,6 +126,74 @@ const indentBlock: Command = indentBlockSubtree;
 const outdentBlock: Command = outdentBlockSubtree;
 
 /**
+ * Block types that continue when Enter is pressed.
+ *
+ * A heading is deliberately absent: Enter after a heading should start body
+ * text, not another heading, which is what every editor does and what people
+ * expect. Code has its own handler.
+ */
+const CONTINUING = new Set([
+  'bulletList',
+  'numberedList',
+  'todo',
+  'quote',
+  'callout',
+]);
+
+/**
+ * Attributes that must not be inherited by the next item.
+ *
+ * A new to-do after a completed one must not arrive already ticked, and a new
+ * toggle must not arrive collapsed. Both would be actively wrong rather than
+ * merely surprising.
+ */
+const RESET_ON_SPLIT: Record<string, unknown> = {
+  checked: false,
+  collapsed: false,
+};
+
+/**
+ * Enter inside a list, to-do, quote or callout continues with another of the
+ * same, at the same indent.
+ *
+ * The id is cleared rather than copied: block ids are globally unique because
+ * the projection keys on them, so two blocks sharing one would have the second
+ * overwrite the first. The blockIds plugin assigns a fresh one on the next
+ * transaction.
+ */
+const continueSameBlock: Command = (state, dispatch) => {
+  const { $from, empty } = state.selection;
+  if (!empty) return false;
+
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    const spec = node.type.spec.attrs;
+    if (!spec || !(BLOCK_ATTRS.id in spec)) continue;
+
+    if (!CONTINUING.has(node.type.name)) return false;
+    // An empty item is handled by exitEmptyContainer, which runs first: Enter
+    // there leaves the list rather than adding another empty row.
+    if (node.content.size === 0) return false;
+
+    if (dispatch) {
+      const attrs: Record<string, unknown> = { ...node.attrs, [BLOCK_ATTRS.id]: null };
+      for (const [key, value] of Object.entries(RESET_ON_SPLIT)) {
+        if (key in node.attrs) attrs[key] = value;
+      }
+
+      dispatch(
+        state.tr
+          .split($from.pos, 1, [{ type: node.type, attrs }])
+          .scrollIntoView(),
+      );
+    }
+    return true;
+  }
+
+  return false;
+};
+
+/**
  * Backspace at the start of a non-paragraph block turns it into a paragraph.
  *
  * Tried before the default join, so backspacing at the start of a heading gives
@@ -251,6 +319,11 @@ export function soneKeymap(): Plugin[] {
     Enter: chainCommands(
       newlineInCode,
       exitEmptyContainer,
+      // Before splitBlock, which is why this exists at all: ProseMirror's
+      // splitBlock creates a block of the parent's *default* type, so Enter at
+      // the end of a to-do produced a paragraph. Pressing Enter to add the next
+      // item in a list is the single most common keystroke in a notes app.
+      continueSameBlock,
       liftEmptyBlock,
       splitBlock,
     ),

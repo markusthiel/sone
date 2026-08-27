@@ -164,6 +164,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
           {existingLink && (
             <button
               type="button"
+              className="btn"
               onClick={() => {
                 run(removeLink);
                 setEditingLink(false);

@@ -13,6 +13,24 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: to-do checkboxes and toggle triangles were the wrong size and
+position.** A global rule gave every `button` on the page a 44px minimum height,
+including a 15px checkbox — and a minimum beats an explicit height, so the box
+rendered as a tall rounded rectangle overlapping its own text. Button styling is
+opt-in now, which is the right default for an element used for a dozen unrelated
+things.
+
+**Enter in a to-do or a list continues with another one.** It produced a
+paragraph, because ProseMirror's split creates the parent's default type. A new
+to-do also no longer arrives already ticked.
+
+**Fixed: a hidden sidebar came back on its own.** There were two states for one
+thing: a drawer flag that meant nothing at widths where the sidebar is a column,
+so hiding it and then rotating a tablet brought it back. One state now, with the
+layouts differing in their default rather than in what they store, and a toggle
+present at every width — previously there was no way at all to reclaim the space
+on a wide screen.
+
 **Fixed: a floating menu could disappear permanently.** The slash menu, the block
 gutter controls and the formatting toolbar each hid themselves while their
 position was unknown, and a single failed measurement was never retried — so the
