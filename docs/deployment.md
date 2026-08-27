@@ -183,6 +183,29 @@ client in the image, not a change to the database. The backup command reports
 this explicitly rather than passing on `pg_dump`'s own wording, which does not
 say what to do about it.
 
+## First question when something is wrong: which version is serving?
+
+```
+https://<your-instance>/api/version
+```
+
+No authentication, no tooling, works in a browser tab. It reports the version
+and commit of the code answering requests. Everything else is guesswork until
+this is known.
+
+A **locally built** image is the trap worth naming. If the stack was set up with
+`SONE_IMAGE=sone-local:latest` after building on the host, then:
+
+- the running code is whatever was checked out at build time, not the newest
+  commit;
+- Portainer correctly reports no newer image, because a local tag has no
+  registry behind it to pull from;
+- redeploying changes nothing, and neither does a private window.
+
+Every one of those looks like a caching problem and none of them is. Switch to
+`SONE_IMAGE=forgejo.thiel.tools/thiel/sone:main` to follow development, or
+rebuild on the host from a newer checkout.
+
 ## Redeploying does not re-pull by default
 
 `:main` is a moving tag. Docker does not re-fetch a tag it already has locally,
