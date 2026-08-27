@@ -15,6 +15,7 @@ const page = (
   idx: string,
   parentPageId: string | null = null,
   title = id,
+  kind: 'page' | 'folder' = 'page',
 ): PageSummary => ({
   id,
   parentPageId,
@@ -22,6 +23,7 @@ const page = (
   idx,
   title,
   icon: null,
+  kind,
   archived: false,
   lastEditedAt: '2026-01-01T00:00:00Z',
 });
@@ -96,4 +98,33 @@ test('every page appears exactly once', () => {
 
   assert.equal(seen.length, pages.length);
   assert.equal(new Set(seen).size, pages.length, 'no page may be duplicated');
+});
+
+
+test('folders sort before pages at the same level', () => {
+  // What makes the sidebar read as a filing system rather than a mixed pile,
+  // which is the point of having folders at all (ADR-0019).
+  const tree = buildPageTree([
+    page('page-a', 'a1', null, 'page-a', 'page'),
+    page('folder-b', 'a2', null, 'folder-b', 'folder'),
+    page('page-c', 'a3', null, 'page-c', 'page'),
+    page('folder-d', 'a4', null, 'folder-d', 'folder'),
+  ]);
+  assert.deepEqual(
+    tree.map((n) => n.id),
+    ['folder-b', 'folder-d', 'page-a', 'page-c'],
+    'folders first, then each group by index',
+  );
+});
+
+test('folders sort before pages inside a folder too', () => {
+  const tree = buildPageTree([
+    page('root', 'a1', null, 'root', 'folder'),
+    page('inner-page', 'a1', 'root', 'inner-page', 'page'),
+    page('inner-folder', 'a2', 'root', 'inner-folder', 'folder'),
+  ]);
+  assert.deepEqual(
+    tree[0]!.children.map((n) => n.id),
+    ['inner-folder', 'inner-page'],
+  );
 });

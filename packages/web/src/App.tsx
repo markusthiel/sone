@@ -129,9 +129,14 @@ function Workspace({
     if (first) navigate(paths.page(first.id, first.title));
   }, [route.kind, pages, navigate]);
 
-  const onCreatePage = async (parentPageId: string | null): Promise<void> => {
-    const id = await createPage({ title: '', parentPageId });
-    if (id) navigate(paths.page(id));
+  const onCreateEntry = async (
+    parentPageId: string | null,
+    kind: 'page' | 'folder',
+  ): Promise<void> => {
+    const id = await createPage({ title: '', parentPageId, kind });
+    // A folder has no document to open, so creating one must not navigate
+    // anywhere — it appears in the sidebar and the person carries on.
+    if (id && kind === 'page') navigate(paths.page(id));
   };
 
   return (
@@ -142,7 +147,7 @@ function Workspace({
         currentPageId={pageId}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        onCreatePage={(parent) => void onCreatePage(parent)}
+        onCreatePage={(parent, kind) => void onCreateEntry(parent, kind)}
         onLogout={onLogout}
       />
 
@@ -190,7 +195,7 @@ function Workspace({
             <button
               className="primary"
               type="button"
-              onClick={() => void onCreatePage(null)}
+              onClick={() => void onCreateEntry(null, 'page')}
             >
               Create your first page
             </button>

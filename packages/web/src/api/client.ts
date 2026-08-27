@@ -94,6 +94,9 @@ export interface SessionInfo {
   }>;
 }
 
+/** A folder organises; a page holds writing (ADR-0019). */
+export type EntryKind = 'page' | 'folder';
+
 export interface PageSummary {
   id: string;
   parentPageId: string | null;
@@ -101,11 +104,13 @@ export interface PageSummary {
   idx: string;
   title: string;
   icon: { kind: string; value: string } | null;
+  kind: EntryKind;
   archived: boolean;
   lastEditedAt: string;
 }
 
 export interface PageDetail extends Omit<PageSummary, 'archived' | 'idx'> {
+  /* kind is inherited from PageSummary. */
   workspaceId: string;
   coverUrl: string | null;
   archived: boolean;
@@ -176,12 +181,15 @@ export const api = {
 
   createPage: (
     workspaceId: string,
-    input: { title?: string; parentPageId?: string | null },
+    input: { title?: string; parentPageId?: string | null; kind?: EntryKind },
   ) =>
-    post<{ id: string; idx: string; parentPageId: string | null; title: string }>(
-      `/api/workspaces/${workspaceId}/pages`,
-      input,
-    ),
+    post<{
+      id: string;
+      idx: string;
+      parentPageId: string | null;
+      title: string;
+      kind: EntryKind;
+    }>(`/api/workspaces/${workspaceId}/pages`, input),
 
   page: (pageId: string) => request<PageDetail>(`/api/pages/${pageId}`),
 
@@ -231,17 +239,27 @@ export function buildPageTree(pages: PageSummary[]): PageNode[] {
     else roots.push(node);
   }
 
+  // Folders before pages, then by (idx, id).
+  //
+  // The tie-breaker matters wherever fractional indices are used, because a
+  // midpoint is deterministic and two offline clients can produce the same key
+  // (ADR-0015). Folders first is what makes the sidebar read as a filing system
+  // rather than a mixed pile — the point of having folders at all (ADR-0019).
+  const compare = (a: PageNode, b: PageNode): number => {
+    if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
+    if (a.idx !== b.idx) return a.idx < b.idx ? -1 : 1;
+    return a.id < b.id ? -1 : 1;
+  };
+
   const assignDepth = (list: PageNode[], depth: number): void => {
     for (const node of list) {
       node.depth = depth;
-      // (idx, id) — the tie-breaker matters wherever fractional indices are
-      // used, and page order is one of those places (ADR-0015).
-      node.children.sort((a, b) => (a.idx < b.idx ? -1 : a.idx > b.idx ? 1 : a.id < b.id ? -1 : 1));
+      node.children.sort(compare);
       assignDepth(node.children, depth + 1);
     }
   };
 
-  roots.sort((a, b) => (a.idx < b.idx ? -1 : a.idx > b.idx ? 1 : a.id < b.id ? -1 : 1));
+  roots.sort(compare);
   assignDepth(roots, 0);
   return roots;
 }

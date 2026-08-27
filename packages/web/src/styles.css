@@ -779,3 +779,21 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .block-menu-item:disabled { opacity: 0.4; cursor: default; }
 .block-menu-item.destructive { color: var(--sone-danger); }
 .block-menu-item[aria-current='true'] { font-weight: 600; }
+
+/* --- folders --- */
+
+.sidebar-head-actions { display: flex; gap: 2px; flex: none; }
+
+/* A folder is a button, not a link: it has no document to open, so clicking
+   its name expands it. Styled to match a page entry so the tree reads evenly,
+   with the icon carrying the difference. */
+.tree-folder {
+  border: 0;
+  background: transparent;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+  min-block-size: 0;
+  padding: 6px 8px;
+}
+.tree-row[data-kind='folder'] .tree-link { font-weight: 550; }

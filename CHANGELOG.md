@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Real folders.** A folder organises; a page holds writing. A folder can contain
+folders and pages, and a page contains nothing — which is the whole point, since
+a tree where anything can hold anything gives "where does this go" no answer.
+Folders sort before pages, clicking a folder expands it rather than opening an
+empty document, and only folders offer "new inside this".
+
+Existing pages are unaffected: an entry with no recorded kind reads as a page.
+See [ADR-0019](docs/adr/0019-folders.md), including why a folder is a document
+rather than a row in a `folders` table — one authorisation path instead of two,
+and a projection that can still be rebuilt from the CRDT log.
+
 **Fixed: opening the sidebar on a wide screen destroyed the layout.** The
 backdrop behind the mobile drawer was only styled inside the narrow-screen
 media query, so on a desktop it was an unstyled button sitting in the page

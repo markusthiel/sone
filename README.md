@@ -70,7 +70,10 @@ Four invariants, each with a specific failure mode behind it:
 
 1. Derived values (formulas, rollups, lookups, audit timestamps) are never
    written into a CRDT.
-2. Within a page, block order is position in the page's single ProseMirror
+2. The sidebar is folders and pages, not pages within pages. A folder holds
+   both kinds; a page holds nothing (ADR-0019). A folder is a document like a
+   page, so it syncs and rebuilds the same way.
+3. Within a page, block order is position in the page's single ProseMirror
    fragment, and parent-child nesting of text blocks is an `indent` attribute
    rather than XML nesting — ProseMirror forbids a node holding both inline
    text and block children (ADR-0015, ADR-0018). Elsewhere

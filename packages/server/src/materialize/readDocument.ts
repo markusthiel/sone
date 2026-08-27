@@ -11,6 +11,7 @@
  */
 
 import {
+  type EntryKind,
   COLLECTION_KEYS,
   DOC_KEYS,
   FIELD_KEYS,
@@ -42,6 +43,8 @@ export interface ReadBlock {
 }
 
 export interface ReadPage {
+  /** 'page' or 'folder'. Absent in the document means 'page' (ADR-0019). */
+  kind: EntryKind;
   title: string;
   icon: unknown | null;
   coverUrl: string | null;
@@ -105,7 +108,17 @@ function readPageMeta(doc: Y.Doc, warnings: string[]): ReadPage {
     // A missing index would make the page unsortable among its siblings.
     warnings.push('page.idx missing; defaulting to "a0"');
   }
+  // An unrecognised or absent kind reads as 'page' rather than being rejected:
+  // every document written before folders existed has no kind, and a newer
+  // client could introduce one this build does not know (ADR-0019).
+  const rawKind = asString(map.get(PAGE_KEYS.kind));
+  const kind: EntryKind = rawKind === 'folder' ? 'folder' : 'page';
+  if (rawKind !== null && rawKind !== 'page' && rawKind !== 'folder') {
+    warnings.push(`page.kind "${rawKind}" is not recognised; treated as a page`);
+  }
+
   return {
+    kind,
     title: normaliseText(asString(map.get(PAGE_KEYS.title)) ?? ''),
     icon: map.get(PAGE_KEYS.icon) ?? null,
     coverUrl: asString(map.get(PAGE_KEYS.coverUrl)),

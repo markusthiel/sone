@@ -135,6 +135,19 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     return ((await res.json()) as { id: string }).id;
   }
 
+  async function createFolder(
+    session: Session,
+    title: string,
+    parentPageId: string | null = null,
+  ): Promise<string> {
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title, parentPageId, kind: 'folder' })),
+    );
+    await expectStatus(res, 201);
+    return ((await res.json()) as { id: string }).id;
+  }
+
   // --- instance and setup --------------------------------------------------
 
   test('a fresh instance reports that it needs setup', async () => {
@@ -384,8 +397,9 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
   });
 
   test('the page tree returns parent relationships', async () => {
+    // The parent must be a folder now: a page contains nothing (ADR-0019).
     const session = await setup();
-    const parent = await createPage(session, 'Parent');
+    const parent = await createFolder(session, 'Parent');
     const child = await createPage(session, 'Child', parent);
 
     const res = await fetch(
@@ -457,12 +471,12 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.equal(res.status, 403);
   });
 
-  test('archiving a page takes its subtree with it', async () => {
+  test('archiving a folder takes its subtree with it', async () => {
     // Otherwise archiving a parent leaves children reachable from search but
     // not from the tree.
     const session = await setup();
-    const parent = await createPage(session, 'Parent');
-    const child = await createPage(session, 'Child', parent);
+    const parent = await createFolder(session, 'Parent');
+    const child = await createFolder(session, 'Child', parent);
     const grandchild = await createPage(session, 'Grandchild', child);
 
     const res = await fetch(`${base}/api/pages/${parent}`, auth(session, { method: 'DELETE' }));
@@ -492,6 +506,155 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const body = (await res.json()) as { role: string; title: string };
     assert.equal(body.role, 'admin', 'the workspace owner is admin on a page');
     assert.equal(body.title, 'Roles');
+  });
+
+  // --- folders -------------------------------------------------------------
+
+  test('a folder is created with kind folder', async () => {
+    const session = await setup();
+    const folderId = await createFolder(session, 'Projects');
+
+    const row = await db.query<{ kind: string }>(
+      `SELECT kind FROM pages WHERE id = $1`,
+      [folderId],
+    );
+    assert.equal(row.rows[0]!.kind, 'folder');
+  });
+
+  test('the kind lives in the document, so a rebuild restores it', async () => {
+    // A folder that existed only as a Postgres row would make the projection
+    // non-derivable, and that derivability is the guarantee which makes the
+    // CRDT complexity worth carrying (ADR-0002, ADR-0019).
+    //
+    // Demonstrated by corrupting the projection and rebuilding: the row is
+    // overwritten from the document, so if the kind were only ever a column it
+    // would come back as 'page'.
+    const session = await setup();
+    const folderId = await createFolder(session, 'Projects');
+
+    await db.query(
+      `UPDATE pages SET kind = 'page', title = 'wrong' WHERE id = $1`,
+      [folderId],
+    );
+
+    const { rebuild } = await import('../src/materialize/rebuild.js');
+    const report = await rebuild(db, {
+      workspaceId: session.workspaceId,
+      log: () => {},
+    });
+    assert.deepEqual(report.failed, []);
+
+    const row = await db.query<{ kind: string; title: string }>(
+      `SELECT kind, title FROM pages WHERE id = $1`,
+      [folderId],
+    );
+    assert.equal(row.rows[0]!.kind, 'folder', 'restored from the document');
+    assert.equal(row.rows[0]!.title, 'Projects');
+  });
+
+  test('a page defaults to kind page', async () => {
+    const session = await setup();
+    const pageId = await createPage(session, 'A page');
+    const row = await db.query<{ kind: string }>(
+      `SELECT kind FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.equal(row.rows[0]!.kind, 'page');
+  });
+
+  test('a folder may contain pages and folders', async () => {
+    const session = await setup();
+    const folderId = await createFolder(session, 'Projects');
+
+    const child = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Inside', parentPageId: folderId })),
+    );
+    await expectStatus(child, 201);
+
+    const nested = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Sub', parentPageId: folderId, kind: 'folder' })),
+    );
+    await expectStatus(nested, 201);
+  });
+
+  test('a page cannot contain anything', async () => {
+    // The rule that makes the structure clearer, and the reason folders exist
+    // at all (ADR-0019). Refused here with a code, so the interface can explain
+    // it rather than the write failing silently.
+    const session = await setup();
+    const folderId = await createFolder(session, 'Projects');
+    const pageId = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'A page', parentPageId: folderId })),
+    ).then(async (r) => ((await r.json()) as { id: string }).id);
+
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Nested', parentPageId: pageId })),
+    );
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'parent_is_not_a_folder' });
+  });
+
+  test('an unknown kind is refused rather than silently treated as a page', async () => {
+    const session = await setup();
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'X', kind: 'notebook' })),
+    );
+    assert.equal(res.status, 422);
+    assert.deepEqual(await res.json(), { error: 'invalid_kind' });
+  });
+
+  test('the tree reports each entry kind', async () => {
+    const session = await setup();
+    const folderId = await createFolder(session, 'Projects');
+    await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Inside', parentPageId: folderId })),
+    );
+
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session),
+    );
+    const body = (await res.json()) as { pages: Array<{ title: string; kind: string }> };
+    const byTitle = new Map(body.pages.map((p) => [p.title, p.kind]));
+    assert.equal(byTitle.get('Projects'), 'folder');
+    assert.equal(byTitle.get('Inside'), 'page');
+  });
+
+  test('the anomaly view is empty when the API is used', async () => {
+    // The API refuses to create a page inside a page; this view notices if one
+    // exists anyway, which is how migration 0003 handles rules a constraint
+    // cannot express.
+    const session = await setup();
+    const folderId = await createFolder(session, 'Projects');
+    await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Inside', parentPageId: folderId })),
+    );
+
+    const anomalies = await db.query(`SELECT * FROM pages_inside_pages`);
+    assert.equal(anomalies.rowCount, 0);
+  });
+
+  test('the anomaly view reports a page written directly under a page', async () => {
+    const session = await setup();
+    const parent = await createPage(session, 'A page');
+    const child = await createPage(session, 'Another page');
+    // Written straight to the projection, as an out-of-order CRDT update or a
+    // misbehaving client would.
+    await db.query(`UPDATE pages SET parent_page_id = $2 WHERE id = $1`, [child, parent]);
+
+    const anomalies = await db.query<{ child_title: string; parent_title: string }>(
+      `SELECT child_title, parent_title FROM pages_inside_pages`,
+    );
+    assert.equal(anomalies.rowCount, 1);
+    assert.equal(anomalies.rows[0]!.child_title, 'Another page');
+    assert.equal(anomalies.rows[0]!.parent_title, 'A page');
   });
 
   // --- search --------------------------------------------------------------

@@ -19,6 +19,7 @@ const page = (id: string, parentPageId: string | null = null): PageSummary => ({
   idx: 'a1',
   title: id,
   icon: null,
+  kind: 'page',
   archived: false,
   lastEditedAt: '2026-01-01T00:00:00Z',
 });
