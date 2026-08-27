@@ -887,3 +887,148 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 
 .tree-add svg { inline-size: 0.95em; block-size: 0.95em; }
 .sidebar-head-actions svg { inline-size: 1.05em; block-size: 1.05em; }
+
+/* ---------------------------------------------------------------------------
+ * Appearance
+ *
+ * Theme and two independent text scales, driven by data attributes on <html>
+ * set before React mounts — so the first paint is already correct rather than
+ * flashing white and reflowing.
+ *
+ * The scales are separate custom properties rather than one root font-size,
+ * because scaling the root would move every padding, gap and border radius
+ * defined in rem along with the text. Only text should change size.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  --sone-ui-text: 15px;
+  --sone-editor-text: 1rem;
+}
+
+html[data-ui-scale='small']   { --sone-ui-text: 13.5px; }
+html[data-ui-scale='default'] { --sone-ui-text: 15px; }
+html[data-ui-scale='large']   { --sone-ui-text: 16.5px; }
+html[data-ui-scale='larger']  { --sone-ui-text: 18px; }
+
+html[data-editor-scale='small']   { --sone-editor-text: 0.92rem; }
+html[data-editor-scale='default'] { --sone-editor-text: 1.05rem; }
+html[data-editor-scale='large']   { --sone-editor-text: 1.18rem; }
+html[data-editor-scale='larger']  { --sone-editor-text: 1.32rem; }
+
+body { font-size: var(--sone-ui-text); }
+
+.ProseMirror {
+  font-size: var(--sone-editor-text);
+  /* Slightly looser than the interface: prose is read in lines, not scanned. */
+  line-height: 1.65;
+}
+
+/* A forced theme overrides the media query rather than sitting beside it. The
+   variables are redeclared because prefers-color-scheme cannot be overridden
+   from CSS — only out-declared. */
+html[data-theme='dark'] {
+  --sone-bg: #1a1a19;
+  --sone-bg-subtle: #212120;
+  --sone-bg-hover: #2a2a28;
+  --sone-border: #3a3a37;
+  --sone-text: #ededea;
+  --sone-text-muted: #a1a19b;
+}
+
+html[data-theme='light'] {
+  --sone-bg: #ffffff;
+  --sone-bg-subtle: #f8f8f7;
+  --sone-bg-hover: #efefee;
+  --sone-border: #e0e0de;
+  --sone-text: #1c1c1a;
+  --sone-text-muted: #6b6b66;
+}
+
+select {
+  font: inherit;
+  color: inherit;
+  min-height: var(--sone-tap);
+  padding: 6px 10px;
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg);
+}
+
+/* --- workspace switcher --- */
+
+.workspace-menu-wrap { position: relative; flex: 1; min-width: 0; }
+
+.workspace-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  inline-size: 100%;
+  min-block-size: 34px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 600;
+  text-align: start;
+}
+.workspace-button:hover { background: var(--sone-bg-hover); }
+
+.workspace-caret {
+  flex: none;
+  inline-size: 0.8em;
+  block-size: 0.8em;
+  color: var(--sone-text-muted);
+  transform: rotate(90deg);
+}
+
+.workspace-menu {
+  position: absolute;
+  z-index: 43;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  inline-size: 250px;
+  max-block-size: 60vh;
+  overflow-y: auto;
+  margin-block-start: 2px;
+  padding: 4px;
+  border: 1px solid var(--sone-border);
+  border-radius: 8px;
+  background: var(--sone-bg);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 14%), 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.workspace-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  inline-size: 100%;
+  min-block-size: 38px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+  color: var(--sone-text);
+  font-size: 0.9rem;
+}
+.workspace-item:hover { background: var(--sone-bg-hover); text-decoration: none; }
+.workspace-item[aria-current='true'] { background: var(--sone-bg-hover); font-weight: 600; }
+.workspace-item svg { inline-size: 1em; block-size: 1em; vertical-align: -0.15em; }
+
+.workspace-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.workspace-item-meta { font-size: 0.76rem; color: var(--sone-text-muted); }
+
+.workspace-menu-footer {
+  margin-block-start: 4px;
+  padding-block-start: 4px;
+  border-block-start: 1px solid var(--sone-border);
+}
+
+.workspace-create { display: flex; gap: 4px; padding: 4px; }
+.workspace-create input { min-height: 34px; }
+.workspace-create button { min-height: 34px; padding-inline: 10px; white-space: nowrap; }
+
+.small { font-size: 0.85rem; padding-inline: 8px; }

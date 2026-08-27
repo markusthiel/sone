@@ -13,6 +13,19 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Multiple workspaces.** Click the workspace name to switch between them or
+create a new one. Everything in the data model already allowed several — the
+session has always returned a list — but nothing could create a second, so an
+instance was effectively single-workspace. A new workspace starts with a folder
+and its creator as owner. No workspace limit and no tier that unlocks a second
+one (ADR-0007).
+
+**Appearance settings** under Settings → Appearance: theme, and separate text
+sizes for the interface and for the editor. Two scales rather than one, because
+a denser sidebar and smaller prose are different wishes. Stored per browser: a
+size that suits a phone is wrong on a large monitor. Instance-wide defaults
+belong in an admin area and are not built yet.
+
 **Fixed: the app told the workspace owner they had read-only access.** The
 notice was derived from "can I edit", which is false whenever the role is not
 yet known — including while a document opens and while a reconnect is in

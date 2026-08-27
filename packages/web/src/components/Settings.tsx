@@ -17,6 +17,13 @@ import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type SessionInfo, type VersionInfo } from '../api/client.ts';
 import { WEB_COMMIT, WEB_VERSION, isStaleBundle } from '../buildInfo.ts';
+import {
+  SCALE_LABELS,
+  TEXT_SCALES,
+  useAppearance,
+  type TextScale,
+  type ThemePreference,
+} from '../hooks/useAppearance.ts';
 import { messageFor } from './Auth.tsx';
 
 interface SettingsProps {
@@ -31,9 +38,12 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
       <h1>Settings</h1>
       {section === 'about' ? (
         <About />
+      ) : section === 'appearance' ? (
+        <AppearanceSettings />
       ) : (
         <>
           <Account session={session} workspaceId={workspaceId} />
+          <AppearanceSettings />
           <About />
         </>
       )}
@@ -63,6 +73,66 @@ function Account({
           {workspace ? ` (${workspace.role})` : ''}
         </dd>
       </dl>
+    </section>
+  );
+}
+
+function AppearanceSettings(): ReactElement {
+  const { appearance, setTheme, setUiScale, setEditorScale } = useAppearance();
+
+  return (
+    <section className="settings-section">
+      <h2>Appearance</h2>
+      <p className="muted" style={{ fontSize: '0.85rem', marginBlockStart: 0 }}>
+        Stored in this browser. A text size that suits a phone is wrong on a
+        large monitor, so these do not follow your account between devices.
+      </p>
+
+      <div className="field">
+        <label htmlFor="theme">Theme</label>
+        <select
+          id="theme"
+          value={appearance.theme}
+          onChange={(event) => setTheme(event.target.value as ThemePreference)}
+        >
+          <option value="system">Match the system</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+
+      {/* Two scales, not one. Someone who wants a denser sidebar does not
+          necessarily want smaller prose, and someone writing long documents may
+          want larger prose without a larger interface. */}
+      <div className="field">
+        <label htmlFor="ui-scale">Interface text size</label>
+        <select
+          id="ui-scale"
+          value={appearance.uiScale}
+          onChange={(event) => setUiScale(event.target.value as TextScale)}
+        >
+          {TEXT_SCALES.map((scale) => (
+            <option key={scale} value={scale}>
+              {SCALE_LABELS[scale]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field">
+        <label htmlFor="editor-scale">Editor text size</label>
+        <select
+          id="editor-scale"
+          value={appearance.editorScale}
+          onChange={(event) => setEditorScale(event.target.value as TextScale)}
+        >
+          {TEXT_SCALES.map((scale) => (
+            <option key={scale} value={scale}>
+              {SCALE_LABELS[scale]}
+            </option>
+          ))}
+        </select>
+      </div>
     </section>
   );
 }
