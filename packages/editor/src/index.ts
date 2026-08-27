@@ -5,6 +5,7 @@ export * from './keymap.js';
 export * from './blockOps.js';
 export * from './links.js';
 export * from './imagePaste.js';
+export * from './tables.js';
 export * from './markdownPaste.js';
 export * from './slashMenu.js';
 export * from './editor.js';

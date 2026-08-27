@@ -39,6 +39,7 @@ import { imagePaste, type ImageUploader } from './imagePaste.js';
 import { markdownPaste } from './markdownPaste.js';
 import { schema } from './schema.js';
 import { slashMenu } from './slashMenu.js';
+import { tableKeymap, tablePlugins } from './tables.js';
 
 export interface EditorOptions {
   /** The page body fragment. See pageContent() in @sone/core. */
@@ -104,9 +105,14 @@ export function createEditorState(opts: EditorOptions): EditorState {
       'Shift-Mod-z': yRedo,
     }),
     soneInputRules(),
+    // Before soneKeymap, so Tab moves between cells inside a table instead of
+    // indenting the paragraph in a cell. Outside a table goToNextCell refuses
+    // and the block binding takes over.
+    keymap(tableKeymap),
     ...soneKeymap(),
     blockIds(opts.generateId ? { generateId: opts.generateId } : {}),
     listNumbers(),
+    ...tablePlugins(),
     markdownPaste(),
     // After markdownPaste: a paste carrying both files and text is an image
     // paste, and the text is usually the filename.
@@ -249,6 +255,15 @@ export {
 } from './blockOps.js';
 export { soneInputRules, INPUT_RULE_HELP } from './inputRules.js';
 export { listNumbers, computeListNumbers } from './listNumbers.js';
+export {
+  TABLE_ACTIONS,
+  buildTable,
+  insertTable,
+  isInTable,
+  tablePlugins,
+  type TableAction,
+  type CreateTableOptions,
+} from './tables.js';
 export {
   imagePaste,
   insertImageUpload,

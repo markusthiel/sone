@@ -16,6 +16,8 @@
 
 import {
   BLOCK_TYPE_ORDER,
+  TABLE_ACTIONS,
+  isInTable,
   deleteBlockSubtree,
   duplicateBlockSubtree,
   indentBlockSubtree,
@@ -204,6 +206,37 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
               </button>
             );
           })}
+
+          {/* Table actions, only inside a table. prosemirror-tables' commands
+              refuse elsewhere, and a menu section full of disabled items is
+              noise rather than information. */}
+          {isInTable(view.state) && (
+            <div className="block-menu-group">
+              <p className="block-menu-label">Table</p>
+              {TABLE_ACTIONS.map((action) => {
+                const possible = action.command(view.state, undefined);
+                return (
+                  <button
+                    key={action.id}
+                    type="button"
+                    role="menuitem"
+                    className={
+                      action.destructive
+                        ? 'block-menu-item destructive'
+                        : 'block-menu-item'
+                    }
+                    disabled={!possible}
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      run(action.command);
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="block-menu-group">
             <p className="block-menu-label">Turn into</p>

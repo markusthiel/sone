@@ -1367,3 +1367,72 @@ select {
   border-style: solid;
   color: var(--sone-danger);
 }
+
+/* ---------------------------------------------------------------------------
+ * Tables
+ *
+ * prosemirror-tables needs `table-layout: fixed` and explicit column widths to
+ * resize columns, and needs its resize handle and cell-selection classes styled
+ * or both features are invisible and appear broken.
+ * ------------------------------------------------------------------------- */
+
+.ProseMirror table[data-block='table'] {
+  /* Fixed layout is required by the resizing plugin: with `auto`, setting a
+     column width has no effect and dragging the handle does nothing visible. */
+  table-layout: fixed;
+  width: 100%;
+  margin-block: 12px;
+  border-collapse: collapse;
+  overflow: hidden;
+}
+
+.ProseMirror table[data-block='table'] td,
+.ProseMirror table[data-block='table'] th {
+  position: relative;
+  min-width: 3em;
+  padding: 6px 9px;
+  border: 1px solid var(--sone-border);
+  vertical-align: top;
+}
+
+.ProseMirror table[data-block='table'] th {
+  background: var(--sone-bg-subtle);
+  font-weight: 600;
+  text-align: start;
+}
+
+/* A cell's paragraphs sit tighter than body prose: a table is scanned, not
+   read line by line. */
+.ProseMirror table[data-block='table'] p { margin-block: 2px; }
+
+/* The rectangular selection prosemirror-tables maintains. Without this a
+   multi-cell selection is invisible and merge appears to act at random. */
+.ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--sone-accent);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+/* The column resize handle. */
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: -2px;
+  width: 4px;
+  background: var(--sone-accent);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* While resizing, the pointer must not select text. */
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* On a narrow screen a wide table has to scroll rather than squeeze every
+   column to nothing. The wrapper comes from prosemirror-tables' TableView. */
+.ProseMirror .tableWrapper { overflow-x: auto; }
