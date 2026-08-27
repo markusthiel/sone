@@ -10,7 +10,10 @@ import { test } from 'node:test';
 
 import * as Y from 'yjs';
 
+import { BLOCK_ATTRS } from '../src/doc/docSchema.js';
 import {
+  findBlockElement,
+  pageContent,
   readBlockTree,
   serialiseProps,
   setBlockProps,
@@ -19,10 +22,7 @@ import {
 
 // --- setBlockProps ---------------------------------------------------------
 
-test('setBlockProps changes one block and merges the patch', () => {
-  // Merged rather than replaced: a caller that knows about `checked` should not
-  // have to know what else a block carries, and replacing would silently drop
-  // properties written by a newer version of SONE.
+test('setBlockProps changes one property and leaves the others', () => {
   const doc = new Y.Doc();
   setPageBlocks(doc, [
     { id: 'a', type: 'todo', text: 'task', props: { checked: false, colour: 'red' } },
@@ -33,6 +33,67 @@ test('setBlockProps changes one block and merges the patch', () => {
   const { blocks } = readBlockTree(doc);
   assert.equal(blocks[0]!.props['checked'], true);
   assert.equal(blocks[0]!.props['colour'], 'red', 'other props survive');
+  doc.destroy();
+});
+
+test('a written property is readable as a node attribute, not only as props', () => {
+  // ProseMirror node attributes are the canonical storage: they are what
+  // y-prosemirror writes and what the editor reads back. Writing into the props
+  // JSON instead produced a value the projection could see and the editor could
+  // not — so ticking a box in the task panel changed nothing on the page.
+  const doc = new Y.Doc();
+  setPageBlocks(doc, [{ id: 'a', type: 'todo', text: 'task', props: {} }]);
+
+  setBlockProps(doc, 'a', { checked: true });
+
+  const element = findBlockElement(doc, 'a')!;
+  assert.equal(element.getAttribute('checked'), true, 'stored as an attribute');
+  doc.destroy();
+});
+
+test('node attributes reach the props a reader sees', () => {
+  // y-prosemirror stores an attribute with its original type, so `level` is the
+  // number 3 rather than the string "3". A guard that skipped non-strings
+  // skipped every attribute the editor had written — the outline saw no heading
+  // levels and the task panel saw no checked state.
+  const doc = new Y.Doc();
+  const fragment = pageContent(doc);
+  doc.transact(() => {
+    const element = new Y.XmlElement('heading');
+    element.setAttribute(BLOCK_ATTRS.id, 'h1');
+    // A number, as the editor writes it.
+    element.setAttribute('level', 3 as never);
+    element.insert(0, [new Y.XmlText('title')]);
+    fragment.insert(0, [element]);
+  });
+
+  const { blocks } = readBlockTree(doc);
+  assert.equal(blocks[0]!.props['level'], 3);
+  doc.destroy();
+});
+
+test('a string attribute is coerced to the type it serialised from', () => {
+  // An element written by an importer or parsed from XML has strings, and the
+  // same document can hold both shapes.
+  const doc = new Y.Doc();
+  const fragment = pageContent(doc);
+  doc.transact(() => {
+    const element = new Y.XmlElement('todo');
+    element.setAttribute(BLOCK_ATTRS.id, 't1');
+    element.setAttribute('checked', 'true');
+    element.setAttribute('level', '2');
+    element.setAttribute('label', 'not-a-number');
+    element.setAttribute('odd', '007');
+    fragment.insert(0, [element]);
+  });
+
+  const props = readBlockTree(doc).blocks[0]!.props;
+  assert.equal(props['checked'], true);
+  assert.equal(props['level'], 2);
+  assert.equal(props['label'], 'not-a-number');
+  // Only a value that round-trips exactly becomes a number, so "007" stays a
+  // string rather than silently becoming 7.
+  assert.equal(props['odd'], '007');
   doc.destroy();
 });
 

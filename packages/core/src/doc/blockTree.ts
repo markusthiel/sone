@@ -70,6 +70,80 @@ export function serialiseProps(props: Record<string, unknown>): string | null {
   return JSON.stringify(ordered);
 }
 
+/**
+ * Coerce an XML attribute value.
+ *
+ * Everything in a Y.XmlElement attribute is a string, but the values came from
+ * ProseMirror node attributes, which are numbers, booleans and strings. A
+ * heading whose level reads as `"3"` fails every `typeof === 'number'` check
+ * downstream, so the coercion has to happen somewhere; here is the one place
+ * that knows these values are a serialised form rather than free text.
+ *
+ * Deliberately narrow: only the four literals JSON has, plus finite numbers.
+ * Anything else stays a string, because guessing further would turn a colour
+ * called "0x1" or a title called "null" into something else.
+ */
+function coerceAttribute(raw: string): unknown {
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  if (raw === 'null') return null;
+  if (raw === '') return '';
+  // Only a value that round-trips exactly is treated as a number, so "007" and
+  // "1e" stay strings.
+  const asNumber = Number(raw);
+  if (Number.isFinite(asNumber) && String(asNumber) === raw) return asNumber;
+  return raw;
+}
+
+/**
+ * Every property of a block, from both places they can live.
+ *
+ * ProseMirror node attributes are written as XML attributes by y-prosemirror —
+ * `level` on a heading, `checked` on a todo, `collapsed` on a toggle, `url` on
+ * an image. The `props` attribute is a JSON object for anything ProseMirror does
+ * not model.
+ *
+ * Reading only the JSON, which is what this used to do, meant the projection
+ * never saw a heading's level or a todo's checked state. The outline showed
+ * every heading at one size and the task panel showed every task as open, and
+ * neither looked broken enough to investigate.
+ *
+ * The explicit `props` object wins on a conflict: it is the richer form, and a
+ * value deliberately written there should not be shadowed by a stale attribute.
+ */
+function readAllProps(
+  element: Y.XmlElement,
+  warnings: string[],
+  id: string,
+): Record<string, unknown> {
+  const derived: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(element.getAttributes())) {
+    if (
+      key === BLOCK_ATTRS.id ||
+      key === BLOCK_ATTRS.props ||
+      key === BLOCK_ATTRS.indent
+    ) {
+      continue;
+    }
+    // y-prosemirror stores a ProseMirror attribute with its original type, so
+    // `level` arrives as the number 3 and `checked` as a boolean — while an
+    // element written by hand, by an importer, or read from serialised XML has
+    // strings. Both shapes occur in the same document.
+    //
+    // A `typeof value !== 'string'` guard here silently skipped every
+    // non-string, which is to say every attribute the editor had written. The
+    // outline saw no heading levels and the task panel saw no checked state,
+    // and nothing looked broken enough to investigate.
+    derived[key] = typeof value === 'string' ? coerceAttribute(value) : value;
+  }
+
+  return {
+    ...derived,
+    ...parseProps(element.getAttribute(BLOCK_ATTRS.props), warnings, id),
+  };
+}
+
 function parseProps(raw: unknown, warnings: string[], id: string): Record<string, unknown> {
   if (raw === undefined || raw === null || raw === '') return {};
   if (typeof raw !== 'string') {
@@ -213,7 +287,7 @@ export function readBlockTree(doc: Y.Doc): TreeReadResult {
         parentId,
         position: position++,
         depth: baseDepth + stack.length,
-        props: parseProps(child.getAttribute(BLOCK_ATTRS.props), warnings, id),
+        props: readAllProps(child, warnings, id),
         text: inlineText(child),
         childIds: [],
       };
@@ -395,18 +469,38 @@ export function setBlockProps(
   const element = findBlockElement(doc, blockId);
   if (!element) return false;
 
-  const current = parseProps(element.getAttribute(BLOCK_ATTRS.props), [], blockId);
-  const next: Record<string, unknown> = { ...current, ...patch };
-
-  // Keys set to undefined are removed rather than serialised as null: a prop
-  // that is absent and a prop that is null mean different things to a reader
-  // that checks for presence.
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined) delete next[key];
-  }
+  // Written as XML attributes, not into the props JSON.
+  //
+  // ProseMirror node attributes are the canonical storage — they are what
+  // y-prosemirror writes and what the editor reads back. Writing `checked` into
+  // the props JSON instead produced a value the projection could see and the
+  // editor could not, so ticking a box in the task panel changed nothing on the
+  // page. The `props` JSON stays readable for anything ProseMirror does not
+  // model, but these helpers no longer write it.
+  //
+  // A shadow copy in the props JSON is cleared for any key being set here, or
+  // the JSON — which wins on read — would keep overriding the attribute.
+  const existingJson = parseProps(element.getAttribute(BLOCK_ATTRS.props), [], blockId);
+  const shadowed = Object.keys(patch).filter((key) => key in existingJson);
 
   doc.transact(() => {
-    element.setAttribute(BLOCK_ATTRS.props, serialiseProps(next) ?? '');
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) {
+        element.removeAttribute(key);
+      } else {
+        // Stored with its own type, which is what ProseMirror expects to read
+        // back and what y-prosemirror writes.
+        element.setAttribute(key, value as never);
+      }
+    }
+
+    if (shadowed.length > 0) {
+      const remaining = { ...existingJson };
+      for (const key of shadowed) delete remaining[key];
+      const serialised = serialiseProps(remaining);
+      if (serialised === null) element.removeAttribute(BLOCK_ATTRS.props);
+      else element.setAttribute(BLOCK_ATTRS.props, serialised);
+    }
   });
   return true;
 }

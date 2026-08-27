@@ -434,17 +434,98 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   font-variant-numeric: tabular-nums;
 }
 
-.ProseMirror [data-block='todo']::before {
-  content: '☐';
+/* The checkbox is a real button now, not a ::before.
+ *
+ * A pseudo-element cannot be clicked, so the only way to tick a box was a
+ * keyboard shortcut — and the only way to open a toggle was nothing at all. Both
+ * are widget decorations: real elements outside the editable content, which do
+ * not appear in the document or in a copy. */
+.ProseMirror .sone-todo-marker {
   position: absolute;
   inset-inline-start: 0;
-  color: var(--sone-text-muted);
+  inset-block-start: 0.28em;
+  inline-size: 15px;
+  block-size: 15px;
+  padding: 0;
+  border: 1.5px solid var(--sone-border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
 }
-.ProseMirror [data-block='todo'][data-checked='true']::before { content: '☑'; }
+.ProseMirror .sone-todo-marker:hover { border-color: var(--sone-text-muted); }
+.ProseMirror .sone-todo-marker[data-checked='true'] {
+  border-color: var(--sone-accent);
+  background: var(--sone-accent);
+}
+/* The tick is drawn rather than a character, so it sits correctly at every text
+   size instead of drifting with the font's metrics. */
+.ProseMirror .sone-todo-marker[data-checked='true']::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 1px;
+  inset-inline-start: 4px;
+  inline-size: 4px;
+  block-size: 8px;
+  border-inline-end: 2px solid #fff;
+  border-block-end: 2px solid #fff;
+  transform: rotate(45deg);
+}
+
 .ProseMirror [data-block='todo'][data-checked='true'] {
   color: var(--sone-text-muted);
   text-decoration: line-through;
 }
+
+/* The toggle's disclosure control. */
+.ProseMirror [data-block='toggle'] { padding-inline-start: 1.4em; }
+
+.ProseMirror .sone-toggle-marker {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0.15em;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-inline-size: 16px;
+  block-size: 1.2em;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+}
+.ProseMirror .sone-toggle-marker::before {
+  content: '';
+  inline-size: 0;
+  block-size: 0;
+  /* A triangle from borders rather than a glyph: a character rotates around its
+     own baseline and drifts at different text sizes. */
+  border-block-start: 4.5px solid transparent;
+  border-block-end: 4.5px solid transparent;
+  border-inline-start: 6px solid currentColor;
+  transition: transform 120ms ease;
+  transform-origin: 25% 50%;
+}
+.ProseMirror .sone-toggle-marker[data-collapsed='false']::before {
+  transform: rotate(90deg);
+}
+.ProseMirror .sone-toggle-marker:hover { color: var(--sone-text); }
+
+/* The count is the difference between "this is closed" and "there is something
+   in here". A collapsed toggle with no indication of content is
+   indistinguishable from an empty one. */
+.ProseMirror .sone-toggle-count {
+  font-size: 0.7rem;
+  padding-inline: 4px;
+  border-radius: 8px;
+  background: var(--sone-bg-hover);
+  color: var(--sone-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hidden by a collapsed toggle. Still in the document, still synced, still
+   searchable — collapsing is a view state, not an edit. */
+.ProseMirror .sone-collapsed-hidden { display: none; }
 
 /* --- other blocks --- */
 
