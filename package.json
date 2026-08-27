@@ -1,0 +1,19 @@
+{
+  "name": "sone",
+  "private": true,
+  "version": "0.0.0",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "test": "pnpm -r test",
+    "db:migrate": "node packages/server/scripts/migrate.mjs",
+    "db:rematerialize": "node packages/server/scripts/rematerialize.mjs"
+  }
+}

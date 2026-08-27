@@ -1,0 +1,65 @@
+# SONE — canonical deployment.
+#
+# Two containers. No Redis, no Elasticsearch, no object storage required.
+# See ADR-0005.
+#
+#   cp .env.example .env   # then edit SONE_SECRET_KEY and POSTGRES_PASSWORD
+#   docker compose up -d
+#
+# Migrations run automatically on start.
+
+name: sone
+
+services:
+  app:
+    image: ghcr.io/desico/sone:latest
+    # Uncomment to build from source instead of pulling:
+    # build:
+    #   context: .
+    #   dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SONE_DATABASE_URL: postgres://sone:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/sone
+      SONE_SECRET_KEY: ${SONE_SECRET_KEY:?set SONE_SECRET_KEY in .env}
+      SONE_PUBLIC_URL: ${SONE_PUBLIC_URL:-http://localhost:3000}
+      SONE_STORAGE_BACKEND: ${SONE_STORAGE_BACKEND:-local}
+      SONE_STORAGE_PATH: /var/lib/sone/files
+      SONE_LOG_LEVEL: ${SONE_LOG_LEVEL:-info}
+      SONE_SIGNUP_MODE: ${SONE_SIGNUP_MODE:-invite}
+      SONE_MAX_UPLOAD_MB: ${SONE_MAX_UPLOAD_MB:-100}
+    volumes:
+      - sone_files:/var/lib/sone/files
+    ports:
+      - "${SONE_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "docker/healthcheck.mjs"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sone
+      POSTGRES_USER: sone
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Deterministic collation. Fractional indices are compared
+      # lexicographically, so a locale-dependent collation would reorder
+      # sibling blocks. Do not change this on an existing instance.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    volumes:
+      - sone_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sone -d sone"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  sone_db:
+  sone_files:

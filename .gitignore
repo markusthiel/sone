@@ -1,0 +1,18 @@
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+.env
+.env.local
+
+# Local data when running outside Docker
+/data/
+/var/
+
+.DS_Store
+*.log
+coverage/
+.vscode/
+.idea/
