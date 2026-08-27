@@ -53,6 +53,7 @@ interface Action {
 export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | null {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const range = selectedBlockRange(view.state);
@@ -83,10 +84,15 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
         left: editorBox.left - 4,
       });
     } catch {
-      // A stale position for one frame after a document change. Skipping beats
-      // throwing inside an effect.
+      // A stale position for a frame after a document change. Retried on the
+      // next frame rather than abandoned: `anchor` stays null on failure and the
+      // component returns null while it is, so one failure removed the + and the
+      // ⋮⋮ for good.
+      const retry = requestAnimationFrame(() => setRetryToken((n) => n + 1));
+      return () => cancelAnimationFrame(retry);
     }
-  }, [view, from, revision]);
+    return undefined;
+  }, [view, from, revision, retryToken]);
 
   useEffect(() => {
     if (!open) return;

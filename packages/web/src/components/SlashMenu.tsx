@@ -30,6 +30,17 @@ const MARGIN = 8;
 const MENU_WIDTH = 288;
 const MAX_HEIGHT = 320;
 
+/**
+ * Where to draw the menu before its position is known.
+ *
+ * Visible, deliberately. It used to render with `visibility: hidden` until
+ * positioning succeeded, which meant one failure hid it forever. A menu in
+ * roughly the wrong place is recoverable — the person sees it and can choose
+ * from it — and it corrects itself within a frame. A menu that is never there
+ * is not recoverable.
+ */
+const FALLBACK_POSITION = { top: 120, left: 120 } as const;
+
 interface SlashMenuProps {
   view: EditorView;
   /** Bumped by the editor on every transaction, so this re-reads plugin state. */
@@ -55,6 +66,9 @@ export function SlashMenu({
     left: number;
     above: boolean;
   } | null>(null);
+  // Bumped to re-run positioning after a failure. Without it a single stale
+  // position left the menu permanently invisible.
+  const [retryToken, setRetryToken] = useState(0);
 
   const from = menu?.from ?? null;
 
@@ -70,9 +84,15 @@ export function SlashMenu({
     try {
       coords = view.coordsAtPos(from);
     } catch {
-      // The position can be stale for one frame after a document change.
-      // Skipping is better than throwing inside a render effect.
-      return;
+      // A position can be stale for a frame after a document change.
+      //
+      // Retried on the next frame rather than abandoned. Returning here left
+      // `placement` null, and the menu renders hidden while it is null — so a
+      // single failure meant a menu that never appeared at all, with the slash
+      // sitting in the text and nothing to choose from. That is what "the + puts
+      // in a slash and nothing else happens" was.
+      const retry = requestAnimationFrame(() => setRetryToken((n) => n + 1));
+      return () => cancelAnimationFrame(retry);
     }
 
     const height = listRef.current?.offsetHeight ?? MAX_HEIGHT;
@@ -93,7 +113,7 @@ export function SlashMenu({
     });
     // `revision` is in the dependency list because the caret moves without
     // `from` changing — typing inside the query, for instance.
-  }, [view, from, revision, menu?.items.length]);
+  }, [view, from, revision, retryToken, menu?.items.length]);
 
   // Keep the selected item in view when the keyboard moves through a list
   // longer than the menu.
@@ -126,7 +146,7 @@ export function SlashMenu({
       <div
         className="slash-menu"
         ref={listRef}
-        style={placement ? { top: placement.top, left: placement.left } : { visibility: 'hidden' }}
+        style={placement ? { top: placement.top, left: placement.left } : FALLBACK_POSITION}
         role="listbox"
         aria-label="Insert block"
       >
@@ -162,13 +182,7 @@ export function SlashMenu({
     <div
       className="slash-menu"
       ref={listRef}
-      style={
-        placement
-          ? { top: placement.top, left: placement.left }
-          : // Hidden rather than absent for the first frame: it has to be in the
-            // DOM to be measured, and rendering it at 0,0 would flash.
-            { visibility: 'hidden' }
-      }
+      style={placement ? { top: placement.top, left: placement.left } : FALLBACK_POSITION}
       role="listbox"
       aria-label="Insert block"
       aria-activedescendant={`slash-item-${menu.items[menu.index]?.id ?? ''}`}

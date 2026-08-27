@@ -36,6 +36,7 @@ import { soneInputRules } from './inputRules.js';
 import { soneKeymap } from './keymap.js';
 import { collapse } from './collapse.js';
 import { listNumbers } from './listNumbers.js';
+import { placeholders } from './placeholders.js';
 import { imagePaste, type ImageUploader } from './imagePaste.js';
 import { markdownPaste } from './markdownPaste.js';
 import { schema } from './schema.js';
@@ -114,6 +115,7 @@ export function createEditorState(opts: EditorOptions): EditorState {
     blockIds(opts.generateId ? { generateId: opts.generateId } : {}),
     listNumbers(),
     collapse(),
+    placeholders(),
     ...tablePlugins(),
     markdownPaste(),
     // After markdownPaste: a paste carrying both files and text is an image
@@ -257,6 +259,7 @@ export {
 } from './blockOps.js';
 export { soneInputRules, INPUT_RULE_HELP } from './inputRules.js';
 export { listNumbers, computeListNumbers } from './listNumbers.js';
+export { placeholders } from './placeholders.js';
 export {
   collapse,
   hiddenBlockPositions,

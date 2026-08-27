@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a floating menu could disappear permanently.** The slash menu, the block
+gutter controls and the formatting toolbar each hid themselves while their
+position was unknown, and a single failed measurement was never retried — so the
+`+` inserted a slash and no menu ever appeared. They retry now, and the slash
+menu shows itself in a fallback position rather than not at all.
+
+**Empty blocks say what they are.** An empty heading looked exactly like an empty
+paragraph, so choosing a block type felt as though nothing had happened and the
+line that had become a heading had to be hunted for. The empty block holding the
+caret now names itself — only that one.
+
 **Fixed: heading levels and checked boxes never reached the projection.** A
 block's ProseMirror attributes — a heading's level, a to-do's checked state, a
 toggle's collapsed state, an image's URL — were written to the document and then
