@@ -28,6 +28,17 @@ legitimately passes through — a child page syncing before its parent, a
 collection row before its collection, a property before its field definition.
 None of that was visible to the type checker or to a mock. See migration 0003.
 
+## Building before typechecking
+
+Workspace packages resolve each other through their built declarations
+(`dist/index.d.ts`), so a typecheck needs its dependencies compiled. Each
+package's `typecheck` and `test` scripts therefore run `tsc -b` on their
+dependencies first, which makes them work on a fresh clone.
+
+Do not remove those prefixes. Without them, `pnpm typecheck` passes on a machine
+that has built once and fails on a clean checkout — a difference that only shows
+up in CI or on somebody else's first day.
+
 ## Collation
 
 The test database must use the C collation, same as production. Fractional
