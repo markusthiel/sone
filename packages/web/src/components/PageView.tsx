@@ -82,10 +82,18 @@ export function PageView({ handle }: PageViewProps): ReactElement {
   );
 }
 
-/** Connection state and who else is here. */
-export function PageStatus({ handle, connectionState }: {
+/**
+ * Connection state and who else is here.
+ *
+ * The wording matters more than it looks. An indefinite "Syncing…" was shown
+ * for a connection that had never been established, which suggests progress
+ * that is not happening and hides the one fact somebody could act on. When the
+ * client reports why it cannot connect, that is said instead.
+ */
+export function PageStatus({ handle, connectionState, failure }: {
   handle: PageHandle | null;
   connectionState: string;
+  failure?: { kind: string; attempts: number } | null;
 }): ReactElement {
   const peers = handle?.peers() ?? [];
 
@@ -101,8 +109,14 @@ export function PageStatus({ handle, connectionState }: {
         ? 'closed'
         : 'offline';
 
-  const label =
-    dot === 'ready'
+  // A repeated failure is reported plainly rather than as another "…". Two
+  // attempts is the threshold: one can be a page load racing the network, and
+  // announcing a problem that resolves itself is its own kind of noise.
+  const persistent = failure && failure.attempts >= 2 ? failure : null;
+
+  const label = persistent
+    ? FAILURE_LABELS[persistent.kind] ?? 'Cannot reach the server'
+    : dot === 'ready'
       ? 'Synced'
       : dot === 'closed'
         ? 'Disconnected'
@@ -112,8 +126,16 @@ export function PageStatus({ handle, connectionState }: {
 
   return (
     <>
-      <span className="status-dot" data-state={dot} aria-hidden="true" />
-      <span className="muted" style={{ fontSize: '0.85rem' }}>
+      <span
+        className="status-dot"
+        data-state={persistent ? 'closed' : dot}
+        aria-hidden="true"
+      />
+      <span
+        className={persistent ? 'error' : 'muted'}
+        style={{ fontSize: '0.85rem' }}
+        title={persistent ? FAILURE_DETAIL[persistent.kind] : undefined}
+      >
         {label}
       </span>
       {peers.length > 0 && (
@@ -133,3 +155,28 @@ export function PageStatus({ handle, connectionState }: {
     </>
   );
 }
+
+/**
+ * What to call each failure.
+ *
+ * Short enough for a status line. The detail below carries the part an operator
+ * needs, on hover and in the console — a status line is not the place for a
+ * paragraph, but hiding the cause entirely is what made this hard to diagnose in
+ * the first place.
+ */
+const FAILURE_LABELS: Record<string, string> = {
+  unreachable: 'Cannot reach the sync server',
+  no_auth_response: 'The server is not responding',
+  closed: 'Connection lost',
+};
+
+const FAILURE_DETAIL: Record<string, string> = {
+  unreachable:
+    'The WebSocket connection to /sync never completed. This is usually a ' +
+    'reverse proxy that does not forward WebSocket upgrades. Edits are kept ' +
+    'locally and will sync once the connection works.',
+  no_auth_response:
+    'The connection opened but the server did not answer. Edits are kept ' +
+    'locally in the meantime.',
+  closed: 'The connection dropped and is being retried. Edits are kept locally.',
+};
