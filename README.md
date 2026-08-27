@@ -57,12 +57,27 @@ new view types, filter operators and indexes ship without migrating user data.
 Read [ADR-0002](docs/adr/0002-crdt-truth-postgres-projection.md) before
 touching the schema.
 
-Three invariants, each with a specific failure mode behind it:
+Four invariants, each with a specific failure mode behind it:
 
 1. Derived values (formulas, rollups, lookups, audit timestamps) are never
    written into a CRDT.
-2. Sibling order is a fractional index string, never an array position.
+2. Sibling order is a fractional index string, never an array position — and
+   every sibling sort is `(idx, id)`, never `idx` alone. The midpoint
+   algorithm is deterministic, so two clients inserting into the same gap
+   while offline generate the *identical* key; without the id as tie-breaker
+   they render the same document in different orders.
 3. Relations are stored on one side only; the inverse is a query.
+4. The projection is rewritten in full per page, never diffed (ADR-0008).
+
+The projection can be rebuilt at any time:
+
+```sh
+docker compose exec app node packages/server/scripts/rematerialize.mjs
+docker compose exec app node packages/server/scripts/rematerialize.mjs --pending
+```
+
+This is the recovery path for every materialiser bug, and it is meant to be
+used rather than admired.
 
 ## Layout
 
@@ -83,7 +98,8 @@ Months are elapsed calendar time for one part-time developer, not effort
 estimates.
 
 1. **Server core** (1–4) — schema, auth, Yjs sync server, materialisation,
-   Docker setup.
+   Docker setup. *In progress: schema, document store, materialiser and
+   rebuild command are in; auth and the WebSocket sync server are next.*
 2. **Editor and web client** (5–9) — block layer, live editing, presence.
 3. **Collections** (10–14) — fields, table and board views, filters, sorting.
 4. **Sharing** (15–17) — share tokens, guests, editable links, granular

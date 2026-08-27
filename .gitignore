@@ -16,3 +16,7 @@ build/
 coverage/
 .vscode/
 .idea/
+
+# TypeScript project reference build info
+*/dist/.tsbuildinfo
+packages/*/dist/
