@@ -183,6 +183,32 @@ client in the image, not a change to the database. The backup command reports
 this explicitly rather than passing on `pg_dump`'s own wording, which does not
 say what to do about it.
 
+## Redeploying does not re-pull by default
+
+`:main` is a moving tag. Docker does not re-fetch a tag it already has locally,
+and Portainer's redeploy does not pull unless told to — so a redeploy after a
+new image was published runs **the old image**, silently.
+
+In Portainer: **Update the stack** → tick **Re-pull image and redeploy**. Or on
+the host:
+
+```sh
+docker compose pull && docker compose up -d
+```
+
+This is the most likely explanation for a symptom that survives a redeploy. To
+check what is actually running, compare Settings → About with the published
+image:
+
+```sh
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' <container> \
+  | grep SONE_
+```
+
+A moving tag is convenient for following development and treacherous for
+diagnosing anything. Once 0.1.0 exists, prefer a version tag: it cannot
+silently mean something different than it did yesterday.
+
 ## Which version is running
 
 The About section of Settings shows two versions, and the difference matters:
