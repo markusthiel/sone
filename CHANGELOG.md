@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: indenting a block detached its children.** Indenting shifted only the
+selected block, so blocks nested beneath it became its siblings — quietly, with
+nothing throwing and nothing looking wrong. Every operation on a block now
+takes its indented children with it.
+
+**Block actions.** A ⋮⋮ button beside every block: move up and down, indent and
+outdent, duplicate, delete, and turn into another type. Keyboard shortcuts too —
+`Alt-Shift-Up`/`Down` to move, `Mod-D` to duplicate. When a block has nested
+children the menu says how many it will affect, because acting on blocks the
+person did not see selected is the surprise worth avoiding.
+
 **Fixed: the server refused to start after switching from the release candidate
 to a development build.** Development builds were versioned `0.1.0-dev.<commit>`,
 which sorts *before* `0.1.0-rc.1` because pre-release identifiers compare
