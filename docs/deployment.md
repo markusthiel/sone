@@ -28,10 +28,21 @@ because Portainer's stack editor takes a single compose path.
 Stacks → Add stack → **Repository**:
 
 - Repository URL: `https://github.com/markusthiel/sone`
-- Reference: `refs/heads/main`
+- Reference: `refs/tags/v0.1.0-rc.1` for a fixed release, or `refs/heads/main`
+  to follow development
 - Compose path: `docker-compose.build.yml`
 - Environment variables: `SONE_SECRET_KEY`, `POSTGRES_PASSWORD`,
   `SONE_PUBLIC_URL`
+
+**A tag reference is what makes a deployment reproducible, and it needs no
+container image.** Portainer clones the repository at that reference and builds
+it, so the deployed code is exactly the tagged commit. Following `main` instead
+means a redeploy picks up whatever has landed since, which is right while
+testing and wrong once anyone depends on the instance.
+
+Registry images are a convenience on top of this — they trade a multi-minute
+build on the deployment host for a pull. They are not required to deploy a
+specific version.
 
 Enable automatic updates or use "Pull and redeploy" to pick up new commits.
 Building on the deployment host takes a few minutes the first time; afterwards

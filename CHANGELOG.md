@@ -11,10 +11,27 @@ version answers "what must I do to upgrade?", not "how much changed?".
 - **MINOR** — pull and restart; migrations run automatically.
 - **MAJOR** — read this file first, there is something to do.
 
-## Unreleased — 0.1.0-dev
+## Unreleased
 
-Pre-alpha. Not usable yet, and not tagged. The bar for the first tag is listed
-in ADR-0013.
+Nothing since 0.1.0-rc.1.
+
+## 0.1.0-rc.1
+
+**No operator action required.** First tagged release, so there is nothing to
+upgrade from.
+
+A pre-release, deliberately. The bar for 0.1.0 in
+[ADR-0013](docs/adr/0013-versioning-and-releases.md) includes two things nobody
+has actually confirmed yet: that a fresh `docker compose up` reaches a working
+instance on someone else's machine, and that two browsers editing the same page
+behave. Both are covered by automated tests as far as they can be without a
+browser, and neither has been seen by a person. Calling this 0.1.0 would claim
+otherwise.
+
+What the tag is for: deploying a fixed, reproducible commit instead of a moving
+branch. A Portainer repository stack pointed at `refs/tags/v0.1.0-rc.1` with
+compose path `docker-compose.build.yml` builds exactly this code, with no
+container image and no CI runner needed.
 
 **The server runs.** `docker compose up -d` starts an instance that applies its
 migrations, serves `/api/health`, `/api/ready` and `/api/version`, accepts
