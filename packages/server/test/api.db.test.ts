@@ -24,7 +24,7 @@ import {
   hasDatabase,
   resetDatabase,
 } from './support/db.js';
-import { expectStatus } from './support/http.js';
+import { expectJson, expectStatus } from './support/http.js';
 
 const PASSWORD = 'correct-horse-battery-staple';
 
@@ -1054,6 +1054,184 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       method: 'PATCH',
       headers: { 'content-type': 'application/json', cookie: cookieFrom(login) },
       body: JSON.stringify({ parentPageId: other }),
+    });
+    assert.equal(res.status, 403);
+  });
+
+  // --- tags ----------------------------------------------------------------
+
+  const setTags = (session: Session, pageId: string, tags: string[]): Promise<Response> =>
+    fetch(
+      `${base}/api/pages/${pageId}`,
+      auth(session, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tags }),
+      }),
+    );
+
+  const workspaceTags = async (
+    session: Session,
+  ): Promise<Array<{ key: string; label: string; count: number }>> => {
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/tags`,
+      auth(session),
+    );
+    return (await expectJson<{ tags: Array<{ key: string; label: string; count: number }> }>(
+      res,
+    )).tags;
+  };
+
+  test('tags are stored and projected', async () => {
+    const session = await setup();
+    const pageId = await createPage(session, 'Tagged');
+
+    await expectStatus(await setTags(session, pageId, ['Meeting', 'Acme']), 200);
+
+    const rows = await db.query<{ tag_key: string; tag_label: string }>(
+      `SELECT tag_key, tag_label FROM page_tags WHERE page_id = $1 ORDER BY tag_key`,
+      [pageId],
+    );
+    assert.deepEqual(
+      rows.rows.map((row) => [row.tag_key, row.tag_label]),
+      [
+        ['acme', 'Acme'],
+        ['meeting', 'Meeting'],
+      ],
+    );
+  });
+
+  test('tags live in the document, so they survive a rebuild', async () => {
+    const session = await setup();
+    const pageId = await createPage(session, 'Tagged');
+    await setTags(session, pageId, ['Meeting']);
+
+    await db.query(`DELETE FROM page_tags WHERE page_id = $1`, [pageId]);
+    const { rebuild } = await import('../src/materialize/rebuild.js');
+    await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
+
+    const rows = await db.query(`SELECT 1 FROM page_tags WHERE page_id = $1`, [pageId]);
+    assert.equal(rows.rowCount, 1, 'restored from the document');
+  });
+
+  test('differently cased tags are one tag', async () => {
+    const session = await setup();
+    const first = await createPage(session, 'First');
+    const second = await createPage(session, 'Second');
+
+    await setTags(session, first, ['Meeting']);
+    await setTags(session, second, ['meeting']);
+
+    const tags = await workspaceTags(session);
+    const meeting = tags.filter((tag) => tag.key === 'meeting');
+    assert.equal(meeting.length, 1, 'one tag, not two');
+    assert.equal(meeting[0]!.count, 2);
+  });
+
+  test('removing a tag from the last page removes it from the workspace', async () => {
+    // There is no tags table: a tag exists because a page carries it, so an
+    // unused one simply stops existing (ADR-0020).
+    const session = await setup();
+    const pageId = await createPage(session, 'Tagged');
+    await setTags(session, pageId, ['Temporary']);
+    assert.ok((await workspaceTags(session)).some((tag) => tag.key === 'temporary'));
+
+    await setTags(session, pageId, []);
+    assert.ok(!(await workspaceTags(session)).some((tag) => tag.key === 'temporary'));
+  });
+
+  test('an archived page does not keep its tags in the list', async () => {
+    const session = await setup();
+    const pageId = await createPage(session, 'Tagged');
+    await setTags(session, pageId, ['Hidden']);
+
+    await db.query(`UPDATE pages SET archived_at = now() WHERE id = $1`, [pageId]);
+    assert.deepEqual(await workspaceTags(session), []);
+  });
+
+  test('the tag list counts only pages the caller can see', async () => {
+    // A count over everything would report how much exists in a workspace
+    // regardless of access, which leaks the shape of things somebody was not
+    // given.
+    const session = await setup();
+    const visible = await createPage(session, 'Visible');
+    const hidden = await createPage(session, 'Hidden');
+    await setTags(session, visible, ['Shared']);
+    await setTags(session, hidden, ['Shared']);
+
+    const hash = await hashPassword(PASSWORD);
+    const guest = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash, is_guest)
+       VALUES ('tagged@example.org','G',$1,true) RETURNING id`,
+      [hash],
+    );
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
+      [session.workspaceId, guest.rows[0]!.id],
+    );
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+       VALUES ($1,$2,'viewer',false,$3)`,
+      [visible, guest.rows[0]!.id, session.userId],
+    );
+    const login = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'tagged@example.org', password: PASSWORD }),
+    );
+
+    const res = await fetch(`${base}/api/workspaces/${session.workspaceId}/tags`, {
+      headers: { cookie: cookieFrom(login) },
+    });
+    const body = await expectJson<{ tags: Array<{ key: string; count: number }> }>(res);
+    const shared = body.tags.find((tag) => tag.key === 'shared');
+    assert.equal(shared?.count, 1, 'one of the two pages');
+  });
+
+  test('a tag name typed into search finds the page carrying it', async () => {
+    // Without anyone learning a filter syntax (ADR-0020).
+    const session = await setup();
+    const pageId = await createPage(session, 'Nothing about it in the title');
+    await setTags(session, pageId, ['Quarterly']);
+
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/search?q=Quarterly`,
+      auth(session),
+    );
+    const body = await expectJson<{ results: Array<{ pageId: string }> }>(res);
+    assert.ok(
+      body.results.some((result) => result.pageId === pageId),
+      'the tagged page should be found',
+    );
+  });
+
+  test('a viewer cannot change tags', async () => {
+    const session = await setup();
+    const pageId = await createPage(session, 'Tagged');
+
+    const hash = await hashPassword(PASSWORD);
+    const guest = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash, is_guest)
+       VALUES ('tagviewer@example.org','V',$1,true) RETURNING id`,
+      [hash],
+    );
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
+      [session.workspaceId, guest.rows[0]!.id],
+    );
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+       VALUES ($1,$2,'viewer',false,$3)`,
+      [pageId, guest.rows[0]!.id, session.userId],
+    );
+    const login = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'tagviewer@example.org', password: PASSWORD }),
+    );
+
+    const res = await fetch(`${base}/api/pages/${pageId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: cookieFrom(login) },
+      body: JSON.stringify({ tags: ['sneaky'] }),
     });
     assert.equal(res.status, 403);
   });

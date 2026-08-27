@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Tags.** Add them in the properties panel. `Meeting` and `meeting` are one tag,
+and the first spelling used is the one shown. Typing a tag name into search
+finds the pages carrying it — no filter syntax to learn.
+
+There is no list to create a tag in and none to tidy up: a tag exists because a
+page carries it, so an unused one stops existing. Tag colours are deliberately
+not implemented; see [ADR-0020](docs/adr/0020-tags.md) for why they need a
+decision rather than a table.
+
 **Favourites.** Star a page or folder from its menu; favourites sit at the top
 of the sidebar and can be reordered. They are yours, not the page's — nobody
 you share a page with can see that you keep a shortcut to it.

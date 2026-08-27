@@ -22,7 +22,9 @@ import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type PageDetail } from '../api/client.ts';
 import { useOutline, scrollToBlock } from '../hooks/useOutline.ts';
+import { usePageTags } from '../hooks/usePageTags.ts';
 import { useTasks, type Task } from '../hooks/useTasks.ts';
+import { TagEditor } from './TagEditor.tsx';
 import { messageFor } from './Auth.tsx';
 import { ChevronRightIcon, PageIcon, TagIcon } from './icons.tsx';
 
@@ -60,6 +62,7 @@ function readTab(): RightTab {
 interface RightSidebarProps {
   handle: PageHandle | null;
   pageId: string | null;
+  workspaceId: string;
   open: boolean;
   onClose: () => void;
 }
@@ -67,6 +70,7 @@ interface RightSidebarProps {
 export function RightSidebar({
   handle,
   pageId,
+  workspaceId,
   open,
   onClose,
 }: RightSidebarProps): ReactElement {
@@ -115,7 +119,9 @@ export function RightSidebar({
         <div className="right-body" role="tabpanel">
           {tab === 'outline' && <OutlinePanel handle={handle} />}
           {tab === 'tasks' && <TasksPanel handle={handle} />}
-          {tab === 'properties' && <PropertiesPanel pageId={pageId} handle={handle} />}
+          {tab === 'properties' && (
+            <PropertiesPanel pageId={pageId} handle={handle} workspaceId={workspaceId} />
+          )}
         </div>
       </aside>
     </>
@@ -251,10 +257,13 @@ function TaskRow({
 function PropertiesPanel({
   pageId,
   handle,
+  workspaceId,
 }: {
   pageId: string | null;
   handle: PageHandle | null;
+  workspaceId: string;
 }): ReactElement {
+  const { tags, known, setTags } = usePageTags(handle?.doc ?? null, pageId, workspaceId);
   const [detail, setDetail] = useState<PageDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -324,7 +333,14 @@ function PropertiesPanel({
       <dt>
         <TagIcon /> Tags
       </dt>
-      <dd className="muted">Not implemented yet</dd>
+      <dd>
+        <TagEditor
+          tags={tags}
+          known={known}
+          canEdit={handle?.canEdit ?? false}
+          onChange={setTags}
+        />
+      </dd>
     </dl>
   );
 }

@@ -34,6 +34,7 @@ import { collateClause, workspaceI18n } from '../i18n/locale.js';
 import { applyToDocument, loadDoc } from '../doc/docStore.js';
 import { materializeYDoc } from '../materialize/materialize.js';
 import { createEntry } from '../pages/createEntry.js';
+import { normaliseTags, writeTags } from '@sone/core';
 import { requireSession, sessionTokenFrom } from './auth.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
 
@@ -499,6 +500,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     const body = await readBody<{
       title?: string;
       parentPageId?: string | null;
+      tags?: string[];
     }>(ctx);
     if (!body) return;
 
@@ -519,8 +521,29 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         ctx.fail(moved.status, moved.code);
         return;
       }
-      if (typeof body.title !== 'string') {
+      if (typeof body.title !== 'string' && !Array.isArray(body.tags)) {
         ctx.send(200, { id: pageId, parentPageId: body.parentPageId ?? null });
+        return;
+      }
+    }
+
+    // --- tags ----------------------------------------------------------
+
+    if (Array.isArray(body.tags)) {
+      const cleaned = normaliseTags(body.tags);
+      const result = await applyToDocument(
+        deps.pool,
+        pageId,
+        (doc) => {
+          writeTags(doc, cleaned);
+        },
+        actorId,
+      );
+      if (result.changed) {
+        await rematerialize(deps.pool, pageId, page.workspaceId, actorId);
+      }
+      if (typeof body.title !== 'string') {
+        ctx.send(200, { id: pageId, tags: cleaned });
         return;
       }
     }
@@ -548,6 +571,71 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     }
 
     ctx.send(200, { id: pageId, title });
+  });
+
+  /**
+   * Every tag used in a workspace, with how many pages carry it.
+   *
+   * A query rather than a table: a tag exists because a page carries it, so an
+   * unused one simply stops existing (ADR-0020).
+   *
+   * Counted over pages the caller can actually see. Without that, the tag list
+   * would report how much exists in a workspace regardless of access — which
+   * leaks the shape of things somebody was not given.
+   */
+  router.get('/api/workspaces/:workspaceId/tags', async (ctx) => {
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    if (!sessionTokenFrom(ctx)) {
+      ctx.fail(401, 'not_authenticated');
+      return;
+    }
+    const claims = await claimsOrNull(deps.pool, ctx, workspaceId);
+    if (!claims) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    // One row per (tag, page) with the page's ancestor path, because access is
+    // decided per page and `effectiveRole` needs that path. Grouped afterwards
+    // rather than in SQL: a GROUP BY would count pages the caller cannot see,
+    // and a tag list that reports how much exists regardless of access leaks
+    // the shape of things somebody was not given.
+    const rows = await queryRows<{
+      tag_key: string;
+      tag_label: string;
+      page_id: string;
+      ancestor_ids: string[];
+    }>(
+      deps.pool,
+      `SELECT t.tag_key, t.tag_label, t.page_id, p.ancestor_ids
+         FROM page_tags t
+         JOIN pages p ON p.id = t.page_id
+        WHERE t.workspace_id = $1
+          AND p.archived_at IS NULL
+        ORDER BY t.tag_key COLLATE "und-x-icu", t.tag_label, t.page_id`,
+      [workspaceId],
+    );
+
+    const byKey = new Map<string, { key: string; label: string; count: number }>();
+    for (const row of rows) {
+      const role = effectiveRole(claims, {
+        id: row.page_id,
+        workspaceId,
+        ancestorIds: row.ancestor_ids,
+      });
+      if (role === null) continue;
+
+      const existing = byKey.get(row.tag_key);
+      if (existing) existing.count += 1;
+      else {
+        // The first label in the sorted order becomes the spelling shown, so
+        // the answer is stable rather than whichever row the planner reached
+        // first.
+        byKey.set(row.tag_key, { key: row.tag_key, label: row.tag_label, count: 1 });
+      }
+    }
+
+    ctx.send(200, { tags: [...byKey.values()] });
   });
 
   /**

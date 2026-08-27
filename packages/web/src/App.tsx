@@ -327,6 +327,7 @@ function Workspace({
       <RightSidebar
         handle={handle}
         pageId={pageId}
+        workspaceId={workspaceId}
         open={rightOpen}
         onClose={() => setRightOpen(false)}
       />

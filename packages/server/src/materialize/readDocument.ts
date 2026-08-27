@@ -11,6 +11,7 @@
  */
 
 import {
+  readTags,
   type EntryKind,
   COLLECTION_KEYS,
   DOC_KEYS,
@@ -45,6 +46,8 @@ export interface ReadBlock {
 export interface ReadPage {
   /** 'page' or 'folder'. Absent in the document means 'page' (ADR-0019). */
   kind: EntryKind;
+  /** Tag names as typed, cleaned and de-duplicated (ADR-0020). */
+  tags: string[];
   title: string;
   icon: unknown | null;
   coverUrl: string | null;
@@ -119,6 +122,9 @@ function readPageMeta(doc: Y.Doc, warnings: string[]): ReadPage {
 
   return {
     kind,
+    // Read through core, so the editor and the projection cannot disagree about
+    // what counts as the same tag.
+    tags: readTags(doc),
     title: normaliseText(asString(map.get(PAGE_KEYS.title)) ?? ''),
     icon: map.get(PAGE_KEYS.icon) ?? null,
     coverUrl: asString(map.get(PAGE_KEYS.coverUrl)),

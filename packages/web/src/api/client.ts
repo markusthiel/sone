@@ -119,6 +119,14 @@ export interface PageDetail extends Omit<PageSummary, 'archived' | 'idx'> {
   role: 'viewer' | 'commenter' | 'editor' | 'admin';
 }
 
+export interface WorkspaceTag {
+  /** Normalised, for matching. */
+  key: string;
+  /** As typed, for showing. */
+  label: string;
+  count: number;
+}
+
 export interface FavouriteEntry {
   pageId: string;
   title: string;
@@ -238,6 +246,15 @@ export const api = {
     }>(`/api/workspaces/${workspaceId}/pages`, input),
 
   page: (pageId: string) => request<PageDetail>(`/api/pages/${pageId}`),
+
+  setTags: (pageId: string, tags: string[]) =>
+    request<{ id: string; tags: string[] }>(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ tags }),
+    }),
+
+  workspaceTags: (workspaceId: string) =>
+    request<{ tags: WorkspaceTag[] }>(`/api/workspaces/${workspaceId}/tags`),
 
   favourites: () =>
     request<{ favourites: FavouriteEntry[] }>('/api/favourites'),
