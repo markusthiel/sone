@@ -43,6 +43,12 @@ lives in one ProseMirror fragment per page rather than one per block, which is
 what makes multi-block selection possible at all
 ([ADR-0015](docs/adr/0015-one-fragment-per-page.md)).
 
+The client library is in: sync connection with jittered reconnect, a
+refcounted document store that survives disconnection, presence, and offline
+edits that reconcile on reconnect without an explicit queue. Proven by an
+end-to-end suite running a real client against a real server against a real
+Postgres.
+
 Not working yet: there is no user interface. Everything above is reachable only
 over the API and the sync protocol.
 
