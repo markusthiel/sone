@@ -12,11 +12,20 @@
  * closes it on a phone mid-sentence.
  */
 
-import { useCallback, useEffect, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import type { PageNode } from '../api/client.ts';
 import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
+import { EntryMenu } from './EntryMenu.tsx';
+import {
+  ChevronRightIcon,
+  FolderIcon,
+  FolderPlusIcon,
+  PageIcon,
+  PlusIcon,
+  SearchIcon,
+} from './icons.tsx';
 
 interface SidebarProps {
   workspaceName: string;
@@ -25,6 +34,8 @@ interface SidebarProps {
   open: boolean;
   onClose: () => void;
   onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder') => void;
+  onRename: (pageId: string, title: string) => void;
+  onDelete: (pageId: string, descendants: number) => void;
   onLogout: () => void;
 }
 
@@ -51,9 +62,12 @@ export function Sidebar({
   open,
   onClose,
   onCreatePage,
+  onRename,
+  onDelete,
   onLogout,
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -98,6 +112,8 @@ export function Sidebar({
             {workspaceName}
           </span>
           <div className="sidebar-head-actions">
+            {/* Only a folder button at the root: pages live in folders
+                (ADR-0019), so a "new page" here would refuse. */}
             <button
               className="quiet"
               type="button"
@@ -105,22 +121,13 @@ export function Sidebar({
               title="New folder"
               aria-label="New folder"
             >
-              ⊞
-            </button>
-            <button
-              className="quiet"
-              type="button"
-              onClick={() => onCreatePage(null, 'page')}
-              title="New page"
-              aria-label="New page"
-            >
-              +
+              <FolderPlusIcon />
             </button>
           </div>
         </div>
 
         <a className="sidebar-search" href={paths.search()}>
-          <span aria-hidden="true">⌕</span> Search
+          <SearchIcon /> Search
         </a>
 
         {tree.length === 0 ? (
@@ -132,8 +139,16 @@ export function Sidebar({
             nodes={tree}
             currentPageId={currentPageId}
             collapsed={collapsed}
+            renaming={renaming}
             onToggle={toggle}
             onCreatePage={onCreatePage}
+            onRename={(pageId, title) => {
+              setRenaming(null);
+              onRename(pageId, title);
+            }}
+            onCancelRename={() => setRenaming(null)}
+            onStartRename={setRenaming}
+            onDelete={onDelete}
           />
         )}
 
@@ -157,14 +172,24 @@ function TreeLevel({
   nodes,
   currentPageId,
   collapsed,
+  renaming,
   onToggle,
   onCreatePage,
+  onRename,
+  onCancelRename,
+  onStartRename,
+  onDelete,
 }: {
   nodes: PageNode[];
   currentPageId: string | null;
   collapsed: Set<string>;
+  renaming: string | null;
   onToggle: (pageId: string) => void;
   onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder') => void;
+  onRename: (pageId: string, title: string) => void;
+  onCancelRename: () => void;
+  onStartRename: (pageId: string) => void;
+  onDelete: (pageId: string, descendants: number) => void;
 }): ReactElement {
   return (
     <>
@@ -199,10 +224,16 @@ function TreeLevel({
                   if (hasChildren) onToggle(node.id);
                 }}
               >
-                ▶
+                <ChevronRightIcon />
               </button>
 
-              {isFolder ? (
+              {node.id === renaming ? (
+                <RenameField
+                  initial={node.title}
+                  onCommit={(next) => onRename(node.id, next)}
+                  onCancel={onCancelRename}
+                />
+              ) : isFolder ? (
                 // A folder has no document to open, so clicking its name
                 // expands it rather than navigating to an empty page. That is
                 // the whole difference between a folder and a page.
@@ -211,8 +242,7 @@ function TreeLevel({
                   type="button"
                   onClick={() => hasChildren && onToggle(node.id)}
                 >
-                  <span aria-hidden="true">{node.icon?.kind === 'emoji' ? node.icon.value : '📁'}</span>{' '}
-                  {title}
+                  <FolderIcon /> {title}
                 </button>
               ) : (
                 <a
@@ -220,34 +250,33 @@ function TreeLevel({
                   href={paths.page(node.id, node.title)}
                   {...(node.id === currentPageId ? { 'aria-current': 'page' as const } : {})}
                 >
-                  {node.icon?.kind === 'emoji' ? `${node.icon.value} ` : ''}
-                  {title}
+                  <PageIcon /> {title}
                 </a>
               )}
 
-              {/* Only a folder offers "new inside this". A page contains
-                  nothing (ADR-0019), so offering it there would produce a
-                  refusal the person could not have predicted. */}
-              {isFolder && (
+              {node.id !== renaming && (
                 <>
-                  <button
-                    className="tree-add"
-                    type="button"
-                    onClick={() => onCreatePage(node.id, 'folder')}
-                    title={`New folder inside ${title}`}
-                    aria-label={`New folder inside ${title}`}
-                  >
-                    ⊞
-                  </button>
-                  <button
-                    className="tree-add"
-                    type="button"
-                    onClick={() => onCreatePage(node.id, 'page')}
-                    title={`New page inside ${title}`}
-                    aria-label={`New page inside ${title}`}
-                  >
-                    +
-                  </button>
+                  {/* Only a folder offers "new inside this". A page contains
+                      nothing (ADR-0019), so offering it there would produce a
+                      refusal the person could not have predicted. */}
+                  {isFolder && (
+                    <button
+                      className="tree-add"
+                      type="button"
+                      onClick={() => onCreatePage(node.id, 'page')}
+                      title={`New page inside ${title}`}
+                      aria-label={`New page inside ${title}`}
+                    >
+                      <PlusIcon />
+                    </button>
+                  )}
+                  <EntryMenu
+                    node={node}
+                    onRename={onRename}
+                    onCreate={onCreatePage}
+                    onDelete={onDelete}
+                    onStartRename={onStartRename}
+                  />
                 </>
               )}
             </div>
@@ -257,14 +286,74 @@ function TreeLevel({
                 nodes={node.children}
                 currentPageId={currentPageId}
                 collapsed={collapsed}
+                renaming={renaming}
                 onToggle={onToggle}
                 onCreatePage={onCreatePage}
+                onRename={onRename}
+                onCancelRename={onCancelRename}
+                onStartRename={onStartRename}
+                onDelete={onDelete}
               />
             )}
           </div>
         );
       })}
     </>
+  );
+}
+
+/**
+ * Inline rename field.
+ *
+ * Inline rather than a dialog: a dialog for one text field is heavier than the
+ * change deserves, and the title is already on screen to edit.
+ *
+ * Enter commits, Escape cancels, and losing focus commits — because a rename
+ * abandoned by clicking elsewhere is far more often "done" than "undo", and
+ * discarding it would silently lose typing.
+ */
+function RenameField({
+  initial,
+  onCommit,
+  onCancel,
+}: {
+  initial: string;
+  onCommit: (title: string) => void;
+  onCancel: () => void;
+}): ReactElement {
+  const [value, setValue] = useState(initial);
+  const committed = useRef(false);
+
+  const commit = (): void => {
+    if (committed.current) return;
+    committed.current = true;
+    const next = value.trim();
+    // An empty title is allowed — untitled is a real state — but a rename that
+    // changes nothing should not write a document update.
+    if (next === initial) onCancel();
+    else onCommit(next);
+  };
+
+  return (
+    <input
+      className="tree-rename"
+      value={value}
+      autoFocus
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          commit();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          committed.current = true;
+          onCancel();
+        }
+      }}
+      onFocus={(event) => event.currentTarget.select()}
+      aria-label="Rename"
+    />
   );
 }
 

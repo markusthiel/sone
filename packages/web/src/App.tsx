@@ -110,7 +110,7 @@ function Workspace({
     workspaceId,
     displayName,
   });
-  const { tree, pages, createPage } = usePages(workspaceId);
+  const { tree, pages, createPage, archivePage, renameEntry } = usePages(workspaceId);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const pageId = route.kind === 'page' ? route.pageId : null;
@@ -148,6 +148,22 @@ function Workspace({
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onCreatePage={(parent, kind) => void onCreateEntry(parent, kind)}
+        onRename={(id, title) => void renameEntry(id, title)}
+        onDelete={(id, descendants) => {
+          // Confirmed, and the count is in the question. Deleting a folder
+          // takes its contents, and someone who has not opened it in a month
+          // may not remember what is inside.
+          const message =
+            descendants > 0
+              ? `Delete this and the ${descendants} item(s) inside it?`
+              : 'Delete this?';
+          if (!window.confirm(message)) return;
+          void archivePage(id).then(() => {
+            // Navigate away if the page being viewed was just deleted, or the
+            // editor stays open on something that no longer exists.
+            if (route.kind === 'page' && route.pageId === id) navigate(paths.home());
+          });
+        }}
         onLogout={onLogout}
       />
 

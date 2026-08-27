@@ -13,6 +13,26 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the app told the workspace owner they had read-only access.** The
+notice was derived from "can I edit", which is false whenever the role is not
+yet known — including while a document opens and while a reconnect is in
+flight, since the role is cleared when a connection drops. It now says
+"Opening…" for that state and claims read-only only when the role is known and
+actually read-only.
+
+**Rename and delete for folders and pages**, from an unobtrusive ⋯ menu on each
+row. Renaming is inline. Deleting a folder says how many items it will take
+with it, in the menu and again in the confirmation.
+
+**Line icons throughout**, replacing the emoji folder. A small inline SVG set
+rather than an icon library: shipping hundreds of icons to draw a dozen, and
+adopting somebody else's drawing conventions, are both decisions worth
+deferring. This is also the basis for choosing icons per entry.
+
+**A new workspace starts with a folder**, and pages can only be created inside
+folders — the workspace root holds folders only. Without a starting folder a
+fresh instance showed a "new page" button that refused.
+
 **Real folders.** A folder organises; a page holds writing. A folder can contain
 folders and pages, and a page contains nothing — which is the whole point, since
 a tree where anything can hold anything gives "where does this go" no answer.

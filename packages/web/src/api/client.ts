@@ -193,6 +193,12 @@ export const api = {
 
   page: (pageId: string) => request<PageDetail>(`/api/pages/${pageId}`),
 
+  renameEntry: (pageId: string, title: string) =>
+    request<{ id: string; title: string }>(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    }),
+
   archivePage: (pageId: string) =>
     request<void>(`/api/pages/${pageId}`, { method: 'DELETE' }),
 
