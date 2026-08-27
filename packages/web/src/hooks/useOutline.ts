@@ -89,6 +89,11 @@ export function useOutline(doc: Y.Doc | null): OutlineEntry[] {
 export function scrollToBlock(blockId: string): boolean {
   const element = document.querySelector(`[data-block-id="${CSS.escape(blockId)}"]`);
   if (!element) return false;
-  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Optional call: not every environment implements it, and a throw here would
+  // take down the panel that offered the link.
+  (element as { scrollIntoView?: (options: ScrollIntoViewOptions) => void }).scrollIntoView?.({
+    behavior: 'smooth',
+    block: 'center',
+  });
   return true;
 }

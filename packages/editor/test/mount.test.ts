@@ -315,6 +315,99 @@ describe('editor mounting', () => {
     }
   });
 
+  test('the caret lands in the new block, not somewhere else', async () => {
+    // The reported symptom: "I suddenly jump some lines further into a text and
+    // do not know where the heading ended up." Asserted on the caret as well as
+    // on the document, because the document was already right and the caret is
+    // what was wrong.
+    const { runSlashItem, slashMenuState, openSlashMenu } = await import(
+      '../src/slashMenu.js'
+    );
+    const { TextSelection } = await import('prosemirror-state');
+
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    ydoc.transact(() => {
+      for (const [index, text] of ['first', 'middle', 'third', 'fourth'].entries()) {
+        const element = new Y.XmlElement('paragraph');
+        element.setAttribute(BLOCK_ATTRS.id, `0000000-0000-4000-8000-00000000000${index}`);
+        element.insert(0, [new Y.XmlText(text)]);
+        fragment.insert(fragment.length, [element]);
+      }
+    });
+
+    const view = createEditor(mountPoint(), { fragment, editable: () => true });
+    try {
+      // End of the second paragraph.
+      const end = view.state.doc.child(0).nodeSize + view.state.doc.child(1).nodeSize - 1;
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(end))),
+      );
+
+      assert.ok(openSlashMenu(view), 'the + should open the menu');
+      for (const character of 'h1') {
+        view.dispatch(view.state.tr.insertText(character));
+      }
+
+      const menu = slashMenuState(view.state);
+      assert.ok(menu, 'the menu should be open');
+      runSlashItem(view, menu!.items[menu!.index]!);
+
+      const blocks = view.state.doc.children.map((node) => ({
+        type: node.type.name,
+        text: node.textContent,
+      }));
+
+      // The heading is directly after the block that was being edited, and the
+      // surrounding text is untouched.
+      assert.deepEqual(blocks, [
+        { type: 'paragraph', text: 'first' },
+        { type: 'paragraph', text: 'middle' },
+        { type: 'heading', text: '' },
+        { type: 'paragraph', text: 'third' },
+        { type: 'paragraph', text: 'fourth' },
+      ]);
+
+      // And the caret is in it, ready to type the title.
+      const $from = view.state.selection.$from;
+      assert.equal($from.parent.type.name, 'heading', 'the caret must be in the heading');
+      assert.equal($from.index(0), 2, 'which is the third block');
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('choosing a type in an empty block converts it in place', async () => {
+    // The other half: no new block, and the caret stays where it was.
+    const { runSlashItem, slashMenuState } = await import('../src/slashMenu.js');
+
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    seedEmptyPage(fragment);
+
+    const view = createEditor(mountPoint(), { fragment, editable: () => true });
+    try {
+      for (const character of '/todo') {
+        view.dispatch(view.state.tr.insertText(character));
+      }
+      const menu = slashMenuState(view.state);
+      assert.ok(menu);
+      runSlashItem(view, menu!.items[menu!.index]!);
+
+      assert.equal(view.state.doc.childCount, 1, 'still one block');
+      assert.equal(view.state.doc.firstChild!.type.name, 'todo');
+      assert.equal(
+        view.state.selection.$from.parent.type.name,
+        'todo',
+        'and the caret is in it',
+      );
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
   test('destroying the editor twice does not throw', () => {
     // React strict mode mounts, unmounts and remounts effects, so a cleanup
     // that cannot run twice shows up as a crash only in development.

@@ -17,6 +17,7 @@ import {
   insertImageUpload,
   runSlashItem,
   setSlashIndex,
+  slashMenuPluginKey,
   slashMenuState,
   type ImageUploader,
   type SlashItem,
@@ -119,9 +120,11 @@ export function SlashMenu({
   // longer than the menu.
   useEffect(() => {
     if (!menu) return;
-    listRef.current
-      ?.querySelector<HTMLElement>('[data-selected="true"]')
-      ?.scrollIntoView({ block: 'nearest' });
+    // Guarded, because a throw inside a React effect unmounts the whole tree —
+    // that is how a blank page happened once already, and scrolling an item into
+    // view is not worth that risk.
+    const selected = listRef.current?.querySelector<HTMLElement>('[data-selected="true"]');
+    selected?.scrollIntoView?.({ block: 'nearest' });
   }, [menu?.index, menu]);
 
   // Clicking elsewhere closes it. Pointerdown rather than click, so the menu is
@@ -163,12 +166,16 @@ export function SlashMenu({
    * dialog is up and the person cannot see what happened.
    */
   const choose = (item: SlashItem): void => {
-    if (item.id === 'image') {
-      closeSlashMenu(view);
+    // `external` items cannot be a transaction — a file picker needs a user
+    // gesture and a DOM element. runSlashItem reports false for them rather
+    // than guessing, and the query is removed here before the modal dialog
+    // opens, or it sits in the text while the dialog is up.
+    if (item.action.kind === 'external') {
       const state = slashMenuState(view.state);
-      if (state) {
-        view.dispatch(view.state.tr.delete(state.from, view.state.selection.head));
-      }
+      const tr = view.state.tr;
+      if (state) tr.delete(state.from, view.state.selection.head);
+      tr.setMeta(slashMenuPluginKey, { close: true });
+      view.dispatch(tr);
       fileInputRef.current?.click();
       return;
     }
