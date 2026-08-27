@@ -1162,3 +1162,133 @@ select {
   transition: transform 140ms ease;
 }
 .panel-toggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+
+/* ---------------------------------------------------------------------------
+ * The page tree
+ *
+ * Nesting is drawn with a guide line down each branch rather than by indenting
+ * rows further. Indentation alone reads as a flat list of rows at different
+ * offsets — which is exactly how it looked — because nothing on screen connects
+ * a child to its parent. A single hairline does that work.
+ *
+ * The line comes from a container per level, which is why children are nested in
+ * the markup instead of flattened with a margin per depth.
+ * ------------------------------------------------------------------------- */
+
+.tree-children {
+  position: relative;
+  /* Indentation and the line's position are the same number, kept together so
+     they cannot drift apart. */
+  margin-inline-start: 13px;
+  padding-inline-start: 9px;
+}
+
+.tree-children::before {
+  content: '';
+  position: absolute;
+  inset-block: 2px;
+  /* Logical property: the guide moves to the other side under right-to-left. */
+  inset-inline-start: 0;
+  inline-size: 1px;
+  background: var(--sone-border);
+}
+
+/* The branch a selected entry sits in is emphasised, so the eye can follow
+   where the current page belongs without reading every label. */
+.tree-node:has(> .tree-row .tree-link[aria-current='page']) > .tree-children::before,
+.tree-children:has(.tree-link[aria-current='page'])::before {
+  background: var(--sone-text-muted);
+}
+
+.tree-row {
+  border-radius: var(--sone-radius);
+}
+
+/* Folders read slightly heavier than pages, which is enough to tell the two
+   apart at a glance without a second colour or a second size. */
+.tree-row[data-kind='folder'] > .tree-link { font-weight: 550; }
+.tree-row[data-kind='page'] > .tree-link { color: var(--sone-text); }
+.tree-row[data-kind='page'] > .tree-link svg { color: var(--sone-text-muted); }
+
+.tree-new-folder {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  inline-size: 100%;
+  min-block-size: 34px;
+  margin-block-start: 6px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: 0.85rem;
+  text-align: start;
+  cursor: pointer;
+}
+.tree-new-folder:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.tree-new-folder svg { inline-size: 1em; block-size: 1em; }
+
+/* The sidebar's own collapse button. Hidden where the sidebar is a permanent
+   column and there is nothing to reveal it again with. */
+.drawer-close { display: none; }
+@media (max-width: 799px) {
+  .drawer-close { display: inline-flex; }
+}
+
+/* --- folder view --- */
+
+.folder-view .breadcrumb {
+  margin-block-end: 8px;
+  font-size: 0.85rem;
+  color: var(--sone-text-muted);
+}
+.folder-view .breadcrumb a { color: var(--sone-text-muted); }
+.folder-view .breadcrumb a:hover { color: var(--sone-text); }
+
+.folder-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: start;
+  cursor: text;
+}
+.folder-title svg { inline-size: 0.8em; block-size: 0.8em; color: var(--sone-text-muted); }
+
+.folder-actions { display: flex; gap: 8px; margin-block: 20px 8px; flex-wrap: wrap; }
+.folder-actions button { display: inline-flex; align-items: center; gap: 6px; }
+.folder-actions svg { inline-size: 1em; block-size: 1em; }
+
+.folder-empty { margin-block-start: 24px; }
+
+.folder-section {
+  margin-block: 24px 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sone-text-muted);
+}
+
+.folder-list { list-style: none; margin: 0; padding: 0; }
+.folder-list a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-block-size: 42px;
+  padding: 6px 8px;
+  border-radius: var(--sone-radius);
+  color: var(--sone-text);
+}
+.folder-list a:hover { background: var(--sone-bg-hover); text-decoration: none; }
+.folder-list svg { flex: none; inline-size: 1.05em; block-size: 1.05em; color: var(--sone-text-muted); }
+.folder-list-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-list-meta { flex: none; font-size: 0.78rem; color: var(--sone-text-muted); }

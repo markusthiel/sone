@@ -13,6 +13,28 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: editing a page's heading did not rename it in the sidebar.** The title
+lives in the document and the sidebar reads the projection over HTTP, so the
+change reached the server and the tree went on showing the old name until
+something refetched. The sidebar now follows the heading as it is typed, and the
+tree is refetched when the tab regains focus so other people's changes arrive
+too.
+
+**Clicking a folder opens an overview of what is inside it**, with folders and
+pages listed separately, when each page was last edited, and buttons to add to
+it. Expanding and collapsing stays on the disclosure triangle. Using the name
+to expand wasted the gesture people reach for most and left a folder with
+nothing to open.
+
+**The tree shows where things belong.** Nesting is drawn with a guide line down
+each branch rather than by indenting rows further; the branch containing the
+current page is emphasised. Indentation alone reads as a flat list of rows at
+different offsets, because nothing connects a child to its parent.
+
+**The sidebar header carries the collapse button**, not "new folder" — which was
+in the wrong place twice over: it is not a navigation action, and it is only
+wanted while looking at the tree. It now sits at the bottom of the tree.
+
 **Fixed: a stalled connection waited forever and said "Syncing…".** A proxy that
 accepts the connection but never completes the WebSocket upgrade produced no
 open, no error and no close, so the client sat in "connecting" indefinitely,

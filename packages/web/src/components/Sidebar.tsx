@@ -26,6 +26,7 @@ import {
   PageIcon,
   PlusIcon,
   SearchIcon,
+  SidebarIcon,
 } from './icons.tsx';
 
 interface SidebarProps {
@@ -120,16 +121,19 @@ export function Sidebar({
             onCreated={onSwitchWorkspace}
           />
           <div className="sidebar-head-actions">
-            {/* Only a folder button at the root: pages live in folders
-                (ADR-0019), so a "new page" here would refuse. */}
+            {/* The collapse control belongs here, at the top of the thing it
+                collapses. "New folder" used to sit here and was in the wrong
+                place twice over: it is not a navigation action, and it is only
+                ever wanted while looking at the tree — so it lives at the
+                bottom of the tree instead. */}
             <button
-              className="quiet"
+              className="quiet drawer-close"
               type="button"
-              onClick={() => onCreatePage(null, 'folder')}
-              title="New folder"
-              aria-label="New folder"
+              onClick={onClose}
+              title="Hide the sidebar"
+              aria-label="Hide the sidebar"
             >
-              <FolderPlusIcon />
+              <SidebarIcon />
             </button>
           </div>
         </div>
@@ -159,6 +163,15 @@ export function Sidebar({
             onDelete={onDelete}
           />
         )}
+
+        {/* At the bottom of the tree, where the thing it adds to ends. */}
+        <button
+          className="tree-new-folder"
+          type="button"
+          onClick={() => onCreatePage(null, 'folder')}
+        >
+          <FolderPlusIcon /> New folder
+        </button>
 
         <div style={{ marginBlockStart: 'auto', paddingBlockStart: 12 }}>
           <a className="tree-link" href={paths.settings()}>
@@ -208,12 +221,8 @@ function TreeLevel({
         const title = node.title || (isFolder ? 'Untitled folder' : 'Untitled');
 
         return (
-          <div key={node.id}>
-            <div
-              className="tree-row"
-              data-kind={node.kind}
-              style={{ marginInlineStart: `${node.depth * 12}px` }}
-            >
+          <div key={node.id} className="tree-node">
+            <div className="tree-row" data-kind={node.kind}>
               <button
                 className="tree-twisty"
                 type="button"
@@ -241,24 +250,18 @@ function TreeLevel({
                   onCommit={(next) => onRename(node.id, next)}
                   onCancel={onCancelRename}
                 />
-              ) : isFolder ? (
-                // A folder has no document to open, so clicking its name
-                // expands it rather than navigating to an empty page. That is
-                // the whole difference between a folder and a page.
-                <button
-                  className="tree-link tree-folder"
-                  type="button"
-                  onClick={() => hasChildren && onToggle(node.id)}
-                >
-                  <FolderIcon /> {title}
-                </button>
               ) : (
+                // Both kinds navigate. A folder opens an overview of what is
+                // inside it; expanding stays on the disclosure triangle, which
+                // already exists and is the control people expect for it. Using
+                // the name to expand wasted the gesture people reach for most
+                // and left a folder with nothing to open.
                 <a
                   className="tree-link"
                   href={paths.page(node.id, node.title)}
                   {...(node.id === currentPageId ? { 'aria-current': 'page' as const } : {})}
                 >
-                  <PageIcon /> {title}
+                  {isFolder ? <FolderIcon /> : <PageIcon />} {title}
                 </a>
               )}
 
@@ -290,18 +293,24 @@ function TreeLevel({
             </div>
 
             {hasChildren && !isCollapsed && (
-              <TreeLevel
-                nodes={node.children}
-                currentPageId={currentPageId}
-                collapsed={collapsed}
-                renaming={renaming}
-                onToggle={onToggle}
-                onCreatePage={onCreatePage}
-                onRename={onRename}
-                onCancelRename={onCancelRename}
-                onStartRename={onStartRename}
-                onDelete={onDelete}
-              />
+              // Children are nested in the markup rather than flattened with a
+              // margin per depth, so a guide line can be drawn down the branch.
+              // Depth-as-margin gave no element spanning a level, which is why
+              // the tree read as a flat list of differently indented rows.
+              <div className="tree-children">
+                <TreeLevel
+                  nodes={node.children}
+                  currentPageId={currentPageId}
+                  collapsed={collapsed}
+                  renaming={renaming}
+                  onToggle={onToggle}
+                  onCreatePage={onCreatePage}
+                  onRename={onRename}
+                  onCancelRename={onCancelRename}
+                  onStartRename={onStartRename}
+                  onDelete={onDelete}
+                />
+              </div>
             )}
           </div>
         );

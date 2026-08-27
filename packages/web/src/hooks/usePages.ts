@@ -22,6 +22,20 @@ export function usePages(workspaceId: string | null): {
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
+  /**
+   * Update one entry's title locally, without a request.
+   *
+   * The title lives in the CRDT document; the tree comes from the projection
+   * over HTTP. Editing a page's heading therefore changed the document, the
+   * document reached the server, the server updated the row — and the sidebar
+   * went on showing the old name until something else happened to refetch it.
+   *
+   * This closes that gap for the page you are looking at, immediately. Changes
+   * made by other people still arrive on the next refetch rather than live;
+   * that needs a workspace-level subscription, which the sync protocol does not
+   * have yet.
+   */
+  applyTitle: (pageId: string, title: string) => void;
   createPage: (input: {
     title?: string;
     parentPageId?: string | null;
@@ -56,6 +70,21 @@ export function usePages(workspaceId: string | null): {
     void reload();
   }, [reload]);
 
+  // Refetched when the tab regains focus. Someone else's rename or new page
+  // would otherwise never appear in a tab left open, and polling for it would
+  // be a request every few seconds for a change that usually has not happened.
+  useEffect(() => {
+    const onFocus = (): void => {
+      void reload();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [reload]);
+
   const createPage = useCallback(
     async (input: { title?: string; parentPageId?: string | null; kind?: EntryKind }) => {
       if (!workspaceId) return null;
@@ -83,6 +112,18 @@ export function usePages(workspaceId: string | null): {
     [reload],
   );
 
+  const applyTitle = useCallback((pageId: string, title: string) => {
+    setPages((previous) => {
+      const index = previous.findIndex((page) => page.id === pageId);
+      // Unchanged or unknown: return the same array so React does not re-render
+      // the whole tree on every keystroke.
+      if (index === -1 || previous[index]!.title === title) return previous;
+      const next = [...previous];
+      next[index] = { ...next[index]!, title };
+      return next;
+    });
+  }, []);
+
   const renameEntry = useCallback(
     async (pageId: string, title: string) => {
       try {
@@ -101,6 +142,7 @@ export function usePages(workspaceId: string | null): {
     loading,
     error,
     reload,
+    applyTitle,
     createPage,
     archivePage,
     renameEntry,
