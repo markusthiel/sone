@@ -8,8 +8,8 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test test/*.test.ts"
+    "typecheck": "tsc -b ../core ../client && tsc -p tsconfig.json --noEmit",
+    "test": "tsc -b ../core ../client && tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@sone/client": "workspace:*",

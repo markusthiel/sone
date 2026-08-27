@@ -14,8 +14,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
-    "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "test": "tsx --test test/*.test.ts"
+    "typecheck": "tsc -b ../core && tsc -p tsconfig.test.json --noEmit",
+    "test": "tsc -b ../core && tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@sone/core": "workspace:*",

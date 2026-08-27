@@ -79,12 +79,15 @@ jobs:
           pnpm install --frozen-lockfile
 
       - name: Typecheck
+        # Each package's typecheck builds its own dependencies first, so this
+        # works on a fresh clone. That was not true at first: @sone/core
+        # resolves through dist/index.d.ts, so typecheck silently depended on
+        # someone having run a build earlier. It passed on a laptop that had,
+        # and failed here on a clean checkout — which is exactly the class of
+        # problem CI exists to catch.
         run: pnpm -r typecheck
 
       - name: Build
-        # Built before testing, not after: the client tests import the server's
-        # compiled output, and a type error that only appears during emit would
-        # otherwise surface as a confusing test failure.
         run: pnpm -r build
 
       - name: Test
