@@ -12,7 +12,7 @@ name: sone
 
 services:
   app:
-    image: ghcr.io/desico/sone:latest
+    image: ghcr.io/markusthiel/sone:latest
     # Uncomment to build from source instead of pulling:
     # build:
     #   context: .

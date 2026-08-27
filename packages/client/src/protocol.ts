@@ -41,6 +41,13 @@ export type Role = 'viewer' | 'commenter' | 'editor' | 'admin';
 export interface AuthPayload {
   protocolVersion: number;
   workspaceId: string;
+  /**
+   * Omit both to authenticate with the session cookie.
+   *
+   * A browser cannot read an HttpOnly cookie to send it here, and making it
+   * readable would hand any XSS a usable credential. The cookie does travel
+   * with the WebSocket upgrade request, which is where the server reads it.
+   */
   sessionToken?: string;
   shareToken?: string;
   displayName?: string;

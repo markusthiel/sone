@@ -82,6 +82,15 @@ class Connection {
   constructor(
     readonly socket: WebSocket,
     readonly ipPrefix: string | null,
+    /**
+     * Session token from the upgrade request's cookie.
+     *
+     * The browser cannot send the HttpOnly cookie in the auth message, but it
+     * does send it with the upgrade request, because that is an ordinary
+     * same-origin HTTP request. Reading it here is what lets the cookie stay
+     * HttpOnly.
+     */
+    readonly cookieSessionToken: string | null,
   ) {}
 
   allocateHandle(): number {
@@ -194,7 +203,11 @@ export class SyncServer {
       return;
     }
 
-    const conn = new Connection(socket, ipPrefixOf(request));
+    const conn = new Connection(
+      socket,
+      ipPrefixOf(request),
+      sessionCookieFrom(request),
+    );
     this.connections.add(conn);
 
     // An unauthenticated connection is a free resource for anyone who can
@@ -285,11 +298,20 @@ export class SyncServer {
       return;
     }
 
+    // No explicit token means "use the upgrade request's cookie".
+    const sessionToken = payload.sessionToken ?? conn.cookieSessionToken;
+
+    if (!sessionToken && !payload.shareToken) {
+      conn.send(encodeError(0, SyncError.AuthFailed, 'no credential'));
+      conn.socket.close(1008, 'auth failed');
+      return;
+    }
+
     try {
-      if (payload.sessionToken) {
+      if (sessionToken && !payload.shareToken) {
         const claims = await resolveSessionClaims(
           this.pool,
-          payload.sessionToken,
+          sessionToken,
           payload.workspaceId,
         );
         if (!claims) {
@@ -297,7 +319,7 @@ export class SyncServer {
           conn.socket.close(1008, 'auth failed');
           return;
         }
-        const session = await resolveSessionId(this.pool, payload.sessionToken);
+        const session = await resolveSessionId(this.pool, sessionToken);
         if (!session) {
           conn.send(encodeError(0, SyncError.AuthFailed));
           conn.socket.close(1008, 'auth failed');
@@ -720,6 +742,26 @@ function toUint8Array(data: unknown): Uint8Array {
   if (Array.isArray(data)) return Buffer.concat(data as Buffer[]);
   if (data instanceof ArrayBuffer) return new Uint8Array(data);
   return new Uint8Array(0);
+}
+
+/**
+ * Session token from the upgrade request's cookie.
+ *
+ * Duplicating the cookie name rather than importing from http/auth.ts keeps the
+ * sync server independent of the HTTP layer; the constant is asserted equal in
+ * a test so the two cannot drift.
+ */
+function sessionCookieFrom(request: IncomingMessage): string | null {
+  const header = request.headers['cookie'];
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq < 1) continue;
+    if (part.slice(0, eq).trim() !== 'sone_session') continue;
+    const value = part.slice(eq + 1).trim();
+    return value ? decodeURIComponent(value) : null;
+  }
+  return null;
 }
 
 /**

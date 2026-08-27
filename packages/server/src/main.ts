@@ -29,7 +29,9 @@ import {
   checkAndRecordVersion,
   pendingDocumentMigrations,
 } from './db/version.js';
+import { registerAuthRoutes } from './http/auth.js';
 import { registerHealthRoutes, SONE_VERSION } from './http/health.js';
+import { registerPageRoutes } from './http/pages.js';
 import { Router } from './http/router.js';
 import { Maintenance } from './maintenance/job.js';
 import { PROTOCOL_VERSION } from './sync/protocol.js';
@@ -135,6 +137,14 @@ async function main(): Promise<void> {
     documentSchemaVersion: SCHEMA_VERSION,
     syncProtocolVersion: PROTOCOL_VERSION,
   });
+  registerAuthRoutes(router, {
+    pool,
+    signupMode: config.signupMode,
+    // Secure cookies only over https, or the browser drops them on a plain
+    // http development instance and login silently fails.
+    secureCookies: config.publicUrl.startsWith('https://'),
+  });
+  registerPageRoutes(router, { pool });
 
   http.on('request', (req, res) => {
     void router.handle(req, res, config.publicUrl).then((handled) => {

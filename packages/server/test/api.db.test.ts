@@ -1,0 +1,667 @@
+/**
+ * HTTP API tests.
+ *
+ * Driven through real HTTP against a real Postgres, because the interesting
+ * behaviour is in cookies, status codes and authorisation filtering — none of
+ * which a direct function call exercises.
+ */
+
+import assert from 'node:assert/strict';
+import { createServer, type Server } from 'node:http';
+import { after, before, beforeEach, describe, test } from 'node:test';
+
+import type { Pool } from 'pg';
+
+import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
+import { registerPageRoutes } from '../src/http/pages.js';
+import { Router } from '../src/http/router.js';
+import { hashPassword } from '../src/auth/password.js';
+import { createInvitation } from '../src/auth/registration.js';
+import { createShareLink } from '../src/auth/share.js';
+import {
+  closeTestPool,
+  getTestPool,
+  hasDatabase,
+  resetDatabase,
+} from './support/db.js';
+
+const PASSWORD = 'correct-horse-battery-staple';
+
+describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not set' : false }, () => {
+  let db: Pool;
+  let server: Server;
+  let base: string;
+
+  before(async () => {
+    db = await getTestPool();
+    const router = new Router();
+    registerAuthRoutes(router, {
+      pool: db,
+      signupMode: 'invite',
+      secureCookies: false,
+    });
+    registerPageRoutes(router, { pool: db });
+
+    server = createServer((req, res) => {
+      void router.handle(req, res, 'http://localhost').then((handled) => {
+        if (!handled && !res.headersSent) {
+          res.writeHead(404, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'not_found' }));
+        }
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (typeof address === 'object' && address) base = `http://127.0.0.1:${address.port}`;
+  });
+
+  after(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await closeTestPool();
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(db);
+  });
+
+  // --- helpers -------------------------------------------------------------
+
+  interface Session {
+    cookie: string;
+    workspaceId: string;
+    userId: string;
+  }
+
+  /**
+   * Assert a status, including the body in the message when it does not match.
+   *
+   * Passing `await res.text()` as an assertion message reads the body
+   * unconditionally, so the later `.json()` fails with "Body has already been
+   * read" — which then masks the real failure. Read it only when it is needed.
+   */
+  async function expectStatus(res: Response, expected: number): Promise<void> {
+    if (res.status === expected) return;
+    const body = await res.text().catch(() => '<unreadable>');
+    assert.fail(`expected ${expected}, got ${res.status}: ${body}`);
+  }
+
+  const json = (body: unknown): RequestInit => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  function cookieFrom(res: Response): string {
+    const header = res.headers.get('set-cookie');
+    assert.ok(header, 'expected a Set-Cookie header');
+    const value = parseCookies(header.split(';')[0])[SESSION_COOKIE];
+    assert.ok(value, 'expected a session cookie');
+    return `${SESSION_COOKIE}=${encodeURIComponent(value)}`;
+  }
+
+  async function setup(): Promise<Session> {
+    const res = await fetch(`${base}/api/auth/setup`, {
+      ...json({
+        email: 'owner@example.org',
+        password: PASSWORD,
+        displayName: 'Owner',
+        workspaceName: 'Test workspace',
+      }),
+    });
+    await expectStatus(res, 201);
+    const body = (await res.json()) as { userId: string; workspaceId: string };
+    return {
+      cookie: cookieFrom(res),
+      workspaceId: body.workspaceId,
+      userId: body.userId,
+    };
+  }
+
+  const auth = (session: Session, init: RequestInit = {}): RequestInit => ({
+    ...init,
+    headers: { ...(init.headers ?? {}), cookie: session.cookie },
+  });
+
+  async function createPage(
+    session: Session,
+    title: string,
+    parentPageId: string | null = null,
+  ): Promise<string> {
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title, parentPageId })),
+    );
+    await expectStatus(res, 201);
+    return ((await res.json()) as { id: string }).id;
+  }
+
+  // --- instance and setup --------------------------------------------------
+
+  test('a fresh instance reports that it needs setup', async () => {
+    const res = await fetch(`${base}/api/instance`);
+    const body = (await res.json()) as { needsSetup: boolean; signupMode: string };
+    assert.equal(body.needsSetup, true);
+    assert.equal(body.signupMode, 'invite');
+  });
+
+  test('setup creates the owner and workspace and returns a session cookie', async () => {
+    const session = await setup();
+    assert.ok(session.workspaceId);
+
+    const instance = await fetch(`${base}/api/instance`);
+    assert.equal(((await instance.json()) as { needsSetup: boolean }).needsSetup, false);
+  });
+
+  test('setup is refused once an instance exists', async () => {
+    await setup();
+    const res = await fetch(
+      `${base}/api/auth/setup`,
+      json({
+        email: 'second@example.org',
+        password: PASSWORD,
+        workspaceName: 'Another',
+      }),
+    );
+    assert.equal(res.status, 401);
+  });
+
+  test('the session cookie is HttpOnly and SameSite=Lax', async () => {
+    // HttpOnly because a token readable from JavaScript is one an XSS can
+    // exfiltrate, and this app renders a lot of user content. Lax rather than
+    // Strict so a shared link opened from an email arrives authenticated.
+    const res = await fetch(
+      `${base}/api/auth/setup`,
+      json({ email: 'o@example.org', password: PASSWORD, workspaceName: 'W' }),
+    );
+    const header = res.headers.get('set-cookie') ?? '';
+    assert.match(header, /HttpOnly/);
+    assert.match(header, /SameSite=Lax/);
+    assert.doesNotMatch(header, /Secure/, 'plain http must not set Secure');
+  });
+
+  test('setup rejects a missing field with 422', async () => {
+    const res = await fetch(`${base}/api/auth/setup`, json({ email: 'x@example.org' }));
+    assert.equal(res.status, 422);
+    assert.deepEqual(await res.json(), { error: 'missing_fields' });
+  });
+
+  test('setup rejects a weak password with 422, not 500', async () => {
+    const res = await fetch(
+      `${base}/api/auth/setup`,
+      json({ email: 'x@example.org', password: 'short', workspaceName: 'W' }),
+    );
+    assert.equal(res.status, 422);
+    assert.deepEqual(await res.json(), { error: 'weak_password' });
+  });
+
+  // --- login and session ---------------------------------------------------
+
+  test('login sets a cookie and the session endpoint returns the workspace', async () => {
+    await setup();
+    const res = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'owner@example.org', password: PASSWORD }),
+    );
+    assert.equal(res.status, 204);
+
+    const session = await fetch(
+      `${base}/api/auth/session`,
+      auth({ cookie: cookieFrom(res), workspaceId: '', userId: '' }),
+    );
+    const body = (await session.json()) as {
+      user: { displayName: string };
+      workspaces: Array<{ role: string }>;
+    };
+    assert.equal(body.user.displayName, 'Owner');
+    assert.deepEqual(
+      body.workspaces.map((w) => w.role),
+      ['owner'],
+    );
+  });
+
+  test('a wrong password answers 401 with a code, not a sentence', async () => {
+    await setup();
+    const res = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'owner@example.org', password: 'wrong-password-here' }),
+    );
+    assert.equal(res.status, 401);
+    assert.deepEqual(await res.json(), { error: 'invalid_credentials' });
+  });
+
+  test('an unknown account and a wrong password are indistinguishable', async () => {
+    await setup();
+    const unknown = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'nobody@example.org', password: PASSWORD }),
+    );
+    const wrong = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'owner@example.org', password: 'nope-nope-nope' }),
+    );
+    assert.equal(unknown.status, wrong.status);
+    assert.deepEqual(await unknown.json(), await wrong.json());
+  });
+
+  test('no cookie means 401 on a protected route', async () => {
+    await setup();
+    const res = await fetch(`${base}/api/auth/session`);
+    assert.equal(res.status, 401);
+    assert.deepEqual(await res.json(), { error: 'not_authenticated' });
+  });
+
+  test('logout revokes the session and clears the cookie', async () => {
+    const session = await setup();
+    const res = await fetch(`${base}/api/auth/logout`, auth(session, { method: 'POST' }));
+    assert.equal(res.status, 204);
+    assert.match(res.headers.get('set-cookie') ?? '', /Max-Age=0/);
+
+    const after = await fetch(`${base}/api/auth/session`, auth(session));
+    assert.equal(after.status, 401, 'the old cookie must no longer work');
+  });
+
+  test('logout clears the cookie even when the session was already gone', async () => {
+    // Otherwise a stale cookie survives a logout and the user appears logged in.
+    const res = await fetch(`${base}/api/auth/logout`, {
+      method: 'POST',
+      headers: { cookie: `${SESSION_COOKIE}=nonsense` },
+    });
+    assert.equal(res.status, 204);
+    assert.match(res.headers.get('set-cookie') ?? '', /Max-Age=0/);
+  });
+
+  test('a session can be revoked by id, and not somebody else’s', async () => {
+    const session = await setup();
+
+    const hash = await hashPassword(PASSWORD);
+    const other = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash)
+       VALUES ('other@example.org','Other',$1) RETURNING id`,
+      [hash],
+    );
+    const foreign = await db.query<{ id: string }>(
+      `INSERT INTO sessions (user_id, token_hash, expires_at)
+       VALUES ($1, decode('00', 'hex'), now() + interval '1 day') RETURNING id`,
+      [other.rows[0]!.id],
+    );
+
+    const res = await fetch(
+      `${base}/api/auth/sessions/${foreign.rows[0]!.id}`,
+      auth(session, { method: 'DELETE' }),
+    );
+    assert.equal(res.status, 404, 'must not be able to revoke another user’s session');
+  });
+
+  // --- signup and invitations ---------------------------------------------
+
+  test('signup requires an invitation in invite mode', async () => {
+    await setup();
+    const res = await fetch(
+      `${base}/api/auth/signup`,
+      json({ email: 'new@example.org', password: PASSWORD }),
+    );
+    assert.equal(res.status, 401);
+  });
+
+  test('signup with a valid invitation joins the workspace', async () => {
+    const session = await setup();
+    const invite = await createInvitation(db, {
+      workspaceId: session.workspaceId,
+      invitedBy: session.userId,
+      email: 'invited@example.org',
+    });
+
+    const res = await fetch(
+      `${base}/api/auth/signup`,
+      json({
+        email: 'invited@example.org',
+        password: PASSWORD,
+        displayName: 'Invited',
+        invitationToken: invite.token,
+      }),
+    );
+    await expectStatus(res, 201);
+    const body = (await res.json()) as { workspaceId: string };
+    assert.equal(body.workspaceId, session.workspaceId);
+  });
+
+  test('an invitation can be inspected before signing up', async () => {
+    const session = await setup();
+    const invite = await createInvitation(db, {
+      workspaceId: session.workspaceId,
+      invitedBy: session.userId,
+      email: 'peek@example.org',
+    });
+
+    const res = await fetch(`${base}/api/auth/invitation/${invite.token}`);
+    const body = (await res.json()) as { workspaceName: string; email: string };
+    assert.equal(body.workspaceName, 'Test workspace');
+    assert.equal(body.email, 'peek@example.org');
+  });
+
+  test('an unknown invitation token is 404', async () => {
+    await setup();
+    const res = await fetch(`${base}/api/auth/invitation/nonsense`);
+    assert.equal(res.status, 404);
+    assert.deepEqual(await res.json(), { error: 'invitation_invalid' });
+  });
+
+  // --- pages ---------------------------------------------------------------
+
+  test('creating a page writes the CRDT log, not only the projection', async () => {
+    // A page row without a document is an empty page. The CRDTs are the truth
+    // (ADR-0002) and this is the route that has to remember it.
+    const session = await setup();
+    const pageId = await createPage(session, 'First page');
+
+    const updates = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM doc_updates WHERE doc_id = $1`,
+      [pageId],
+    );
+    assert.ok(Number(updates.rows[0]!.n) > 0, 'the document must exist');
+
+    const row = await db.query<{ title: string; schema_version: number }>(
+      `SELECT title, schema_version FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.equal(row.rows[0]!.title, 'First page');
+    assert.equal(row.rows[0]!.schema_version, 1);
+  });
+
+  test('sibling pages get increasing fractional indexes', async () => {
+    const session = await setup();
+    const first = await createPage(session, 'A');
+    const second = await createPage(session, 'B');
+
+    const rows = await db.query<{ id: string; idx: string }>(
+      `SELECT id, idx FROM pages ORDER BY idx, id`,
+    );
+    assert.deepEqual(
+      rows.rows.map((r) => r.id),
+      [first, second],
+    );
+    assert.ok(rows.rows[0]!.idx < rows.rows[1]!.idx);
+  });
+
+  test('the page tree returns parent relationships', async () => {
+    const session = await setup();
+    const parent = await createPage(session, 'Parent');
+    const child = await createPage(session, 'Child', parent);
+
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session),
+    );
+    const body = (await res.json()) as {
+      pages: Array<{ id: string; parentPageId: string | null }>;
+    };
+    const byId = new Map(body.pages.map((p) => [p.id, p]));
+    assert.equal(byId.get(child)!.parentPageId, parent);
+    assert.equal(byId.get(parent)!.parentPageId, null);
+  });
+
+  test('creating a page under a nonexistent parent is 404', async () => {
+    const session = await setup();
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(
+        session,
+        json({ title: 'Orphan', parentPageId: '00000000-0000-4000-8000-000000009999' }),
+      ),
+    );
+    assert.equal(res.status, 404);
+  });
+
+  test('a page in another workspace is invisible', async () => {
+    const first = await setup();
+    const pageId = await createPage(first, 'Private');
+
+    // A second workspace with its own member.
+    const hash = await hashPassword(PASSWORD);
+    const outsider = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash)
+       VALUES ('outsider@example.org','Out',$1) RETURNING id`,
+      [hash],
+    );
+    const ws = await db.query<{ id: string }>(
+      `INSERT INTO workspaces (name, created_by) VALUES ('Other', $1) RETURNING id`,
+      [outsider.rows[0]!.id],
+    );
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'owner')`,
+      [ws.rows[0]!.id, outsider.rows[0]!.id],
+    );
+    const loginRes = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'outsider@example.org', password: PASSWORD }),
+    );
+    const outsiderSession = {
+      cookie: cookieFrom(loginRes),
+      workspaceId: ws.rows[0]!.id,
+      userId: outsider.rows[0]!.id,
+    };
+
+    const res = await fetch(`${base}/api/pages/${pageId}`, auth(outsiderSession));
+    assert.equal(res.status, 404, 'must not reveal that the page exists');
+  });
+
+  test('requesting a workspace you are not a member of is 403', async () => {
+    const session = await setup();
+    const ws = await db.query<{ id: string }>(
+      `INSERT INTO workspaces (name) VALUES ('Foreign') RETURNING id`,
+    );
+    const res = await fetch(
+      `${base}/api/workspaces/${ws.rows[0]!.id}/pages`,
+      auth(session),
+    );
+    assert.equal(res.status, 403);
+  });
+
+  test('archiving a page takes its subtree with it', async () => {
+    // Otherwise archiving a parent leaves children reachable from search but
+    // not from the tree.
+    const session = await setup();
+    const parent = await createPage(session, 'Parent');
+    const child = await createPage(session, 'Child', parent);
+    const grandchild = await createPage(session, 'Grandchild', child);
+
+    const res = await fetch(`${base}/api/pages/${parent}`, auth(session, { method: 'DELETE' }));
+    assert.equal(res.status, 204);
+
+    const rows = await db.query<{ id: string; archived_at: Date | null }>(
+      `SELECT id, archived_at FROM pages WHERE id = ANY($1::uuid[])`,
+      [[parent, child, grandchild]],
+    );
+    assert.equal(rows.rows.length, 3);
+    assert.ok(
+      rows.rows.every((r) => r.archived_at !== null),
+      'the whole subtree must be archived',
+    );
+
+    const tree = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session),
+    );
+    assert.deepEqual(((await tree.json()) as { pages: unknown[] }).pages, []);
+  });
+
+  test('page metadata reports the caller’s role', async () => {
+    const session = await setup();
+    const pageId = await createPage(session, 'Roles');
+    const res = await fetch(`${base}/api/pages/${pageId}`, auth(session));
+    const body = (await res.json()) as { role: string; title: string };
+    assert.equal(body.role, 'admin', 'the workspace owner is admin on a page');
+    assert.equal(body.title, 'Roles');
+  });
+
+  // --- search --------------------------------------------------------------
+
+  test('search finds a page by title', async () => {
+    const session = await setup();
+    await createPage(session, 'Quarterly budget review');
+    await createPage(session, 'Unrelated');
+
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/search?q=budget`,
+      auth(session),
+    );
+    const body = (await res.json()) as { results: Array<{ title: string }> };
+    assert.deepEqual(
+      body.results.map((r) => r.title),
+      ['Quarterly budget review'],
+    );
+  });
+
+  test('a one-character query returns nothing rather than everything', async () => {
+    const session = await setup();
+    await createPage(session, 'Anything');
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/search?q=a`,
+      auth(session),
+    );
+    assert.deepEqual(((await res.json()) as { results: unknown[] }).results, []);
+  });
+
+  test('search accepts what a person types without erroring', async () => {
+    // websearch_to_tsquery rather than to_tsquery: a bare space or a quote
+    // would make the latter throw a 500.
+    const session = await setup();
+    await createPage(session, 'Budget planning notes');
+
+    for (const query of ['budget planning', '"budget planning"', 'budget or notes', 'a & b']) {
+      const res = await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/search?q=${encodeURIComponent(query)}`,
+        auth(session),
+      );
+      assert.equal(res.status, 200, `query ${query} must not error`);
+    }
+  });
+
+  test('archived pages are excluded from search', async () => {
+    const session = await setup();
+    const pageId = await createPage(session, 'Archived budget');
+    await fetch(`${base}/api/pages/${pageId}`, auth(session, { method: 'DELETE' }));
+
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/search?q=budget`,
+      auth(session),
+    );
+    assert.deepEqual(((await res.json()) as { results: unknown[] }).results, []);
+  });
+
+  test('search does not leak pages the caller cannot see', async () => {
+    const session = await setup();
+    const visible = await createPage(session, 'Budget visible');
+    const hidden = await createPage(session, 'Budget hidden');
+
+    // A guest with a grant on one page only.
+    const hash = await hashPassword(PASSWORD);
+    const guest = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash, is_guest)
+       VALUES ('guest@example.org','Guest',$1,true) RETURNING id`,
+      [hash],
+    );
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
+      [session.workspaceId, guest.rows[0]!.id],
+    );
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+       VALUES ($1,$2,'viewer',false,$3)`,
+      [visible, guest.rows[0]!.id, session.userId],
+    );
+
+    const loginRes = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'guest@example.org', password: PASSWORD }),
+    );
+    const guestSession = {
+      cookie: cookieFrom(loginRes),
+      workspaceId: session.workspaceId,
+      userId: guest.rows[0]!.id,
+    };
+
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/search?q=budget`,
+      auth(guestSession),
+    );
+    const body = (await res.json()) as { results: Array<{ pageId: string }> };
+    assert.deepEqual(
+      body.results.map((r) => r.pageId),
+      [visible],
+    );
+    assert.ok(!body.results.some((r) => r.pageId === hidden));
+  });
+
+  test('the page tree does not leak pages the caller cannot see', async () => {
+    const session = await setup();
+    const visible = await createPage(session, 'Granted');
+    await createPage(session, 'Not granted');
+
+    const hash = await hashPassword(PASSWORD);
+    const guest = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash, is_guest)
+       VALUES ('g2@example.org','G2',$1,true) RETURNING id`,
+      [hash],
+    );
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
+      [session.workspaceId, guest.rows[0]!.id],
+    );
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+       VALUES ($1,$2,'viewer',false,$3)`,
+      [visible, guest.rows[0]!.id, session.userId],
+    );
+
+    const loginRes = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'g2@example.org', password: PASSWORD }),
+    );
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      { headers: { cookie: cookieFrom(loginRes) } },
+    );
+    const body = (await res.json()) as { pages: Array<{ id: string }> };
+    assert.deepEqual(
+      body.pages.map((p) => p.id),
+      [visible],
+    );
+  });
+
+  test('a guest cannot create a top-level page', async () => {
+    const session = await setup();
+    const hash = await hashPassword(PASSWORD);
+    const guest = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash, is_guest)
+       VALUES ('g3@example.org','G3',$1,true) RETURNING id`,
+      [hash],
+    );
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
+      [session.workspaceId, guest.rows[0]!.id],
+    );
+    const loginRes = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'g3@example.org', password: PASSWORD }),
+    );
+
+    const res = await fetch(`${base}/api/workspaces/${session.workspaceId}/pages`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: cookieFrom(loginRes) },
+      body: JSON.stringify({ title: 'Sneaky' }),
+    });
+    assert.equal(res.status, 403);
+  });
+
+  test('a share link does not grant HTTP page access on its own', async () => {
+    // Share tokens authenticate the sync connection. The HTTP API takes a
+    // session cookie, and a token in a URL must not be mistaken for one.
+    const session = await setup();
+    const pageId = await createPage(session, 'Shared');
+    await createShareLink(db, { pageId, createdBy: session.userId });
+
+    const res = await fetch(`${base}/api/pages/${pageId}`);
+    assert.equal(res.status, 401);
+  });
+});

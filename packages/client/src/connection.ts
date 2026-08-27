@@ -45,6 +45,11 @@ export type ConnectionState =
 
 export interface Credentials {
   workspaceId: string;
+  /**
+   * Omit both to authenticate with the session cookie, which is what a browser
+   * does: the cookie is HttpOnly and travels with the upgrade request.
+   * `sessionToken` exists for non-browser clients and tests.
+   */
   sessionToken?: string;
   shareToken?: string;
   displayName?: string;

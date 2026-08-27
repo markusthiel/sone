@@ -20,3 +20,6 @@ coverage/
 # TypeScript project reference build info
 */dist/.tsbuildinfo
 packages/*/dist/
+
+# Vite output
+packages/web/dist/
