@@ -25,10 +25,18 @@
 
 name: Build image
 
+# Not run on every push to main. Publishing an image needs Docker daemon access
+# from inside a job container, which this instance's runner does not currently
+# provide — so running it per push would mean a red build on every commit for a
+# capability nothing yet depends on. Deployment builds from source today
+# (docker-compose.build.yml).
+#
+# Re-enable the push trigger once the runner exposes a daemon; the preflight
+# step will confirm it in the first seconds.
 on:
   push:
-    branches: [main]
     tags: ['v*']
+  workflow_dispatch:
 
 env:
   IMAGE: ghcr.io/markusthiel/sone
