@@ -1,29 +1,25 @@
 # Build and publish the container image.
 #
-# Builds with buildah, which needs no Docker daemon. That is the point: the
-# earlier Docker-based version needed a daemon socket inside the job container,
-# which this instance's runner does not provide — and mounting one would give
-# every workflow root-equivalent access to the host's daemon, a poor trade for
-# building an image.
+# Modelled on thiel/signagetools, which builds correctly on this instance. Three
+# things in that repo corrected assumptions I had made and got wrong:
 #
-# Verified before being committed: this exact Dockerfile was built with
-# `buildah bud --isolation chroot --storage-driver vfs --format docker` and the
-# resulting image inspected — correct user, entrypoint, exposed port, baked-in
-# version, healthcheck present, server and web output in place.
+#   1. No `container:` on the job. Setting one is what broke every earlier
+#      attempt here: the runner's default job image has Docker available, and
+#      overriding it with a container of my own choosing removed the daemon.
+#      The preflight step honestly reported "no daemon reachable" — and the
+#      cause was my own configuration, not the runner's.
 #
-# Two flags are load-bearing and must not be dropped:
+#   2. The docker/* actions do resolve on this instance. I had avoided them on
+#      the theory that Forgejo's actions mirror does not carry them. It does.
 #
-#   --format docker     Without it the image is OCI format and buildah silently
-#                       drops HEALTHCHECK: "HEALTHCHECK is not supported for OCI
-#                       image format and will be ignored". The published image
-#                       would then never report unhealthy and Docker would never
-#                       restart a wedged container. Found by inspecting a built
-#                       image, not by reading documentation.
+#   3. The automatic Actions token has no package write permission, so a push
+#      fails with "401 reqPackageAccess". A repository secret REGISTRY_TOKEN
+#      holding a Forgejo token with write:package is required. There is
+#      deliberately no fallback: falling back to a token that cannot push turns
+#      a missing-secret problem into a confusing authorisation error.
 #
-#   --isolation chroot  buildah's default isolation wants user namespaces, which
-#                       an unprivileged job container generally cannot get.
-#                       chroot isolation plus the vfs storage driver needs no
-#                       privileges at all.
+# What this adds over the reference workflow: the image is verified before it is
+# published, rather than pushed and trusted.
 #
 # Tags produced:
 #   main            every push to main. Development builds; not for production.
@@ -41,46 +37,46 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
-env:
-  IMAGE: forgejo.thiel.tools/thiel/sone
-  # vfs is slower than overlay but needs no privileges. Overlay in an
-  # unprivileged container needs fuse-overlayfs and a device that may not be
-  # there; correctness before speed.
-  STORAGE_DRIVER: vfs
-  BUILDAH_ISOLATION: chroot
-
 jobs:
-  build:
+  image:
     runs-on: ubuntu-latest
-    container:
-      # Debian rather than Alpine: buildah's Alpine packaging has historically
-      # needed extra configuration for unprivileged use, and Debian is what the
-      # verification was done against.
-      image: docker.io/debian:bookworm-slim
+    # Deliberately no `container:` — see note 1 above.
 
     steps:
-      - name: Install buildah and git
-        run: |
-          set -eu
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends \
-            buildah git ca-certificates python3
-          buildah --version
+      - uses: actions/checkout@v4
+        with:
+          # Full history so `git describe` can find the nearest tag.
+          fetch-depth: 0
 
-      - name: Check out
+      - name: Require the registry token
         run: |
           set -eu
-          # Cloned directly rather than through actions/checkout: one less thing
-          # that has to resolve through the actions mirror. Full history so
-          # `git describe` can find the nearest tag.
-          git clone "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" .
-          git checkout "${GITHUB_SHA}"
+          if [ -z "${REGISTRY_TOKEN}" ]; then
+            cat <<'MSG' >&2
+          REGISTRY_TOKEN is not set.
+
+          The automatic Actions token cannot write packages; pushing with it
+          fails with "401 reqPackageAccess". Create a Forgejo token with scope
+          write:package (and read:package) and store it as a repository secret
+          named REGISTRY_TOKEN.
+
+          Nothing else is blocked by this. A tag is deployable without an image:
+          point a Portainer repository stack at refs/tags/<tag> with compose
+          path docker-compose.build.yml.
+          MSG
+            exit 1
+          fi
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
 
       - name: Work out version and tags
         id: meta
         run: |
           set -eu
+          IMAGE="forgejo.thiel.tools/${GITHUB_REPOSITORY}"
+
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
             TAGS="${IMAGE}:${VERSION} ${IMAGE}:$(echo "$VERSION" | cut -d. -f1,2)"
@@ -92,81 +88,82 @@ jobs:
           else
             # A development build must never look like a release, so it always
             # carries a -dev suffix and the short commit.
-            BASE="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' | sed 's/-.*//' || echo 0.0.0)"
+            BASE="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/-.*//' || echo 0.0.0)"
             VERSION="${BASE}-dev.$(git rev-parse --short HEAD)"
             TAGS="${IMAGE}:main"
           fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          # build-push-action wants newline-separated tags.
+          {
+            echo 'tags_multiline<<EOF'
+            for t in $TAGS; do echo "$t"; done
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
           echo "Building $VERSION as: $TAGS"
 
       - name: Build
-        run: |
-          set -eu
-          TAG_ARGS=""
-          for tag in ${{ steps.meta.outputs.tags }}; do
-            TAG_ARGS="$TAG_ARGS --tag $tag"
-          done
-          # shellcheck disable=SC2086
-          buildah bud \
-            --format docker \
-            --isolation chroot \
-            --storage-driver vfs \
-            --file docker/Dockerfile \
-            --build-arg "SONE_VERSION=${{ steps.meta.outputs.version }}" \
-            --build-arg "SONE_COMMIT=${GITHUB_SHA}" \
-            $TAG_ARGS \
-            .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          # Loaded into the local daemon rather than pushed, so the image can be
+          # inspected before anyone can pull it. Pushing first and checking
+          # afterwards would mean a bad image is briefly the published one — and
+          # for a version tag, permanently, since a released tag is not moved.
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags_multiline }}
+          build-args: |
+            SONE_VERSION=${{ steps.meta.outputs.version }}
+            SONE_COMMIT=${{ github.sha }}
+          # No cache backend configured on purpose. `type=gha` needs the GitHub
+          # Actions cache service, which a Forgejo instance does not necessarily
+          # provide, and a cache that fails to resolve fails the build. The
+          # reference workflow this is modelled on uses none either. Revisit
+          # with `type=registry` once the image is publishing reliably.
 
       - name: Verify the image before publishing it
         run: |
           set -eu
           FIRST="$(echo '${{ steps.meta.outputs.tags }}' | awk '{print $1}')"
 
-          # An image that builds is not an image that works. These four things
-          # have each actually been wrong at some point: a missing server entry
-          # point, a missing web build, a dropped healthcheck, and a version
-          # that was not baked in.
-          buildah --storage-driver vfs inspect --type image "$FIRST" > /tmp/inspect.json
+          # An image that builds is not an image that works. Each of these has
+          # actually been wrong at some point in this project: a missing server
+          # entry point, a missing web build, a dropped healthcheck, and a
+          # version that was not baked in.
+          docker inspect "$FIRST" > /tmp/inspect.json
           python3 scripts/verify-image.py /tmp/inspect.json
 
-          # Contents are checked by mounting rather than running: `buildah run`
-          # needs a working container runtime, mounting needs nothing.
-          CTR="$(buildah --storage-driver vfs from --pull=never "$FIRST")"
-          MNT="$(buildah --storage-driver vfs mount "$CTR")"
-          MISSING=0
-          for f in app/packages/server/dist/main.js \
-                   app/packages/web/dist/index.html \
-                   app/db/migrations/0001_init.sql \
-                   app/docker/entrypoint.sh; do
-            if [ -e "$MNT/$f" ]; then
-              echo "  ok      /$f"
-            else
-              echo "  MISSING /$f"
-              MISSING=1
-            fi
-          done
-          buildah --storage-driver vfs umount "$CTR" >/dev/null
-          buildah --storage-driver vfs rm "$CTR" >/dev/null
-          [ "$MISSING" = "0" ]
+          echo
+          echo "contents:"
+          docker run --rm --entrypoint /bin/sh "$FIRST" -c '
+            set -e
+            for f in packages/server/dist/main.js \
+                     packages/web/dist/index.html \
+                     db/migrations/0001_init.sql \
+                     docker/entrypoint.sh; do
+              if [ -e "$f" ]; then echo "  ok      $f"; else echo "  MISSING $f"; exit 1; fi
+            done
+            # pg_dump is what the backup command shells out to, and it must be
+            # new enough for the server it dumps.
+            printf "  %s\n" "$(pg_dump --version)"
+            printf "  node %s\n" "$(node --version)"
+          '
 
-      - name: Log in to the registry
-        run: |
-          set -eu
-          # REGISTRY_TOKEN if set, otherwise the token Forgejo injects.
-          printf '%s' "${REGISTRY_TOKEN:-$FORGEJO_TOKEN}" \
-            | buildah login --username "${GITHUB_ACTOR}" --password-stdin \
-                forgejo.thiel.tools
-        env:
-          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          registry: forgejo.thiel.tools
+          username: thiel
+          password: ${{ secrets.REGISTRY_TOKEN }}
 
       - name: Push
         run: |
           set -eu
           for tag in ${{ steps.meta.outputs.tags }}; do
             echo "pushing $tag"
-            buildah --storage-driver vfs push --format docker "$tag" "docker://$tag"
+            docker push "$tag"
           done
 
       - name: Report
