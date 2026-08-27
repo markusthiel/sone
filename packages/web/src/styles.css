@@ -797,3 +797,93 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   padding: 6px 8px;
 }
 .tree-row[data-kind='folder'] .tree-link { font-weight: 550; }
+
+/* --- entry rows and their menu --- */
+
+/* Icons sit on the text baseline and inherit its colour, so they follow dark
+   mode and disabled states without any rule of their own. */
+.tree-link svg,
+.sidebar-search svg,
+.entry-menu-item svg {
+  flex: none;
+  inline-size: 1.05em;
+  block-size: 1.05em;
+  vertical-align: -0.16em;
+}
+
+.tree-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tree-twisty svg { inline-size: 0.85em; block-size: 0.85em; }
+
+.tree-rename {
+  flex: 1;
+  min-width: 0;
+  min-block-size: 28px;
+  padding: 4px 6px;
+  font-size: inherit;
+}
+
+.entry-menu-wrap { position: relative; flex: none; }
+
+.entry-more {
+  inline-size: 26px;
+  min-block-size: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+  /* De-emphasised, not hidden. The button is in the DOM and hittable at all
+     times; opacity only lowers its visual weight on a pointer device where
+     hover exists. A control *revealed* by hover would not exist on a phone
+     (ADR-0016), which is why this is 0.35 and not 0. */
+  opacity: 0.35;
+  transition: opacity 120ms ease;
+}
+.tree-row:hover .entry-more,
+.entry-more:focus-visible,
+.entry-more[aria-expanded='true'] { opacity: 1; }
+.entry-more svg { inline-size: 1em; block-size: 1em; }
+
+/* No hover on touch, so nothing to de-emphasise for. */
+@media (hover: none) {
+  .entry-more { opacity: 0.7; }
+}
+
+.entry-menu {
+  position: absolute;
+  z-index: 42;
+  inset-inline-end: 0;
+  inset-block-start: 100%;
+  inline-size: 190px;
+  padding: 4px;
+  border: 1px solid var(--sone-border);
+  border-radius: 8px;
+  background: var(--sone-bg);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 14%), 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.entry-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  inline-size: 100%;
+  min-block-size: 34px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  text-align: start;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.entry-menu-item:hover { background: var(--sone-bg-hover); }
+.entry-menu-item.destructive { color: var(--sone-danger); }
+
+.tree-add svg { inline-size: 0.95em; block-size: 0.95em; }
+.sidebar-head-actions svg { inline-size: 1.05em; block-size: 1.05em; }

@@ -122,17 +122,37 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     headers: { ...(init.headers ?? {}), cookie: session.cookie },
   });
 
+  /**
+   * Create a page.
+   *
+   * With no parent given it goes into the workspace's default folder, because
+   * pages live in folders and the root holds only folders (ADR-0019). Tests
+   * that care about the folder pass one explicitly.
+   */
   async function createPage(
     session: Session,
     title: string,
-    parentPageId: string | null = null,
+    parentPageId?: string | null,
   ): Promise<string> {
+    const parent = parentPageId === undefined ? await defaultFolder(session) : parentPageId;
     const res = await fetch(
       `${base}/api/workspaces/${session.workspaceId}/pages`,
-      auth(session, json({ title, parentPageId })),
+      auth(session, json({ title, parentPageId: parent })),
     );
     await expectStatus(res, 201);
     return ((await res.json()) as { id: string }).id;
+  }
+
+  /** The folder created with the workspace. */
+  async function defaultFolder(session: Session): Promise<string> {
+    const row = await db.query<{ id: string }>(
+      `SELECT id FROM pages
+        WHERE workspace_id = $1 AND kind = 'folder' AND parent_page_id IS NULL
+        ORDER BY idx, id LIMIT 1`,
+      [session.workspaceId],
+    );
+    assert.ok(row.rows[0], 'the workspace should have a default folder');
+    return row.rows[0]!.id;
   }
 
   async function createFolder(
@@ -386,8 +406,11 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const first = await createPage(session, 'A');
     const second = await createPage(session, 'B');
 
+    // Scoped to the two created here: the workspace also has its default
+    // folder, which sorts among them.
     const rows = await db.query<{ id: string; idx: string }>(
-      `SELECT id, idx FROM pages ORDER BY idx, id`,
+      `SELECT id, idx FROM pages WHERE id = ANY($1::uuid[]) ORDER BY idx, id`,
+      [[first, second]],
     );
     assert.deepEqual(
       rows.rows.map((r) => r.id),
@@ -496,7 +519,13 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       `${base}/api/workspaces/${session.workspaceId}/pages`,
       auth(session),
     );
-    assert.deepEqual(((await tree.json()) as { pages: unknown[] }).pages, []);
+    const remaining = ((await tree.json()) as { pages: Array<{ id: string }> }).pages;
+    // The default folder is untouched; nothing from the archived subtree
+    // remains.
+    assert.deepEqual(
+      remaining.filter((p) => [parent, child, grandchild].includes(p.id)),
+      [],
+    );
   });
 
   test('page metadata reports the caller’s role', async () => {
@@ -598,6 +627,52 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.deepEqual(await res.json(), { error: 'parent_is_not_a_folder' });
   });
 
+  test('a new workspace starts with a folder', async () => {
+    // Without one, a fresh instance shows a "new page" button that refuses,
+    // because pages live in folders (ADR-0019). The empty state has to be
+    // usable rather than a puzzle.
+    const session = await setup();
+    const folders = await db.query<{ title: string; kind: string }>(
+      `SELECT title, kind FROM pages WHERE workspace_id = $1 AND parent_page_id IS NULL`,
+      [session.workspaceId],
+    );
+    assert.equal(folders.rowCount, 1);
+    assert.equal(folders.rows[0]!.kind, 'folder');
+    assert.equal(folders.rows[0]!.title, 'Notes');
+  });
+
+  test('the default folder has a document behind it', async () => {
+    // Created through the same path as everything else, so it is rebuildable
+    // rather than a row conjured during setup.
+    const session = await setup();
+    const folder = await defaultFolder(session);
+    const updates = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM doc_updates WHERE doc_id = $1`,
+      [folder],
+    );
+    assert.ok(Number(updates.rows[0]!.n) > 0);
+  });
+
+  test('a page cannot be created at the workspace root', async () => {
+    // A root full of loose pages is the pile folders exist to replace.
+    const session = await setup();
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Loose page', parentPageId: null })),
+    );
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'pages_need_a_folder' });
+  });
+
+  test('a folder can be created at the workspace root', async () => {
+    const session = await setup();
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Top level', kind: 'folder', parentPageId: null })),
+    );
+    await expectStatus(res, 201);
+  });
+
   test('an unknown kind is refused rather than silently treated as a page', async () => {
     const session = await setup();
     const res = await fetch(
@@ -655,6 +730,134 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.equal(anomalies.rowCount, 1);
     assert.equal(anomalies.rows[0]!.child_title, 'Another page');
     assert.equal(anomalies.rows[0]!.parent_title, 'A page');
+  });
+
+  // --- renaming ------------------------------------------------------------
+
+  test('renaming writes the document, not just the row', async () => {
+    // The title lives in the document (ADR-0002). Writing only the row would
+    // be overwritten by the next materialisation, so the rename would silently
+    // revert — and no open client would ever see it.
+    const session = await setup();
+    const pageId = await createPage(session, 'Before');
+
+    const res = await fetch(
+      `${base}/api/pages/${pageId}`,
+      auth(session, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'After' }),
+      }),
+    );
+    await expectStatus(res, 200);
+
+    // The projection is updated immediately, or the sidebar would show the old
+    // title until the page is next opened.
+    const row = await db.query<{ title: string }>(
+      `SELECT title FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.equal(row.rows[0]!.title, 'After');
+
+    // And it survives a rebuild, which is the proof it went into the document.
+    await db.query(`UPDATE pages SET title = 'wrong' WHERE id = $1`, [pageId]);
+    const { rebuild } = await import('../src/materialize/rebuild.js');
+    await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
+
+    const after = await db.query<{ title: string }>(
+      `SELECT title FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.equal(after.rows[0]!.title, 'After');
+  });
+
+  test('a folder can be renamed', async () => {
+    // A folder has no editable body, so this is the only way to name one.
+    const session = await setup();
+    const folderId = await createFolder(session, 'Untitled folder');
+
+    const res = await fetch(
+      `${base}/api/pages/${folderId}`,
+      auth(session, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Projects' }),
+      }),
+    );
+    await expectStatus(res, 200);
+
+    const row = await db.query<{ title: string; kind: string }>(
+      `SELECT title, kind FROM pages WHERE id = $1`,
+      [folderId],
+    );
+    assert.equal(row.rows[0]!.title, 'Projects');
+    assert.equal(row.rows[0]!.kind, 'folder', 'renaming must not change the kind');
+  });
+
+  test('renaming appends a delta, not the whole document state', async () => {
+    // Appending a full state works but grows the log by the document's size on
+    // every rename, leaving compaction to clean up after it.
+    const session = await setup();
+    const pageId = await createPage(session, 'Before');
+
+    const sizes = async (): Promise<number> => {
+      const rows = await db.query<{ total: string }>(
+        `SELECT coalesce(sum(octet_length(payload)),0)::text AS total
+           FROM doc_updates WHERE doc_id = $1`,
+        [pageId],
+      );
+      return Number(rows.rows[0]!.total);
+    };
+
+    const before = await sizes();
+    await fetch(
+      `${base}/api/pages/${pageId}`,
+      auth(session, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'A slightly longer title' }),
+      }),
+    );
+    const growth = (await sizes()) - before;
+
+    assert.ok(growth > 0, 'something must have been appended');
+    assert.ok(
+      growth < before,
+      `a rename appended ${growth} bytes against a ${before}-byte document; ` +
+        `that looks like a full state rather than a delta`,
+    );
+  });
+
+  test('a viewer cannot rename', async () => {
+    const session = await setup();
+    const pageId = await createPage(session, 'Locked');
+
+    const hash = await hashPassword(PASSWORD);
+    const guest = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash, is_guest)
+       VALUES ('viewer@example.org','V',$1,true) RETURNING id`,
+      [hash],
+    );
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
+      [session.workspaceId, guest.rows[0]!.id],
+    );
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+       VALUES ($1,$2,'viewer',false,$3)`,
+      [pageId, guest.rows[0]!.id, session.userId],
+    );
+    const loginRes = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'viewer@example.org', password: PASSWORD }),
+    );
+
+    const res = await fetch(`${base}/api/pages/${pageId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: cookieFrom(loginRes) },
+      body: JSON.stringify({ title: 'Nope' }),
+    });
+    assert.equal(res.status, 403);
   });
 
   // --- search --------------------------------------------------------------

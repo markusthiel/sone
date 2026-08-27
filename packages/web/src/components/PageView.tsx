@@ -51,10 +51,24 @@ export function PageView({ handle }: PageViewProps): ReactElement {
         aria-label="Page title"
       />
 
+      {/* Three states, told apart on purpose.
+       *
+       * `canEdit` is false whenever the role is unknown, which includes while
+       * the document is opening and while a reconnect is in flight — the role
+       * is cleared when a connection drops and only returns with the next open
+       * acknowledgement. Deriving "read-only" from it therefore told the owner
+       * of a workspace they had no write access, mid-reconnect, which is both
+       * alarming and false.
+       *
+       * Read-only is claimed only when the role is actually known and actually
+       * read-only. */}
       {handle.status === 'denied' && (
         <p className="error">You no longer have access to this page.</p>
       )}
-      {!handle.canEdit && handle.status !== 'denied' && (
+      {handle.status !== 'denied' && handle.role === null && (
+        <p className="muted">Opening…</p>
+      )}
+      {handle.status !== 'denied' && handle.role !== null && !handle.canEdit && (
         <p className="muted">You have read-only access to this page.</p>
       )}
 

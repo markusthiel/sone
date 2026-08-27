@@ -26,7 +26,9 @@ import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/c
 import { appendUpdate } from '../doc/docStore.js';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { collateClause, workspaceI18n } from '../i18n/locale.js';
+import { applyToDocument, loadDoc } from '../doc/docStore.js';
 import { materializeYDoc } from '../materialize/materialize.js';
+import { createEntry } from '../pages/createEntry.js';
 import { requireSession, sessionTokenFrom } from './auth.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
 
@@ -89,6 +91,32 @@ async function claimsFor(
     return null;
   }
   return claims;
+}
+
+/**
+ * Re-project a document after the server changed it.
+ *
+ * Without this the projection lags until a sync room happens to flush, so a
+ * rename would appear to do nothing until the page is next opened.
+ */
+async function rematerialize(
+  pool: Pool,
+  pageId: string,
+  workspaceId: string,
+  actorId: string | null,
+): Promise<void> {
+  const loaded = await loadDoc(pool, pageId);
+  try {
+    await withTransaction(pool, (client) =>
+      materializeYDoc(client, pageId, loaded.doc, {
+        throughSeq: loaded.throughSeq,
+        workspaceId,
+        actorId,
+      }),
+    );
+  } finally {
+    loaded.doc.destroy();
+  }
 }
 
 export function registerPageRoutes(router: Router, deps: PageDeps): void {
@@ -220,65 +248,32 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         ctx.fail(403, 'not_authorized');
         return;
       }
-    } else if (claims.workspaceRole === 'guest' || claims.workspaceRole === null) {
-      // A guest has no implicit workspace access, so it cannot create a
-      // top-level page.
-      ctx.fail(403, 'not_authorized');
-      return;
+    } else {
+      if (claims.workspaceRole === 'guest' || claims.workspaceRole === null) {
+        // A guest has no implicit workspace access, so it cannot create a
+        // top-level entry.
+        ctx.fail(403, 'not_authorized');
+        return;
+      }
+      // Only folders live at the workspace root. A page has to belong
+      // somewhere, and "somewhere" is the structure folders exist to provide
+      // (ADR-0019) — a root full of loose pages is the pile folders were meant
+      // to replace.
+      if (kind !== 'folder') {
+        ctx.fail(409, 'pages_need_a_folder');
+        return;
+      }
     }
 
-    const siblings = await queryRows<{ idx: string }>(
-      deps.pool,
-      `SELECT idx FROM pages
-        WHERE workspace_id = $1
-          AND parent_page_id IS NOT DISTINCT FROM $2
-        ORDER BY idx DESC, id DESC
-        LIMIT 1`,
-      [workspaceId, parentPageId],
-    );
-    const idx = generateKeyBetween(siblings[0]?.idx ?? null, null);
+    const created = await createEntry(deps.pool, {
+      workspaceId,
+      kind,
+      title: body.title ?? '',
+      parentPageId,
+      actorId: claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
+    });
 
-    const pageId = crypto.randomUUID();
-    const title = (body.title ?? '').trim().slice(0, 512);
-
-    const doc = new Y.Doc();
-    doc.getMap(DOC_KEYS.meta).set(META_KEYS.schemaVersion, SCHEMA_VERSION);
-    doc.getMap(DOC_KEYS.meta).set(META_KEYS.createdWith, 'sone-server');
-    const page = doc.getMap(DOC_KEYS.page);
-    page.set(PAGE_KEYS.title, title);
-    // Written into the document rather than only into the projection, so a
-    // folder is rebuildable from the CRDT log like everything else (ADR-0019).
-    page.set(PAGE_KEYS.kind, kind);
-    page.set(PAGE_KEYS.idx, idx);
-    page.set(PAGE_KEYS.parentPageId, parentPageId);
-    page.set(PAGE_KEYS.collectionId, null);
-
-    const actorId =
-      claims.principal.kind === 'anonymous' ? null : claims.principal.userId;
-
-    try {
-      const seq = await appendUpdate(
-        deps.pool,
-        pageId,
-        Y.encodeStateAsUpdate(doc),
-        actorId,
-      );
-      await withTransaction(deps.pool, (client) =>
-        materializeYDoc(client, pageId, doc, {
-          throughSeq: seq,
-          workspaceId,
-          actorId,
-        }),
-      );
-      await deps.pool.query(`UPDATE pages SET created_by = $2 WHERE id = $1`, [
-        pageId,
-        actorId,
-      ]);
-    } finally {
-      doc.destroy();
-    }
-
-    ctx.send(201, { id: pageId, idx, parentPageId, title, kind });
+    ctx.send(201, created);
   });
 
   /** Page metadata. The body itself arrives over the sync connection. */
@@ -347,6 +342,67 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       breadcrumb: page.ancestor_ids,
       role,
     });
+  });
+
+  /**
+   * Rename an entry.
+   *
+   * Writes the CRDT document, not the projection. The title lives in the
+   * document (ADR-0002), so writing the row would be overwritten by the next
+   * materialisation and the rename would silently revert — and any client with
+   * the page open would never see it.
+   *
+   * A folder has no editable body, so this is the only way to rename one.
+   */
+  router.patch('/api/pages/:pageId', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const page = await loadPageLocation(deps.pool, pageId);
+    if (!page) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (!sessionTokenFrom(ctx)) {
+      ctx.fail(401, 'not_authenticated');
+      return;
+    }
+    const claims = await claimsOrNull(deps.pool, ctx, page.workspaceId);
+    const role = claims ? effectiveRole(claims, page) : null;
+    if (role === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (role === 'viewer' || role === 'commenter') {
+      ctx.fail(403, 'not_authorized');
+      return;
+    }
+
+    const body = await readBody<{ title?: string }>(ctx);
+    if (!body) return;
+    if (typeof body.title !== 'string') {
+      ctx.fail(422, 'missing_fields');
+      return;
+    }
+
+    const title = body.title.trim().slice(0, 512);
+    const actorId =
+      claims!.principal.kind === 'anonymous' ? null : claims!.principal.userId;
+
+    const result = await applyToDocument(
+      deps.pool,
+      pageId,
+      (doc) => {
+        doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.title, title);
+      },
+      actorId,
+    );
+
+    // Materialised straight away so the sidebar reflects the new title on the
+    // next fetch rather than waiting for a sync room to flush.
+    if (result.changed) {
+      await rematerialize(deps.pool, pageId, page.workspaceId, actorId);
+    }
+
+    ctx.send(200, { id: pageId, title });
   });
 
   /**

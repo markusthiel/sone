@@ -28,6 +28,7 @@ export function usePages(workspaceId: string | null): {
     kind?: EntryKind;
   }) => Promise<string | null>;
   archivePage: (pageId: string) => Promise<void>;
+  renameEntry: (pageId: string, title: string) => Promise<void>;
 } {
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +83,18 @@ export function usePages(workspaceId: string | null): {
     [reload],
   );
 
+  const renameEntry = useCallback(
+    async (pageId: string, title: string) => {
+      try {
+        await api.renameEntry(pageId, title);
+        await reload();
+      } catch (err) {
+        setError(err instanceof ApiError ? err.code : 'network_error');
+      }
+    },
+    [reload],
+  );
+
   return {
     pages,
     tree: buildPageTree(pages),
@@ -90,5 +103,6 @@ export function usePages(workspaceId: string | null): {
     reload,
     createPage,
     archivePage,
+    renameEntry,
   };
 }

@@ -27,6 +27,7 @@ import {
   type SignupMode,
 } from '../auth/registration.js';
 import { queryOne, queryRows } from '../db/pool.js';
+import { createDefaultFolder } from '../pages/createEntry.js';
 import { negotiateLocale } from '../i18n/locale.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
 
@@ -205,6 +206,22 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         displayName: body.displayName ?? '',
         workspaceName: body.workspaceName,
       });
+      // A workspace with no folders cannot hold a page at all, since pages
+      // live in folders (ADR-0019) — so a fresh instance would show a "new
+      // page" button that refuses. Created after the bootstrap transaction
+      // rather than inside it: writing a CRDT document is not part of
+      // registering an account, and if this fails the instance is still usable
+      // because the person can create a folder themselves.
+      // workspaceId is nullable on the shared result type because invited
+      // signups may not create one; bootstrap always does.
+      if (result.workspaceId) {
+        try {
+          await createDefaultFolder(deps.pool, result.workspaceId, result.userId);
+        } catch (err) {
+          console.error('[setup] could not create the default folder', err);
+        }
+      }
+
       setSessionCookie(ctx, result.session.token, deps.secureCookies);
       ctx.send(201, { userId: result.userId, workspaceId: result.workspaceId });
     } catch (err) {
