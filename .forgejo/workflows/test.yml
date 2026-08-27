@@ -1,0 +1,155 @@
+# Typecheck and test on every push.
+#
+# This is the workflow that earns its keep. It needs no Docker daemon, so it
+# works with a plain runner — unlike image building, which needs socket access
+# the runner may not have.
+#
+# The database suites run against a real Postgres service container rather than
+# being skipped, because they are the tests that find things: three wrong
+# foreign keys, an information leak in the page API, a revocation that did not
+# affect live connections. Skipping them in CI would mean the suite that
+# actually catches bugs only ever runs on one laptop.
+
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/node:22-bookworm
+
+    services:
+      db:
+        image: docker.io/postgres:17-alpine
+        env:
+          POSTGRES_DB: sone_test
+          POSTGRES_USER: sone
+          POSTGRES_PASSWORD: sone
+          # Must match production. Fractional indices are compared byte-wise, so
+          # a locale-aware collation would make the ordering tests fail for
+          # reasons unrelated to the code — or worse, pass here and scramble
+          # documents in production (ADR-0011).
+          POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+
+    env:
+      SONE_TEST_DATABASE_URL: postgres://sone:sone@db:5432/sone_test
+
+    steps:
+      - name: Install git
+        run: |
+          set -eu
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git ca-certificates
+
+      - name: Check out
+        run: |
+          set -eu
+          # Cloning directly rather than through actions/checkout: one less
+          # thing that has to resolve through the actions mirror.
+          git clone --depth 1 "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" .
+          git fetch --depth 1 origin "${GITHUB_SHA}"
+          git checkout "${GITHUB_SHA}"
+
+      - name: Wait for Postgres
+        run: |
+          set -eu
+          # Service containers are started but not necessarily ready. Waiting on
+          # a TCP connect via bash's /dev/tcp avoids installing a Postgres
+          # client just to run pg_isready.
+          for i in $(seq 1 60); do
+            if (echo > /dev/tcp/db/5432) 2>/dev/null; then
+              echo "Postgres accepting connections after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Postgres did not become reachable within 60s" >&2
+          exit 1
+        shell: bash
+
+      - name: Install dependencies
+        run: |
+          set -eu
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Build
+        # Built before testing, not after: the client tests import the server's
+        # compiled output, and a type error that only appears during emit would
+        # otherwise surface as a confusing test failure.
+        run: pnpm -r build
+
+      - name: Test
+        run: pnpm -r test
+
+      - name: Verify the migration chain from empty
+        run: |
+          set -eu
+          apt-get install -y -qq --no-install-recommends postgresql-client
+          # A fresh database, not the one the tests just used. An upgrade path
+          # that only works on a database which grew alongside the code is not
+          # an upgrade path (docs/releasing.md).
+          export PGPASSWORD=sone
+          psql -h db -U sone -d postgres -c 'CREATE DATABASE migration_check OWNER sone;'
+          for file in db/migrations/*.sql; do
+            echo "applying $file"
+            psql -h db -U sone -d migration_check -v ON_ERROR_STOP=1 -q -f "$file"
+          done
+          psql -h db -U sone -d migration_check -c 'SELECT version FROM schema_migrations ORDER BY version;'
+        shell: bash
+
+      - name: Verify the server actually starts
+        run: |
+          set -eu
+          # A typecheck passing does not mean the process boots. This caught a
+          # container that could not start at all: the entrypoint referenced a
+          # dist/main.js that the build never produced.
+          export SONE_DATABASE_URL="postgres://sone:sone@db:5432/migration_check"
+          export SONE_SECRET_KEY="$(head -c 48 /dev/urandom | base64 | tr -d '\n')"
+          export SONE_VERSION="ci"
+          export PORT=3123
+
+          node packages/server/dist/main.js > /tmp/server.log 2>&1 &
+          SERVER_PID=$!
+
+          for i in $(seq 1 30); do
+            if (echo > /dev/tcp/127.0.0.1/3123) 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          echo "--- startup log ---"
+          cat /tmp/server.log
+
+          STATUS="$(node -e "
+            fetch('http://127.0.0.1:3123/api/ready')
+              .then(r => r.json())
+              .then(b => { console.log(b.ready ? 'ready' : 'not-ready'); })
+              .catch(() => console.log('unreachable'))
+          ")"
+          echo "readiness: $STATUS"
+
+          # SIGTERM must flush and exit cleanly: rooms hold unpersisted edits,
+          # so a shutdown that hangs or crashes is data loss on every restart.
+          kill -TERM "$SERVER_PID"
+          for i in $(seq 1 20); do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          if kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "server did not exit on SIGTERM" >&2
+            kill -9 "$SERVER_PID" || true
+            exit 1
+          fi
+
+          tail -3 /tmp/server.log
+          [ "$STATUS" = "ready" ]
+        shell: bash

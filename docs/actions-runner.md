@@ -1,9 +1,21 @@
 # Forgejo Actions runner
 
-Only needed to publish container images automatically. **Deploying and testing
-SONE does not require it** — `docker-compose.build.yml` builds from source on
-the deployment host and needs no CI at all. Set this up when it is not blocking
-anything.
+Two workflows exist and they have very different requirements:
+
+| Workflow | Needs | Status |
+|---|---|---|
+| `test.yml` | a runner. No Docker daemon. | Works with a plain runner |
+| `build-image.yml` | a runner **plus** Docker daemon access from inside a job container | Needs extra setup |
+
+`test.yml` is the one worth having: typecheck, the full suite including the
+database tests, the migration chain from an empty database, and a check that the
+server actually boots and shuts down cleanly. It runs on any runner.
+
+`build-image.yml` publishes container images. It is an optimisation, not a
+requirement — `docker-compose.build.yml` builds on the deployment host and needs
+no CI at all. Its push trigger is deliberately disabled until a runner can
+provide a daemon, so it does not paint every commit red for a capability nothing
+depends on yet. Run it manually or push a version tag.
 
 ## What it is
 
@@ -91,13 +103,25 @@ do not take.
 
 ## The Docker daemon inside a job
 
-The build job runs `docker build`, so it needs a daemon. Forgejo Runner's
-`container.docker_host` defaults to `"-"`, which mounts the host daemon socket
-into each job container automatically — with the default, nothing more is
-needed.
+Only `build-image.yml` needs this. `test.yml` does not.
 
-If it has been set to an empty value, either restore the default or whitelist
-the socket so a workflow may mount it:
+The build job runs `docker build`, so it needs a daemon. There are two reasons
+it might not have one, and they need different fixes:
+
+**The runner container has no socket at all.** If the runner itself was started
+without `-v /var/run/docker.sock:/var/run/docker.sock`, no amount of runner
+configuration will help — it cannot pass on access it does not have. Add the
+mount to the runner's own compose file and restart it. Check with:
+
+```sh
+docker compose -f docker-compose.runner.yml exec runner ls -l /var/run/docker.sock
+```
+
+**The runner has the socket but does not pass it into job containers.** Forgejo
+Runner's `container.docker_host` defaults to `"-"`, which mounts the host daemon
+socket into each job container automatically. If it has been set to an empty
+value, either restore the default or whitelist the socket so a workflow may
+mount it:
 
 ```yaml
 container:
