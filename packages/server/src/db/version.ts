@@ -89,10 +89,32 @@ export interface FenceResult {
  * old-format data into a new-format database, and there is no automatic
  * recovery from that — only a backup restore.
  */
+export interface FenceOptions {
+  /**
+   * Permit a version that appears older than the one last recorded.
+   *
+   * The downgrade check exists because migrations are forward-only, so it is
+   * not a formality. But it compares version *strings*, and a version string
+   * can be wrong — a build labelled `0.1.0-dev.abc` sorts before
+   * `0.1.0-rc.1`, so following development after tagging a release candidate
+   * looked like a downgrade and the server refused to start. Nothing answered,
+   * not even /api/version, and the only visible symptom was a blank page.
+   *
+   * An operator in that position needs a way forward that is not "restore a
+   * backup". This is that way: deliberate, logged loudly, and never a default.
+   *
+   * The document schema regression check is NOT bypassable, because that one
+   * is about whether the code can read the data rather than about a label.
+   */
+  allowDowngrade?: boolean;
+  log?: (message: string) => void;
+}
+
 export async function checkAndRecordVersion(
   pool: Pool,
   appVersion: string,
   documentSchemaVersion: number,
+  options: FenceOptions = {},
 ): Promise<FenceResult> {
   const previous = await readInstanceMeta(pool);
 
@@ -117,12 +139,27 @@ export async function checkAndRecordVersion(
   // --- downgrade -----------------------------------------------------------
 
   if (compareVersions(appVersion, previous.appVersion) < 0) {
-    throw new VersionFenceError(
-      `this database was last used by SONE ${previous.appVersion}, but this is ` +
-        `${appVersion}. Downgrading is not supported: migrations are ` +
-        `forward-only and documents may already be at a newer schema version. ` +
-        `Restore a backup taken before the upgrade, or run ${previous.appVersion} or newer.`,
-      'downgrade',
+    if (!options.allowDowngrade) {
+      throw new VersionFenceError(
+        `this database was last used by SONE ${previous.appVersion}, but this is ` +
+          `${appVersion}. Downgrading is not supported: migrations are ` +
+          `forward-only and documents may already be at a newer schema version. ` +
+          `Restore a backup taken before the upgrade, or run ${previous.appVersion} ` +
+          `or newer.\n\n` +
+          `If the version numbers are misleading rather than the code being ` +
+          `older — a development build following a release candidate, for ` +
+          `instance — set SONE_ALLOW_DOWNGRADE=true for one start. The ` +
+          `document format check still applies and is not bypassable.`,
+        'downgrade',
+      );
+    }
+
+    // Loud, because it disables a guard that protects data, and because
+    // somebody reading logs later needs to know it was disabled.
+    (options.log ?? console.warn)(
+      `WARNING: SONE_ALLOW_DOWNGRADE is set. Starting ${appVersion} against a ` +
+        `database last used by ${previous.appVersion}. Migrations are ` +
+        `forward-only; if this build is genuinely older, data may be lost.`,
     );
   }
 

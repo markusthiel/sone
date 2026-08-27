@@ -8,6 +8,14 @@
 
 export interface Config {
   databaseUrl: string;
+  /**
+   * Permit starting against a database recorded as having run a newer version.
+   *
+   * SONE_ALLOW_DOWNGRADE. An escape hatch for the case where the version
+   * *labels* are misleading rather than the code being older, which is
+   * possible because the check compares strings. Never a default.
+   */
+  allowDowngrade: boolean;
   secretKey: string;
   publicUrl: string;
   port: number;
@@ -103,6 +111,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   return {
     databaseUrl: required(env, 'SONE_DATABASE_URL'),
+    // An escape hatch, not a setting. See FenceOptions in db/version.ts.
+    allowDowngrade: optional(env, 'SONE_ALLOW_DOWNGRADE', 'false') === 'true',
     secretKey,
     publicUrl,
     port,
