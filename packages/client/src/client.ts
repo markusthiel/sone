@@ -41,6 +41,9 @@ export class SoneClient {
 
     this.connection = new SyncConnection(opts, {
       onFrame: (frame) => store.handleFrame(frame),
+      // Every authentication, including the first: documents opened while the
+      // connection was still coming up have to be re-issued.
+      onAuthenticated: () => store.handleAuthenticated(),
       ...(opts.onConnectionTrouble
         ? { onConnectionTrouble: opts.onConnectionTrouble }
         : {}),

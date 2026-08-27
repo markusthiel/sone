@@ -325,6 +325,57 @@ describe('client end to end', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
     assert.deepEqual(fatals, ['auth_failed']);
   });
 
+  test('a page opened before the connection is ready still syncs', async () => {
+    // The reported symptom, and it was always the newest page: create one, the
+    // app navigates to it immediately, and the document is opened while the
+    // connection is still authenticating.
+    //
+    // The open frame was dropped, and the comment beside that code claimed
+    // handleReconnect would re-issue it — which was false, because onReconnect
+    // deliberately does not fire on the first connect. So nothing retried. The
+    // header said "Syncing…" and the page said "Opening…" indefinitely.
+    await seedPage(uuid(910), 'Opened early');
+
+    const client = makeClient({});
+
+    // Opened first, connected second — the order the interface produces.
+    const handle = client.openPage(uuid(910));
+    assert.notEqual(handle.status, 'synced', 'nothing can be synced yet');
+
+    client.connect();
+
+    await waitFor(
+      () => handle.status === 'synced',
+      'a document opened before connecting to reach synced',
+    );
+    assert.equal(
+      handle.doc.getMap(DOC_KEYS.page).get(PAGE_KEYS.title),
+      'Opened early',
+      'and to receive the content',
+    );
+    assert.notEqual(handle.role, null, 'and to know its role');
+  });
+
+  test('several pages opened before connecting all sync', async () => {
+    // The retry has to cover every pending document, not just the first.
+    await seedPage(uuid(911), 'One');
+    await seedPage(uuid(912), 'Two');
+    await seedPage(uuid(913), 'Three');
+
+    const client = makeClient({});
+    const handles = [uuid(911), uuid(912), uuid(913)].map((id) => client.openPage(id));
+    client.connect();
+
+    await waitFor(
+      () => handles.every((handle) => handle.status === 'synced'),
+      'all three to sync',
+    );
+    assert.deepEqual(
+      handles.map((handle) => handle.doc.getMap(DOC_KEYS.page).get(PAGE_KEYS.title)),
+      ['One', 'Two', 'Three'],
+    );
+  });
+
   // --- server-side edits reaching a connected client -----------------------
 
   /**

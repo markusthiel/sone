@@ -35,6 +35,7 @@ import { blockIds, type IdGenerator } from './blockIds.js';
 import { soneInputRules } from './inputRules.js';
 import { soneKeymap } from './keymap.js';
 import { listNumbers } from './listNumbers.js';
+import { markdownPaste } from './markdownPaste.js';
 import { schema } from './schema.js';
 import { slashMenu } from './slashMenu.js';
 
@@ -97,6 +98,7 @@ export function createEditorState(opts: EditorOptions): EditorState {
     ...soneKeymap(),
     blockIds(opts.generateId ? { generateId: opts.generateId } : {}),
     listNumbers(),
+    markdownPaste(),
     // After the keymap, so the menu's handleKeyDown sees Enter and the arrows
     // first while it is open. ProseMirror asks plugins in order and stops at
     // the first that handles a key; the other way round, Enter would split the
@@ -233,6 +235,13 @@ export {
 } from './blockOps.js';
 export { soneInputRules, INPUT_RULE_HELP } from './inputRules.js';
 export { listNumbers, computeListNumbers } from './listNumbers.js';
+export {
+  looksLikeMarkdown,
+  markdownPaste,
+  markdownToSlice,
+  parseInline,
+  parseMarkdownBlocks,
+} from './markdownPaste.js';
 export {
   canLink,
   linkAt,
