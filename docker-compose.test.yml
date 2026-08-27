@@ -1,0 +1,32 @@
+# SONE — Postgres for integration tests.
+#
+#   docker compose -f docker-compose.test.yml up -d
+#   export SONE_TEST_DATABASE_URL=postgres://sone:sone@localhost:5433/sone_test
+#   pnpm --filter @sone/server test:db
+#
+# Port 5433 so it cannot collide with a development instance on 5432.
+# tmpfs for the data directory: tests wipe the database anyway, and not
+# touching disk makes the suite noticeably faster.
+
+name: sone-test
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: sone_test
+      POSTGRES_USER: sone
+      POSTGRES_PASSWORD: sone
+      # Must match production. Fractional indices are compared byte-wise, so
+      # a locale-aware collation would make the ordering tests pass or fail
+      # for reasons unrelated to the code.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sone -d sone_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20

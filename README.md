@@ -98,8 +98,9 @@ Months are elapsed calendar time for one part-time developer, not effort
 estimates.
 
 1. **Server core** (1–4) — schema, auth, Yjs sync server, materialisation,
-   Docker setup. *In progress: schema, document store, materialiser and
-   rebuild command are in; auth and the WebSocket sync server are next.*
+   Docker setup. *In progress: schema, document store, materialiser, rebuild
+   command, auth, sessions, invitations and share links are in; the WebSocket
+   sync server is next.*
 2. **Editor and web client** (5–9) — block layer, live editing, presence.
 3. **Collections** (10–14) — fields, table and board views, filters, sorting.
 4. **Sharing** (15–17) — share tokens, guests, editable links, granular
@@ -108,12 +109,34 @@ estimates.
    gallery views, importers for Notion, AppFlowy and Markdown.
 6. **Desktop and mobile** (26+) — Tauri shell, offline sync.
 
-Web before desktop, deliberately: the browser is the primary client.
+Web before everything else, deliberately: the browser is the primary client,
+and its first mobile form is a PWA. Native mobile is deferred with its
+reasoning recorded in [ADR-0009](docs/adr/0009-web-first-pwa-native-deferred.md)
+rather than left as an empty repository.
 
 Three things are known to sink projects of this shape, and each gets its own
 stage rather than being folded into another: mobile (effectively a second
 application), the formula engine (a compiler project), and sync correctness
 under poor network conditions.
+
+## Testing
+
+```sh
+pnpm test                     # no database required
+```
+
+```sh
+docker compose -f docker-compose.test.yml up -d
+export SONE_TEST_DATABASE_URL=postgres://sone:sone@localhost:5433/sone_test
+pnpm --filter @sone/server test:db
+```
+
+The database suites run against a real Postgres rather than a mocked client.
+See [docs/testing.md](docs/testing.md) for why, and for what the first run of
+that suite found.
+
+Requires pnpm — the workspace uses `workspace:*` dependencies, which npm does
+not understand.
 
 ## Licence
 

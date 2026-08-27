@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test test/*.test.ts",
     "migrate": "tsx scripts/migrate.mjs",
-    "rematerialize": "tsx scripts/rematerialize.mjs"
+    "rematerialize": "tsx scripts/rematerialize.mjs",
+    "test:db": "tsx --test test/*.db.test.ts"
   },
   "dependencies": {
     "@sone/core": "workspace:*",
