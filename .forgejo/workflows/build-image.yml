@@ -1,0 +1,95 @@
+# Build and publish the container image.
+#
+# Requires a registered Forgejo Actions runner with Docker access. Without one
+# this file does nothing and the image must be built by hand — see
+# docs/deployment.md.
+#
+# Tags produced:
+#   main            every push to main. Development builds; not for production.
+#   X.Y.Z / X.Y     a version tag.
+#   latest          a version tag that is not a pre-release.
+#
+# A released tag is never moved (ADR-0013), so `latest` is the only mutable
+# pointer here besides `main`.
+
+name: Build image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: docker
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          # Full history so `git describe` can find the nearest tag.
+          fetch-depth: 0
+
+      - name: Work out the version
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            # v0.1.0 -> 0.1.0
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            # A development build must not look like a release, so it always
+            # carries a -dev suffix and the short commit.
+            VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo 0.0.0)-dev.$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Building $VERSION"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: forgejo.thiel.tools
+          username: ${{ github.actor }}
+          # Forgejo injects a token scoped to this repository's packages. If the
+          # runner is configured without it, create a personal access token with
+          # write:package and store it as REGISTRY_TOKEN.
+          password: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags
+        id: tags
+        run: |
+          set -euo pipefail
+          IMAGE=forgejo.thiel.tools/thiel/sone
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            V="${GITHUB_REF_NAME#v}"
+            TAGS="$IMAGE:$V"
+            # Minor line pointer, e.g. 0.1 for 0.1.3.
+            MINOR="$(echo "$V" | cut -d. -f1,2)"
+            TAGS="$TAGS,$IMAGE:$MINOR"
+            # latest never points at a pre-release (ADR-0013).
+            case "$V" in
+              *-*) : ;;
+              *) TAGS="$TAGS,$IMAGE:latest" ;;
+            esac
+          else
+            TAGS="$IMAGE:main"
+          fi
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            SONE_VERSION=${{ steps.version.outputs.version }}
+            SONE_COMMIT=${{ steps.version.outputs.commit }}
+          # Layer cache in the registry, so a source-only change does not
+          # reinstall every dependency.
+          cache-from: type=registry,ref=forgejo.thiel.tools/thiel/sone:buildcache
+          cache-to: type=registry,ref=forgejo.thiel.tools/thiel/sone:buildcache,mode=max

@@ -1,0 +1,81 @@
+# SONE — build from source instead of pulling a published image.
+#
+# Use this when no image has been published yet, or when running a modified
+# working tree. It is self-contained rather than an override file, because
+# Portainer's stack editor takes a single compose path.
+#
+#   docker compose -f docker-compose.build.yml up -d --build
+#
+# In Portainer: create a stack from a Git repository, point "Compose path" at
+# docker-compose.build.yml, and enable "Re-pull image and redeploy" so a
+# redeploy picks up new commits.
+#
+# For a published image use docker-compose.yml instead — building on the
+# deployment host costs a few minutes and a couple of hundred megabytes of
+# layer cache on every upgrade.
+
+name: sone
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        # Without a tag this is what /api/version reports. Overriding it makes
+        # the running commit identifiable, which matters once more than one
+        # person is testing.
+        SONE_VERSION: ${SONE_VERSION:-0.1.0-dev}
+        SONE_COMMIT: ${SONE_COMMIT:-unknown}
+    # Tagged so a rebuild replaces the previous local image rather than leaving
+    # a dangling one behind on every deploy.
+    image: sone-local:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SONE_DATABASE_URL: postgres://sone:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/sone
+      SONE_SECRET_KEY: ${SONE_SECRET_KEY:?set SONE_SECRET_KEY in .env}
+      SONE_PUBLIC_URL: ${SONE_PUBLIC_URL:-http://localhost:3000}
+      SONE_STORAGE_BACKEND: ${SONE_STORAGE_BACKEND:-local}
+      SONE_STORAGE_PATH: /var/lib/sone/files
+      SONE_LOG_LEVEL: ${SONE_LOG_LEVEL:-info}
+      SONE_SIGNUP_MODE: ${SONE_SIGNUP_MODE:-invite}
+      SONE_MAX_UPLOAD_MB: ${SONE_MAX_UPLOAD_MB:-100}
+    volumes:
+      - sone_files:/var/lib/sone/files
+      - sone_backups:/var/lib/sone/backups
+    ports:
+      - "${SONE_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "docker/healthcheck.mjs"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sone
+      POSTGRES_USER: sone
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Deterministic collation. Fractional indices are compared byte-wise, so
+      # a locale-aware collation would reorder sibling blocks. Applied only when
+      # the volume is first initialised — it cannot be changed later without
+      # recreating the database.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    volumes:
+      - sone_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sone -d sone"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  sone_db:
+  sone_files:
+  sone_backups:
