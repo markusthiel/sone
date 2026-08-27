@@ -11,6 +11,7 @@ import { DOC_KEYS, PAGE_KEYS } from '@sone/core';
 import { useEffect, useState , type ReactElement } from 'react';
 
 import { EditorSurface } from './EditorSurface.tsx';
+import { ErrorBoundary } from './ErrorBoundary.tsx';
 
 interface PageViewProps {
   handle: PageHandle;
@@ -57,7 +58,12 @@ export function PageView({ handle }: PageViewProps): ReactElement {
         <p className="muted">You have read-only access to this page.</p>
       )}
 
-      <EditorSurface handle={handle} />
+      {/* A second boundary around the editor specifically, so a crash there
+          leaves the title, the sidebar and navigation working. Losing the
+          editor is bad; losing the way out of the page is worse. */}
+      <ErrorBoundary where="The editor">
+        <EditorSurface handle={handle} />
+      </ErrorBoundary>
     </div>
   );
 }

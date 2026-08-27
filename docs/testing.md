@@ -40,6 +40,25 @@ from the harness, not `SONE_TEST_DATABASE_URL`. The latter names the base
 database used only to create the per-file ones; dumping it captures an empty
 schema while the test's data sits elsewhere.
 
+## Why the editor is mounted in tests
+
+`packages/editor/test/mount.test.ts` builds a real `EditorView` against jsdom.
+
+It exists because 361 passing tests did not catch a bug that made every page in
+the application render white. `dispatchTransaction` referenced the `view` const
+that the `EditorView` constructor was in the middle of assigning; ySyncPlugin
+dispatches from inside that constructor to populate the document, so the
+callback ran while `view` was still in its temporal dead zone and threw.
+
+Nothing in the rest of the suite could have found it. Every other editor test
+drives `EditorState` and plugins headlessly, and the bug lived in the assembly.
+A schema, a plugin and a command can all be correct while the thing that puts
+them together is broken.
+
+jsdom does not verify rendering, layout or real input events — those still need
+a browser. It verifies that the editor mounts, receives its document, accepts a
+transaction, writes back to Yjs, and tears down twice without complaint.
+
 ## Why no mocked database
 
 The database tests run against a real Postgres. A mocked `pg` client would

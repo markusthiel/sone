@@ -1,0 +1,266 @@
+/**
+ * Editor mounting tests.
+ *
+ * These exist because 361 passing tests did not catch a bug that made every
+ * page in the application render white.
+ *
+ * `dispatchTransaction` referenced the `view` const that the EditorView
+ * constructor was in the middle of assigning. ySyncPlugin dispatches from
+ * inside that constructor — to populate the document from the Yjs fragment — so
+ * the callback ran while `view` was still in its temporal dead zone and threw
+ * "Cannot access 'view' before initialization". The editor never mounted, React
+ * unmounted the tree, and the page went blank.
+ *
+ * Nothing in the previous suite could have found it: every other test drives
+ * EditorState and plugins headlessly, and the bug lived in EditorView
+ * construction. A schema, a plugin and a command can all be correct while the
+ * thing that assembles them is broken.
+ *
+ * jsdom rather than a real browser, so this runs in CI without a browser
+ * harness. It does not verify rendering, layout or input events — those still
+ * need a browser. It verifies that the editor mounts, receives its document,
+ * accepts a transaction, and tears down.
+ */
+
+import assert from 'node:assert/strict';
+import { after, before, describe, test } from 'node:test';
+
+import { BLOCK_ATTRS, pageContent, readBlockTree } from '@sone/core';
+import { JSDOM } from 'jsdom';
+import * as Y from 'yjs';
+
+// Globals must exist before prosemirror-view is imported, so the modules are
+// loaded dynamically inside `before`.
+let dom: JSDOM;
+let createEditor: typeof import('../src/editor.js').createEditor;
+let seedEmptyPage: typeof import('../src/editor.js').seedEmptyPage;
+let slashMenuState: typeof import('../src/slashMenu.js').slashMenuState;
+
+const DOM_GLOBALS = [
+  'window',
+  'document',
+  'Node',
+  'Element',
+  'HTMLElement',
+  'DocumentFragment',
+  'Range',
+  'getComputedStyle',
+  'MutationObserver',
+  'DOMParser',
+  'Event',
+  'KeyboardEvent',
+  'InputEvent',
+  'CompositionEvent',
+  'ClipboardEvent',
+] as const;
+
+describe('editor mounting', () => {
+  before(async () => {
+    dom = new JSDOM('<!doctype html><html><body><div id="mount"></div></body></html>', {
+      pretendToBeVisual: true,
+    });
+    for (const key of DOM_GLOBALS) {
+      // defineProperty rather than assignment: some globals, `navigator` among
+      // them, are getter-only on the Node global object.
+      Object.defineProperty(globalThis, key, {
+        value: (dom.window as unknown as Record<string, unknown>)[key],
+        configurable: true,
+        writable: true,
+      });
+    }
+
+    const editor = await import('../src/editor.js');
+    createEditor = editor.createEditor;
+    seedEmptyPage = editor.seedEmptyPage;
+    slashMenuState = (await import('../src/slashMenu.js')).slashMenuState;
+  });
+
+  after(() => {
+    dom?.window.close();
+  });
+
+  const mountPoint = (): HTMLElement => {
+    const element = dom.window.document.createElement('div');
+    dom.window.document.body.appendChild(element);
+    return element as unknown as HTMLElement;
+  };
+
+  test('mounts against a seeded empty page', () => {
+    // The exact path a freshly created page takes: the API creates it with an
+    // empty body, the client seeds one paragraph, the editor binds to it.
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    seedEmptyPage(fragment);
+
+    const view = createEditor(mountPoint(), { fragment, editable: () => true });
+    try {
+      assert.equal(view.state.doc.childCount, 1);
+      assert.equal(view.state.doc.firstChild!.type.name, 'paragraph');
+      assert.ok(
+        typeof view.state.doc.firstChild!.attrs[BLOCK_ATTRS.id] === 'string',
+        'the seeded block must carry an id',
+      );
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('mounts against an unseeded empty page', () => {
+    // What a viewer sees: no edit rights, so nothing seeds the fragment. It
+    // must still mount rather than take the page down.
+    const ydoc = new Y.Doc();
+    const view = createEditor(mountPoint(), {
+      fragment: pageContent(ydoc),
+      editable: () => false,
+    });
+    try {
+      assert.ok(view.state.doc.childCount >= 1, 'the schema requires at least one block');
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('mounts against a page with existing content', () => {
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    ydoc.transact(() => {
+      const heading = new Y.XmlElement('heading');
+      heading.setAttribute(BLOCK_ATTRS.id, '00000000-0000-4000-8000-000000000101');
+      heading.setAttribute('level', '2');
+      heading.insert(0, [new Y.XmlText('Existing')]);
+      fragment.insert(0, [heading]);
+    });
+
+    const view = createEditor(mountPoint(), { fragment, editable: () => true });
+    try {
+      assert.equal(view.state.doc.firstChild!.type.name, 'heading');
+      assert.equal(view.state.doc.firstChild!.textContent, 'Existing');
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('a transaction dispatched after mount reaches the document and Yjs', () => {
+    // Proves dispatchTransaction works in normal operation as well as during
+    // construction, and that edits flow back into the CRDT — which is what the
+    // server materialises.
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    seedEmptyPage(fragment);
+
+    const view = createEditor(mountPoint(), { fragment, editable: () => true });
+    try {
+      view.dispatch(view.state.tr.insertText('typed', 1));
+      assert.equal(view.state.doc.firstChild!.textContent, 'typed');
+
+      const { blocks } = readBlockTree(ydoc);
+      assert.equal(blocks.length, 1);
+      assert.equal(blocks[0]!.text, 'typed');
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('onChange ignores the initial population from Yjs', () => {
+    // ySyncPlugin populates the document during construction, which ProseMirror
+    // reports as a document change. A consumer using onChange to track unsaved
+    // work would otherwise mark every freshly opened page as edited before
+    // anyone touched it.
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    seedEmptyPage(fragment);
+
+    let docChanges = 0;
+    let stateChanges = 0;
+    const view = createEditor(mountPoint(), {
+      fragment,
+      editable: () => true,
+      onChange: () => docChanges++,
+      onStateChange: () => stateChanges++,
+    });
+
+    try {
+      assert.equal(docChanges, 0, 'mounting is not a local edit');
+
+      // A selection-only transaction still reaches onStateChange, which is what
+      // the slash menu depends on: it opens and filters without the document
+      // changing.
+      const before = stateChanges;
+      view.dispatch(view.state.tr.setMeta('probe', true));
+      assert.equal(stateChanges, before + 1, 'onStateChange must fire');
+      assert.equal(docChanges, 0, 'a selection change is not a document change');
+
+      // A real local edit does reach onChange.
+      view.dispatch(view.state.tr.insertText('x', 1));
+      assert.equal(docChanges, 1, 'a local edit must reach onChange');
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('typing a slash through the editor opens the menu', () => {
+    // The plugin is tested headlessly elsewhere; this checks it is actually
+    // registered on a mounted editor, and in an order where it can act.
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    seedEmptyPage(fragment);
+
+    const view = createEditor(mountPoint(), { fragment, editable: () => true });
+    try {
+      view.dispatch(view.state.tr.insertText('/', 1));
+      const menu = slashMenuState(view.state);
+      assert.ok(menu, 'the slash menu should be open');
+      assert.ok(menu!.items.length > 0);
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('destroying the editor twice does not throw', () => {
+    // React strict mode mounts, unmounts and remounts effects, so a cleanup
+    // that cannot run twice shows up as a crash only in development.
+    const ydoc = new Y.Doc();
+    const fragment = pageContent(ydoc);
+    seedEmptyPage(fragment);
+
+    const view = createEditor(mountPoint(), { fragment, editable: () => true });
+    view.destroy();
+    view.destroy();
+    ydoc.destroy();
+  });
+
+  test('two editors on the same document converge', () => {
+    // Two tabs on one page. Both bind to the same fragment through separate
+    // Y.Docs, as two clients would.
+    const first = new Y.Doc();
+    const firstFragment = pageContent(first);
+    seedEmptyPage(firstFragment);
+
+    const second = new Y.Doc();
+    Y.applyUpdate(second, Y.encodeStateAsUpdate(first));
+
+    const viewA = createEditor(mountPoint(), { fragment: firstFragment, editable: () => true });
+    const viewB = createEditor(mountPoint(), {
+      fragment: pageContent(second),
+      editable: () => true,
+    });
+
+    try {
+      viewA.dispatch(viewA.state.tr.insertText('from A', 1));
+      Y.applyUpdate(second, Y.encodeStateAsUpdate(first));
+
+      assert.equal(viewB.state.doc.firstChild!.textContent, 'from A');
+    } finally {
+      viewA.destroy();
+      viewB.destroy();
+      first.destroy();
+      second.destroy();
+    }
+  });
+});

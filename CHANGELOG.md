@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: every page rendered blank.** Opening any page threw during editor
+construction, React unmounted the tree, and the result was a white screen with
+nothing to report. Reported from the first real deployment; nothing in 361
+automated tests had touched the path.
+
+**Added: crashes now show something.** An error boundary around the app and
+another around the editor, so a future failure leaves the sidebar and
+navigation working and shows the error where the person who hit it can copy it.
+
 **A slash menu.** Type `/` at the start of a block or after a space to insert
 any block type, filtered as you type — `/h1`, `/todo`, `/ul`, `/hr` all land
 where you would expect. Arrow keys, Enter, Tab and Escape do what they should,

@@ -23,6 +23,7 @@ import {
   undo as yUndo,
   yCursorPlugin,
   ySyncPlugin,
+  ySyncPluginKey,
   yUndoPlugin,
   yXmlFragmentToProsemirrorJSON,
 } from 'y-prosemirror';
@@ -55,6 +56,14 @@ export interface EditorOptions {
   generateId?: IdGenerator;
   /** Node views for atoms that mount their own renderer, e.g. collectionView. */
   nodeViews?: EditorView['props']['nodeViews'];
+  /**
+   * A change made *here*.
+   *
+   * Not called for changes arriving from Yjs, which includes the initial
+   * population of the document when the editor mounts. Without that
+   * distinction a consumer using this to track unsaved work would mark every
+   * freshly opened page as edited before anyone touched it.
+   */
   onChange?: (state: EditorState) => void;
   /**
    * Called after every transaction, not only document changes.
@@ -139,10 +148,30 @@ export function createEditor(
     state: createEditorState(opts),
     editable: () => opts.editable?.() !== false,
     ...(opts.nodeViews ? { nodeViews: opts.nodeViews } : {}),
-    dispatchTransaction(transaction) {
-      const next = view.state.apply(transaction);
-      view.updateState(next);
-      if (transaction.docChanged) opts.onChange?.(next);
+
+    /**
+     * `this`, not the `view` const.
+     *
+     * ySyncPlugin dispatches a transaction from inside the EditorView
+     * constructor, to populate the document from the Yjs fragment — before the
+     * assignment to `view` below has happened. Referencing `view` there throws
+     * "Cannot access 'view' before initialization", the editor never mounts,
+     * and React unmounts the tree: a white page on every page open.
+     *
+     * ProseMirror binds `this` to the view for this callback, including during
+     * construction, which is the only reference available at that moment.
+     * Verified rather than assumed.
+     */
+    dispatchTransaction(this: EditorView, transaction) {
+      const next = this.state.apply(transaction);
+      this.updateState(next);
+
+      // Transactions produced by the Yjs binding carry its plugin key as meta.
+      // That covers both remote edits and the initial population at mount, and
+      // neither is a change the local user made.
+      const fromYjs = transaction.getMeta(ySyncPluginKey) !== undefined;
+      if (transaction.docChanged && !fromYjs) opts.onChange?.(next);
+
       opts.onStateChange?.(next);
     },
     attributes: {
