@@ -8,6 +8,7 @@
 
 import type { ReactElement } from 'react';
 import type { PageNode } from '../api/client.ts';
+import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
 
 interface SidebarProps {
@@ -81,6 +82,13 @@ export function Sidebar({
           <button className="quiet" type="button" onClick={onLogout}>
             Sign out
           </button>
+          {/* The running version, where it can be read without navigating.
+              Links to About rather than being inert text, because the next
+              question after "which version" is usually "and does it match the
+              server". */}
+          <a className="sidebar-version" href={paths.settings('about')}>
+            {WEB_VERSION}
+          </a>
         </div>
       </nav>
     </>

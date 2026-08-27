@@ -26,6 +26,13 @@ access. If it is ever re-enabled on tags and fails, the tag is still fine — a
 tag points at a commit, and whether an image was built afterwards does not
 change what that commit contains.
 
+## Once, at 0.1.0
+
+Change the `image:` default in `docker-compose.yml` from `:main` to `:latest`.
+It points at `:main` until then because `:latest` is only published for a
+non-pre-release tag, and a default naming a tag that does not exist gives a 404
+on pull.
+
 ## Full checklist
 
 1. **Verify the migration chain from empty.** Not from your development
