@@ -359,3 +359,123 @@ export async function authorizeDocumentOpen(
   const role = requireRole(claims, page, need);
   return { role, page };
 }
+
+
+/**
+ * Re-resolve claims for an already-authenticated connection.
+ *
+ * Claims are a snapshot taken when a connection authenticates. Without
+ * re-resolution, revoking a share link or a session has no effect until the
+ * client reconnects — which for a long-lived WebSocket may be hours, and which
+ * makes "revoke" a lie. ADR-0006 chose revocable rows over signed tokens
+ * precisely so this could be fixed properly.
+ *
+ * Re-resolution works from credential **ids**, never from the token itself:
+ * the server does not retain the plaintext token, and should not.
+ *
+ * Returns null when the credential is no longer valid, meaning every document
+ * on that connection must be closed.
+ */
+export type ConnectionCredential =
+  | { kind: 'session'; sessionId: string }
+  | { kind: 'share'; shareTokenId: string; shareSessionId: string };
+
+export async function revalidateClaims(
+  db: Pool | PoolClient,
+  credential: ConnectionCredential,
+  workspaceId: string,
+): Promise<AccessClaims | null> {
+  if (credential.kind === 'session') {
+    const row = await queryOne<{
+      user_id: string;
+      display_name: string;
+      is_guest: boolean;
+      role: WorkspaceRole;
+    }>(
+      db,
+      `SELECT u.id AS user_id, u.display_name, u.is_guest, m.role
+         FROM sessions s
+         JOIN users u ON u.id = s.user_id
+         JOIN workspace_members m
+           ON m.user_id = u.id AND m.workspace_id = $2
+        WHERE s.id = $1
+          AND s.revoked_at IS NULL
+          AND s.expires_at > now()
+          AND u.disabled_at IS NULL`,
+      [credential.sessionId, workspaceId],
+    );
+    if (!row) return null;
+
+    const explicit = await queryRows<{
+      page_id: string;
+      role: Role;
+      include_subtree: boolean;
+    }>(
+      db,
+      `SELECT pp.page_id, pp.role, pp.include_subtree
+         FROM page_permissions pp
+         JOIN pages p ON p.id = pp.page_id
+        WHERE pp.user_id = $1 AND p.workspace_id = $2`,
+      [row.user_id, workspaceId],
+    );
+
+    return {
+      principal: {
+        kind: row.is_guest ? 'guest' : 'user',
+        userId: row.user_id,
+        displayName: row.display_name,
+      },
+      workspaceId,
+      workspaceRole: row.role,
+      grants: explicit.map((r) => ({
+        scopePageId: r.page_id,
+        includeSubtree: r.include_subtree,
+        role: r.role,
+        source: 'page_permission' as const,
+      })),
+    };
+  }
+
+  // Share credential: both the token and the anonymous session must still
+  // exist. Revoking the token deletes its sessions, so either check catching
+  // it is sufficient — but checking both makes the intent explicit.
+  const row = await queryOne<{
+    scope_page_id: string;
+    include_subtree: boolean;
+    role: Role;
+    workspace_id: string;
+    display_name: string;
+  }>(
+    db,
+    `SELECT st.scope_page_id, st.include_subtree, st.role, st.workspace_id,
+            ss.display_name
+       FROM share_tokens st
+       JOIN share_sessions ss ON ss.share_token_id = st.id
+      WHERE st.id = $1
+        AND ss.id = $2
+        AND st.revoked_at IS NULL
+        AND (st.expires_at IS NULL OR st.expires_at > now())
+        AND ss.expires_at > now()`,
+    [credential.shareTokenId, credential.shareSessionId],
+  );
+  if (!row || row.workspace_id !== workspaceId) return null;
+
+  return {
+    principal: {
+      kind: 'anonymous',
+      sessionId: credential.shareSessionId,
+      displayName: row.display_name,
+    },
+    workspaceId,
+    workspaceRole: null,
+    grants: [
+      {
+        scopePageId: row.scope_page_id,
+        includeSubtree: row.include_subtree,
+        role: row.role,
+        source: 'share_token',
+        tokenId: credential.shareTokenId,
+      },
+    ],
+  };
+}

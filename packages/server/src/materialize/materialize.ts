@@ -458,13 +458,37 @@ export async function materializeDocument(
     ].join(' '),
   );
 
+  // The workspace's configured dictionary, defaulting to 'simple' if the
+  // workspace row has somehow gone missing — search degrading to unstemmed is
+  // far better than a page dropping out of the index entirely.
+  const configRow = await queryOne<{ search_config: string }>(
+    db,
+    `SELECT search_config::text AS search_config FROM workspaces WHERE id = $1`,
+    [opts.workspaceId],
+  );
+  const searchConfig = configRow?.search_config ?? 'simple';
+
+  // Both dictionaries in one vector: the stemmed lexemes give recall (a German
+  // search for "Häuser" finds "Haus"), the simple lexemes keep search working
+  // for content in a language the configured dictionary does not cover, which
+  // is the normal case in a multilingual workspace. Title at weight A, body at
+  // D, so a title match outranks a passing mention.
   await db.query(
-    `INSERT INTO page_search (page_id, workspace_id, tsv, updated_at)
-     VALUES ($1, $2, setweight(to_tsvector('simple', $3), 'A') ||
-                     setweight(to_tsvector('simple', $4), 'D'), now())
+    `INSERT INTO page_search (page_id, workspace_id, tsv, built_with, updated_at)
+     VALUES (
+       $1, $2,
+       setweight(to_tsvector($3::regconfig, $4), 'A') ||
+       setweight(to_tsvector('simple',      $4), 'A') ||
+       setweight(to_tsvector($3::regconfig, $5), 'D') ||
+       setweight(to_tsvector('simple',      $5), 'D'),
+       $3::regconfig, now()
+     )
      ON CONFLICT (page_id) DO UPDATE
-       SET tsv = EXCLUDED.tsv, updated_at = now(), workspace_id = EXCLUDED.workspace_id`,
-    [pageId, opts.workspaceId, parsed.page.title, searchText],
+       SET tsv = EXCLUDED.tsv,
+           built_with = EXCLUDED.built_with,
+           updated_at = now(),
+           workspace_id = EXCLUDED.workspace_id`,
+    [pageId, opts.workspaceId, searchConfig, parsed.page.title, searchText],
   );
 
   // --- bookkeeping --------------------------------------------------------

@@ -236,6 +236,25 @@ export async function resolveSession(
   };
 }
 
+/**
+ * The session row id for a token, or null.
+ *
+ * Used by the sync server to remember *which* session authenticated a
+ * connection without retaining the token, so claims can be re-resolved later.
+ */
+export async function resolveSessionId(
+  db: Pool | PoolClient,
+  token: string,
+): Promise<string | null> {
+  const row = await queryOne<{ id: string }>(
+    db,
+    `SELECT id FROM sessions
+      WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > now()`,
+    [hashToken(token)],
+  );
+  return row?.id ?? null;
+}
+
 export async function revokeSession(db: Pool | PoolClient, sessionId: string): Promise<void> {
   await db.query(
     `UPDATE sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL`,

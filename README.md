@@ -69,6 +69,13 @@ Four invariants, each with a specific failure mode behind it:
 3. Relations are stored on one side only; the inverse is a query.
 4. The projection is rewritten in full per page, never diffed (ADR-0008).
 
+Multilingual from the start, and it shows up in the schema rather than only in
+the UI: search indexes under both the workspace's dictionary and `simple` so
+that stemming works without breaking mixed-language content, locale is stored
+per user so invitations arrive in the recipient's language, and user-visible
+text sorts under an ICU collation while fractional indices stay byte-wise.
+See [ADR-0011](docs/adr/0011-internationalisation.md).
+
 The projection can be rebuilt at any time:
 
 ```sh
@@ -98,9 +105,10 @@ Months are elapsed calendar time for one part-time developer, not effort
 estimates.
 
 1. **Server core** (1–4) — schema, auth, Yjs sync server, materialisation,
-   Docker setup. *In progress: schema, document store, materialiser, rebuild
-   command, auth, sessions, invitations and share links are in; the WebSocket
-   sync server is next.*
+   Docker setup. *Substantially complete: schema, document store,
+   materialiser, rebuild command, auth, sessions, invitations, share links and
+   the WebSocket sync server are in. Remaining: REST API and the maintenance
+   job.*
 2. **Editor and web client** (5–9) — block layer, live editing, presence.
 3. **Collections** (10–14) — fields, table and board views, filters, sorting.
 4. **Sharing** (15–17) — share tokens, guests, editable links, granular
