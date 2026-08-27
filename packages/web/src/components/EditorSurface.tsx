@@ -16,6 +16,7 @@ import { createEditor, seedEmptyPage } from '@sone/editor';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
+import { BlockMenu } from './BlockMenu.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
 
 interface EditorSurfaceProps {
@@ -86,7 +87,12 @@ export function EditorSurface({ handle }: EditorSurfaceProps): ReactElement {
         // tabindex and ARIA attributes.
         data-editable={handle.canEdit ? 'true' : 'false'}
       />
-      {view && handle.canEdit && <SlashMenu view={view} revision={revision} />}
+      {view && handle.canEdit && (
+        <>
+          <SlashMenu view={view} revision={revision} />
+          <BlockMenu view={view} revision={revision} />
+        </>
+      )}
     </>
   );
 }

@@ -18,7 +18,8 @@
     "prosemirror-view": "1.42.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "yjs": "13.6.32"
+    "yjs": "13.6.32",
+    "prosemirror-state": "1.4.4"
   },
   "devDependencies": {
     "@types/jsdom": "^30.0.0",

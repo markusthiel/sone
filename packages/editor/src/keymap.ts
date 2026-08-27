@@ -36,7 +36,14 @@ import {
 import { Fragment, Slice } from 'prosemirror-model';
 import type { Command, EditorState, Plugin } from 'prosemirror-state';
 
-import { INDENTABLE_NODE_TYPES, readIndent, schema, writeIndent } from './schema.js';
+import {
+  duplicateBlockSubtree,
+  indentBlockSubtree,
+  moveBlockDown,
+  moveBlockUp,
+  outdentBlockSubtree,
+} from './blockOps.js';
+import { readIndent, schema, writeIndent } from './schema.js';
 
 /**
  * The block containing the selection head, with its position and depth.
@@ -106,66 +113,15 @@ const exitEmptyContainer: Command = (state, dispatch) => {
 };
 
 /**
- * Indent the current block one level.
+ * Indent and outdent, taking the block's indented children with it.
  *
- * An attribute change, not a tree operation: textual blocks are flat siblings
- * and their parent-child relationship is expressed by indentation (ADR-0018).
- * That makes this operation trivially correct, where the tree version had to
- * delete and reinsert nodes and get the positions right.
- *
- * Refused when there is no preceding block at the same or greater level, since
- * indenting the first block of a document or of a list has no parent to attach
- * to and would read back as indent 0 anyway.
+ * Delegated to blockOps rather than implemented here. The version that lived in
+ * this file shifted only the selected block, which turned its children into its
+ * siblings — quietly, with nothing throwing and nothing looking wrong. That
+ * shipped. See src/blockOps.ts.
  */
-const indentBlock: Command = (state, dispatch) => {
-  const block = currentBlock(state);
-  if (!block) return false;
-  if (!INDENTABLE_NODE_TYPES.has(block.node.type.name)) return false;
-
-  const $pos = state.doc.resolve(block.pos);
-  const index = $pos.index();
-  if (index === 0) return false;
-
-  const previous = $pos.parent.child(index - 1);
-  const currentIndent = readIndent(block.node.attrs);
-  const previousIndent = readIndent(previous.attrs);
-
-  // At most one level deeper than the block above, which is the same rule the
-  // tree reader normalises to. Allowing more would produce an indent the reader
-  // silently corrects, so the editor would show something the server does not.
-  if (currentIndent > previousIndent) return false;
-
-  if (dispatch) {
-    dispatch(
-      state.tr
-        .setNodeAttribute(block.pos, BLOCK_ATTRS.indent, writeIndent(currentIndent + 1))
-        .scrollIntoView(),
-    );
-  }
-  return true;
-};
-
-/**
- * Outdent the current block one level.
- *
- * Refused at indent 0, where there is nothing to leave.
- */
-const outdentBlock: Command = (state, dispatch) => {
-  const block = currentBlock(state);
-  if (!block) return false;
-
-  const currentIndent = readIndent(block.node.attrs);
-  if (currentIndent === 0) return false;
-
-  if (dispatch) {
-    dispatch(
-      state.tr
-        .setNodeAttribute(block.pos, BLOCK_ATTRS.indent, writeIndent(currentIndent - 1))
-        .scrollIntoView(),
-    );
-  }
-  return true;
-};
+const indentBlock: Command = indentBlockSubtree;
+const outdentBlock: Command = outdentBlockSubtree;
 
 /**
  * Backspace at the start of a non-paragraph block turns it into a paragraph.
@@ -327,6 +283,13 @@ export function soneKeymap(): Plugin[] {
 
     'Mod-Enter': toggleTodo,
     'Mod-Shift-Minus': insertDivider,
+
+    // Reordering. Alt rather than Mod, because Mod-Shift-Up is a text selection
+    // shortcut on every platform and taking it away would be worse than not
+    // offering this.
+    'Alt-Shift-ArrowUp': moveBlockUp,
+    'Alt-Shift-ArrowDown': moveBlockDown,
+    'Mod-d': duplicateBlockSubtree,
   };
 
   if (heading) {

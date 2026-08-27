@@ -127,8 +127,9 @@ estimates.
    materialiser, rebuild command, auth, sessions, invitations, share links and
    the WebSocket sync server, the HTTP API and the maintenance job are in.*
 2. **Editor and web client** (5–9) — *Largely working: shell, auth, page tree,
-   collaborative block editing with markdown shortcuts, a slash menu,
-   indentation, presence and search. Remaining: drag handles, images.*
+   collaborative block editing with markdown shortcuts, a slash menu, block
+   actions, indentation, presence and search. Remaining: drag-and-drop,
+   images.*
 3. **Collections** (10–14) — fields, table and board views, filters, sorting.
 4. **Sharing** (15–17) — share tokens, guests, editable links, granular
    permissions.
