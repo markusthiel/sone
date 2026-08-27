@@ -64,7 +64,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <button type="button" className="primary" onClick={() => window.location.reload()}>
             Reload
           </button>{' '}
-          <button type="button" onClick={this.reset}>
+          <button type="button" className="btn" onClick={this.reset}>
             Try again
           </button>
         </p>

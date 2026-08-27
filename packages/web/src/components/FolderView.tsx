@@ -76,10 +76,10 @@ export function FolderView({
       )}
 
       <div className="folder-actions">
-        <button type="button" onClick={() => onCreate(folder.id, 'page')}>
+        <button type="button" className="btn" onClick={() => onCreate(folder.id, 'page')}>
           <PlusIcon /> New page
         </button>
-        <button type="button" onClick={() => onCreate(folder.id, 'folder')}>
+        <button type="button" className="btn" onClick={() => onCreate(folder.id, 'folder')}>
           <FolderPlusIcon /> New folder
         </button>
       </div>
