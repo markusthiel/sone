@@ -1616,3 +1616,35 @@ select {
 .task-goto:focus-visible { opacity: 1; }
 .task-goto svg { inline-size: 0.9em; block-size: 0.9em; }
 @media (hover: none) { .task-goto { opacity: 0.6; } }
+
+/* --- block placeholders ---
+ *
+ * The empty block holding the caret says what it is. Only that one: a hint on
+ * every empty block turns a half-written page into a wall of grey text.
+ *
+ * Drawn from the decoration's attribute, so the editor decides the wording and
+ * the stylesheet only decides how it looks.
+ */
+.ProseMirror .sone-has-placeholder::after {
+  content: attr(data-placeholder);
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0;
+  color: var(--sone-text-muted);
+  opacity: 0.6;
+  pointer-events: none;
+  /* Excluded from a selection and from a copy: it is not content. */
+  user-select: none;
+}
+
+/* Blocks with a drawn marker indent their placeholder past it. */
+.ProseMirror [data-block='bulletList'].sone-has-placeholder::after,
+.ProseMirror [data-block='numberedList'].sone-has-placeholder::after,
+.ProseMirror [data-block='todo'].sone-has-placeholder::after,
+.ProseMirror [data-block='toggle'].sone-has-placeholder::after {
+  inset-inline-start: 1.4em;
+}
+
+/* The old whole-document hint is replaced by the per-block one, which covers
+   the same case — an empty page is an empty paragraph with the caret in it. */
+.ProseMirror > [data-block]:only-child:empty::after { content: none; }

@@ -38,6 +38,7 @@ const MARGIN = 8;
 export function SelectionToolbar({ view, revision }: SelectionToolbarProps): ReactElement | null {
   const [box, setBox] = useState<{ top: number; left: number; above: boolean } | null>(null);
   const [editingLink, setEditingLink] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   const [href, setHref] = useState('');
   const barRef = useRef<HTMLDivElement | null>(null);
 
@@ -73,9 +74,14 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
         above,
       });
     } catch {
-      // A position can be stale for a frame after a document change.
+      // A position can be stale for a frame after a document change. Retried,
+      // because the toolbar renders hidden while `box` is null and a single
+      // failure would hide it until the selection changed again.
+      const retry = requestAnimationFrame(() => setRetryToken((n) => n + 1));
+      return () => cancelAnimationFrame(retry);
     }
-  }, [view, state, revision, visible, editingLink]);
+    return undefined;
+  }, [view, state, revision, visible, editingLink, retryToken]);
 
   // Escape closes the link editor without applying, and returns focus to the
   // document — otherwise the caret is lost and the next keystroke goes nowhere.
