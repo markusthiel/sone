@@ -13,7 +13,7 @@
 
 import * as Y from 'yjs';
 
-import { BLOCK_ATTRS, CONTAINER_BLOCK_TYPES, DOC_KEYS } from './docSchema.js';
+import { BLOCK_ATTRS, DOC_KEYS, STRUCTURAL_BLOCK_TYPES } from './docSchema.js';
 
 /** Guard against a malformed document causing unbounded recursion. */
 export const MAX_BLOCK_DEPTH = 32;
@@ -25,9 +25,15 @@ export interface TreeBlock {
   parentId: string | null;
   /** Depth-first ordinal within the page, starting at 0. */
   position: number;
+  /**
+   * Nesting depth, derived from the indent attribute and from structural
+   * containers. Normalised: a block cannot be more than one level deeper than
+   * the block before it, so a document with a jump from 0 to 3 reads as 0 to 1
+   * rather than producing an impossible tree.
+   */
   depth: number;
   props: Record<string, unknown>;
-  /** Inline text, flattened. Empty for atoms and pure containers. */
+  /** Inline text, flattened. Empty for atoms and structural containers. */
   text: string;
   /** Ids of direct children, in order. */
   childIds: string[];
@@ -88,7 +94,33 @@ function inlineText(element: Y.XmlElement, depth = 0): string {
 }
 
 /**
- * Walk a page's block tree depth-first.
+ * Read the indent attribute, tolerating anything malformed.
+ *
+ * A missing or unparseable value reads as 0 rather than throwing: an indent is
+ * presentation structure, and losing it degrades a document rather than
+ * breaking it.
+ */
+function readIndent(element: Y.XmlElement): number {
+  const raw = element.getAttribute(BLOCK_ATTRS.indent);
+  if (raw === undefined || raw === null || raw === '') return 0;
+  const parsed = Number.parseInt(String(raw), 10);
+  if (!Number.isInteger(parsed) || parsed < 0) return 0;
+  // Cap defensively: an absurd indent from a buggy client should not produce a
+  // pathological tree.
+  return Math.min(parsed, MAX_BLOCK_DEPTH);
+}
+
+/**
+ * Walk a page's block tree in reading order.
+ *
+ * Two mechanisms produce parent-child relationships and they compose:
+ *
+ *   indent      Text blocks are XML siblings; a block with a greater indent
+ *               than the one before it is its child. This is the common case,
+ *               and it exists because ProseMirror forbids a node holding both
+ *               inline text and block children (ADR-0018).
+ *   structure   A textless container (a column) holds its children as XML
+ *               children, and indentation restarts inside it.
  *
  * Depth-first order is the reading order, which is what every consumer wants:
  * the materialiser assigns positions from it, and the search index concatenates
@@ -97,74 +129,100 @@ function inlineText(element: Y.XmlElement, depth = 0): string {
 export function readBlockTree(doc: Y.Doc): TreeReadResult {
   const warnings: string[] = [];
   const blocks: TreeBlock[] = [];
+  const byId = new Map<string, TreeBlock>();
   let position = 0;
 
   const visit = (
-    element: Y.XmlElement,
-    parentId: string | null,
-    depth: number,
-  ): string | null => {
-    if (depth > MAX_BLOCK_DEPTH) {
+    container: Y.XmlFragment | Y.XmlElement,
+    structuralParentId: string | null,
+    baseDepth: number,
+  ): void => {
+    if (baseDepth > MAX_BLOCK_DEPTH) {
       warnings.push(`block tree exceeds depth ${MAX_BLOCK_DEPTH}; subtree ignored`);
-      return null;
+      return;
     }
 
-    const id = element.getAttribute(BLOCK_ATTRS.id);
-    if (!id) {
-      // An element with no id is inline content that reached this level by
-      // mistake, or a node type the editor schema allows but SONE does not
-      // model. Skipped, not fatal.
-      warnings.push(`element <${element.nodeName}> has no block id; skipped`);
-      return null;
-    }
+    // Ancestors implied by indentation, innermost last.
+    const stack: Array<{ id: string; indent: number }> = [];
 
-    const type = element.nodeName;
-    const block: TreeBlock = {
-      id,
-      type,
-      parentId,
-      position: position++,
-      depth,
-      props: parseProps(element.getAttribute(BLOCK_ATTRS.props), warnings, id),
-      text: inlineText(element),
-      childIds: [],
-    };
-    blocks.push(block);
+    for (let i = 0; i < container.length; i++) {
+      const child: unknown = container.get(i);
 
-    if (CONTAINER_BLOCK_TYPES.has(type) || hasBlockChildren(element)) {
-      for (let i = 0; i < element.length; i++) {
-        const child: unknown = element.get(i);
-        if (child instanceof Y.XmlElement && child.getAttribute(BLOCK_ATTRS.id)) {
-          const childId = visit(child, id, depth + 1);
-          if (childId) block.childIds.push(childId);
+      if (child instanceof Y.XmlText) {
+        if (child.toString().trim() !== '') {
+          // Text with no owning block cannot be materialised or edited
+          // coherently. Reported so it is visible rather than silently dropped.
+          warnings.push('loose text outside any block; not materialised');
         }
+        continue;
+      }
+      if (!(child instanceof Y.XmlElement)) continue;
+
+      const id = child.getAttribute(BLOCK_ATTRS.id);
+      if (!id) {
+        // Inline content that reached block level, or a node type the editor
+        // schema allows but SONE does not model. Skipped, not fatal.
+        warnings.push(`element <${child.nodeName}> has no block id; skipped`);
+        continue;
+      }
+
+      const type = child.nodeName;
+      const rawIndent = readIndent(child);
+
+      // Normalise: a block may be at most one level deeper than its
+      // predecessor. Without this, an indent jump produces a parent that does
+      // not exist.
+      const previousIndent = stack.length > 0 ? stack[stack.length - 1]!.indent : -1;
+      const indent = Math.min(rawIndent, previousIndent + 1);
+      if (indent !== rawIndent) {
+        warnings.push(
+          `block ${id}: indent ${rawIndent} exceeds one level below its predecessor; read as ${indent}`,
+        );
+      }
+
+      while (stack.length > 0 && stack[stack.length - 1]!.indent >= indent) {
+        stack.pop();
+      }
+
+      const parentId = stack.length > 0 ? stack[stack.length - 1]!.id : structuralParentId;
+
+      const block: TreeBlock = {
+        id,
+        type,
+        parentId,
+        position: position++,
+        depth: baseDepth + stack.length,
+        props: parseProps(child.getAttribute(BLOCK_ATTRS.props), warnings, id),
+        text: inlineText(child),
+        childIds: [],
+      };
+      blocks.push(block);
+      byId.set(id, block);
+
+      if (parentId !== null) {
+        byId.get(parentId)?.childIds.push(id);
+      }
+
+      stack.push({ id, indent });
+
+      // A structural container holds its children as XML children, and
+      // indentation starts over inside it.
+      if (STRUCTURAL_BLOCK_TYPES.has(type) || hasBlockChildren(child)) {
+        visit(child, id, block.depth + 1);
       }
     }
-
-    return id;
   };
 
-  const fragment = pageContent(doc);
-  for (let i = 0; i < fragment.length; i++) {
-    const child: unknown = fragment.get(i);
-    if (child instanceof Y.XmlElement) {
-      visit(child, null, 0);
-    } else if (child instanceof Y.XmlText && child.toString().trim() !== '') {
-      // Text at the top level of a page has no owning block, so it cannot be
-      // materialised or edited coherently. Reported so it is visible.
-      warnings.push('loose text at the top level of the page; not materialised');
-    }
-  }
+  visit(pageContent(doc), null, 0);
 
   return { blocks, warnings };
 }
 
 /**
- * Does this element contain block children?
+ * Does this element hold block children?
  *
- * Checked in addition to the container-type set so a third-party block type
- * that nests still materialises correctly without having to register itself
- * first.
+ * Checked in addition to the structural-type set so a third-party block type
+ * that nests still materialises correctly without registering itself first.
  */
 function hasBlockChildren(element: Y.XmlElement): boolean {
   for (let i = 0; i < element.length; i++) {
@@ -183,6 +241,9 @@ export interface NewBlock {
   type: string;
   props?: Record<string, unknown>;
   text?: string;
+  /** Indentation level. Children are expressed this way for text blocks. */
+  indent?: number;
+  /** XML children. Only valid for structural (textless) container types. */
   children?: NewBlock[];
 }
 
@@ -199,6 +260,11 @@ export function buildBlock(block: NewBlock): Y.XmlElement {
 
   if (block.props && Object.keys(block.props).length > 0) {
     element.setAttribute(BLOCK_ATTRS.props, JSON.stringify(block.props));
+  }
+
+  // Omitted when zero, keeping documents smaller and diffs readable.
+  if (block.indent !== undefined && block.indent > 0) {
+    element.setAttribute(BLOCK_ATTRS.indent, String(block.indent));
   }
 
   const children: Array<Y.XmlElement | Y.XmlText> = [];

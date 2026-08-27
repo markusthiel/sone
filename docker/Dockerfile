@@ -19,6 +19,7 @@ RUN corepack enable
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/core/package.json     packages/core/
 COPY packages/client/package.json   packages/client/
+COPY packages/editor/package.json   packages/editor/
 COPY packages/server/package.json   packages/server/
 COPY packages/web/package.json      packages/web/
 RUN pnpm install --frozen-lockfile

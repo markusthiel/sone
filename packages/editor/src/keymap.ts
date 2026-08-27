@@ -1,0 +1,356 @@
+/**
+ * SONE — keymap.
+ *
+ * The keys that decide whether a block editor feels right. Four of them do most
+ * of the work and each has a non-obvious correct behaviour:
+ *
+ *   Enter        splits the block, and a *second* Enter in an empty list item
+ *                lifts it out rather than creating another empty item. Without
+ *                that, leaving a list means reaching for the mouse.
+ *   Tab          indents by nesting inside the previous sibling. Only valid
+ *                when there *is* a previous sibling of a container type —
+ *                indenting the first item of a list has no meaning.
+ *   Shift-Tab    outdents by lifting into the grandparent.
+ *   Backspace    at the start of a block converts it to a paragraph before
+ *                merging, so backspacing out of a heading gives plain text
+ *                rather than swallowing the previous block.
+ */
+
+import { BLOCK_ATTRS } from '@sone/core';
+import { redo, undo } from 'prosemirror-history';
+import { keymap } from 'prosemirror-keymap';
+import type { NodeType } from 'prosemirror-model';
+import {
+  baseKeymap,
+  chainCommands,
+  createParagraphNear,
+  deleteSelection,
+  joinBackward,
+  liftEmptyBlock,
+  newlineInCode,
+  selectNodeBackward,
+  setBlockType,
+  splitBlock,
+  toggleMark,
+} from 'prosemirror-commands';
+import { Fragment, Slice } from 'prosemirror-model';
+import type { Command, EditorState, Plugin } from 'prosemirror-state';
+
+import { INDENTABLE_NODE_TYPES, readIndent, schema, writeIndent } from './schema.js';
+
+/**
+ * The block containing the selection head, with its position and depth.
+ *
+ * Walks outwards from the selection rather than assuming depth 1: a block may
+ * be nested inside a container, and the innermost node carrying block
+ * attributes is the one the user is editing.
+ */
+function currentBlock(
+  state: EditorState,
+): { node: import('prosemirror-model').Node; depth: number; pos: number } | null {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    if (node.type.spec.attrs && BLOCK_ATTRS.id in node.type.spec.attrs) {
+      return { node, depth, pos: $from.before(depth) };
+    }
+  }
+  return null;
+}
+
+/**
+ * Enter in an empty container block lifts it out instead of splitting.
+ *
+ * The behaviour people expect from every list they have ever used: Enter on an
+ * empty bullet ends the list. Without it, the only way out is Backspace or the
+ * mouse.
+ */
+const exitEmptyContainer: Command = (state, dispatch) => {
+  const block = currentBlock(state);
+  if (!block) return false;
+  if (block.node.type.name === 'paragraph') return false;
+  if (block.node.textContent.length > 0) return false;
+
+  const indent = readIndent(block.node.attrs);
+
+  // Indented: step out one level first. Repeated Enter then walks out of a
+  // nested list one level at a time, which is what people expect.
+  if (indent > 0) {
+    if (dispatch) {
+      dispatch(
+        state.tr
+          .setNodeAttribute(block.pos, BLOCK_ATTRS.indent, writeIndent(indent - 1))
+          .scrollIntoView(),
+      );
+    }
+    return true;
+  }
+
+  const paragraph = schema.nodes['paragraph'];
+  if (!paragraph) return false;
+
+  if (dispatch) {
+    dispatch(
+      state.tr
+        .setNodeMarkup(block.pos, paragraph, {
+          // The id is kept: this is the same block changing type, and a new id
+          // would orphan every reference to it.
+          [BLOCK_ATTRS.id]: block.node.attrs[BLOCK_ATTRS.id],
+          [BLOCK_ATTRS.props]: null,
+          [BLOCK_ATTRS.indent]: null,
+        })
+        .scrollIntoView(),
+    );
+  }
+  return true;
+};
+
+/**
+ * Indent the current block one level.
+ *
+ * An attribute change, not a tree operation: textual blocks are flat siblings
+ * and their parent-child relationship is expressed by indentation (ADR-0018).
+ * That makes this operation trivially correct, where the tree version had to
+ * delete and reinsert nodes and get the positions right.
+ *
+ * Refused when there is no preceding block at the same or greater level, since
+ * indenting the first block of a document or of a list has no parent to attach
+ * to and would read back as indent 0 anyway.
+ */
+const indentBlock: Command = (state, dispatch) => {
+  const block = currentBlock(state);
+  if (!block) return false;
+  if (!INDENTABLE_NODE_TYPES.has(block.node.type.name)) return false;
+
+  const $pos = state.doc.resolve(block.pos);
+  const index = $pos.index();
+  if (index === 0) return false;
+
+  const previous = $pos.parent.child(index - 1);
+  const currentIndent = readIndent(block.node.attrs);
+  const previousIndent = readIndent(previous.attrs);
+
+  // At most one level deeper than the block above, which is the same rule the
+  // tree reader normalises to. Allowing more would produce an indent the reader
+  // silently corrects, so the editor would show something the server does not.
+  if (currentIndent > previousIndent) return false;
+
+  if (dispatch) {
+    dispatch(
+      state.tr
+        .setNodeAttribute(block.pos, BLOCK_ATTRS.indent, writeIndent(currentIndent + 1))
+        .scrollIntoView(),
+    );
+  }
+  return true;
+};
+
+/**
+ * Outdent the current block one level.
+ *
+ * Refused at indent 0, where there is nothing to leave.
+ */
+const outdentBlock: Command = (state, dispatch) => {
+  const block = currentBlock(state);
+  if (!block) return false;
+
+  const currentIndent = readIndent(block.node.attrs);
+  if (currentIndent === 0) return false;
+
+  if (dispatch) {
+    dispatch(
+      state.tr
+        .setNodeAttribute(block.pos, BLOCK_ATTRS.indent, writeIndent(currentIndent - 1))
+        .scrollIntoView(),
+    );
+  }
+  return true;
+};
+
+/**
+ * Backspace at the start of a non-paragraph block turns it into a paragraph.
+ *
+ * Tried before the default join, so backspacing at the start of a heading gives
+ * plain text rather than merging it into whatever came before. Merging is still
+ * what a second Backspace does, which matches every editor people are used to.
+ */
+const paragraphBeforeJoin: Command = (state, dispatch) => {
+  const { $from, empty } = state.selection;
+  if (!empty || $from.parentOffset !== 0) return false;
+
+  const block = currentBlock(state);
+  if (!block) return false;
+
+  const indent = readIndent(block.node.attrs);
+  // Indented blocks outdent first, so Backspace at the start of a nested item
+  // walks it out rather than merging it into its parent's text.
+  if (indent > 0) {
+    if (dispatch) {
+      dispatch(
+        state.tr.setNodeAttribute(
+          block.pos,
+          BLOCK_ATTRS.indent,
+          writeIndent(indent - 1),
+        ),
+      );
+    }
+    return true;
+  }
+
+  if (block.node.type.name === 'paragraph') return false;
+
+  const paragraph = schema.nodes['paragraph'];
+  if (!paragraph) return false;
+
+  if (dispatch) {
+    dispatch(
+      state.tr.setNodeMarkup(block.pos, paragraph, {
+        [BLOCK_ATTRS.id]: block.node.attrs[BLOCK_ATTRS.id],
+        [BLOCK_ATTRS.props]: null,
+        [BLOCK_ATTRS.indent]: null,
+      }),
+    );
+  }
+  return true;
+};
+
+/** Toggle a block between a type and paragraph. Used by menus and shortcuts. */
+export function toggleBlockType(
+  type: NodeType,
+  attrs: Record<string, unknown> = {},
+): Command {
+  return (state, dispatch) => {
+    const block = currentBlock(state);
+    const paragraph = schema.nodes['paragraph'];
+    if (!block || !paragraph) return false;
+
+    const alreadyThisType =
+      block.node.type === type &&
+      Object.entries(attrs).every(([key, value]) => block.node.attrs[key] === value);
+
+    const target = alreadyThisType ? paragraph : type;
+    // Indent is preserved across a type change: converting an indented bullet
+    // to a heading should keep it where it sits, not jump it to the margin.
+    const preserved = {
+      [BLOCK_ATTRS.id]: block.node.attrs[BLOCK_ATTRS.id],
+      [BLOCK_ATTRS.props]: null,
+      [BLOCK_ATTRS.indent]: block.node.attrs[BLOCK_ATTRS.indent],
+    };
+    const nextAttrs = alreadyThisType ? preserved : { ...attrs, ...preserved };
+
+    if (dispatch) {
+      dispatch(state.tr.setNodeMarkup(block.pos, target, nextAttrs).scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/** Toggle a todo's checked state without moving the caret. */
+export const toggleTodo: Command = (state, dispatch) => {
+  const block = currentBlock(state);
+  if (!block || block.node.type.name !== 'todo') return false;
+  if (dispatch) {
+    dispatch(
+      state.tr.setNodeAttribute(
+        block.pos,
+        'checked',
+        block.node.attrs['checked'] !== true,
+      ),
+    );
+  }
+  return true;
+};
+
+/** Insert a divider followed by an empty paragraph to type into. */
+export const insertDivider: Command = (state, dispatch) => {
+  const divider = schema.nodes['divider'];
+  const paragraph = schema.nodes['paragraph'];
+  if (!divider || !paragraph) return false;
+  if (dispatch) {
+    const tr = state.tr.replaceSelection(
+      new Slice(Fragment.from([divider.create(), paragraph.create()]), 0, 0),
+    );
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
+};
+
+/** Exposed for tests and for menu items that need the same behaviour. */
+export const indentCommand = (): Command => indentBlock;
+export const outdentCommand = (): Command => outdentBlock;
+
+export function soneKeymap(): Plugin[] {
+  const heading = schema.nodes['heading'];
+  const bullet = schema.nodes['bulletList'];
+  const numbered = schema.nodes['numberedList'];
+  const todo = schema.nodes['todo'];
+  const code = schema.nodes['code'];
+  const quote = schema.nodes['quote'];
+
+  const bindings: Record<string, Command> = {
+    // Order matters: exiting an empty container is tried before splitting, or
+    // Enter on an empty bullet would create another empty bullet forever.
+    Enter: chainCommands(
+      newlineInCode,
+      exitEmptyContainer,
+      liftEmptyBlock,
+      splitBlock,
+    ),
+
+    // A hard line break inside a block, for the cases where a new block is
+    // not wanted.
+    'Shift-Enter': (state, dispatch) => {
+      if (dispatch) {
+        dispatch(state.tr.insertText('\n').scrollIntoView());
+      }
+      return true;
+    },
+
+    Tab: indentBlock,
+    'Shift-Tab': outdentBlock,
+
+    Backspace: chainCommands(
+      deleteSelection,
+      paragraphBeforeJoin,
+      joinBackward,
+      selectNodeBackward,
+    ),
+
+    'Mod-z': undo,
+    'Mod-y': redo,
+    'Shift-Mod-z': redo,
+
+    'Mod-b': toggleMark(schema.marks['strong']!),
+    'Mod-i': toggleMark(schema.marks['em']!),
+    'Mod-Shift-x': toggleMark(schema.marks['strikethrough']!),
+    'Mod-e': toggleMark(schema.marks['inlineCode']!),
+
+    'Mod-Enter': toggleTodo,
+    'Mod-Shift-Minus': insertDivider,
+  };
+
+  if (heading) {
+    // Mod-Alt-1..3 rather than Mod-1..3, which browsers use for tab switching.
+    for (const level of [1, 2, 3, 4, 5, 6]) {
+      bindings[`Mod-Alt-${level}`] = toggleBlockType(heading, { level });
+    }
+  }
+  if (bullet) bindings['Mod-Shift-8'] = toggleBlockType(bullet);
+  if (numbered) bindings['Mod-Shift-7'] = toggleBlockType(numbered);
+  if (todo) bindings['Mod-Shift-9'] = toggleBlockType(todo);
+  if (quote) bindings['Mod-Shift-b'] = toggleBlockType(quote);
+  if (code) bindings['Mod-Shift-c'] = toggleBlockType(code);
+
+  const paragraph = schema.nodes['paragraph'];
+  if (paragraph) {
+    bindings['Mod-Alt-0'] = setBlockType(paragraph);
+  }
+
+  return [
+    keymap(bindings),
+    // Base keymap last, so the bindings above win where they overlap.
+    keymap(baseKeymap),
+  ];
+}
+
+export { createParagraphNear };
