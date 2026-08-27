@@ -36,7 +36,7 @@ describe(
     before(async () => {
       db = await getTestPool();
       const router = new Router();
-      registerAuthRoutes(router, { pool: db, signupMode: 'open', secureCookies: false });
+      registerAuthRoutes(router, { pool: db, signupMode: () => Promise.resolve('open' as const), secureCookies: false });
       registerPageRoutes(router, { pool: db });
       registerFavouriteRoutes(router, { pool: db });
 
