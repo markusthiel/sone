@@ -38,18 +38,31 @@ def main() -> int:
     with open(sys.argv[1], encoding="utf-8") as handle:
         data = json.load(handle)
 
-    # buildah reports both an OCI view and a Docker view. The healthcheck only
-    # exists in the Docker one, which is why --format docker matters.
-    docker_config = (data.get("Docker") or {}).get("config", {}) or {}
-    oci_config = (data.get("OCIv1") or {}).get("config", {}) or {}
+    # Accepts either `docker inspect` output (a list of images, config under
+    # "Config") or `buildah inspect` output (an object with separate OCIv1 and
+    # Docker views). Supporting both means this script does not have to change
+    # when the build tool does, and the checks are the point rather than the
+    # format.
+    if isinstance(data, list):
+        if not data:
+            print("empty inspect output", file=sys.stderr)
+            return 2
+        config = data[0].get("Config", {}) or {}
+        docker_config = config
+        oci_config = config
+    else:
+        # buildah: the healthcheck exists only in the Docker view, which is why
+        # --format docker matters there.
+        docker_config = (data.get("Docker") or {}).get("config", {}) or {}
+        oci_config = (data.get("OCIv1") or {}).get("config", {}) or {}
 
     problems: list[str] = []
 
     healthcheck = docker_config.get("Healthcheck")
     if not healthcheck or not healthcheck.get("Test"):
         problems.append(
-            "no HEALTHCHECK in the image. buildah drops it for OCI format — "
-            "check that --format docker is still passed."
+            "no HEALTHCHECK in the image. buildah drops it silently when "
+            "building OCI format — if buildah is in use, check --format docker."
         )
 
     user = oci_config.get("User")
