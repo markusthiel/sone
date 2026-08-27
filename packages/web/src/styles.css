@@ -1826,3 +1826,26 @@ select {
 }
 
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--sone-space-4); }
+
+/* --- sidebar sections --- */
+
+.sidebar-section { margin-block-end: var(--sone-space-5); }
+
+.sidebar-label {
+  margin: 0 0 var(--sone-space-1);
+  padding-inline: var(--sone-space-4);
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sone-text-muted);
+}
+
+/* A filled star for a favourite, an outline for one that is not. Drawn with
+   fill rather than a second icon, so both states are the same shape and only
+   the weight changes. */
+.entry-menu-item svg[data-filled='true'],
+.sidebar-section .entry-more svg {
+  fill: currentColor;
+  opacity: 0.85;
+}

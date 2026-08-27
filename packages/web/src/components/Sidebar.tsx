@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
-import type { PageNode } from '../api/client.ts';
+import type { FavouriteEntry, PageNode } from '../api/client.ts';
 import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
@@ -27,6 +27,7 @@ import {
   PlusIcon,
   SearchIcon,
   SidebarIcon,
+  StarIcon,
 } from './icons.tsx';
 
 interface SidebarProps {
@@ -41,6 +42,9 @@ interface SidebarProps {
   onRename: (pageId: string, title: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
+  favourites: FavouriteEntry[];
+  favouriteIds: Set<string>;
+  onToggleFavourite: (pageId: string, favourite: boolean) => void;
   onLogout: () => void;
 }
 
@@ -72,6 +76,9 @@ export function Sidebar({
   onRename,
   onDelete,
   onStartMove,
+  favourites,
+  favouriteIds,
+  onToggleFavourite,
   onLogout,
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
@@ -144,6 +151,38 @@ export function Sidebar({
           <SearchIcon /> Search
         </a>
 
+        {/* Above the tree, because a shortcut list is only useful if it is the
+            first thing in reach. Hidden entirely when empty rather than shown
+            as an empty heading, which would take space to say nothing. */}
+        {favourites.length > 0 && (
+          <div className="sidebar-section">
+            <p className="sidebar-label">Favourites</p>
+            {favourites.map((entry) => (
+              <div className="tree-row" data-kind={entry.kind} key={entry.pageId}>
+                <span className="tree-twisty" data-placeholder="true" aria-hidden="true" />
+                <a
+                  className="tree-link"
+                  href={paths.page(entry.pageId, entry.title)}
+                  {...(entry.pageId === currentPageId
+                    ? { 'aria-current': 'page' as const }
+                    : {})}
+                >
+                  {entry.kind === 'folder' ? <FolderIcon /> : <PageIcon />}{' '}
+                  {entry.title || 'Untitled'}
+                </a>
+                <button
+                  className="entry-more"
+                  type="button"
+                  aria-label={`Remove ${entry.title || 'Untitled'} from favourites`}
+                  onClick={() => onToggleFavourite(entry.pageId, false)}
+                >
+                  <StarIcon />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {tree.length === 0 ? (
           <p className="muted" style={{ padding: '8px' }}>
             No pages yet.
@@ -164,6 +203,8 @@ export function Sidebar({
             onStartRename={setRenaming}
             onDelete={onDelete}
             onStartMove={onStartMove}
+            favouriteIds={favouriteIds}
+            onToggleFavourite={onToggleFavourite}
           />
         )}
 
@@ -204,6 +245,8 @@ function TreeLevel({
   onStartRename,
   onDelete,
   onStartMove,
+  favouriteIds,
+  onToggleFavourite,
 }: {
   nodes: PageNode[];
   currentPageId: string | null;
@@ -216,6 +259,8 @@ function TreeLevel({
   onStartRename: (pageId: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
+  favouriteIds: Set<string>;
+  onToggleFavourite: (pageId: string, favourite: boolean) => void;
 }): ReactElement {
   return (
     <>
@@ -293,6 +338,8 @@ function TreeLevel({
                     onDelete={onDelete}
                     onStartRename={onStartRename}
                     onStartMove={onStartMove}
+                    isFavourite={favouriteIds.has(node.id)}
+                    onToggleFavourite={onToggleFavourite}
                   />
                 </>
               )}
@@ -316,6 +363,8 @@ function TreeLevel({
                   onStartRename={onStartRename}
                   onDelete={onDelete}
                   onStartMove={onStartMove}
+                  favouriteIds={favouriteIds}
+                  onToggleFavourite={onToggleFavourite}
                 />
               </div>
             )}

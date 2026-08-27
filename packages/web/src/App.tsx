@@ -23,6 +23,7 @@ import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
 import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
+import { useFavourites } from './hooks/useFavourites.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
 import type { PageNode } from './api/client.ts';
@@ -137,6 +138,11 @@ function Workspace({
   // The entry a move dialog is open for, if any.
   const [movingId, setMovingId] = useState<string | null>(null);
   const {
+    favourites,
+    ids: favouriteIds,
+    toggle: toggleFavourite,
+  } = useFavourites(true);
+  const {
     visible: sidebarVisible,
     toggle: toggleSidebar,
     close: closeSidebar,
@@ -200,6 +206,9 @@ function Workspace({
         onCreatePage={(parent, kind) => void onCreateEntry(parent, kind)}
         onRename={(id, title) => void renameEntry(id, title)}
         onStartMove={setMovingId}
+        favourites={favourites}
+        favouriteIds={favouriteIds}
+        onToggleFavourite={(id, on) => void toggleFavourite(id, on)}
         onDelete={(id, descendants) => {
           // Confirmed, and the count is in the question. Deleting a folder
           // takes its contents, and someone who has not opened it in a month

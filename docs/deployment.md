@@ -178,6 +178,22 @@ volumes:
   - /mnt/backups/sone:/var/lib/sone/backups
 ```
 
+## What is in the database but not in the documents
+
+Almost everything is rebuildable from the CRDT log (ADR-0002), but some data is
+not derived from documents at all and has to be backed up rather than
+reconstructed:
+
+- accounts, sessions and invitations
+- workspace membership and page permissions
+- share links
+- **favourites** — a person's shortcuts, which belong to them rather than to the
+  page they point at
+
+Losing these does not corrupt anything, but it does mean people have to log in
+again and rebuild their shortcuts. The backup command captures them with the
+rest of the database.
+
 ## Files
 
 Uploads land under `SONE_STORAGE_PATH` (`/var/lib/sone/files` in the image), and

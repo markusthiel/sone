@@ -63,6 +63,17 @@ export class Router {
   delete(pattern: string, handler: Handler): this {
     return this.add('DELETE', pattern, handler);
   }
+  /**
+   * PUT, for an idempotent set-to-this-state.
+   *
+   * Distinct from POST on purpose: favouriting a page twice must be the same as
+   * doing it once, and PUT is the method that says so. A POST that quietly
+   * behaves idempotently reads as a bug the first time someone retries a
+   * request.
+   */
+  put(pattern: string, handler: Handler): this {
+    return this.add('PUT', pattern, handler);
+  }
 
   /**
    * Resolve and run a request.

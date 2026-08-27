@@ -119,6 +119,14 @@ export interface PageDetail extends Omit<PageSummary, 'archived' | 'idx'> {
   role: 'viewer' | 'commenter' | 'editor' | 'admin';
 }
 
+export interface FavouriteEntry {
+  pageId: string;
+  title: string;
+  kind: EntryKind;
+  workspaceId: string;
+  idx: string;
+}
+
 export interface WorkspaceSummary {
   id: string;
   name: string;
@@ -230,6 +238,14 @@ export const api = {
     }>(`/api/workspaces/${workspaceId}/pages`, input),
 
   page: (pageId: string) => request<PageDetail>(`/api/pages/${pageId}`),
+
+  favourites: () =>
+    request<{ favourites: FavouriteEntry[] }>('/api/favourites'),
+
+  setFavourite: (pageId: string, favourite: boolean) =>
+    request<{ pageId: string; favourite: boolean }>(`/api/pages/${pageId}/favourite`, {
+      method: favourite ? 'PUT' : 'DELETE',
+    }),
 
   moveEntry: (pageId: string, parentPageId: string | null) =>
     request<{ id: string; parentPageId: string | null }>(`/api/pages/${pageId}`, {
