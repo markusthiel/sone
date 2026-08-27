@@ -22,7 +22,8 @@ import type { Command } from 'prosemirror-state';
 import * as Y from 'yjs';
 
 import { assignMissingIds, blockIds, collectBlockIds } from '../src/blockIds.js';
-import { fragmentToJSON, jsonToFragment } from '../src/editor.js';
+import { fragmentToJSON, jsonToFragment, seedEmptyPage } from '../src/editor.js';
+import { computeListNumbers } from '../src/listNumbers.js';
 import { soneInputRules } from '../src/inputRules.js';
 import {
   indentCommand,
@@ -646,5 +647,131 @@ test('an impossible indent jump is normalised and reported', () => {
   assert.equal(blocks[1]!.depth, 1, 'clamped to one level below its predecessor');
   assert.equal(blocks[1]!.parentId, '00000000-0000-4000-8000-000000000060');
   assert.ok(warnings.some((w) => w.includes('exceeds one level')));
+  ydoc.destroy();
+});
+
+// --- list numbering --------------------------------------------------------
+
+const numbered = (text: string, id: string, indent = 0) => ({
+  type: 'numberedList',
+  attrs: {
+    [BLOCK_ATTRS.id]: id,
+    [BLOCK_ATTRS.props]: null,
+    [BLOCK_ATTRS.indent]: indent > 0 ? String(indent) : null,
+  },
+  content: [{ type: 'text', text }],
+});
+
+const numbersFor = (content: unknown[]): number[] =>
+  computeListNumbers(schema.nodeFromJSON({ type: 'doc', content })).map((i) => i.number);
+
+test('a run of numbered items counts up', () => {
+  assert.deepEqual(
+    numbersFor([
+      numbered('one', 'a1'),
+      numbered('two', 'a2'),
+      numbered('three', 'a3'),
+    ]),
+    [1, 2, 3],
+  );
+});
+
+test('a deeper run restarts at 1 and the outer run continues', () => {
+  // The rule CSS counters cannot express: there is no element to hang a
+  // counter-reset on, because these are flat siblings (ADR-0018).
+  assert.deepEqual(
+    numbersFor([
+      numbered('one', 'a1'),
+      numbered('one a', 'a2', 1),
+      numbered('one b', 'a3', 1),
+      numbered('two', 'a4'),
+    ]),
+    [1, 1, 2, 2],
+  );
+});
+
+test('a paragraph between items restarts the numbering', () => {
+  // What every word processor does, and what people expect.
+  assert.deepEqual(
+    numbersFor([
+      numbered('one', 'a1'),
+      numbered('two', 'a2'),
+      paragraph('interruption', 'a3'),
+      numbered('one again', 'a4'),
+    ]),
+    [1, 2, 1],
+  );
+});
+
+test('a nested paragraph does not interrupt the outer run', () => {
+  // A note indented under item 2 must not stop item 3 from following.
+  assert.deepEqual(
+    numbersFor([
+      numbered('one', 'a1'),
+      numbered('two', 'a2'),
+      paragraph('a note about two', 'a3', 1),
+      numbered('three', 'a4'),
+    ]),
+    [1, 2, 3],
+  );
+});
+
+test('returning to a shallower level continues where it left off', () => {
+  assert.deepEqual(
+    numbersFor([
+      numbered('one', 'a1'),
+      numbered('one a', 'a2', 1),
+      numbered('two', 'a3'),
+      numbered('two a', 'a4', 1),
+    ]),
+    [1, 1, 2, 1],
+  );
+});
+
+test('bullets between numbered items at a deeper level do not disturb them', () => {
+  assert.deepEqual(
+    numbersFor([
+      numbered('one', 'a1'),
+      block('bulletList', 'a bullet', 'a2'),
+      numbered('one again', 'a3'),
+    ]),
+    [1, 1],
+    'a bullet at the same level ends the run',
+  );
+});
+
+test('a document with no numbered items yields nothing', () => {
+  assert.deepEqual(numbersFor([paragraph('just text', 'a1')]), []);
+});
+
+
+// --- seeding ---------------------------------------------------------------
+
+test('an empty page is seeded with one paragraph', () => {
+  // The ProseMirror schema requires block+, but a fresh Yjs fragment is empty,
+  // so binding an editor to it yields an invalid document. y-prosemirror does
+  // not seed one.
+  const ydoc = new Y.Doc();
+  const fragment = pageContent(ydoc);
+  assert.equal(fragment.length, 0);
+
+  assert.equal(seedEmptyPage(fragment, () => 'seed-id'), true);
+  assert.equal(fragment.length, 1);
+
+  const { blocks } = readBlockTree(ydoc);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0]!.type, 'paragraph');
+  assert.equal(blocks[0]!.id, 'seed-id');
+  ydoc.destroy();
+});
+
+test('seeding a non-empty page does nothing', () => {
+  const ydoc = new Y.Doc();
+  jsonToFragment(
+    schema.nodeFromJSON({ type: 'doc', content: [paragraph('existing', 'x')] }),
+    pageContent(ydoc),
+  );
+  assert.equal(seedEmptyPage(pageContent(ydoc), () => 'unused'), false);
+  assert.equal(readBlockTree(ydoc).blocks.length, 1);
   ydoc.destroy();
 });

@@ -10,7 +10,7 @@ import type { PageHandle } from '@sone/client';
 import { DOC_KEYS, PAGE_KEYS } from '@sone/core';
 import { useEffect, useState , type ReactElement } from 'react';
 
-import { BlockView } from './BlockView.tsx';
+import { EditorSurface } from './EditorSurface.tsx';
 
 interface PageViewProps {
   handle: PageHandle;
@@ -57,7 +57,7 @@ export function PageView({ handle }: PageViewProps): ReactElement {
         <p className="muted">You have read-only access to this page.</p>
       )}
 
-      <BlockView doc={handle.doc} />
+      <EditorSurface handle={handle} />
     </div>
   );
 }

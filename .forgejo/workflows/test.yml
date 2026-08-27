@@ -102,6 +102,12 @@ jobs:
           corepack enable
           pnpm install --frozen-lockfile
 
+      - name: Check workspace dependency build order
+        # A typecheck script that does not build its workspace dependencies
+        # passes where a build has already run and fails on a clean checkout.
+        # That has happened twice; checked mechanically now.
+        run: node scripts/check-workspace-deps.mjs
+
       - name: Check for duplicate CRDT copies
         # Two copies of Yjs in one process break instanceof, so a document made
         # by one is unrecognisable to the other — documents that silently refuse

@@ -167,6 +167,12 @@ importers:
       '@sone/core':
         specifier: workspace:*
         version: link:../core
+      '@sone/editor':
+        specifier: workspace:*
+        version: link:../editor
+      prosemirror-view:
+        specifier: 1.42.3
+        version: 1.42.3
       react:
         specifier: ^19.0.0
         version: 19.2.8
