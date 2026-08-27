@@ -24,6 +24,7 @@ import {
   MoveIcon,
   PencilIcon,
   PlusIcon,
+  StarIcon,
   TrashIcon,
 } from './icons.tsx';
 
@@ -34,6 +35,8 @@ interface EntryMenuProps {
   onDelete: (pageId: string, descendants: number) => void;
   onStartRename: (pageId: string) => void;
   onStartMove: (pageId: string) => void;
+  isFavourite: boolean;
+  onToggleFavourite: (pageId: string, favourite: boolean) => void;
 }
 
 /** Descendant count, for telling someone what a delete will take with it. */
@@ -47,6 +50,8 @@ export function EntryMenu({
   onDelete,
   onStartRename,
   onStartMove,
+  isFavourite,
+  onToggleFavourite,
 }: EntryMenuProps): ReactElement {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -107,6 +112,19 @@ export function EntryMenu({
             }}
           >
             <PencilIcon /> Rename
+          </button>
+
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onToggleFavourite(node.id, !isFavourite);
+            }}
+          >
+            <StarIcon data-filled={isFavourite ? 'true' : 'false'} />{' '}
+            {isFavourite ? 'Remove from favourites' : 'Add to favourites'}
           </button>
 
           <button

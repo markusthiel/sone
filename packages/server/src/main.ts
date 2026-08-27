@@ -36,6 +36,7 @@ import { registerHealthRoutes, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
 import { Router } from './http/router.js';
 import { registerWorkspaceRoutes } from './http/workspaces.js';
+import { registerFavouriteRoutes } from './http/favourites.js';
 import { registerFileRoutes } from './files/routes.js';
 import { LocalFileStore } from './files/store.js';
 import { createStaticHandler } from './http/static.js';
@@ -154,6 +155,7 @@ async function main(): Promise<void> {
   });
   registerPageRoutes(router, { pool });
   registerWorkspaceRoutes(router, { pool });
+  registerFavouriteRoutes(router, { pool });
   registerFileRoutes(router, {
     pool,
     // Only the local backend exists so far. The interface is in place so an S3

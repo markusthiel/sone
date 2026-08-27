@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Favourites.** Star a page or folder from its menu; favourites sit at the top
+of the sidebar and can be reordered. They are yours, not the page's — nobody
+you share a page with can see that you keep a shortcut to it.
+
 **Entries can be moved between folders.** "Move to…" in a row's menu opens a
 folder picker with a filter. Destinations that would not work are listed with
 the reason rather than hidden — a folder missing from a list looks like a bug or
