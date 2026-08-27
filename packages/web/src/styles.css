@@ -123,6 +123,30 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   overflow-y: auto;
 }
 
+/* The scrim is positioned and hidden OUTSIDE any media query.
+ *
+ * It used to be styled only inside the narrow-screen block, which meant that on
+ * a wide screen it was an unstyled <button> sitting in normal flow — and since
+ * `.app` is a grid, it became the first grid item. The sidebar was pushed into
+ * the second column and the content below it. Opening the drawer on a desktop
+ * therefore destroyed the layout, which is exactly what it looked like.
+ *
+ * Default-hidden here, shown only where a drawer exists. A component that only
+ * makes sense at one breakpoint has to be inert at the others rather than
+ * unstyled. */
+.scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgb(0 0 0 / 40%);
+  border: 0;
+}
+
+/* Same reasoning for the drawer toggle: on a wide screen the sidebar is always
+   visible, so a button to reveal it has nothing to do. */
+.drawer-toggle { display: none; }
+
 @media (max-width: 799px) {
   /* On a narrow screen the sidebar is a drawer, present in the DOM either way
      so its state is not lost on resize. */
@@ -137,13 +161,8 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   }
   html[dir='rtl'] .sidebar { transform: translateX(102%); }
   .sidebar.open { transform: none; }
-  .scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 10;
-    background: rgb(0 0 0 / 40%);
-    border: 0;
-  }
+  .scrim { display: block; }
+  .drawer-toggle { display: inline-flex; align-items: center; justify-content: center; }
 }
 
 .sidebar-head {
@@ -161,11 +180,55 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   white-space: nowrap;
 }
 
+.sidebar-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  margin-block-end: 6px;
+  padding: 6px 8px;
+  border-radius: var(--sone-radius);
+  color: var(--sone-text-muted);
+  /* Smaller than a page entry on purpose: it is navigation, not content, and at
+     the same weight it read as the largest thing in the sidebar. */
+  font-size: 0.88rem;
+}
+.sidebar-search:hover {
+  background: var(--sone-bg-hover);
+  color: var(--sone-text);
+  text-decoration: none;
+}
+
 .tree-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 36px;
+  gap: 2px;
+  min-height: 34px;
+}
+
+/* Disclosure triangle. Always present in the layout — as a transparent
+   placeholder for a page with no children — so page titles line up whether or
+   not they have children. Titles that shift as children appear are worse than
+   a little unused space. */
+.tree-twisty {
+  flex: none;
+  inline-size: 20px;
+  min-block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: 0.65rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.tree-twisty:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.tree-twisty[aria-expanded='true'] { transform: rotate(90deg); }
+.tree-twisty[data-placeholder='true'] {
+  visibility: hidden;
+  cursor: default;
 }
 
 .tree-link {

@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: opening the sidebar on a wide screen destroyed the layout.** The
+backdrop behind the mobile drawer was only styled inside the narrow-screen
+media query, so on a desktop it was an unstyled button sitting in the page
+grid — it took the first column and pushed the sidebar and content out of
+place. It is now positioned and hidden regardless of width, and the drawer
+button is hidden where the sidebar is always visible.
+
+**The page tree collapses.** Disclosure triangles on pages with subpages, with
+the state remembered per browser. A collapsed branch still opens itself to
+reveal the page you navigate to.
+
 **Fixed: indenting a block detached its children.** Indenting shifted only the
 selected block, so blocks nested beneath it became its siblings — quietly, with
 nothing throwing and nothing looking wrong. Every operation on a block now

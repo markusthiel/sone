@@ -148,8 +148,11 @@ function Workspace({
 
       <div className="main">
         <div className="topbar">
+          {/* Hidden by CSS at widths where the sidebar is always visible: a
+              button to reveal something already on screen has nothing to do,
+              and pressing it used to break the layout. */}
           <button
-            className="quiet"
+            className="quiet drawer-toggle"
             type="button"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open navigation"
