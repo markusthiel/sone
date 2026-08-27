@@ -92,8 +92,8 @@ used rather than admired.
 
 ```
 packages/core      data model, block tree, schema and document migrations
-packages/client     sync connection, document store, queries — no React
-packages/editor    block layer on the vendored ProseMirror
+packages/client    sync connection, document store, presence — no React
+packages/editor    block layer on the vendored ProseMirror (not started)
 packages/server    sync server, HTTP API, auth, materialisation
 packages/web       React client — no WebSocket, no Y.Doc
 vendor/prosemirror git subtree, not an npm dependency
@@ -115,9 +115,10 @@ estimates.
 1. **Server core** (1–4) — schema, auth, Yjs sync server, materialisation,
    Docker setup. *Substantially complete: schema, document store,
    materialiser, rebuild command, auth, sessions, invitations, share links and
-   the WebSocket sync server are in. Remaining: REST API and the maintenance
-   job.*
-2. **Editor and web client** (5–9) — block layer, live editing, presence.
+   the WebSocket sync server, the HTTP API and the maintenance job are in.*
+2. **Editor and web client** (5–9) — *In progress: the web client shell, auth,
+   page tree, live-synced titles, presence and search work. The editable block
+   surface is the remaining piece and needs the vendored ProseMirror.*
 3. **Collections** (10–14) — fields, table and board views, filters, sorting.
 4. **Sharing** (15–17) — share tokens, guests, editable links, granular
    permissions.

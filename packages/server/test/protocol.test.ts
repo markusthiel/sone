@@ -194,7 +194,8 @@ test('a mismatched protocol version is rejected', () => {
 
 test('auth with both credentials is rejected', () => {
   // Accepting both would make it ambiguous which credential produced the
-  // resulting claims.
+  // resulting claims. Neither is fine — that means the cookie — but both is
+  // not.
   const e = encoding.createEncoder();
   encoding.writeVarUint(e, ClientMessage.Auth);
   encoding.writeVarString(
@@ -209,14 +210,22 @@ test('auth with both credentials is rejected', () => {
   assert.throws(() => decodeClientMessage(encoding.toUint8Array(e)), ProtocolError);
 });
 
-test('auth with neither credential is rejected', () => {
+test('auth with neither credential is accepted and means cookie auth', () => {
+  // A browser cannot read its own HttpOnly session cookie to put it here. The
+  // cookie travels with the upgrade request instead, and the server reads it
+  // there — so an auth message with no token is the normal browser case, not a
+  // protocol error. Authorisation still happens; it just uses the cookie.
   const e = encoding.createEncoder();
   encoding.writeVarUint(e, ClientMessage.Auth);
   encoding.writeVarString(
     e,
     JSON.stringify({ protocolVersion: PROTOCOL_VERSION, workspaceId: WORKSPACE }),
   );
-  assert.throws(() => decodeClientMessage(encoding.toUint8Array(e)), ProtocolError);
+  const decoded = decodeClientMessage(encoding.toUint8Array(e));
+  assert.equal(decoded.type, ClientMessage.Auth);
+  if (decoded.type !== ClientMessage.Auth) throw new Error('unreachable');
+  assert.equal(decoded.payload.sessionToken, undefined);
+  assert.equal(decoded.payload.shareToken, undefined);
 });
 
 test('a non-uuid workspace or page id is rejected', () => {

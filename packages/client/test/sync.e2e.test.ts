@@ -244,6 +244,57 @@ describe('client end to end', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
     assert.equal(client.state, 'closed');
   });
 
+  test('a browser authenticates with the session cookie alone', async () => {
+    // The session cookie is HttpOnly, so JavaScript cannot read it to put in
+    // the auth message. It does travel with the WebSocket upgrade request,
+    // which is where the server reads it. Making the cookie readable to send
+    // it explicitly would hand any XSS a usable credential.
+    await seedPage(uuid(1), 'Cookie auth');
+
+    const client = new SoneClient({
+      url,
+      // No sessionToken and no shareToken.
+      credentials: { workspaceId },
+      socketFactory: (target) => {
+        const socket = new WebSocket(target, {
+          headers: { cookie: `sone_session=${encodeURIComponent(sessionToken)}` },
+        }) as unknown as SocketLike;
+        socket.binaryType = 'arraybuffer';
+        return socket;
+      },
+      pingIntervalMs: 0,
+    });
+    clients.push(client);
+    client.connect();
+
+    await waitFor(() => client.state === 'ready', 'ready via cookie');
+    assert.equal(client.connection.authAck?.workspaceRole, 'owner');
+
+    const handle = client.openPage(uuid(1));
+    await waitFor(() => handle.status === 'synced', 'synced');
+    assert.equal(
+      handle.doc.getMap(DOC_KEYS.page).get(PAGE_KEYS.title),
+      'Cookie auth',
+    );
+  });
+
+  test('no credential at all is refused', async () => {
+    const fatals: string[] = [];
+    const client = makeClient({
+      credentials: { workspaceId },
+      socketFactory: (target) => {
+        // No cookie header either.
+        const socket = new WebSocket(target) as unknown as SocketLike;
+        socket.binaryType = 'arraybuffer';
+        return socket;
+      },
+      onFatal: (code) => fatals.push(code),
+    });
+    client.connect();
+    await waitFor(() => fatals.length > 0, 'a fatal error');
+    assert.deepEqual(fatals, ['auth_failed']);
+  });
+
   // --- documents -----------------------------------------------------------
 
   test('opens a page and syncs its existing content', async () => {

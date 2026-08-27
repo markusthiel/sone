@@ -36,16 +36,33 @@ means and why.
    git push origin v0.1.0
    ```
 
-8. Build and push images with `SONE_VERSION` and `SONE_COMMIT` baked in:
+8. Build and push images with `SONE_VERSION` and `SONE_COMMIT` baked in.
+
+   Images live in the project's own Forgejo container registry, which is the
+   same host as the source. One less account for anyone mirroring the project,
+   and no dependency on a third party staying friendly.
 
    ```sh
+   REGISTRY=forgejo.thiel.tools/thiel/sone
+   docker login forgejo.thiel.tools
+
    docker build -f docker/Dockerfile \
      --build-arg SONE_VERSION=0.1.0 \
      --build-arg SONE_COMMIT="$(git rev-parse HEAD)" \
-     -t ghcr.io/desico/sone:0.1.0 \
-     -t ghcr.io/desico/sone:0.1 \
-     -t ghcr.io/desico/sone:latest .
+     -t "$REGISTRY:0.1.0" \
+     -t "$REGISTRY:0.1" \
+     -t "$REGISTRY:latest" .
+
+   docker push "$REGISTRY:0.1.0"
+   docker push "$REGISTRY:0.1"
+   docker push "$REGISTRY:latest"
    ```
+
+   The registry must be publicly readable, or `docker compose up` fails for
+   everyone but the maintainer. Check under Packages → the image → Settings
+   after the first push; Forgejo inherits visibility from the repository, so a
+   package pushed while the repo was private stays private even after the repo
+   is made public.
 
 9. Bump the root `package.json` to the next `-dev` version on `main`.
 

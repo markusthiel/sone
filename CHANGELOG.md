@@ -49,7 +49,13 @@ edits that reconcile on reconnect without an explicit queue. Proven by an
 end-to-end suite running a real client against a real server against a real
 Postgres.
 
-Not working yet: there is no user interface. Everything above is reachable only
+A web client exists. Setup, sign-in, invitations, a page tree, live-synced page
+titles, presence, search and share links all work in the browser. Two windows
+on the same page see each other's changes and each other's cursors.
+
+Not working yet: the editable block surface. Page bodies render read-only until
+the editor lands, so a page can be created, titled and shared but its content
+cannot yet be typed. Everything above is reachable only
 over the API and the sync protocol.
 
 **Upgrades.** The intended experience for every release, major or not, is

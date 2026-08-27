@@ -107,7 +107,14 @@ export const LIMITS = {
 export interface AuthPayload {
   protocolVersion: number;
   workspaceId: string;
-  /** Session token, or a share token. Exactly one. */
+  /**
+   * Session token, or a share token, or neither.
+   *
+   * Neither means "use the session cookie from the upgrade request". That is
+   * the normal case for a browser: the cookie is HttpOnly, so JavaScript
+   * cannot read it to send here — and making it readable to work around that
+   * would hand any XSS a usable credential.
+   */
   sessionToken?: string;
   shareToken?: string;
   /** For share links: display name and optional password. */
@@ -347,10 +354,9 @@ function validateAuth(value: unknown): AuthPayload {
 
   const sessionToken = optionalString(v['sessionToken'], 'sessionToken');
   const shareToken = optionalString(v['shareToken'], 'shareToken');
-  if ((sessionToken === undefined) === (shareToken === undefined)) {
-    // Both or neither. Accepting both would make it ambiguous which
-    // credential the resulting claims came from.
-    throw new ProtocolError('auth: exactly one of sessionToken or shareToken required');
+  if (sessionToken !== undefined && shareToken !== undefined) {
+    // Ambiguous which credential the resulting claims came from.
+    throw new ProtocolError('auth: sessionToken and shareToken are mutually exclusive');
   }
 
   const payload: AuthPayload = {
