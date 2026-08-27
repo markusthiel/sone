@@ -19,7 +19,16 @@ RUN pnpm build && pnpm prune --prod
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-ENV NODE_ENV=production PORT=3000
+
+# Baked in at build time: running code has no other way to know which tag
+# produced it. Reported by /api/version so an operator can check without
+# inspecting the image.
+ARG SONE_VERSION=dev
+ARG SONE_COMMIT=unknown
+ENV NODE_ENV=production \
+    PORT=3000 \
+    SONE_VERSION=$SONE_VERSION \
+    SONE_COMMIT=$SONE_COMMIT
 
 RUN addgroup -g 10001 sone \
  && adduser -u 10001 -G sone -S -h /app sone \

@@ -127,6 +127,28 @@ stage rather than being folded into another: mobile (effectively a second
 application), the formula engine (a compiler project), and sync correctness
 under poor network conditions.
 
+## Versions and upgrades
+
+Not yet released; no tags exist. The bar for the first one is in
+[ADR-0013](docs/adr/0013-versioning-and-releases.md).
+
+The version number answers one question — *what do I have to do to upgrade?*
+
+- **PATCH** — pull and restart.
+- **MINOR** — pull and restart; migrations run automatically.
+- **MAJOR** — read the [changelog](CHANGELOG.md) first, there is something to do.
+
+That is narrower than library SemVer and more useful for a self-hosted product.
+Four contracts version independently — the persisted document format, the sync
+wire protocol, the database schema, and the HTTP API — and `/api/version`
+reports them, because one number cannot express four axes.
+
+Migrations are forward-only. A rollback is a backup restore.
+
+**Pre-1.0, the persisted document format may change in a minor release** and a
+document migration may be required. Do not put anything you care about into a
+pre-1.0 instance without a backup you have tested restoring.
+
 ## Testing
 
 ```sh

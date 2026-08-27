@@ -1,4 +1,10 @@
-// Container healthcheck. Exits 0 when the app answers /api/health.
+// Container healthcheck.
+//
+// Deliberately hits /api/health (liveness) and not /api/ready (readiness).
+// Docker restarts a container whose healthcheck fails, so making this depend
+// on Postgres would mean a brief database blip restarts a server that would
+// have recovered on its own. Readiness is for a load balancer, which removes
+// an instance from rotation instead of killing it.
 const url = `http://127.0.0.1:${process.env.PORT ?? 3000}/api/health`;
 try {
   const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
