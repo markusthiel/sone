@@ -83,6 +83,41 @@ test('markers are sized in both directions and opt out of any minimum', () => {
   assert.match(marker[1]!, /block-size:\s*var\(--sone-marker\)/);
 });
 
+test('the gutter width in the stylesheet matches the one used to place it', () => {
+  // The gutter is positioned from its right edge, so the code has to know how
+  // wide it is. Two places holding one number drift; this notices.
+  // readFileSync is already imported at the top of this file; ESM has no
+  // require, which the first version of this test forgot.
+  const source = readFileSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/components/BlockMenu.tsx'),
+    'utf8',
+  );
+  const inCode = /const GUTTER_WIDTH = (\d+)/.exec(source)?.[1];
+  const inCss = /\.block-gutter \{[^}]*inline-size:\s*(\d+)px/.exec(css)?.[1];
+
+  assert.ok(inCode, 'GUTTER_WIDTH should be declared');
+  assert.ok(inCss, '.block-gutter should set an explicit width');
+  assert.equal(inCss, inCode, 'the stylesheet and the placement disagree');
+});
+
+test('narrow screens reserve room for the gutter', () => {
+  // On a phone the content runs edge to edge, and without extra padding the
+  // controls have nowhere to go but on top of the first line.
+  const editorPadding = /\.editor-surface[\s\S]{0,600}?padding-inline-start:\s*([\d.]+)rem/.exec(css);
+  const narrowPadding = /@media \(max-width: 60rem\)[\s\S]{0,200}?padding-inline-start:\s*(\d+)px/.exec(css);
+  const gutterWidth = /\.block-gutter \{[^}]*inline-size:\s*(\d+)px/.exec(css);
+
+  assert.ok(narrowPadding, 'narrow screens should reserve extra padding');
+  assert.ok(gutterWidth, '.block-gutter should have a width');
+
+  const reserved =
+    Number(narrowPadding[1]) + (editorPadding ? Number(editorPadding[1]) * 16 : 0);
+  assert.ok(
+    reserved >= Number(gutterWidth[1]),
+    `only ${reserved}px reserved for a ${gutterWidth[1]}px gutter`,
+  );
+});
+
 test('no control invents its own tap size', () => {
   // A hand-written 44px is a scale value that has drifted from the scale.
   const offenders = [...css.matchAll(/min-(?:height|block-size):\s*44px/g)];

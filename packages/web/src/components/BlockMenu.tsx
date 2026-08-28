@@ -51,6 +51,17 @@ interface Action {
   destructive?: boolean;
 }
 
+/** Clearance between the gutter controls and the text they sit beside. */
+const GUTTER_GAP = 6;
+
+/**
+ * The gutter's width, matching `.block-gutter` in the stylesheet.
+ *
+ * Fixed there rather than left to the content, so the first placement is
+ * correct instead of being measured a frame later and moving.
+ */
+const GUTTER_WIDTH = 54;
+
 export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | null {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -80,10 +91,34 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
 
       const box = blockElement.getBoundingClientRect();
       const editorBox = view.dom.getBoundingClientRect();
+
+      // Placed so its *right* edge stops short of the text, rather than its
+      // left edge starting at the editor's.
+      //
+      // The previous version put the left edge four pixels outside the editor
+      // box and a comment claimed that was the gutter the padding reserves. The
+      // padding is 24px and the two controls are about 50px wide, so half of
+      // the gutter sat on top of the first line — which is exactly what it
+      // looked like.
+      //
+      // Both numbers are measured rather than assumed: the padding is a custom
+      // property that can change, and the width depends on how many controls
+      // are rendered.
+      const padding = Number.parseFloat(
+        getComputedStyle(view.dom).paddingInlineStart || '0',
+      );
+      // Measured when the gutter exists, and otherwise the width the
+      // stylesheet gives it. The fallback is only used on the very first
+      // placement, and a test keeps the two in step.
+      const gutterWidth = gutterRef.current?.offsetWidth || GUTTER_WIDTH;
+      const textStart = editorBox.left + (Number.isFinite(padding) ? padding : 0);
+
       setAnchor({
         top: box.top,
-        // Left of the text column, in the gutter the editor's padding reserves.
-        left: editorBox.left - 4,
+        // Clamped to the viewport: on a narrow screen there may genuinely be no
+        // room beside the text, and a control pushed off the left edge is worse
+        // than one that overlaps slightly.
+        left: Math.max(2, textStart - gutterWidth - GUTTER_GAP),
       });
     } catch {
       // A stale position for a frame after a document change. Retried on the

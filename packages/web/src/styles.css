@@ -373,6 +373,21 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   padding: 24px 20px 40vh;
 }
 
+/* Reserve room for the gutter controls where the screen is too narrow to have
+   it for free.
+ *
+ * On a wide screen the content is centred and there is space either side. On a
+ * phone the body runs edge to edge, leaving 44px to the left of the text — and
+ * the two controls plus their clearance need 60. The shortfall used to be taken
+ * out of the first line, which is what "the handle sits in the text" was.
+ *
+ * Sixteen pixels of line width is the price. It is the right way round: text
+ * that starts slightly further in is a smaller loss than controls printed on
+ * top of the words. */
+@media (max-width: 60rem) {
+  .page-body { padding-inline-start: 36px; }
+}
+
 .page-title {
   font-size: 2rem;
   font-weight: 700;
@@ -888,7 +903,12 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   z-index: 30;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 1px;
+  /* Fixed, and matching GUTTER_WIDTH in BlockMenu.tsx: the position is computed
+     from the right edge, so a width that depends on the content would place the
+     controls a frame late and then move them. */
+  inline-size: 54px;
 }
 
 .block-insert,
