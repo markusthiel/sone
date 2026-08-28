@@ -28,7 +28,7 @@ import { usePages } from './hooks/usePages.ts';
 import { useFavourites } from './hooks/useFavourites.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
-import type { PageNode } from './api/client.ts';
+import { api, type PageNode } from './api/client.ts';
 import { paths } from './routes/paths.ts';
 
 export function App(): ReactElement {
@@ -449,7 +449,39 @@ function ShareSession({
     shareToken: token,
     displayName,
   });
-  const handle = usePage(client, pageId);
+  // A link may carry no page in its path.
+  //
+  // Every link created before this did not: the URL was /s/<token>, and the
+  // client had a credential with nothing to open — so it sat on "Opening…"
+  // indefinitely. Newer links include the page, and this resolves the older
+  // ones, which matters because a share link is a public contract (ADR-0016).
+  const [resolvedPageId, setResolvedPageId] = useState<string | null>(null);
+  const [unresolvable, setUnresolvable] = useState(false);
+
+  useEffect(() => {
+    if (pageId !== null) return;
+    let cancelled = false;
+
+    void api
+      .resolveShare(token)
+      .then((result) => {
+        if (cancelled) return;
+        // A password-protected link reports only that a password is needed; the
+        // page arrives once the connection is unlocked, which the sync layer
+        // handles.
+        if (result.pageId) setResolvedPageId(result.pageId);
+      })
+      .catch(() => {
+        if (!cancelled) setUnresolvable(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, pageId]);
+
+  const effectivePageId = pageId ?? resolvedPageId;
+  const handle = usePage(client, effectivePageId);
   const [password, setPassword] = useState('');
 
   if (passwordRequired) {
@@ -481,7 +513,7 @@ function ShareSession({
     );
   }
 
-  if (fatal) {
+  if (fatal || unresolvable) {
     return (
       <div className="centered">
         <div className="card">
@@ -500,8 +532,8 @@ function ShareSession({
         <div className="topbar">
           <PageStatus handle={handle} connectionState={state} />
         </div>
-        {handle && pageId ? (
-          <PageView handle={handle} pageId={pageId} />
+        {handle && effectivePageId ? (
+          <PageView handle={handle} pageId={effectivePageId} />
         ) : (
           <div className="page-body">
             <p className="muted">Opening…</p>

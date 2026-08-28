@@ -134,6 +134,91 @@ describe(
       return (await expectJson<{ links: Array<Record<string, unknown>> }>(res)).links;
     };
 
+    // --- resolving a bare token --------------------------------------------
+
+    test('a token resolves to the page it opens', async () => {
+      // The fix for every link already sent out: those carry no page in the
+      // path, and without this the client had a credential and nothing to open.
+      // With edit rights, which is the case that was reported: opening an
+      // editable link showed "Opening…" and nothing else.
+      const session = await setup();
+      const created = await expectJson<{ token: string }>(
+        await create(session.cookie, session.pageId, { role: 'editor' }),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/share/${created.token}`);
+      const body = await expectJson<{
+        requiresPassword: boolean;
+        pageId: string;
+        title: string;
+        role: string;
+      }>(res);
+
+      assert.equal(body.requiresPassword, false);
+      assert.equal(body.pageId, session.pageId, 'the page the client must open');
+      assert.equal(body.role, 'editor', 'and that it may be edited');
+    });
+
+    test('resolving needs no session, because the token is the credential', async () => {
+      const session = await setup();
+      const created = await expectJson<{ token: string }>(
+        await create(session.cookie, session.pageId),
+        201,
+      );
+      // No cookie at all.
+      await expectStatus(await fetch(`${base}/api/share/${created.token}`), 200);
+    });
+
+    test('a protected link reports the requirement and nothing else', async () => {
+      // A password protects the content, and a title is content.
+      const session = await setup();
+      const created = await expectJson<{ token: string }>(
+        await create(session.cookie, session.pageId, { password: 'a-long-enough-one' }),
+        201,
+      );
+
+      const body = await expectJson<{ requiresPassword: boolean; pageId?: string }>(
+        await fetch(`${base}/api/share/${created.token}`),
+      );
+      assert.equal(body.requiresPassword, true);
+      assert.equal(body.pageId, undefined, 'the page is not revealed yet');
+    });
+
+    test('a revoked, expired or invented token all answer the same', async () => {
+      // Telling them apart would let somebody probe for tokens that once
+      // worked.
+      const session = await setup();
+      const created = await expectJson<{ token: string; id: string }>(
+        await create(session.cookie, session.pageId),
+        201,
+      );
+      await fetch(
+        `${base}/api/pages/${session.pageId}/share-links/${created.id}`,
+        { method: 'DELETE', headers: { cookie: session.cookie } },
+      );
+
+      for (const token of [created.token, 'never-existed']) {
+        const res = await fetch(`${base}/api/share/${token}`);
+        assert.equal(res.status, 404, token);
+        assert.deepEqual(await res.json(), { error: 'not_found' });
+      }
+    });
+
+    test('a token whose page was archived is a dead link', async () => {
+      // A clearer answer than an empty document.
+      const session = await setup();
+      const created = await expectJson<{ token: string }>(
+        await create(session.cookie, session.pageId),
+        201,
+      );
+      await db.query(`UPDATE pages SET archived_at = now() WHERE id = $1`, [
+        session.pageId,
+      ]);
+
+      assert.equal((await fetch(`${base}/api/share/${created.token}`)).status, 404);
+    });
+
     test('a link can be created and carries a usable URL', async () => {
       const session = await setup();
       const body = await expectJson<{ token: string; url: string }>(
@@ -141,7 +226,17 @@ describe(
         201,
       );
       assert.ok(body.token.length > 20, 'a token should be long enough to not guess');
-      assert.equal(body.url, `https://sone.example.org/s/${body.token}`);
+      // The page is in the path.
+      //
+      // This test previously asserted the URL *without* it, which is how the
+      // bug was locked in: a visitor arrived with a credential and nothing to
+      // open, and the client sat on "Opening…" forever. /api/share/:token can
+      // resolve a bare token, but a self-describing link works before that
+      // request finishes and survives it failing.
+      assert.equal(
+        body.url,
+        `https://sone.example.org/s/${body.token}/p/${session.pageId}`,
+      );
     });
 
     test('the token is never returned again', async () => {

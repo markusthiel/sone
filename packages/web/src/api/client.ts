@@ -437,6 +437,21 @@ export const api = {
       body: JSON.stringify(changes),
     }),
 
+  /**
+   * What a share token opens.
+   *
+   * No session: the token is the credential. Used when a link carries no page
+   * in its path, which every link created before this did.
+   */
+  resolveShare: (token: string) =>
+    request<{
+      requiresPassword: boolean;
+      pageId?: string;
+      title?: string;
+      kind?: string;
+      role?: string;
+    }>(`/api/share/${encodeURIComponent(token)}`),
+
   collection: (pageId: string) =>
     request<CollectionData>(`/api/pages/${pageId}/collection`),
 

@@ -24,13 +24,19 @@
 import type { Pool } from 'pg';
 
 import { AuthError } from '../auth/password.js';
-import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/claims.js';
+import {
+  effectiveRole,
+  loadPageLocation,
+  resolveSessionClaims,
+  resolveShareTokenClaims,
+} from '../auth/claims.js';
 import {
   createShareLink,
   listShareLinks,
   revokeShareLink,
   type ShareLinkSummary,
 } from '../auth/share.js';
+import { queryOne } from '../db/pool.js';
 import { sessionTokenFrom } from './auth.js';
 import type { RequestContext, Router } from './router.js';
 
@@ -113,6 +119,70 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
    * a page inside it is shared. A link two levels down is exactly the one that
    * gets forgotten.
    */
+  /**
+   * What a share token opens.
+   *
+   * A link is `/s/<token>`, and until now nothing could turn that into a page —
+   * so a visitor arrived at a client that had a credential and no idea what to
+   * open, and sat on "Opening…" indefinitely. Every link ever created did this.
+   *
+   * Newly created links now carry the page in the path as well, but this
+   * endpoint is the fix rather than the belt: links already sent out have no
+   * page in them, and a link is a public contract (ADR-0016) — one sent today
+   * has to work in two years.
+   *
+   * The token is the credential, so no session is needed. What comes back is
+   * the minimum required to proceed: the page to open, and whether a password
+   * is wanted first. The title is withheld until the link is unlocked, because
+   * a password protects the content and a title is content.
+   */
+  router.get('/api/share/:token', async (ctx) => {
+    const token = ctx.params['token'] ?? '';
+    if (token === '') {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const resolved = await resolveShareTokenClaims(deps.pool, token);
+    if (!resolved) {
+      // Revoked, expired, or never existed — one answer for all three. Telling
+      // them apart would let somebody probe for tokens that once worked.
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    if (resolved.passwordRequired) {
+      ctx.send(200, { requiresPassword: true });
+      return;
+    }
+
+    const scope = resolved.claims.grants[0];
+    if (!scope) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const page = await queryOne<{ title: string; kind: string }>(
+      deps.pool,
+      `SELECT title, kind FROM pages WHERE id = $1 AND archived_at IS NULL`,
+      [scope.scopePageId],
+    );
+    if (!page) {
+      // The page was archived after the link was made. A dead link is a clearer
+      // answer than an empty document.
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    ctx.send(200, {
+      requiresPassword: false,
+      pageId: scope.scopePageId,
+      title: page.title,
+      kind: page.kind,
+      role: scope.role,
+    });
+  });
+
   router.get('/api/pages/:pageId/share-links', async (ctx) => {
     const pageId = ctx.params['pageId'] ?? '';
     const auth = await requirePageAdmin(deps.pool, ctx, pageId);
@@ -179,7 +249,16 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
         // Shown once. Only the hash is stored, so a lost link is regenerated
         // rather than recovered — the same reasoning as a password.
         token: created.token,
-        url: `${deps.publicUrl.replace(/\/$/, '')}/s/${created.token}`,
+        // The page is in the path as well as in the token.
+        //
+        // Not required — /api/share/:token resolves a bare token — but it means
+        // a link works before that request completes, and it survives the
+        // endpoint being unavailable. The slug is deliberately absent: a title
+        // in a URL that was emailed a year ago is a lie waiting to happen, and
+        // paths.ts already treats it as decorative.
+        url:
+          `${deps.publicUrl.replace(/\/$/, '')}/s/${created.token}` +
+          `/p/${pageId}`,
         expiresAt: created.expiresAt,
       });
     } catch (err) {
