@@ -13,6 +13,19 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: builds after the 0.1.0 tag would not start.** `git describe` on a
+commit after `v0.1.0` produces `0.1.0-1-g<sha>`, which semantic versioning reads
+as a *pre-release of* 0.1.0 — below the release, and below `0.1.0-rc.1-…` as
+well. The version fence correctly refused it as a downgrade, and the page stayed
+blank because nothing was running to explain why.
+
+Commits after a stable tag are now versioned as the next patch
+(`0.1.1-dev.<n>.g<sha>`), which sorts where it belongs. CI checks the ordering
+against the exact versions that caused this.
+
+**Operator note:** an instance stopped by this starts once with
+`SONE_ALLOW_DOWNGRADE=true`, or with any build from this commit onwards.
+
 **Entries can be reordered by dragging.** Dropping between two rows places an
 entry there; dropping onto the middle of a folder puts it inside. A line means
 "between", a filled row means "inside", because a drop that could mean either is

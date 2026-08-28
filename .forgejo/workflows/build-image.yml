@@ -90,27 +90,21 @@ jobs:
               *) TAGS="$TAGS ${IMAGE}:latest" ;;
             esac
           else
-            # git describe output, e.g. 0.1.0-rc.1-7-g8ff137f: the last tag,
-            # how many commits since, and the commit.
+            # Worked out by scripts/version.sh, which scripts/check-version.mjs
+            # runs directly in the test workflow — so what is tested is what
+            # ships. In shell rather than Node because this job has git and a
+            # POSIX shell and no guaranteed node.
             #
-            # NOT "<base>-dev.<commit>", which is what this used to produce and
-            # which broke a running instance. The version fence refuses a
-            # downgrade, and pre-release identifiers compare as strings — so
-            # "0.1.0-dev.abc" sorts BEFORE "0.1.0-rc.1". Every build of main
-            # after tagging a release candidate therefore looked like a
-            # downgrade, and the server refused to start. Nothing answered, not
-            # even /api/version, so the symptom was a blank page with no way to
-            # tell why.
+            # This was a shell fragment, and it was wrong twice — each time
+            # producing a version that sorted BELOW the tag it followed, so the
+            # version fence read the new build as a downgrade and refused to
+            # start. A blank page, with nothing answering to say why.
             #
-            # describe output sorts after the tag it follows, which is both
-            # correct and readable: "7 commits after rc.1".
-            DESCRIBED="$(git describe --tags --always 2>/dev/null | sed 's/^v//')"
-            case "$DESCRIBED" in
-              # No tags in the repository yet: describe returns a bare commit,
-              # which is not a version.
-              *.*) VERSION="$DESCRIBED" ;;
-              *)   VERSION="0.0.0-dev.${DESCRIBED}" ;;
-            esac
+            # The rule is one sentence and the script states it: a build of main
+            # must sort above the tag it follows. Logic that only runs in CI, on
+            # a release, is logic that is wrong in production before it is wrong
+            # anywhere else.
+            VERSION="$(sh scripts/version.sh)"
             TAGS="${IMAGE}:main"
           fi
 

@@ -188,4 +188,10 @@ needs a runner with Docker daemon access (docs/actions-runner.md).
 Afterwards, set the next development version on main:
 
   npm pkg set version=<next>-dev && git commit -am "Begin <next>"
+
+Do this before the next push. Leaving the released version in place means git
+describe produces <released>-<n>-g<sha>, which semantic versioning reads as a
+PRE-RELEASE of the version just released — so the next build of main sorts BELOW
+the release, the version fence reads it as a downgrade, and a running instance
+refuses to start with a blank page. That has happened.
 `);
