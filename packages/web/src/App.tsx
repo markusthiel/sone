@@ -281,6 +281,7 @@ function Workspace({
             trail={ancestorNodes(tree, selected.id)}
             onCreate={(parent, kind) => void onCreateEntry(parent, kind)}
             onRename={(id, title) => void renameEntry(id, title)}
+            onChanged={() => void reloadPages()}
           />
         )}
 

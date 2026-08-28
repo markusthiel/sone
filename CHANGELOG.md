@@ -13,6 +13,20 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Collections work.** "Add columns" on any folder turns it into a table: text,
+number, date, checkbox, link, email and phone columns, edited in place. The
+first column is each entry's title and opens the page, because a row *is* a
+page — a collection is a folder with columns, not a spreadsheet that happens to
+live in a notes app.
+
+Columns and values live in the documents, so they sync between people, survive a
+rebuild, and travel with an entry when it is moved out of the collection.
+
+Select, relation, formula and rollup are in the data model and deliberately not
+offered yet: each needs something that does not exist — option management, a
+second collection, an expression language — and a column nobody can fill is
+worse than no column.
+
 **Fixed: two drop lines appeared between two entries.** "Before this row" and
 "after the one above" are the same place, and each band drew its own line — so a
 single gap looked like two places to drop. The row above owns the gap below

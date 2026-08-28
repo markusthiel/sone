@@ -184,6 +184,47 @@ export interface MaintenanceReport {
   failures: Array<{ pageId: string; error: string | null }>;
 }
 
+/** A column. `config` is type-specific: select options, and so on. */
+export interface CollectionField {
+  id: string;
+  name: string;
+  description: string | null;
+  fieldType: string;
+  config: Record<string, unknown>;
+}
+
+export interface CollectionRow {
+  id: string;
+  title: string;
+  /** Keyed by field id. Absent means no value, which is not the same as empty. */
+  values: Record<string, StoredCellValue | undefined>;
+}
+
+/**
+ * A cell value, tagged with the kind it holds.
+ *
+ * The tag is not redundant with the column's type: a column can be changed, and
+ * values written before that are still the old kind until something rewrites
+ * them. A reader has to know what it is holding.
+ */
+export type StoredCellValue =
+  | { kind: 'text'; value: string }
+  | { kind: 'number'; value: number }
+  | { kind: 'checkbox'; value: boolean }
+  | { kind: 'date'; start: string; end: string | null }
+  | { kind: 'url'; value: string }
+  | { kind: 'email'; value: string }
+  | { kind: 'phone'; value: string }
+  | { kind: string; [key: string]: unknown };
+
+export interface CollectionData {
+  pageId: string;
+  titleFieldId: string;
+  canEdit: boolean;
+  fields: CollectionField[];
+  rows: CollectionRow[];
+}
+
 export interface TrashEntry {
   id: string;
   title: string;
@@ -385,6 +426,38 @@ export const api = {
     }>('/api/admin/settings', {
       method: 'PATCH',
       body: JSON.stringify(changes),
+    }),
+
+  collection: (pageId: string) =>
+    request<CollectionData>(`/api/pages/${pageId}/collection`),
+
+  createCollection: (pageId: string) =>
+    request<{ pageId: string }>(`/api/pages/${pageId}/collection`, { method: 'POST' }),
+
+  addCollectionField: (
+    pageId: string,
+    field: { name: string; fieldType: string; config?: Record<string, unknown> },
+  ) =>
+    request<{ id: string }>(`/api/pages/${pageId}/collection/fields`, {
+      method: 'POST',
+      body: JSON.stringify(field),
+    }),
+
+  renameCollectionField: (pageId: string, fieldId: string, name: string) =>
+    request<{ id: string }>(`/api/pages/${pageId}/collection/fields/${fieldId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+
+  removeCollectionField: (pageId: string, fieldId: string) =>
+    request<{ id: string }>(`/api/pages/${pageId}/collection/fields/${fieldId}`, {
+      method: 'DELETE',
+    }),
+
+  setCellValue: (rowId: string, fieldId: string, value: StoredCellValue | null) =>
+    request<{ rowId: string }>(`/api/pages/${rowId}/properties/${fieldId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
     }),
 
   trash: (workspaceId: string) =>

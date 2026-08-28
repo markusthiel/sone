@@ -13,11 +13,21 @@
 
 import { useState, type ReactElement } from 'react';
 
-import type { PageNode } from '../api/client.ts';
+import { ApiError, api, type PageNode } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
-import { FolderIcon, FolderPlusIcon, PageIcon, PlusIcon } from './icons.tsx';
+import { messageFor } from './Auth.tsx';
+import { CollectionTable } from './CollectionTable.tsx';
+import {
+  FolderIcon,
+  FolderPlusIcon,
+  PageIcon,
+  PlusIcon,
+  TableIcon,
+} from './icons.tsx';
 
 interface FolderViewProps {
+  /** Called after the folder becomes a collection, so the tree picks it up. */
+  onChanged: () => void;
   folder: PageNode;
   /** Ancestor folders, outermost first, for the breadcrumb. */
   trail: PageNode[];
@@ -30,10 +40,16 @@ export function FolderView({
   trail,
   onCreate,
   onRename,
+  onChanged,
 }: FolderViewProps): ReactElement {
   const [renaming, setRenaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const folders = folder.children.filter((child) => child.kind === 'folder');
   const pages = folder.children.filter((child) => child.kind === 'page');
+
+  // Known from the tree, so no extra request is needed to decide which view
+  // this is. The projection sets it when the document carries a collection.
+  const isCollection = folder.collectionId !== null;
 
   return (
     <div className="page-body folder-view">
@@ -75,22 +91,59 @@ export function FolderView({
         </button>
       )}
 
-      <div className="folder-actions">
-        <button type="button" className="btn" onClick={() => onCreate(folder.id, 'page')}>
-          <PlusIcon /> New page
-        </button>
-        <button type="button" className="btn" onClick={() => onCreate(folder.id, 'folder')}>
-          <FolderPlusIcon /> New folder
-        </button>
-      </div>
+      {error && <p className="error">{messageFor(error)}</p>}
 
-      {folder.children.length === 0 ? (
-        <p className="muted folder-empty">
-          This folder is empty. Add a page to start writing, or a folder to keep
-          organising.
-        </p>
+      {isCollection ? (
+        // A collection is still a folder, so it keeps the breadcrumb and the
+        // title above. What changes is that its contents are a table rather
+        // than two lists.
+        <CollectionTable
+          pageId={folder.id}
+          onCreateRow={() => onCreate(folder.id, 'page')}
+        />
       ) : (
         <>
+          <div className="folder-actions">
+            <button
+              type="button"
+              className="btn"
+              onClick={() => onCreate(folder.id, 'page')}
+            >
+              <PlusIcon /> New page
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => onCreate(folder.id, 'folder')}
+            >
+              <FolderPlusIcon /> New folder
+            </button>
+            {/* Turning a folder into a collection adds columns to what is
+                already there; it does not move or convert anything. Nothing is
+                lost by trying it, which is why it needs no confirmation. */}
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                void api
+                  .createCollection(folder.id)
+                  .then(() => onChanged())
+                  .catch((err: unknown) =>
+                    setError(err instanceof ApiError ? err.code : 'network_error'),
+                  );
+              }}
+            >
+              <TableIcon /> Add columns
+            </button>
+          </div>
+
+          {folder.children.length === 0 ? (
+            <p className="muted folder-empty">
+              This folder is empty. Add a page to start writing, or a folder to
+              keep organising, or add columns to track something across them.
+            </p>
+          ) : (
+            <>
           {/* Folders before pages, matching the sidebar. A filing system that
               orders one way in one place and another way elsewhere makes people
               hunt. */}
@@ -134,6 +187,8 @@ export function FolderView({
                 ))}
               </ul>
             </section>
+          )}
+            </>
           )}
         </>
       )}
