@@ -38,6 +38,7 @@ import { queryOne, queryRows } from '../db/pool.js';
 import { applyToDocument } from '../doc/docStore.js';
 import { rematerialize } from '../materialize/rematerialize.js';
 import { sessionTokenFrom } from './auth.js';
+import { buildViewQuery, readFilters, readSorts } from './viewQuery.js';
 import type { RequestContext, Router } from './router.js';
 
 export interface CollectionDeps {
@@ -208,12 +209,29 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     // Rows are the entries inside the folder. Archived ones are excluded for
     // the same reason they are excluded from the tree: they are in the trash,
     // and a table that shows deleted rows is a table nobody trusts.
+    //
+    // Filtered and sorted here rather than in the client. The projection exists
+    // so a view can ask for what it needs without loading every row's document
+    // (ADR-0004), and doing this after fetching everything would stop working
+    // at exactly the size where a collection starts to matter.
+    const view = ctx.url.searchParams.get('view');
+    const chosen = view ? views.find((entry) => entry.id === view) : undefined;
+    const fieldTypes = new Map(fields.map((field) => [field.id, field.field_type]));
+
+    const built = buildViewQuery(
+      chosen ? readFilters(chosen.definition) : [],
+      chosen ? readSorts(chosen.definition) : [],
+      fieldTypes,
+      2,
+    );
+
     const rows = await queryRows<{ id: string; title: string; idx: string }>(
       deps.pool,
-      `SELECT id, title, idx FROM pages
-        WHERE parent_page_id = $1 AND archived_at IS NULL
-        ORDER BY idx, id`,
-      [pageId],
+      `SELECT p.id, p.title, p.idx FROM pages p
+        WHERE p.parent_page_id = $1 AND p.archived_at IS NULL
+          ${built.where ? `AND ${built.where}` : ''}
+        ORDER BY ${built.orderBy ? `${built.orderBy}, ` : ''}p.idx, p.id`,
+      [pageId, ...built.params],
     );
 
     const values = await queryRows<{ page_id: string; field_id: string; value: unknown }>(

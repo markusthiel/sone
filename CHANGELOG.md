@@ -13,6 +13,21 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: deleting anything from a document did not reach the projection.** A
+removed column stayed in every table, because the check for "did this change
+anything" compared Yjs state vectors — and a deletion does not advance one. This
+affected every delete made through that path.
+
+**Fixed: the typed columns behind sorting and filtering were never filled.** A
+row finds its collection by being inside the folder, and the materialiser was
+looking for it on the row's own document, where nothing writes it. Values still
+read back correctly, which is why nothing looked wrong until something tried to
+sort on them.
+
+**Collections can filter and sort**, in the database rather than in the browser.
+A view's rules live in its definition; unknown columns are skipped rather than
+failing, because a view lives in a document other people edit.
+
 **Fixed: every caret still said "Someone".** Updating presence merged the new
 fields and left the editor's copy of the name behind, so somebody who gave their
 name after connecting showed correctly in the avatars and as "Someone" beside
