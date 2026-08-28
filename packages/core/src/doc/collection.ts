@@ -74,12 +74,13 @@ export const MAX_VIEWS = 16;
  */
 export function initCollection(
   doc: Y.Doc,
-  options: { titleFieldId: string; titleName?: string },
+  options: { collectionId: string; titleFieldId: string; titleName?: string },
 ): void {
-  const map = doc.getMap(DOC_KEYS.collection);
-  if (map.size > 0) return;
+  const root = doc.getMap(DOC_KEYS.collection);
+  if (root.has(options.collectionId)) return;
 
   doc.transact(() => {
+    const map = new Y.Map();
     map.set(COLLECTION_KEYS.titleFieldId, options.titleFieldId);
 
     const fields = new Y.Map();
@@ -92,13 +93,40 @@ export function initCollection(
     map.set(COLLECTION_KEYS.fields, fields);
 
     map.set(COLLECTION_KEYS.views, new Y.Map());
+    root.set(options.collectionId, map);
   });
 }
 
-/** Is this document a collection? */
-export function isCollection(doc: Y.Doc): boolean {
+/**
+ * The map of one collection on this page, or null.
+ *
+ * A page may hold several (ADR-0021), so every writer below takes the id of the
+ * one it is changing.
+ */
+function collectionMap(doc: Y.Doc, collectionId: string): Y.Map<unknown> | null {
+  if (!doc.share.has(DOC_KEYS.collection)) return null;
+  const entry = doc.getMap(DOC_KEYS.collection).get(collectionId);
+  return entry instanceof Y.Map ? entry : null;
+}
+
+/** Remove a collection from a page. Its rows keep their own values. */
+export function removeCollection(doc: Y.Doc, collectionId: string): boolean {
+  const root = doc.getMap(DOC_KEYS.collection);
+  if (!root.has(collectionId)) return false;
+  doc.transact(() => root.delete(collectionId));
+  return true;
+}
+
+/** Does this page hold any collections? */
+export function holdsCollections(doc: Y.Doc): boolean {
   if (!doc.share.has(DOC_KEYS.collection)) return false;
   return doc.getMap(DOC_KEYS.collection).size > 0;
+}
+
+/** The ids of the collections this page holds. */
+export function collectionIds(doc: Y.Doc): string[] {
+  if (!doc.share.has(DOC_KEYS.collection)) return [];
+  return [...doc.getMap(DOC_KEYS.collection).keys()];
 }
 
 /**
@@ -110,9 +138,9 @@ export function isCollection(doc: Y.Doc): boolean {
  * Returns false when the collection is full or the id is taken. Both are
  * caller errors rather than exceptional conditions.
  */
-export function addField(doc: Y.Doc, field: NewField): boolean {
-  const map = doc.getMap(DOC_KEYS.collection);
-  const fields = map.get(COLLECTION_KEYS.fields);
+export function addField(doc: Y.Doc, collectionId: string, field: NewField): boolean {
+  const map = collectionMap(doc, collectionId);
+  const fields = map?.get(COLLECTION_KEYS.fields);
   if (!(fields instanceof Y.Map)) return false;
   if (fields.has(field.id)) return false;
   if (fields.size >= MAX_FIELDS) return false;
@@ -148,9 +176,13 @@ export function addField(doc: Y.Doc, field: NewField): boolean {
  * values when it is moved out. A field removed by mistake and added back with
  * the same id finds its values still there.
  */
-export function removeField(doc: Y.Doc, fieldId: string): boolean {
-  const map = doc.getMap(DOC_KEYS.collection);
-  if (map.get(COLLECTION_KEYS.titleFieldId) === fieldId) return false;
+export function removeField(
+  doc: Y.Doc,
+  collectionId: string,
+  fieldId: string,
+): boolean {
+  const map = collectionMap(doc, collectionId);
+  if (!map || map.get(COLLECTION_KEYS.titleFieldId) === fieldId) return false;
 
   const fields = map.get(COLLECTION_KEYS.fields);
   if (!(fields instanceof Y.Map) || !fields.has(fieldId)) return false;
@@ -162,10 +194,11 @@ export function removeField(doc: Y.Doc, fieldId: string): boolean {
 /** Rename a field, or change its description. */
 export function updateField(
   doc: Y.Doc,
+  collectionId: string,
   fieldId: string,
   changes: { name?: string; description?: string | null; config?: Record<string, unknown> },
 ): boolean {
-  const fields = doc.getMap(DOC_KEYS.collection).get(COLLECTION_KEYS.fields);
+  const fields = collectionMap(doc, collectionId)?.get(COLLECTION_KEYS.fields);
   if (!(fields instanceof Y.Map)) return false;
   const field = fields.get(fieldId);
   if (!(field instanceof Y.Map)) return false;
@@ -184,9 +217,9 @@ export function updateField(
 }
 
 /** Add a view. */
-export function addView(doc: Y.Doc, view: NewView): boolean {
-  const map = doc.getMap(DOC_KEYS.collection);
-  const views = map.get(COLLECTION_KEYS.views);
+export function addView(doc: Y.Doc, collectionId: string, view: NewView): boolean {
+  const map = collectionMap(doc, collectionId);
+  const views = map?.get(COLLECTION_KEYS.views);
   if (!(views instanceof Y.Map)) return false;
   if (views.has(view.id)) return false;
   if (views.size >= MAX_VIEWS) return false;
@@ -294,8 +327,12 @@ export type OptionColor = (typeof OPTION_COLORS)[number];
 export const MAX_OPTIONS = 100;
 
 /** Read a field's options, ignoring anything malformed. */
-export function readOptions(doc: Y.Doc, fieldId: string): SelectOption[] {
-  const fields = doc.getMap(DOC_KEYS.collection).get(COLLECTION_KEYS.fields);
+export function readOptions(
+  doc: Y.Doc,
+  collectionId: string,
+  fieldId: string,
+): SelectOption[] {
+  const fields = collectionMap(doc, collectionId)?.get(COLLECTION_KEYS.fields);
   if (!(fields instanceof Y.Map)) return [];
   const field = fields.get(fieldId);
   if (!(field instanceof Y.Map)) return [];
@@ -336,10 +373,11 @@ export function readOptions(doc: Y.Doc, fieldId: string): SelectOption[] {
  */
 export function setOptions(
   doc: Y.Doc,
+  collectionId: string,
   fieldId: string,
   options: SelectOption[],
 ): boolean {
-  const fields = doc.getMap(DOC_KEYS.collection).get(COLLECTION_KEYS.fields);
+  const fields = collectionMap(doc, collectionId)?.get(COLLECTION_KEYS.fields);
   if (!(fields instanceof Y.Map)) return false;
   const field = fields.get(fieldId);
   if (!(field instanceof Y.Map)) return false;

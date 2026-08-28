@@ -227,6 +227,7 @@ export interface CollectionView {
 
 export interface CollectionData {
   pageId: string;
+  collectionId: string;
   titleFieldId: string;
   canEdit: boolean;
   views: CollectionView[];
@@ -460,48 +461,60 @@ export const api = {
       role?: string;
     }>(`/api/share/${encodeURIComponent(token)}`),
 
-  collection: (pageId: string) =>
-    request<CollectionData>(`/api/pages/${pageId}/collection`),
+  /** A collection is addressed by its own id: a page may hold several. */
+  collection: (collectionId: string, viewId?: string) =>
+    request<CollectionData>(
+      `/api/collections/${collectionId}${viewId ? `?view=${viewId}` : ''}`,
+    ),
 
   createCollection: (pageId: string) =>
-    request<{ pageId: string }>(`/api/pages/${pageId}/collection`, { method: 'POST' }),
+    request<{ pageId: string; collectionId: string }>(`/api/pages/${pageId}/collections`, {
+      method: 'POST',
+    }),
+
+  /** A row is created through its collection and never appears in the tree. */
+  addCollectionRow: (collectionId: string, title = '') =>
+    request<{ id: string }>(`/api/collections/${collectionId}/rows`, {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    }),
 
   addCollectionField: (
-    pageId: string,
+    collectionId: string,
     field: { name: string; fieldType: string; config?: Record<string, unknown> },
   ) =>
-    request<{ id: string }>(`/api/pages/${pageId}/collection/fields`, {
+    request<{ id: string }>(`/api/collections/${collectionId}/fields`, {
       method: 'POST',
       body: JSON.stringify(field),
     }),
 
-  renameCollectionField: (pageId: string, fieldId: string, name: string) =>
-    request<{ id: string }>(`/api/pages/${pageId}/collection/fields/${fieldId}`, {
+  renameCollectionField: (collectionId: string, fieldId: string, name: string) =>
+    request<{ id: string }>(`/api/collections/${collectionId}/fields/${fieldId}`, {
       method: 'PATCH',
       body: JSON.stringify({ name }),
     }),
 
-  removeCollectionField: (pageId: string, fieldId: string) =>
-    request<{ id: string }>(`/api/pages/${pageId}/collection/fields/${fieldId}`, {
+  removeCollectionField: (collectionId: string, fieldId: string) =>
+    request<{ id: string }>(`/api/collections/${collectionId}/fields/${fieldId}`, {
       method: 'DELETE',
     }),
 
   addCollectionView: (
-    pageId: string,
+    collectionId: string,
     view: { name?: string; viewType: string; definition?: Record<string, unknown> },
   ) =>
-    request<{ id: string }>(`/api/pages/${pageId}/collection/views`, {
+    request<{ id: string }>(`/api/collections/${collectionId}/views`, {
       method: 'POST',
       body: JSON.stringify(view),
     }),
 
   setFieldOptions: (
-    pageId: string,
+    collectionId: string,
     fieldId: string,
     options: Array<{ id: string; name: string; color: string }>,
   ) =>
     request<{ fieldId: string }>(
-      `/api/pages/${pageId}/collection/fields/${fieldId}/options`,
+      `/api/collections/${collectionId}/fields/${fieldId}/options`,
       { method: 'PUT', body: JSON.stringify({ options }) },
     ),
 

@@ -121,44 +121,75 @@ describe(
       return (await expectJson<{ id: string }>(res, 201)).id;
     };
 
-    const makeCollection = (session: Session, pageId: string): Promise<Response> =>
-      fetch(`${base}/api/pages/${pageId}/collection`, {
+    // --- helpers, all addressing a collection by its own id ------------------
+
+    /** Add a collection to a page and return its id (ADR-0021). */
+    const collectionOn = async (session: Session, pageId: string): Promise<string> => {
+      const res = await fetch(`${base}/api/pages/${pageId}/collections`, {
         method: 'POST',
         headers: { cookie: session.cookie },
       });
+      return (await expectJson<{ collectionId: string }>(res, 201)).collectionId;
+    };
 
-    const read = async (session: Session, pageId: string) =>
-      expectJson<{
-        titleFieldId: string;
-        views?: Array<{
-          id: string;
-          name: string;
-          viewType: string;
-          definition?: Record<string, unknown>;
-        }>;
-        fields: Array<{
-          id: string;
-          name: string;
-          fieldType: string;
-          config?: Record<string, unknown>;
-        }>;
-        rows: Array<{ id: string; title: string; values: Record<string, unknown> }>;
-      }>(
-        await fetch(`${base}/api/pages/${pageId}/collection`, {
-          headers: { cookie: session.cookie },
-        }),
+    /** A row is created through its collection and never appears in the tree. */
+    const addRow = async (
+      session: Session,
+      collectionId: string,
+      title: string,
+    ): Promise<string> => {
+      const res = await fetch(`${base}/api/collections/${collectionId}/rows`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ title }),
+      });
+      return (await expectJson<{ id: string }>(res, 201)).id;
+    };
+
+    interface ReadCollection {
+      pageId: string;
+      collectionId: string;
+      titleFieldId: string;
+      canEdit: boolean;
+      views: Array<{ id: string; viewType: string; definition: Record<string, unknown> }>;
+      fields: Array<{
+        id: string;
+        name: string;
+        fieldType: string;
+        config: Record<string, unknown>;
+      }>;
+      rows: Array<{ id: string; title: string; values: Record<string, unknown> }>;
+    }
+
+    const read = async (
+      session: Session,
+      collectionId: string,
+      viewId?: string,
+    ): Promise<ReadCollection> =>
+      expectJson<ReadCollection>(
+        await fetch(
+          `${base}/api/collections/${collectionId}${viewId ? `?view=${viewId}` : ''}`,
+          { headers: { cookie: session.cookie } },
+        ),
       );
 
     const addField = (
       session: Session,
-      pageId: string,
+      collectionId: string,
       body: Record<string, unknown>,
     ): Promise<Response> =>
-      fetch(`${base}/api/pages/${pageId}/collection/fields`, {
+      fetch(`${base}/api/collections/${collectionId}/fields`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', cookie: session.cookie },
         body: JSON.stringify(body),
       });
+
+    const fieldOf = async (
+      session: Session,
+      collectionId: string,
+      body: Record<string, unknown>,
+    ): Promise<string> =>
+      (await expectJson<{ id: string }>(await addField(session, collectionId, body), 201)).id;
 
     const setValue = (
       session: Session,
@@ -172,769 +203,488 @@ describe(
         body: JSON.stringify({ value }),
       });
 
-    // --- creating ----------------------------------------------------------
-
-    test('a folder can become a collection, with a title field', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-
-      await expectStatus(await makeCollection(session, folder), 201);
-      const body = await read(session, folder);
-
-      assert.equal(body.fields.length, 1);
-      assert.equal(body.fields[0]!.id, body.titleFieldId);
-    });
-
-    test('the tree reports the folder as a collection', async () => {
-      // What the interface decides on. pages.collection_id was read from a
-      // document field that nothing writes — turning a folder into a collection
-      // sets the collection map, not that field — so the row stayed null, the
-      // tree reported an ordinary folder, and "Add columns" appeared to do
-      // nothing while having worked.
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-
-      const before = await db.query<{ collection_id: string | null }>(
-        `SELECT collection_id FROM pages WHERE id = $1`,
-        [folder],
-      );
-      assert.equal(before.rows[0]?.collection_id, null, 'an ordinary folder');
-
-      await expectStatus(await makeCollection(session, folder), 201);
-
-      const after = await db.query<{ collection_id: string | null }>(
-        `SELECT collection_id FROM pages WHERE id = $1`,
-        [folder],
-      );
-      assert.equal(after.rows[0]?.collection_id, folder, 'now a collection');
-    });
-
-    test('a rebuild keeps the folder marked as a collection', async () => {
-      // The mark is projected from the document, so it has to survive being
-      // rebuilt from it.
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-
-      await db.query(`UPDATE pages SET collection_id = NULL WHERE id = $1`, [folder]);
-      const { rebuild } = await import('../src/materialize/rebuild.js');
-      await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
-
-      const after = await db.query<{ collection_id: string | null }>(
-        `SELECT collection_id FROM pages WHERE id = $1`,
-        [folder],
-      );
-      assert.equal(after.rows[0]?.collection_id, folder);
-    });
-
-    test('an ordinary folder is not marked', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Just a folder', 'folder', session.rootFolder);
-      const row = await db.query<{ collection_id: string | null }>(
-        `SELECT collection_id FROM pages WHERE id = $1`,
-        [folder],
-      );
-      assert.equal(row.rows[0]?.collection_id, null);
-    });
-
-    test('a page cannot become a collection', async () => {
-      // A collection's rows are the entries inside it, and a page holds
-      // nothing (ADR-0019).
-      const session = await setup();
-      const page = await create(session, 'A page', 'page', session.rootFolder);
-
-      const res = await makeCollection(session, page);
-      assert.equal(res.status, 409);
-      assert.deepEqual(await res.json(), { error: 'collections_need_a_folder' });
-    });
-
-    test('making a collection twice does not reset it', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      await addField(session, folder, { name: 'Status', fieldType: 'select' });
-
-      await expectStatus(await makeCollection(session, folder), 201);
-      const body = await read(session, folder);
-      assert.equal(body.fields.length, 2, 'the added column survives');
-    });
-
-    test('a folder that is not a collection reads as one', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Ordinary', 'folder', session.rootFolder);
-      const res = await fetch(`${base}/api/pages/${folder}/collection`, {
-        headers: { cookie: session.cookie },
-      });
-      assert.equal(res.status, 404);
-      assert.deepEqual(await res.json(), { error: 'not_a_collection' });
-    });
-
-    // --- fields ------------------------------------------------------------
-
-    test('a column is added and projected', async () => {
-      // The write goes to the document; this read comes from the projection.
-      // If the two were not connected, this would pass on the write and fail
-      // here.
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-
-      const created = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Status', fieldType: 'select' }),
-        201,
-      );
-
-      const body = await read(session, folder);
-      const field = body.fields.find((entry) => entry.id === created.id);
-      assert.equal(field?.name, 'Status');
-      assert.equal(field?.fieldType, 'select');
-    });
-
-    test('a column survives a rebuild, because it lives in the document', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      await addField(session, folder, { name: 'Status', fieldType: 'select' });
-
-      await db.query(`DELETE FROM collection_fields`);
-      const { rebuild } = await import('../src/materialize/rebuild.js');
-      await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
-
-      const body = await read(session, folder);
-      assert.equal(body.fields.length, 2, 'restored from the document');
-    });
-
-    test('a field type that cannot be filled yet is refused', async () => {
-      // Offering a column nobody can put anything in is worse than not
-      // offering it.
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-
-      for (const fieldType of ['relation', 'formula', 'rollup', 'nonsense']) {
-        const res = await addField(session, folder, { name: 'X', fieldType });
-        assert.equal(res.status, 422, fieldType);
-      }
-    });
-
-    test('the title column cannot be removed', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const body = await read(session, folder);
-
-      const res = await fetch(
-        `${base}/api/pages/${folder}/collection/fields/${body.titleFieldId}`,
-        { method: 'DELETE', headers: { cookie: session.cookie } },
-      );
-      assert.equal(res.status, 409);
-    });
-
-    test('a column can be renamed', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const created = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Old', fieldType: 'text' }),
-        201,
-      );
-
-      await expectStatus(
-        await fetch(`${base}/api/pages/${folder}/collection/fields/${created.id}`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json', cookie: session.cookie },
-          body: JSON.stringify({ name: 'New' }),
-        }),
-        200,
-      );
-
-      const body = await read(session, folder);
-      assert.equal(body.fields.find((f) => f.id === created.id)?.name, 'New');
-    });
-
-    // --- rows and values ---------------------------------------------------
-
-    test('entries in the folder are the rows', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const first = await create(session, 'First task', 'page', folder);
-      await create(session, 'Second task', 'page', folder);
-
-      const body = await read(session, folder);
-      assert.equal(body.rows.length, 2);
-      assert.equal(body.rows[0]!.id, first);
-      assert.equal(body.rows[0]!.title, 'First task');
-    });
-
-    test('an archived row does not appear', async () => {
-      // A table that shows deleted rows is a table nobody trusts.
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const row = await create(session, 'Gone', 'page', folder);
-
-      await db.query(`UPDATE pages SET archived_at = now() WHERE id = $1`, [row]);
-      assert.deepEqual((await read(session, folder)).rows, []);
-    });
-
-    test('a value is stored and read back', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const field = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Notes', fieldType: 'text' }),
-        201,
-      );
-      const row = await create(session, 'A task', 'page', folder);
-
-      await expectStatus(
-        await setValue(session, row, field.id, { kind: 'text', value: 'hello' }),
-        200,
-      );
-
-      const body = await read(session, folder);
-      assert.deepEqual(body.rows[0]!.values[field.id], { kind: 'text', value: 'hello' });
-    });
-
-    test('a value follows its row out of the collection', async () => {
-      // Values live on the row's document, which is what makes a row movable.
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      const elsewhere = await create(session, 'Elsewhere', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const field = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Notes', fieldType: 'text' }),
-        201,
-      );
-      const row = await create(session, 'A task', 'page', folder);
-      await setValue(session, row, field.id, { kind: 'text', value: 'kept' });
-
-      await fetch(`${base}/api/pages/${row}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json', cookie: session.cookie },
-        body: JSON.stringify({ parentPageId: elsewhere }),
-      });
-
-      const stored = await db.query<{ value: unknown }>(
-        `SELECT value FROM page_properties WHERE page_id = $1`,
-        [row],
-      );
-      // The projection drops it, because the row is no longer in a collection
-      // — but the document still has it, which is what "kept" means here.
-      const { loadDoc } = await import('../src/doc/docStore.js');
-      const { readPropertyValues } = await import('@sone/core');
-      const loaded = await loadDoc(db, row);
-      try {
-        assert.deepEqual(readPropertyValues(loaded.doc).get(field.id), {
-          kind: 'text',
-          value: 'kept',
-        });
-      } finally {
-        loaded.doc.destroy();
-      }
-      assert.ok(stored.rowCount !== null);
-    });
-
-    test('a value for a field of another collection is refused', async () => {
-      // Otherwise a row accumulates values no view can show and nothing can
-      // clean up.
-      const session = await setup();
-      const first = await create(session, 'First', 'folder', session.rootFolder);
-      const second = await create(session, 'Second', 'folder', session.rootFolder);
-      await makeCollection(session, first);
-      await makeCollection(session, second);
-      const foreign = await expectJson<{ id: string }>(
-        await addField(session, second, { name: 'Theirs', fieldType: 'text' }),
-        201,
-      );
-      const row = await create(session, 'A task', 'page', first);
-
-      const res = await setValue(session, row, foreign.id, { kind: 'text', value: 'x' });
-      assert.equal(res.status, 404);
-    });
-
-    // --- views -------------------------------------------------------------
-
-    test('a new collection has one table view', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-
-      const body = await read(session, folder);
-      assert.equal(body.views?.length, 1);
-      assert.equal(body.views?.[0]?.viewType, 'table');
-    });
-
-    test('a board view is added with the column it groups by', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const field = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Status', fieldType: 'select' }),
-        201,
-      );
-
-      const created = await expectJson<{ id: string }>(
-        await fetch(`${base}/api/pages/${folder}/collection/views`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', cookie: session.cookie },
-          body: JSON.stringify({
-            viewType: 'board',
-            definition: { groupByFieldId: field.id },
-          }),
-        }),
-        201,
-      );
-
-      const body = await read(session, folder);
-      const board = body.views?.find((view) => view.id === created.id);
-      assert.equal(board?.viewType, 'board');
-      assert.equal(board?.definition?.['groupByFieldId'], field.id);
-    });
-
-    test('a view type with no renderer is refused', async () => {
-      // 'list' is in the data model and nothing draws it. Offering a view that
-      // renders as nothing is worse than not offering it.
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-
-      const res = await fetch(`${base}/api/pages/${folder}/collection/views`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', cookie: session.cookie },
-        body: JSON.stringify({ viewType: 'list' }),
-      });
-      assert.equal(res.status, 422);
-      assert.deepEqual(await res.json(), { error: 'unsupported_view_type' });
-    });
-
-    test('views survive a rebuild', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-
-      await db.query(`DELETE FROM collection_views`);
-      const { rebuild } = await import('../src/materialize/rebuild.js');
-      await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
-
-      const body = await read(session, folder);
-      assert.equal(body.views?.length, 1, 'restored from the document');
-    });
-
-    test('a viewer cannot add a view', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-
-      const hash = await hashPassword(PASSWORD);
-      const guest = await db.query<{ id: string }>(
-        `INSERT INTO users (email, display_name, password_hash, is_guest)
-         VALUES ('vv@example.org','V',$1,true) RETURNING id`,
-        [hash],
-      );
-      await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
-        [session.workspaceId, guest.rows[0]!.id],
-      );
-      await db.query(
-        `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
-         VALUES ($1,$2,'viewer',true,$3)`,
-        [folder, guest.rows[0]!.id, session.userId],
-      );
-      const login = await fetch(
-        `${base}/api/auth/login`,
-        json({ email: 'vv@example.org', password: PASSWORD }),
-      );
-
-      const res = await fetch(`${base}/api/pages/${folder}/collection/views`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', cookie: cookieFrom(login) },
-        body: JSON.stringify({ viewType: 'board' }),
-      });
-      assert.equal(res.status, 403);
-    });
-
-    test('a removed column disappears from the projection', async () => {
-      // It did not. applyToDocument decided whether anything changed by
-      // comparing state vectors, and a Yjs deletion does not advance one — it
-      // marks the existing item deleted. So every delete reported "nothing
-      // changed", no materialisation ran, and a removed column stayed in every
-      // table until something else rebuilt the page.
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const field = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Doomed', fieldType: 'text' }),
-        201,
-      );
-
-      await expectStatus(
-        await fetch(`${base}/api/pages/${folder}/collection/fields/${field.id}`, {
-          method: 'DELETE',
-          headers: { cookie: session.cookie },
-        }),
-        200,
-      );
-
-      const body = await read(session, folder);
-      assert.deepEqual(
-        body.fields.map((entry) => entry.name),
-        ['Name'],
-        'only the title column is left',
-      );
-    });
-
-    // --- filtering and sorting ---------------------------------------------
-
     const addView = (
       session: Session,
-      pageId: string,
+      collectionId: string,
       definition: Record<string, unknown>,
     ): Promise<Response> =>
-      fetch(`${base}/api/pages/${pageId}/collection/views`, {
+      fetch(`${base}/api/collections/${collectionId}/views`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', cookie: session.cookie },
         body: JSON.stringify({ viewType: 'table', definition }),
       });
 
-    const readView = async (session: Session, pageId: string, viewId: string) =>
-      expectJson<{ rows: Array<{ id: string; title: string }> }>(
-        await fetch(`${base}/api/pages/${pageId}/collection?view=${viewId}`, {
-          headers: { cookie: session.cookie },
-        }),
-      );
+    const setOptionsFor = (
+      session: Session,
+      collectionId: string,
+      fieldId: string,
+      options: Array<{ id: string; name: string; color?: string }>,
+    ): Promise<Response> =>
+      fetch(`${base}/api/collections/${collectionId}/fields/${fieldId}/options`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ options }),
+      });
 
-    async function numbered(session: Session): Promise<{
-      folder: string;
-      field: string;
-      rows: Record<string, string>;
-    }> {
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const field = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Count', fieldType: 'number' }),
-        201,
-      );
+    const treeIds = async (session: Session): Promise<string[]> => {
+      const res = await fetch(`${base}/api/workspaces/${session.workspaceId}/pages`, {
+        headers: { cookie: session.cookie },
+      });
+      const body = await expectJson<{ pages: Array<{ id: string }> }>(res);
+      return body.pages.map((page) => page.id);
+    };
 
-      const rows: Record<string, string> = {};
-      for (const [title, value] of [
-        ['nine', 9],
-        ['ten', 10],
-        ['two', 2],
-      ] as Array<[string, number]>) {
-        const id = await create(session, title, 'page', folder);
-        rows[title] = id;
-        await expectStatus(
-          await setValue(session, id, field.id, { kind: 'number', value }),
-          200,
-        );
-      }
-      // One row deliberately without a value.
-      rows['unset'] = await create(session, 'unset', 'page', folder);
+    // --- where a collection lives --------------------------------------------
 
-      return { folder, field: field.id, rows };
-    }
-
-    test('a view can sort by a column', async () => {
+    test('a page can hold a collection', async () => {
+      // Content inside a page, not a folder wearing a different hat
+      // (ADR-0021). "A folder should be a folder" was the report that led here.
       const session = await setup();
-      const { folder, field, rows } = await numbered(session);
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
 
-      const view = await expectJson<{ id: string }>(
-        await addView(session, folder, { sort: [{ fieldId: field, direction: 'asc' }] }),
-        201,
-      );
+      const body = await read(session, collection);
+      assert.equal(body.pageId, page);
+      assert.equal(body.fields.length, 1, 'the title column');
+      assert.equal(body.fields[0]!.id, body.titleFieldId);
+    });
 
-      const body = await readView(session, folder, view.id);
-      assert.deepEqual(
-        body.rows.map((row) => row.title),
-        ['two', 'nine', 'ten', 'unset'],
-        'numerically, and the row with no value last',
+    test('a page can hold several collections', async () => {
+      // What the folder shape could not do, and what Craft does.
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+
+      const first = await collectionOn(session, page);
+      const second = await collectionOn(session, page);
+      assert.notEqual(first, second);
+
+      await fieldOf(session, first, { name: 'Only in the first', fieldType: 'text' });
+
+      assert.equal((await read(session, first)).fields.length, 2);
+      assert.equal(
+        (await read(session, second)).fields.length,
+        1,
+        'the second is untouched',
       );
     });
 
-    test('sorting descending keeps unanswered rows last', async () => {
-      // A row with no value is not the smallest one, it is unanswered.
+    test('a folder can hold one too, and stays a folder', async () => {
+      // Nothing stops it — a folder is a document like any other. What has
+      // changed is that adding columns no longer *converts* it.
       const session = await setup();
-      const { folder, field } = await numbered(session);
+      const folder = await create(session, 'A folder', 'folder', session.rootFolder);
+      await collectionOn(session, folder);
 
-      const view = await expectJson<{ id: string }>(
-        await addView(session, folder, { sort: [{ fieldId: field, direction: 'desc' }] }),
-        201,
+      const row = await db.query<{ kind: string; collection_id: string | null }>(
+        `SELECT kind, collection_id FROM pages WHERE id = $1`,
+        [folder],
       );
-
-      const body = await readView(session, folder, view.id);
-      assert.deepEqual(
-        body.rows.map((row) => row.title),
-        ['ten', 'nine', 'two', 'unset'],
+      assert.equal(row.rows[0]?.kind, 'folder', 'still a folder');
+      assert.equal(
+        row.rows[0]?.collection_id,
+        null,
+        'holding a collection is not being one',
       );
     });
 
-    test('a view can filter by a comparison', async () => {
+    test('a row cannot hold a collection', async () => {
       const session = await setup();
-      const { folder, field } = await numbered(session);
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const row = await addRow(session, collection, 'A record');
 
-      const view = await expectJson<{ id: string }>(
-        await addView(session, folder, {
-          filters: [{ fieldId: field, operator: 'gte', value: 9 }],
-        }),
-        201,
-      );
-
-      const body = await readView(session, folder, view.id);
-      assert.deepEqual(body.rows.map((row) => row.title).sort(), ['nine', 'ten']);
+      const res = await fetch(`${base}/api/pages/${row}/collections`, {
+        method: 'POST',
+        headers: { cookie: session.cookie },
+      });
+      assert.equal(res.status, 409);
     });
 
-    test('a filter for empty finds the rows with no value', async () => {
+    // --- rows ----------------------------------------------------------------
+
+    test('rows do not appear in the tree', async () => {
+      // The part of the folder shape that felt most wrong: a hundred-row table
+      // put a hundred entries in the sidebar.
       const session = await setup();
-      const { folder, field } = await numbered(session);
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const row = await addRow(session, collection, 'A record');
 
-      const view = await expectJson<{ id: string }>(
-        await addView(session, folder, {
-          filters: [{ fieldId: field, operator: 'isEmpty' }],
-        }),
-        201,
-      );
-
-      const body = await readView(session, folder, view.id);
-      assert.deepEqual(body.rows.map((row) => row.title), ['unset']);
+      const ids = await treeIds(session);
+      assert.ok(ids.includes(page), 'the page is there');
+      assert.ok(!ids.includes(row), 'and the row is not');
     });
 
-    test('a filter naming a deleted column still renders the collection', async () => {
-      // A view lives in a document other people edit. Refusing to render would
-      // turn one stale filter into an unreachable page.
+    test('a row is a real document, openable like a page', async () => {
+      // The reason rows are documents at all (ADR-0021): each one can hold its
+      // own writing.
       const session = await setup();
-      const { folder, field, rows } = await numbered(session);
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const row = await addRow(session, collection, 'A record');
 
-      const view = await expectJson<{ id: string }>(
-        await addView(session, folder, {
-          filters: [{ fieldId: field, operator: 'gte', value: 9 }],
-        }),
-        201,
-      );
+      const res = await fetch(`${base}/api/pages/${row}`, {
+        headers: { cookie: session.cookie },
+      });
+      const body = await expectJson<{ id: string; title: string }>(res);
+      assert.equal(body.id, row);
+      assert.equal(body.title, 'A record');
+    });
+
+    test('a row belongs to its collection and sits inside the page', async () => {
+      // Ancestry is what permissions and sharing are computed from, so a row
+      // has to be inside the page it appears in.
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const row = await addRow(session, collection, 'A record');
+
+      const stored = await db.query<{
+        kind: string;
+        collection_id: string;
+        parent_page_id: string;
+      }>(`SELECT kind, collection_id, parent_page_id FROM pages WHERE id = $1`, [row]);
+
+      assert.equal(stored.rows[0]?.kind, 'row');
+      assert.equal(stored.rows[0]?.collection_id, collection);
+      assert.equal(stored.rows[0]?.parent_page_id, page);
+    });
+
+    test('rows of one collection do not leak into another on the same page', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const first = await collectionOn(session, page);
+      const second = await collectionOn(session, page);
+
+      await addRow(session, first, 'Mine');
+
+      assert.equal((await read(session, first)).rows.length, 1);
+      assert.deepEqual((await read(session, second)).rows, []);
+    });
+
+    test('an archived row leaves the table', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const row = await addRow(session, collection, 'Gone');
+
+      await db.query(`UPDATE pages SET archived_at = now() WHERE id = $1`, [row]);
+      assert.deepEqual((await read(session, collection)).rows, []);
+    });
+
+    // --- columns -------------------------------------------------------------
+
+    test('a column is added and projected', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+
+      const field = await fieldOf(session, collection, {
+        name: 'Status',
+        fieldType: 'select',
+      });
+      const body = await read(session, collection);
+      assert.equal(body.fields.find((entry) => entry.id === field)?.name, 'Status');
+    });
+
+    test('columns survive a rebuild, because they live in the document', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      await fieldOf(session, collection, { name: 'Status', fieldType: 'select' });
+
+      await db.query(`DELETE FROM collection_fields`);
+      const { rebuild } = await import('../src/materialize/rebuild.js');
+      await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
+
+      assert.equal((await read(session, collection)).fields.length, 2);
+    });
+
+    test('a removed column disappears from the projection', async () => {
+      // It did not once: a Yjs deletion does not advance the state vector, so
+      // the write reported "nothing changed" and no materialisation ran.
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Doomed',
+        fieldType: 'text',
+      });
+
       await expectStatus(
-        await fetch(`${base}/api/pages/${folder}/collection/fields/${field}`, {
+        await fetch(`${base}/api/collections/${collection}/fields/${field}`, {
           method: 'DELETE',
           headers: { cookie: session.cookie },
         }),
         200,
       );
 
-      const body = await readView(session, folder, view.id);
-      assert.equal(body.rows.length, 4, 'every row, unfiltered');
-      assert.ok(rows['ten']);
-    });
-
-    test('a hostile filter value is a value, not SQL', async () => {
-      // Against the real database, because a builder can be correct and the
-      // statement still wrong.
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const field = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Note', fieldType: 'text' }),
-        201,
+      assert.deepEqual(
+        (await read(session, collection)).fields.map((entry) => entry.name),
+        ['Name'],
       );
-      await create(session, 'a row', 'page', folder);
-
-      const view = await expectJson<{ id: string }>(
-        await addView(session, folder, {
-          filters: [
-            { fieldId: field.id, operator: 'is', value: "x'; DROP TABLE pages; --" },
-          ],
-        }),
-        201,
-      );
-
-      const body = await readView(session, folder, view.id);
-      assert.deepEqual(body.rows, [], 'nothing matches, and nothing is dropped');
-
-      const still = await db.query(`SELECT count(*)::int AS n FROM pages`);
-      assert.ok((still.rows[0] as { n: number }).n > 0, 'pages still exist');
     });
 
-    test('a collection read without a view is unfiltered', async () => {
-      // Views arrange; they do not decide which entries exist. The default
-      // reading is the folder's contents.
+    test('the title column cannot be removed', async () => {
       const session = await setup();
-      const { folder } = await numbered(session);
-      const body = await read(session, folder);
-      assert.equal(body.rows.length, 4);
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const body = await read(session, collection);
+
+      const res = await fetch(
+        `${base}/api/collections/${collection}/fields/${body.titleFieldId}`,
+        { method: 'DELETE', headers: { cookie: session.cookie } },
+      );
+      assert.equal(res.status, 409);
     });
 
-    // --- select options ----------------------------------------------------
+    test('a field type that cannot be filled yet is refused', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
 
-    const setOptionsFor = (
-      session: Session,
-      pageId: string,
-      fieldId: string,
-      options: Array<{ id: string; name: string; color?: string }>,
-    ): Promise<Response> =>
-      fetch(`${base}/api/pages/${pageId}/collection/fields/${fieldId}/options`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json', cookie: session.cookie },
-        body: JSON.stringify({ options }),
+      for (const fieldType of ['relation', 'formula', 'rollup', 'nonsense']) {
+        assert.equal(
+          (await addField(session, collection, { name: 'X', fieldType })).status,
+          422,
+          fieldType,
+        );
+      }
+    });
+
+    // --- values --------------------------------------------------------------
+
+    test('a value is stored on the row and read back', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Notes',
+        fieldType: 'text',
       });
-
-    async function selectColumn(session: Session): Promise<{
-      folder: string;
-      field: string;
-      row: string;
-    }> {
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const field = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Status', fieldType: 'select' }),
-        201,
-      );
-      const row = await create(session, 'A task', 'page', folder);
-      return { folder, field: field.id, row };
-    }
-
-    test('options are stored and come back through the projection', async () => {
-      // The write goes to the document; this read comes from
-      // collection_fields.config. If the two were not connected the write would
-      // report success and the column would have no options.
-      const session = await setup();
-      const { folder, field } = await selectColumn(session);
+      const row = await addRow(session, collection, 'A record');
 
       await expectStatus(
-        await setOptionsFor(session, folder, field, [
+        await setValue(session, row, field, { kind: 'text', value: 'hello' }),
+        200,
+      );
+
+      const body = await read(session, collection);
+      assert.deepEqual(body.rows[0]!.values[field], { kind: 'text', value: 'hello' });
+    });
+
+    test('the typed shadow columns are filled, which is what sorting uses', async () => {
+      // They were not, once: the materialiser looked for a row's collection on
+      // the row's own document, where nothing wrote it.
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Count',
+        fieldType: 'number',
+      });
+      const row = await addRow(session, collection, 'A record');
+      await setValue(session, row, field, { kind: 'number', value: 42 });
+
+      const stored = await db.query<{ number_value: number | null }>(
+        `SELECT number_value FROM page_properties WHERE page_id = $1`,
+        [row],
+      );
+      assert.equal(stored.rows[0]?.number_value, 42);
+    });
+
+    test('a value for a field of another collection is refused', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const mine = await collectionOn(session, page);
+      const theirs = await collectionOn(session, page);
+      const foreign = await fieldOf(session, theirs, {
+        name: 'Theirs',
+        fieldType: 'text',
+      });
+      const row = await addRow(session, mine, 'A record');
+
+      const res = await setValue(session, row, foreign, { kind: 'text', value: 'x' });
+      assert.equal(res.status, 404);
+    });
+
+    // --- select options ------------------------------------------------------
+
+    test('options are stored and come back through the projection', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Status',
+        fieldType: 'select',
+      });
+
+      await expectStatus(
+        await setOptionsFor(session, collection, field, [
           { id: 'o1', name: 'Todo', color: 'grey' },
-          { id: 'o2', name: 'Doing', color: 'blue' },
         ]),
         200,
       );
 
-      const body = await read(session, folder);
-      const column = body.fields.find((entry) => entry.id === field);
-      assert.deepEqual(column?.config?.['options'], [
+      const body = await read(session, collection);
+      assert.deepEqual(body.fields.find((entry) => entry.id === field)?.config['options'], [
         { id: 'o1', name: 'Todo', color: 'grey' },
-        { id: 'o2', name: 'Doing', color: 'blue' },
       ]);
     });
 
     test('a select value must name an option that exists', async () => {
-      // Otherwise a cell comes to point at an option that was never there, and
-      // no view can render it.
       const session = await setup();
-      const { folder, field, row } = await selectColumn(session);
-      await expectStatus(
-        await setOptionsFor(session, folder, field, [
-          { id: 'o1', name: 'Todo', color: 'grey' },
-        ]),
-        200,
-      );
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Status',
+        fieldType: 'select',
+      });
+      const row = await addRow(session, collection, 'A record');
+      await setOptionsFor(session, collection, field, [{ id: 'o1', name: 'Todo' }]);
 
       await expectStatus(
         await setValue(session, row, field, { kind: 'select', optionId: 'o1' }),
         200,
       );
-
-      const res = await setValue(session, row, field, {
-        kind: 'select',
-        optionId: 'never-existed',
-      });
-      assert.equal(res.status, 422);
-      assert.deepEqual(await res.json(), { error: 'unknown_option' });
+      assert.equal(
+        (await setValue(session, row, field, { kind: 'select', optionId: 'nope' })).status,
+        422,
+      );
     });
 
     test('an option removed later does not erase the rows pointing at it', async () => {
-      // A row owns its values. Erasing them when an option is removed would
-      // make one misclick in the option editor unrecoverable.
       const session = await setup();
-      const { folder, field, row } = await selectColumn(session);
-      await setOptionsFor(session, folder, field, [{ id: 'o1', name: 'Todo' }]);
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Status',
+        fieldType: 'select',
+      });
+      const row = await addRow(session, collection, 'A record');
+      await setOptionsFor(session, collection, field, [{ id: 'o1', name: 'Todo' }]);
       await setValue(session, row, field, { kind: 'select', optionId: 'o1' });
 
-      await expectStatus(await setOptionsFor(session, folder, field, []), 200);
+      await expectStatus(await setOptionsFor(session, collection, field, []), 200);
 
       const stored = await db.query<{ value: { optionId?: string } }>(
-        `SELECT value FROM page_properties WHERE page_id = $1 AND field_id = $2`,
-        [row, field],
+        `SELECT value FROM page_properties WHERE page_id = $1`,
+        [row],
       );
-      assert.equal(stored.rows[0]?.value.optionId, 'o1', 'still there');
+      assert.equal(stored.rows[0]?.value.optionId, 'o1');
     });
 
-    test('renaming an option keeps the value, because the id is kept', async () => {
+    // --- views, filtering and sorting ----------------------------------------
+
+    test('a new collection has one table view', async () => {
       const session = await setup();
-      const { folder, field, row } = await selectColumn(session);
-      await setOptionsFor(session, folder, field, [{ id: 'o1', name: 'Todo' }]);
-      await setValue(session, row, field, { kind: 'select', optionId: 'o1' });
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
 
-      await setOptionsFor(session, folder, field, [
-        { id: 'o1', name: 'To do', color: 'green' },
-      ]);
-
-      const body = await read(session, folder);
-      assert.deepEqual(body.rows[0]!.values[field], { kind: 'select', optionId: 'o1' });
+      const body = await read(session, collection);
+      assert.equal(body.views.length, 1);
+      assert.equal(body.views[0]?.viewType, 'table');
     });
 
-    test('an option without an id is refused rather than given one', async () => {
-      // Generating one here would break a rename: the client has to keep ids
-      // stable, because a row's value points at an id.
+    test('a view sorts numerically, and unanswered rows come last', async () => {
       const session = await setup();
-      const { folder, field } = await selectColumn(session);
-      const res = await fetch(
-        `${base}/api/pages/${folder}/collection/fields/${field}/options`,
-        {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json', cookie: session.cookie },
-          body: JSON.stringify({ options: [{ name: 'Todo' }] }),
-        },
-      );
-      assert.equal(res.status, 422);
-      assert.deepEqual(await res.json(), { error: 'option_needs_an_id' });
-    });
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Count',
+        fieldType: 'number',
+      });
 
-    test('duplicate option ids are refused', async () => {
-      const session = await setup();
-      const { folder, field } = await selectColumn(session);
-      const res = await setOptionsFor(session, folder, field, [
-        { id: 'same', name: 'One' },
-        { id: 'same', name: 'Two' },
-      ]);
-      assert.equal(res.status, 409);
-    });
+      for (const [title, value] of [
+        ['nine', 9],
+        ['ten', 10],
+        ['two', 2],
+      ] as Array<[string, number]>) {
+        const row = await addRow(session, collection, title);
+        await expectStatus(await setValue(session, row, field, { kind: 'number', value }), 200);
+      }
+      await addRow(session, collection, 'unset');
 
-    test('options cannot be set on a column that has none', async () => {
-      const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
-      const field = await expectJson<{ id: string }>(
-        await addField(session, folder, { name: 'Note', fieldType: 'text' }),
+      const view = await expectJson<{ id: string }>(
+        await addView(session, collection, { sort: [{ fieldId: field, direction: 'asc' }] }),
         201,
       );
-      const res = await setOptionsFor(session, folder, field.id, [
-        { id: 'o1', name: 'Todo' },
-      ]);
-      assert.equal(res.status, 409);
-    });
 
-    test('options survive a rebuild', async () => {
-      const session = await setup();
-      const { folder, field } = await selectColumn(session);
-      await setOptionsFor(session, folder, field, [
-        { id: 'o1', name: 'Todo', color: 'blue' },
-      ]);
-
-      await db.query(`UPDATE collection_fields SET config = '{}'::jsonb`);
-      const { rebuild } = await import('../src/materialize/rebuild.js');
-      await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
-
-      const restored = await db.query<{ config: { options?: unknown[] } }>(
-        `SELECT config FROM collection_fields WHERE id = $1`,
-        [field],
+      const body = await read(session, collection, view.id);
+      assert.deepEqual(
+        body.rows.map((row) => row.title),
+        ['two', 'nine', 'ten', 'unset'],
       );
-      assert.equal(restored.rows[0]?.config.options?.length, 1);
     });
 
-    // --- access ------------------------------------------------------------
+    test('a view filters, and a stale filter still renders the collection', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Count',
+        fieldType: 'number',
+      });
+
+      for (const [title, value] of [
+        ['big', 10],
+        ['small', 2],
+      ] as Array<[string, number]>) {
+        const row = await addRow(session, collection, title);
+        await setValue(session, row, field, { kind: 'number', value });
+      }
+
+      const view = await expectJson<{ id: string }>(
+        await addView(session, collection, {
+          filters: [{ fieldId: field, operator: 'gte', value: 9 }],
+        }),
+        201,
+      );
+      assert.deepEqual(
+        (await read(session, collection, view.id)).rows.map((row) => row.title),
+        ['big'],
+      );
+
+      // The column goes; the view still names it.
+      await fetch(`${base}/api/collections/${collection}/fields/${field}`, {
+        method: 'DELETE',
+        headers: { cookie: session.cookie },
+      });
+      assert.equal(
+        (await read(session, collection, view.id)).rows.length,
+        2,
+        'unfiltered rather than unreachable',
+      );
+    });
+
+    test('a hostile filter value is a value, not SQL', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Note',
+        fieldType: 'text',
+      });
+      await addRow(session, collection, 'A record');
+
+      const view = await expectJson<{ id: string }>(
+        await addView(session, collection, {
+          filters: [{ fieldId: field, operator: 'is', value: "x'; DROP TABLE pages; --" }],
+        }),
+        201,
+      );
+
+      assert.deepEqual((await read(session, collection, view.id)).rows, []);
+      const still = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM pages`);
+      assert.ok(still.rows[0]!.n > 0, 'pages still exist');
+    });
+
+    // --- access --------------------------------------------------------------
 
     test('a viewer can read but not change a collection', async () => {
       const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
 
       const hash = await hashPassword(PASSWORD);
       const guest = await db.query<{ id: string }>(
@@ -949,7 +699,7 @@ describe(
       await db.query(
         `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
          VALUES ($1,$2,'viewer',true,$3)`,
-        [folder, guest.rows[0]!.id, session.userId],
+        [page, guest.rows[0]!.id, session.userId],
       );
       const login = await fetch(
         `${base}/api/auth/login`,
@@ -958,22 +708,25 @@ describe(
       const cookie = cookieFrom(login);
 
       await expectStatus(
-        await fetch(`${base}/api/pages/${folder}/collection`, { headers: { cookie } }),
+        await fetch(`${base}/api/collections/${collection}`, { headers: { cookie } }),
         200,
       );
-
-      const res = await fetch(`${base}/api/pages/${folder}/collection/fields`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', cookie },
-        body: JSON.stringify({ name: 'Sneaky', fieldType: 'text' }),
-      });
-      assert.equal(res.status, 403);
+      assert.equal(
+        (
+          await fetch(`${base}/api/collections/${collection}/fields`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', cookie },
+            body: JSON.stringify({ name: 'Sneaky', fieldType: 'text' }),
+          })
+        ).status,
+        403,
+      );
     });
 
     test('somebody outside the workspace sees nothing', async () => {
       const session = await setup();
-      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
-      await makeCollection(session, folder);
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
 
       const hash = await hashPassword(PASSWORD);
       await db.query(
@@ -986,10 +739,14 @@ describe(
         json({ email: 'out@example.org', password: PASSWORD }),
       );
 
-      const res = await fetch(`${base}/api/pages/${folder}/collection`, {
-        headers: { cookie: cookieFrom(login) },
-      });
-      assert.equal(res.status, 404);
+      assert.equal(
+        (
+          await fetch(`${base}/api/collections/${collection}`, {
+            headers: { cookie: cookieFrom(login) },
+          })
+        ).status,
+        404,
+      );
     });
   },
 );

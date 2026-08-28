@@ -34,9 +34,8 @@ import { CollectionBoard } from './CollectionBoard.tsx';
 import { OptionEditor, type EditableOption } from './OptionEditor.tsx';
 
 interface CollectionTableProps {
-  pageId: string;
-  /** Creates a row, which is an ordinary page inside the folder. */
-  onCreateRow: () => void;
+  /** A collection is addressed by its own id: a page may hold several. */
+  collectionId: string;
 }
 
 /** Column types this table can edit. See the note above. */
@@ -57,10 +56,7 @@ const ADDABLE: ReadonlyArray<{ type: string; label: string }> = [
 /** How long after the last keystroke a text cell is saved. */
 const SAVE_DELAY_MS = 600;
 
-export function CollectionTable({
-  pageId,
-  onCreateRow,
-}: CollectionTableProps): ReactElement {
+export function CollectionTable({ collectionId }: CollectionTableProps): ReactElement {
   const [data, setData] = useState<CollectionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addingColumn, setAddingColumn] = useState(false);
@@ -71,12 +67,12 @@ export function CollectionTable({
 
   const load = useCallback(async () => {
     try {
-      setData(await api.collection(pageId));
+      setData(await api.collection(collectionId));
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
     }
-  }, [pageId]);
+  }, [collectionId]);
 
   useEffect(() => {
     void load();
@@ -123,7 +119,7 @@ export function CollectionTable({
   const addColumn = async (fieldType: string): Promise<void> => {
     setAddingColumn(false);
     try {
-      await api.addCollectionField(pageId, { name: 'Untitled', fieldType });
+      await api.addCollectionField(collectionId, { name: 'Untitled', fieldType });
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -132,7 +128,7 @@ export function CollectionTable({
 
   const removeColumn = async (fieldId: string): Promise<void> => {
     try {
-      await api.removeCollectionField(pageId, fieldId);
+      await api.removeCollectionField(collectionId, fieldId);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -144,7 +140,7 @@ export function CollectionTable({
     options: Array<{ id: string; name: string; color: string }>,
   ): Promise<void> => {
     try {
-      await api.setFieldOptions(pageId, fieldId, options);
+      await api.setFieldOptions(collectionId, fieldId, options);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -153,7 +149,7 @@ export function CollectionTable({
 
   const renameColumn = async (fieldId: string, name: string): Promise<void> => {
     try {
-      await api.renameCollectionField(pageId, fieldId, name);
+      await api.renameCollectionField(collectionId, fieldId, name);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -180,7 +176,7 @@ export function CollectionTable({
 
   const addBoard = async (fieldId: string): Promise<void> => {
     try {
-      const created = await api.addCollectionView(pageId, {
+      const created = await api.addCollectionView(collectionId, {
         viewType: 'board',
         definition: { groupByFieldId: fieldId },
       });
@@ -324,7 +320,21 @@ export function CollectionTable({
       </div>
 
       {data.canEdit && (
-        <button type="button" className="collection-add-row" onClick={onCreateRow}>
+        <button
+          type="button"
+          className="collection-add-row"
+          onClick={() => {
+            // A row is created through the collection, not through the page
+            // routes: it needs the collection it belongs to, and a page created
+            // the ordinary way must never accidentally become one (ADR-0021).
+            void api
+              .addCollectionRow(collectionId)
+              .then(() => load())
+              .catch((err: unknown) =>
+                setError(err instanceof ApiError ? err.code : 'network_error'),
+              );
+          }}
+        >
           <PlusIcon /> New entry
         </button>
       )}

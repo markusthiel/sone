@@ -2784,3 +2784,27 @@ select {
   color: var(--tag-color);
 }
 .tag-chip svg { color: var(--tag-color); }
+
+/* Collections held by a page, beneath its writing.
+ *
+ * A collection is content inside a page (ADR-0021). Separated from the text
+ * above it, because a table is a different kind of reading from a paragraph.
+ */
+.page-collections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-6);
+  margin-block-start: var(--sone-space-6);
+  padding-block-start: var(--sone-space-5);
+  border-block-start: 1px solid var(--sone-border);
+}
+.btn.subtle {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  border-color: transparent;
+  background: transparent;
+  color: var(--sone-text-muted);
+}
+.btn.subtle:hover { background: var(--sone-bg-hover); color: var(--sone-text); }

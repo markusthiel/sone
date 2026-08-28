@@ -17,6 +17,7 @@ import {
   DOC_KEYS,
   FIELD_KEYS,
   META_KEYS,
+  ENTRY_KINDS,
   PAGE_KEYS,
   VIEW_KEYS,
   compareSiblings,
@@ -87,7 +88,13 @@ export interface ReadDocument {
   page: ReadPage;
   blocks: ReadBlock[];
   properties: Map<string, StoredValue>;
-  collection: ReadCollection | null;
+  /**
+   * Every collection this page holds, keyed by id.
+   *
+   * A page may hold several (ADR-0021). Empty for a page that holds none, which
+   * is most of them.
+   */
+  collections: Map<string, ReadCollection>;
   /** Non-fatal problems encountered while reading. Recorded, not thrown. */
   warnings: string[];
 }
@@ -114,9 +121,16 @@ function readPageMeta(doc: Y.Doc, warnings: string[]): ReadPage {
   // An unrecognised or absent kind reads as 'page' rather than being rejected:
   // every document written before folders existed has no kind, and a newer
   // client could introduce one this build does not know (ADR-0019).
+  // Checked against ENTRY_KINDS rather than a list written out here.
+  //
+  // It was written out here, with two values, and adding 'row' to the model did
+  // not reach it — so every row was read back as a page, appeared in the tree
+  // and belonged to no collection. The constant exists precisely so the answer
+  // is in one place.
   const rawKind = asString(map.get(PAGE_KEYS.kind));
-  const kind: EntryKind = rawKind === 'folder' ? 'folder' : 'page';
-  if (rawKind !== null && rawKind !== 'page' && rawKind !== 'folder') {
+  const known = (ENTRY_KINDS as readonly string[]).includes(rawKind ?? '');
+  const kind: EntryKind = known ? (rawKind as EntryKind) : 'page';
+  if (rawKind !== null && !known) {
     warnings.push(`page.kind "${rawKind}" is not recognised; treated as a page`);
   }
 
@@ -178,12 +192,11 @@ function readProperties(doc: Y.Doc, warnings: string[]): Map<string, StoredValue
   return out;
 }
 
-function readCollection(doc: Y.Doc, warnings: string[]): ReadCollection | null {
-  // A page without a collection has no such map; Yjs would create an empty
-  // one on access, so check the root keys first.
-  if (!doc.share.has(DOC_KEYS.collection)) return null;
-
-  const map = doc.getMap(DOC_KEYS.collection);
+/** Read one collection out of its own map. */
+function readOneCollection(
+  map: Y.Map<unknown>,
+  warnings: string[],
+): ReadCollection | null {
   if (map.size === 0) return null;
 
   const titleFieldId = asString(map.get(COLLECTION_KEYS.titleFieldId));
@@ -254,16 +267,71 @@ function readCollection(doc: Y.Doc, warnings: string[]): ReadCollection | null {
   };
 }
 
-export function readDocument(doc: Y.Doc): ReadDocument {
+/**
+ * Every collection on this page, keyed by id.
+ *
+ * A page may hold several (ADR-0021), so the map is keyed by collection id and
+ * each value is one collection.
+ *
+ * A map written under the 0.2.0 shape — one collection, its keys at the top
+ * level — is read as a single collection whose id is the page's own. That is
+ * what 0.2.0 stored, so an old document keeps working without a migration and
+ * without a schema-version bump: the projection it produces is the same one it
+ * always produced.
+ */
+function readCollections(
+  doc: Y.Doc,
+  pageId: string | null,
+  warnings: string[],
+): Map<string, ReadCollection> {
+  const out = new Map<string, ReadCollection>();
+
+  // A page without collections has no such map; Yjs would create an empty one
+  // on access, so check the root keys first.
+  if (!doc.share.has(DOC_KEYS.collection)) return out;
+
+  const root = doc.getMap(DOC_KEYS.collection);
+  if (root.size === 0) return out;
+
+  // The old shape: recognised by its own keys rather than by guessing.
+  if (root.has(COLLECTION_KEYS.titleFieldId)) {
+    const single = readOneCollection(root, warnings);
+    if (single && pageId) out.set(pageId, single);
+    else if (single) warnings.push('collection: no page id, collection ignored');
+    return out;
+  }
+
+  for (const [collectionId, raw] of root.entries()) {
+    if (!(raw instanceof Y.Map)) {
+      warnings.push(`collection ${collectionId}: not a Y.Map, skipped`);
+      continue;
+    }
+    const parsed = readOneCollection(raw, warnings);
+    if (parsed) out.set(collectionId, parsed);
+  }
+  return out;
+}
+
+/**
+ * Parse a document.
+ *
+ * `pageId` is required, not optional. It was optional for one commit and both
+ * call sites omitted it, which silently disabled the compatibility path for
+ * documents written under the 0.2.0 collection shape — an optional parameter
+ * that changes behaviour when omitted is a trap, and this one caught me
+ * immediately.
+ */
+export function readDocument(doc: Y.Doc, pageId: string | null): ReadDocument {
   const warnings: string[] = [];
   const meta = doc.getMap(DOC_KEYS.meta);
+  const page = readPageMeta(doc, warnings);
 
   return {
     schemaVersion: asNumber(meta.get(META_KEYS.schemaVersion), 1),
-    page: readPageMeta(doc, warnings),
+    page,
     blocks: readBlocks(doc, warnings),
     properties: readProperties(doc, warnings),
-    collection: readCollection(doc, warnings),
+    collections: readCollections(doc, pageId, warnings),
     warnings,
   };
 }
