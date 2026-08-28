@@ -130,6 +130,24 @@ test('the title and the body share one text indent', () => {
   assert.match(css, /\.page-title \{[^}]*var\(--sone-text-indent\)/);
 });
 
+test('table styling does not depend on attributes the node view drops', () => {
+  // Enabling column resizing installs prosemirror-tables' own node view, which
+  // builds the table in JavaScript and never consults the schema's toDOM — so
+  // `data-block` is absent from a rendered table, and a selector requiring it
+  // matches nothing. A whole section of table styling was dead this way, and
+  // the page showed a container with no borders and no header.
+  const dead = [...css.matchAll(/table\[data-block=/g)];
+  assert.equal(
+    dead.length,
+    0,
+    'a table selector requires data-block, which the node view does not emit',
+  );
+
+  // And the styling has to exist at all.
+  assert.match(css, /\.ProseMirror table \{[^}]*table-layout:\s*fixed/);
+  assert.match(css, /\.ProseMirror \.tableWrapper/);
+});
+
 test('no control invents its own tap size', () => {
   // A hand-written 44px is a scale value that has drifted from the scale.
   const offenders = [...css.matchAll(/min-(?:height|block-size):\s*44px/g)];
