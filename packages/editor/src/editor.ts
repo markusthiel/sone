@@ -34,6 +34,7 @@ import type * as Y from 'yjs';
 import { blockIds, type IdGenerator } from './blockIds.js';
 import { soneInputRules } from './inputRules.js';
 import { soneKeymap } from './keymap.js';
+import { codeCopy } from './codeCopy.js';
 import { collapse } from './collapse.js';
 import { listNumbers } from './listNumbers.js';
 import { placeholders } from './placeholders.js';
@@ -116,6 +117,7 @@ export function createEditorState(opts: EditorOptions): EditorState {
     listNumbers(),
     collapse(),
     placeholders(),
+    codeCopy(),
     ...tablePlugins(),
     markdownPaste(),
     // After markdownPaste: a paste carrying both files and text is an image
@@ -260,6 +262,7 @@ export {
 export { soneInputRules, INPUT_RULE_HELP } from './inputRules.js';
 export { listNumbers, computeListNumbers } from './listNumbers.js';
 export { placeholders } from './placeholders.js';
+export { codeCopy, codeTextAt } from './codeCopy.js';
 export {
   collapse,
   hiddenBlockPositions,

@@ -16,6 +16,7 @@
 
 import {
   canLink,
+  codeTextAt,
   linkAt,
   normaliseHref,
   removeLink,
@@ -26,6 +27,7 @@ import { toggleMark } from 'prosemirror-commands';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
+import { useViewportChanges } from '../hooks/useViewportChanges.ts';
 import { keepsEditorSelection } from './popup.ts';
 
 interface SelectionToolbarProps {
@@ -41,6 +43,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
   const [box, setBox] = useState<{ top: number; left: number; above: boolean } | null>(null);
   const [editingLink, setEditingLink] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
+  const [copied, setCopied] = useState(false);
   const [href, setHref] = useState('');
   const barRef = useRef<HTMLDivElement | null>(null);
 
@@ -51,6 +54,23 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
   // Kept open across the transaction that selects the link, so Mod-K can leave
   // a selection behind and have the editor appear over it.
   const visible = !empty || editingLink;
+  const codeText = codeTextAt(state);
+
+  // A scroll moves the selection under the toolbar without producing a
+  // transaction, so nothing else would prompt a re-measure.
+  const viewportToken = useViewportChanges(visible);
+
+  const copyCode = async (): Promise<void> => {
+    if (codeText === null) return;
+    try {
+      await navigator.clipboard.writeText(codeText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // Clipboard access can be refused, and over plain http it does not exist.
+      // The selection is still there to copy by hand.
+    }
+  };
 
   useEffect(() => {
     if (!visible) {
@@ -83,7 +103,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
       return () => cancelAnimationFrame(retry);
     }
     return undefined;
-  }, [view, state, revision, visible, editingLink, retryToken]);
+  }, [view, state, revision, visible, editingLink, retryToken, viewportToken]);
 
   // Escape closes the link editor without applying, and returns focus to the
   // document — otherwise the caret is lost and the next keystroke goes nowhere.
@@ -214,6 +234,23 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
           >
             Link
           </button>
+
+          {/* Only when the selection is in code, block or inline.
+           *
+           * Somebody who marked three words as code and wants them on the
+           * clipboard should not have to select them exactly — the button
+           * copies the whole run. A code block gets its own button in the
+           * corner; this is the inline case. */}
+          {codeText !== null && (
+            <button
+              type="button"
+              title="Copy the code"
+              className="toolbar-button"
+              onClick={() => void copyCode()}
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          )}
         </>
       )}
     </div>

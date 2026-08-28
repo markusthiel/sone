@@ -34,6 +34,8 @@ import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
+import { useViewportChanges } from '../hooks/useViewportChanges.ts';
+
 import { GripIcon, PlusIcon } from './icons.tsx';
 import { keepsEditorSelection, popupItem } from './popup.ts';
 
@@ -72,6 +74,10 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
   const range = selectedBlockRange(view.state);
   const from = range?.from ?? null;
   const size = range ? range.endIndex - range.index : 0;
+
+  // Re-place when the page moves: a scroll produces no transaction, so nothing
+  // else would tell this component that the text is no longer where it was.
+  const viewportToken = useViewportChanges(from !== null);
 
   // Positioned from the block's own DOM node rather than from the caret, so the
   // button sits beside the block and not beside the cursor within it.
@@ -129,7 +135,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
       return () => cancelAnimationFrame(retry);
     }
     return undefined;
-  }, [view, from, revision, retryToken]);
+  }, [view, from, revision, retryToken, viewportToken]);
 
   useEffect(() => {
     if (!open) return;

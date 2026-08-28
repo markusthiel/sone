@@ -103,19 +103,31 @@ test('the gutter width in the stylesheet matches the one used to place it', () =
 test('narrow screens reserve room for the gutter', () => {
   // On a phone the content runs edge to edge, and without extra padding the
   // controls have nowhere to go but on top of the first line.
-  const editorPadding = /\.editor-surface[\s\S]{0,600}?padding-inline-start:\s*([\d.]+)rem/.exec(css);
+  // Read from the variable rather than from the rule, which now references it.
+  // The first version of this test matched a literal rem value and broke the
+  // moment the value was named — a check that only works while nothing is
+  // refactored is not much of a check.
+  const editorPadding = /--sone-text-indent:\s*([\d.]+)rem/.exec(css);
   const narrowPadding = /@media \(max-width: 60rem\)[\s\S]{0,200}?padding-inline-start:\s*(\d+)px/.exec(css);
   const gutterWidth = /\.block-gutter \{[^}]*inline-size:\s*(\d+)px/.exec(css);
 
   assert.ok(narrowPadding, 'narrow screens should reserve extra padding');
   assert.ok(gutterWidth, '.block-gutter should have a width');
 
-  const reserved =
-    Number(narrowPadding[1]) + (editorPadding ? Number(editorPadding[1]) * 16 : 0);
+  assert.ok(editorPadding, '--sone-text-indent should be defined in rem');
+  const reserved = Number(narrowPadding[1]) + Number(editorPadding[1]) * 16;
   assert.ok(
     reserved >= Number(gutterWidth[1]),
     `only ${reserved}px reserved for a ${gutterWidth[1]}px gutter`,
   );
+});
+
+test('the title and the body share one text indent', () => {
+  // The editor reserves space for list markers; the title did not, so the
+  // heading sat 24px to the left of its own body text — a misalignment people
+  // see without being able to name.
+  assert.match(css, /\.ProseMirror \{[^}]*padding-inline-start:\s*var\(--sone-text-indent\)/);
+  assert.match(css, /\.page-title \{[^}]*var\(--sone-text-indent\)/);
 });
 
 test('no control invents its own tap size', () => {
