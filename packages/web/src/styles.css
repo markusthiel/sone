@@ -2400,7 +2400,12 @@ select {
   outline: none;
 }
 
-.collection-column { display: inline-flex; align-items: center; gap: var(--sone-space-1); }
+.collection-column {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-1);
+}
 .collection-column-input {
   inline-size: 8rem;
   min-block-size: var(--sone-control);
@@ -2507,4 +2512,116 @@ select {
   pointer-events: none;
   /* Slightly tilted, the convention for "picked up". */
   transform: rotate(-1.5deg);
+}
+
+/* --- select options ---
+ *
+ * Colours are names, not values, so a theme can decide what each one looks
+ * like. A stored hex would be unreadable in the theme it was not chosen in.
+ */
+.option-grey   { --option-color: var(--sone-text-muted); }
+.option-red    { --option-color: #d64545; }
+.option-orange { --option-color: #d97706; }
+.option-yellow { --option-color: #ca8a04; }
+.option-green  { --option-color: #16a34a; }
+.option-blue   { --option-color: #2563eb; }
+.option-purple { --option-color: #7c3aed; }
+.option-pink   { --option-color: #db2777; }
+
+.option-editor {
+  position: absolute;
+  z-index: 30;
+  inset-inline-start: 0;
+  inset-block-start: 100%;
+  inline-size: 22rem;
+  max-inline-size: calc(100vw - 2rem);
+  padding: var(--sone-space-4);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 16%);
+  font-weight: 400;
+  white-space: normal;
+}
+
+.option-list { display: flex; flex-direction: column; gap: var(--sone-space-2); margin: 0 0 var(--sone-space-3); padding: 0; list-style: none; }
+.option-list li { display: flex; align-items: center; gap: var(--sone-space-2); }
+
+.option-swatch {
+  flex: 0 0 auto;
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: 50%;
+  background: var(--option-color, var(--sone-text-muted));
+}
+
+.option-name {
+  flex: 1 1 auto;
+  min-inline-size: 4rem;
+  min-block-size: var(--sone-control);
+  padding-inline: var(--sone-space-2);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+.option-color { min-block-size: var(--sone-control); font: inherit; }
+
+.option-remove {
+  min-block-size: var(--sone-control);
+  min-inline-size: var(--sone-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+}
+.option-remove:hover { color: var(--sone-danger); }
+
+.option-editor-actions { display: flex; align-items: center; gap: var(--sone-space-2); }
+.option-editor-spacer { flex: 1 1 auto; }
+.option-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-1);
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-2);
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.option-add:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.option-empty, .option-note { font-size: var(--sone-text-xs); margin: var(--sone-space-2) 0 0; }
+
+.collection-column-options {
+  min-block-size: var(--sone-control);
+  min-inline-size: var(--sone-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  opacity: 0;
+}
+.collection-table th:hover .collection-column-options,
+.collection-column-options:focus-visible { opacity: 1; }
+@media (hover: none) { .collection-column-options { opacity: 0.6; } }
+
+.collection-select { display: inline-flex; align-items: center; gap: var(--sone-space-2); }
+.collection-select select { min-block-size: var(--sone-control); font: inherit; max-inline-size: 12rem; }
+.collection-no-options { font-size: var(--sone-text-xs); }
+.collection-missing-option {
+  padding: 1px var(--sone-space-2);
+  border-radius: var(--sone-radius-sm);
+  background: color-mix(in srgb, var(--sone-danger) 12%, transparent);
+  color: var(--sone-danger);
+  font-size: var(--sone-text-xs);
+  white-space: nowrap;
 }

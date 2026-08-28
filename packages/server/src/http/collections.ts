@@ -22,9 +22,12 @@ import {
   initCollection,
   isCollection,
   removeField,
+  selectValueIsKnown,
+  setOptions,
   setPropertyValue,
   updateField,
   type FieldType,
+  type SelectOption,
   type StoredValue,
 } from '@sone/core';
 import { randomUUID } from 'node:crypto';
@@ -61,6 +64,9 @@ const CREATABLE_FIELD_TYPES = new Set<FieldType>([
   'email',
   'phone',
 ]);
+
+/** Field types whose options can be edited. */
+const HAS_OPTIONS = new Set<string>(['select', 'multiSelect', 'status']);
 
 interface Authorised {
   workspaceId: string;
@@ -350,6 +356,76 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
   });
 
   /**
+   * Replace a select column's options.
+   *
+   * The whole list at once, because that is what an option editor produces, and
+   * because a partial update would need a merge rule for two people editing the
+   * same list — a worse problem than last-write-wins on a list one person is
+   * actively editing.
+   */
+  router.put('/api/pages/:pageId/collection/fields/:fieldId/options', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const auth = await authorise(deps.pool, ctx, pageId, 'edit');
+    if (!auth) return;
+
+    let body: { options?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    if (!Array.isArray(body.options)) {
+      ctx.fail(422, 'invalid_options');
+      return;
+    }
+
+    const options: SelectOption[] = [];
+    for (const entry of body.options) {
+      if (!entry || typeof entry !== 'object') {
+        ctx.fail(422, 'invalid_options');
+        return;
+      }
+      const { id, name, color } = entry as Record<string, unknown>;
+      // An id is required rather than generated here: the client has to keep
+      // ids stable across a rename, because a row's value points at an id and
+      // a new one would lose every row's value.
+      if (typeof id !== 'string' || id === '') {
+        ctx.fail(422, 'option_needs_an_id');
+        return;
+      }
+      options.push({
+        id,
+        name: typeof name === 'string' ? name : '',
+        color: typeof color === 'string' ? color : 'grey',
+      });
+    }
+
+    const fieldId = ctx.params['fieldId'] ?? '';
+    let ok = false;
+    const result = await applyToDocument(
+      deps.pool,
+      pageId,
+      (doc) => {
+        ok = setOptions(doc, fieldId, options);
+      },
+      auth.actorId,
+    );
+
+    if (!ok) {
+      // Not a field that has options, duplicate ids, or too many. All are the
+      // caller asking for something that cannot hold.
+      ctx.fail(409, 'options_not_set');
+      return;
+    }
+    if (result.changed) {
+      await rematerialize(deps.pool, pageId, auth.workspaceId, auth.actorId);
+    }
+    ctx.send(200, { fieldId, options });
+  });
+
+  /**
    * Set a value on a row.
    *
    * Written to the row's document, not the collection's, and materialised from
@@ -373,9 +449,9 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     // The field's type decides whether a value may be stored at all, and it
     // lives on the collection rather than on the row — so it is read from the
     // projection, which is exactly what the projection is for.
-    const field = await queryOne<{ field_type: string }>(
+    const field = await queryOne<{ field_type: string; config: Record<string, unknown> }>(
       deps.pool,
-      `SELECT f.field_type
+      `SELECT f.field_type, f.config
          FROM collection_fields f
          JOIN collections c ON c.id = f.collection_id
          JOIN pages r ON r.parent_page_id = c.page_id
@@ -391,6 +467,23 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     }
 
     const value = body.value ?? null;
+
+    // A select value must name options that exist.
+    //
+    // Checked before storing, so a cell cannot come to point at an option that
+    // was never there. Options already removed are a different matter: those
+    // values stay, because a row owns its values and erasing them would make
+    // one misclick in the option editor unrecoverable.
+    if (value !== null && HAS_OPTIONS.has(field.field_type)) {
+      const known = Array.isArray(field.config['options'])
+        ? (field.config['options'] as SelectOption[])
+        : [];
+      if (!selectValueIsKnown(value, known)) {
+        ctx.fail(422, 'unknown_option');
+        return;
+      }
+    }
+
     let ok = false;
     const result = await applyToDocument(
       deps.pool,

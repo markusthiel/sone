@@ -14,7 +14,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { textOf } from '../src/components/CollectionTable.tsx';
+import { optionsOf, textOf } from '../src/components/CollectionTable.tsx';
 
 test('text-like kinds are read', () => {
   assert.equal(textOf({ kind: 'text', value: 'hello' }), 'hello');
@@ -43,4 +43,63 @@ test('a malformed value does not become the string "undefined"', () => {
   // A document written by an older version, or by something else entirely.
   assert.equal(textOf({ kind: 'text' } as never), '');
   assert.equal(textOf({ kind: 'text', value: 5 } as never), '');
+});
+
+// --- reading a column's options ---------------------------------------------
+
+test('options are read from the config', () => {
+  assert.deepEqual(
+    optionsOf({
+      id: 'f',
+      name: 'Status',
+      description: null,
+      fieldType: 'select',
+      config: {
+        options: [
+          { id: 'o1', name: 'Todo', color: 'grey' },
+          { id: 'o2', name: 'Doing', color: 'blue' },
+        ],
+      },
+    }),
+    [
+      { id: 'o1', name: 'Todo', color: 'grey' },
+      { id: 'o2', name: 'Doing', color: 'blue' },
+    ],
+  );
+});
+
+test('a column with no options reads as an empty list', () => {
+  // Which the cell uses to say "add some in the column heading" rather than
+  // presenting an empty dropdown that looks broken.
+  const base = { id: 'f', name: 'S', description: null, fieldType: 'select' };
+  assert.deepEqual(optionsOf({ ...base, config: {} }), []);
+  assert.deepEqual(optionsOf({ ...base, config: { options: 'nonsense' } }), []);
+});
+
+test('an option without an id is skipped', () => {
+  // It could never be read back: a row's value points at an id, so an option
+  // without one can be chosen and then not displayed.
+  const options = optionsOf({
+    id: 'f',
+    name: 'S',
+    description: null,
+    fieldType: 'select',
+    config: {
+      options: [{ name: 'No id' }, { id: '', name: 'Empty id' }, { id: 'ok', name: 'Fine' }],
+    },
+  });
+  assert.deepEqual(options.map((option) => option.id), ['ok']);
+});
+
+test('a missing colour becomes grey rather than undefined', () => {
+  // The class name is built from it, so undefined would produce "option-
+  // undefined" and no colour at all.
+  const options = optionsOf({
+    id: 'f',
+    name: 'S',
+    description: null,
+    fieldType: 'select',
+    config: { options: [{ id: 'o1', name: 'Todo' }] },
+  });
+  assert.equal(options[0]!.color, 'grey');
 });

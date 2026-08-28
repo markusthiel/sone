@@ -130,7 +130,12 @@ describe(
     const read = async (session: Session, pageId: string) =>
       expectJson<{
         titleFieldId: string;
-        fields: Array<{ id: string; name: string; fieldType: string }>;
+        fields: Array<{
+          id: string;
+          name: string;
+          fieldType: string;
+          config?: Record<string, unknown>;
+        }>;
         rows: Array<{ id: string; title: string; values: Record<string, unknown> }>;
       }>(
         await fetch(`${base}/api/pages/${pageId}/collection`, {
@@ -389,6 +394,173 @@ describe(
 
       const res = await setValue(session, row, foreign.id, { kind: 'text', value: 'x' });
       assert.equal(res.status, 404);
+    });
+
+    // --- select options ----------------------------------------------------
+
+    const setOptionsFor = (
+      session: Session,
+      pageId: string,
+      fieldId: string,
+      options: Array<{ id: string; name: string; color?: string }>,
+    ): Promise<Response> =>
+      fetch(`${base}/api/pages/${pageId}/collection/fields/${fieldId}/options`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ options }),
+      });
+
+    async function selectColumn(session: Session): Promise<{
+      folder: string;
+      field: string;
+      row: string;
+    }> {
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+      const field = await expectJson<{ id: string }>(
+        await addField(session, folder, { name: 'Status', fieldType: 'select' }),
+        201,
+      );
+      const row = await create(session, 'A task', 'page', folder);
+      return { folder, field: field.id, row };
+    }
+
+    test('options are stored and come back through the projection', async () => {
+      // The write goes to the document; this read comes from
+      // collection_fields.config. If the two were not connected the write would
+      // report success and the column would have no options.
+      const session = await setup();
+      const { folder, field } = await selectColumn(session);
+
+      await expectStatus(
+        await setOptionsFor(session, folder, field, [
+          { id: 'o1', name: 'Todo', color: 'grey' },
+          { id: 'o2', name: 'Doing', color: 'blue' },
+        ]),
+        200,
+      );
+
+      const body = await read(session, folder);
+      const column = body.fields.find((entry) => entry.id === field);
+      assert.deepEqual(column?.config?.['options'], [
+        { id: 'o1', name: 'Todo', color: 'grey' },
+        { id: 'o2', name: 'Doing', color: 'blue' },
+      ]);
+    });
+
+    test('a select value must name an option that exists', async () => {
+      // Otherwise a cell comes to point at an option that was never there, and
+      // no view can render it.
+      const session = await setup();
+      const { folder, field, row } = await selectColumn(session);
+      await expectStatus(
+        await setOptionsFor(session, folder, field, [
+          { id: 'o1', name: 'Todo', color: 'grey' },
+        ]),
+        200,
+      );
+
+      await expectStatus(
+        await setValue(session, row, field, { kind: 'select', optionId: 'o1' }),
+        200,
+      );
+
+      const res = await setValue(session, row, field, {
+        kind: 'select',
+        optionId: 'never-existed',
+      });
+      assert.equal(res.status, 422);
+      assert.deepEqual(await res.json(), { error: 'unknown_option' });
+    });
+
+    test('an option removed later does not erase the rows pointing at it', async () => {
+      // A row owns its values. Erasing them when an option is removed would
+      // make one misclick in the option editor unrecoverable.
+      const session = await setup();
+      const { folder, field, row } = await selectColumn(session);
+      await setOptionsFor(session, folder, field, [{ id: 'o1', name: 'Todo' }]);
+      await setValue(session, row, field, { kind: 'select', optionId: 'o1' });
+
+      await expectStatus(await setOptionsFor(session, folder, field, []), 200);
+
+      const stored = await db.query<{ value: { optionId?: string } }>(
+        `SELECT value FROM page_properties WHERE page_id = $1 AND field_id = $2`,
+        [row, field],
+      );
+      assert.equal(stored.rows[0]?.value.optionId, 'o1', 'still there');
+    });
+
+    test('renaming an option keeps the value, because the id is kept', async () => {
+      const session = await setup();
+      const { folder, field, row } = await selectColumn(session);
+      await setOptionsFor(session, folder, field, [{ id: 'o1', name: 'Todo' }]);
+      await setValue(session, row, field, { kind: 'select', optionId: 'o1' });
+
+      await setOptionsFor(session, folder, field, [
+        { id: 'o1', name: 'To do', color: 'green' },
+      ]);
+
+      const body = await read(session, folder);
+      assert.deepEqual(body.rows[0]!.values[field], { kind: 'select', optionId: 'o1' });
+    });
+
+    test('an option without an id is refused rather than given one', async () => {
+      // Generating one here would break a rename: the client has to keep ids
+      // stable, because a row's value points at an id.
+      const session = await setup();
+      const { folder, field } = await selectColumn(session);
+      const res = await fetch(
+        `${base}/api/pages/${folder}/collection/fields/${field}/options`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ options: [{ name: 'Todo' }] }),
+        },
+      );
+      assert.equal(res.status, 422);
+      assert.deepEqual(await res.json(), { error: 'option_needs_an_id' });
+    });
+
+    test('duplicate option ids are refused', async () => {
+      const session = await setup();
+      const { folder, field } = await selectColumn(session);
+      const res = await setOptionsFor(session, folder, field, [
+        { id: 'same', name: 'One' },
+        { id: 'same', name: 'Two' },
+      ]);
+      assert.equal(res.status, 409);
+    });
+
+    test('options cannot be set on a column that has none', async () => {
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+      const field = await expectJson<{ id: string }>(
+        await addField(session, folder, { name: 'Note', fieldType: 'text' }),
+        201,
+      );
+      const res = await setOptionsFor(session, folder, field.id, [
+        { id: 'o1', name: 'Todo' },
+      ]);
+      assert.equal(res.status, 409);
+    });
+
+    test('options survive a rebuild', async () => {
+      const session = await setup();
+      const { folder, field } = await selectColumn(session);
+      await setOptionsFor(session, folder, field, [
+        { id: 'o1', name: 'Todo', color: 'blue' },
+      ]);
+
+      await db.query(`UPDATE collection_fields SET config = '{}'::jsonb`);
+      const { rebuild } = await import('../src/materialize/rebuild.js');
+      await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
+
+      const restored = await db.query<{ config: { options?: unknown[] } }>(
+        `SELECT config FROM collection_fields WHERE id = $1`,
+        [field],
+      );
+      assert.equal(restored.rows[0]?.config.options?.length, 1);
     });
 
     // --- access ------------------------------------------------------------

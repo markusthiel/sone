@@ -29,7 +29,8 @@ import {
 } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
-import { PlusIcon, TrashIcon } from './icons.tsx';
+import { ListIcon, PlusIcon, TrashIcon } from './icons.tsx';
+import { OptionEditor, type EditableOption } from './OptionEditor.tsx';
 
 interface CollectionTableProps {
   pageId: string;
@@ -40,6 +41,10 @@ interface CollectionTableProps {
 /** Column types this table can edit. See the note above. */
 const ADDABLE: ReadonlyArray<{ type: string; label: string }> = [
   { type: 'text', label: 'Text' },
+  // Offered now that its options can be managed. It was held back precisely
+  // because a column whose options nobody can edit is one nobody can fill.
+  { type: 'select', label: 'Select' },
+  { type: 'multiSelect', label: 'Multi-select' },
   { type: 'number', label: 'Number' },
   { type: 'date', label: 'Date' },
   { type: 'checkbox', label: 'Checkbox' },
@@ -129,6 +134,18 @@ export function CollectionTable({
     }
   };
 
+  const saveOptions = async (
+    fieldId: string,
+    options: Array<{ id: string; name: string; color: string }>,
+  ): Promise<void> => {
+    try {
+      await api.setFieldOptions(pageId, fieldId, options);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
+
   const renameColumn = async (fieldId: string, name: string): Promise<void> => {
     try {
       await api.renameCollectionField(pageId, fieldId, name);
@@ -160,6 +177,7 @@ export function CollectionTable({
                     canEdit={data.canEdit}
                     onRename={(name) => void renameColumn(field.id, name)}
                     onRemove={() => void removeColumn(field.id)}
+                    onSaveOptions={(options) => void saveOptions(field.id, options)}
                   />
                 </th>
               ))}
@@ -241,13 +259,17 @@ function ColumnHeader({
   canEdit,
   onRename,
   onRemove,
+  onSaveOptions,
 }: {
   field: CollectionField;
   canEdit: boolean;
   onRename: (name: string) => void;
   onRemove: () => void;
+  onSaveOptions: (options: EditableOption[]) => void;
 }): ReactElement {
   const [name, setName] = useState(field.name);
+  const [editingOptions, setEditingOptions] = useState(false);
+  const hasOptions = field.fieldType === 'select' || field.fieldType === 'multiSelect';
 
   // Reset when the column changes underneath, which happens when somebody else
   // renames it. Without this the local value would win silently.
@@ -275,6 +297,16 @@ function ColumnHeader({
           else setName(field.name);
         }}
       />
+      {hasOptions && (
+        <button
+          type="button"
+          className="collection-column-options"
+          aria-label={`Edit the options of ${field.name}`}
+          onClick={() => setEditingOptions((open) => !open)}
+        >
+          <ListIcon />
+        </button>
+      )}
       <button
         type="button"
         className="collection-column-remove"
@@ -283,8 +315,44 @@ function ColumnHeader({
       >
         <TrashIcon />
       </button>
+
+      {editingOptions && (
+        <OptionEditor
+          options={optionsOf(field)}
+          onClose={() => setEditingOptions(false)}
+          onSave={(options) => {
+            setEditingOptions(false);
+            onSaveOptions(options);
+          }}
+        />
+      )}
     </span>
   );
+}
+
+/**
+ * A field's options, defensively.
+ *
+ * `config` is whatever the document held, so it is checked rather than cast.
+ * A malformed entry here would become an option with no id, and a cell pointing
+ * at it could never be read back.
+ */
+export function optionsOf(field: CollectionField): EditableOption[] {
+  const raw = field.config['options'];
+  if (!Array.isArray(raw)) return [];
+
+  const out: EditableOption[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const { id, name, color } = entry as Record<string, unknown>;
+    if (typeof id !== 'string' || id === '') continue;
+    out.push({
+      id,
+      name: typeof name === 'string' ? name : '',
+      color: typeof color === 'string' ? color : 'grey',
+    });
+  }
+  return out;
 }
 
 /**
@@ -362,6 +430,18 @@ function Cell({
     );
   }
 
+  if (field.fieldType === 'select' || field.fieldType === 'multiSelect') {
+    return (
+      <SelectCell
+        field={field}
+        value={value}
+        canEdit={canEdit}
+        multiple={field.fieldType === 'multiSelect'}
+        onChange={onChange}
+      />
+    );
+  }
+
   const kind = field.fieldType === 'text' ? 'text' : field.fieldType;
   const inputType =
     field.fieldType === 'url' ? 'url' : field.fieldType === 'email' ? 'email' : 'text';
@@ -377,6 +457,87 @@ function Cell({
       }
       onChange={onChange}
     />
+  );
+}
+
+/**
+ * A select cell.
+ *
+ * A native `<select>`, and a native multiple-select for the multi variant. Not a
+ * custom popup: the native control already handles keyboard, screen readers and
+ * the phone's own picker, and a table full of custom dropdowns is a table that
+ * feels heavy to scroll.
+ *
+ * An option that no longer exists is shown as such rather than as an empty cell.
+ * The value is still stored — a row owns its values — and telling somebody the
+ * cell is empty when it is not would invite them to overwrite it without knowing
+ * what they lost.
+ */
+function SelectCell({
+  field,
+  value,
+  canEdit,
+  multiple,
+  onChange,
+}: {
+  field: CollectionField;
+  value: StoredCellValue | null;
+  canEdit: boolean;
+  multiple: boolean;
+  onChange: (value: StoredCellValue | null) => void;
+}): ReactElement {
+  const options = optionsOf(field);
+  const known = new Set(options.map((option) => option.id));
+
+  const chosen: string[] =
+    value?.kind === 'select' && typeof value.optionId === 'string'
+      ? [value.optionId]
+      : value?.kind === 'multiSelect' && Array.isArray(value.optionIds)
+        ? (value.optionIds as string[])
+        : [];
+
+  const missing = chosen.filter((id) => !known.has(id));
+
+  if (options.length === 0) {
+    return (
+      <span className="muted collection-no-options">
+        No options — add some in the column heading
+      </span>
+    );
+  }
+
+  return (
+    <span className="collection-select">
+      <select
+        multiple={multiple}
+        value={multiple ? chosen : (chosen[0] ?? '')}
+        disabled={!canEdit}
+        aria-label={field.name}
+        onChange={(event) => {
+          if (multiple) {
+            const picked = [...event.target.selectedOptions].map((option) => option.value);
+            onChange(picked.length > 0 ? { kind: 'multiSelect', optionIds: picked } : null);
+            return;
+          }
+          const picked = event.target.value;
+          onChange(picked === '' ? null : { kind: 'select', optionId: picked });
+        }}
+      >
+        {/* Only for the single variant: clearing a multiple select is done by
+            deselecting, and an empty entry there would look like an option. */}
+        {!multiple && <option value="">—</option>}
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      {missing.length > 0 && (
+        <span className="collection-missing-option" title="This option was removed">
+          {missing.length === 1 ? 'removed option' : `${missing.length} removed options`}
+        </span>
+      )}
+    </span>
   );
 }
 
