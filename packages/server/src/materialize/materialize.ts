@@ -229,7 +229,15 @@ export async function materializeDocument(
       pageId,
       opts.workspaceId,
       parsed.page.parentPageId,
-      parsed.page.collectionId,
+      // A page that carries a collection *is* that collection, and its id is
+      // the page's own unless the document names another.
+      //
+      // Read straight from parsed.page.collectionId before, which nothing
+      // writes: turning a folder into a collection sets the collection map, not
+      // this field. So the row stayed null, the tree reported the folder as an
+      // ordinary one, and "Add columns" appeared to do nothing — the collection
+      // was created and nothing displayed it.
+      parsed.collection ? (parsed.page.collectionId ?? pageId) : parsed.page.collectionId,
       parsed.page.idx,
       parsed.page.title,
       parsed.page.icon === null ? null : JSON.stringify(parsed.page.icon),

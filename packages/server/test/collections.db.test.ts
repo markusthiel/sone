@@ -185,6 +185,58 @@ describe(
       assert.equal(body.fields[0]!.id, body.titleFieldId);
     });
 
+    test('the tree reports the folder as a collection', async () => {
+      // What the interface decides on. pages.collection_id was read from a
+      // document field that nothing writes — turning a folder into a collection
+      // sets the collection map, not that field — so the row stayed null, the
+      // tree reported an ordinary folder, and "Add columns" appeared to do
+      // nothing while having worked.
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+
+      const before = await db.query<{ collection_id: string | null }>(
+        `SELECT collection_id FROM pages WHERE id = $1`,
+        [folder],
+      );
+      assert.equal(before.rows[0]?.collection_id, null, 'an ordinary folder');
+
+      await expectStatus(await makeCollection(session, folder), 201);
+
+      const after = await db.query<{ collection_id: string | null }>(
+        `SELECT collection_id FROM pages WHERE id = $1`,
+        [folder],
+      );
+      assert.equal(after.rows[0]?.collection_id, folder, 'now a collection');
+    });
+
+    test('a rebuild keeps the folder marked as a collection', async () => {
+      // The mark is projected from the document, so it has to survive being
+      // rebuilt from it.
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+
+      await db.query(`UPDATE pages SET collection_id = NULL WHERE id = $1`, [folder]);
+      const { rebuild } = await import('../src/materialize/rebuild.js');
+      await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
+
+      const after = await db.query<{ collection_id: string | null }>(
+        `SELECT collection_id FROM pages WHERE id = $1`,
+        [folder],
+      );
+      assert.equal(after.rows[0]?.collection_id, folder);
+    });
+
+    test('an ordinary folder is not marked', async () => {
+      const session = await setup();
+      const folder = await create(session, 'Just a folder', 'folder', session.rootFolder);
+      const row = await db.query<{ collection_id: string | null }>(
+        `SELECT collection_id FROM pages WHERE id = $1`,
+        [folder],
+      );
+      assert.equal(row.rows[0]?.collection_id, null);
+    });
+
     test('a page cannot become a collection', async () => {
       // A collection's rows are the entries inside it, and a page holds
       // nothing (ADR-0019).
