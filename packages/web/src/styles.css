@@ -2249,9 +2249,8 @@ select {
   opacity: 0.4;
 }
 
-/* The destination, drawn as a filled row rather than a line: the drop puts the
-   entry *inside* this folder, and a line between rows would suggest ordering,
-   which this does not do. */
+/* Inside this folder, drawn as a filled row. The line above and below means
+   "between these two"; a filled row means "in here". */
 .tree-row[data-drop='into'] {
   background: color-mix(in srgb, var(--sone-accent) 16%, transparent);
   outline: 1px solid var(--sone-accent);
@@ -2261,3 +2260,21 @@ select {
 /* A row being dragged must not swallow the pointer events its own children
    would otherwise receive. */
 .tree-row[data-dragging='true'] * { pointer-events: none; }
+
+/* Dropping between rows reorders; dropping in the middle of a folder puts the
+   entry inside it. A line means "between", a filled row means "inside" — the
+   two have to look different or a drop is a guess. */
+.tree-row[data-drop='before'],
+.tree-row[data-drop='after'] {
+  position: relative;
+}
+.tree-row[data-drop='before']::before,
+.tree-row[data-drop='after']::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  block-size: 2px;
+  background: var(--sone-accent);
+}
+.tree-row[data-drop='before']::before { inset-block-start: -1px; }
+.tree-row[data-drop='after']::after { inset-block-end: -1px; }

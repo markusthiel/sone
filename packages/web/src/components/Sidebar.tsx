@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import type { FavouriteEntry, PageNode } from '../api/client.ts';
-import { canMoveInto, findNode } from './moveRules.ts';
+import { canMoveInto, findNode, siblingsOf } from './moveRules.ts';
 import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
@@ -45,8 +45,18 @@ interface SidebarProps {
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
-  /** Moves an entry into a folder, or to the root when the target is null. */
-  onMove: (pageId: string, parentPageId: string | null) => void;
+  /**
+   * Moves an entry into a folder, or to the root when the target is null.
+   *
+   * `afterPageId` omitted means last, `null` means first. The two differ on
+   * purpose: a drop between rows has an opinion about order, and a drop onto a
+   * folder does not.
+   */
+  onMove: (
+    pageId: string,
+    parentPageId: string | null,
+    afterPageId?: string | null,
+  ) => void;
   favourites: FavouriteEntry[];
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
@@ -292,7 +302,11 @@ function TreeLevel({
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
   /** The whole tree, for validating a drop against the subtree rule. */
   tree: PageNode[];
-  onMove: (pageId: string, parentPageId: string | null) => void;
+  onMove: (
+    pageId: string,
+    parentPageId: string | null,
+    afterPageId?: string | null,
+  ) => void;
   dragging: string | null;
   setDragging: (id: string | null) => void;
   dropTarget: string | null;
@@ -334,33 +348,84 @@ function TreeLevel({
               onDragOver={(event) => {
                 if (!dragging || dragging === node.id) return;
                 const moving = findNode(tree, dragging);
-                if (!moving || !canMoveInto(tree, moving, node.id)) {
+                if (!moving) return;
+
+                // Where in the row the pointer is decides what the drop means.
+                //
+                // The middle puts the entry *inside* a folder; the top and
+                // bottom quarters put it before or after this row among its
+                // siblings. Without that split, reordering would be impossible
+                // and every drop near a folder would swallow the entry —
+                // Notion and Finder both make this distinction and people
+                // arrive expecting it.
+                const box = event.currentTarget.getBoundingClientRect();
+                const offset = (event.clientY - box.top) / box.height;
+                const edge = node.kind === 'folder' ? 0.25 : 0.5;
+
+                const intent =
+                  offset < edge ? 'before' : offset > 1 - edge ? 'after' : 'into';
+
+                const allowed =
+                  intent === 'into'
+                    ? canMoveInto(tree, moving, node.id)
+                    : canMoveInto(tree, moving, node.parentPageId);
+
+                if (!allowed) {
                   // No preventDefault: the browser then shows the "cannot
                   // drop" cursor by itself, which is the feedback wanted.
                   return;
                 }
                 event.preventDefault();
                 event.dataTransfer.dropEffect = 'move';
-                setDropTarget(node.id);
+                setDropTarget(`${node.id}:${intent}`);
               }}
               onDragLeave={(event) => {
                 // Only when the pointer has actually left this row, not when it
                 // crosses into a child element of it.
                 if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-                  setDropTarget((current) => (current === node.id ? null : current));
+                  setDropTarget((current) =>
+                    current?.startsWith(`${node.id}:`) ? null : current,
+                  );
                 }
               }}
               onDrop={(event) => {
                 event.preventDefault();
                 const moving = dragging;
+                const intent = dropTarget?.startsWith(`${node.id}:`)
+                  ? dropTarget.slice(node.id.length + 1)
+                  : null;
                 setDragging(null);
                 setDropTarget(null);
-                if (!moving) return;
+                if (!moving || !intent) return;
+
                 const entry = findNode(tree, moving);
-                if (!entry || !canMoveInto(tree, entry, node.id)) return;
-                onMove(moving, node.id);
+                if (!entry) return;
+
+                if (intent === 'into') {
+                  if (!canMoveInto(tree, entry, node.id)) return;
+                  onMove(moving, node.id);
+                  return;
+                }
+
+                // Beside this row, so into its parent, positioned relative to
+                // it. `before` needs the sibling that precedes this row, and
+                // null when there is none — which the API reads as "first".
+                if (!canMoveInto(tree, entry, node.parentPageId)) return;
+                const siblings = siblingsOf(tree, node.parentPageId).filter(
+                  (sibling) => sibling.id !== moving,
+                );
+                const at = siblings.findIndex((sibling) => sibling.id === node.id);
+                const after =
+                  intent === 'after'
+                    ? node.id
+                    : (siblings[at - 1]?.id ?? null);
+                onMove(moving, node.parentPageId, after);
               }}
-              data-drop={dropTarget === node.id ? 'into' : undefined}
+              data-drop={
+                dropTarget?.startsWith(`${node.id}:`)
+                  ? dropTarget.slice(node.id.length + 1)
+                  : undefined
+              }
               data-dragging={dragging === node.id ? 'true' : undefined}
             >
               <button

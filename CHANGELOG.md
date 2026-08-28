@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Entries can be reordered by dragging.** Dropping between two rows places an
+entry there; dropping onto the middle of a folder puts it inside. A line means
+"between", a filled row means "inside", because a drop that could mean either is
+a guess.
+
+Reordering rewrites one row, not the whole folder, so two people rearranging the
+same folder do not collide over entries neither of them touched.
+
 ## 0.1.0
 
 The first release worth another person's time.

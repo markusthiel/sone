@@ -439,10 +439,24 @@ export const api = {
       method: favourite ? 'PUT' : 'DELETE',
     }),
 
-  moveEntry: (pageId: string, parentPageId: string | null) =>
+  /**
+   * Move an entry, optionally to a specific place among its new siblings.
+   *
+   * `afterPageId` omitted means last; `null` means first. The two are
+   * deliberately different, so the caller has to have an opinion or say it has
+   * none.
+   */
+  moveEntry: (
+    pageId: string,
+    parentPageId: string | null,
+    afterPageId?: string | null,
+  ) =>
     request<{ id: string; parentPageId: string | null }>(`/api/pages/${pageId}`, {
       method: 'PATCH',
-      body: JSON.stringify({ parentPageId }),
+      body: JSON.stringify({
+        parentPageId,
+        ...(afterPageId === undefined ? {} : { afterPageId }),
+      }),
     }),
 
   renameEntry: (pageId: string, title: string) =>
