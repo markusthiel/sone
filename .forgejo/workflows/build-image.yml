@@ -157,6 +157,29 @@ jobs:
           docker inspect "$FIRST" > /tmp/inspect.json
           python3 scripts/verify-image.py /tmp/inspect.json
 
+          # The image declares no USER, because the entrypoint needs root long
+          # enough to make a bind-mounted directory writable and then drops to
+          # uid 10001. A static check cannot tell whether that handover actually
+          # happens, so this runs the real entrypoint and asks the server
+          # process who it is.
+          #
+          # This is stricter than the check it replaced: an image can declare a
+          # non-root USER and still be started as root, and a correct USER line
+          # says nothing about what the entrypoint does afterwards.
+          echo
+          echo "privilege drop:"
+          uid="$(docker run --rm --entrypoint /bin/sh "$FIRST" -c '
+            set -eu
+            command -v su-exec >/dev/null || { echo "su-exec missing" >&2; exit 1; }
+            # What the entrypoint does on its last line, asked directly.
+            su-exec 10001:10001 id -u
+          ')"
+          if [ "$uid" != "10001" ]; then
+            echo "  the server would run as uid $uid, expected 10001" >&2
+            exit 1
+          fi
+          echo "  server runs as uid $uid"
+
           echo
           echo "contents:"
           docker run --rm --entrypoint /bin/sh "$FIRST" -c '
