@@ -299,6 +299,24 @@ export function Sidebar({
           </a>
         </div>
       </nav>
+
+      {/* The entry under the pointer.
+       *
+       * The indicator lines say where a drop lands; they do not say what is
+       * travelling. HTML5 dragging drew this for free, and losing it made the
+       * gesture harder to read — which is exactly what was reported. Rendered
+       * once here rather than per row, since only one entry moves at a time,
+       * and outside the nav so the sidebar's own scrolling cannot clip it. */}
+      {drag.dragging && drag.pointer && (
+        <div
+          className="tree-drag-preview"
+          style={{ left: drag.pointer.x, top: drag.pointer.y }}
+          aria-hidden="true"
+        >
+          {findNode(tree, drag.dragging)?.kind === 'folder' ? <FolderIcon /> : <PageIcon />}
+          {findNode(tree, drag.dragging)?.title || 'Untitled'}
+        </div>
+      )}
     </>
   );
 }

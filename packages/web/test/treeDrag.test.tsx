@@ -20,6 +20,8 @@ let render: (element: unknown) => Promise<void>;
 let act: <T>(fn: () => T | Promise<T>) => Promise<void>;
 let container: HTMLElement;
 let cleanup: () => void;
+/** Pointer ids captured, in order. Cleared per test. */
+const captures: number[] = [];
 
 const GLOBALS = [
   'window', 'document', 'navigator', 'Node', 'Element', 'HTMLElement',
@@ -50,9 +52,12 @@ describe('telling a drag from a scroll', () => {
     }
     (globalThis as Record<string, unknown>)['IS_REACT_ACT_ENVIRONMENT'] = true;
 
-    // Neither exists in jsdom, and the hook calls both.
+    // Neither exists in jsdom, and the hook calls both. Recorded, because
+    // *when* capture is taken decides whether clicks in the sidebar still work.
     Object.assign(dom.window.HTMLElement.prototype, {
-      setPointerCapture() {},
+      setPointerCapture(this: HTMLElement, id: number) {
+        captures.push(id);
+      },
       releasePointerCapture() {},
     });
 
@@ -154,6 +159,43 @@ describe('telling a drag from a scroll', () => {
       element.dispatchEvent(event);
     });
   };
+
+  test('a tap takes no pointer capture, so the link still works', async () => {
+    // The regression this pins down. Capture was taken on the press, and with
+    // capture set the browser fires the click on the nearest common ancestor of
+    // press and release — the row, not the link inside it. Every folder and
+    // page in the sidebar stopped opening, silently, while dragging kept
+    // working.
+    await mount();
+    captures.length = 0;
+    const source = row('a');
+
+    await send(source, 'pointerdown', {
+      button: 0, pointerId: 1, pointerType: 'mouse', clientX: 10, clientY: 10,
+    });
+    await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
+
+    assert.deepEqual(captures, [], 'nothing captured for a plain tap');
+  });
+
+  test('capture is taken once a drag actually begins', async () => {
+    // It is needed then: the pointer leaves the row it started on, and the
+    // events have to keep arriving.
+    await mount();
+    captures.length = 0;
+    const source = row('a');
+
+    await send(source, 'pointerdown', {
+      button: 0, pointerId: 1, pointerType: 'mouse', clientX: 200, clientY: 200,
+    });
+    const point = pointAt(row('c'), 0.9);
+    await send(source, 'pointermove', {
+      pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
+    });
+
+    assert.deepEqual(captures, [1]);
+    await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
+  });
 
   test('a finger that moves immediately is a scroll, not a drag', async () => {
     // The case that makes this hard: without the hold, every attempt to scroll

@@ -2477,3 +2477,34 @@ select {
   font-size: var(--sone-text-sm);
 }
 .collection-add-row:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+
+/* The entry travelling under the pointer.
+ *
+ * The lines say where a drop lands; this says what is landing. HTML5 dragging
+ * drew it for free, and a pointer-event implementation has to draw its own.
+ *
+ * Offset down and right of the pointer so it never sits under the finger, which
+ * would hide the very row being aimed at.
+ */
+.tree-drag-preview {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  max-inline-size: 16rem;
+  margin-block-start: 10px;
+  margin-inline-start: 12px;
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 24%);
+  font-size: var(--sone-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Never a drop target itself, and never in the way of elementFromPoint. */
+  pointer-events: none;
+  /* Slightly tilted, the convention for "picked up". */
+  transform: rotate(-1.5deg);
+}
