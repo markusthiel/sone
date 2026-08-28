@@ -2721,3 +2721,38 @@ select {
   pointer-events: none;
   transform: rotate(-1.5deg);
 }
+
+/* A share link, shown so it can be read.
+ *
+ * Wrapping rather than truncating: a token is exactly the thing worth checking
+ * before sending it to somebody, and a field that cuts it off cannot be
+ * checked. The earlier design only offered a copy button, which silently did
+ * nothing on iOS — a clipboard write has to happen inside the user's own
+ * activation, and awaiting a request first spends it.
+ */
+.share-revealed {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sone-space-2);
+  margin-block-start: var(--sone-space-2);
+  padding-block-end: var(--sone-space-2);
+}
+.share-url {
+  flex: 1 1 auto;
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg-subtle);
+  font-family: ui-monospace, monospace;
+  font-size: var(--sone-text-xs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/* The link just created, wrapping for the same reason. */
+.share-created code,
+.share-created input {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  user-select: all;
+}

@@ -45,22 +45,40 @@ export function ShareDialog({
   const [copied, setCopied] = useState(false);
   /** Which existing link was copied last, for the button's own feedback. */
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  /** The link whose URL is on screen, if any. */
+  const [revealed, setRevealed] = useState<{ linkId: string; url: string } | null>(null);
   const [unrecoverable, setUnrecoverable] = useState(false);
 
   /**
-   * Copy an existing link.
+   * Show an existing link, and copy it if the browser allows.
    *
-   * The URL is fetched rather than held: the list of links is loaded for
-   * everyone who opens this dialog, and shipping every token in that response
-   * would put them in memory, in logs and in any error report for no reason.
-   * Asked for only when somebody actually wants one.
+   * Showing it is the point; copying is the convenience. The first version only
+   * copied, and it silently did nothing on iOS and Safari: a clipboard write has
+   * to happen inside the user's own activation, and awaiting a network request
+   * first spends it. Nothing failed visibly — the button simply had no effect.
+   *
+   * Revealing the URL removes the dependency on that entirely. It is selectable,
+   * so it can be copied by hand or read aloud, and the clipboard attempt is
+   * allowed to fail without anybody being stuck.
+   *
+   * The URL is fetched rather than shipped with the list of links: sending every
+   * token to everyone who opens this dialog would put them in memory, in logs
+   * and in any error report for nothing.
    */
-  const copyExisting = async (linkId: string): Promise<void> => {
+  const revealExisting = async (linkId: string): Promise<void> => {
     setUnrecoverable(false);
     try {
       const { url } = await api.shareLinkUrl(pageId, linkId);
-      await navigator.clipboard.writeText(url);
-      setCopiedId(linkId);
+      setRevealed({ linkId, url });
+
+      // Best effort, after the URL is on screen. If the activation has expired
+      // — which it has, on iOS — this does nothing and the URL is still there.
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopiedId(linkId);
+      } catch {
+        setCopiedId(null);
+      }
     } catch (err) {
       if (err instanceof ApiError && err.code === 'token_not_recoverable') {
         setUnrecoverable(true);
@@ -269,9 +287,9 @@ export function ShareDialog({
                 <button
                   type="button"
                   className="btn"
-                  onClick={() => void copyExisting(link.id)}
+                  onClick={() => void revealExisting(link.id)}
                 >
-                  {copiedId === link.id ? 'Copied' : 'Copy link'}
+                  {revealed?.linkId === link.id ? 'Shown' : 'Show link'}
                 </button>
                 <button
                   type="button"
@@ -281,6 +299,30 @@ export function ShareDialog({
                   Revoke
                 </button>
               </div>
+
+              {revealed?.linkId === link.id && (
+                <div className="share-revealed">
+                  {/* Readable and selectable, wrapping so the whole URL is
+                      visible. A field that truncates a link is a field somebody
+                      cannot check, and a token is exactly the thing worth
+                      checking before sending it to a colleague. */}
+                  <code className="share-url">{revealed.url}</code>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      // The URL is already in hand, so this writes inside the
+                      // activation and works where the earlier version did not.
+                      void navigator.clipboard
+                        .writeText(revealed.url)
+                        .then(() => setCopiedId(link.id))
+                        .catch(() => setError('clipboard_unavailable'));
+                    }}
+                  >
+                    {copiedId === link.id ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
 

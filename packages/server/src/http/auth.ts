@@ -95,6 +95,50 @@ function clearSessionCookie(ctx: RequestContext, secure: boolean): void {
 export const sessionTokenFrom = (ctx: RequestContext): string | null =>
   parseCookies(ctx.req.headers['cookie'])[SESSION_COOKIE] ?? null;
 
+/**
+ * The cookie a share visitor carries.
+ *
+ * Separate from the member cookie so the two cannot be confused, and so signing
+ * in through a shared link does not silently mix the two credentials.
+ *
+ * It exists because a share visitor previously had no HTTP credential at all:
+ * the token authenticated the WebSocket and nothing else, so every image in a
+ * shared page returned 401 and failed to load. A cookie is the only shape that
+ * works for an `<img src>`, which cannot set headers.
+ */
+export const SHARE_COOKIE = 'sone_share';
+
+export const shareTokenFrom = (ctx: RequestContext): string | null =>
+  parseCookies(ctx.req.headers['cookie'])[SHARE_COOKIE] ?? null;
+
+/**
+ * Give the browser the share token.
+ *
+ * Scoped to the whole site rather than to /s/, because the requests that need
+ * it — `/api/files/...`, `/api/share/...` — are not under that prefix.
+ *
+ * HttpOnly, so a script cannot read it: the token is a bearer credential and
+ * script access buys nothing the page cannot already do. SameSite=Lax, so it is
+ * sent when somebody follows the link from an email, which is the normal way a
+ * share link is used.
+ */
+export function setShareCookie(
+  ctx: RequestContext,
+  token: string,
+  secure: boolean,
+): void {
+  const attrs = [
+    `${SHARE_COOKIE}=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    // Session-scoped: a shared link is usually opened once, and a cookie that
+    // outlives the browser would leave a credential behind on a shared machine.
+  ];
+  if (secure) attrs.push('Secure');
+  ctx.res.setHeader('set-cookie', attrs.join('; '));
+}
+
 /** Truncated client address, for the rate-limit ledger. See ADR-0010. */
 function ipPrefix(ctx: RequestContext): string | null {
   const forwarded = ctx.req.headers['x-forwarded-for'];

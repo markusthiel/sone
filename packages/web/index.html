@@ -77,16 +77,41 @@
         }
 
         window.addEventListener('error', function (event) {
-          // Resource errors (a chunk that 404s) have no `error` object, and the
-          // target says more than the message would.
+          /*
+           * Only a failure to *start* counts.
+           *
+           * This handler used to fire for any resource error, including an
+           * image inside a document — so one picture that failed to load
+           * replaced the entire application with "SONE failed to start". A
+           * shared page containing an image did that every time.
+           *
+           * Two limits now. First: once anything has rendered, the app is
+           * running and a later error is its own problem, not a boot failure —
+           * React and the code have their own handling, and blanking the screen
+           * loses whatever was on it. Second: among resource errors, only the
+           * ones that can actually prevent a start — scripts and stylesheets.
+           * An image, a video or a font cannot.
+           */
+          if (root.firstChild) return;
+
+          var target = event.target;
+          if (target && target !== window && !event.error) {
+            var tag = (target.tagName || '').toLowerCase();
+            if (tag !== 'script' && tag !== 'link') return;
+          }
+
           var detail = event.error
             ? event.error.stack || String(event.error)
             : 'Failed to load: ' +
-              ((event.target && (event.target.src || event.target.href)) || event.message);
+              ((target && (target.src || target.href)) || event.message);
           show('SONE failed to start', detail);
         }, true);
 
         window.addEventListener('unhandledrejection', function (event) {
+          // Same reasoning: a rejected promise after the app is up is not a
+          // failure to start. A failed save must not blank the page.
+          if (root.firstChild) return;
+
           var reason = event.reason;
           show(
             'SONE failed to start',

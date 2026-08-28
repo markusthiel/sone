@@ -227,6 +227,9 @@ async function main(): Promise<void> {
     pool,
     publicUrl: config.publicUrl,
     secretKey: config.secretKey,
+    // Derived the same way the auth routes derive it, rather than a second
+    // setting that could disagree with the first.
+    secureCookies: config.publicUrl.startsWith('https://'),
   });
   registerCollectionRoutes(router, { pool });
 

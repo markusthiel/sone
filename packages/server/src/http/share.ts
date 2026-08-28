@@ -38,7 +38,7 @@ import {
 } from '../auth/share.js';
 import { decryptShareToken } from '../auth/shareTokenStore.js';
 import { queryOne } from '../db/pool.js';
-import { sessionTokenFrom } from './auth.js';
+import { sessionTokenFrom, setShareCookie } from './auth.js';
 import type { RequestContext, Router } from './router.js';
 
 export interface ShareDeps {
@@ -47,6 +47,8 @@ export interface ShareDeps {
   publicUrl: string;
   /** Encrypts stored tokens so a link can be shown again. */
   secretKey: string;
+  /** Whether the share cookie gets the Secure attribute. */
+  secureCookies: boolean;
 }
 
 /** Roles a link may carry. `admin` is absent on purpose. */
@@ -176,6 +178,14 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       ctx.fail(404, 'not_found');
       return;
     }
+
+    // The visitor gets a cookie carrying the token.
+    //
+    // Without it a share visitor has no HTTP credential at all — the token
+    // authenticated the WebSocket and nothing else — so every image in a shared
+    // page returned 401. An `<img src>` cannot send a header, so a cookie is
+    // the only shape that works.
+    setShareCookie(ctx, token, deps.secureCookies);
 
     ctx.send(200, {
       requiresPassword: false,

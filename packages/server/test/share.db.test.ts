@@ -43,6 +43,7 @@ describe(
         publicUrl: 'https://sone.example.org',
         // Long enough to satisfy the same rule config.ts enforces.
         secretKey: 'a-test-secret-key-of-at-least-32-characters',
+        secureCookies: false,
       });
 
       server = createServer((req, res) => {
@@ -285,6 +286,37 @@ describe(
     });
 
     // --- resolving a bare token --------------------------------------------
+
+    test('resolving a token hands back a cookie', async () => {
+      // Without it a share visitor has no HTTP credential at all — the token
+      // authenticated the WebSocket and nothing else — so every image in a
+      // shared page came back 401 and failed to load. An `<img src>` cannot
+      // send a header, so a cookie is the only shape that works.
+      const session = await setup();
+      const created = await expectJson<{ token: string }>(
+        await create(session.cookie, session.pageId),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/share/${created.token}`);
+      const header = res.headers.get('set-cookie') ?? '';
+      assert.match(header, /sone_share=/);
+      assert.match(header, /HttpOnly/, 'a script has no reason to read it');
+      assert.match(header, /SameSite=Lax/, 'sent when following a link from an email');
+    });
+
+    test('a password-protected link hands back no cookie', async () => {
+      // The cookie is a credential. Issuing it before the password is entered
+      // would make the password decorative.
+      const session = await setup();
+      const created = await expectJson<{ token: string }>(
+        await create(session.cookie, session.pageId, { password: 'a-long-enough-one' }),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/share/${created.token}`);
+      assert.equal(res.headers.get('set-cookie'), null);
+    });
 
     test('a token resolves to the page it opens', async () => {
       // The fix for every link already sent out: those carry no page in the

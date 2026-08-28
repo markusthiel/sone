@@ -13,6 +13,18 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: images in a shared page did not load, and one of them took the whole
+app down with it.** A share visitor had no HTTP credential — the token
+authenticated the sync connection and nothing else — so every image returned 401.
+The boot handler then treated that failed load as a failure to start and replaced
+the page with "SONE failed to start". A share visitor now carries a cookie, and
+the boot handler only reports failures that actually prevent a start.
+
+**A share link can be read, not just copied.** "Show link" reveals the full URL,
+wrapped so all of it is visible. The copy button had silently done nothing on
+iOS: a clipboard write must happen inside the user's own activation, and awaiting
+the request for the URL spends it.
+
 **Share links can be copied again.** Every existing link has a "Copy link"
 button; a link is no longer shown once and then lost. Tokens are stored
 encrypted under a key derived from `SONE_SECRET_KEY`, so a database dump on its
