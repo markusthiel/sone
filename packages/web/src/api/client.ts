@@ -175,6 +175,26 @@ export interface MaintenanceReport {
   failures: Array<{ pageId: string; error: string | null }>;
 }
 
+export interface ShareLink {
+  id: string;
+  scopePageId: string;
+  includeSubtree: boolean;
+  role: 'viewer' | 'commenter' | 'editor';
+  hasPassword: boolean;
+  allowAnonymous: boolean;
+  activeSessions: number;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+/** Returned once, when a link is created. The token is never listed again. */
+export interface CreatedShareLink {
+  id: string;
+  token: string;
+  url: string;
+  expiresAt: string | null;
+}
+
 export interface WorkspaceTag {
   /** Normalised, for matching. */
   key: string;
@@ -333,6 +353,28 @@ export const api = {
     }>('/api/admin/settings', {
       method: 'PATCH',
       body: JSON.stringify(changes),
+    }),
+
+  shareLinks: (pageId: string) =>
+    request<{ links: ShareLink[] }>(`/api/pages/${pageId}/share-links`),
+
+  createShareLink: (
+    pageId: string,
+    options: {
+      role?: string;
+      includeSubtree?: boolean;
+      password?: string | null;
+      expiresInDays?: number | null;
+    },
+  ) =>
+    request<CreatedShareLink>(`/api/pages/${pageId}/share-links`, {
+      method: 'POST',
+      body: JSON.stringify(options),
+    }),
+
+  revokeShareLink: (pageId: string, linkId: string) =>
+    request<{ id: string }>(`/api/pages/${pageId}/share-links/${linkId}`, {
+      method: 'DELETE',
     }),
 
   setTags: (pageId: string, tags: string[]) =>

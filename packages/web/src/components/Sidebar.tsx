@@ -42,6 +42,7 @@ interface SidebarProps {
   onRename: (pageId: string, title: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
+  onStartShare: (pageId: string) => void;
   favourites: FavouriteEntry[];
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
@@ -76,6 +77,7 @@ export function Sidebar({
   onRename,
   onDelete,
   onStartMove,
+  onStartShare,
   favourites,
   favouriteIds,
   onToggleFavourite,
@@ -203,6 +205,7 @@ export function Sidebar({
             onStartRename={setRenaming}
             onDelete={onDelete}
             onStartMove={onStartMove}
+            onStartShare={onStartShare}
             favouriteIds={favouriteIds}
             onToggleFavourite={onToggleFavourite}
           />
@@ -245,6 +248,7 @@ function TreeLevel({
   onStartRename,
   onDelete,
   onStartMove,
+  onStartShare,
   favouriteIds,
   onToggleFavourite,
 }: {
@@ -259,6 +263,7 @@ function TreeLevel({
   onStartRename: (pageId: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
+  onStartShare: (pageId: string) => void;
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
 }): ReactElement {
@@ -338,6 +343,7 @@ function TreeLevel({
                     onDelete={onDelete}
                     onStartRename={onStartRename}
                     onStartMove={onStartMove}
+                    onStartShare={onStartShare}
                     isFavourite={favouriteIds.has(node.id)}
                     onToggleFavourite={onToggleFavourite}
                   />
@@ -363,6 +369,7 @@ function TreeLevel({
                   onStartRename={onStartRename}
                   onDelete={onDelete}
                   onStartMove={onStartMove}
+                  onStartShare={onStartShare}
                   favouriteIds={favouriteIds}
                   onToggleFavourite={onToggleFavourite}
                 />

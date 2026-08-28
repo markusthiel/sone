@@ -25,6 +25,9 @@ const MESSAGES: Record<string, string> = {
   invitation_invalid: 'This invitation has expired or has already been used.',
   no_workspace: 'Your account is not a member of any workspace yet.',
   network_error: 'Could not reach the server.',
+  invalid_role: 'A share link cannot grant that role.',
+  clipboard_unavailable:
+    'Could not copy automatically. Select the link and copy it by hand.',
   file_too_large: 'That file is too large.',
   unsupported_file_type: 'That file type is not supported.',
   empty_file: 'That file is empty.',
