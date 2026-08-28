@@ -175,6 +175,24 @@ describe('editor surface', () => {
     }
   });
 
+  test('the table toolbar acts on click, like the other overlays', async () => {
+    // Same rule as the menus: acting on pointerdown fires before a finger
+    // lifts and cancels the scroll gesture with it.
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(
+      new URL('../src/components/TableToolbar.tsx', import.meta.url),
+      'utf8',
+    );
+    assert.equal(
+      [...source.matchAll(/onPointerDown=\{/g)].length,
+      0,
+      'the table toolbar must not activate on pointerdown',
+    );
+    // And it must re-place itself when the page moves, or it detaches from the
+    // table on the first scroll.
+    assert.match(source, /useViewportChanges/);
+  });
+
   test('scrollable popups declare their touch behaviour', async () => {
     // Without touch-action the browser waits to see whether the gesture will be
     // cancelled before it scrolls, which reads as a list that ignores a drag.

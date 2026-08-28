@@ -22,6 +22,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { BlockMenu } from './BlockMenu.tsx';
 import { SelectionToolbar } from './SelectionToolbar.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
+import { TableToolbar } from './TableToolbar.tsx';
 
 interface EditorSurfaceProps {
   handle: PageHandle;
@@ -151,6 +152,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
             onPickImage={() => fileInputRef.current?.click()}
           />
           <BlockMenu view={view} revision={revision} />
+          <TableToolbar view={view} revision={revision} />
           <SelectionToolbar view={view} revision={revision} />
         </>
       )}

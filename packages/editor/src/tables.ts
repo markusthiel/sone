@@ -186,4 +186,26 @@ export const tableKeymap: Record<string, Command> = {
   'Shift-Tab': goToNextCell(-1),
 };
 
-export { isInTable };
+/**
+ * The individual commands, re-exported.
+ *
+ * So the web client can build a toolbar without importing prosemirror-tables
+ * itself. A second copy of that package in another workspace is exactly what
+ * scripts/check-single-crdt.mjs exists to prevent for Yjs, and the same
+ * reasoning applies: two copies means two schemas that look identical and are
+ * not.
+ */
+export {
+  addColumnAfter,
+  addColumnBefore,
+  addRowAfter,
+  addRowBefore,
+  deleteColumn,
+  deleteRow,
+  deleteTable,
+  isInTable,
+  mergeCells,
+  splitCell,
+  toggleHeaderColumn,
+  toggleHeaderRow,
+};
