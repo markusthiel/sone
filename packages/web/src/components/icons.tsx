@@ -182,6 +182,16 @@ export function ArrowDownIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A grid, for a collection's table view. */
+export function TableIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18M9 10v9M15 10v9" />
+    </svg>
+  );
+}
+
 export function TrashIcon(props: IconProps): ReactElement {
   return (
     <svg {...base(props)}>

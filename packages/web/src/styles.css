@@ -2325,3 +2325,155 @@ select {
   color: var(--sone-danger);
   font-size: var(--sone-text-sm);
 }
+
+/* --- collections ---
+ *
+ * A table of pages. The first column is the row's title and links to it,
+ * because a row *is* a page — a collection is a folder with columns, not a
+ * spreadsheet that happens to live in a notes app.
+ */
+.collection { display: flex; flex-direction: column; gap: var(--sone-space-4); }
+
+.collection-scroll {
+  /* A wide table scrolls here rather than pushing the page sideways. */
+  overflow-x: auto;
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+}
+
+.collection-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--sone-text-sm);
+}
+
+.collection-table th,
+.collection-table td {
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border-block-end: 1px solid var(--sone-border);
+  border-inline-end: 1px solid var(--sone-border);
+  text-align: start;
+  vertical-align: middle;
+}
+.collection-table tr:last-child td { border-block-end: 0; }
+.collection-table th:last-child,
+.collection-table td:last-child { border-inline-end: 0; }
+
+.collection-table thead th {
+  background: var(--sone-bg-subtle);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The title column stays put while the rest scrolls: it is what identifies the
+   row, and a row you cannot name is a row you cannot read. */
+.collection-title-column {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: var(--sone-bg);
+  min-inline-size: 12rem;
+}
+.collection-table thead .collection-title-column { background: var(--sone-bg-subtle); }
+
+/* Cells are inputs without looking like a form: a grid of boxed fields is
+   unreadable at a glance, which is the one thing a table has to be. */
+.collection-table input[type='text'],
+.collection-table input[type='number'],
+.collection-table input[type='url'],
+.collection-table input[type='email'],
+.collection-table input[type='date'] {
+  inline-size: 100%;
+  min-inline-size: 8rem;
+  min-block-size: var(--sone-control);
+  padding: 2px var(--sone-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+.collection-table input:hover:not(:disabled) { border-color: var(--sone-border); }
+.collection-table input:focus {
+  border-color: var(--sone-accent);
+  background: var(--sone-bg);
+  outline: none;
+}
+
+.collection-column { display: inline-flex; align-items: center; gap: var(--sone-space-1); }
+.collection-column-input {
+  inline-size: 8rem;
+  min-block-size: var(--sone-control);
+  padding: 2px var(--sone-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+}
+.collection-column-input:hover { border-color: var(--sone-border); }
+
+.collection-column-remove,
+.collection-add {
+  min-block-size: var(--sone-control);
+  min-inline-size: var(--sone-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  opacity: 0;
+}
+.collection-table th:hover .collection-column-remove,
+.collection-column-remove:focus-visible { opacity: 1; }
+.collection-column-remove:hover { color: var(--sone-danger); }
+.collection-add { opacity: 0.7; }
+.collection-add:hover { opacity: 1; background: var(--sone-bg-hover); }
+@media (hover: none) { .collection-column-remove { opacity: 0.6; } }
+
+.collection-add-column { position: relative; inline-size: var(--sone-tap); }
+
+.collection-type-menu {
+  position: absolute;
+  z-index: 20;
+  inset-inline-end: 0;
+  inset-block-start: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sone-space-1);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 14%);
+}
+.collection-type-menu button {
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-4);
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text);
+  text-align: start;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.collection-type-menu button:hover { background: var(--sone-bg-hover); }
+
+.collection-add-row {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-3);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.collection-add-row:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
