@@ -13,6 +13,16 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: share links never opened.** A link was `/s/<token>` and nothing could
+turn a token into a page, so a visitor arrived holding a credential with nothing
+to open and sat on "Opening…" indefinitely. This affected every link ever
+created, at every permission level.
+
+New links carry the page in the path. `GET /api/share/:token` resolves the older
+ones, because a share link is a public contract — one sent last month has to keep
+working. A password-protected link reports only that a password is wanted; the
+page and its title stay hidden until it is unlocked.
+
 **Board views.** A collection with a select column can be shown as a board:
 each option is a column, and dragging a card into one sets that value. Entries
 with no value get their own column, first — hiding them would mean a board

@@ -114,3 +114,35 @@ test('slugify never produces a segment that changes the route', () => {
     );
   }
 });
+
+// --- share links ------------------------------------------------------------
+
+test('a share link without a page parses, and says so', () => {
+  // It has to parse: every link created before the page was added to the URL
+  // looks like this, and a share link is a public contract (ADR-0016). What
+  // must not happen is the client treating a null page as "wait forever",
+  // which is what produced an endless "Opening…".
+  const route = parseRoute('/s/abc123');
+  assert.deepEqual(route, { kind: 'share', token: 'abc123', pageId: null });
+});
+
+test('a share link with a page carries it', () => {
+  const route = parseRoute('/s/abc123/p/11111111-1111-4111-8111-111111111111');
+  assert.deepEqual(route, {
+    kind: 'share',
+    token: 'abc123',
+    pageId: '11111111-1111-4111-8111-111111111111',
+  });
+});
+
+test('a decorative slug on a share link is ignored', () => {
+  // Titles change; the id is what identifies the page.
+  const route = parseRoute(
+    '/s/abc123/p/11111111-1111-4111-8111-111111111111/some-old-title',
+  );
+  assert.equal(route.kind, 'share');
+  assert.equal(
+    route.kind === 'share' ? route.pageId : null,
+    '11111111-1111-4111-8111-111111111111',
+  );
+});
