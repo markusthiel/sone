@@ -60,6 +60,32 @@ export type DocumentStatus =
   /** Access refused or revoked. */
   | 'denied';
 
+/**
+ * Presence, plus the shape y-prosemirror insists on.
+ *
+ * The editor's caret labels read `user.name` and `user.color` from each
+ * awareness state — a field this project does not otherwise have, since it calls
+ * the same things `displayName` and `color`. Without it the label showed nothing
+ * useful and the caret was drawn in y-prosemirror's fallback orange, so every
+ * collaborator looked identical and unnamed.
+ *
+ * Published as a copy rather than by renaming the presence fields: `displayName`
+ * is what the rest of the application calls it, and one library's expectation is
+ * not a reason to rename a model. The copy lives here, at the single point where
+ * presence is published, so the two cannot drift.
+ */
+function withEditorUser(presence: Partial<PresenceState>): Record<string, unknown> {
+  return {
+    ...presence,
+    user: {
+      name: presence.displayName ?? 'Someone',
+      // y-prosemirror replaces anything that is not a 6-digit hex colour with
+      // its own orange, which is what made every caret the same colour.
+      color: /^#[0-9a-f]{6}$/i.test(presence.color ?? '') ? presence.color : '#8e8e8e',
+    },
+  };
+}
+
 export interface PresenceState {
   displayName: string;
   color: string;
@@ -203,7 +229,7 @@ export class DocumentStore {
     const doc = new Y.Doc({ guid: docChannel(pageId) });
     const awareness = new awarenessProtocol.Awareness(doc);
     if (this.opts.presence) {
-      awareness.setLocalState({ ...this.opts.presence });
+      awareness.setLocalState(withEditorUser(this.opts.presence));
     }
 
     const entry: Entry = {

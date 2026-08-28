@@ -7,6 +7,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { parseRoute, paths, slugify } from '../src/routes/paths.ts';
@@ -145,4 +146,21 @@ test('a decorative slug on a share link is ignored', () => {
     route.kind === 'share' ? route.pageId : null,
     '11111111-1111-4111-8111-111111111111',
   );
+});
+
+test('a share link with a page still needs the token resolved', () => {
+  // Not a routing rule but the reason the route alone is not enough: resolving
+  // the token is what sets the share cookie, which is the visitor's only
+  // credential for ordinary HTTP requests. Putting the page in the path made
+  // the client skip that call, and every image upload through a shared link
+  // was refused as a result.
+  const source = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+
+  // The guard that caused it must not come back.
+  assert.doesNotMatch(
+    source,
+    /if \(pageId !== null\) return;/,
+    'the token must be resolved even when the path carries a page',
+  );
+  assert.match(source, /resolveShare\(token\)/);
 });

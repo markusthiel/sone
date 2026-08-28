@@ -449,17 +449,23 @@ function ShareSession({
     shareToken: token,
     displayName,
   });
-  // A link may carry no page in its path.
-  //
-  // Every link created before this did not: the URL was /s/<token>, and the
-  // client had a credential with nothing to open — so it sat on "Opening…"
-  // indefinitely. Newer links include the page, and this resolves the older
-  // ones, which matters because a share link is a public contract (ADR-0016).
+  /**
+   * Resolve the token, always.
+   *
+   * Two jobs, and I first wrote this as though it had one. It supplies the page
+   * for a link whose path has none — every link created before the page was
+   * added to the URL — *and* it is what sets the share cookie, which is the
+   * only credential this visitor has for ordinary HTTP requests.
+   *
+   * Skipping it when the path already carried a page therefore broke uploads
+   * for exactly the links that were supposed to be better: no request, no
+   * cookie, and every image upload refused. The page in the path is an
+   * optimisation, not a reason to skip the handshake.
+   */
   const [resolvedPageId, setResolvedPageId] = useState<string | null>(null);
   const [unresolvable, setUnresolvable] = useState(false);
 
   useEffect(() => {
-    if (pageId !== null) return;
     let cancelled = false;
 
     void api
@@ -472,7 +478,10 @@ function ShareSession({
         if (result.pageId) setResolvedPageId(result.pageId);
       })
       .catch(() => {
-        if (!cancelled) setUnresolvable(true);
+        // Only fatal when there is no page to fall back on. With one in the
+        // path the document still opens; uploads will fail until the cookie is
+        // in place, and that is better than refusing to show the page.
+        if (!cancelled && pageId === null) setUnresolvable(true);
       });
 
     return () => {
