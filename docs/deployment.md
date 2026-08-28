@@ -162,6 +162,35 @@ location /sync {
 
 Traefik and Caddy handle upgrades automatically.
 
+**The reverse proxy needs its upload limit raised**, or images fail.
+
+nginx allows one megabyte by default, which rejects essentially every photo. It
+answers with an HTML error page that never reaches SONE, so the failure looks
+like a bug in the application rather than a setting in the proxy — the block on
+the page now says so explicitly, but the fix is here:
+
+```nginx
+server {
+    # At least as large as SONE_MAX_UPLOAD_MB, which defaults to 100 MB.
+    # A value smaller than SONE's own limit means SONE accepts a size the proxy
+    # will refuse, which is the confusing way round.
+    client_max_body_size 100M;
+
+    location / {
+        proxy_pass http://sone:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+Caddy has no limit by default. Traefik has none either, but if
+`maxRequestBodyBytes` is set on a middleware it applies here too.
+
+Keep the two limits in step. If uploads should be smaller, lower
+`SONE_MAX_UPLOAD_MB` as well, so the refusal comes from SONE with a message
+somebody can read instead of from the proxy with a page nobody sees.
+
 **The database locale is set once, at initialisation.** `POSTGRES_INITDB_ARGS:
 --locale=C` in the compose file only applies to a fresh data volume. Pointing
 SONE at an existing Postgres with a locale-aware collation makes it refuse to

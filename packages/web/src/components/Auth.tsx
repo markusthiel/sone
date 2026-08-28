@@ -33,8 +33,19 @@ const MESSAGES: Record<string, string> = {
   clipboard_unavailable:
     'Could not copy automatically. Select the link and copy it by hand.',
   file_too_large: 'That file is too large.',
+  proxy_rejected_size:
+    'The web server in front of SONE refused the file for being too large. ' +
+    'Its upload limit is separate from SONE’s — with nginx it is ' +
+    'client_max_body_size, which allows only 1 MB unless it is raised.',
+  proxy_error:
+    'Something between the browser and SONE rejected the request. Check the ' +
+    'reverse proxy’s log rather than SONE’s.',
   unsupported_file_type: 'That file type is not supported.',
   empty_file: 'That file is empty.',
+  storage_unavailable:
+    'SONE could not write the file to disk. The server log names the directory; ' +
+    'the usual cause is a volume whose ownership does not match the user in ' +
+    'the container.',
   file_missing_from_storage:
     'The file is recorded but missing from storage. The instance may have been ' +
     'restored without its files.',

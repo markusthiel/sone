@@ -476,14 +476,23 @@ export const api = {
 
     const text = await response.text();
     if (!response.ok) {
-      let code = 'unknown_error';
+      let code: string | null = null;
       try {
         const parsed = JSON.parse(text) as { error?: string };
         if (typeof parsed.error === 'string') code = parsed.error;
       } catch {
-        // A non-JSON error body means something upstream answered.
+        // Not JSON, which means something between the browser and SONE answered
+        // — almost always a reverse proxy. Its own limits are separate from
+        // ours, and the classic one is nginx's `client_max_body_size`, which
+        // defaults to a single megabyte and rejects any photo with an HTML
+        // page.
+        //
+        // This used to fall through to a generic code, so the block on the page
+        // said "Something went wrong" — true, uninformative, and pointing at
+        // the wrong component. The status is what identifies it.
+        code = response.status === 413 ? 'proxy_rejected_size' : 'proxy_error';
       }
-      throw new ApiError(response.status, code);
+      throw new ApiError(response.status, code ?? 'unknown_error');
     }
 
     return JSON.parse(text) as never;
