@@ -8,6 +8,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -392,6 +393,49 @@ describe(
     test('a writable directory reports no problem', async () => {
       const store = new LocalFileStore(storageRoot);
       assert.equal(await store.checkWritable(), null);
+    });
+
+    test('a share visitor can load a file, using only the share cookie', async () => {
+      // The bug this covers: images in a shared page returned 401 and failed to
+      // load, and the boot handler turned that into "SONE failed to start" —
+      // one picture replacing the whole application.
+      const session = await setup();
+      const uploaded = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PNG),
+        201,
+      );
+
+      const link = await db.query<{ id: string }>(
+        `INSERT INTO share_tokens
+           (workspace_id, scope_page_id, include_subtree, role, token_hash,
+            allow_anonymous, created_by)
+         VALUES ($1,$2,true,'viewer',$3,true,$4) RETURNING id`,
+        [
+          session.workspaceId,
+          session.pageId,
+          createHash('sha256').update('a-share-token-for-this-test', 'utf8').digest(),
+          session.userId,
+        ],
+      );
+      assert.ok(link.rows[0]);
+
+      const res = await fetch(`${base}/api/files/${uploaded.id}`, {
+        // No member cookie at all — only the share cookie.
+        headers: { cookie: 'sone_share=a-share-token-for-this-test' },
+      });
+      await expectStatus(res, 200);
+      assert.equal(res.headers.get('content-type'), 'image/png');
+    });
+
+    test('a file is refused without any credential', async () => {
+      // The share cookie is a credential, not a bypass.
+      const session = await setup();
+      const uploaded = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PNG),
+        201,
+      );
+      const res = await fetch(`${base}/api/files/${uploaded.id}`);
+      assert.equal(res.status, 401);
     });
 
     test('a storage failure is a named error, not a bare 500', async () => {

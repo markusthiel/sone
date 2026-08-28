@@ -20,11 +20,17 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type { Pool } from 'pg';
 
-import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/claims.js';
+import {
+  effectiveRole,
+  loadPageLocation,
+  resolveSessionClaims,
+  resolveShareTokenClaims,
+  type AccessClaims,
+} from '../auth/claims.js';
 import { isInstanceAdmin } from '../admin/routes.js';
 import { queryOne } from '../db/pool.js';
 import { detectType, isInlineImage, type FileStore } from './store.js';
-import { sessionTokenFrom } from '../http/auth.js';
+import { sessionTokenFrom, shareTokenFrom } from '../http/auth.js';
 import type { RequestContext, Router } from '../http/router.js';
 
 export interface FileDeps {
@@ -82,6 +88,61 @@ function safeFilename(raw: string | undefined, extension: string): string {
     .slice(0, 200);
   if (base.length > 0) return base;
   return `file.${extension}`;
+}
+
+/**
+ * Who is asking, whether they are a member or arrived through a share link.
+ *
+ * A share visitor previously had no HTTP credential: the token authenticated the
+ * WebSocket and nothing else, so every image in a shared page came back 401 and
+ * failed to load. They now carry a cookie with the token, which is the only
+ * shape an `<img src>` can send.
+ *
+ * The member cookie is tried first. Somebody who is signed in *and* opened a
+ * share link should be judged by their own rights, which may be greater than
+ * the link's — and never lesser.
+ */
+async function claimsForRequest(
+  pool: Pool,
+  ctx: RequestContext,
+  workspaceId: string,
+): Promise<
+  | { kind: 'ok'; claims: AccessClaims }
+  /** Nothing was presented: the caller should sign in, or open the link. */
+  | { kind: 'anonymous' }
+  /** Something was presented and it does not grant this. */
+  | { kind: 'rejected' }
+> {
+  const sessionToken = sessionTokenFrom(ctx);
+  const shareToken = shareTokenFrom(ctx);
+
+  // The distinction matters and a first version of this lost it. "No
+  // credential" earns 401, which tells a signed-out browser to authenticate;
+  // "a credential that does not grant this" earns 404, which does not confirm
+  // that the file exists. Collapsing them into one answer would send a
+  // signed-out member to a dead end instead of the login screen.
+  if (!sessionToken && !shareToken) return { kind: 'anonymous' };
+
+  if (sessionToken) {
+    const claims = await resolveSessionClaims(pool, sessionToken, workspaceId);
+    // Tried first: somebody signed in who also opened a share link should be
+    // judged by their own rights, which may be greater than the link's and are
+    // never lesser.
+    if (claims) return { kind: 'ok', claims };
+  }
+
+  if (shareToken) {
+    const resolved = await resolveShareTokenClaims(pool, shareToken);
+    // A link needing a password is not authenticated by the cookie alone. The
+    // sync connection handles unlocking; a file request is not the place to.
+    if (resolved && !resolved.passwordRequired) {
+      if (resolved.claims.workspaceId === workspaceId) {
+        return { kind: 'ok', claims: resolved.claims };
+      }
+    }
+  }
+
+  return { kind: 'rejected' };
 }
 
 export function registerFileRoutes(router: Router, deps: FileDeps): void {
@@ -240,18 +301,18 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
       return;
     }
 
-    const token = sessionTokenFrom(ctx);
-    if (!token) {
+    const resolved = await claimsForRequest(deps.pool, ctx, file.workspace_id);
+    if (resolved.kind === 'anonymous') {
       ctx.fail(401, 'not_authenticated');
       return;
     }
-    const claims = await resolveSessionClaims(deps.pool, token, file.workspace_id);
-    if (!claims) {
+    if (resolved.kind === 'rejected') {
       // Same answer as a missing file: the difference would confirm that a file
       // exists in a workspace the caller cannot see.
       ctx.fail(404, 'not_found');
       return;
     }
+    const claims = resolved.claims;
 
     if (file.page_id) {
       const page = await loadPageLocation(deps.pool, file.page_id);

@@ -160,3 +160,28 @@ describe(
     });
   },
 );
+
+test('a resource error is only fatal before anything renders', () => {
+  // One image inside a document used to replace the whole application with
+  // "SONE failed to start". A shared page containing a picture did it every
+  // time, and the picture was the only thing wrong.
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+
+  assert.match(
+    html,
+    /if \(root\.firstChild\) return;/,
+    'the handler must stand down once the app is up',
+  );
+  assert.equal(
+    [...html.matchAll(/if \(root\.firstChild\) return;/g)].length,
+    2,
+    'for both the error and the rejection handler',
+  );
+});
+
+test('only scripts and stylesheets can be a start failure', () => {
+  // An image, a video or a font cannot prevent a start, so their failures must
+  // not be reported as one.
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /tag !== 'script' && tag !== 'link'/);
+});
