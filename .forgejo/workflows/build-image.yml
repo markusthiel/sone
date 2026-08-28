@@ -40,6 +40,10 @@ on:
 jobs:
   image:
     runs-on: ubuntu-latest
+
+    # See the note in test.yml. A cold build with no layer cache is the slow
+    # case here, which is why this is longer than the test job's ceiling.
+    timeout-minutes: 25
     # Deliberately no `container:` — see note 1 above.
 
     steps:

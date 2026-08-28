@@ -172,7 +172,24 @@ function quoteIdent(name: string): string {
  * order that has to be maintained by hand as the schema grows. Safe to do
  * this bluntly now that each file owns its own database.
  */
+/**
+ * Empty every table between tests.
+ *
+ * `TRUNCATE ... CASCADE` takes an ACCESS EXCLUSIVE lock on every table it
+ * names, and the suites run in parallel against one database, so in principle
+ * they can block each other.
+ *
+ * A lock timeout is set rather than relying on that never happening. It is
+ * cheap, and a suite that fails with "canceling statement due to lock timeout"
+ * points straight at this function, where a suite that hangs teaches nobody
+ * anything — a lesson from the run this was added during, which hung for
+ * fifteen minutes for an unrelated reason and gave no clue which.
+ */
 export async function resetDatabase(db: Pool): Promise<void> {
+  // Bounded, so a violation of the one-file-at-a-time rule fails with a message
+  // naming this function instead of hanging until something kills the job.
+  await db.query(`SET lock_timeout = '10s'`);
+
   await db.query(`
     DO $$
     DECLARE

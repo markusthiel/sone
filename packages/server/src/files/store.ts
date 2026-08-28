@@ -84,20 +84,19 @@ export class LocalFileStore implements FileStore {
    * Returns the problem rather than throwing, so the caller decides whether it
    * is fatal.
    */
-  async checkWritable(timeoutMs = WRITE_PROBE_TIMEOUT_MS): Promise<string | null> {
-    const probe = path.join(this.root, `.write-probe-${process.pid}`);
-
-    const attempt = async (): Promise<string | null> => {
-      try {
-        await mkdir(this.root, { recursive: true });
-        await writeFile(probe, 'ok');
-        await unlink(probe);
-        return null;
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        return `${this.root} is not writable: ${reason}`;
-      }
-    };
+  async checkWritable(
+    timeoutMs = WRITE_PROBE_TIMEOUT_MS,
+    /**
+     * Injectable so the timeout branch can be tested.
+     *
+     * Not a convenience: a real unresponsive path leaves a filesystem request
+     * outstanding that cannot be cancelled, and libuv keeps the process alive
+     * until it settles — which for such a path is never. A test that exercised
+     * the real thing therefore never exited, and that is precisely how this
+     * commit's CI run sat for fifteen minutes and was killed.
+     */
+    attempt: () => Promise<string | null> = () => this.probeWrite(),
+  ): Promise<string | null> {
 
     // Bounded, and this is not theoretical: the first version of this check hung
     // indefinitely on a path it could not resolve, which would have hung the
@@ -107,6 +106,11 @@ export class LocalFileStore implements FileStore {
     // A probe that does not finish quickly is itself the finding. A stalled
     // network mount answers neither yes nor no, and reporting "did not respond"
     // is more useful than waiting for it.
+    //
+    // What the timeout does *not* do is cancel the underlying request: it stays
+    // outstanding and holds the event loop open. That is acceptable here,
+    // because this runs once at startup and the process is meant to keep
+    // running anyway. It would not be acceptable per request.
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<string>((resolve) => {
       timer = setTimeout(
@@ -119,6 +123,20 @@ export class LocalFileStore implements FileStore {
       return await Promise.race([attempt(), timeout]);
     } finally {
       if (timer) clearTimeout(timer);
+    }
+  }
+
+  /** One write attempt, with no time limit of its own. */
+  private async probeWrite(): Promise<string | null> {
+    const probe = path.join(this.root, `.write-probe-${process.pid}`);
+    try {
+      await mkdir(this.root, { recursive: true });
+      await writeFile(probe, 'ok');
+      await unlink(probe);
+      return null;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      return `${this.root} is not writable: ${reason}`;
     }
   }
 

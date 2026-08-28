@@ -367,13 +367,26 @@ describe(
       // becomes a 500 that says nothing about a directory they could fix in a
       // minute.
       //
-      // A short timeout, because the point is that a verdict always arrives.
-      // The first version of this probe hung indefinitely on exactly this kind
-      // of path, which would have hung the server's startup.
-      const store = new LocalFileStore('/proc/nonexistent/sone-files');
-      const problem = await store.checkWritable(200);
-      assert.ok(problem, 'an impossible path should be reported');
-      assert.match(problem!, /not writable|did not respond/);
+      // A regular file as the root, so mkdir fails immediately. Deliberately
+      // not an unreachable path: one of those does not fail, it never answers,
+      // and the outstanding filesystem request keeps the process alive — which
+      // is exactly how the previous version of this test made CI hang for
+      // fifteen minutes with every assertion passing.
+      const filePath = path.join(storageRoot, 'blocked-root');
+      await writeFile(filePath, 'x');
+
+      const problem = await new LocalFileStore(filePath).checkWritable(500);
+      assert.ok(problem, 'an unwritable root should be reported');
+      assert.match(problem!, /not writable/);
+    });
+
+    test('a probe that never answers is reported as such', async () => {
+      // A stalled network mount says neither yes nor no. The fake attempt holds
+      // no operating-system resource, so this can be tested without leaving
+      // something pending that stops the process exiting.
+      const store = new LocalFileStore(storageRoot);
+      const problem = await store.checkWritable(50, () => new Promise(() => {}));
+      assert.match(problem ?? '', /did not respond/);
     });
 
     test('a writable directory reports no problem', async () => {
