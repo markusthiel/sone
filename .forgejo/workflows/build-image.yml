@@ -124,6 +124,15 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Building $VERSION as: $TAGS"
 
+      - name: Disk before building
+        # Reported because this job got slower every run — 65s, then 137s, then
+        # 380s — and the first question is whether the runner is filling up.
+        # Cheap, and it turns "the build feels slow" into a number.
+        run: |
+          set -eu
+          df -h / | tail -1
+          docker system df || true
+
       - name: Build
         uses: docker/build-push-action@v6
         with:
@@ -258,6 +267,32 @@ jobs:
               exit 1
             fi
           done
+
+      # Always, including after a failure: an aborted run has still loaded an
+      # image, and leaving it behind is what made every later run slower.
+      #
+      # `load: true` writes a complete image into the runner's daemon on every
+      # push so it can be inspected before publishing. Nothing removed them, so
+      # a hundred runs left a hundred images, and buildx's own layer cache grew
+      # beside them unbounded. The build did not get slower; the machine did.
+      - name: Clean up what this run left behind
+        if: always()
+        run: |
+          set -eu
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            docker image rm -f "$tag" 2>/dev/null || true
+          done
+
+          # Dangling layers from this build, and cache older than a week.
+          # Not a full prune: a week of cache is what makes the *next* build
+          # fast, and throwing it away would trade one problem for another.
+          docker image prune -f 2>/dev/null || true
+          docker buildx prune --force --filter 'until=168h' 2>/dev/null || true
+
+          echo
+          echo "disk after cleanup:"
+          df -h / | tail -1
+          docker system df || true
 
       - name: Report
         run: |
