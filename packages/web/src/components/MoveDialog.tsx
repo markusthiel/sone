@@ -103,7 +103,11 @@ export function MoveDialog({
   return (
     <div
       className="dialog-scrim"
-      onPointerDown={(event) => {
+      // Click, not pointerdown: on touch, pointerdown fires as the finger
+      // lands, so a tap that began on the backdrop and was meant to become a
+      // scroll closed the dialog instead. A click only follows a tap that
+      // stayed put.
+      onClick={(event) => {
         if (event.target === event.currentTarget) onCancel();
       }}
     >

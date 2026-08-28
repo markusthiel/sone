@@ -14,6 +14,7 @@ import { useState, type ReactElement } from 'react';
 
 import type { WorkspaceTag } from '../api/client.ts';
 import { TagIcon } from './icons.tsx';
+import { popupItem } from './popup.ts';
 
 interface TagEditorProps {
   tags: string[];
@@ -111,12 +112,12 @@ export function TagEditor({
                   key={tag.key}
                   type="button"
                   className="tag-suggestion"
-                  // Pointerdown, or the input's blur fires first and adds the
-                  // half-typed draft instead of the suggestion.
-                  onPointerDown={(event) => {
-                    event.preventDefault();
-                    add(tag.label);
-                  }}
+                  // mousedown is prevented so the input does not blur and add
+                  // the half-typed draft before the suggestion is chosen; the
+                  // choice itself happens on click, which a scroll gesture does
+                  // not produce.
+                  onMouseDown={(event) => event.preventDefault()}
+                  {...popupItem(() => add(tag.label))}
                 >
                   {tag.label}
                   <span className="muted"> {tag.count}</span>

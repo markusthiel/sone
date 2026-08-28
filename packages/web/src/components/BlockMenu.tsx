@@ -35,6 +35,7 @@ import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { GripIcon, PlusIcon } from './icons.tsx';
+import { keepsEditorSelection, popupItem } from './popup.ts';
 
 interface BlockMenuProps {
   view: EditorView;
@@ -54,6 +55,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const [retryToken, setRetryToken] = useState(0);
+  const gutterRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const range = selectedBlockRange(view.state);
@@ -98,6 +100,13 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
     if (!open) return;
     const onPointerDown = (event: PointerEvent): void => {
       if (panelRef.current?.contains(event.target as Node)) return;
+      // The gutter too, not only the panel.
+      //
+      // The ⋮⋮ button lives outside the panel, so without this the sequence on
+      // a tap is: this listener closes the menu, then the button's click
+      // toggles it — from closed back to open. The button could never close
+      // what it had opened.
+      if (gutterRef.current?.contains(event.target as Node)) return;
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent): void => {
@@ -170,18 +179,23 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
        * The ⋮⋮ opens the block menu. It previously rendered and did nothing
        * useful, which is worse than not being there — a control that looks
        * interactive and is not teaches people to distrust the whole surface. */}
-      <div className="block-gutter" style={{ top: anchor.top, left: anchor.left }}>
+      <div
+        className="block-gutter"
+        ref={gutterRef}
+        style={{ top: anchor.top, left: anchor.left }}
+      >
         <button
           type="button"
           className="block-insert"
           aria-label="Insert a block"
-          onPointerDown={(event) => {
-            // The editor loses focus on mousedown, so a click handler would act
-            // on a selection that has already collapsed.
-            event.preventDefault();
+          // Click, not pointerdown: on touch, pointerdown fires as the finger
+          // lands, so the menu opened before anyone lifted. The mousedown
+          // handler beside it is what preserves the editor's selection.
+          onMouseDown={(event) => event.preventDefault()}
+          {...popupItem(() => {
             setOpen(false);
             openSlashMenu(view);
-          }}
+          })}
         >
           <PlusIcon />
         </button>
@@ -195,10 +209,8 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
               : 'Block actions'
           }
           aria-expanded={open}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            setOpen((previous) => !previous);
-          }}
+          onMouseDown={(event) => event.preventDefault()}
+          {...popupItem(() => setOpen((previous) => !previous))}
         >
           <GripIcon />
         </button>
@@ -212,6 +224,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
           // control that opened it.
           style={{ top: anchor.top, left: anchor.left + 56 }}
           role="menu"
+          {...keepsEditorSelection}
         >
           {size > 1 && (
             // Stated plainly, because acting on children the person did not
@@ -233,10 +246,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
                 role="menuitem"
                 className={action.destructive ? 'block-menu-item destructive' : 'block-menu-item'}
                 disabled={!possible}
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  run(action.command);
-                }}
+                {...popupItem(() => run(action.command))}
               >
                 {action.label}
               </button>
@@ -262,10 +272,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
                         : 'block-menu-item'
                     }
                     disabled={!possible}
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      run(action.command);
-                    }}
+                    {...popupItem(() => run(action.command))}
                   >
                     {action.label}
                   </button>
@@ -287,14 +294,13 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
                   role="menuitem"
                   className="block-menu-item"
                   aria-current={active}
-                  onPointerDown={(event) => {
-                    event.preventDefault();
+                  {...popupItem(() => {
                     // Restore the caret into the block first: the type change
-                    // acts on the selection, and a click may have moved it.
+                    // acts on the selection, and a tap may have moved it.
                     const $pos = view.state.doc.resolve(range.from + 1);
                     view.dispatch(view.state.tr.setSelection(TextSelection.near($pos)));
                     run(toggleBlockType(type));
-                  }}
+                  })}
                 >
                   {LABELS[name] ?? name}
                   {active ? ' ·' : ''}

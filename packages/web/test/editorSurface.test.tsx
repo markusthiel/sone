@@ -147,6 +147,43 @@ describe('editor surface', () => {
     assert.ok(container.querySelector('.block-handle'), 'and the block handle');
   });
 
+  test('menu items do not act on pointerdown', async () => {
+    // Three complaints came from one mistake: items fired the moment a finger
+    // landed, the same preventDefault cancelled the scroll gesture, and the
+    // rest of the tap was delivered to the editor underneath — which put the
+    // caret where the finger had been.
+    //
+    // Asserted on the source rather than by simulating a touch, because jsdom
+    // has no gesture model: what can be checked is that no interactive item
+    // binds the event that caused it.
+    const { readFileSync } = await import('node:fs');
+    const files = [
+      'src/components/SlashMenu.tsx',
+      'src/components/BlockMenu.tsx',
+      'src/components/TagEditor.tsx',
+      'src/components/SelectionToolbar.tsx',
+    ];
+
+    for (const file of files) {
+      const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+      const offenders = [...source.matchAll(/onPointerDown=\{/g)];
+      assert.equal(
+        offenders.length,
+        0,
+        `${file} still activates on pointerdown, which fires before a finger lifts`,
+      );
+    }
+  });
+
+  test('scrollable popups declare their touch behaviour', async () => {
+    // Without touch-action the browser waits to see whether the gesture will be
+    // cancelled before it scrolls, which reads as a list that ignores a drag.
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+    assert.match(css, /\.slash-menu[\s\S]{0,400}touch-action:\s*pan-y/);
+    assert.match(css, /overscroll-behavior:\s*contain/);
+  });
+
   test('pressing + opens the slash menu', async () => {
     // Guessed at twice and wrong twice. The editor package's own tests drive
     // openSlashMenu directly and pass, so whatever is broken is here.
@@ -163,9 +200,11 @@ describe('editor surface', () => {
     const plus = container.querySelector('.block-insert') as HTMLElement | null;
     assert.ok(plus, 'no + to press');
 
+    // A click, which is what a completed tap produces — and what a scroll
+    // gesture does not.
     await act(async () => {
       plus.dispatchEvent(
-        new dom.window.MouseEvent('pointerdown', { bubbles: true, cancelable: true }),
+        new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }),
       );
     });
 
