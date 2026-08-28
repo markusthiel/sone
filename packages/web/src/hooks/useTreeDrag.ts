@@ -63,6 +63,15 @@ export interface TreeDrag {
   dragging: string | null;
   /** Where it would land, or null. */
   target: DropPosition | null;
+  /**
+   * Where the pointer is, for drawing the entry under it.
+   *
+   * The indicator lines say where a drop lands; they do not say what is
+   * travelling. HTML5 dragging drew the element under the cursor for free, and
+   * losing that made the gesture harder to read — so the position is exposed
+   * and the tree draws its own.
+   */
+  pointer: { x: number; y: number } | null;
 }
 
 /** Read the row under a point, and where within it. */
@@ -141,6 +150,7 @@ function isNoop(draggedId: string, where: DropPosition): boolean {
 export function useTreeDrag(options: TreeDragOptions): TreeDrag {
   const [dragging, setDragging] = useState<string | null>(null);
   const [target, setTarget] = useState<DropPosition | null>(null);
+  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
 
   // The same two values in refs.
   //
@@ -181,6 +191,8 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
     pointerType: string;
     holdTimer: ReturnType<typeof setTimeout> | null;
     started: boolean;
+    /** Whether capture was actually taken, so it is only released if so. */
+    captured: boolean;
     element: HTMLElement;
   } | null>(null);
 
@@ -214,7 +226,7 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
 
     if (current.holdTimer) clearTimeout(current.holdTimer);
     try {
-      current.element.releasePointerCapture(current.pointerId);
+      if (current.captured) current.element.releasePointerCapture(current.pointerId);
     } catch {
       // Capture may already have been lost — the pointer left the window, or
       // the element was removed. Releasing is best-effort.
@@ -227,6 +239,7 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
 
     setDraggingBoth(null);
     setTargetBoth(null);
+    setPointer(null);
 
     if (commit && wasDragging && where && optionsRef.current.canDrop(wasDragging, where)) {
       optionsRef.current.onDrop(wasDragging, where);
@@ -262,12 +275,25 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
       // untouched by this code, so the click fires as usual.
       if ((event.target as HTMLElement).closest('button, input')) return;
 
-      element.setPointerCapture(event.pointerId);
-
+      // Capture is taken when the drag *begins*, not here.
+      //
+      // Taking it on the press broke every click in the sidebar. With capture
+      // set, pointerup is delivered to the capturing element, and the browser
+      // then fires the click on the nearest common ancestor of the press and
+      // release targets — the row, not the link inside it. So a tap on a folder
+      // stopped navigating, silently, while dragging kept working.
       const begin = (): void => {
         const current = gesture.current;
         if (!current || current.started) return;
         current.started = true;
+        current.captured = true;
+        try {
+          current.element.setPointerCapture(current.pointerId);
+        } catch {
+          // The pointer may already be gone. Dragging without capture still
+          // works here, because the listeners are on the row and the position
+          // comes from coordinates rather than from the event target.
+        }
         setDraggingBoth(current.id);
       };
 
@@ -278,6 +304,7 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
         startY: event.clientY,
         pointerType: event.pointerType || 'mouse',
         started: false,
+        captured: false,
         element,
         // A mouse commits as soon as it moves past the slop; there is no
         // competing gesture to protect. A finger has to wait, because a
@@ -312,6 +339,8 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
         // Showing an indicator on a row that will refuse the drop promises
         // something that then does not happen, which reads as the drop being
         // lost rather than declined.
+        setPointer({ x: moveEvent.clientX, y: moveEvent.clientY });
+
         const where = positionAt(moveEvent.clientX, moveEvent.clientY);
         const useful =
           where !== null &&
@@ -346,5 +375,5 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
     [finish, setDraggingBoth, setTargetBoth],
   );
 
-  return { onPointerDown, dragging, target };
+  return { onPointerDown, dragging, target, pointer };
 }

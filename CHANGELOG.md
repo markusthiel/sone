@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: folders and pages in the sidebar stopped opening.** Pointer capture was
+taken the moment a row was pressed, and with capture set the browser fires the
+click on the row rather than on the link inside it. Capture is now taken when a
+drag actually begins, which is the only time it is needed.
+
+**The dragged entry is drawn under the pointer again.** The indicator lines say
+where a drop lands; they do not say what is travelling. HTML5 dragging drew this
+for free, and replacing it with pointer events lost it.
+
 **Fixed: every tenth build refused to start.** Builds are versioned
 `0.1.1-dev.<n>.g<sha>`, and the version fence compared the whole pre-release as
 one string — so `dev.10` sorted below `dev.9` and the newer build was rejected as
