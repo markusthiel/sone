@@ -12,7 +12,14 @@ import { test } from 'node:test';
 import { buildPageTree, type PageSummary } from '../src/api/client.ts';
 import { findAncestors } from '../src/components/Sidebar.tsx';
 import { destinations } from '../src/components/MoveDialog.tsx';
-import { canMoveInto, moveRefusal, siblingsOf } from '../src/components/moveRules.ts';
+import {
+  canMoveInto,
+  canStep,
+  findNode,
+  moveRefusal,
+  siblingsOf,
+  stepTarget,
+} from '../src/components/moveRules.ts';
 
 const page = (
   id: string,
@@ -286,4 +293,85 @@ test('reordering beside a row checks the parent, not the row', () => {
 
   // "beside leaf" means "into inner", which is inside outer.
   assert.equal(canMoveInto(tree, outer, leaf.parentPageId), false);
+});
+
+// --- reordering without a mouse --------------------------------------------
+
+test('moving up and down walks the list one place at a time', () => {
+  // Dragging is a pointer-device feature; iOS never fires those events. These
+  // are the only way to reorder on a tablet, and they work with a keyboard
+  // too — so they are not a fallback, they are the general case.
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('a', 'folder', 'page'),
+    page('b', 'folder', 'page'),
+    page('c', 'folder', 'page'),
+  ]);
+
+  // b up: lands first, so it follows nothing.
+  assert.equal(stepTarget(tree, 'b', 'up'), null);
+  // c up: lands after a, which is what precedes b.
+  assert.equal(stepTarget(tree, 'c', 'up'), 'a');
+  // a down: lands after b.
+  assert.equal(stepTarget(tree, 'a', 'down'), 'b');
+});
+
+test('the ends of a list cannot be stepped past', () => {
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('a', 'folder', 'page'),
+    page('b', 'folder', 'page'),
+  ]);
+
+  assert.equal(stepTarget(tree, 'a', 'up'), undefined);
+  assert.equal(stepTarget(tree, 'b', 'down'), undefined);
+  assert.equal(canStep(tree, 'a', 'up'), false);
+  assert.equal(canStep(tree, 'b', 'down'), false);
+  assert.equal(canStep(tree, 'a', 'down'), true);
+});
+
+test('a lone entry cannot move either way', () => {
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('only', 'folder', 'page'),
+  ]);
+  assert.equal(canStep(tree, 'only', 'up'), false);
+  assert.equal(canStep(tree, 'only', 'down'), false);
+});
+
+test('top-level entries reorder among themselves', () => {
+  // Read the order from the tree rather than assuming it. The helper gives
+  // every entry the same idx, so buildPageTree breaks the tie on id — a first
+  // version of this test assumed insertion order and failed for a reason that
+  // had nothing to do with stepping.
+  const tree = buildPageTree([
+    page('one', null, 'folder'),
+    page('two', null, 'folder'),
+    page('three', null, 'folder'),
+  ]);
+  const ids = tree.map((node) => node.id);
+
+  assert.equal(stepTarget(tree, ids[2]!, 'up'), ids[0]!);
+  assert.equal(stepTarget(tree, ids[1]!, 'up'), null);
+  assert.equal(stepTarget(tree, ids[0]!, 'down'), ids[1]!);
+});
+
+test('an entry that is not in the tree cannot move', () => {
+  // The tree in hand can be a moment out of date.
+  const tree = buildPageTree([page('folder', null, 'folder')]);
+  assert.equal(stepTarget(tree, 'vanished', 'up'), undefined);
+});
+
+test('a step names a neighbour rather than a position', () => {
+  // An index would be stale if somebody else reordered the list at the same
+  // moment; a named neighbour is either still there or the server refuses.
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('a', 'folder', 'page'),
+    page('b', 'folder', 'page'),
+    page('c', 'folder', 'page'),
+  ]);
+  const target = stepTarget(tree, 'c', 'up');
+  assert.equal(typeof target, 'string');
+  assert.ok(findNode(tree, target as string), 'the target is a real entry');
 });

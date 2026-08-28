@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Entries can be reordered without a mouse.** "Move up" and "Move down" in a
+row's menu. Dragging is a pointer-device feature — iOS never fires those events
+— so shipping reordering as drag-only left a tablet with no way to do it at all.
+These also work with a keyboard.
+
+**Fixed: pressing and holding a sidebar row selected its text** instead of doing
+nothing. Rows are draggable, and on a touch screen, where the drag never starts,
+that left a text selection in the sidebar.
+
 **Fixed: builds after the 0.1.0 tag would not start.** `git describe` on a
 commit after `v0.1.0` produces `0.1.0-1-g<sha>`, which semantic versioning reads
 as a *pre-release of* 0.1.0 — below the release, and below `0.1.0-rc.1-…` as
