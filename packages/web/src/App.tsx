@@ -387,8 +387,29 @@ function ShareRoute({
   token: string;
   pageId: string | null;
 }): ReactElement {
-  const [displayName, setDisplayName] = useState('');
-  const [joined, setJoined] = useState(false);
+  /**
+   * The name a visitor gave, remembered for this tab.
+   *
+   * Asking again on every reload is not a decision, it is an omission: nothing
+   * about the name is worth re-deciding, and a page refresh is not a new visit.
+   *
+   * sessionStorage rather than localStorage, and per token. Per tab, because an
+   * anonymous session already belongs to a tab — two tabs are two people as far
+   * as presence is concerned, and sharing a name across them would make one
+   * person appear twice under one label. Per token, because a different link is
+   * a different context, possibly a different circle of people.
+   *
+   * It is a display name, not a credential, so it does not outlive the browser
+   * session on what may be a shared machine.
+   */
+  const nameKey = `sone.share.name.${token}`;
+  const remembered =
+    typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem(nameKey) ?? '') : '';
+
+  const [displayName, setDisplayName] = useState(remembered);
+  // Skipped entirely when a name is already known, so a reload lands back on
+  // the page rather than on a form.
+  const [joined, setJoined] = useState(remembered !== '');
 
   if (!joined) {
     return (
@@ -397,6 +418,14 @@ function ShareRoute({
           className="card"
           onSubmit={(event) => {
             event.preventDefault();
+            const chosen = displayName.trim();
+            try {
+              if (chosen) sessionStorage.setItem(nameKey, chosen);
+            } catch {
+              // Private browsing, or storage that is full or disabled. The name
+              // still works for this visit; it is simply asked for again next
+              // time, which is what happened before this existed.
+            }
             setJoined(true);
           }}
         >

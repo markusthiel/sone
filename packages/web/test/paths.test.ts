@@ -164,3 +164,19 @@ test('a share link with a page still needs the token resolved', () => {
   );
   assert.match(source, /resolveShare\(token\)/);
 });
+
+test('a share visitor is not asked for their name on every reload', () => {
+  // Asking again on a refresh is an omission rather than a decision: nothing
+  // about the name is worth re-deciding, and a reload is not a new visit.
+  const source = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+
+  // Per token and per tab: two tabs are two people to presence, and a
+  // different link is a different circle of people.
+  assert.match(source, /sone\.share\.name\.\$\{token\}/);
+  assert.match(source, /sessionStorage/);
+  assert.doesNotMatch(
+    source,
+    /localStorage\.setItem\(nameKey/,
+    'a name on a shared machine should not outlive the browser session',
+  );
+});
