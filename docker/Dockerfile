@@ -64,7 +64,9 @@ ENV NODE_ENV=production \
 # commands shell out to. Without it those commands fail at the moment they are
 # needed most. Pinned to the major version matching the compose file's Postgres:
 # pg_dump refuses to dump a server newer than itself.
-RUN apk add --no-cache postgresql17-client tar \
+# su-exec drops privilege in the entrypoint without leaving a root process
+# behind; see docker/entrypoint.sh for why the container starts as root at all.
+RUN apk add --no-cache postgresql17-client tar su-exec \
  && addgroup -g 10001 sone \
  && adduser -u 10001 -G sone -S -h /app sone \
  && mkdir -p /var/lib/sone/files /var/lib/sone/backups \
@@ -76,7 +78,16 @@ COPY --from=build --chown=sone:sone /app/db                    ./db
 COPY --chown=sone:sone docker/healthcheck.mjs                  ./docker/healthcheck.mjs
 COPY --chown=sone:sone docker/entrypoint.sh                    ./docker/entrypoint.sh
 
-USER sone
+# Deliberately no `USER sone`.
+#
+# The entrypoint starts as root, makes the data directories writable — which is
+# the only way to handle a bind mount, whose ownership comes from the host — and
+# then execs the server as uid 10001. No root process survives that handover.
+#
+# scripts/verify-image.py checks the running container rather than this line,
+# because what matters is which user the server ends up as, not which user the
+# image declares. That check is stricter than the one it replaced: an image
+# could declare a non-root USER and still be started with `--user 0`.
 EXPOSE 3000
 VOLUME ["/var/lib/sone/files", "/var/lib/sone/backups"]
 

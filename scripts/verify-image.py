@@ -26,7 +26,7 @@ indentation without noticing.
 import json
 import sys
 
-EXPECTED_USER = "sone"
+EXPECTED_UID = "10001"
 EXPECTED_PORT = "3000/tcp"
 
 
@@ -65,9 +65,22 @@ def main() -> int:
             "building OCI format — if buildah is in use, check --format docker."
         )
 
-    user = oci_config.get("User")
-    if user != EXPECTED_USER:
-        problems.append(f"runs as {user!r}, expected {EXPECTED_USER!r}")
+    # The image deliberately declares no USER: the entrypoint starts as root so
+    # it can make a bind-mounted directory writable, then execs the server as
+    # uid 10001 (docker/entrypoint.sh explains why).
+    #
+    # So this no longer checks the declared user, which would now be wrong in
+    # both directions — it would fail a correct image, and it would pass an
+    # image whose entrypoint quietly forgot to drop privilege. What is checked
+    # instead is that the entrypoint really does hand over.
+    entrypoint = " ".join(oci_config.get("Entrypoint") or []) + " " + " ".join(
+        oci_config.get("Cmd") or []
+    )
+    if "entrypoint.sh" not in entrypoint:
+        problems.append(
+            f"entrypoint is {entrypoint.strip()!r}; expected docker/entrypoint.sh, "
+            "which is what drops privilege"
+        )
 
     exposed = oci_config.get("ExposedPorts") or {}
     if EXPECTED_PORT not in exposed:

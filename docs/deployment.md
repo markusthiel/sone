@@ -310,47 +310,30 @@ UPDATE users SET is_instance_admin = true WHERE email = 'you@example.org';
 
 ## Uploads fail with "could not write the file to disk"
 
-The container runs as uid 10001 and the upload directory is not writable by it.
-The usual cause is a Docker volume that was created **before** this directory
-existed in the image: Docker copies the image's contents and ownership only into
-a *fresh* named volume, so a volume from an earlier version stays owned by root.
+Since the container fixes this itself, this should no longer happen. It starts as
+root, makes the storage and backup directories writable by uid 10001, and then
+runs the server as that user — no root process survives the handover.
 
-The container cannot fix this itself — it never runs as root, deliberately. Fix
-it from the host, as root *inside the running container*:
+If the message still appears, the container could not take ownership, and it
+says so in its log at startup. The two cases it cannot fix:
+
+- **A read-only mount.** The directory has to be writable by something.
+- **A filesystem that does not carry ownership**, such as some network shares.
+  Mount it with `uid=10001,gid=10001` in its own options instead.
+
+You can also keep root out of the container entirely by setting `user:` in
+compose. The entrypoint notices it is not root and leaves ownership alone — in
+that case the directory must already be writable by whichever user you chose:
 
 ```bash
-docker exec -u 0 <container> chown -R 10001:10001 /var/lib/sone
+# For a bind mount, on the host, using the host path from your compose file:
+chown -R 10001:10001 /srv/sone/files /srv/sone/backups
 ```
 
-`docker ps` gives the container name. Confirm it took:
-
-```bash
-docker exec <container> ls -ld /var/lib/sone/files
-```
-
-The owner should read `10001`. No restart is needed: Settings → Maintenance
-re-checks on every visit, and the message disappears once the directory is
-writable.
-
-**Do not do this by volume name.** An earlier version of these instructions said
-`docker run --rm -v sone_files:/v alpine chown -R 10001:10001 /v`, which is a
-trap: Compose prefixes volume names with the project name, so the volume is
-really called something like `sone_sone_files`. Given a name that does not
-exist, `docker run -v` silently **creates** an empty volume and chowns that,
-leaving the real one untouched and the error unchanged. Addressing the container
-cannot go wrong in that way.
-
-If you must use a volume, find its real name first with
-`docker volume ls | grep files`, or read it off the container with
-`docker inspect -f '{{range .Mounts}}{{.Name}} {{.Destination}}{{"\n"}}{{end}}' <container>`.
-
-The same applies to a bind mount, where the host directory's owner has to be
-10001 — or the mount has to be given permissive modes, which is worse.
-
-A broken upload directory is reported in three places: the container log at
-startup, Settings → Maintenance, and the block on the page where the upload
-failed. It used to be reported only as a generic error, which pointed at the
-wrong component.
+A bind mount is why this mattered. Docker copies an image's ownership into a
+fresh named volume and **never** into a bind mount, so a host directory arrives
+owned by whoever made it — usually root — and a server running as uid 10001
+cannot write to it.
 
 ## Files
 
