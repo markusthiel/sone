@@ -135,6 +135,11 @@ jobs:
         # neither cause nor fix.
         run: node scripts/check-single-crdt.mjs
 
+      - name: Check build version ordering
+        # A version that sorts backwards stops a running instance with a blank
+        # page. It has happened twice.
+        run: node scripts/check-version.mjs
+
       - name: Check the image verifier
         # It runs only in the image workflow, after a build, so a mistake in it
         # costs a full build to find. It has cost one.
