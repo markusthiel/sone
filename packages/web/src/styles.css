@@ -2142,3 +2142,36 @@ select {
   opacity: 1;
 }
 @media (hover: none) { .ProseMirror .sone-code-copy { opacity: 0.8; } }
+
+/* --- an administration alert ---
+ *
+ * For a condition that is certainly broken rather than possibly transient, and
+ * that a person has to act on outside the application. Loud on purpose: this
+ * was previously visible only in the container log.
+ */
+.admin-alert {
+  margin-block-end: var(--sone-space-5);
+  padding: var(--sone-space-5);
+  border: 1px solid var(--sone-danger);
+  border-radius: var(--sone-radius);
+  background: color-mix(in srgb, var(--sone-danger) 6%, transparent);
+}
+.admin-alert-title {
+  margin: 0 0 var(--sone-space-3);
+  font-weight: 600;
+  color: var(--sone-danger);
+}
+.admin-alert-detail {
+  margin: 0 0 var(--sone-space-2);
+  font-size: var(--sone-text-sm);
+  line-height: 1.5;
+}
+.admin-alert-detail code {
+  display: inline-block;
+  margin-block-start: var(--sone-space-2);
+  padding: 2px var(--sone-space-3);
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg-hover);
+  font-size: var(--sone-text-xs);
+  overflow-wrap: anywhere;
+}

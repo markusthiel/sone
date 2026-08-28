@@ -33,6 +33,8 @@ describe(
     let server: Server;
     let base: string;
     let settings: SettingsStore;
+    /** What the storage check reports. Set per test. */
+    let storageProblem: string | null = null;
 
     before(async () => {
       db = await getTestPool();
@@ -50,6 +52,9 @@ describe(
         settings,
         version: 'test',
         commit: 'abc1234',
+        // Reports whatever storageProblem currently holds, so a test can decide
+        // what the instance's storage looks like.
+        checkStorage: () => Promise.resolve(storageProblem),
       });
 
       server = createServer((req, res) => {
@@ -73,6 +78,7 @@ describe(
     beforeEach(async () => {
       await resetDatabase(db);
       settings.invalidate();
+      storageProblem = null;
     });
 
     const json = (body: unknown): RequestInit => ({
@@ -424,6 +430,50 @@ describe(
         assert.ok(!fields.includes(leaked), `${leaked} must not be reported`);
       }
       assert.ok(fields.includes('pageCount'), 'a count is fine');
+    });
+
+    test('an unwritable upload directory is reported to the administrator', async () => {
+      // It used to be visible only in the container log, which is not where
+      // anybody looks when an upload fails — and every upload fails until
+      // somebody changes ownership on the host.
+      const admin = await setup();
+      storageProblem = '/var/lib/sone/files is not writable: EACCES';
+
+      const res = await fetch(`${base}/api/admin/maintenance`, {
+        headers: { cookie: admin.cookie },
+      });
+      const body = await expectJson<{
+        storage: { writable: boolean; problem: string | null };
+      }>(res);
+
+      assert.equal(body.storage.writable, false);
+      assert.match(body.storage.problem ?? '', /not writable/);
+    });
+
+    test('writable storage reports itself as fine', async () => {
+      const admin = await setup();
+      const res = await fetch(`${base}/api/admin/maintenance`, {
+        headers: { cookie: admin.cookie },
+      });
+      const body = await expectJson<{ storage: { writable: boolean } }>(res);
+      assert.equal(body.storage.writable, true);
+    });
+
+    test('storage is re-checked per request, not read from startup', async () => {
+      // An administrator who has just fixed a volume's ownership should be able
+      // to confirm it here rather than restarting the container to find out.
+      const admin = await setup();
+      storageProblem = 'broken';
+      let body = await expectJson<{ storage: { writable: boolean } }>(
+        await fetch(`${base}/api/admin/maintenance`, { headers: { cookie: admin.cookie } }),
+      );
+      assert.equal(body.storage.writable, false);
+
+      storageProblem = null;
+      body = await expectJson<{ storage: { writable: boolean } }>(
+        await fetch(`${base}/api/admin/maintenance`, { headers: { cookie: admin.cookie } }),
+      );
+      assert.equal(body.storage.writable, true, 'without a restart');
     });
 
     test('maintenance reports the anomaly views', async () => {
