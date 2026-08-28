@@ -178,6 +178,20 @@ volumes:
   - /mnt/backups/sone:/var/lib/sone/backups
 ```
 
+## Deleted entries keep their storage
+
+Deleting archives. The row, the document history and any attachments stay until
+somebody destroys the entry from the trash, and **nothing is removed on a
+schedule** — an instance that quietly empties its own trash is one that loses
+somebody's work while they are on holiday.
+
+That means a workspace where a lot has been deleted still uses the space. If
+disk is the problem, the trash is the first place to look.
+
+Destroying is genuinely irreversible: the CRDT log is where the content lives,
+so once it is gone the page cannot be rebuilt from anything except a database
+backup.
+
 ## When a page is missing from search or the tree
 
 The page is fine — its document syncs and opens. What failed is the projection,

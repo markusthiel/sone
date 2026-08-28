@@ -175,6 +175,17 @@ export interface MaintenanceReport {
   failures: Array<{ pageId: string; error: string | null }>;
 }
 
+export interface TrashEntry {
+  id: string;
+  title: string;
+  kind: EntryKind;
+  archivedAt: string;
+  /** How much went with it, so restoring is not a surprise. */
+  descendants: number;
+  /** Restoring would put it back somewhere that no longer exists. */
+  parentMissing: boolean;
+}
+
 export interface ShareLink {
   id: string;
   scopePageId: string;
@@ -365,6 +376,19 @@ export const api = {
     }>('/api/admin/settings', {
       method: 'PATCH',
       body: JSON.stringify(changes),
+    }),
+
+  trash: (workspaceId: string) =>
+    request<{ entries: TrashEntry[] }>(`/api/workspaces/${workspaceId}/trash`),
+
+  restoreEntry: (pageId: string) =>
+    request<{ id: string; restoredToRoot: boolean }>(`/api/pages/${pageId}/restore`, {
+      method: 'POST',
+    }),
+
+  deleteEntryPermanently: (pageId: string) =>
+    request<{ id: string; deleted: number }>(`/api/pages/${pageId}/permanently`, {
+      method: 'DELETE',
     }),
 
   shareLinks: (pageId: string) =>

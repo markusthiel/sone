@@ -11,6 +11,7 @@ import { LoginScreen, SetupScreen, SignupScreen, messageFor } from './components
 import { FolderView } from './components/FolderView.tsx';
 import { MoveDialog } from './components/MoveDialog.tsx';
 import { ShareDialog } from './components/ShareDialog.tsx';
+import { Trash } from './components/Trash.tsx';
 import { SidebarIcon } from './components/icons.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
 import {
@@ -134,8 +135,16 @@ function Workspace({
     workspaceId,
     displayName,
   });
-  const { tree, pages, createPage, archivePage, renameEntry, moveEntry, applyTitle } =
-    usePages(workspaceId);
+  const {
+    tree,
+    pages,
+    createPage,
+    archivePage,
+    renameEntry,
+    moveEntry,
+    applyTitle,
+    reload: reloadPages,
+  } = usePages(workspaceId);
   // The entry a move dialog is open for, if any.
   const [movingId, setMovingId] = useState<string | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
@@ -282,6 +291,10 @@ function Workspace({
 
         {route.kind === 'search' && (
           <SearchScreen workspaceId={workspaceId} initialQuery={route.query} />
+        )}
+
+        {route.kind === 'trash' && (
+          <Trash workspaceId={workspaceId} onChanged={() => void reloadPages()} />
         )}
 
         {route.kind === 'settings' && (

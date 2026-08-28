@@ -662,6 +662,252 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
   });
 
   /**
+   * What is in the workspace's trash.
+   *
+   * Only what was archived *directly*. Archiving a folder archives its subtree,
+   * and listing every descendant would show one deletion as forty entries and
+   * bury the thing somebody is looking for. A descendant is identified by
+   * having an archived ancestor.
+   */
+  router.get('/api/workspaces/:workspaceId/trash', async (ctx) => {
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    const claims = await claimsFor(deps.pool, ctx, workspaceId);
+    if (!claims) return;
+
+    const rows = await queryRows<{
+      id: string;
+      title: string;
+      kind: string;
+      archived_at: Date;
+      ancestor_ids: string[];
+      parent_page_id: string | null;
+      descendants: string;
+      parent_missing: boolean;
+    }>(
+      deps.pool,
+      `SELECT p.id, p.title, p.kind, p.archived_at, p.ancestor_ids, p.parent_page_id,
+              (SELECT count(*) FROM pages c
+                WHERE p.id = ANY(c.ancestor_ids) AND c.archived_at IS NOT NULL)::text
+                AS descendants,
+              -- Whether restoring would put it back somewhere that still
+              -- exists. A parent that is itself archived means restoring this
+              -- alone would leave it unreachable from the tree.
+              (p.parent_page_id IS NOT NULL AND NOT EXISTS (
+                 SELECT 1 FROM pages q
+                  WHERE q.id = p.parent_page_id AND q.archived_at IS NULL
+               )) AS parent_missing
+         FROM pages p
+        WHERE p.workspace_id = $1
+          AND p.archived_at IS NOT NULL
+          -- One archiving action produces one entry.
+          --
+          -- Archiving a folder stamps every descendant in a single UPDATE, so
+          -- they share a timestamp; those went with their parent and are not
+          -- separate things to restore. An entry archived on its own, before or
+          -- after its folder, has a different timestamp and is listed — it was
+          -- a separate decision and deserves a separate way back.
+          AND NOT EXISTS (
+            SELECT 1 FROM pages a
+             WHERE a.id = ANY(p.ancestor_ids)
+               AND a.archived_at = p.archived_at
+          )
+        ORDER BY p.archived_at DESC`,
+      [workspaceId],
+    );
+
+    const visible = rows.filter(
+      (row) =>
+        effectiveRole(claims, {
+          id: row.id,
+          workspaceId,
+          ancestorIds: row.ancestor_ids,
+        }) !== null,
+    );
+
+    ctx.send(200, {
+      entries: visible.map((row) => ({
+        id: row.id,
+        title: row.title,
+        kind: row.kind === 'folder' ? 'folder' : 'page',
+        archivedAt: row.archived_at,
+        descendants: Number(row.descendants),
+        parentMissing: row.parent_missing,
+      })),
+    });
+  });
+
+  /**
+   * Restore an archived entry and everything that went with it.
+   *
+   * The subtree comes back too, because it was archived as one action and
+   * restoring only the top would leave the children in the trash, invisible
+   * from both the tree and the trash listing.
+   *
+   * If the parent folder is gone, the entry is restored to the workspace root
+   * rather than refused — but only if it is a folder. A page cannot sit at the
+   * root (ADR-0019), so one whose folder is gone has nowhere to go and says so
+   * instead of being restored somewhere arbitrary.
+   */
+  router.post('/api/pages/:pageId/restore', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const page = await loadPageLocation(deps.pool, pageId);
+    if (!page) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (!sessionTokenFrom(ctx)) {
+      ctx.fail(401, 'not_authenticated');
+      return;
+    }
+    const claims = await claimsOrNull(deps.pool, ctx, page.workspaceId);
+    const role = claims ? effectiveRole(claims, page) : null;
+    if (role === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (role === 'viewer' || role === 'commenter') {
+      ctx.fail(403, 'not_authorized');
+      return;
+    }
+
+    const row = await queryOne<{
+      kind: string;
+      parent_page_id: string | null;
+      archived_at: Date | null;
+    }>(
+      deps.pool,
+      `SELECT kind, parent_page_id, archived_at FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    if (!row || row.archived_at === null) {
+      ctx.fail(409, 'not_archived');
+      return;
+    }
+
+    const parentAlive =
+      row.parent_page_id === null ||
+      (await queryOne(
+        deps.pool,
+        `SELECT 1 FROM pages WHERE id = $1 AND archived_at IS NULL`,
+        [row.parent_page_id],
+      )) !== null;
+
+    if (!parentAlive) {
+      if (row.kind !== 'folder') {
+        // Reported rather than guessed at. Silently putting a page somewhere
+        // else is how somebody loses track of it a second time.
+        ctx.fail(409, 'parent_missing');
+        return;
+      }
+      const actorId =
+        claims!.principal.kind === 'anonymous' ? null : claims!.principal.userId;
+      const result = await applyToDocument(
+        deps.pool,
+        pageId,
+        (doc) => {
+          doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.parentPageId, null);
+        },
+        actorId,
+      );
+      if (result.changed) {
+        await rematerialize(deps.pool, pageId, page.workspaceId, actorId);
+      }
+    }
+
+    await deps.pool.query(
+      `UPDATE pages SET archived_at = NULL
+        WHERE archived_at IS NOT NULL
+          AND (id = $1 OR $1 = ANY(ancestor_ids))`,
+      [pageId],
+    );
+
+    ctx.send(200, { id: pageId, restoredToRoot: !parentAlive });
+  });
+
+  /**
+   * Delete permanently.
+   *
+   * The explicit operation the archive route's comment has been promising.
+   *
+   * Deletes the row, which cascades to the document updates, snapshots, files
+   * and permissions. That is genuinely irreversible: the CRDT log is where the
+   * content lives, so once it is gone the page cannot be rebuilt from anything
+   * except a database backup.
+   *
+   * Two guards. It only works on something already archived, so a single
+   * mistaken call cannot destroy a live page — deleting is always two steps.
+   * And it requires admin rather than edit rights, because destroying content
+   * is not the same kind of act as changing it.
+   */
+  router.delete('/api/pages/:pageId/permanently', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const page = await loadPageLocation(deps.pool, pageId);
+    if (!page) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (!sessionTokenFrom(ctx)) {
+      ctx.fail(401, 'not_authenticated');
+      return;
+    }
+    const claims = await claimsOrNull(deps.pool, ctx, page.workspaceId);
+    const role = claims ? effectiveRole(claims, page) : null;
+    if (role === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (role !== 'admin') {
+      ctx.fail(403, 'not_authorized');
+      return;
+    }
+
+    const row = await queryOne<{ archived_at: Date | null }>(
+      deps.pool,
+      `SELECT archived_at FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    if (!row || row.archived_at === null) {
+      // Deleting is always two steps: archive, then destroy. A single mistaken
+      // call cannot take a live page with it.
+      ctx.fail(409, 'not_archived');
+      return;
+    }
+
+    // The documents have to go explicitly.
+    //
+    // `doc_updates.doc_id` and `doc_snapshots.doc_id` carry no foreign key to
+    // `pages` — deliberately, because a CRDT update can arrive before the row it
+    // belongs to and a constraint would reject data that is merely early
+    // (migration 0003). The consequence here is that deleting the page alone
+    // would remove the entry and leave its entire content behind as rows nothing
+    // references: invisible, unreclaimable, and still growing the database.
+    //
+    // Found by a test asserting the updates were gone, which they were not.
+    const removed = await withTransaction(deps.pool, async (client) => {
+      const ids = await queryRows<{ id: string }>(
+        client,
+        `SELECT id FROM pages WHERE id = $1 OR $1 = ANY(ancestor_ids)`,
+        [pageId],
+      );
+      const docIds = ids.map((row) => row.id);
+
+      await client.query(`DELETE FROM doc_updates WHERE doc_id = ANY($1::uuid[])`, [
+        docIds,
+      ]);
+      await client.query(`DELETE FROM doc_snapshots WHERE doc_id = ANY($1::uuid[])`, [
+        docIds,
+      ]);
+      const result = await client.query(
+        `DELETE FROM pages WHERE id = ANY($1::uuid[])`,
+        [docIds],
+      );
+      return result.rowCount ?? 0;
+    });
+
+    ctx.send(200, { id: pageId, deleted: removed });
+  });
+
+  /**
    * Full-text search within a workspace.
    *
    * Queries both the workspace dictionary and `simple`, matching how the index
