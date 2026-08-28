@@ -2302,11 +2302,15 @@ select {
   /* Past the row's own edges, so the line reads as being between two rows
      rather than as a border belonging to one of them. */
   inset-inline: -2px;
-  block-size: 3px;
-  border-radius: 2px;
+  block-size: 2px;
+  border-radius: 1px;
   background: var(--sone-accent);
-  /* A dot at the start, the convention for an insertion point. */
-  box-shadow: -3px 0 0 3px var(--sone-accent);
+  /* No spread shadow here.
+   *
+   * A 3px spread on a 3px bar draws a 9px block offset to the left, which
+   * reads as a second marker beside the line rather than as a dot on it —
+   * part of why a single gap looked like two. One clean line is the whole
+   * signal. */
   z-index: 2;
 }
 .tree-row[data-drop='before']::before { inset-block-start: -2px; }

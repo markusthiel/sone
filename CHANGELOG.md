@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: two drop lines appeared between two entries.** "Before this row" and
+"after the one above" are the same place, and each band drew its own line — so a
+single gap looked like two places to drop. The row above owns the gap below
+itself now, and the gap an entry already occupies is not offered at all, since
+dropping there would change nothing.
+
 **Fixed: dragging a row started the browser's own drag instead.** A row's label
 is a link, and links are draggable by default — so pressing the obvious place
 produced a floating copy with a green plus, and cancelled the app's gesture
