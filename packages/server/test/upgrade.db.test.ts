@@ -69,6 +69,38 @@ describe('version comparison', () => {
     assert.equal(compareVersions('2.0.0', '10.0.0'), -1);
   });
 
+  test('pre-release identifiers compare numerically, not lexically', () => {
+    // The same question this file already asks of the core version — "numeric,
+    // not lexical" — was never asked of the pre-release, and the answer there
+    // was wrong. Builds are versioned 0.1.1-dev.<n>.g<sha>, and the whole
+    // pre-release was compared as one string, so "dev.10..." sorted below
+    // "dev.9...". The tenth build after a tag was refused as a downgrade and a
+    // running instance stopped serving.
+    assert.equal(
+      compareVersions('0.1.1-dev.10.g0d11a0a', '0.1.1-dev.9.g23c9271'),
+      1,
+      'ten is after nine',
+    );
+    assert.equal(compareVersions('0.1.1-dev.9.gabc', '0.1.1-dev.10.gabc'), -1);
+    assert.equal(compareVersions('0.1.1-dev.100.gabc', '0.1.1-dev.99.gabc'), 1);
+  });
+
+  test('a numeric identifier ranks below an alphanumeric one', () => {
+    // What semantic versioning specifies, and why "rc" sorts above "1".
+    assert.equal(compareVersions('0.1.0-1', '0.1.0-rc'), -1);
+    assert.equal(compareVersions('0.1.0-rc', '0.1.0-1'), 1);
+  });
+
+  test('fewer identifiers ranks below more, all else equal', () => {
+    assert.equal(compareVersions('0.1.0-dev', '0.1.0-dev.1'), -1);
+    assert.equal(compareVersions('0.1.0-rc.1', '0.1.0-rc.1.7.gabc'), -1);
+  });
+
+  test('a dev build after a release sorts above it', () => {
+    assert.equal(compareVersions('0.1.1-dev.1.gabc', '0.1.0'), 1);
+    assert.equal(compareVersions('0.1.1-dev.10.gabc', '0.1.1'), -1);
+  });
+
   test('a pre-release precedes its own release', () => {
     assert.equal(compareVersions('0.2.0-dev', '0.2.0'), -1);
     assert.equal(compareVersions('0.2.0-rc.1', '0.2.0'), -1);

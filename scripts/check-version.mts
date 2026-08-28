@@ -13,6 +13,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { compareVersions } from '../packages/server/src/db/version.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,59 +30,36 @@ const script = path.join(
  * guaranteed node — and a test that checks a second copy of a rule only proves
  * the two copies agree.
  */
-function versionFromDescribe(described) {
+function versionFromDescribe(described: string): { version: string } {
   return { version: execFileSync('sh', [script, described], { encoding: 'utf8' }).trim() };
 }
 
 /**
- * Semantic version precedence, enough for the comparisons here.
+ * The comparator the version fence actually uses.
  *
- * Written out rather than pulled in: this file exists to check a versioning
- * rule, and checking it with a dependency that implements the same rule would
- * be checking that two copies agree.
+ * Not a local reimplementation. The previous version of this file carried its
+ * own — correct — implementation of semver precedence, and checked the version
+ * *scheme* against it. The fence's own comparator was wrong in a way this never
+ * saw: it compared the whole pre-release as one string, so `dev.10` sorted below
+ * `dev.9` and the tenth build after a tag was refused as a downgrade.
+ *
+ * Two implementations of one rule, and the check was watching the wrong one. So
+ * this now imports the real thing, and what is checked is what ships.
  */
-function compare(left, right) {
-  const split = (version) => {
-    const [core, pre] = version.split('-', 2);
-    return {
-      core: core.split('.').map(Number),
-      pre: pre === undefined ? null : pre.split('.'),
-    };
-  };
-
-  const a = split(left);
-  const b = split(right);
-
-  for (let i = 0; i < 3; i++) {
-    if (a.core[i] !== b.core[i]) return a.core[i] < b.core[i] ? -1 : 1;
-  }
-
-  // A version with a pre-release is lower than one without.
-  if (a.pre === null && b.pre === null) return 0;
-  if (a.pre === null) return 1;
-  if (b.pre === null) return -1;
-
-  for (let i = 0; i < Math.max(a.pre.length, b.pre.length); i++) {
-    const x = a.pre[i];
-    const y = b.pre[i];
-    if (x === undefined) return -1;
-    if (y === undefined) return 1;
-    if (x === y) continue;
-
-    const numeric = /^\d+$/.test(x) && /^\d+$/.test(y);
-    if (numeric) return Number(x) < Number(y) ? -1 : 1;
-    // Numeric identifiers rank lower than alphanumeric ones.
-    if (/^\d+$/.test(x)) return -1;
-    if (/^\d+$/.test(y)) return 1;
-    return x < y ? -1 : 1;
-  }
-  return 0;
+function compare(left: string, right: string): number {
+  return compareVersions(left, right);
 }
 
-const failures = [];
+const failures: string[] = [];
+
 
 /** Every build of main must sort above the tag it follows. */
-const cases = [
+const cases: Array<{
+  describe: string;
+  above?: string[];
+  below?: string[];
+  equals?: string;
+}> = [
   // The one that stopped a running instance: a commit after a stable release.
   { describe: 'v0.1.0-1-gd5e039d', above: ['0.1.0', '0.1.0-rc.1-48-g99fefaf'] },
   { describe: 'v0.1.0-48-gabc1234', above: ['0.1.0'], below: ['0.1.1'] },
@@ -92,6 +70,26 @@ const cases = [
   { describe: 'v0.2.0-0-gabc', equals: '0.2.0' },
   // A later patch line.
   { describe: 'v1.4.9-3-gabc', above: ['1.4.9'], below: ['1.5.0'] },
+
+  // Two-digit commit counts, which is where the fence's own comparator was
+  // wrong: it compared the whole pre-release as one string, so "dev.10" sorted
+  // below "dev.9" and the tenth build after a tag stopped a running instance.
+  // Every case above happens to have a single digit, which is why nothing here
+  // noticed.
+  {
+    describe: 'v0.1.0-10-g0d11a0a',
+    above: ['0.1.0', '0.1.1-dev.9.g23c9271'],
+    below: ['0.1.1'],
+  },
+  {
+    describe: 'v0.1.0-100-gabc',
+    above: ['0.1.1-dev.99.gabc', '0.1.1-dev.9.gabc'],
+  },
+  {
+    describe: 'v0.1.0-rc.1-12-gabc',
+    above: ['0.1.0-rc.1.9.gabc'],
+    below: ['0.1.0'],
+  },
 ];
 
 for (const testCase of cases) {

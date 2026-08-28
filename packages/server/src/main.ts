@@ -34,6 +34,7 @@ import {
 import { registerAuthRoutes } from './http/auth.js';
 import { registerHealthRoutes, SONE_COMMIT, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
+import { serveRefusal } from './http/refusal.js';
 import { Router } from './http/router.js';
 import { registerWorkspaceRoutes } from './http/workspaces.js';
 import { registerFavouriteRoutes } from './http/favourites.js';
@@ -127,8 +128,32 @@ async function main(): Promise<void> {
   } catch (err) {
     if (err instanceof VersionFenceError) {
       console.error(err.message);
+
+      // Serve the reason rather than exiting.
+      //
+      // Exiting left nothing answering on the port, so the symptom was a blank
+      // page and a container that restart-looped, writing this same paragraph
+      // to a log nobody was watching. The explanation was accurate and in the
+      // one place the person affected was not looking.
+      //
+      // The database connection is closed first: this mode does no queries, and
+      // holding a pool open against a database this build has decided it must
+      // not touch would be the wrong shape of caution.
+      const previousVersion = err.previousVersion;
       await closePool();
-      process.exit(78);
+
+      serveRefusal(config.port, {
+        message: err.message,
+        code: err.code,
+        runningVersion: SONE_VERSION,
+        previousVersion,
+      });
+
+      console.error(
+        `[fence] serving the reason on port ${config.port}. ` +
+          'Nothing else is running: no editing, no sync, no writes.',
+      );
+      return;
     }
     throw err;
   }

@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: every tenth build refused to start.** Builds are versioned
+`0.1.1-dev.<n>.g<sha>`, and the version fence compared the whole pre-release as
+one string — so `dev.10` sorted below `dev.9` and the newer build was rejected as
+a downgrade. Pre-release identifiers are now compared the way semantic versioning
+defines: one at a time, numbers as numbers.
+
+**A server that cannot start now says so in the browser.** Instead of exiting and
+leaving nothing on the port, it serves a page naming both versions and the way
+out, and reports 503 on `/health`. A blank page was never the right way to
+deliver an accurate explanation.
+
 **Collections work.** "Add columns" on any folder turns it into a table: text,
 number, date, checkbox, link, email and phone columns, edited in place. The
 first column is each entry's title and opens the page, because a row *is* a
