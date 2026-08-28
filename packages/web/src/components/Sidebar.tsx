@@ -222,6 +222,9 @@ export function Sidebar({
                 <span className="tree-twisty" data-placeholder="true" aria-hidden="true" />
                 <a
                   className="tree-link"
+                  // Links are draggable by default; the browser's own drag
+                  // would cancel this app's gesture before it started.
+                  draggable={false}
                   href={paths.page(entry.pageId, entry.title)}
                   {...(entry.pageId === currentPageId
                     ? { 'aria-current': 'page' as const }
@@ -402,6 +405,9 @@ function TreeLevel({
                 // and left a folder with nothing to open.
                 <a
                   className="tree-link"
+                  // Links are draggable by default; the browser's own drag
+                  // would cancel this app's gesture before it started.
+                  draggable={false}
                   href={paths.page(node.id, node.title)}
                   {...(node.id === currentPageId ? { 'aria-current': 'page' as const } : {})}
                 >

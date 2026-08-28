@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: dragging a row started the browser's own drag instead.** A row's label
+is a link, and links are draggable by default — so pressing the obvious place
+produced a floating copy with a green plus, and cancelled the app's gesture
+underneath it. Dragging now starts from the label, and the click that would
+follow a drag is suppressed so moving a page does not also navigate to it.
+
+**The drop indicator says what will happen.** A line between two rows for
+"reorder", a filled outline for "put inside", and nothing at all on a row that
+would refuse the drop — marking one that will refuse promises something that then
+does not happen.
+
 **Fixed: dropping an entry between two rows did nothing.** Reordering targets
 the folder the entry is already in, and the move rules refuse that as "already
 here" — so every reorder was rejected before it reached the server, silently.

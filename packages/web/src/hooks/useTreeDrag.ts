@@ -114,6 +114,26 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  /**
+   * Suppress the click that follows a completed drag.
+   *
+   * A drag on the row's label ends over some other row, and without this the
+   * browser then follows the link — so moving a page would also navigate away
+   * from the one being edited.
+   */
+  const swallowNextClick = useCallback((element: HTMLElement) => {
+    const onClick = (event: MouseEvent): void => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    element.addEventListener('click', onClick, { capture: true, once: true });
+    // Removed on the next frame if no click arrives, so an unrelated click
+    // later is not eaten.
+    requestAnimationFrame(() =>
+      element.removeEventListener('click', onClick, { capture: true }),
+    );
+  }, []);
+
   const finish = useCallback((commit: boolean) => {
     const current = gesture.current;
     gesture.current = null;
@@ -126,6 +146,8 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
       // Capture may already have been lost — the pointer left the window, or
       // the element was removed. Releasing is best-effort.
     }
+
+    if (current.started) swallowNextClick(current.element);
 
     setDragging((wasDragging) => {
       if (commit && wasDragging) {
@@ -140,7 +162,7 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
       }
       return null;
     });
-  }, []);
+  }, [swallowNextClick]);
 
   // Registered only while a drag is in progress, so an untouched tree scrolls
   // normally. `passive: false` is what makes preventDefault work at all.
@@ -160,7 +182,16 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
       const element = event.currentTarget as HTMLElement;
       const rowId = element.dataset['treeRow'];
       if (!rowId) return;
-      if ((event.target as HTMLElement).closest('button, a[href], input')) return;
+      // Buttons and inputs keep their own behaviour. Links deliberately do
+      // not: the row's label *is* a link, and it covers most of the row — so
+      // excluding it meant a drag started from the obvious place never
+      // happened, and the browser's native link drag took over instead. That
+      // is where the floating row with a green plus came from, and it cancels
+      // this gesture as it goes.
+      //
+      // The link still navigates: a press that neither holds nor moves is
+      // untouched by this code, so the click fires as usual.
+      if ((event.target as HTMLElement).closest('button, input')) return;
 
       element.setPointerCapture(event.pointerId);
 
@@ -206,7 +237,14 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
         }
 
         moveEvent.preventDefault();
-        setTarget(positionAt(moveEvent.clientX, moveEvent.clientY));
+
+        // Only a destination that would actually be accepted.
+        //
+        // Showing an indicator on a row that will refuse the drop promises
+        // something that then does not happen, which reads as the drop being
+        // lost rather than declined.
+        const where = positionAt(moveEvent.clientX, moveEvent.clientY);
+        setTarget(where && optionsRef.current.canDrop(current.id, where) ? where : null);
       };
 
       const onUp = (upEvent: PointerEvent): void => {
