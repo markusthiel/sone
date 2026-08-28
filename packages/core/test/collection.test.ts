@@ -19,7 +19,10 @@ import {
   initCollection,
   isCollection,
   readPropertyValues,
+  readOptions,
   removeField,
+  selectValueIsKnown,
+  setOptions,
   setPropertyValue,
   updateField,
 } from '../src/doc/collection.js';
@@ -206,4 +209,156 @@ test('two clients adding different fields both keep them', () => {
   }
   first.destroy();
   second.destroy();
+});
+
+// --- select options ---------------------------------------------------------
+
+test('options are stored on the field and read back', () => {
+  const doc = collection();
+  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
+
+  assert.equal(
+    setOptions(doc, 'status', [
+      { id: 'o1', name: 'Todo', color: 'grey' },
+      { id: 'o2', name: 'Doing', color: 'blue' },
+    ]),
+    true,
+  );
+
+  assert.deepEqual(readOptions(doc, 'status'), [
+    { id: 'o1', name: 'Todo', color: 'grey' },
+    { id: 'o2', name: 'Doing', color: 'blue' },
+  ]);
+  doc.destroy();
+});
+
+test('setting options leaves the rest of the config alone', () => {
+  // A field's config holds more than options for some types, and replacing the
+  // whole object would quietly drop it.
+  const doc = collection();
+  addField(doc, {
+    id: 'status',
+    name: 'Status',
+    fieldType: 'select',
+    config: { somethingElse: 7 },
+  });
+  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
+
+  const fields = doc.getMap(DOC_KEYS.collection).get(COLLECTION_KEYS.fields) as Y.Map<unknown>;
+  const config = (fields.get('status') as Y.Map<unknown>).get(FIELD_KEYS.config) as Record<
+    string,
+    unknown
+  >;
+  assert.equal(config['somethingElse'], 7);
+  doc.destroy();
+});
+
+test('a colour outside the palette becomes grey rather than being stored', () => {
+  // Names rather than colour values, so a theme change cannot make a label
+  // unreadable — and an unknown name is not worth failing over.
+  const doc = collection();
+  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
+  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: '#ff0000' }]);
+  assert.equal(readOptions(doc, 'status')[0]!.color, 'grey');
+  doc.destroy();
+});
+
+test('options are refused on a field that cannot have them', () => {
+  const doc = collection();
+  addField(doc, { id: 'note', name: 'Note', fieldType: 'text' });
+  assert.equal(setOptions(doc, 'note', [{ id: 'o1', name: 'X', color: 'grey' }]), false);
+  doc.destroy();
+});
+
+test('duplicate option ids are refused', () => {
+  // A row's value points at an id, so two options sharing one would make the
+  // value ambiguous.
+  const doc = collection();
+  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
+  assert.equal(
+    setOptions(doc, 'status', [
+      { id: 'same', name: 'One', color: 'grey' },
+      { id: 'same', name: 'Two', color: 'blue' },
+    ]),
+    false,
+  );
+  assert.deepEqual(readOptions(doc, 'status'), []);
+  doc.destroy();
+});
+
+test('renaming an option keeps the id, so rows keep their value', () => {
+  // The reason the option editor has to preserve ids rather than rebuild the
+  // list: a row points at an id, not at a name.
+  const doc = collection();
+  const row = new Y.Doc();
+  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
+  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
+  setPropertyValue(row, 'status', 'select', { kind: 'select', optionId: 'o1' });
+
+  setOptions(doc, 'status', [{ id: 'o1', name: 'To do', color: 'green' }]);
+
+  assert.deepEqual(readPropertyValues(row).get('status'), {
+    kind: 'select',
+    optionId: 'o1',
+  });
+  assert.equal(
+    selectValueIsKnown({ kind: 'select', optionId: 'o1' }, readOptions(doc, 'status')),
+    true,
+  );
+  doc.destroy();
+  row.destroy();
+});
+
+test('a value naming an option that never existed is not known', () => {
+  const doc = collection();
+  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
+  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
+  const options = readOptions(doc, 'status');
+
+  assert.equal(selectValueIsKnown({ kind: 'select', optionId: 'nope' }, options), false);
+  assert.equal(
+    selectValueIsKnown({ kind: 'multiSelect', optionIds: ['o1', 'nope'] }, options),
+    false,
+    'one unknown is enough',
+  );
+  assert.equal(
+    selectValueIsKnown({ kind: 'multiSelect', optionIds: ['o1'] }, options),
+    true,
+  );
+  doc.destroy();
+});
+
+test('removing an option does not erase the rows pointing at it', () => {
+  // A row owns its values and the collection cannot reach them. Removing an
+  // option by mistake and adding it back with the same id restores what the
+  // rows were showing; erasing on removal would make a misclick
+  // unrecoverable.
+  const doc = collection();
+  const row = new Y.Doc();
+  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
+  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
+  setPropertyValue(row, 'status', 'select', { kind: 'select', optionId: 'o1' });
+
+  setOptions(doc, 'status', []);
+
+  assert.deepEqual(readPropertyValues(row).get('status'), {
+    kind: 'select',
+    optionId: 'o1',
+  });
+  doc.destroy();
+  row.destroy();
+});
+
+test('malformed options are skipped rather than returned', () => {
+  const doc = collection();
+  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
+  const fields = doc.getMap(DOC_KEYS.collection).get(COLLECTION_KEYS.fields) as Y.Map<unknown>;
+  (fields.get('status') as Y.Map<unknown>).set(FIELD_KEYS.config, {
+    options: ['not an object', { name: 'no id' }, { id: 'ok', name: 'Fine', color: 'red' }],
+  });
+
+  assert.deepEqual(readOptions(doc, 'status'), [
+    { id: 'ok', name: 'Fine', color: 'red' },
+  ]);
+  doc.destroy();
 });

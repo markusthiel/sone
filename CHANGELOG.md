@@ -13,6 +13,21 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Select and multi-select columns**, with an option editor in the column
+heading: name, colour, add, remove. They were held back because a column whose
+options nobody can manage is a column nobody can fill.
+
+Renaming an option keeps every entry that uses it — a value points at the
+option's identity, not its name. Removing one hides it from those entries rather
+than erasing them, and the editor says so plainly instead of implying an undo
+that does not exist.
+
+Colours are a fixed palette of names rather than colour values, so a theme
+decides what each looks like. That is also the answer
+[ADR-0020](docs/adr/0020-tags.md) could not find for tag colours: options are a
+registry that already exists on the field. Tags have none, which is why they
+still have no colours.
+
 **Fixed: folders and pages in the sidebar stopped opening.** Pointer capture was
 taken the moment a row was pressed, and with capture set the browser fires the
 click on the row rather than on the link inside it. Capture is now taken when a

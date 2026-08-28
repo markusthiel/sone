@@ -454,6 +454,16 @@ export const api = {
       method: 'DELETE',
     }),
 
+  setFieldOptions: (
+    pageId: string,
+    fieldId: string,
+    options: Array<{ id: string; name: string; color: string }>,
+  ) =>
+    request<{ fieldId: string }>(
+      `/api/pages/${pageId}/collection/fields/${fieldId}/options`,
+      { method: 'PUT', body: JSON.stringify({ options }) },
+    ),
+
   setCellValue: (rowId: string, fieldId: string, value: StoredCellValue | null) =>
     request<{ rowId: string }>(`/api/pages/${rowId}/properties/${fieldId}`, {
       method: 'PUT',
