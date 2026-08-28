@@ -1400,17 +1400,110 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       }),
     );
 
-  const workspaceTags = async (
-    session: Session,
-  ): Promise<Array<{ key: string; label: string; count: number }>> => {
+  interface TagSummary {
+    key: string;
+    label: string;
+    count: number;
+    color: string;
+    colorChosen: boolean;
+  }
+
+  const workspaceTags = async (session: Session): Promise<TagSummary[]> => {
     const res = await fetch(
       `${base}/api/workspaces/${session.workspaceId}/tags`,
       auth(session),
     );
-    return (await expectJson<{ tags: Array<{ key: string; label: string; count: number }> }>(
-      res,
-    )).tags;
+    return (await expectJson<{ tags: TagSummary[] }>(res)).tags;
   };
+
+  const setTagColor = (
+    session: Session,
+    key: string,
+    color: string | null,
+  ): Promise<Response> =>
+    fetch(
+      `${base}/api/workspaces/${session.workspaceId}/tags/${encodeURIComponent(key)}/color`,
+      auth(session, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ color }),
+      }),
+    );
+
+  test('every tag has a colour without anybody choosing one', async () => {
+    // Derived from the name, so a tag is the same colour for everybody with
+    // nothing stored — which is what lets tags have colours at all without the
+    // registry ADR-0020 rejected.
+    const session = await setup();
+    const page = await createPage(session, 'Tagged');
+    await setTags(session, page, ['urgent', 'later']);
+
+    const tags = await workspaceTags(session);
+    for (const tag of tags) {
+      assert.ok(tag.color, `${tag.key} has a colour`);
+      assert.notEqual(tag.color, 'grey', 'grey is reserved for a choice');
+      assert.equal(tag.colorChosen, false);
+    }
+  });
+
+  test('a chosen colour replaces the derived one', async () => {
+    const session = await setup();
+    const page = await createPage(session, 'Tagged');
+    await setTags(session, page, ['urgent']);
+
+    await expectStatus(await setTagColor(session, 'urgent', 'red'), 200);
+
+    const [tag] = await workspaceTags(session);
+    assert.equal(tag?.color, 'red');
+    assert.equal(tag?.colorChosen, true);
+  });
+
+  test('clearing a colour returns to the derived one', async () => {
+    // The row is deleted rather than storing the derived value: stored, it
+    // would look like somebody chose it.
+    const session = await setup();
+    const page = await createPage(session, 'Tagged');
+    await setTags(session, page, ['urgent']);
+    await setTagColor(session, 'urgent', 'red');
+
+    await expectStatus(await setTagColor(session, 'urgent', null), 200);
+
+    const [tag] = await workspaceTags(session);
+    assert.notEqual(tag?.color, 'red');
+    assert.equal(tag?.colorChosen, false);
+
+    const rows = await db.query(`SELECT count(*)::int AS n FROM workspace_tag_colors`);
+    assert.equal((rows.rows[0] as { n: number }).n, 0, 'and nothing is left behind');
+  });
+
+  test('a colour follows the normalised tag, not the spelling', async () => {
+    // "Urgent" and "urgent" are one tag, and colouring them separately would
+    // say otherwise.
+    const session = await setup();
+    const page = await createPage(session, 'Tagged');
+    await setTags(session, page, ['Urgent']);
+
+    await expectStatus(await setTagColor(session, '  URGENT ', 'blue'), 200);
+
+    const [tag] = await workspaceTags(session);
+    assert.equal(tag?.color, 'blue');
+  });
+
+  test('a colour value is refused; only palette names are stored', async () => {
+    // A name survives a theme change where a stored hex cannot.
+    const session = await setup();
+    const res = await setTagColor(session, 'urgent', '#ff0000');
+    assert.equal(res.status, 422);
+    assert.deepEqual(await res.json(), { error: 'unsupported_color' });
+  });
+
+  test('colouring a tag that nobody uses is harmless', async () => {
+    // A row for an unused name is simply never read — this table is not the
+    // authority on which tags exist (ADR-0020).
+    const session = await setup();
+    await expectStatus(await setTagColor(session, 'nobody-uses-this', 'green'), 200);
+    assert.deepEqual(await workspaceTags(session), []);
+  });
 
   test('tags are stored and projected', async () => {
     const session = await setup();

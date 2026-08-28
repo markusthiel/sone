@@ -271,6 +271,10 @@ export interface WorkspaceTag {
   /** As typed, for showing. */
   label: string;
   count: number;
+  /** A palette name. Derived from the tag's name unless somebody chose one. */
+  color: string;
+  /** False when the colour is the derived one, so a picker can say "default". */
+  colorChosen: boolean;
 }
 
 export interface FavouriteEntry {
@@ -547,6 +551,13 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ tags }),
     }),
+
+  /** Choose a tag's colour, or pass null to return to the derived one. */
+  setTagColor: (workspaceId: string, tagKey: string, color: string | null) =>
+    request<{ key: string; color: string; colorChosen: boolean }>(
+      `/api/workspaces/${workspaceId}/tags/${encodeURIComponent(tagKey)}/color`,
+      { method: 'PUT', body: JSON.stringify({ color }) },
+    ),
 
   workspaceTags: (workspaceId: string) =>
     request<{ tags: WorkspaceTag[] }>(`/api/workspaces/${workspaceId}/tags`),

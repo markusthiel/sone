@@ -13,6 +13,8 @@
 import { useState, type ReactElement } from 'react';
 
 import type { WorkspaceTag } from '../api/client.ts';
+import { derivedTagColor } from '@sone/core';
+
 import { TagIcon } from './icons.tsx';
 import { popupItem } from './popup.ts';
 
@@ -63,12 +65,28 @@ export function TagEditor({
         .slice(0, 6)
     : [];
 
+  /**
+   * The colour a tag carries.
+   *
+   * From the full workspace list — that answer already accounts for a chosen
+   * override — and derived locally otherwise. Not from `suggestions`, which is
+   * filtered by what is being typed and would leave every chip uncoloured the
+   * moment the box was empty. A tag typed a moment ago
+   * is not in the list yet, and showing it grey until the next refresh would
+   * make a new tag look different from the same tag on another page.
+   */
+  const colorFor = (tag: string): string =>
+    known.find((entry) => entry.key === keyOf(tag))?.color ?? derivedTagColor(tag);
+
   return (
     <div className="tag-editor">
       <div className="tag-chips">
         {tags.length === 0 && !canEdit && <span className="muted">None</span>}
         {tags.map((tag) => (
-          <span className="tag-chip" key={keyOf(tag)}>
+          <span
+            className={`tag-chip tag-${colorFor(tag)}`}
+            key={keyOf(tag)}
+          >
             <TagIcon />
             {tag}
             {canEdit && (

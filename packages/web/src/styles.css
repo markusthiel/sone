@@ -2756,3 +2756,31 @@ select {
   white-space: normal;
   user-select: all;
 }
+
+/* --- tag colours ---
+ *
+ * Every tag has one, derived from its own name (ADR-0020), so the same tag is
+ * the same colour for everybody with nothing stored. A workspace may override
+ * one; that override is decorative and losing it loses colours, never tags.
+ *
+ * Palette names rather than colour values, so a theme decides what each looks
+ * like — the same reasoning as select options, and the same names.
+ */
+.tag-chip { --tag-color: var(--sone-text-muted); }
+.tag-grey   { --tag-color: var(--sone-text-muted); }
+.tag-red    { --tag-color: #d64545; }
+.tag-orange { --tag-color: #d97706; }
+.tag-yellow { --tag-color: #ca8a04; }
+.tag-green  { --tag-color: #16a34a; }
+.tag-blue   { --tag-color: #2563eb; }
+.tag-purple { --tag-color: #7c3aed; }
+.tag-pink   { --tag-color: #db2777; }
+
+/* Tinted rather than filled: a page can carry a dozen tags, and a dozen solid
+   blocks of colour would outshout the writing they describe. */
+.tag-chip {
+  border-color: color-mix(in srgb, var(--tag-color) 40%, transparent);
+  background: color-mix(in srgb, var(--tag-color) 12%, transparent);
+  color: var(--tag-color);
+}
+.tag-chip svg { color: var(--tag-color); }
