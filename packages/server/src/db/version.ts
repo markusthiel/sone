@@ -18,6 +18,14 @@ export class VersionFenceError extends Error {
   constructor(
     message: string,
     readonly code: 'downgrade' | 'too_old' | 'schema_regression',
+    /**
+     * What the database was last used by, when known.
+     *
+     * Carried as data as well as inside the message, so the refusal page can
+     * present it as a field rather than the reader having to find it in a
+     * paragraph.
+     */
+    readonly previousVersion: string | null = null,
   ) {
     super(message);
     this.name = 'VersionFenceError';
@@ -66,7 +74,54 @@ export function compareVersions(a: string, b: string): number {
   if (left.pre === right.pre) return 0;
   if (left.pre === null) return 1;
   if (right.pre === null) return -1;
-  return left.pre < right.pre ? -1 : 1;
+
+  return comparePreRelease(left.pre, right.pre);
+}
+
+/**
+ * Compare pre-release identifiers the way semantic versioning defines it.
+ *
+ * Dot-separated, compared one at a time; numeric identifiers compared as
+ * numbers, and a numeric identifier ranks below an alphanumeric one. A version
+ * with fewer identifiers ranks below one that is otherwise equal.
+ *
+ * This used to compare the whole pre-release as a single string, and that
+ * stopped a running instance. Builds are versioned `0.1.1-dev.<n>.g<sha>`, so
+ * the tenth commit after a tag is `dev.10` and the ninth is `dev.9` — and as
+ * strings, "dev.10..." sorts below "dev.9...", because '1' < '9'. The newer
+ * build was refused as a downgrade, and every tenth build onwards would be.
+ *
+ * The comparison is what the fence protects with, so it has to be the real
+ * rule rather than an approximation that holds for the cases somebody thought
+ * of.
+ */
+function comparePreRelease(a: string, b: string): number {
+  const left = a.split('.');
+  const right = b.split('.');
+
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    const x = left[i];
+    const y = right[i];
+
+    // Fewer identifiers ranks lower: 0.1.0-dev < 0.1.0-dev.1
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    if (x === y) continue;
+
+    const xNumeric = /^\d+$/.test(x);
+    const yNumeric = /^\d+$/.test(y);
+
+    if (xNumeric && yNumeric) {
+      // The case that broke: 9 and 10 as numbers, not as text.
+      return Number(x) < Number(y) ? -1 : 1;
+    }
+    // A numeric identifier always ranks below an alphanumeric one.
+    if (xNumeric) return -1;
+    if (yNumeric) return 1;
+    return x < y ? -1 : 1;
+  }
+
+  return 0;
 }
 
 export const isMajorUpgrade = (from: string, to: string): boolean => {
@@ -151,6 +206,7 @@ export async function checkAndRecordVersion(
           `instance — set SONE_ALLOW_DOWNGRADE=true for one start. The ` +
           `document format check still applies and is not bypassable.`,
         'downgrade',
+        previous.appVersion,
       );
     }
 
@@ -171,6 +227,7 @@ export async function checkAndRecordVersion(
         `${previous.documentSchemaVersion}, but this build supports only ` +
         `${documentSchemaVersion}. It cannot read them.`,
       'schema_regression',
+      previous.appVersion,
     );
   }
 
@@ -180,6 +237,7 @@ export async function checkAndRecordVersion(
     throw new VersionFenceError(
       `this database requires SONE ${previous.minAppVersion} or newer; this is ${appVersion}.`,
       'too_old',
+      previous.appVersion,
     );
   }
 

@@ -144,7 +144,7 @@ jobs:
       - name: Check build version ordering
         # A version that sorts backwards stops a running instance with a blank
         # page. It has happened twice.
-        run: node scripts/check-version.mjs
+        run: npx tsx scripts/check-version.mts
 
       - name: Check the image verifier
         # It runs only in the image workflow, after a build, so a mistake in it
