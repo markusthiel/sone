@@ -83,12 +83,85 @@ function positionAt(x: number, y: number): DropPosition | null {
   const intent: DropIntent =
     offset < edge ? 'before' : offset > 1 - edge ? 'after' : 'into';
 
+  if (intent !== 'before') return { rowId, intent };
+
+  // "Before this row" and "after the one above it" are the same place when the
+  // two are siblings — so one gap had two owners, and the two bands drew two
+  // lines a few pixels apart. It looked like two places to drop between two
+  // folders, because that is what it was.
+  //
+  // Collapsed onto the row above, which owns the gap below itself. Only for a
+  // sibling: at a nesting boundary the gap genuinely has two meanings — after
+  // the last child of the folder above, or before this entry at the outer
+  // level — and those are different destinations rather than one drawn twice.
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-tree-row]')];
+  const at = rows.indexOf(row);
+  const previous = at > 0 ? rows[at - 1] : undefined;
+
+  if (
+    previous &&
+    previous.dataset['treeParent'] === row.dataset['treeParent'] &&
+    previous.dataset['treeRow']
+  ) {
+    return { rowId: previous.dataset['treeRow'], intent: 'after' };
+  }
+
   return { rowId, intent };
+}
+
+/**
+ * Would this drop leave the entry exactly where it already is?
+ *
+ * The gaps immediately above and below a row are its own position. Marking them
+ * offers a move that changes nothing, and a test caught the sharper version of
+ * the same mistake: the gap below the dragged row normalises to "after itself",
+ * which is not a position at all.
+ *
+ * Read from the DOM because that is where the rendered order lives, and the
+ * rendered order is what somebody is aiming at.
+ */
+function isNoop(draggedId: string, where: DropPosition): boolean {
+  if (where.rowId === draggedId) return true;
+
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-tree-row]')];
+  const dragged = rows.findIndex((row) => row.dataset['treeRow'] === draggedId);
+  const target = rows.findIndex((row) => row.dataset['treeRow'] === where.rowId);
+  if (dragged === -1 || target === -1) return false;
+
+  const sameParent =
+    rows[dragged]!.dataset['treeParent'] === rows[target]!.dataset['treeParent'];
+  if (!sameParent) return false;
+
+  // Directly above, dropping after it; or directly below, dropping before it.
+  if (where.intent === 'after' && target === dragged - 1) return true;
+  if (where.intent === 'before' && target === dragged + 1) return true;
+  return false;
 }
 
 export function useTreeDrag(options: TreeDragOptions): TreeDrag {
   const [dragging, setDragging] = useState<string | null>(null);
   const [target, setTarget] = useState<DropPosition | null>(null);
+
+  // The same two values in refs.
+  //
+  // State drives the render; the refs are what `finish` reads. Reading state
+  // inside a setState updater — and dispatching the drop from there — is a
+  // side effect in a place React may run more than once or defer, and it made
+  // a correct drop occasionally do nothing. The rendered indicator and the
+  // committed drop must agree, so they come from one source that is readable
+  // synchronously.
+  const draggingRef = useRef<string | null>(null);
+  const targetRef = useRef<DropPosition | null>(null);
+
+  const setDraggingBoth = useCallback((value: string | null) => {
+    draggingRef.current = value;
+    setDragging(value);
+  }, []);
+
+  const setTargetBoth = useCallback((value: DropPosition | null) => {
+    targetRef.current = value;
+    setTarget(value);
+  }, []);
 
   // Everything the gesture needs, in a ref: the listeners below are registered
   // once per drag and must not close over stale state.
@@ -149,20 +222,16 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
 
     if (current.started) swallowNextClick(current.element);
 
-    setDragging((wasDragging) => {
-      if (commit && wasDragging) {
-        setTarget((where) => {
-          if (where && optionsRef.current.canDrop(wasDragging, where)) {
-            optionsRef.current.onDrop(wasDragging, where);
-          }
-          return null;
-        });
-      } else {
-        setTarget(null);
-      }
-      return null;
-    });
-  }, [swallowNextClick]);
+    const wasDragging = draggingRef.current;
+    const where = targetRef.current;
+
+    setDraggingBoth(null);
+    setTargetBoth(null);
+
+    if (commit && wasDragging && where && optionsRef.current.canDrop(wasDragging, where)) {
+      optionsRef.current.onDrop(wasDragging, where);
+    }
+  }, [swallowNextClick, setDraggingBoth, setTargetBoth]);
 
   // Registered only while a drag is in progress, so an untouched tree scrolls
   // normally. `passive: false` is what makes preventDefault work at all.
@@ -199,7 +268,7 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
         const current = gesture.current;
         if (!current || current.started) return;
         current.started = true;
-        setDragging(current.id);
+        setDraggingBoth(current.id);
       };
 
       gesture.current = {
@@ -244,7 +313,11 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
         // something that then does not happen, which reads as the drop being
         // lost rather than declined.
         const where = positionAt(moveEvent.clientX, moveEvent.clientY);
-        setTarget(where && optionsRef.current.canDrop(current.id, where) ? where : null);
+        const useful =
+          where !== null &&
+          !isNoop(current.id, where) &&
+          optionsRef.current.canDrop(current.id, where);
+        setTargetBoth(useful ? where : null);
       };
 
       const onUp = (upEvent: PointerEvent): void => {
@@ -270,7 +343,7 @@ export function useTreeDrag(options: TreeDragOptions): TreeDrag {
       element.addEventListener('pointerup', onUp);
       element.addEventListener('pointercancel', onCancel);
     },
-    [finish],
+    [finish, setDraggingBoth, setTargetBoth],
   );
 
   return { onPointerDown, dragging, target };

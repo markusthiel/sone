@@ -80,23 +80,27 @@ describe('telling a drag from a scroll', () => {
     const { createElement } = await import('react');
     const { useTreeDrag } = await import('../src/hooks/useTreeDrag.ts');
 
-    const drops: Array<{ id: string; intent: string }> = [];
+    // The target row is recorded too. Without it these assertions could not
+    // tell "after b" from "after c" — the dragged id is the same either way.
+    const drops: Array<{ id: string; rowId: string; intent: string }> = [];
 
     function Tree(): unknown {
       const drag = useTreeDrag({
         canDrop: () => true,
-        onDrop: (id, position) => drops.push({ id, intent: position.intent }),
+        onDrop: (id, position) =>
+          drops.push({ id, rowId: position.rowId, intent: position.intent }),
       });
       return createElement(
         'div',
         null,
-        ['a', 'b'].map((id) =>
+        ['a', 'b', 'c'].map((id) =>
           createElement(
             'div',
             {
               key: id,
               'data-tree-row': id,
               'data-tree-kind': 'page',
+              'data-tree-parent': 'root',
               'data-dragging': drag.dragging === id ? 'true' : undefined,
               'data-drop':
                 drag.target?.rowId === id && drag.dragging
@@ -203,7 +207,7 @@ describe('telling a drag from a scroll', () => {
     });
     await send(source, 'pointerup', { pointerId: 1, pointerType: 'touch' });
 
-    assert.deepEqual(drops, [{ id: 'a', intent: 'after' }]);
+    assert.deepEqual(drops, [{ id: 'a', rowId: 'b', intent: 'after' }]);
   });
 
   test('a mouse does not have to wait', async () => {
@@ -221,7 +225,9 @@ describe('telling a drag from a scroll', () => {
       clientX: 200,
       clientY: 200,
     });
-    const point = pointAt(row('b'), 0.1);
+    // The bottom of the third row. Aiming at the gap directly below the dragged
+    // entry would be its own position, which is deliberately not offered.
+    const point = pointAt(row('c'), 0.9);
     await send(source, 'pointermove', {
       pointerId: 1,
       pointerType: 'mouse',
@@ -231,7 +237,7 @@ describe('telling a drag from a scroll', () => {
 
     assert.equal(source.getAttribute('data-dragging'), 'true');
     await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
-    assert.deepEqual(drops, [{ id: 'a', intent: 'before' }]);
+    assert.deepEqual(drops, [{ id: 'a', rowId: 'c', intent: 'after' }]);
   });
 
   test('a cancelled pointer drops nothing', async () => {
@@ -272,7 +278,7 @@ describe('telling a drag from a scroll', () => {
 
     assert.equal(source.getAttribute('data-dragging'), 'true');
     await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
-    assert.deepEqual(drops, [{ id: 'a', intent: 'after' }]);
+    assert.deepEqual(drops, [{ id: 'a', rowId: 'b', intent: 'after' }]);
   });
 
   test('the indicator only appears where the drop would be accepted', async () => {
@@ -326,14 +332,19 @@ describe('telling a drag from a scroll', () => {
       button: 0, pointerId: 1, pointerType: 'mouse', clientX: 200, clientY: 200,
     });
 
-    // Near the top of a page row: before it.
+    // The gap above the second row is the one the dragged entry already
+    // occupies, so nothing is marked.
     let point = pointAt(row('b'), 0.1);
     await send(source, 'pointermove', {
       pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
     });
-    assert.equal(row('b').getAttribute('data-drop'), 'before');
+    assert.equal(
+      container.querySelectorAll('[data-drop]').length,
+      0,
+      'a move that changes nothing is not offered',
+    );
 
-    // Near the bottom: after it.
+    // Below it: a real destination.
     point = pointAt(row('b'), 0.9);
     await send(source, 'pointermove', {
       pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
@@ -342,6 +353,75 @@ describe('telling a drag from a scroll', () => {
 
     await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
     assert.equal(drops.length, 1);
+  });
+
+  test('the gap an entry already occupies is not offered', async () => {
+    // Above and below a row is where it already is. Offering those is a move
+    // that changes nothing — and the gap below normalises to "after itself",
+    // which is not a position at all.
+    const { drops } = await mount();
+    const source = row('a');
+
+    await send(source, 'pointerdown', {
+      button: 0, pointerId: 1, pointerType: 'mouse', clientX: 200, clientY: 200,
+    });
+    const point = pointAt(row('b'), 0.1);
+    await send(source, 'pointermove', {
+      pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
+    });
+
+    assert.equal(container.querySelectorAll('[data-drop]').length, 0);
+    await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
+    assert.deepEqual(drops, [], 'and nothing happens on release');
+  });
+
+  test('a gap between siblings has one owner, not two', async () => {
+    // "Before this row" and "after the one above" are the same place. Two bands
+    // owning it drew two lines a few pixels apart, which looked like two places
+    // to drop between two folders.
+    const { drops } = await mount();
+    // Three rows, so there is a gap that is not the dragged entry's own.
+    const source = row('a');
+
+    await send(source, 'pointerdown', {
+      button: 0, pointerId: 1, pointerType: 'mouse', clientX: 200, clientY: 200,
+    });
+
+    // The top of the third row: normalised to "after the second". With only two
+    // rows this gap would be the dragged entry's own, which is a different
+    // case and covered separately.
+    const point = pointAt(row('c'), 0.1);
+    await send(source, 'pointermove', {
+      pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
+    });
+
+    const marked = [...container.querySelectorAll('[data-drop]')];
+    assert.equal(marked.length, 1, 'exactly one row is marked');
+    assert.equal(
+      marked[0]!.getAttribute('data-tree-row'),
+      'b',
+      'and it is the row above, which owns the gap below itself',
+    );
+
+    await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
+    // "after b", not "before c": one gap, one owner, and it is the row above.
+    assert.deepEqual(drops, [{ id: 'a', rowId: 'b', intent: 'after' }]);
+  });
+
+  test('the first row keeps a before band, since nothing above owns that gap', async () => {
+    const { drops } = await mount();
+    const source = row('b');
+
+    await send(source, 'pointerdown', {
+      button: 0, pointerId: 1, pointerType: 'mouse', clientX: 200, clientY: 200,
+    });
+    const point = pointAt(row('a'), 0.1);
+    await send(source, 'pointermove', {
+      pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
+    });
+    await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
+
+    assert.deepEqual(drops, [{ id: 'b', rowId: 'a', intent: 'before' }]);
   });
 
   test('pressing a control inside a row does not start a drag', async () => {

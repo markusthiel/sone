@@ -362,6 +362,9 @@ function TreeLevel({
               // hooks/useTreeDrag.ts for how a drag is told from a scroll.
               data-tree-row={node.id}
               data-tree-kind={node.kind}
+              // Needed to tell a gap between siblings — which has one meaning
+              // — from a gap at a nesting boundary, which has two.
+              data-tree-parent={node.parentPageId ?? 'root'}
               onPointerDown={drag.onPointerDown}
               data-drop={
                 drag.target?.rowId === node.id && drag.dragging
