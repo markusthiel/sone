@@ -20,6 +20,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # A ceiling, not an expectation.
+    #
+    # This workflow normally finishes in under two minutes. It has twice sat for
+    # a quarter of an hour and then died — both times because the runner lost
+    # its connection rather than because anything here was slow, and both times
+    # the only visible symptom was a job that appeared to be running.
+    #
+    # Fifteen minutes is far above any honest run and far below "did somebody
+    # forget about this". A stuck job now fails, which is a state a person can
+    # act on; an indefinitely running one is not.
+    timeout-minutes: 15
+
     container:
       image: docker.io/node:22-bookworm
 
