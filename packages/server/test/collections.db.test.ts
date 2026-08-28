@@ -130,6 +130,12 @@ describe(
     const read = async (session: Session, pageId: string) =>
       expectJson<{
         titleFieldId: string;
+        views?: Array<{
+          id: string;
+          name: string;
+          viewType: string;
+          definition?: Record<string, unknown>;
+        }>;
         fields: Array<{
           id: string;
           name: string;
@@ -394,6 +400,107 @@ describe(
 
       const res = await setValue(session, row, foreign.id, { kind: 'text', value: 'x' });
       assert.equal(res.status, 404);
+    });
+
+    // --- views -------------------------------------------------------------
+
+    test('a new collection has one table view', async () => {
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+
+      const body = await read(session, folder);
+      assert.equal(body.views?.length, 1);
+      assert.equal(body.views?.[0]?.viewType, 'table');
+    });
+
+    test('a board view is added with the column it groups by', async () => {
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+      const field = await expectJson<{ id: string }>(
+        await addField(session, folder, { name: 'Status', fieldType: 'select' }),
+        201,
+      );
+
+      const created = await expectJson<{ id: string }>(
+        await fetch(`${base}/api/pages/${folder}/collection/views`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({
+            viewType: 'board',
+            definition: { groupByFieldId: field.id },
+          }),
+        }),
+        201,
+      );
+
+      const body = await read(session, folder);
+      const board = body.views?.find((view) => view.id === created.id);
+      assert.equal(board?.viewType, 'board');
+      assert.equal(board?.definition?.['groupByFieldId'], field.id);
+    });
+
+    test('a view type with no renderer is refused', async () => {
+      // 'list' is in the data model and nothing draws it. Offering a view that
+      // renders as nothing is worse than not offering it.
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+
+      const res = await fetch(`${base}/api/pages/${folder}/collection/views`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ viewType: 'list' }),
+      });
+      assert.equal(res.status, 422);
+      assert.deepEqual(await res.json(), { error: 'unsupported_view_type' });
+    });
+
+    test('views survive a rebuild', async () => {
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+
+      await db.query(`DELETE FROM collection_views`);
+      const { rebuild } = await import('../src/materialize/rebuild.js');
+      await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
+
+      const body = await read(session, folder);
+      assert.equal(body.views?.length, 1, 'restored from the document');
+    });
+
+    test('a viewer cannot add a view', async () => {
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+
+      const hash = await hashPassword(PASSWORD);
+      const guest = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name, password_hash, is_guest)
+         VALUES ('vv@example.org','V',$1,true) RETURNING id`,
+        [hash],
+      );
+      await db.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
+        [session.workspaceId, guest.rows[0]!.id],
+      );
+      await db.query(
+        `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+         VALUES ($1,$2,'viewer',true,$3)`,
+        [folder, guest.rows[0]!.id, session.userId],
+      );
+      const login = await fetch(
+        `${base}/api/auth/login`,
+        json({ email: 'vv@example.org', password: PASSWORD }),
+      );
+
+      const res = await fetch(`${base}/api/pages/${folder}/collection/views`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: cookieFrom(login) },
+        body: JSON.stringify({ viewType: 'board' }),
+      });
+      assert.equal(res.status, 403);
     });
 
     // --- select options ----------------------------------------------------

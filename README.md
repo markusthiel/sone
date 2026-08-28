@@ -135,7 +135,7 @@ estimates.
    right-hand outline, tasks and properties panel, images, tables, markdown
    paste, moving entries between folders (by drag or by picker), tags,
    favourites, sharing and an administration area. Remaining: tag colours,
-   board views, filters and sorting.*
+   filters and sorting.*
 3. **Collections** (10–14) — fields, table and board views, filters, sorting.
 4. **Sharing** (15–17) — share tokens, guests, editable links, granular
    permissions.

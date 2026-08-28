@@ -29,7 +29,8 @@ import {
 } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
-import { ListIcon, PlusIcon, TrashIcon } from './icons.tsx';
+import { ColumnsIcon, ListIcon, PlusIcon, TableIcon, TrashIcon } from './icons.tsx';
+import { CollectionBoard } from './CollectionBoard.tsx';
 import { OptionEditor, type EditableOption } from './OptionEditor.tsx';
 
 interface CollectionTableProps {
@@ -63,6 +64,10 @@ export function CollectionTable({
   const [data, setData] = useState<CollectionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addingColumn, setAddingColumn] = useState(false);
+  // Which view is showing. Local rather than stored: which view somebody is
+  // looking at is not a property of the collection, and persisting it would
+  // change what a colleague sees.
+  const [viewId, setViewId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -161,11 +166,85 @@ export function CollectionTable({
   const columns = data.fields.filter((field) => field.id !== data.titleFieldId);
   const titleField = data.fields.find((field) => field.id === data.titleFieldId);
 
+  const view = data.views.find((entry) => entry.id === viewId) ?? data.views[0];
+  const selectColumns = columns.filter(
+    (field) => field.fieldType === 'select' && optionsOf(field).length > 0,
+  );
+
+  const groupBy =
+    view?.viewType === 'board'
+      ? (columns.find(
+          (field) => field.id === view.definition['groupByFieldId'],
+        ) ?? selectColumns[0])
+      : undefined;
+
+  const addBoard = async (fieldId: string): Promise<void> => {
+    try {
+      const created = await api.addCollectionView(pageId, {
+        viewType: 'board',
+        definition: { groupByFieldId: fieldId },
+      });
+      await load();
+      setViewId(created.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
+
   return (
     <div className="collection">
       {error && <p className="error">{messageFor(error)}</p>}
 
-      <div className="collection-scroll">
+      {/* Views. Shown only when there is a choice to make, so a collection with
+          one table does not carry a tab bar with one tab in it. */}
+      {(data.views.length > 1 || selectColumns.length > 0) && (
+        <div className="collection-views" role="tablist" aria-label="Views">
+          {data.views.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              role="tab"
+              aria-selected={entry.id === view?.id}
+              className={entry.id === view?.id ? 'view-tab current' : 'view-tab'}
+              onClick={() => setViewId(entry.id)}
+            >
+              {entry.viewType === 'board' ? <ColumnsIcon /> : <TableIcon />}
+              {entry.name}
+            </button>
+          ))}
+
+          {data.canEdit && selectColumns.length > 0 && (
+            <button
+              type="button"
+              className="view-tab add"
+              onClick={() => void addBoard(selectColumns[0]!.id)}
+              title={`Group by ${selectColumns[0]!.name}`}
+            >
+              <PlusIcon /> Board
+            </button>
+          )}
+        </div>
+      )}
+
+      {view?.viewType === 'board' && groupBy && (
+        <CollectionBoard
+          rows={data.rows}
+          groupBy={groupBy}
+          canEdit={data.canEdit}
+          onSetValue={(rowId, value) => void write(rowId, groupBy.id, value)}
+        />
+      )}
+
+      {view?.viewType === 'board' && !groupBy && (
+        <p className="muted">
+          A board needs a select column with options. Add one, then try again.
+        </p>
+      )}
+
+      <div
+        className="collection-scroll"
+        hidden={view?.viewType === 'board' && groupBy !== undefined}
+      >
         <table className="collection-table">
           <thead>
             <tr>

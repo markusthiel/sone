@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Board views.** A collection with a select column can be shown as a board:
+each option is a column, and dragging a card into one sets that value. Entries
+with no value get their own column, first — hiding them would mean a board
+showing fewer entries than the table with nothing to say so, and the unsorted
+ones are the ones most likely to need attention.
+
+Every view shows the same entries, because they are the folder's contents. A
+board arranges them; it does not filter them.
+
 **Select and multi-select columns**, with an option editor in the column
 heading: name, colour, add, remove. They were held back because a column whose
 options nobody can manage is a column nobody can fill.

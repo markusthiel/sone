@@ -179,6 +179,18 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       return;
     }
 
+    const views = await queryRows<{
+      id: string;
+      name: string;
+      view_type: string;
+      definition: Record<string, unknown>;
+    }>(
+      deps.pool,
+      `SELECT id, name, view_type, definition
+         FROM collection_views WHERE collection_id = $1 ORDER BY idx, id`,
+      [collection.id],
+    );
+
     const fields = await queryRows<{
       id: string;
       name: string;
@@ -224,6 +236,12 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       pageId,
       titleFieldId: collection.title_field_id,
       canEdit: auth.canEdit,
+      views: views.map((view) => ({
+        id: view.id,
+        name: view.name,
+        viewType: view.view_type,
+        definition: view.definition,
+      })),
       fields: fields.map((field) => ({
         id: field.id,
         name: field.name,
@@ -353,6 +371,59 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       await rematerialize(deps.pool, pageId, auth.workspaceId, auth.actorId);
     }
     ctx.send(200, { id: fieldId });
+  });
+
+  /**
+   * Add a view.
+   *
+   * A view is a way of looking at the same rows — a table, or a board grouped by
+   * a column. It is not a filter on which rows exist: every view of a collection
+   * shows the same entries, because they are the folder's contents.
+   */
+  router.post('/api/pages/:pageId/collection/views', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const auth = await authorise(deps.pool, ctx, pageId, 'edit');
+    if (!auth) return;
+
+    let body: { name?: string; viewType?: string; definition?: Record<string, unknown> };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const viewType = body.viewType;
+    if (viewType !== 'table' && viewType !== 'board') {
+      // 'list' is in the model and has no renderer, so it is not offered.
+      ctx.fail(422, 'unsupported_view_type');
+      return;
+    }
+
+    const viewId = randomUUID();
+    let added = false;
+    const result = await applyToDocument(
+      deps.pool,
+      pageId,
+      (doc) => {
+        added = addView(doc, {
+          id: viewId,
+          name: (body.name ?? '').trim() || (viewType === 'board' ? 'Board' : 'Table'),
+          viewType,
+          ...(body.definition ? { definition: body.definition } : {}),
+        });
+      },
+      auth.actorId,
+    );
+
+    if (!added) {
+      ctx.fail(409, 'view_not_added');
+      return;
+    }
+    if (result.changed) {
+      await rematerialize(deps.pool, pageId, auth.workspaceId, auth.actorId);
+    }
+    ctx.send(201, { id: viewId, viewType });
   });
 
   /**
