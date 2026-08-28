@@ -43,6 +43,7 @@ export const paths = {
   search: (query?: string) =>
     query ? `/search?q=${encodeURIComponent(query)}` : '/search',
   settings: (section = 'account') => `/settings/${section}`,
+  trash: () => '/trash',
 
   page: (pageId: string, title?: string) => {
     const slug = title ? slugify(title) : '';
@@ -63,6 +64,7 @@ export type Route =
   | { kind: 'setup' }
   | { kind: 'search'; query: string }
   | { kind: 'settings'; section: string }
+  | { kind: 'trash' }
   | { kind: 'page'; pageId: string }
   | { kind: 'share'; token: string; pageId: string | null }
   | { kind: 'notFound' };
@@ -92,6 +94,8 @@ export function parseRoute(pathname: string, search = ''): Route {
       return { kind: 'search', query: params.get('q') ?? '' };
     case 'settings':
       return { kind: 'settings', section: segments[1] ?? 'account' };
+    case 'trash':
+      return { kind: 'trash' };
 
     case 'p': {
       const pageId = segments[1];

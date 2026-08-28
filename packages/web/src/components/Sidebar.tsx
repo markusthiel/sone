@@ -28,6 +28,7 @@ import {
   SearchIcon,
   SidebarIcon,
   StarIcon,
+  TrashIcon,
 } from './icons.tsx';
 
 interface SidebarProps {
@@ -220,7 +221,10 @@ export function Sidebar({
           <FolderPlusIcon /> New folder
         </button>
 
-        <div style={{ marginBlockStart: 'auto', paddingBlockStart: 12 }}>
+        <div className="sidebar-footer">
+          <a className="tree-link" href={paths.trash()}>
+            <TrashIcon /> Trash
+          </a>
           <a className="tree-link" href={paths.settings()}>
             Settings
           </a>

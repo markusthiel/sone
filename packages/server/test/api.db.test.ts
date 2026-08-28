@@ -1058,6 +1058,221 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.equal(res.status, 403);
   });
 
+  // --- trash ---------------------------------------------------------------
+
+  const archive = (session: Session, pageId: string): Promise<Response> =>
+    fetch(`${base}/api/pages/${pageId}`, auth(session, { method: 'DELETE' }));
+
+  const trash = async (session: Session): Promise<Array<Record<string, unknown>>> => {
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/trash`,
+      auth(session),
+    );
+    return (await expectJson<{ entries: Array<Record<string, unknown>> }>(res)).entries;
+  };
+
+  const restore = (session: Session, pageId: string): Promise<Response> =>
+    fetch(`${base}/api/pages/${pageId}/restore`, auth(session, { method: 'POST' }));
+
+  const destroy = (session: Session, pageId: string): Promise<Response> =>
+    fetch(
+      `${base}/api/pages/${pageId}/permanently`,
+      auth(session, { method: 'DELETE' }),
+    );
+
+  test('an archived page appears in the trash and can be restored', async () => {
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Deleted by mistake', folder);
+
+    await expectStatus(await archive(session, pageId), 204);
+    const entries = await trash(session);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0]!['id'], pageId);
+
+    await expectStatus(await restore(session, pageId), 200);
+    assert.deepEqual(await trash(session), []);
+
+    const row = await db.query<{ archived_at: Date | null }>(
+      `SELECT archived_at FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.equal(row.rows[0]!.archived_at, null);
+  });
+
+  test('the trash lists one deletion once, not every descendant', async () => {
+    // Archiving a folder archives its subtree. Listing all of it would show one
+    // deletion as forty entries and bury what somebody is looking for.
+    const session = await setup();
+    const folder = await createFolder(session, 'Project');
+    const inner = await createFolder(session, 'Notes', folder);
+    await createPage(session, 'One', inner);
+    await createPage(session, 'Two', inner);
+
+    await archive(session, folder);
+
+    const entries = await trash(session);
+    assert.equal(entries.length, 1, 'the folder that was deleted');
+    assert.equal(entries[0]!['id'], folder);
+    assert.equal(entries[0]!['descendants'], 3, 'and it says how much went with it');
+  });
+
+  test('restoring brings the subtree back with it', async () => {
+    // It was archived as one action; restoring only the top would leave the
+    // children in the trash, invisible from the tree and from the listing.
+    const session = await setup();
+    const folder = await createFolder(session, 'Project');
+    const pageId = await createPage(session, 'Inside', folder);
+
+    await archive(session, folder);
+    await restore(session, folder);
+
+    const rows = await db.query<{ archived_at: Date | null }>(
+      `SELECT archived_at FROM pages WHERE id = ANY($1::uuid[])`,
+      [[folder, pageId]],
+    );
+    assert.ok(rows.rows.every((row) => row.archived_at === null));
+  });
+
+  test('a page whose folder is gone says so instead of moving', async () => {
+    // Silently putting it somewhere else is how somebody loses track of it a
+    // second time.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Orphan', folder);
+
+    await archive(session, pageId);
+    await archive(session, folder);
+
+    const res = await restore(session, pageId);
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'parent_missing' });
+  });
+
+  test('a folder whose parent is gone is restored to the root', async () => {
+    // A folder may sit at the root, so it has somewhere to go (ADR-0019).
+    const session = await setup();
+    const outer = await createFolder(session, 'Outer');
+    const inner = await createFolder(session, 'Inner', outer);
+
+    await archive(session, inner);
+    await archive(session, outer);
+
+    const res = await restore(session, inner);
+    const body = await expectJson<{ restoredToRoot: boolean }>(res);
+    assert.equal(body.restoredToRoot, true);
+
+    const row = await db.query<{ parent_page_id: string | null }>(
+      `SELECT parent_page_id FROM pages WHERE id = $1`,
+      [inner],
+    );
+    assert.equal(row.rows[0]!.parent_page_id, null);
+  });
+
+  test('the trash marks entries whose parent is gone', async () => {
+    // So somebody can see the problem before pressing restore.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Orphan', folder);
+    await archive(session, pageId);
+    await archive(session, folder);
+
+    const entries = await trash(session);
+    const orphan = entries.find((entry) => entry['id'] === pageId);
+    assert.equal(orphan?.['parentMissing'], true);
+  });
+
+  test('restoring something that is not archived is refused', async () => {
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Live', folder);
+
+    const res = await restore(session, pageId);
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'not_archived' });
+  });
+
+  // --- permanent deletion --------------------------------------------------
+
+  test('a live page cannot be destroyed in one step', async () => {
+    // Deleting is always two steps: archive, then destroy. A single mistaken
+    // call cannot take a live page with it.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Live', folder);
+
+    const res = await destroy(session, pageId);
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'not_archived' });
+
+    const row = await db.query(`SELECT 1 FROM pages WHERE id = $1`, [pageId]);
+    assert.equal(row.rowCount, 1, 'and it is still there');
+  });
+
+  test('an archived page can be destroyed, with its subtree', async () => {
+    const session = await setup();
+    const folder = await createFolder(session, 'Project');
+    const pageId = await createPage(session, 'Inside', folder);
+
+    await archive(session, folder);
+    await expectStatus(await destroy(session, folder), 200);
+
+    const rows = await db.query(`SELECT 1 FROM pages WHERE id = ANY($1::uuid[])`, [
+      [folder, pageId],
+    ]);
+    assert.equal(rows.rowCount, 0);
+  });
+
+  test('destroying takes the document with it', async () => {
+    // The CRDT log is where the content lives, so this is genuinely
+    // irreversible — which is why it needs two steps and admin rights.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Gone', folder);
+
+    await archive(session, pageId);
+    await destroy(session, pageId);
+
+    const updates = await db.query(`SELECT 1 FROM doc_updates WHERE doc_id = $1`, [
+      pageId,
+    ]);
+    assert.equal(updates.rowCount, 0, 'no updates left to rebuild from');
+  });
+
+  test('an editor cannot destroy, only archive', async () => {
+    // Destroying content is not the same kind of act as changing it.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Page', folder);
+    await archive(session, pageId);
+
+    const hash = await hashPassword(PASSWORD);
+    const editor = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash)
+       VALUES ('destroyer@example.org','E',$1) RETURNING id`,
+      [hash],
+    );
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+      [session.workspaceId, editor.rows[0]!.id],
+    );
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+       VALUES ($1,$2,'editor',true,$3)`,
+      [pageId, editor.rows[0]!.id, session.userId],
+    );
+    const login = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'destroyer@example.org', password: PASSWORD }),
+    );
+
+    const res = await fetch(`${base}/api/pages/${pageId}/permanently`, {
+      method: 'DELETE',
+      headers: { cookie: cookieFrom(login) },
+    });
+    assert.equal(res.status, 403);
+  });
+
   // --- tags ----------------------------------------------------------------
 
   const setTags = (session: Session, pageId: string, tags: string[]): Promise<Response> =>

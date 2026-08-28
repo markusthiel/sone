@@ -26,6 +26,10 @@ const MESSAGES: Record<string, string> = {
   no_workspace: 'Your account is not a member of any workspace yet.',
   network_error: 'Could not reach the server.',
   invalid_role: 'A share link cannot grant that role.',
+  not_archived: 'That entry is not in the trash.',
+  parent_missing:
+    'The folder this was in is gone. Restore that folder first, or move this ' +
+    'somewhere else.',
   clipboard_unavailable:
     'Could not copy automatically. Select the link and copy it by hand.',
   file_too_large: 'That file is too large.',
