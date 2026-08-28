@@ -335,6 +335,21 @@ fresh named volume and **never** into a bind mount, so a host directory arrives
 owned by whoever made it — usually root — and a server running as uid 10001
 cannot write to it.
 
+## Share links and SONE_SECRET_KEY
+
+Share tokens are stored encrypted under a key derived from `SONE_SECRET_KEY`, so
+a link can be copied again by whoever administers the page. Two consequences
+worth knowing:
+
+- **Changing `SONE_SECRET_KEY` makes existing links uncopyable.** They keep
+  working — the lookup is by hash — but the dialog can no longer show them, and
+  offers to replace them instead.
+- **A database dump alone does not contain usable links.** The key is in the
+  environment. This is the point: read-only SQL access, a replica or a backup on
+  a shared disk must not become write access through an editable link.
+
+Links created before migration 0011 have no stored token and cannot be copied.
+
 ## Files
 
 Uploads land under `SONE_STORAGE_PATH` (`/var/lib/sone/files` in the image), and

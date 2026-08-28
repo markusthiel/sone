@@ -223,7 +223,11 @@ async function main(): Promise<void> {
   registerPageRoutes(router, { pool });
   registerWorkspaceRoutes(router, { pool });
   registerFavouriteRoutes(router, { pool });
-  registerShareRoutes(router, { pool, publicUrl: config.publicUrl });
+  registerShareRoutes(router, {
+    pool,
+    publicUrl: config.publicUrl,
+    secretKey: config.secretKey,
+  });
   registerCollectionRoutes(router, { pool });
 
   // Constructed before the routes that reference it, not after.

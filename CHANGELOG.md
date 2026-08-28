@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Share links can be copied again.** Every existing link has a "Copy link"
+button; a link is no longer shown once and then lost. Tokens are stored
+encrypted under a key derived from `SONE_SECRET_KEY`, so a database dump on its
+own still contains nothing usable.
+
+**Operator note:** changing `SONE_SECRET_KEY` leaves existing links working but
+no longer copyable. Links created before this cannot be copied either — the
+dialog says so and offers to replace them.
+
 **Fixed: share links never opened.** A link was `/s/<token>` and nothing could
 turn a token into a page, so a visitor arrived holding a credential with nothing
 to open and sat on "Opening…" indefinitely. This affected every link ever

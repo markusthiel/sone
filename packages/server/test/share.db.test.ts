@@ -38,7 +38,12 @@ describe(
         secureCookies: false,
       });
       registerPageRoutes(router, { pool: db });
-      registerShareRoutes(router, { pool: db, publicUrl: 'https://sone.example.org' });
+      registerShareRoutes(router, {
+        pool: db,
+        publicUrl: 'https://sone.example.org',
+        // Long enough to satisfy the same rule config.ts enforces.
+        secretKey: 'a-test-secret-key-of-at-least-32-characters',
+      });
 
       server = createServer((req, res) => {
         void router.handle(req, res, 'http://localhost').then((handled) => {
@@ -133,6 +138,151 @@ describe(
       });
       return (await expectJson<{ links: Array<Record<string, unknown>> }>(res)).links;
     };
+
+    // --- showing a link again ------------------------------------------------
+
+    const showAgain = (
+      cookie: string,
+      pageId: string,
+      linkId: string,
+    ): Promise<Response> =>
+      fetch(`${base}/api/pages/${pageId}/share-links/${linkId}/url`, {
+        headers: { cookie },
+      });
+
+    test('a link can be shown again by whoever administers the page', async () => {
+      // The first design refused this, reasoning from passwords. A password is
+      // the person's own secret; a share link is a capability its issuer can
+      // mint again at will, so refusing to show it protected nothing and cost
+      // them the link.
+      const session = await setup();
+      const created = await expectJson<{ id: string; token: string; url: string }>(
+        await create(session.cookie, session.pageId),
+        201,
+      );
+
+      const again = await expectJson<{ url: string }>(
+        await showAgain(session.cookie, session.pageId, created.id),
+      );
+      assert.equal(again.url, created.url, 'the same link, not a new one');
+    });
+
+    test('the stored token is not readable from the database alone', async () => {
+      // The reason it is encrypted rather than kept in plaintext: read-only SQL
+      // access — a reporting user, a replica, a backup on a shared disk —
+      // must not be escalated into write access through an editable link.
+      const session = await setup();
+      const created = await expectJson<{ token: string }>(
+        await create(session.cookie, session.pageId, { role: 'editor' }),
+        201,
+      );
+
+      const row = await db.query<{ token_encrypted: Buffer }>(
+        `SELECT token_encrypted FROM share_tokens WHERE scope_page_id = $1`,
+        [session.pageId],
+      );
+      const stored = row.rows[0]!.token_encrypted;
+      assert.ok(stored.length > 0, 'something is stored');
+      assert.ok(
+        !stored.toString('utf8').includes(created.token),
+        'and it is not the token',
+      );
+      assert.ok(
+        !stored.toString('latin1').includes(created.token),
+        'under any reading of the bytes',
+      );
+    });
+
+    test('a link stored under a different secret cannot be shown', async () => {
+      // A rotated secret, or a record from another instance. Reported as "not
+      // recoverable" rather than as a missing link, so the interface can offer
+      // to replace it instead of implying the link is gone.
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await create(session.cookie, session.pageId),
+        201,
+      );
+
+      // Corrupt the ciphertext, which is what a wrong key looks like to GCM.
+      await db.query(
+        `UPDATE share_tokens SET token_encrypted = decode('00112233445566778899aabbccddeeff00112233445566778899aabb', 'hex')
+          WHERE id = $1`,
+        [created.id],
+      );
+
+      const res = await showAgain(session.cookie, session.pageId, created.id);
+      assert.equal(res.status, 409);
+      assert.deepEqual(await res.json(), { error: 'token_not_recoverable' });
+    });
+
+    test('a link created before this feature says so', async () => {
+      // Every link that already exists has no stored token. It must not look
+      // like a bug.
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await create(session.cookie, session.pageId),
+        201,
+      );
+      await db.query(`UPDATE share_tokens SET token_encrypted = NULL WHERE id = $1`, [
+        created.id,
+      ]);
+
+      const res = await showAgain(session.cookie, session.pageId, created.id);
+      assert.equal(res.status, 409);
+      assert.deepEqual(await res.json(), { error: 'token_not_recoverable' });
+    });
+
+    test('a revoked link is not shown again', async () => {
+      // Revocation has to be final. Handing the URL back afterwards would make
+      // "Revoke" mean "hide", which is not what it says.
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await create(session.cookie, session.pageId),
+        201,
+      );
+      await fetch(`${base}/api/pages/${session.pageId}/share-links/${created.id}`, {
+        method: 'DELETE',
+        headers: { cookie: session.cookie },
+      });
+
+      assert.equal(
+        (await showAgain(session.cookie, session.pageId, created.id)).status,
+        404,
+      );
+    });
+
+    test('somebody who cannot administer the page cannot show a link', async () => {
+      // The same right that creates a link. An editor who cannot issue one must
+      // not be able to read one either.
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await create(session.cookie, session.pageId),
+        201,
+      );
+
+      const hash = await hashPassword(PASSWORD);
+      const other = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name, password_hash)
+         VALUES ('editor@example.org','E',$1) RETURNING id`,
+        [hash],
+      );
+      await db.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        [session.workspaceId, other.rows[0]!.id],
+      );
+      await db.query(
+        `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+         VALUES ($1,$2,'editor',true,$3)`,
+        [session.pageId, other.rows[0]!.id, session.userId],
+      );
+      const login = await fetch(
+        `${base}/api/auth/login`,
+        json({ email: 'editor@example.org', password: PASSWORD }),
+      );
+
+      const res = await showAgain(cookieFrom(login), session.pageId, created.id);
+      assert.equal(res.status, 403);
+    });
 
     // --- resolving a bare token --------------------------------------------
 

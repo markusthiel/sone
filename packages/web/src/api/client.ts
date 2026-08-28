@@ -443,6 +443,10 @@ export const api = {
    * No session: the token is the credential. Used when a link carries no page
    * in its path, which every link created before this did.
    */
+  /** Show an existing share link again. Requires administering the page. */
+  shareLinkUrl: (pageId: string, linkId: string) =>
+    request<{ url: string }>(`/api/pages/${pageId}/share-links/${linkId}/url`),
+
   resolveShare: (token: string) =>
     request<{
       requiresPassword: boolean;
