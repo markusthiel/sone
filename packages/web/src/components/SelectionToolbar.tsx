@@ -26,6 +26,8 @@ import { toggleMark } from 'prosemirror-commands';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
+import { keepsEditorSelection } from './popup.ts';
+
 interface SelectionToolbarProps {
   view: EditorView;
   /** Bumped on every transaction, so the toolbar follows the selection. */
@@ -130,7 +132,9 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
       aria-label="Formatting"
       // The editor loses focus on mousedown, which would collapse the selection
       // before any command could act on it.
-      onPointerDown={(event) => event.preventDefault()}
+      // mousedown, not pointerdown: preventing pointerdown on a touch
+      // screen cancels the gesture before the tap can become a click.
+      {...keepsEditorSelection}
     >
       {editingLink ? (
         <div className="link-editor">

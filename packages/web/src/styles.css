@@ -2043,3 +2043,42 @@ select {
   gap: var(--sone-space-1);
 }
 .sidebar-footer .tree-link { gap: var(--sone-space-3); }
+
+/* --- touch behaviour in popups ---
+ *
+ * A scrollable popup has to say so. `touch-action: pan-y` tells the browser the
+ * vertical gesture belongs to this element, which lets it start scrolling
+ * immediately instead of waiting to see whether something will cancel the
+ * gesture — and nothing cancels it any more, because the menus act on click
+ * rather than on pointerdown (see popup.ts).
+ */
+.slash-menu,
+.block-menu,
+.entry-menu,
+.tag-suggestions,
+.dialog-list,
+.dialog {
+  touch-action: pan-y;
+  /* Momentum scrolling on iOS, which otherwise stops dead at the fingertip. */
+  -webkit-overflow-scrolling: touch;
+  /* A scroll that reaches the end of this list must not carry on and scroll the
+     page behind it, which on a phone reads as the menu jumping away. */
+  overscroll-behavior: contain;
+}
+
+/* Menu items must not become drag or text-selection targets: a long press on a
+   list item should do nothing, not start selecting the label. */
+.slash-item,
+.block-menu-item,
+.entry-menu-item,
+.tag-suggestion,
+.dialog-item {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The gutter controls sit over the text column, so without this a tap intended
+   for one of them can start a text selection in the block underneath. */
+.block-gutter { touch-action: manipulation; }

@@ -114,7 +114,7 @@ export function ShareDialog({
   return (
     <div
       className="dialog-scrim"
-      onPointerDown={(event) => {
+      onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >

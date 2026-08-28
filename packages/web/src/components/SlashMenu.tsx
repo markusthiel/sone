@@ -12,6 +12,7 @@
  * moment the document reflows.
  */
 
+import { keepsEditorSelection, popupItem } from './popup.ts';
 import {
   closeSlashMenu,
   insertImageUpload,
@@ -152,6 +153,7 @@ export function SlashMenu({
         style={placement ? { top: placement.top, left: placement.left } : FALLBACK_POSITION}
         role="listbox"
         aria-label="Insert block"
+        {...keepsEditorSelection}
       >
         <p className="slash-empty">No blocks match “{menu.query}”</p>
       </div>
@@ -193,6 +195,7 @@ export function SlashMenu({
       role="listbox"
       aria-label="Insert block"
       aria-activedescendant={`slash-item-${menu.items[menu.index]?.id ?? ''}`}
+      {...keepsEditorSelection}
     >
       {/* Outside the list so clicking it is not treated as choosing an item.
           Hidden rather than absent: a file input has to exist in the DOM before
@@ -227,12 +230,11 @@ export function SlashMenu({
                 data-selected={selected ? 'true' : 'false'}
                 role="option"
                 aria-selected={selected}
-                // Pointerdown, not click: the editor loses focus on mousedown
-                // otherwise, and the command then runs against a lost selection.
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  choose(item);
-                }}
+                // Click, not pointerdown. Acting on pointerdown fired the item
+                // the moment a finger landed and cancelled the scroll gesture
+                // with it; the container's mousedown handler is what keeps the
+                // editor's selection. See popup.ts.
+                {...popupItem(() => choose(item))}
                 onPointerEnter={() => setSlashIndex(view, index)}
               >
                 <span className="slash-title">{item.title}</span>
