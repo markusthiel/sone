@@ -9,7 +9,7 @@
     "build": "tsc -b ../core ../client ../editor && tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b ../core ../client ../editor && tsc -p tsconfig.json --noEmit",
-    "test": "tsc -b ../core ../client ../editor && tsx --test test/*.test.ts"
+    "test": "tsc -b ../core ../client ../editor && tsx --test \"test/*.test.ts\" \"test/*.test.tsx\""
   },
   "dependencies": {
     "@sone/client": "workspace:*",

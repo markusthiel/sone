@@ -91,13 +91,23 @@ describe('telling a drag from a scroll', () => {
         'div',
         null,
         ['a', 'b'].map((id) =>
-          createElement('div', {
-            key: id,
-            'data-tree-row': id,
-            'data-tree-kind': 'page',
-            'data-dragging': drag.dragging === id ? 'true' : undefined,
-            onPointerDown: drag.onPointerDown,
-          }),
+          createElement(
+            'div',
+            {
+              key: id,
+              'data-tree-row': id,
+              'data-tree-kind': 'page',
+              'data-dragging': drag.dragging === id ? 'true' : undefined,
+              'data-drop':
+                drag.target?.rowId === id && drag.dragging
+                  ? drag.target.intent
+                  : undefined,
+              onPointerDown: drag.onPointerDown,
+            },
+            // The label is a link, as in the real tree — which is what made
+            // the browser take the gesture over.
+            createElement('a', { href: `/p/${id}`, className: 'tree-link' }, id),
+          ),
         ),
       );
     }
@@ -241,6 +251,97 @@ describe('telling a drag from a scroll', () => {
 
     assert.deepEqual(drops, []);
     assert.equal(source.getAttribute('data-dragging'), null);
+  });
+
+  test('a drag can start from the row label', async () => {
+    // The label is a link and covers most of the row, so it is where anybody
+    // presses. Excluding it meant the drag never started from the obvious
+    // place, and the browser's own link drag took over — a floating row with a
+    // green plus, and this gesture cancelled underneath it.
+    const { drops } = await mount();
+    const source = row('a');
+    const label = source.querySelector('a') as HTMLElement;
+
+    await send(label, 'pointerdown', {
+      button: 0, pointerId: 1, pointerType: 'mouse', clientX: 200, clientY: 200,
+    });
+    const point = pointAt(row('b'), 0.8);
+    await send(source, 'pointermove', {
+      pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
+    });
+
+    assert.equal(source.getAttribute('data-dragging'), 'true');
+    await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
+    assert.deepEqual(drops, [{ id: 'a', intent: 'after' }]);
+  });
+
+  test('the indicator only appears where the drop would be accepted', async () => {
+    // Marking a row that will refuse the drop promises something that then does
+    // not happen, which reads as the drop being lost rather than declined.
+    const { createElement } = await import('react');
+    const { useTreeDrag } = await import('../src/hooks/useTreeDrag.ts');
+
+    function Tree(): unknown {
+      const drag = useTreeDrag({ canDrop: () => false, onDrop: () => {} });
+      return createElement(
+        'div',
+        null,
+        ['a', 'b'].map((id) =>
+          createElement('div', {
+            key: id,
+            'data-tree-row': id,
+            'data-tree-kind': 'page',
+            'data-drop':
+              drag.target?.rowId === id && drag.dragging ? drag.target.intent : undefined,
+            onPointerDown: drag.onPointerDown,
+          }),
+        ),
+      );
+    }
+    await render(createElement(Tree));
+
+    const source = row('a');
+    await send(source, 'pointerdown', {
+      button: 0, pointerId: 1, pointerType: 'mouse', clientX: 200, clientY: 200,
+    });
+    const point = pointAt(row('b'), 0.8);
+    await send(source, 'pointermove', {
+      pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
+    });
+
+    assert.equal(
+      row('b').getAttribute('data-drop'),
+      null,
+      'a refusing row must not be marked as a destination',
+    );
+  });
+
+  test('the indicator says which of the two things will happen', async () => {
+    // "Between" and "inside" are different outcomes, so they must look
+    // different before the finger lifts.
+    const { drops } = await mount();
+    const source = row('a');
+
+    await send(source, 'pointerdown', {
+      button: 0, pointerId: 1, pointerType: 'mouse', clientX: 200, clientY: 200,
+    });
+
+    // Near the top of a page row: before it.
+    let point = pointAt(row('b'), 0.1);
+    await send(source, 'pointermove', {
+      pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
+    });
+    assert.equal(row('b').getAttribute('data-drop'), 'before');
+
+    // Near the bottom: after it.
+    point = pointAt(row('b'), 0.9);
+    await send(source, 'pointermove', {
+      pointerId: 1, pointerType: 'mouse', clientX: point.x, clientY: point.y,
+    });
+    assert.equal(row('b').getAttribute('data-drop'), 'after');
+
+    await send(source, 'pointerup', { pointerId: 1, pointerType: 'mouse' });
+    assert.equal(drops.length, 1);
   });
 
   test('pressing a control inside a row does not start a drag', async () => {

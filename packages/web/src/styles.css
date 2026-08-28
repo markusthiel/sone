@@ -1434,6 +1434,12 @@ select {
  *
  * The titles are not content anybody copies from here; the page itself is where
  * text is selected. */
+/* Links and images are draggable by default, and the row's label is a link.
+   Left alone, pressing it started the browser's own drag — a floating copy with
+   a green plus — which cancelled this app's gesture before it began. */
+.tree-row a,
+.tree-row img { -webkit-user-drag: none; user-drag: none; }
+
 .tree-row {
   user-select: none;
   -webkit-user-select: none;
@@ -2272,9 +2278,10 @@ select {
 /* Inside this folder, drawn as a filled row. The line above and below means
    "between these two"; a filled row means "in here". */
 .tree-row[data-drop='into'] {
-  background: color-mix(in srgb, var(--sone-accent) 16%, transparent);
-  outline: 1px solid var(--sone-accent);
-  outline-offset: -1px;
+  background: color-mix(in srgb, var(--sone-accent) 20%, transparent);
+  outline: 2px solid var(--sone-accent);
+  outline-offset: -2px;
+  border-radius: var(--sone-radius);
 }
 
 /* A row being dragged must not swallow the pointer events its own children
@@ -2292,12 +2299,18 @@ select {
 .tree-row[data-drop='after']::after {
   content: '';
   position: absolute;
-  inset-inline: 0;
-  block-size: 2px;
+  /* Past the row's own edges, so the line reads as being between two rows
+     rather than as a border belonging to one of them. */
+  inset-inline: -2px;
+  block-size: 3px;
+  border-radius: 2px;
   background: var(--sone-accent);
+  /* A dot at the start, the convention for an insertion point. */
+  box-shadow: -3px 0 0 3px var(--sone-accent);
+  z-index: 2;
 }
-.tree-row[data-drop='before']::before { inset-block-start: -1px; }
-.tree-row[data-drop='after']::after { inset-block-end: -1px; }
+.tree-row[data-drop='before']::before { inset-block-start: -2px; }
+.tree-row[data-drop='after']::after { inset-block-end: -2px; }
 
 /* A transient failure of a tree operation. Placed above the layout rather than
    over it: it is information, not something to dismiss before continuing. */

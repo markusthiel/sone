@@ -135,6 +135,12 @@ jobs:
         # neither cause nor fix.
         run: node scripts/check-single-crdt.mjs
 
+      - name: Check every test file is run
+        # A test nothing runs is worse than no test: it reports nothing, and
+        # its presence says the case is covered. The web package's React tests
+        # went unrun in CI this way.
+        run: node scripts/check-test-globs.mjs
+
       - name: Check build version ordering
         # A version that sorts backwards stops a running instance with a blank
         # page. It has happened twice.
