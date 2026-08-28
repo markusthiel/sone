@@ -389,7 +389,31 @@ export async function materializeDocument(
 
   // --- properties and relations -------------------------------------------
 
-  const fieldMeta = await loadFieldMeta(db, parsed.page.collectionId);
+  // Which collection this row belongs to.
+  //
+  // From the parent, not from the row's own document. A row belongs to a
+  // collection by being inside the folder that has the columns (ADR-0019) —
+  // there is nothing in the row saying so, and nothing writes one.
+  //
+  // Reading `parsed.page.collectionId` meant this was always null for a row
+  // created the ordinary way, so no field metadata was loaded and every typed
+  // shadow column stayed empty. The jsonb value was stored, so a cell read back
+  // correctly and nothing looked wrong — until something tried to sort or
+  // filter on those columns, which is exactly what they exist for.
+  const owningCollection =
+    parsed.page.collectionId ??
+    (
+      await queryRows<{ id: string }>(
+        db,
+        `SELECT c.id FROM collections c
+           JOIN pages p ON p.parent_page_id = c.page_id
+          WHERE p.id = $1`,
+        [pageId],
+      )
+    )[0]?.id ??
+    null;
+
+  const fieldMeta = await loadFieldMeta(db, owningCollection);
 
   await db.query(`DELETE FROM page_properties WHERE page_id = $1`, [pageId]);
   await db.query(`DELETE FROM page_relations WHERE from_page_id = $1`, [pageId]);

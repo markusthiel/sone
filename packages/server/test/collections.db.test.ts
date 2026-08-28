@@ -503,6 +503,213 @@ describe(
       assert.equal(res.status, 403);
     });
 
+    test('a removed column disappears from the projection', async () => {
+      // It did not. applyToDocument decided whether anything changed by
+      // comparing state vectors, and a Yjs deletion does not advance one — it
+      // marks the existing item deleted. So every delete reported "nothing
+      // changed", no materialisation ran, and a removed column stayed in every
+      // table until something else rebuilt the page.
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+      const field = await expectJson<{ id: string }>(
+        await addField(session, folder, { name: 'Doomed', fieldType: 'text' }),
+        201,
+      );
+
+      await expectStatus(
+        await fetch(`${base}/api/pages/${folder}/collection/fields/${field.id}`, {
+          method: 'DELETE',
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+
+      const body = await read(session, folder);
+      assert.deepEqual(
+        body.fields.map((entry) => entry.name),
+        ['Name'],
+        'only the title column is left',
+      );
+    });
+
+    // --- filtering and sorting ---------------------------------------------
+
+    const addView = (
+      session: Session,
+      pageId: string,
+      definition: Record<string, unknown>,
+    ): Promise<Response> =>
+      fetch(`${base}/api/pages/${pageId}/collection/views`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ viewType: 'table', definition }),
+      });
+
+    const readView = async (session: Session, pageId: string, viewId: string) =>
+      expectJson<{ rows: Array<{ id: string; title: string }> }>(
+        await fetch(`${base}/api/pages/${pageId}/collection?view=${viewId}`, {
+          headers: { cookie: session.cookie },
+        }),
+      );
+
+    async function numbered(session: Session): Promise<{
+      folder: string;
+      field: string;
+      rows: Record<string, string>;
+    }> {
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+      const field = await expectJson<{ id: string }>(
+        await addField(session, folder, { name: 'Count', fieldType: 'number' }),
+        201,
+      );
+
+      const rows: Record<string, string> = {};
+      for (const [title, value] of [
+        ['nine', 9],
+        ['ten', 10],
+        ['two', 2],
+      ] as Array<[string, number]>) {
+        const id = await create(session, title, 'page', folder);
+        rows[title] = id;
+        await expectStatus(
+          await setValue(session, id, field.id, { kind: 'number', value }),
+          200,
+        );
+      }
+      // One row deliberately without a value.
+      rows['unset'] = await create(session, 'unset', 'page', folder);
+
+      return { folder, field: field.id, rows };
+    }
+
+    test('a view can sort by a column', async () => {
+      const session = await setup();
+      const { folder, field, rows } = await numbered(session);
+
+      const view = await expectJson<{ id: string }>(
+        await addView(session, folder, { sort: [{ fieldId: field, direction: 'asc' }] }),
+        201,
+      );
+
+      const body = await readView(session, folder, view.id);
+      assert.deepEqual(
+        body.rows.map((row) => row.title),
+        ['two', 'nine', 'ten', 'unset'],
+        'numerically, and the row with no value last',
+      );
+    });
+
+    test('sorting descending keeps unanswered rows last', async () => {
+      // A row with no value is not the smallest one, it is unanswered.
+      const session = await setup();
+      const { folder, field } = await numbered(session);
+
+      const view = await expectJson<{ id: string }>(
+        await addView(session, folder, { sort: [{ fieldId: field, direction: 'desc' }] }),
+        201,
+      );
+
+      const body = await readView(session, folder, view.id);
+      assert.deepEqual(
+        body.rows.map((row) => row.title),
+        ['ten', 'nine', 'two', 'unset'],
+      );
+    });
+
+    test('a view can filter by a comparison', async () => {
+      const session = await setup();
+      const { folder, field } = await numbered(session);
+
+      const view = await expectJson<{ id: string }>(
+        await addView(session, folder, {
+          filters: [{ fieldId: field, operator: 'gte', value: 9 }],
+        }),
+        201,
+      );
+
+      const body = await readView(session, folder, view.id);
+      assert.deepEqual(body.rows.map((row) => row.title).sort(), ['nine', 'ten']);
+    });
+
+    test('a filter for empty finds the rows with no value', async () => {
+      const session = await setup();
+      const { folder, field } = await numbered(session);
+
+      const view = await expectJson<{ id: string }>(
+        await addView(session, folder, {
+          filters: [{ fieldId: field, operator: 'isEmpty' }],
+        }),
+        201,
+      );
+
+      const body = await readView(session, folder, view.id);
+      assert.deepEqual(body.rows.map((row) => row.title), ['unset']);
+    });
+
+    test('a filter naming a deleted column still renders the collection', async () => {
+      // A view lives in a document other people edit. Refusing to render would
+      // turn one stale filter into an unreachable page.
+      const session = await setup();
+      const { folder, field, rows } = await numbered(session);
+
+      const view = await expectJson<{ id: string }>(
+        await addView(session, folder, {
+          filters: [{ fieldId: field, operator: 'gte', value: 9 }],
+        }),
+        201,
+      );
+      await expectStatus(
+        await fetch(`${base}/api/pages/${folder}/collection/fields/${field}`, {
+          method: 'DELETE',
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+
+      const body = await readView(session, folder, view.id);
+      assert.equal(body.rows.length, 4, 'every row, unfiltered');
+      assert.ok(rows['ten']);
+    });
+
+    test('a hostile filter value is a value, not SQL', async () => {
+      // Against the real database, because a builder can be correct and the
+      // statement still wrong.
+      const session = await setup();
+      const folder = await create(session, 'Tasks', 'folder', session.rootFolder);
+      await makeCollection(session, folder);
+      const field = await expectJson<{ id: string }>(
+        await addField(session, folder, { name: 'Note', fieldType: 'text' }),
+        201,
+      );
+      await create(session, 'a row', 'page', folder);
+
+      const view = await expectJson<{ id: string }>(
+        await addView(session, folder, {
+          filters: [
+            { fieldId: field.id, operator: 'is', value: "x'; DROP TABLE pages; --" },
+          ],
+        }),
+        201,
+      );
+
+      const body = await readView(session, folder, view.id);
+      assert.deepEqual(body.rows, [], 'nothing matches, and nothing is dropped');
+
+      const still = await db.query(`SELECT count(*)::int AS n FROM pages`);
+      assert.ok((still.rows[0] as { n: number }).n > 0, 'pages still exist');
+    });
+
+    test('a collection read without a view is unfiltered', async () => {
+      // Views arrange; they do not decide which entries exist. The default
+      // reading is the folder's contents.
+      const session = await setup();
+      const { folder } = await numbered(session);
+      const body = await read(session, folder);
+      assert.equal(body.rows.length, 4);
+    });
+
     // --- select options ----------------------------------------------------
 
     const setOptionsFor = (

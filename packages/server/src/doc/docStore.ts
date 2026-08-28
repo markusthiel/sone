@@ -208,13 +208,22 @@ export async function applyToDocument(
 
   try {
     const before = Y.encodeStateVector(doc);
+    // A snapshot is the state vector *and* the delete set, and both halves
+    // matter here.
+    //
+    // This compared state vectors alone, and a deletion does not advance one:
+    // removing a key from a Y.Map marks the existing item deleted rather than
+    // creating a new one. So every delete reported `changed: false`, no
+    // materialisation ran, and the projection kept a column that the document
+    // no longer had — a removed column stayed in every table until something
+    // else happened to rebuild it.
+    const beforeSnapshot = Y.encodeSnapshot(Y.snapshot(doc));
     mutate(doc);
     const delta = Y.encodeStateAsUpdate(doc, before);
 
     // An update with no changes still encodes to a few bytes, so emptiness is
-    // checked by comparing state vectors rather than by length.
-    const after = Y.encodeStateVector(doc);
-    const changed = !equalUint8(before, after);
+    // decided by comparing snapshots rather than by length.
+    const changed = !equalUint8(beforeSnapshot, Y.encodeSnapshot(Y.snapshot(doc)));
     if (!changed) {
       return { seq: loaded.throughSeq, changed: false };
     }
