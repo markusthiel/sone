@@ -12,6 +12,7 @@ import { test } from 'node:test';
 import { buildPageTree, type PageSummary } from '../src/api/client.ts';
 import { findAncestors } from '../src/components/Sidebar.tsx';
 import { destinations } from '../src/components/MoveDialog.tsx';
+import { canMoveInto, moveRefusal } from '../src/components/moveRules.ts';
 
 const page = (
   id: string,
@@ -155,4 +156,87 @@ test('only folders are destinations', () => {
   const other = tree.find((node) => node.id === 'other')!;
   const ids = destinations(tree, other).map((entry) => entry.id);
   assert.ok(!ids.includes('doc'), 'a page cannot hold anything');
+});
+
+// --- move rules, shared by the dialog and by dragging ----------------------
+
+test('a folder cannot be dropped into itself or its own subtree', () => {
+  // The rule that matters most: it would detach the whole branch from the
+  // tree — still existing, unreachable from the root, with the ancestor paths
+  // every share link is computed from recursing forever.
+  const tree = buildPageTree([
+    page('outer', null, 'folder'),
+    page('middle', 'outer', 'folder'),
+    page('inner', 'middle', 'folder'),
+    page('elsewhere', null, 'folder'),
+  ]);
+  const outer = tree.find((node) => node.id === 'outer')!;
+
+  assert.equal(canMoveInto(tree, outer, 'outer'), false);
+  assert.equal(canMoveInto(tree, outer, 'middle'), false);
+  assert.equal(canMoveInto(tree, outer, 'inner'), false, 'a grandchild too');
+  assert.equal(canMoveInto(tree, outer, 'elsewhere'), true);
+});
+
+test('only folders can receive an entry', () => {
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('doc', 'folder', 'page'),
+    page('other', null, 'folder'),
+  ]);
+  const other = tree.find((node) => node.id === 'other')!;
+  assert.equal(canMoveInto(tree, other, 'doc'), false);
+  assert.match(moveRefusal(tree, other, 'doc') ?? '', /folders/i);
+});
+
+test('only folders can sit at the workspace root', () => {
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('doc', 'folder', 'page'),
+  ]);
+  const folder = tree[0]!;
+  const doc = folder.children[0]!;
+
+  assert.equal(canMoveInto(tree, folder, null), true);
+  assert.equal(canMoveInto(tree, doc, null), false);
+});
+
+test('dropping somewhere it already is refuses rather than doing nothing', () => {
+  // A move that changes nothing would still write to the document and produce
+  // an update for everyone, so it is refused rather than performed.
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('doc', 'folder', 'page'),
+  ]);
+  const doc = tree[0]!.children[0]!;
+  assert.equal(moveRefusal(tree, doc, 'folder'), 'Already here');
+});
+
+test('a vanished destination is refused rather than throwing', () => {
+  // The tree in hand can be a moment out of date — somebody else may have
+  // deleted the folder being dropped on.
+  const tree = buildPageTree([page('folder', null, 'folder')]);
+  const folder = tree[0]!;
+  assert.match(moveRefusal(tree, folder, 'gone') ?? '', /no longer exists/);
+});
+
+test('the dialog and dragging cannot disagree', () => {
+  // They share one implementation; this asserts the dialog really consults it,
+  // because two copies of these rules would drift and the failure would be
+  // silent — offering a destination the server refuses, or refusing one it
+  // would have accepted.
+  const tree = buildPageTree([
+    page('outer', null, 'folder'),
+    page('inner', 'outer', 'folder'),
+    page('free', null, 'folder'),
+  ]);
+  const outer = tree.find((node) => node.id === 'outer')!;
+
+  for (const option of destinations(tree, outer)) {
+    assert.equal(
+      option.disabled === undefined,
+      canMoveInto(tree, outer, option.id),
+      `the dialog and canMoveInto disagree about ${String(option.id)}`,
+    );
+  }
 });

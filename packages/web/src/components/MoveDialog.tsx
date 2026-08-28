@@ -14,6 +14,7 @@ import { useMemo, useState, type ReactElement } from 'react';
 
 import type { PageNode } from '../api/client.ts';
 import { FolderIcon } from './icons.tsx';
+import { moveRefusal } from './moveRules.ts';
 
 interface MoveDialogProps {
   /** The entry being moved. */
@@ -38,47 +39,44 @@ interface Destination {
  * Marked rather than hidden. A folder missing from the list looks like a bug or
  * like a permissions problem; a folder listed with "cannot contain itself" says
  * what is going on.
+ *
+ * The reasons come from moveRules, shared with dragging. Two copies of these
+ * rules would drift, and the failure would be silent: the interface would offer
+ * a destination the server refuses, or refuse one it would have accepted.
  */
 function destinations(tree: PageNode[], entry: PageNode): Destination[] {
   const out: Destination[] = [];
 
-  // The workspace root takes folders only (ADR-0019).
+  const refusalFor = (target: string | null): string | undefined =>
+    moveRefusal(tree, entry, target) ?? undefined;
+
+  const rootRefusal = refusalFor(null);
   out.push({
     id: null,
     label: 'Workspace root',
     path: '',
     depth: 0,
-    ...(entry.kind === 'folder' ? {} : { disabled: 'Only folders can sit at the root' }),
+    ...(rootRefusal ? { disabled: rootRefusal } : {}),
   });
 
-  const walk = (nodes: PageNode[], trail: string[], insideEntry: boolean): void => {
+  const walk = (nodes: PageNode[], trail: string[]): void => {
     for (const node of nodes) {
       if (node.kind !== 'folder') continue;
 
-      const isEntry = node.id === entry.id;
-      // Everything below the entry is its own subtree: moving into it would
-      // detach the whole branch from the tree.
-      const forbidden = isEntry || insideEntry;
-
+      const refusal = refusalFor(node.id);
       out.push({
         id: node.id,
         label: node.title || 'Untitled folder',
         path: trail.join(' / '),
         depth: trail.length,
-        ...(isEntry
-          ? { disabled: 'A folder cannot contain itself' }
-          : insideEntry
-            ? { disabled: 'This is inside the folder being moved' }
-            : node.id === entry.parentPageId
-              ? { disabled: 'Already here' }
-              : {}),
+        ...(refusal ? { disabled: refusal } : {}),
       });
 
-      walk(node.children, [...trail, node.title || 'Untitled folder'], forbidden);
+      walk(node.children, [...trail, node.title || 'Untitled folder']);
     }
   };
 
-  walk(tree, [], false);
+  walk(tree, []);
   return out;
 }
 
