@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: dropping an entry between two rows did nothing.** Reordering targets
+the folder the entry is already in, and the move rules refuse that as "already
+here" — so every reorder was rejected before it reached the server, silently.
+The entry snapped back and a reload showed it unmoved. This affected the mouse
+as well: reordering by dragging had never worked.
+
+**A failed tree operation now says so.** The error was recorded and nothing
+displayed it, which is why a refused move looked like a move that did not save.
+
 **Dragging works with a finger.** Press and hold a row for a moment, then move
 it — into a folder, or between two rows to reorder. A press that moves straight
 away scrolls the sidebar as before, which is how the two gestures are told

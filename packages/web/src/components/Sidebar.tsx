@@ -15,7 +15,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import type { FavouriteEntry, PageNode } from '../api/client.ts';
-import { canMoveInto, canStep, findNode, siblingsOf, stepTarget } from './moveRules.ts';
+import {
+  canMoveInto,
+  canReorderInto,
+  canStep,
+  findNode,
+  siblingsOf,
+  stepTarget,
+} from './moveRules.ts';
 import { useTreeDrag, type TreeDrag } from '../hooks/useTreeDrag.ts';
 import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
@@ -108,9 +115,11 @@ export function Sidebar({
       const moving = findNode(tree, draggedId);
       const row = findNode(tree, position.rowId);
       if (!moving || !row || moving.id === row.id) return false;
+      // Reordering targets the parent the entry is usually already in, so it
+      // must not be judged by the "already here" rule that governs a move.
       return position.intent === 'into'
         ? canMoveInto(tree, moving, row.id)
-        : canMoveInto(tree, moving, row.parentPageId);
+        : canReorderInto(tree, moving, row.parentPageId);
     },
     onDrop: (draggedId, position) => {
       const moving = findNode(tree, draggedId);

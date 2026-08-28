@@ -14,6 +14,7 @@ import { findAncestors } from '../src/components/Sidebar.tsx';
 import { destinations } from '../src/components/MoveDialog.tsx';
 import {
   canMoveInto,
+  canReorderInto,
   canStep,
   findNode,
   moveRefusal,
@@ -403,4 +404,50 @@ test('a drop beside a row is judged against that row parent', () => {
   const leaf = siblingsOf(tree, 'inner')[0]!;
 
   assert.equal(canMoveInto(tree, outer, leaf.parentPageId), false);
+});
+
+// --- reordering is not the same question as moving -------------------------
+
+test('an entry can be reordered within the folder it is already in', () => {
+  // The bug this pins down: reordering targets the parent the entry is already
+  // in, and the move rules refuse that as "already here". Every drop between
+  // two rows was therefore rejected in silence — the entry snapped back and a
+  // reload showed it unmoved. Dragging to reorder had never worked.
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('a', 'folder', 'page'),
+    page('b', 'folder', 'page'),
+  ]);
+  const a = siblingsOf(tree, 'folder').find((node) => node.id === 'a')!;
+
+  assert.equal(canMoveInto(tree, a, 'folder'), false, 'moving there is a no-op');
+  assert.equal(canReorderInto(tree, a, 'folder'), true, 'reordering there is not');
+});
+
+test('reordering still refuses everything else a move refuses', () => {
+  // Only the "already here" rule is relaxed. A folder must still not end up
+  // inside its own subtree by being dropped beside one of its descendants.
+  const tree = buildPageTree([
+    page('outer', null, 'folder'),
+    page('inner', 'outer', 'folder'),
+    page('leaf', 'inner', 'page'),
+    page('doc', null, 'page'),
+  ]);
+  const outer = tree.find((node) => node.id === 'outer')!;
+  const doc = tree.find((node) => node.id === 'doc')!;
+
+  assert.equal(canReorderInto(tree, outer, 'inner'), false, 'not into its own subtree');
+  assert.equal(canReorderInto(tree, doc, null), false, 'a page still cannot sit at the root');
+  assert.equal(canReorderInto(tree, outer, 'leaf'), false, 'a page still holds nothing');
+});
+
+test('reordering at the workspace root is allowed for a folder', () => {
+  // Top-level folders are reordered against a null parent, which is the same
+  // "already here" shape one level up.
+  const tree = buildPageTree([
+    page('one', null, 'folder'),
+    page('two', null, 'folder'),
+  ]);
+  const one = tree.find((node) => node.id === 'one')!;
+  assert.equal(canReorderInto(tree, one, null), true);
 });
