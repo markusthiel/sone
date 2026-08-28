@@ -8,6 +8,7 @@ export * from './imagePaste.js';
 export * from './tables.js';
 export * from './collapse.js';
 export * from './placeholders.js';
+export * from './codeCopy.js';
 export * from './markdownPaste.js';
 export * from './slashMenu.js';
 export * from './editor.js';

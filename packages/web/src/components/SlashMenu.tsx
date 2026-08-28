@@ -20,11 +20,12 @@ import {
   setSlashIndex,
   slashMenuPluginKey,
   slashMenuState,
-  type ImageUploader,
   type SlashItem,
 } from '@sone/editor';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
+
+import { useViewportChanges } from '../hooks/useViewportChanges.ts';
 
 /** Space kept between the caret and the menu, and from the viewport edge. */
 const GAP = 6;
@@ -52,15 +53,21 @@ interface SlashMenuProps {
    * picker needs a real user gesture and a DOM element, neither of which a
    * ProseMirror command has.
    */
-  uploadImage?: ImageUploader;
+  /**
+   * Opens a file picker.
+   *
+   * Provided by the surface rather than done here: this component unmounts as
+   * soon as the menu closes, and a detached input never delivers its change
+   * event.
+   */
+  onPickImage: () => void;
 }
 
 export function SlashMenu({
   view,
   revision,
-  uploadImage,
+  onPickImage,
 }: SlashMenuProps): ReactElement | null {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const menu = slashMenuState(view.state);
   const listRef = useRef<HTMLDivElement | null>(null);
   const [placement, setPlacement] = useState<{
@@ -73,6 +80,10 @@ export function SlashMenu({
   const [retryToken, setRetryToken] = useState(0);
 
   const from = menu?.from ?? null;
+
+  // Re-place when the page moves: a scroll produces no transaction, so nothing
+  // else would tell this component that the caret is no longer where it was.
+  const viewportToken = useViewportChanges(from !== null);
 
   // Position after layout, so the measured height is the real one. useEffect
   // would paint at the wrong place first and visibly jump.
@@ -115,7 +126,7 @@ export function SlashMenu({
     });
     // `revision` is in the dependency list because the caret moves without
     // `from` changing — typing inside the query, for instance.
-  }, [view, from, revision, retryToken, menu?.items.length]);
+  }, [view, from, revision, retryToken, viewportToken, menu?.items.length]);
 
   // Keep the selected item in view when the keyboard moves through a list
   // longer than the menu.
@@ -178,7 +189,13 @@ export function SlashMenu({
       if (state) tr.delete(state.from, view.state.selection.head);
       tr.setMeta(slashMenuPluginKey, { close: true });
       view.dispatch(tr);
-      fileInputRef.current?.click();
+      // Asking the surface to open the picker, not opening one from here.
+      //
+      // The input used to live in this component, which unmounts the moment the
+      // menu closes — so by the time somebody had chosen a photo, the element
+      // that would have heard about it was gone from the document. The picker
+      // opened, the person picked, and nothing happened.
+      onPickImage();
       return;
     }
     runSlashItem(view, item);
@@ -197,23 +214,6 @@ export function SlashMenu({
       aria-activedescendant={`slash-item-${menu.items[menu.index]?.id ?? ''}`}
       {...keepsEditorSelection}
     >
-      {/* Outside the list so clicking it is not treated as choosing an item.
-          Hidden rather than absent: a file input has to exist in the DOM before
-          click() will open a picker. */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
-        multiple
-        hidden
-        onChange={(event) => {
-          const files = Array.from(event.target.files ?? []);
-          event.target.value = '';
-          if (!uploadImage) return;
-          for (const file of files) insertImageUpload(view, file, uploadImage);
-          view.focus();
-        }}
-      />
       {groups.map(([group, items]) => (
         <div className="slash-group" key={group}>
           <div className="slash-group-label">{GROUP_LABELS[group]}</div>

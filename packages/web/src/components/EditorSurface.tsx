@@ -12,7 +12,7 @@
 
 import type { PageHandle } from '@sone/client';
 import { pageContent } from '@sone/core';
-import { createEditor, seedEmptyPage } from '@sone/editor';
+import { createEditor, insertImageUpload, seedEmptyPage } from '@sone/editor';
 
 import { ApiError, api } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
@@ -32,6 +32,13 @@ interface EditorSurfaceProps {
 export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElement {
   // One uploader, shared by paste, drop and the Image slash item, so all three
   // report failures the same way.
+  // The picker lives here, on a component that stays mounted.
+  //
+  // It was inside the slash menu, which unmounts when the menu closes — so the
+  // dialog opened, somebody chose a photo, and the element that would have
+  // heard about it no longer existed. Nothing happened, with no error.
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const uploader = useCallback(
     async (file: File) => {
       try {
@@ -110,9 +117,35 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
         // tabindex and ARIA attributes.
         data-editable={handle.canEdit ? 'true' : 'false'}
       />
+
+      {/* Outside the conditional block below, so it survives the slash menu
+          closing. A file picker is asynchronous — the person may spend a minute
+          in their photo library — and the element has to still be in the
+          document when they come back. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
+        multiple
+        hidden
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          // Cleared after reading, so choosing the same photo twice in a row
+          // still fires a change event the second time.
+          event.target.value = '';
+          const editor = viewRef.current;
+          if (!editor) return;
+          for (const file of files) insertImageUpload(editor, file, uploader);
+          editor.focus();
+        }}
+      />
       {view && handle.canEdit && (
         <>
-          <SlashMenu view={view} revision={revision} uploadImage={uploader} />
+          <SlashMenu
+            view={view}
+            revision={revision}
+            onPickImage={() => fileInputRef.current?.click()}
+          />
           <BlockMenu view={view} revision={revision} />
           <SelectionToolbar view={view} revision={revision} />
         </>

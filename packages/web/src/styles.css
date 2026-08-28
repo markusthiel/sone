@@ -42,6 +42,12 @@
    *   tap     — a control on its own: a form button, a primary action. The
    *             smallest size reliably hittable with a thumb.
    * ------------------------------------------------------------------- */
+  /* How far the text column sits in from the content edge. Reserved for list
+     markers and block markers, and applied to the title as well — a heading
+     that starts 24px left of its own body text is a misalignment people see
+     without being able to name. */
+  --sone-text-indent: 1.5rem;
+
   --sone-marker: 16px;
   --sone-control: 26px;
   --sone-control-lg: 34px;
@@ -393,7 +399,8 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   font-weight: 700;
   line-height: 1.2;
   border: 0;
-  padding: 0;
+  /* Matching the editor's text column exactly. */
+  padding: 0 0 0 var(--sone-text-indent);
   min-height: 0;
   background: transparent;
 }
@@ -481,7 +488,10 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   word-wrap: break-word;
   /* Room for list markers and for the two gutter controls, which sit outside
      the text column so they never reflow it. */
-  padding-inline-start: 1.5rem;
+  /* Room for list markers, checkboxes and disclosure triangles, which sit
+     outside the text column so they never reflow it. Named, because the title
+     has to match it or the page reads as two columns that nearly line up. */
+  padding-inline-start: var(--sone-text-indent);
 }
 
 .ProseMirror [data-block] {
@@ -2102,3 +2112,33 @@ select {
 /* The gutter controls sit over the text column, so without this a tap intended
    for one of them can start a text selection in the block underneath. */
 .block-gutter { touch-action: manipulation; }
+
+/* --- copying code --- */
+
+.ProseMirror [data-block='code'] { position: relative; }
+
+.ProseMirror .sone-code-copy {
+  position: absolute;
+  inset-block-start: var(--sone-space-2);
+  inset-inline-end: var(--sone-space-2);
+  min-block-size: 0;
+  min-inline-size: 0;
+  padding: 2px var(--sone-space-3);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg);
+  color: var(--sone-text-muted);
+  font-family: inherit;
+  font-size: var(--sone-text-xs);
+  /* Quiet until the block is approached, but never hidden: on touch there is no
+     hover, and a control nobody can find is not a control. */
+  opacity: 0.55;
+}
+.ProseMirror [data-block='code']:hover .sone-code-copy,
+.ProseMirror .sone-code-copy:focus-visible { opacity: 1; }
+.ProseMirror .sone-code-copy[data-state='done'] {
+  color: var(--sone-accent);
+  border-color: var(--sone-accent);
+  opacity: 1;
+}
+@media (hover: none) { .ProseMirror .sone-code-copy { opacity: 0.8; } }
