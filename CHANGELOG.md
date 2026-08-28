@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Dragging works with a finger.** Press and hold a row for a moment, then move
+it — into a folder, or between two rows to reorder. A press that moves straight
+away scrolls the sidebar as before, which is how the two gestures are told
+apart.
+
 **Entries can be reordered without a mouse.** "Move up" and "Move down" in a
 row's menu. Dragging is a pointer-device feature — iOS never fires those events
 — so shipping reordering as drag-only left a tablet with no way to do it at all.

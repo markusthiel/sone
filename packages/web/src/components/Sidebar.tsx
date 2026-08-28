@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 
 import type { FavouriteEntry, PageNode } from '../api/client.ts';
 import { canMoveInto, canStep, findNode, siblingsOf, stepTarget } from './moveRules.ts';
+import { useTreeDrag, type TreeDrag } from '../hooks/useTreeDrag.ts';
 import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
@@ -100,10 +101,39 @@ export function Sidebar({
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
   const [renaming, setRenaming] = useState<string | null>(null);
-  // One drag at a time, and every row has to know about it — so the state
-  // belongs here rather than in a row.
-  const [dragging, setDragging] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  // One drag at a time, and every row has to know about it — so it belongs
+  // here rather than in a row.
+  const drag = useTreeDrag({
+    canDrop: (draggedId, position) => {
+      const moving = findNode(tree, draggedId);
+      const row = findNode(tree, position.rowId);
+      if (!moving || !row || moving.id === row.id) return false;
+      return position.intent === 'into'
+        ? canMoveInto(tree, moving, row.id)
+        : canMoveInto(tree, moving, row.parentPageId);
+    },
+    onDrop: (draggedId, position) => {
+      const moving = findNode(tree, draggedId);
+      const row = findNode(tree, position.rowId);
+      if (!moving || !row) return;
+
+      if (position.intent === 'into') {
+        onMove(draggedId, row.id);
+        return;
+      }
+
+      // Beside a row means into that row's parent, positioned relative to it.
+      // `before` needs the sibling that precedes the row, and null when there
+      // is none — which the API reads as "first".
+      const siblings = siblingsOf(tree, row.parentPageId).filter(
+        (sibling) => sibling.id !== draggedId,
+      );
+      const at = siblings.findIndex((sibling) => sibling.id === row.id);
+      const after =
+        position.intent === 'after' ? row.id : (siblings[at - 1]?.id ?? null);
+      onMove(draggedId, row.parentPageId, after);
+    },
+  });
 
   useEffect(() => {
     try {
@@ -229,10 +259,7 @@ export function Sidebar({
             onToggleFavourite={onToggleFavourite}
             tree={tree}
             onMove={onMove}
-            dragging={dragging}
-            setDragging={setDragging}
-            dropTarget={dropTarget}
-            setDropTarget={setDropTarget}
+            drag={drag}
           />
         )}
 
@@ -281,10 +308,7 @@ function TreeLevel({
   onToggleFavourite,
   tree,
   onMove,
-  dragging,
-  setDragging,
-  dropTarget,
-  setDropTarget,
+  drag,
 }: {
   nodes: PageNode[];
   currentPageId: string | null;
@@ -307,10 +331,7 @@ function TreeLevel({
     parentPageId: string | null,
     afterPageId?: string | null,
   ) => void;
-  dragging: string | null;
-  setDragging: (id: string | null) => void;
-  dropTarget: string | null;
-  setDropTarget: (update: string | null | ((current: string | null) => string | null)) => void;
+  drag: TreeDrag;
 }): ReactElement {
   return (
     <>
@@ -325,108 +346,17 @@ function TreeLevel({
             <div
               className="tree-row"
               data-kind={node.kind}
-              // HTML5 drag and drop, for pointer devices only.
-              //
-              // iOS Safari does not fire these events at all, so on a tablet
-              // this degrades to nothing and "Move to…" remains the way — which
-              // is the right outcome rather than a gap. A pointer-event
-              // implementation would have to distinguish a drag from a scroll
-              // by threshold and timing, and would be fighting the same gesture
-              // the sidebar needs for scrolling. The picker is better on touch
-              // anyway: it can say why a destination is unavailable.
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.effectAllowed = 'move';
-                // Set for the browser's benefit; the id below is what is read.
-                event.dataTransfer.setData('text/plain', title);
-                setDragging(node.id);
-              }}
-              onDragEnd={() => {
-                setDragging(null);
-                setDropTarget(null);
-              }}
-              onDragOver={(event) => {
-                if (!dragging || dragging === node.id) return;
-                const moving = findNode(tree, dragging);
-                if (!moving) return;
-
-                // Where in the row the pointer is decides what the drop means.
-                //
-                // The middle puts the entry *inside* a folder; the top and
-                // bottom quarters put it before or after this row among its
-                // siblings. Without that split, reordering would be impossible
-                // and every drop near a folder would swallow the entry —
-                // Notion and Finder both make this distinction and people
-                // arrive expecting it.
-                const box = event.currentTarget.getBoundingClientRect();
-                const offset = (event.clientY - box.top) / box.height;
-                const edge = node.kind === 'folder' ? 0.25 : 0.5;
-
-                const intent =
-                  offset < edge ? 'before' : offset > 1 - edge ? 'after' : 'into';
-
-                const allowed =
-                  intent === 'into'
-                    ? canMoveInto(tree, moving, node.id)
-                    : canMoveInto(tree, moving, node.parentPageId);
-
-                if (!allowed) {
-                  // No preventDefault: the browser then shows the "cannot
-                  // drop" cursor by itself, which is the feedback wanted.
-                  return;
-                }
-                event.preventDefault();
-                event.dataTransfer.dropEffect = 'move';
-                setDropTarget(`${node.id}:${intent}`);
-              }}
-              onDragLeave={(event) => {
-                // Only when the pointer has actually left this row, not when it
-                // crosses into a child element of it.
-                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-                  setDropTarget((current) =>
-                    current?.startsWith(`${node.id}:`) ? null : current,
-                  );
-                }
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                const moving = dragging;
-                const intent = dropTarget?.startsWith(`${node.id}:`)
-                  ? dropTarget.slice(node.id.length + 1)
-                  : null;
-                setDragging(null);
-                setDropTarget(null);
-                if (!moving || !intent) return;
-
-                const entry = findNode(tree, moving);
-                if (!entry) return;
-
-                if (intent === 'into') {
-                  if (!canMoveInto(tree, entry, node.id)) return;
-                  onMove(moving, node.id);
-                  return;
-                }
-
-                // Beside this row, so into its parent, positioned relative to
-                // it. `before` needs the sibling that precedes this row, and
-                // null when there is none — which the API reads as "first".
-                if (!canMoveInto(tree, entry, node.parentPageId)) return;
-                const siblings = siblingsOf(tree, node.parentPageId).filter(
-                  (sibling) => sibling.id !== moving,
-                );
-                const at = siblings.findIndex((sibling) => sibling.id === node.id);
-                const after =
-                  intent === 'after'
-                    ? node.id
-                    : (siblings[at - 1]?.id ?? null);
-                onMove(moving, node.parentPageId, after);
-              }}
+              // Dragging works with a finger as well as a mouse; see
+              // hooks/useTreeDrag.ts for how a drag is told from a scroll.
+              data-tree-row={node.id}
+              data-tree-kind={node.kind}
+              onPointerDown={drag.onPointerDown}
               data-drop={
-                dropTarget?.startsWith(`${node.id}:`)
-                  ? dropTarget.slice(node.id.length + 1)
+                drag.target?.rowId === node.id && drag.dragging
+                  ? drag.target.intent
                   : undefined
               }
-              data-dragging={dragging === node.id ? 'true' : undefined}
+              data-dragging={drag.dragging === node.id ? 'true' : undefined}
             >
               <button
                 className="tree-twisty"
@@ -531,10 +461,7 @@ function TreeLevel({
                   onToggleFavourite={onToggleFavourite}
                   tree={tree}
                   onMove={onMove}
-                  dragging={dragging}
-                  setDragging={setDragging}
-                  dropTarget={dropTarget}
-                  setDropTarget={setDropTarget}
+                  drag={drag}
                 />
               </div>
             )}
