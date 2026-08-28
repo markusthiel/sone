@@ -10,6 +10,7 @@ import { useEffect, useState , type ReactElement } from 'react';
 import { LoginScreen, SetupScreen, SignupScreen, messageFor } from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
 import { MoveDialog } from './components/MoveDialog.tsx';
+import { ShareDialog } from './components/ShareDialog.tsx';
 import { SidebarIcon } from './components/icons.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
 import {
@@ -137,6 +138,7 @@ function Workspace({
     usePages(workspaceId);
   // The entry a move dialog is open for, if any.
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [sharingId, setSharingId] = useState<string | null>(null);
   const {
     favourites,
     ids: favouriteIds,
@@ -206,6 +208,7 @@ function Workspace({
         onCreatePage={(parent, kind) => void onCreateEntry(parent, kind)}
         onRename={(id, title) => void renameEntry(id, title)}
         onStartMove={setMovingId}
+        onStartShare={setSharingId}
         favourites={favourites}
         favouriteIds={favouriteIds}
         onToggleFavourite={(id, on) => void toggleFavourite(id, on)}
@@ -311,6 +314,14 @@ function Workspace({
           </div>
         )}
       </div>
+
+      {sharingId && (
+        <ShareDialog
+          pageId={sharingId}
+          pageTitle={findNode(tree, sharingId)?.title ?? ''}
+          onClose={() => setSharingId(null)}
+        />
+      )}
 
       {movingId && (
         <MoveDialog

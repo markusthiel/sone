@@ -2000,3 +2000,30 @@ select {
 
 .btn.destructive { border-color: var(--sone-danger); color: var(--sone-danger); }
 .btn.destructive:hover:not(:disabled) { background: var(--sone-danger); color: #fff; }
+
+/* --- share dialog --- */
+
+.share-dialog { inline-size: min(520px, 100%); overflow-y: auto; }
+.share-new, .share-existing { display: flex; flex-direction: column; gap: var(--sone-space-3); }
+
+/* The token, shown once. Given the weight of the thing it is: losing it means
+   creating a new link, because only the hash is stored. */
+.share-created {
+  padding: var(--sone-space-4);
+  border: 1px solid var(--sone-accent);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+}
+.share-created-label {
+  margin: 0 0 var(--sone-space-3);
+  font-size: var(--sone-text-sm);
+  font-weight: 600;
+}
+.share-created-row { display: flex; gap: var(--sone-space-3); }
+.share-created-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--sone-tap);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--sone-text-xs);
+}

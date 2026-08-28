@@ -37,6 +37,7 @@ import { registerPageRoutes } from './http/pages.js';
 import { Router } from './http/router.js';
 import { registerWorkspaceRoutes } from './http/workspaces.js';
 import { registerFavouriteRoutes } from './http/favourites.js';
+import { registerShareRoutes } from './http/share.js';
 import { registerAdminRoutes } from './admin/routes.js';
 import { SettingsStore } from './admin/settings.js';
 import { registerFileRoutes } from './files/routes.js';
@@ -170,6 +171,7 @@ async function main(): Promise<void> {
   registerPageRoutes(router, { pool });
   registerWorkspaceRoutes(router, { pool });
   registerFavouriteRoutes(router, { pool });
+  registerShareRoutes(router, { pool, publicUrl: config.publicUrl });
 
   registerAdminRoutes(router, {
     pool,

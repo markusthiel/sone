@@ -154,6 +154,18 @@ export function MoveIcon(props: IconProps): ReactElement {
   );
 }
 
+/** Three connected nodes: the conventional share mark. */
+export function ShareIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="19" r="2.5" />
+      <path d="M8.2 10.8 15.8 6.7M8.2 13.2l7.6 4.1" />
+    </svg>
+  );
+}
+
 export function TrashIcon(props: IconProps): ReactElement {
   return (
     <svg {...base(props)}>

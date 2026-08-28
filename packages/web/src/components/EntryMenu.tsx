@@ -24,6 +24,7 @@ import {
   MoveIcon,
   PencilIcon,
   PlusIcon,
+  ShareIcon,
   StarIcon,
   TrashIcon,
 } from './icons.tsx';
@@ -35,6 +36,7 @@ interface EntryMenuProps {
   onDelete: (pageId: string, descendants: number) => void;
   onStartRename: (pageId: string) => void;
   onStartMove: (pageId: string) => void;
+  onStartShare: (pageId: string) => void;
   isFavourite: boolean;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
 }
@@ -50,6 +52,7 @@ export function EntryMenu({
   onDelete,
   onStartRename,
   onStartMove,
+  onStartShare,
   isFavourite,
   onToggleFavourite,
 }: EntryMenuProps): ReactElement {
@@ -125,6 +128,18 @@ export function EntryMenu({
           >
             <StarIcon data-filled={isFavourite ? 'true' : 'false'} />{' '}
             {isFavourite ? 'Remove from favourites' : 'Add to favourites'}
+          </button>
+
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onStartShare(node.id);
+            }}
+          >
+            <ShareIcon /> Share…
           </button>
 
           <button
