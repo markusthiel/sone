@@ -36,6 +36,7 @@ import {
   revokeShareLink,
   type ShareLinkSummary,
 } from '../auth/share.js';
+import { decryptShareToken } from '../auth/shareTokenStore.js';
 import { queryOne } from '../db/pool.js';
 import { sessionTokenFrom } from './auth.js';
 import type { RequestContext, Router } from './router.js';
@@ -44,6 +45,8 @@ export interface ShareDeps {
   pool: Pool;
   /** Used to build the full URL a person copies. */
   publicUrl: string;
+  /** Encrypts stored tokens so a link can be shown again. */
+  secretKey: string;
 }
 
 /** Roles a link may carry. `admin` is absent on purpose. */
@@ -242,12 +245,11 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
         allowAnonymous: body.allowAnonymous ?? true,
         password,
         expiresInDays,
+        secretKey: deps.secretKey,
       });
 
       ctx.send(201, {
         id: created.shareTokenId,
-        // Shown once. Only the hash is stored, so a lost link is regenerated
-        // rather than recovered — the same reasoning as a password.
         token: created.token,
         // The page is in the path as well as in the token.
         //
@@ -277,6 +279,54 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
    * already reading would keep reading until their session expired — which is
    * not what "revoke" means to the person pressing it.
    */
+  /**
+   * Show an existing link again.
+   *
+   * The first design refused this, reasoning from passwords. It is the wrong
+   * analogy: a password is the person's own secret and must be recoverable by
+   * nobody, while a share link is a capability its issuer can mint again at
+   * will. Refusing to show them the one they already issued protected nothing
+   * and cost them the link.
+   *
+   * Requires administration of the page — the same right needed to create one.
+   * Anyone who can reach this could issue an equivalent link in one more
+   * request, so this grants no access that was not already available.
+   */
+  router.get('/api/pages/:pageId/share-links/:linkId/url', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const auth = await requirePageAdmin(deps.pool, ctx, pageId);
+    if (!auth) return;
+
+    const row = await queryOne<{ token_encrypted: Buffer | null }>(
+      deps.pool,
+      `SELECT token_encrypted FROM share_tokens
+        WHERE id = $1 AND scope_page_id = $2 AND revoked_at IS NULL`,
+      [ctx.params['linkId'] ?? '', pageId],
+    );
+    if (!row) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    if (row.token_encrypted === null) {
+      // Created before links could be kept, or under a secret that has since
+      // changed. Named separately from a missing link so the interface can
+      // offer to replace it rather than implying the link is gone.
+      ctx.fail(409, 'token_not_recoverable');
+      return;
+    }
+
+    const token = decryptShareToken(row.token_encrypted, deps.secretKey);
+    if (token === null) {
+      ctx.fail(409, 'token_not_recoverable');
+      return;
+    }
+
+    ctx.send(200, {
+      url: `${deps.publicUrl.replace(/\/$/, '')}/s/${token}/p/${pageId}`,
+    });
+  });
+
   router.delete('/api/pages/:pageId/share-links/:linkId', async (ctx) => {
     const pageId = ctx.params['pageId'] ?? '';
     const auth = await requirePageAdmin(deps.pool, ctx, pageId);

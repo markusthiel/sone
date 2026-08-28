@@ -43,6 +43,32 @@ export function ShareDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  /** Which existing link was copied last, for the button's own feedback. */
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [unrecoverable, setUnrecoverable] = useState(false);
+
+  /**
+   * Copy an existing link.
+   *
+   * The URL is fetched rather than held: the list of links is loaded for
+   * everyone who opens this dialog, and shipping every token in that response
+   * would put them in memory, in logs and in any error report for no reason.
+   * Asked for only when somebody actually wants one.
+   */
+  const copyExisting = async (linkId: string): Promise<void> => {
+    setUnrecoverable(false);
+    try {
+      const { url } = await api.shareLinkUrl(pageId, linkId);
+      await navigator.clipboard.writeText(url);
+      setCopiedId(linkId);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'token_not_recoverable') {
+        setUnrecoverable(true);
+        return;
+      }
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
 
   const [role, setRole] = useState('viewer');
   const [includeSubtree, setIncludeSubtree] = useState(true);
@@ -127,7 +153,7 @@ export function ShareDialog({
         {created && (
           <div className="share-created">
             <p className="share-created-label">
-              Copy this now — it is shown once and cannot be shown again.
+              Your new link. You can copy it again below at any time.
             </p>
             <div className="share-created-row">
               <input readOnly value={created.url} onFocus={(e) => e.target.select()} />
@@ -242,6 +268,13 @@ export function ShareDialog({
               <div className="admin-row-actions">
                 <button
                   type="button"
+                  className="btn"
+                  onClick={() => void copyExisting(link.id)}
+                >
+                  {copiedId === link.id ? 'Copied' : 'Copy link'}
+                </button>
+                <button
+                  type="button"
                   className="btn destructive"
                   onClick={() => void revoke(link.id)}
                 >
@@ -251,11 +284,19 @@ export function ShareDialog({
             </div>
           ))}
 
+          {unrecoverable && (
+            <p className="muted settings-note">
+              That link was created before links could be shown again, so it
+              cannot be copied. Revoke it and create a new one.
+            </p>
+          )}
+
           <p className="muted settings-note">
             Revoking takes effect at once, including for anyone reading through
-            the link at that moment. Links cannot be shown again after they are
-            created — only the hash is kept, so a lost link is replaced rather
-            than recovered.
+            the link at that moment. A link can be copied again by anyone who
+            administers this page — which is the same right needed to create one,
+            so nothing new is exposed. It is stored encrypted, and the key is not
+            in the database.
           </p>
         </section>
 

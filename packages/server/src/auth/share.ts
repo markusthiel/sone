@@ -12,8 +12,16 @@ import type { Pool, PoolClient } from 'pg';
 
 import { queryOne, queryRows } from '../db/pool.js';
 import { AuthError, generateToken, hashPassword, hashToken } from './password.js';
+import { encryptShareToken } from './shareTokenStore.js';
 
 export interface CreateShareLinkInput {
+  /**
+   * Used to encrypt the token so the link can be shown again.
+   *
+   * Absent means it cannot be — the record then holds only the hash, exactly
+   * as every link did before this existed.
+   */
+  secretKey?: string;
   pageId: string;
   createdBy: string;
   role?: Role;
@@ -58,8 +66,8 @@ export async function createShareLink(
     db,
     `INSERT INTO share_tokens
        (workspace_id, scope_page_id, include_subtree, role, token_hash,
-        password_hash, allow_anonymous, expires_at, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+        password_hash, allow_anonymous, expires_at, created_by, token_encrypted)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
     [
       page.workspace_id,
       input.pageId,
@@ -72,6 +80,13 @@ export async function createShareLink(
       input.allowAnonymous ?? true,
       expiresAt,
       input.createdBy,
+      // Kept so the link can be shown again. Encrypted under a key derived
+      // from SONE_SECRET_KEY, which is not in the database — see
+      // shareTokenStore.ts for why this is not a password and not plaintext.
+      //
+      // Optional: without a secret the link simply cannot be shown again,
+      // which is the behaviour every link had until now.
+      input.secretKey ? encryptShareToken(token, input.secretKey) : null,
     ],
   );
   if (!row) throw new Error('failed to create share link');
