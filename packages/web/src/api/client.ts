@@ -165,6 +165,7 @@ export interface AdminWorkspace {
 }
 
 export interface MaintenanceReport {
+  storage: { writable: boolean; problem: string | null };
   counts: {
     orphanedPages: number;
     staleSearchRows: number;

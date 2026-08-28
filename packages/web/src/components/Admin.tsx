@@ -459,7 +459,27 @@ export function MaintenancePanel(): ReactElement {
         fail, typically.
       </p>
 
-      {healthy && <p className="muted">Nothing to report.</p>}
+      {/* First, and loud. Everything else in this report may be transient; an
+          unwritable upload directory is certainly broken, and every image
+          upload fails until somebody fixes it on the host. */}
+      {report.storage.writable === false && (
+        <div className="admin-alert">
+          <p className="admin-alert-title">Uploads cannot be written to disk</p>
+          <p className="admin-alert-detail">{report.storage.problem}</p>
+          <p className="admin-alert-detail muted">
+            The container runs as uid 10001 and cannot change this itself. On the
+            host:{' '}
+            <code>
+              docker run --rm -v sone_files:/v alpine chown -R 10001:10001 /v
+            </code>
+            , then press Run maintenance now to confirm.
+          </p>
+        </div>
+      )}
+
+      {healthy && report.storage.writable && (
+        <p className="muted">Nothing to report.</p>
+      )}
 
       <dl className="settings-list">
         <Anomaly

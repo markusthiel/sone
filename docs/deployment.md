@@ -308,6 +308,32 @@ edit:
 UPDATE users SET is_instance_admin = true WHERE email = 'you@example.org';
 ```
 
+## Uploads fail with "could not write the file to disk"
+
+The container runs as uid 10001 and the upload directory is not writable by it.
+The usual cause is a Docker volume that was created **before** this directory
+existed in the image: Docker copies the image's contents and ownership only into
+a *fresh* named volume, so a volume from an earlier version stays owned by root.
+
+The container cannot fix this itself — it never runs as root, deliberately. On
+the host:
+
+```bash
+docker run --rm -v sone_files:/v alpine chown -R 10001:10001 /v
+```
+
+Substitute the actual volume name if it differs (`docker volume ls`). No restart
+is needed: Settings → Maintenance re-checks on every visit, and the message
+disappears once the directory is writable.
+
+The same applies to a bind mount, where the host directory's owner has to be
+10001 — or the mount has to be given permissive modes, which is worse.
+
+A broken upload directory is reported in three places: the container log at
+startup, Settings → Maintenance, and the block on the page where the upload
+failed. It used to be reported only as a generic error, which pointed at the
+wrong component.
+
 ## Files
 
 Uploads land under `SONE_STORAGE_PATH` (`/var/lib/sone/files` in the image), and

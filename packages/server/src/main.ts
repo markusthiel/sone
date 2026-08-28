@@ -149,6 +149,32 @@ async function main(): Promise<void> {
     documentSchemaVersion: SCHEMA_VERSION,
     syncProtocolVersion: PROTOCOL_VERSION,
   });
+  // Constructed before every route that reads it, for the reason the
+  // Maintenance object is: a closure that captures a const declared later works
+  // only until somebody changes the ordering, and this project has already lost
+  // an afternoon to exactly that.
+  const fileStore = new LocalFileStore(
+    config.storage.backend === 'local' ? config.storage.path : '/var/lib/sone/files',
+  );
+
+  // Checked once, loudly, at startup.
+  //
+  // Not fatal: an instance with an unwritable upload directory is still a
+  // working notes app for everything except images, and refusing to start would
+  // turn a broken volume mount into total downtime. But it must be said now
+  // rather than discovered as a 500 on somebody's first photo — and it is also
+  // reported in Settings → Maintenance, because a container log is not where
+  // anybody looks when an upload fails.
+  const storageProblem = await fileStore.checkWritable();
+  if (storageProblem) {
+    console.error(
+      `[storage] ${storageProblem}\n` +
+        '[storage] Image uploads will fail until this is fixed. The usual cause ' +
+        'is a volume created before this directory existed in the image, so it ' +
+        'is owned by root rather than by uid 10001. See docs/deployment.md.',
+    );
+  }
+
   // Settings resolve from the database over the environment, so the few values
   // an administrator changes take effect without a redeploy. Created before the
   // routes that read it.
@@ -188,30 +214,11 @@ async function main(): Promise<void> {
     settings,
     version: SONE_VERSION,
     commit: SONE_COMMIT,
+    checkStorage: () => fileStore.checkWritable(),
     // The same job the timer runs, so the button and the schedule cannot drift.
     runMaintenance: () =>
       maintenance.runOnce() as unknown as Promise<Record<string, unknown>>,
   });
-  const fileStore = new LocalFileStore(
-    config.storage.backend === 'local' ? config.storage.path : '/var/lib/sone/files',
-  );
-
-  // Checked once, loudly, at startup.
-  //
-  // Not fatal: an instance with an unwritable upload directory is still a
-  // working notes app for everything except images, and refusing to start would
-  // turn a broken volume mount into total downtime. But it must be said now
-  // rather than discovered as a 500 on somebody's first photo.
-  const storageProblem = await fileStore.checkWritable();
-  if (storageProblem) {
-    console.error(
-      `[storage] ${storageProblem}\n` +
-        '[storage] Image uploads will fail until this is fixed. The usual cause ' +
-        'is a volume mounted over /var/lib/sone/files with different ownership ' +
-        'than the sone user in the container.',
-    );
-  }
-
   registerFileRoutes(router, {
     pool,
     // Only the local backend exists so far. The interface is in place so an S3

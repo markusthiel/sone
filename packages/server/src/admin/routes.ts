@@ -29,6 +29,15 @@ import type { RequestContext, Router } from '../http/router.js';
 export interface AdminDeps {
   pool: Pool;
   /**
+   * Re-checks whether uploads can be written.
+   *
+   * Probed on request rather than reported from startup, because the fix is a
+   * change on the host — an administrator who has just corrected a volume's
+   * ownership should be able to confirm it here instead of restarting the
+   * container to find out.
+   */
+  checkStorage?: () => Promise<string | null>;
+  /**
    * Runs a maintenance pass on demand.
    *
    * Injected rather than constructed here, so the button triggers the *same*
@@ -356,7 +365,17 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         WHERE status = 'failed' ORDER BY materialized_at DESC LIMIT 20`,
     );
 
+    // Storage first, because it is the only thing in this report that is
+    // certainly broken rather than possibly transient — and it was previously
+    // visible only in the container log, which is not where anybody looks when
+    // an upload fails.
+    const storageProblem = deps.checkStorage ? await deps.checkStorage() : null;
+
     ctx.send(200, {
+      storage: {
+        writable: storageProblem === null,
+        problem: storageProblem,
+      },
       counts: {
         orphanedPages: Number(counts?.orphaned ?? 0),
         staleSearchRows: Number(counts?.stale_search ?? 0),
