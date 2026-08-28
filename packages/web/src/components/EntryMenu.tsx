@@ -19,6 +19,8 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import type { PageNode } from '../api/client.ts';
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   FolderPlusIcon,
   MoreIcon,
   MoveIcon,
@@ -37,6 +39,10 @@ interface EntryMenuProps {
   onStartRename: (pageId: string) => void;
   onStartMove: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
+  onReorder: (pageId: string, direction: 'up' | 'down') => void;
+  /** False at the ends of the list, so the entries are visibly unavailable. */
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   isFavourite: boolean;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
 }
@@ -53,6 +59,9 @@ export function EntryMenu({
   onStartRename,
   onStartMove,
   onStartShare,
+  onReorder,
+  canMoveUp,
+  canMoveDown,
   isFavourite,
   onToggleFavourite,
 }: EntryMenuProps): ReactElement {
@@ -128,6 +137,41 @@ export function EntryMenu({
           >
             <StarIcon data-filled={isFavourite ? 'true' : 'false'} />{' '}
             {isFavourite ? 'Remove from favourites' : 'Add to favourites'}
+          </button>
+
+          {/* Reordering without dragging.
+           *
+           * Dragging is a pointer-device feature — iOS never fires those
+           * events — so on a tablet these two entries are the only way to
+           * reorder at all. Shipping the drag without them left the most
+           * common device with no way to do it, which is not a degradation but
+           * a missing feature.
+           *
+           * They also work with a keyboard, which dragging does not. */}
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitem"
+            disabled={!canMoveUp}
+            onClick={() => {
+              setOpen(false);
+              onReorder(node.id, 'up');
+            }}
+          >
+            <ArrowUpIcon /> Move up
+          </button>
+
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitem"
+            disabled={!canMoveDown}
+            onClick={() => {
+              setOpen(false);
+              onReorder(node.id, 'down');
+            }}
+          >
+            <ArrowDownIcon /> Move down
           </button>
 
           <button

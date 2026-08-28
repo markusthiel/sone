@@ -96,3 +96,44 @@ export function siblingsOf(tree: PageNode[], parentId: string | null): PageNode[
   if (parentId === null) return tree;
   return findNode(tree, parentId)?.children ?? [];
 }
+
+/**
+ * Where an entry lands when it is asked to move one place up or down.
+ *
+ * Returns the sibling it should follow, `null` for first, or `undefined` when
+ * it cannot move — already at that end.
+ *
+ * Expressed in terms of "after which sibling" because that is what the API
+ * takes, and because it is the form that survives somebody else reordering the
+ * list at the same moment: an index would be stale, a named neighbour is either
+ * still there or the server refuses.
+ */
+export function stepTarget(
+  tree: PageNode[],
+  pageId: string,
+  direction: 'up' | 'down',
+): string | null | undefined {
+  const node = findNode(tree, pageId);
+  if (!node) return undefined;
+
+  const siblings = siblingsOf(tree, node.parentPageId);
+  const at = siblings.findIndex((sibling) => sibling.id === pageId);
+  if (at === -1) return undefined;
+
+  if (direction === 'up') {
+    if (at === 0) return undefined;
+    // One place up means "after whatever precedes the entry above me", which is
+    // null when that entry is the first.
+    return at === 1 ? null : (siblings[at - 2]?.id ?? null);
+  }
+
+  if (at >= siblings.length - 1) return undefined;
+  return siblings[at + 1]!.id;
+}
+
+/** Can this entry move that way at all? */
+export const canStep = (
+  tree: PageNode[],
+  pageId: string,
+  direction: 'up' | 'down',
+): boolean => stepTarget(tree, pageId, direction) !== undefined;

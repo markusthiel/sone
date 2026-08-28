@@ -1425,7 +1425,20 @@ select {
   margin-inline-start: 18px;
 }
 
+/* No text selection in the tree.
+ *
+ * A row is `draggable`, and on a touch device — where HTML5 drag events are
+ * never fired — a long press on one instead began selecting the label. So the
+ * gesture that looks like it should move an entry produced a text selection in
+ * the sidebar, which is the report this fixes.
+ *
+ * The titles are not content anybody copies from here; the page itself is where
+ * text is selected. */
 .tree-row {
+  user-select: none;
+  -webkit-user-select: none;
+  /* Long-press on iOS otherwise offers a callout menu over the row. */
+  -webkit-touch-callout: none;
   border-radius: 6px;
   /* Roomier than a dense list. Rows that touch each other read as a block of
      text rather than as separate things. */

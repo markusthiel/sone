@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import type { FavouriteEntry, PageNode } from '../api/client.ts';
-import { canMoveInto, findNode, siblingsOf } from './moveRules.ts';
+import { canMoveInto, canStep, findNode, siblingsOf, stepTarget } from './moveRules.ts';
 import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
@@ -494,6 +494,13 @@ function TreeLevel({
                     onStartRename={onStartRename}
                     onStartMove={onStartMove}
                     onStartShare={onStartShare}
+                    onReorder={(id, direction) => {
+                      const target = stepTarget(tree, id, direction);
+                      if (target === undefined) return;
+                      onMove(id, node.parentPageId, target);
+                    }}
+                    canMoveUp={canStep(tree, node.id, 'up')}
+                    canMoveDown={canStep(tree, node.id, 'down')}
                     isFavourite={favouriteIds.has(node.id)}
                     onToggleFavourite={onToggleFavourite}
                   />
