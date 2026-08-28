@@ -13,6 +13,16 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Tags have colours.** Every tag gets one derived from its own name, so the same
+tag is the same colour for everybody with nothing stored anywhere. A workspace
+can choose a different one.
+
+The overrides live in a table that is **decorative on purpose**: losing it loses
+chosen colours and never loses a tag, because every tag still has its derived
+colour and the tags themselves live in the page documents.
+[ADR-0020](docs/adr/0020-tags.md) explains why that distinction had to be
+written down before the table was.
+
 **Fixed: deleting anything from a document did not reach the projection.** A
 removed column stayed in every table, because the check for "did this change
 anything" compared Yjs state vectors — and a deletion does not advance one. This

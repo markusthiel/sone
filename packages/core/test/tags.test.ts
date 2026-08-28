@@ -15,6 +15,8 @@ import * as Y from 'yjs';
 import {
   MAX_TAGS_PER_PAGE,
   MAX_TAG_LENGTH,
+  derivedTagColor,
+  isTagColor,
   isValidTag,
   normaliseTags,
   readTags,
@@ -125,4 +127,43 @@ test('two clients adding different tags both survive a merge', () => {
   );
   first.destroy();
   second.destroy();
+});
+
+// --- colours ----------------------------------------------------------------
+
+test('a tag colour is derived from its name, so it needs nothing stored', () => {
+  // The whole reason tags can have colours without the registry ADR-0020
+  // rejected: a function of the name cannot disagree with itself and cannot be
+  // lost.
+  assert.equal(derivedTagColor('urgent'), derivedTagColor('urgent'));
+  assert.ok(isTagColor(derivedTagColor('urgent')));
+});
+
+test('the same tag is the same colour however it was typed', () => {
+  // Normalisation decides what one tag is, and the colour follows it — or
+  // "Urgent" and "urgent" would be one tag in two colours.
+  assert.equal(derivedTagColor('Urgent'), derivedTagColor('urgent'));
+  assert.equal(derivedTagColor('  URGENT  '), derivedTagColor('urgent'));
+});
+
+test('grey is never handed out by chance', () => {
+  // It is reserved for a deliberate choice, so an undecided tag never looks
+  // like one somebody muted on purpose.
+  for (let i = 0; i < 500; i++) {
+    assert.notEqual(derivedTagColor(`tag-${i}`), 'grey');
+  }
+});
+
+test('names spread across the palette rather than clumping', () => {
+  // A hash that returned one colour would be valid and useless.
+  const seen = new Set<string>();
+  for (let i = 0; i < 200; i++) seen.add(derivedTagColor(`tag-${i}`));
+  assert.ok(seen.size >= 5, `only ${seen.size} colours used`);
+});
+
+test('a chosen colour is checked against the palette', () => {
+  assert.equal(isTagColor('blue'), true);
+  assert.equal(isTagColor('#ff0000'), false, 'values, not names');
+  assert.equal(isTagColor('taupe'), false);
+  assert.equal(isTagColor(undefined), false);
 });

@@ -18,6 +18,9 @@ import {
   SCHEMA_VERSION,
   generateKeyBetween,
   type EntryKind,
+  derivedTagColor,
+  isTagColor,
+  tagKey,
 } from '@sone/core';
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
@@ -647,7 +650,100 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       }
     }
 
-    ctx.send(200, { tags: [...byKey.values()] });
+    // Chosen colours, if any. Decorative (ADR-0020): a tag with no row here is
+    // not missing anything, it simply keeps the colour derived from its name.
+    const chosen = await queryRows<{ tag_key: string; color: string }>(
+      deps.pool,
+      `SELECT tag_key, color FROM workspace_tag_colors WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+    const overrides = new Map(chosen.map((row) => [row.tag_key, row.color]));
+
+    ctx.send(200, {
+      tags: [...byKey.values()].map((tag) => ({
+        ...tag,
+        // Resolved here rather than in each client, so a tag is the same colour
+        // in the sidebar, the properties panel and anywhere else it appears.
+        color: overrides.get(tag.key) ?? derivedTagColor(tag.key),
+        // Whether the colour was chosen or derived, so the picker can show
+        // "default" as a state rather than guessing from the value.
+        colorChosen: overrides.has(tag.key),
+      })),
+    });
+  });
+
+  /**
+   * Choose a colour for a tag, or go back to the derived one.
+   *
+   * Workspace-wide, because a tag is workspace-wide: the same name on two pages
+   * is one tag, and letting it be two colours would say otherwise.
+   *
+   * Any member who can edit may set one. It is decoration, and a workspace where
+   * only administrators may colour a tag would simply have uncoloured tags.
+   */
+  router.put('/api/workspaces/:workspaceId/tags/:tagKey/color', async (ctx) => {
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    if (!sessionTokenFrom(ctx)) {
+      ctx.fail(401, 'not_authenticated');
+      return;
+    }
+    const claims = await claimsOrNull(deps.pool, ctx, workspaceId);
+    if (!claims) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    // 'guest' is the only workspace role that cannot; the others are owner,
+    // admin and member. My first version also excluded 'viewer', which is a
+    // *page* role and not a workspace one — the compiler pointed out that the
+    // comparison could never be true.
+    if (claims.workspaceRole === null || claims.workspaceRole === 'guest') {
+      ctx.fail(403, 'not_authorized');
+      return;
+    }
+
+    let body: { color?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    // Normalised, so "Urgent" and "urgent" colour one tag rather than two.
+    const key = tagKey(ctx.params['tagKey'] ?? '');
+    if (key === '') {
+      ctx.fail(422, 'invalid_tag');
+      return;
+    }
+
+    const actorId = claims.principal.kind === 'anonymous' ? null : claims.principal.userId;
+
+    if (body.color === null) {
+      // Back to the derived colour. Deleting the row rather than storing the
+      // derived value: stored, it would stop following the name if the
+      // derivation ever changed, and it would look like somebody chose it.
+      await deps.pool.query(
+        `DELETE FROM workspace_tag_colors WHERE workspace_id = $1 AND tag_key = $2`,
+        [workspaceId, key],
+      );
+      ctx.send(200, { key, color: derivedTagColor(key), colorChosen: false });
+      return;
+    }
+
+    if (!isTagColor(body.color)) {
+      // A palette name, not a colour value.
+      ctx.fail(422, 'unsupported_color');
+      return;
+    }
+
+    await deps.pool.query(
+      `INSERT INTO workspace_tag_colors (workspace_id, tag_key, color, set_by)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (workspace_id, tag_key) DO UPDATE
+         SET color = EXCLUDED.color, set_by = EXCLUDED.set_by, set_at = now()`,
+      [workspaceId, key, body.color, actorId],
+    );
+    ctx.send(200, { key, color: body.color, colorChosen: true });
   });
 
   /**
