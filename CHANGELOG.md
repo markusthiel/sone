@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: every caret still said "Someone".** Updating presence merged the new
+fields and left the editor's copy of the name behind, so somebody who gave their
+name after connecting showed correctly in the avatars and as "Someone" beside
+their own caret. The copy is now recomputed wherever presence changes.
+
+**A share visitor is asked for their name once per tab**, not on every reload.
+Remembered per link, for the browser session only — a display name is not a
+credential, and should not outlive the session on a shared machine.
+
 **Fixed: uploading through a share link failed.** Resolving the token is what
 sets the share cookie, and the client only did it when the link's path carried no
 page — so the newer, self-describing links never got a cookie and every upload was

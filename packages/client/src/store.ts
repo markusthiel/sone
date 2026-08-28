@@ -74,11 +74,17 @@ export type DocumentStatus =
  * not a reason to rename a model. The copy lives here, at the single point where
  * presence is published, so the two cannot drift.
  */
-function withEditorUser(presence: Partial<PresenceState>): Record<string, unknown> {
+export function withEditorUser(presence: Partial<PresenceState>): Record<string, unknown> {
   return {
     ...presence,
     user: {
-      name: presence.displayName ?? 'Someone',
+      // Empty counts as missing. `??` alone let an empty display name through —
+      // and an account can have one, since a name is not required at setup —
+      // which would draw a coloured label with nothing in it.
+      name:
+        typeof presence.displayName === 'string' && presence.displayName !== ''
+          ? presence.displayName
+          : 'Someone',
       // y-prosemirror replaces anything that is not a 6-digit hex colour with
       // its own orange, which is what made every caret the same colour.
       color: /^#[0-9a-f]{6}$/i.test(presence.color ?? '') ? presence.color : '#8e8e8e',
@@ -471,10 +477,20 @@ export class DocumentStore {
           entry.awareness.setLocalState(null);
           return;
         }
-        entry.awareness.setLocalState({
-          ...(entry.awareness.getLocalState() ?? {}),
-          ...state,
-        });
+        // Through withEditorUser again, not a plain merge.
+        //
+        // A plain merge updated `displayName` and left the `user` copy at
+        // whatever it was — so somebody who supplied their name after
+        // connecting showed the right initial in the avatars, which read
+        // `displayName`, and "Someone" beside their caret, which reads
+        // `user.name`. Two fields describing one thing, updated in one place
+        // only.
+        entry.awareness.setLocalState(
+          withEditorUser({
+            ...(entry.awareness.getLocalState() ?? {}),
+            ...state,
+          } as Partial<PresenceState>),
+        );
       },
       subscribe(listener) {
         entry.listeners.add(listener);
