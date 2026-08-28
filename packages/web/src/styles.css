@@ -2252,14 +2252,21 @@ select {
 
 /* --- dragging in the tree ---
  *
- * Pointer devices only: iOS Safari does not fire HTML5 drag events, so on a
- * tablet this is simply absent and "Move to…" remains the way. That is the
- * right outcome rather than a gap — a pointer-event implementation would have
- * to tell a drag from a scroll by threshold and timing, competing with the
- * gesture the sidebar needs for scrolling.
+ * Works with a finger as well as a mouse. A press that stays still for a moment
+ * becomes a drag; one that moves first is a scroll and the browser handles it
+ * (see hooks/useTreeDrag.ts).
+ *
+ * No `touch-action` here on purpose. It is read when a gesture begins, and at
+ * that point neither the browser nor this code knows which gesture it is —
+ * setting `none` would kill scrolling in the sidebar entirely. Scrolling is
+ * suppressed for the duration of a drag instead, by a listener added when the
+ * drag actually starts.
  */
 .tree-row[data-dragging='true'] {
-  opacity: 0.4;
+  opacity: 0.5;
+  /* Lifted, so it is clear which row is travelling. */
+  background: var(--sone-bg-hover);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
 }
 
 /* Inside this folder, drawn as a filled row. The line above and below means

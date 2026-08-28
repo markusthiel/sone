@@ -375,3 +375,32 @@ test('a step names a neighbour rather than a position', () => {
   assert.equal(typeof target, 'string');
   assert.ok(findNode(tree, target as string), 'the target is a real entry');
 });
+
+// --- what a drop means, by where it lands ----------------------------------
+
+test('a drop in the middle of a folder goes inside it', () => {
+  // The middle band is what makes "into" reachable at all. Without it every
+  // drop near a folder would reorder instead, and nesting by drag would be
+  // impossible.
+  const tree = buildPageTree([
+    page('outer', null, 'folder'),
+    page('doc', null, 'page'),
+  ]);
+  const doc = tree.find((node) => node.id === 'doc')!;
+  assert.equal(canMoveInto(tree, doc, 'outer'), true);
+});
+
+test('a drop beside a row is judged against that row parent', () => {
+  // Dropping next to a page inside a folder is a move into that folder, so the
+  // subtree rule has to be checked against the parent — otherwise a folder
+  // could be dropped beside its own descendant and detach the branch.
+  const tree = buildPageTree([
+    page('outer', null, 'folder'),
+    page('inner', 'outer', 'folder'),
+    page('leaf', 'inner', 'page'),
+  ]);
+  const outer = tree.find((node) => node.id === 'outer')!;
+  const leaf = siblingsOf(tree, 'inner')[0]!;
+
+  assert.equal(canMoveInto(tree, outer, leaf.parentPageId), false);
+});
