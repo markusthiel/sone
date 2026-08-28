@@ -176,3 +176,24 @@ In rough order of likelihood:
 3. Actions are disabled for the repository. Settings → Actions, per repository —
    it is not on by default everywhere.
 4. The runner cannot reach the instance URL from inside its container.
+
+
+## The image job gets slower over time
+
+It should take about a minute. If it is taking several, the runner is probably
+full rather than the build being slow.
+
+The image job loads a complete image into the runner's Docker daemon on every
+run, so it can be inspected before it is published. Those images are removed
+again in a cleanup step that runs even when the job fails — but a runner that
+predates that step, or one shared with other repositories, can still be carrying
+a lot:
+
+```sh
+docker system df          # what is actually taking the space
+docker image prune -a -f  # images nothing references
+docker buildx prune -f    # build cache
+```
+
+The job now prints `df -h /` and `docker system df` before building and after
+cleaning up, so the log answers this without anyone logging in.
