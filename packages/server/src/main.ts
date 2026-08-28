@@ -173,11 +173,24 @@ async function main(): Promise<void> {
   registerFavouriteRoutes(router, { pool });
   registerShareRoutes(router, { pool, publicUrl: config.publicUrl });
 
+  // Constructed before the routes that reference it, not after.
+  //
+  // The admin route captures `maintenance` in a closure that only runs when a
+  // request arrives, so declaring it later would work — until it did not. This
+  // project has already lost an afternoon to a const referenced before its
+  // assignment (the editor view in dispatchTransaction), and "it happens to be
+  // assigned by the time anyone calls it" is the same argument that was wrong
+  // then.
+  const maintenance = new Maintenance({ pool, sync });
+
   registerAdminRoutes(router, {
     pool,
     settings,
     version: SONE_VERSION,
     commit: SONE_COMMIT,
+    // The same job the timer runs, so the button and the schedule cannot drift.
+    runMaintenance: () =>
+      maintenance.runOnce() as unknown as Promise<Record<string, unknown>>,
   });
   registerFileRoutes(router, {
     pool,
@@ -217,7 +230,8 @@ async function main(): Promise<void> {
     })();
   });
 
-  const maintenance = new Maintenance({ pool, sync });
+  // Started only once the server is otherwise wired: a pass that runs while
+  // routes are still being registered would compete with startup for the pool.
   maintenance.start();
 
   await new Promise<void>((resolve) => {

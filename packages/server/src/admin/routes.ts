@@ -22,11 +22,21 @@ import type { Pool } from 'pg';
 
 import { queryOne, queryRows } from '../db/pool.js';
 import { requireSession } from '../http/auth.js';
+import { rematerialize } from '../materialize/rematerialize.js';
 import { SETTING_KEYS, SettingError, type SettingKey, type SettingsStore } from './settings.js';
 import type { RequestContext, Router } from '../http/router.js';
 
 export interface AdminDeps {
   pool: Pool;
+  /**
+   * Runs a maintenance pass on demand.
+   *
+   * Injected rather than constructed here, so the button triggers the *same*
+   * job the timer runs. A second implementation would drift, and the difference
+   * would only show up when somebody pressed the button expecting the scheduled
+   * behaviour.
+   */
+  runMaintenance?: () => Promise<Record<string, unknown>>;
   settings: SettingsStore;
   /** Reported so an administrator can check what is deployed. */
   version: string;
@@ -359,6 +369,76 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         error: row.last_error,
       })),
     });
+  });
+
+  /**
+   * Run maintenance now.
+   *
+   * The panel reported problems it could not act on, which is a screen that
+   * makes somebody feel worse without helping. This is the same pass the timer
+   * runs every few minutes; pressing it is for when waiting is not acceptable —
+   * after fixing whatever caused a projection to fail, typically.
+   */
+  router.post('/api/admin/maintenance/run', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    if (!deps.runMaintenance) {
+      ctx.fail(503, 'maintenance_not_available');
+      return;
+    }
+
+    const report = await deps.runMaintenance();
+    ctx.send(200, { report });
+  });
+
+  /**
+   * Retry one page's projection, ignoring its attempt count.
+   *
+   * The automatic retry gives up after a few attempts, on the reasoning that a
+   * document which cannot be read is a bug rather than a hiccup. This is the way
+   * back: having fixed the cause, an administrator says try again, and the
+   * attempt counter is cleared so the automatic retries resume too.
+   */
+  router.post('/api/admin/maintenance/retry/:pageId', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    const pageId = ctx.params['pageId'] ?? '';
+    const page = await queryOne<{ workspace_id: string }>(
+      deps.pool,
+      `SELECT workspace_id FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    if (!page) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    await deps.pool.query(
+      `UPDATE materialization_state SET attempts = 0 WHERE page_id = $1`,
+      [pageId],
+    );
+
+    try {
+      await rematerialize(deps.pool, pageId, page.workspace_id);
+    } catch (err) {
+      // Reported rather than thrown: the administrator asked whether it works
+      // now, and "no, and here is why" is the answer they need.
+      ctx.send(200, {
+        pageId,
+        recovered: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+
+    const after = await queryOne<{ status: string }>(
+      deps.pool,
+      `SELECT status FROM materialization_state WHERE page_id = $1`,
+      [pageId],
+    );
+    ctx.send(200, { pageId, recovered: after?.status === 'ok' });
   });
 }
 
