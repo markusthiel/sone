@@ -1001,6 +1001,121 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.deepEqual(rows.rows.map((r) => r.id), [first, moving]);
   });
 
+  const moveAfter = (
+    session: Session,
+    pageId: string,
+    parentPageId: string | null,
+    afterPageId: string | null,
+  ): Promise<Response> =>
+    fetch(
+      `${base}/api/pages/${pageId}`,
+      auth(session, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ parentPageId, afterPageId }),
+      }),
+    );
+
+  const order = async (session: Session, parentId: string): Promise<string[]> => {
+    const rows = await db.query<{ id: string }>(
+      `SELECT id FROM pages WHERE parent_page_id = $1 ORDER BY idx, id`,
+      [parentId],
+    );
+    return rows.rows.map((row) => row.id);
+  };
+
+  test('an entry can be placed between two siblings', async () => {
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const first = await createPage(session, 'First', folder);
+    const second = await createPage(session, 'Second', folder);
+    const third = await createPage(session, 'Third', folder);
+
+    await expectStatus(await moveAfter(session, third, folder, first), 200);
+    assert.deepEqual(await order(session, folder), [first, third, second]);
+  });
+
+  test('an entry can be placed first', async () => {
+    // null means first, and is deliberately different from omitting the field,
+    // which means last.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const first = await createPage(session, 'First', folder);
+    const second = await createPage(session, 'Second', folder);
+
+    await expectStatus(await moveAfter(session, second, folder, null), 200);
+    assert.deepEqual(await order(session, folder), [second, first]);
+  });
+
+  test('a move without a position still lands last', async () => {
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const other = await createFolder(session, 'Other');
+    const first = await createPage(session, 'First', folder);
+    const second = await createPage(session, 'Second', folder);
+    const arriving = await createPage(session, 'Arriving', other);
+
+    await expectStatus(await move(session, arriving, folder), 200);
+    assert.deepEqual(await order(session, folder), [first, second, arriving]);
+  });
+
+  test('reordering only rewrites the entry that moved', async () => {
+    // Fractional indices, so a reorder is one row (ADR-0015). Renumbering every
+    // sibling would make two people reordering the same folder collide over
+    // rows neither of them touched.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const first = await createPage(session, 'First', folder);
+    const second = await createPage(session, 'Second', folder);
+    const third = await createPage(session, 'Third', folder);
+
+    const before = await db.query<{ id: string; idx: string }>(
+      `SELECT id, idx FROM pages WHERE parent_page_id = $1`,
+      [folder],
+    );
+    await moveAfter(session, third, folder, first);
+    const after = await db.query<{ id: string; idx: string }>(
+      `SELECT id, idx FROM pages WHERE parent_page_id = $1`,
+      [folder],
+    );
+
+    const changed = after.rows.filter(
+      (row) => before.rows.find((other) => other.id === row.id)?.idx !== row.idx,
+    );
+    assert.deepEqual(changed.map((row) => row.id), [third]);
+    assert.ok(second);
+  });
+
+  test('a sibling that is not there is refused, not guessed at', async () => {
+    // A stale tree in the client, or a concurrent move. "Put it after that one"
+    // has no meaning if that one is not here, and placing it somewhere
+    // arbitrary would look like the drop landed wrong.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const other = await createFolder(session, 'Other');
+    const page = await createPage(session, 'Page', folder);
+    const elsewhere = await createPage(session, 'Elsewhere', other);
+
+    const res = await moveAfter(session, page, folder, elsewhere);
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'sibling_not_found' });
+  });
+
+  test('reordering survives a rebuild', async () => {
+    // The index lives in the document, so a reorder that only touched the
+    // projection would be undone by the next materialisation.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const first = await createPage(session, 'First', folder);
+    const second = await createPage(session, 'Second', folder);
+
+    await moveAfter(session, second, folder, null);
+    const { rebuild } = await import('../src/materialize/rebuild.js');
+    await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
+
+    assert.deepEqual(await order(session, folder), [second, first]);
+  });
+
   test('a destination in another workspace is refused', async () => {
     // Moving across workspaces would carry a page out of the permissions
     // granted on it.

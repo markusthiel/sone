@@ -43,7 +43,11 @@ export function usePages(workspaceId: string | null): {
   }) => Promise<string | null>;
   archivePage: (pageId: string) => Promise<void>;
   renameEntry: (pageId: string, title: string) => Promise<void>;
-  moveEntry: (pageId: string, parentPageId: string | null) => Promise<void>;
+  moveEntry: (
+    pageId: string,
+    parentPageId: string | null,
+    afterPageId?: string | null,
+  ) => Promise<void>;
 } {
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,9 +142,9 @@ export function usePages(workspaceId: string | null): {
   );
 
   const moveEntry = useCallback(
-    async (pageId: string, parentPageId: string | null) => {
+    async (pageId: string, parentPageId: string | null, afterPageId?: string | null) => {
       try {
-        await api.moveEntry(pageId, parentPageId);
+        await api.moveEntry(pageId, parentPageId, afterPageId);
         await reload();
       } catch (err) {
         setError(err instanceof ApiError ? err.code : 'network_error');

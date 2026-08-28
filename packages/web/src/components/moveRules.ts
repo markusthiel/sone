@@ -84,3 +84,15 @@ export function isInsideSubtree(
 
   return walk(ancestor.children);
 }
+
+/**
+ * The entries directly inside a folder, in the order the tree shows them.
+ *
+ * Used to work out which sibling a drop between two rows lands after. The tree
+ * is already sorted, so this is a lookup rather than a sort — reordering has to
+ * agree with what is on screen, not with a second opinion about order.
+ */
+export function siblingsOf(tree: PageNode[], parentId: string | null): PageNode[] {
+  if (parentId === null) return tree;
+  return findNode(tree, parentId)?.children ?? [];
+}

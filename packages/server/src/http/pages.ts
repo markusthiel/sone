@@ -110,6 +110,13 @@ interface MoveInput {
   pageId: string;
   entry: { workspaceId: string; ancestorIds: string[] };
   parentPageId: string | null;
+  /**
+   * Place the entry directly after this sibling, or first when null.
+   *
+   * Absent means "last", which is what a move without an opinion about order
+   * should do. Present means the caller dropped it at a specific place.
+   */
+  afterPageId?: string | null | undefined;
   claims: AccessClaims;
   actorId: string | null;
 }
@@ -185,17 +192,36 @@ async function moveEntry(pool: Pool, input: MoveInput): Promise<MoveResult> {
     }
   }
 
-  // Placed last among its new siblings. Sorted by (idx, id), because a
-  // fractional-index midpoint is deterministic and two clients can produce the
-  // same key (ADR-0015).
-  const siblings = await queryRows<{ idx: string }>(
+  // Where among its new siblings.
+  //
+  // Sorted by (idx, id) throughout, because a fractional-index midpoint is
+  // deterministic and two clients can produce the same key (ADR-0015) — so idx
+  // alone is not a total order.
+  const siblings = await queryRows<{ id: string; idx: string }>(
     pool,
-    `SELECT idx FROM pages
+    `SELECT id, idx FROM pages
       WHERE workspace_id = $1 AND parent_page_id IS NOT DISTINCT FROM $2 AND id <> $3
-      ORDER BY idx DESC, id DESC LIMIT 1`,
+      ORDER BY idx, id`,
     [entry.workspaceId, parentPageId, pageId],
   );
-  const idx = generateKeyBetween(siblings[0]?.idx ?? null, null);
+
+  let idx: string;
+  if (input.afterPageId === undefined) {
+    // No opinion about order: last, which is where a newly arrived thing
+    // belongs when nobody said otherwise.
+    idx = generateKeyBetween(siblings[siblings.length - 1]?.idx ?? null, null);
+  } else if (input.afterPageId === null) {
+    idx = generateKeyBetween(null, siblings[0]?.idx ?? null);
+  } else {
+    const at = siblings.findIndex((row) => row.id === input.afterPageId);
+    if (at === -1) {
+      // The sibling named is not in this folder — a stale tree in the client,
+      // or a concurrent move. Refused rather than silently placed somewhere
+      // arbitrary, because "put it after that one" has no meaning otherwise.
+      return { status: 409, code: 'sibling_not_found' };
+    }
+    idx = generateKeyBetween(siblings[at]!.idx, siblings[at + 1]?.idx ?? null);
+  }
 
   // Written to the document, not the row: the parent lives in the CRDT
   // (ADR-0002), so writing the projection would be undone by the next
@@ -481,6 +507,8 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     const body = await readBody<{
       title?: string;
       parentPageId?: string | null;
+      /** Only meaningful alongside parentPageId. */
+      afterPageId?: string | null;
       tags?: string[];
     }>(ctx);
     if (!body) return;
@@ -495,6 +523,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         pageId,
         entry: page,
         parentPageId: body.parentPageId ?? null,
+        // `undefined` and `null` mean different things here — last versus
+        // first — so the key's presence is what is tested, not its value.
+        ...('afterPageId' in body ? { afterPageId: body.afterPageId } : {}),
         claims: claims!,
         actorId,
       });

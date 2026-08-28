@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import { buildPageTree, type PageSummary } from '../src/api/client.ts';
 import { findAncestors } from '../src/components/Sidebar.tsx';
 import { destinations } from '../src/components/MoveDialog.tsx';
-import { canMoveInto, moveRefusal } from '../src/components/moveRules.ts';
+import { canMoveInto, moveRefusal, siblingsOf } from '../src/components/moveRules.ts';
 
 const page = (
   id: string,
@@ -239,4 +239,51 @@ test('the dialog and dragging cannot disagree', () => {
       `the dialog and canMoveInto disagree about ${String(option.id)}`,
     );
   }
+});
+
+// --- siblings, for reordering ----------------------------------------------
+
+test('siblingsOf returns the tree order, not a second opinion', () => {
+  // A drop between two rows has to land where the eye says it will, so the
+  // order used to pick the preceding sibling must be the order on screen.
+  const tree = buildPageTree([
+    page('folder', null, 'folder'),
+    page('a', 'folder', 'page'),
+    page('b', 'folder', 'page'),
+    page('c', 'folder', 'page'),
+  ]);
+
+  const inFolder = siblingsOf(tree, 'folder').map((node) => node.id);
+  const onScreen = tree[0]!.children.map((node) => node.id);
+  assert.deepEqual(inFolder, onScreen);
+});
+
+test('siblingsOf at the root returns the top level', () => {
+  const tree = buildPageTree([
+    page('one', null, 'folder'),
+    page('two', null, 'folder'),
+  ]);
+  assert.deepEqual(siblingsOf(tree, null).map((node) => node.id), ['one', 'two']);
+});
+
+test('siblingsOf a folder that is gone is empty rather than throwing', () => {
+  // The tree in hand can be a moment out of date.
+  const tree = buildPageTree([page('folder', null, 'folder')]);
+  assert.deepEqual(siblingsOf(tree, 'vanished'), []);
+});
+
+test('reordering beside a row checks the parent, not the row', () => {
+  // Dropping next to a page inside a folder is a move into that folder. The
+  // rule that must hold: a folder still cannot end up inside its own subtree
+  // by being dropped beside one of its descendants.
+  const tree = buildPageTree([
+    page('outer', null, 'folder'),
+    page('inner', 'outer', 'folder'),
+    page('leaf', 'inner', 'page'),
+  ]);
+  const outer = tree.find((node) => node.id === 'outer')!;
+  const leaf = siblingsOf(tree, 'inner')[0]!;
+
+  // "beside leaf" means "into inner", which is inside outer.
+  assert.equal(canMoveInto(tree, outer, leaf.parentPageId), false);
 });
