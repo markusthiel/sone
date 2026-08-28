@@ -17,11 +17,14 @@
  */
 
 import {
+  DOC_KEYS,
+  PAGE_KEYS,
   addField,
   addView,
   initCollection,
-  isCollection,
+  holdsCollections,
   removeField,
+  generateKeyBetween,
   selectValueIsKnown,
   setOptions,
   setPropertyValue,
@@ -114,14 +117,44 @@ async function authorise(
   };
 }
 
+/**
+ * Resolve a collection to the page holding it, and the caller's rights there.
+ *
+ * Rights come from that page: a collection is content inside it (ADR-0021), so
+ * whoever may edit the page may edit its columns. A second permission model
+ * would be one more thing to keep in step for no gain.
+ */
+async function collectionPage(
+  pool: Pool,
+  ctx: RequestContext,
+  need: 'read' | 'edit',
+): Promise<{ collectionId: string; pageId: string; auth: Authorised } | null> {
+  const collectionId = ctx.params['collectionId'] ?? '';
+  const row = await queryOne<{ page_id: string }>(
+    pool,
+    `SELECT page_id FROM collections WHERE id = $1`,
+    [collectionId],
+  );
+  if (!row) {
+    ctx.fail(404, 'not_found');
+    return null;
+  }
+
+  const auth = await authorise(pool, ctx, row.page_id, need);
+  if (!auth) return null;
+  return { collectionId, pageId: row.page_id, auth };
+}
+
 export function registerCollectionRoutes(router: Router, deps: CollectionDeps): void {
   /**
-   * Turn a folder into a collection.
+   * Add a collection to a page.
    *
-   * Only a folder: a collection's rows are entries inside it, and a page holds
-   * nothing (ADR-0019).
+   * A page, not a folder (ADR-0021). A folder organises; a collection is
+   * content, and it belongs where the writing is. A page may hold several, so
+   * this creates one rather than converting anything.
    */
-  router.post('/api/pages/:pageId/collection', async (ctx) => {
+  router.post('/api/pages/:pageId/collections', async (ctx) => {
+    // Addressed by page, not by collection: there is no collection yet.
     const pageId = ctx.params['pageId'] ?? '';
     const auth = await authorise(deps.pool, ctx, pageId, 'edit');
     if (!auth) return;
@@ -131,11 +164,14 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       `SELECT kind FROM pages WHERE id = $1`,
       [pageId],
     );
-    if (row?.kind !== 'folder') {
-      ctx.fail(409, 'collections_need_a_folder');
+    if (row?.kind === 'row') {
+      // A row is itself a record. Letting one hold a collection would make the
+      // tree's third kind mean two things.
+      ctx.fail(409, 'a_row_cannot_hold_a_collection');
       return;
     }
 
+    const collectionId = randomUUID();
     const titleFieldId = randomUUID();
     const viewId = randomUUID();
 
@@ -143,10 +179,8 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       deps.pool,
       pageId,
       (doc) => {
-        // Idempotent in core: a second call leaves an existing collection
-        // alone rather than resetting its fields.
-        initCollection(doc, { titleFieldId, titleName: 'Name' });
-        addView(doc, { id: viewId, name: 'Table', viewType: 'table' });
+        initCollection(doc, { collectionId, titleFieldId, titleName: 'Name' });
+        addView(doc, collectionId, { id: viewId, name: 'Table', viewType: 'table' });
       },
       auth.actorId,
     );
@@ -154,7 +188,66 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     if (result.changed) {
       await rematerialize(deps.pool, pageId, auth.workspaceId, auth.actorId);
     }
-    ctx.send(201, { pageId });
+    ctx.send(201, { pageId, collectionId });
+  });
+
+  /**
+   * Add a row.
+   *
+   * A row is a document like any other — openable, with its own body — and it
+   * is not in the tree (ADR-0021). Created here rather than through the page
+   * routes because it needs the collection it belongs to, and because a page
+   * created the ordinary way must never accidentally become one.
+   */
+  router.post('/api/collections/:collectionId/rows', async (ctx) => {
+    const collectionId = ctx.params['collectionId'] ?? '';
+    const collection = await queryOne<{ page_id: string }>(
+      deps.pool,
+      `SELECT page_id FROM collections WHERE id = $1`,
+      [collectionId],
+    );
+    if (!collection) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    // Rights come from the page holding the collection: a row is inside it, so
+    // there is no second permission model to keep in step.
+    const auth = await authorise(deps.pool, ctx, collection.page_id, 'edit');
+    if (!auth) return;
+
+    let body: { title?: string };
+    try {
+      body = await ctx.json();
+    } catch {
+      body = {};
+    }
+
+    const rowId = randomUUID();
+    const siblings = await queryRows<{ idx: string }>(
+      deps.pool,
+      `SELECT idx FROM pages
+        WHERE collection_id = $1 AND kind = 'row'
+        ORDER BY idx DESC, id DESC LIMIT 1`,
+      [collectionId],
+    );
+
+    await applyToDocument(
+      deps.pool,
+      rowId,
+      (doc) => {
+        const page = doc.getMap(DOC_KEYS.page);
+        page.set(PAGE_KEYS.kind, 'row');
+        page.set(PAGE_KEYS.parentPageId, collection.page_id);
+        page.set(PAGE_KEYS.collectionId, collectionId);
+        page.set(PAGE_KEYS.title, (body.title ?? '').trim());
+        page.set(PAGE_KEYS.idx, generateKeyBetween(siblings[0]?.idx ?? null, null));
+      },
+      auth.actorId,
+    );
+
+    await rematerialize(deps.pool, rowId, auth.workspaceId, auth.actorId);
+    ctx.send(201, { id: rowId, collectionId });
   });
 
   /**
@@ -165,20 +258,21 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
    * would be a join fan-out, and grouping in SQL would mean building JSON in
    * the database for no gain.
    */
-  router.get('/api/pages/:pageId/collection', async (ctx) => {
-    const pageId = ctx.params['pageId'] ?? '';
-    const auth = await authorise(deps.pool, ctx, pageId, 'read');
-    if (!auth) return;
-
-    const collection = await queryOne<{ id: string; title_field_id: string }>(
+  router.get('/api/collections/:collectionId', async (ctx) => {
+    const collectionId = ctx.params['collectionId'] ?? '';
+    const collection = await queryOne<{ id: string; page_id: string; title_field_id: string }>(
       deps.pool,
-      `SELECT id, title_field_id FROM collections WHERE page_id = $1`,
-      [pageId],
+      `SELECT id, page_id, title_field_id FROM collections WHERE id = $1`,
+      [collectionId],
     );
     if (!collection) {
-      ctx.fail(404, 'not_a_collection');
+      ctx.fail(404, 'not_found');
       return;
     }
+
+    const pageId = collection.page_id;
+    const auth = await authorise(deps.pool, ctx, pageId, 'read');
+    if (!auth) return;
 
     const views = await queryRows<{
       id: string;
@@ -228,10 +322,10 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     const rows = await queryRows<{ id: string; title: string; idx: string }>(
       deps.pool,
       `SELECT p.id, p.title, p.idx FROM pages p
-        WHERE p.parent_page_id = $1 AND p.archived_at IS NULL
+        WHERE p.collection_id = $1 AND p.kind = 'row' AND p.archived_at IS NULL
           ${built.where ? `AND ${built.where}` : ''}
         ORDER BY ${built.orderBy ? `${built.orderBy}, ` : ''}p.idx, p.id`,
-      [pageId, ...built.params],
+      [collectionId, ...built.params],
     );
 
     const values = await queryRows<{ page_id: string; field_id: string; value: unknown }>(
@@ -239,8 +333,8 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       `SELECT p.page_id, p.field_id, p.value
          FROM page_properties p
          JOIN pages r ON r.id = p.page_id
-        WHERE r.parent_page_id = $1 AND r.archived_at IS NULL`,
-      [pageId],
+        WHERE r.collection_id = $1 AND r.kind = 'row' AND r.archived_at IS NULL`,
+      [collectionId],
     );
 
     const byRow = new Map<string, Record<string, unknown>>();
@@ -252,6 +346,7 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
 
     ctx.send(200, {
       pageId,
+      collectionId,
       titleFieldId: collection.title_field_id,
       canEdit: auth.canEdit,
       views: views.map((view) => ({
@@ -276,10 +371,10 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
   });
 
   /** Add a column. */
-  router.post('/api/pages/:pageId/collection/fields', async (ctx) => {
-    const pageId = ctx.params['pageId'] ?? '';
-    const auth = await authorise(deps.pool, ctx, pageId, 'edit');
-    if (!auth) return;
+  router.post('/api/collections/:collectionId/fields', async (ctx) => {
+    const resolved = await collectionPage(deps.pool, ctx, 'edit');
+    if (!resolved) return;
+    const { collectionId, pageId, auth } = resolved;
 
     let body: { name?: string; fieldType?: string; config?: Record<string, unknown> };
     try {
@@ -303,8 +398,7 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       deps.pool,
       pageId,
       (doc) => {
-        if (!isCollection(doc)) return;
-        added = addField(doc, {
+        added = addField(doc, collectionId, {
           id: fieldId,
           name: (body.name ?? '').trim() || 'Untitled',
           fieldType,
@@ -329,10 +423,10 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
   });
 
   /** Rename a column, or remove it. */
-  router.patch('/api/pages/:pageId/collection/fields/:fieldId', async (ctx) => {
-    const pageId = ctx.params['pageId'] ?? '';
-    const auth = await authorise(deps.pool, ctx, pageId, 'edit');
-    if (!auth) return;
+  router.patch('/api/collections/:collectionId/fields/:fieldId', async (ctx) => {
+    const resolved = await collectionPage(deps.pool, ctx, 'edit');
+    if (!resolved) return;
+    const { collectionId, pageId, auth } = resolved;
 
     let body: { name?: string; description?: string | null; config?: Record<string, unknown> };
     try {
@@ -348,7 +442,7 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       deps.pool,
       pageId,
       (doc) => {
-        ok = updateField(doc, fieldId, body);
+        ok = updateField(doc, collectionId, fieldId, body);
       },
       auth.actorId,
     );
@@ -363,10 +457,10 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     ctx.send(200, { id: fieldId });
   });
 
-  router.delete('/api/pages/:pageId/collection/fields/:fieldId', async (ctx) => {
-    const pageId = ctx.params['pageId'] ?? '';
-    const auth = await authorise(deps.pool, ctx, pageId, 'edit');
-    if (!auth) return;
+  router.delete('/api/collections/:collectionId/fields/:fieldId', async (ctx) => {
+    const resolved = await collectionPage(deps.pool, ctx, 'edit');
+    if (!resolved) return;
+    const { collectionId, pageId, auth } = resolved;
 
     const fieldId = ctx.params['fieldId'] ?? '';
     let removed = false;
@@ -374,7 +468,7 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       deps.pool,
       pageId,
       (doc) => {
-        removed = removeField(doc, fieldId);
+        removed = removeField(doc, collectionId, fieldId);
       },
       auth.actorId,
     );
@@ -398,10 +492,10 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
    * a column. It is not a filter on which rows exist: every view of a collection
    * shows the same entries, because they are the folder's contents.
    */
-  router.post('/api/pages/:pageId/collection/views', async (ctx) => {
-    const pageId = ctx.params['pageId'] ?? '';
-    const auth = await authorise(deps.pool, ctx, pageId, 'edit');
-    if (!auth) return;
+  router.post('/api/collections/:collectionId/views', async (ctx) => {
+    const resolved = await collectionPage(deps.pool, ctx, 'edit');
+    if (!resolved) return;
+    const { collectionId, pageId, auth } = resolved;
 
     let body: { name?: string; viewType?: string; definition?: Record<string, unknown> };
     try {
@@ -424,7 +518,7 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       deps.pool,
       pageId,
       (doc) => {
-        added = addView(doc, {
+        added = addView(doc, collectionId, {
           id: viewId,
           name: (body.name ?? '').trim() || (viewType === 'board' ? 'Board' : 'Table'),
           viewType,
@@ -452,10 +546,10 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
    * same list — a worse problem than last-write-wins on a list one person is
    * actively editing.
    */
-  router.put('/api/pages/:pageId/collection/fields/:fieldId/options', async (ctx) => {
-    const pageId = ctx.params['pageId'] ?? '';
-    const auth = await authorise(deps.pool, ctx, pageId, 'edit');
-    if (!auth) return;
+  router.put('/api/collections/:collectionId/fields/:fieldId/options', async (ctx) => {
+    const resolved = await collectionPage(deps.pool, ctx, 'edit');
+    if (!resolved) return;
+    const { collectionId, pageId, auth } = resolved;
 
     let body: { options?: unknown };
     try {
@@ -497,7 +591,7 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       deps.pool,
       pageId,
       (doc) => {
-        ok = setOptions(doc, fieldId, options);
+        ok = setOptions(doc, collectionId, fieldId, options);
       },
       auth.actorId,
     );
@@ -540,11 +634,16 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     // projection, which is exactly what the projection is for.
     const field = await queryOne<{ field_type: string; config: Record<string, unknown> }>(
       deps.pool,
+      // The row names its collection, and the field must belong to that one.
+      //
+      // This joined on the row being a *child of the collection's page*, which
+      // was the folder shape: with several collections on one page, every field
+      // on that page matched every row, so a value could be written against a
+      // column from a different table.
       `SELECT f.field_type, f.config
          FROM collection_fields f
-         JOIN collections c ON c.id = f.collection_id
-         JOIN pages r ON r.parent_page_id = c.page_id
-        WHERE f.id = $1 AND r.id = $2`,
+         JOIN pages r ON r.collection_id = f.collection_id
+        WHERE f.id = $1 AND r.id = $2 AND r.kind = 'row'`,
       [fieldId, rowId],
     );
     if (!field) {

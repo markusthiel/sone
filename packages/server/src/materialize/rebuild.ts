@@ -129,7 +129,7 @@ export async function rebuild(
 
     const { doc, throughSeq } = await loadDoc(pool, pageId);
     try {
-      const parsed = readDocument(doc);
+      const parsed = readDocument(doc, pageId);
       const result = await withTransaction(pool, (client) =>
         materializeYDoc(client, pageId, doc, { throughSeq, workspaceId }),
       );

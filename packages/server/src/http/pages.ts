@@ -286,6 +286,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
          FROM pages
         WHERE workspace_id = $1
           AND ($2 OR archived_at IS NULL)
+          -- Rows are documents, not places (ADR-0021). A hundred-row table
+          -- would otherwise put a hundred entries in the sidebar, which is
+          -- the part of the folder shape that felt most wrong.
+          AND kind <> 'row'
         ORDER BY idx, id`,
       [workspaceId, includeArchived],
     );

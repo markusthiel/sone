@@ -13,6 +13,21 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A collection is content in a page, not a folder.** 0.2.0 made a folder *be* a
+table and put every row in the sidebar; a folder stopped meaning one thing, and a
+hundred-row table meant a hundred sidebar entries. A page can now hold
+collections — several, as in Craft — and a folder is a folder again.
+
+**Rows are documents that are not in the tree.** Each one is a real page you can
+open, with its own writing, and none of them clutter the sidebar. Craft and
+AppFlowy both work this way; [ADR-0021](docs/adr/0021-collections-in-pages.md)
+records why.
+
+**Operator note:** a folder that carried a collection becomes an ordinary folder
+again and keeps its pages. The columns are not converted — the shape existed for
+one release, and converting it faithfully would mean rewriting every child
+document.
+
 **Fixed: "Add columns" appeared to do nothing.** The collection was created and
 nothing displayed it — the folder's row was never marked as one, because that
 mark was read from a document field that nothing writes. Every collection made

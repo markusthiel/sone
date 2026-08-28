@@ -62,6 +62,8 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     idx?: string;
     parentPageId?: string | null;
     collectionId?: string | null;
+    /** 'row' for a record inside a collection (ADR-0021). */
+    kind?: 'page' | 'folder' | 'row';
   }): Y.Doc {
     const doc = new Y.Doc();
     doc.getMap(DOC_KEYS.meta).set(META_KEYS.schemaVersion, 1);
@@ -70,6 +72,7 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     page.set(PAGE_KEYS.idx, opts.idx ?? 'a0');
     page.set(PAGE_KEYS.parentPageId, opts.parentPageId ?? null);
     page.set(PAGE_KEYS.collectionId, opts.collectionId ?? null);
+    if (opts.kind) page.set(PAGE_KEYS.kind, opts.kind);
     return doc;
   }
 
@@ -367,8 +370,11 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     const doc = await seedCollection(collectionPage, collectionPage);
 
     const rowId = uuid(2);
+    // A row carries kind 'row': that is what puts collection_id on its page
+    // row, and the cascade finds rows by exactly that (ADR-0021).
     const row = pageDoc({
       title: 'Row',
+      kind: 'row',
       parentPageId: collectionPage,
       collectionId: collectionPage,
     });
@@ -392,8 +398,11 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     const doc = await seedCollection(collectionPage, collectionPage);
 
     const rowId = uuid(2);
+    // A row carries kind 'row': that is what puts collection_id on its page
+    // row, and the cascade finds rows by exactly that (ADR-0021).
     const row = pageDoc({
       title: 'Row',
+      kind: 'row',
       parentPageId: collectionPage,
       collectionId: collectionPage,
     });

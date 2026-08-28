@@ -17,7 +17,7 @@ import {
   addField,
   addView,
   initCollection,
-  isCollection,
+  holdsCollections,
   readPropertyValues,
   readOptions,
   removeField,
@@ -29,19 +29,22 @@ import {
 import { COLLECTION_KEYS, DOC_KEYS, FIELD_KEYS } from '../src/doc/docSchema.js';
 
 const TITLE = 'field-title';
+const COLLECTION = 'collection-1';
 
 function collection(): Y.Doc {
   const doc = new Y.Doc();
-  initCollection(doc, { titleFieldId: TITLE });
+  initCollection(doc, { collectionId: COLLECTION, titleFieldId: TITLE });
   return doc;
 }
 
 const fields = (doc: Y.Doc): Y.Map<unknown> =>
-  doc.getMap(DOC_KEYS.collection).get(COLLECTION_KEYS.fields) as Y.Map<unknown>;
+  (doc.getMap(DOC_KEYS.collection).get(COLLECTION) as Y.Map<unknown>).get(
+    COLLECTION_KEYS.fields,
+  ) as Y.Map<unknown>;
 
 test('an ordinary document is not a collection', () => {
   const doc = new Y.Doc();
-  assert.equal(isCollection(doc), false);
+  assert.equal(holdsCollections(doc), false);
   doc.destroy();
 });
 
@@ -49,7 +52,7 @@ test('a collection starts with a title field', () => {
   // Every collection needs one column that names the row. Without it the
   // projection has nowhere to put the page title and the first column is empty.
   const doc = collection();
-  assert.equal(isCollection(doc), true);
+  assert.equal(holdsCollections(doc), true);
   assert.equal(fields(doc).size, 1);
   assert.ok(fields(doc).has(TITLE));
   doc.destroy();
@@ -59,12 +62,14 @@ test('initialising twice leaves the first one alone', () => {
   // A second call is far more likely to be a retry than a request to start
   // over, and starting over would drop every field somebody had added.
   const doc = collection();
-  addField(doc, { id: 'f1', name: 'Status', fieldType: 'select' });
-  initCollection(doc, { titleFieldId: 'different' });
+  addField(doc, COLLECTION, { id: 'f1', name: 'Status', fieldType: 'select' });
+  initCollection(doc, { collectionId: COLLECTION, titleFieldId: 'different' });
 
   assert.equal(fields(doc).size, 2, 'the added field survives');
   assert.equal(
-    doc.getMap(DOC_KEYS.collection).get(COLLECTION_KEYS.titleFieldId),
+    (doc.getMap(DOC_KEYS.collection).get(COLLECTION) as Y.Map<unknown>).get(
+      COLLECTION_KEYS.titleFieldId,
+    ),
     TITLE,
     'and the title field is not repointed',
   );
@@ -73,15 +78,15 @@ test('initialising twice leaves the first one alone', () => {
 
 test('the title field cannot be removed', () => {
   const doc = collection();
-  assert.equal(removeField(doc, TITLE), false);
+  assert.equal(removeField(doc, COLLECTION, TITLE), false);
   assert.ok(fields(doc).has(TITLE));
   doc.destroy();
 });
 
 test('fields are ordered, and a new one goes last', () => {
   const doc = collection();
-  addField(doc, { id: 'a', name: 'A', fieldType: 'text' });
-  addField(doc, { id: 'b', name: 'B', fieldType: 'number' });
+  addField(doc, COLLECTION, { id: 'a', name: 'A', fieldType: 'text' });
+  addField(doc, COLLECTION, { id: 'b', name: 'B', fieldType: 'number' });
 
   const order = [...fields(doc).entries()]
     .map(([id, entry]) => [id, String((entry as Y.Map<unknown>).get(FIELD_KEYS.idx))])
@@ -94,8 +99,8 @@ test('fields are ordered, and a new one goes last', () => {
 
 test('a duplicate field id is refused rather than overwriting', () => {
   const doc = collection();
-  addField(doc, { id: 'a', name: 'First', fieldType: 'text' });
-  assert.equal(addField(doc, { id: 'a', name: 'Second', fieldType: 'number' }), false);
+  addField(doc, COLLECTION, { id: 'a', name: 'First', fieldType: 'text' });
+  assert.equal(addField(doc, COLLECTION, { id: 'a', name: 'Second', fieldType: 'number' }), false);
   assert.equal((fields(doc).get('a') as Y.Map<unknown>).get(FIELD_KEYS.name), 'First');
   doc.destroy();
 });
@@ -103,7 +108,7 @@ test('a duplicate field id is refused rather than overwriting', () => {
 test('the number of fields is capped', () => {
   const doc = collection();
   for (let i = 0; i < MAX_FIELDS + 5; i++) {
-    addField(doc, { id: `f${i}`, name: `F${i}`, fieldType: 'text' });
+    addField(doc, COLLECTION, { id: `f${i}`, name: `F${i}`, fieldType: 'text' });
   }
   assert.equal(fields(doc).size, MAX_FIELDS);
   doc.destroy();
@@ -111,8 +116,8 @@ test('the number of fields is capped', () => {
 
 test('a field can be renamed without touching anything else', () => {
   const doc = collection();
-  addField(doc, { id: 'a', name: 'Old', fieldType: 'select', config: { options: [1] } });
-  updateField(doc, 'a', { name: 'New' });
+  addField(doc, COLLECTION, { id: 'a', name: 'Old', fieldType: 'select', config: { options: [1] } });
+  updateField(doc, COLLECTION, 'a', { name: 'New' });
 
   const field = fields(doc).get('a') as Y.Map<unknown>;
   assert.equal(field.get(FIELD_KEYS.name), 'New');
@@ -160,11 +165,11 @@ test('a value survives its field being removed and added back', () => {
   // destroy data — which matters, because removing one by mistake is easy.
   const doc = collection();
   const row = new Y.Doc();
-  addField(doc, { id: 'a', name: 'Notes', fieldType: 'text' });
+  addField(doc, COLLECTION, { id: 'a', name: 'Notes', fieldType: 'text' });
   setPropertyValue(row, 'a', 'text', { kind: 'text', value: 'kept' });
 
-  removeField(doc, 'a');
-  addField(doc, { id: 'a', name: 'Notes again', fieldType: 'text' });
+  removeField(doc, COLLECTION, 'a');
+  addField(doc, COLLECTION, { id: 'a', name: 'Notes again', fieldType: 'text' });
 
   assert.deepEqual(readPropertyValues(row).get('a'), { kind: 'text', value: 'kept' });
   doc.destroy();
@@ -185,8 +190,8 @@ test('a malformed stored value is ignored rather than returned', () => {
 
 test('views are added in order', () => {
   const doc = collection();
-  assert.equal(addView(doc, { id: 'v1', name: 'Table', viewType: 'table' }), true);
-  assert.equal(addView(doc, { id: 'v1', name: 'Again', viewType: 'board' }), false);
+  assert.equal(addView(doc, COLLECTION, { id: 'v1', name: 'Table', viewType: 'table' }), true);
+  assert.equal(addView(doc, COLLECTION, { id: 'v1', name: 'Again', viewType: 'board' }), false);
   doc.destroy();
 });
 
@@ -197,8 +202,8 @@ test('two clients adding different fields both keep them', () => {
   const second = new Y.Doc();
   Y.applyUpdate(second, Y.encodeStateAsUpdate(first));
 
-  addField(first, { id: 'from-first', name: 'One', fieldType: 'text' });
-  addField(second, { id: 'from-second', name: 'Two', fieldType: 'number' });
+  addField(first, COLLECTION, { id: 'from-first', name: 'One', fieldType: 'text' });
+  addField(second, COLLECTION, { id: 'from-second', name: 'Two', fieldType: 'number' });
 
   Y.applyUpdate(first, Y.encodeStateAsUpdate(second));
   Y.applyUpdate(second, Y.encodeStateAsUpdate(first));
@@ -215,17 +220,17 @@ test('two clients adding different fields both keep them', () => {
 
 test('options are stored on the field and read back', () => {
   const doc = collection();
-  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
+  addField(doc, COLLECTION, { id: 'status', name: 'Status', fieldType: 'select' });
 
   assert.equal(
-    setOptions(doc, 'status', [
+    setOptions(doc, COLLECTION, 'status', [
       { id: 'o1', name: 'Todo', color: 'grey' },
       { id: 'o2', name: 'Doing', color: 'blue' },
     ]),
     true,
   );
 
-  assert.deepEqual(readOptions(doc, 'status'), [
+  assert.deepEqual(readOptions(doc, COLLECTION, 'status'), [
     { id: 'o1', name: 'Todo', color: 'grey' },
     { id: 'o2', name: 'Doing', color: 'blue' },
   ]);
@@ -236,19 +241,17 @@ test('setting options leaves the rest of the config alone', () => {
   // A field's config holds more than options for some types, and replacing the
   // whole object would quietly drop it.
   const doc = collection();
-  addField(doc, {
+  addField(doc, COLLECTION, {
     id: 'status',
     name: 'Status',
     fieldType: 'select',
     config: { somethingElse: 7 },
   });
-  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
+  setOptions(doc, COLLECTION, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
 
-  const fields = doc.getMap(DOC_KEYS.collection).get(COLLECTION_KEYS.fields) as Y.Map<unknown>;
-  const config = (fields.get('status') as Y.Map<unknown>).get(FIELD_KEYS.config) as Record<
-    string,
-    unknown
-  >;
+  const config = (fields(doc).get('status') as Y.Map<unknown>).get(
+    FIELD_KEYS.config,
+  ) as Record<string, unknown>;
   assert.equal(config['somethingElse'], 7);
   doc.destroy();
 });
@@ -257,16 +260,16 @@ test('a colour outside the palette becomes grey rather than being stored', () =>
   // Names rather than colour values, so a theme change cannot make a label
   // unreadable — and an unknown name is not worth failing over.
   const doc = collection();
-  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
-  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: '#ff0000' }]);
-  assert.equal(readOptions(doc, 'status')[0]!.color, 'grey');
+  addField(doc, COLLECTION, { id: 'status', name: 'Status', fieldType: 'select' });
+  setOptions(doc, COLLECTION, 'status', [{ id: 'o1', name: 'Todo', color: '#ff0000' }]);
+  assert.equal(readOptions(doc, COLLECTION, 'status')[0]!.color, 'grey');
   doc.destroy();
 });
 
 test('options are refused on a field that cannot have them', () => {
   const doc = collection();
-  addField(doc, { id: 'note', name: 'Note', fieldType: 'text' });
-  assert.equal(setOptions(doc, 'note', [{ id: 'o1', name: 'X', color: 'grey' }]), false);
+  addField(doc, COLLECTION, { id: 'note', name: 'Note', fieldType: 'text' });
+  assert.equal(setOptions(doc, COLLECTION, 'note', [{ id: 'o1', name: 'X', color: 'grey' }]), false);
   doc.destroy();
 });
 
@@ -274,15 +277,15 @@ test('duplicate option ids are refused', () => {
   // A row's value points at an id, so two options sharing one would make the
   // value ambiguous.
   const doc = collection();
-  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
+  addField(doc, COLLECTION, { id: 'status', name: 'Status', fieldType: 'select' });
   assert.equal(
-    setOptions(doc, 'status', [
+    setOptions(doc, COLLECTION, 'status', [
       { id: 'same', name: 'One', color: 'grey' },
       { id: 'same', name: 'Two', color: 'blue' },
     ]),
     false,
   );
-  assert.deepEqual(readOptions(doc, 'status'), []);
+  assert.deepEqual(readOptions(doc, COLLECTION, 'status'), []);
   doc.destroy();
 });
 
@@ -291,18 +294,18 @@ test('renaming an option keeps the id, so rows keep their value', () => {
   // list: a row points at an id, not at a name.
   const doc = collection();
   const row = new Y.Doc();
-  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
-  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
+  addField(doc, COLLECTION, { id: 'status', name: 'Status', fieldType: 'select' });
+  setOptions(doc, COLLECTION, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
   setPropertyValue(row, 'status', 'select', { kind: 'select', optionId: 'o1' });
 
-  setOptions(doc, 'status', [{ id: 'o1', name: 'To do', color: 'green' }]);
+  setOptions(doc, COLLECTION, 'status', [{ id: 'o1', name: 'To do', color: 'green' }]);
 
   assert.deepEqual(readPropertyValues(row).get('status'), {
     kind: 'select',
     optionId: 'o1',
   });
   assert.equal(
-    selectValueIsKnown({ kind: 'select', optionId: 'o1' }, readOptions(doc, 'status')),
+    selectValueIsKnown({ kind: 'select', optionId: 'o1' }, readOptions(doc, COLLECTION, 'status')),
     true,
   );
   doc.destroy();
@@ -311,9 +314,9 @@ test('renaming an option keeps the id, so rows keep their value', () => {
 
 test('a value naming an option that never existed is not known', () => {
   const doc = collection();
-  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
-  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
-  const options = readOptions(doc, 'status');
+  addField(doc, COLLECTION, { id: 'status', name: 'Status', fieldType: 'select' });
+  setOptions(doc, COLLECTION, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
+  const options = readOptions(doc, COLLECTION, 'status');
 
   assert.equal(selectValueIsKnown({ kind: 'select', optionId: 'nope' }, options), false);
   assert.equal(
@@ -335,11 +338,11 @@ test('removing an option does not erase the rows pointing at it', () => {
   // unrecoverable.
   const doc = collection();
   const row = new Y.Doc();
-  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
-  setOptions(doc, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
+  addField(doc, COLLECTION, { id: 'status', name: 'Status', fieldType: 'select' });
+  setOptions(doc, COLLECTION, 'status', [{ id: 'o1', name: 'Todo', color: 'grey' }]);
   setPropertyValue(row, 'status', 'select', { kind: 'select', optionId: 'o1' });
 
-  setOptions(doc, 'status', []);
+  setOptions(doc, COLLECTION, 'status', []);
 
   assert.deepEqual(readPropertyValues(row).get('status'), {
     kind: 'select',
@@ -351,13 +354,12 @@ test('removing an option does not erase the rows pointing at it', () => {
 
 test('malformed options are skipped rather than returned', () => {
   const doc = collection();
-  addField(doc, { id: 'status', name: 'Status', fieldType: 'select' });
-  const fields = doc.getMap(DOC_KEYS.collection).get(COLLECTION_KEYS.fields) as Y.Map<unknown>;
-  (fields.get('status') as Y.Map<unknown>).set(FIELD_KEYS.config, {
+  addField(doc, COLLECTION, { id: 'status', name: 'Status', fieldType: 'select' });
+  (fields(doc).get('status') as Y.Map<unknown>).set(FIELD_KEYS.config, {
     options: ['not an object', { name: 'no id' }, { id: 'ok', name: 'Fine', color: 'red' }],
   });
 
-  assert.deepEqual(readOptions(doc, 'status'), [
+  assert.deepEqual(readOptions(doc, COLLECTION, 'status'), [
     { id: 'ok', name: 'Fine', color: 'red' },
   ]);
   doc.destroy();

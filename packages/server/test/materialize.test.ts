@@ -52,7 +52,7 @@ function addBlock(doc: Y.Doc, block: NewBlock): void {
 test('reads page metadata', () => {
   const doc = makeDoc();
   doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.coverUrl, 'https://example.org/c.png');
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
 
   assert.equal(parsed.page.title, 'Test page');
   assert.equal(parsed.page.idx, 'a0');
@@ -64,7 +64,7 @@ test('reads page metadata', () => {
 test('missing page idx is defaulted and warned about, not fatal', () => {
   const doc = new Y.Doc();
   doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.title, 'No index');
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
 
   assert.equal(parsed.page.idx, 'a0');
   assert.ok(parsed.warnings.some((w) => w.includes('page.idx missing')));
@@ -73,7 +73,7 @@ test('missing page idx is defaulted and warned about, not fatal', () => {
 test('non-string title does not crash the read', () => {
   const doc = makeDoc();
   doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.title, 42 as unknown as string);
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.equal(parsed.page.title, '');
 });
 
@@ -89,7 +89,7 @@ test('blocks are returned in document order', () => {
     { id: uuid('c1'), type: 'paragraph', text: 'third' },
   ]);
 
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.deepEqual(
     parsed.blocks.map((blk) => blk.plainText),
     ['first', 'second', 'third'],
@@ -114,7 +114,7 @@ test('a nested tree is flattened depth-first, in reading order', () => {
     { id: uuid('p1'), type: 'paragraph', text: 'after' },
   ]);
 
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.deepEqual(
     parsed.blocks.map((b) => b.plainText),
     ['outer', 'inner', 'also inner', 'after'],
@@ -135,7 +135,7 @@ test("a container's text does not swallow its children's", () => {
     },
   ]);
 
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.equal(parsed.blocks[0]!.plainText, 'parent text');
   assert.equal(parsed.blocks[1]!.plainText, 'child text');
 });
@@ -148,7 +148,7 @@ test('an element without a block id is skipped with a warning', () => {
   fragment.insert(0, [orphan]);
   addBlock(doc, { id: uuid('ok'), type: 'paragraph', text: 'kept' });
 
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.equal(parsed.blocks.length, 1);
   assert.equal(parsed.blocks[0]!.plainText, 'kept');
   assert.ok(parsed.warnings.some((w) => w.includes('no block id')));
@@ -160,7 +160,7 @@ test('malformed props degrade that block and nothing else', () => {
   const fragment = pageContent(doc);
   (fragment.get(0) as Y.XmlElement).setAttribute('props', '{not json');
 
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.equal(parsed.blocks.length, 1);
   assert.deepEqual(parsed.blocks[0]!.props, {});
   assert.ok(parsed.warnings.some((w) => w.includes('not valid JSON')));
@@ -173,7 +173,7 @@ test('block props contribute searchable text for non-inline types', () => {
     type: 'code',
     props: { source: 'SELECT 1', language: 'sql' },
   });
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.match(parsed.blocks[0]!.plainText, /SELECT 1/);
   assert.match(parsed.blocks[0]!.plainText, /sql/);
 });
@@ -188,7 +188,7 @@ test('inline marks are flattened, block boundaries are not crossed', () => {
   para.insert(0, [new Y.XmlText('see '), link]);
   link.insert(0, [new Y.XmlText('the docs')]);
 
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.equal(parsed.blocks[0]!.plainText, 'see the docs');
 });
 
@@ -200,15 +200,15 @@ test('props round-trip through the encoded attribute', () => {
     text: 'Title',
     props: { level: 2, collapsed: false },
   });
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.deepEqual(parsed.blocks[0]!.props, { level: 2, collapsed: false });
 });
 
 // --- collections -----------------------------------------------------------
 
-test('page without a collection reports null rather than an empty one', () => {
-  const parsed = readDocument(makeDoc());
-  assert.equal(parsed.collection, null);
+test('a page holding no collection reports none', () => {
+  const parsed = readDocument(makeDoc(), 'page-1');
+  assert.equal(parsed.collections.size, 0);
 });
 
 test('reads collection fields and views in order', () => {
@@ -229,13 +229,64 @@ test('reads collection fields and views in order', () => {
   }
   collection.set(COLLECTION_KEYS.fields, fields);
 
-  const parsed = readDocument(doc);
-  assert.ok(parsed.collection);
+  // The 0.2.0 shape — one collection with its keys at the top level — still
+  // reads, as one collection keyed by the page's own id (ADR-0021). An old
+  // document keeps working without a migration.
+  const parsed = readDocument(doc, 'page-1');
+  assert.equal(parsed.collections.size, 1);
+
+  const read = parsed.collections.get('page-1');
+  assert.ok(read);
   assert.deepEqual(
-    parsed.collection!.fields.map((f) => f.name),
+    read.fields.map((field) => field.name),
     ['Name', 'Status'],
   );
-  assert.equal(parsed.collection!.titleFieldId, 'f1');
+  assert.equal(read.titleFieldId, 'f1');
+});
+
+test('a page can hold several collections, keyed by id', () => {
+  // What the folder shape could not do and Craft does: several per page.
+  const doc = makeDoc();
+  const root = doc.getMap(DOC_KEYS.collection);
+
+  for (const id of ['c1', 'c2']) {
+    const entry = new Y.Map();
+    entry.set(COLLECTION_KEYS.titleFieldId, `${id}-title`);
+    const fields = new Y.Map();
+    const field = new Y.Map();
+    field.set(FIELD_KEYS.name, 'Name');
+    field.set(FIELD_KEYS.fieldType, 'text');
+    field.set(FIELD_KEYS.idx, 'a1');
+    fields.set(`${id}-title`, field);
+    entry.set(COLLECTION_KEYS.fields, fields);
+    root.set(id, entry);
+  }
+
+  const parsed = readDocument(doc, 'page-1');
+  assert.deepEqual([...parsed.collections.keys()].sort(), ['c1', 'c2']);
+  assert.equal(parsed.collections.get('c2')?.titleFieldId, 'c2-title');
+});
+
+test('a malformed collection is skipped and the others survive', () => {
+  // One bad entry must not cost a page every table on it.
+  const doc = makeDoc();
+  const root = doc.getMap(DOC_KEYS.collection);
+  root.set('broken', 'not a map' as never);
+
+  const good = new Y.Map();
+  good.set(COLLECTION_KEYS.titleFieldId, 't');
+  const fields = new Y.Map();
+  const field = new Y.Map();
+  field.set(FIELD_KEYS.name, 'Name');
+  field.set(FIELD_KEYS.fieldType, 'text');
+  field.set(FIELD_KEYS.idx, 'a1');
+  fields.set('t', field);
+  good.set(COLLECTION_KEYS.fields, fields);
+  root.set('fine', good);
+
+  const parsed = readDocument(doc, 'page-1');
+  assert.deepEqual([...parsed.collections.keys()], ['fine']);
+  assert.ok(parsed.warnings.some((w) => w.includes('broken')));
 });
 
 test('titleFieldId pointing at a missing field is warned about', () => {
@@ -244,7 +295,7 @@ test('titleFieldId pointing at a missing field is warned about', () => {
   collection.set(COLLECTION_KEYS.titleFieldId, 'ghost');
   collection.set(COLLECTION_KEYS.fields, new Y.Map());
 
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.ok(parsed.warnings.some((w) => w.includes('not among the fields')));
 });
 
@@ -256,7 +307,7 @@ test('reads stored property values', () => {
   props.set('f1', { kind: 'text', value: 'Hello' });
   props.set('f2', { kind: 'number', value: 42 });
 
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.equal(parsed.properties.size, 2);
   assert.deepEqual(parsed.properties.get('f1'), { kind: 'text', value: 'Hello' });
 });
@@ -267,7 +318,7 @@ test('property without a kind is skipped, others survive', () => {
   props.set('bad', { value: 'no kind' });
   props.set('good', { kind: 'text', value: 'kept' });
 
-  const parsed = readDocument(doc);
+  const parsed = readDocument(doc, 'page-1');
   assert.equal(parsed.properties.size, 1);
   assert.ok(parsed.properties.has('good'));
   assert.ok(parsed.warnings.some((w) => w.includes('missing kind')));

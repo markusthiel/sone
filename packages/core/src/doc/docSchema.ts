@@ -72,12 +72,19 @@ export const META_KEYS = {
  * An absent value reads as 'page', so every document written before folders
  * existed is a page without needing a migration.
  */
-export const ENTRY_KINDS = ['page', 'folder'] as const;
+/**
+ * What an entry is.
+ *
+ * Folders organise, pages hold writing, and rows belong to a collection
+ * (ADR-0019, ADR-0021). A row is a real document — openable, with its own body —
+ * and the tree simply does not show it.
+ */
+export const ENTRY_KINDS = ['page', 'folder', 'row'] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
 export const PAGE_KEYS = {
   title: 'title',
-  /** 'page' or 'folder'. Absent means 'page' (ADR-0019). */
+  /** One of ENTRY_KINDS. Absent means 'page' (ADR-0019). */
   kind: 'kind',
   /**
    * Tag names carried by this page, as a Y.Array of strings (ADR-0020).

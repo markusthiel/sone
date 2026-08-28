@@ -229,15 +229,12 @@ export async function materializeDocument(
       pageId,
       opts.workspaceId,
       parsed.page.parentPageId,
-      // A page that carries a collection *is* that collection, and its id is
-      // the page's own unless the document names another.
+      // Which collection this entry *belongs to*, not which it holds.
       //
-      // Read straight from parsed.page.collectionId before, which nothing
-      // writes: turning a folder into a collection sets the collection map, not
-      // this field. So the row stayed null, the tree reported the folder as an
-      // ordinary one, and "Add columns" appeared to do nothing — the collection
-      // was created and nothing displayed it.
-      parsed.collection ? (parsed.page.collectionId ?? pageId) : parsed.page.collectionId,
+      // For a row, the collection it is a record of (ADR-0021). For everything
+      // else, null: a page that holds collections is not itself one, and it may
+      // hold several.
+      parsed.page.kind === 'row' ? parsed.page.collectionId : null,
       parsed.page.idx,
       parsed.page.title,
       parsed.page.icon === null ? null : JSON.stringify(parsed.page.icon),
@@ -300,8 +297,21 @@ export async function materializeDocument(
 
   // --- collection definition ----------------------------------------------
 
-  if (parsed.collection) {
-    const collectionId = parsed.page.collectionId ?? pageId;
+  // Every collection this page holds. A page may hold several (ADR-0021), so
+  // this is a loop where it used to be an `if`.
+  //
+  // Collections whose id is no longer in the document are removed, or a
+  // collection deleted from a page would keep its columns, its views and its
+  // rows' values in the projection for ever.
+  const keptCollectionIds = [...parsed.collections.keys()];
+  await db.query(
+    `DELETE FROM collections
+      WHERE page_id = $1
+        AND ($2::uuid[] = '{}' OR id <> ALL($2::uuid[]))`,
+    [pageId, keptCollectionIds],
+  );
+
+  for (const [collectionId, collection] of parsed.collections) {
 
     await db.query(
       `INSERT INTO collections (id, workspace_id, page_id, title_field_id, schema_version)
@@ -313,12 +323,12 @@ export async function materializeDocument(
         collectionId,
         opts.workspaceId,
         pageId,
-        parsed.collection.titleFieldId,
+        collection.titleFieldId,
         parsed.schemaVersion,
       ],
     );
 
-    const keptFieldIds = parsed.collection.fields.map((f) => f.id);
+    const keptFieldIds = collection.fields.map((f) => f.id);
 
     // Fields removed from the definition must lose their stored values too,
     // or page_properties accumulates orphans that no view can reach.
@@ -329,7 +339,7 @@ export async function materializeDocument(
       [collectionId, keptFieldIds],
     );
 
-    for (const field of parsed.collection.fields) {
+    for (const field of collection.fields) {
       await db.query(
         `INSERT INTO collection_fields
            (id, collection_id, name, description, field_type, config, idx, schema_version)
@@ -354,7 +364,7 @@ export async function materializeDocument(
       );
     }
 
-    const keptViewIds = parsed.collection.views.map((v) => v.id);
+    const keptViewIds = collection.views.map((v) => v.id);
     await db.query(
       `DELETE FROM collection_views
         WHERE collection_id = $1
@@ -362,7 +372,7 @@ export async function materializeDocument(
       [collectionId, keptViewIds],
     );
 
-    for (const view of parsed.collection.views) {
+    for (const view of collection.views) {
       await db.query(
         `INSERT INTO collection_views
            (id, collection_id, name, view_type, idx, definition, schema_version)
@@ -622,7 +632,7 @@ export async function materializeYDoc(
   doc: Y.Doc,
   opts: MaterializeOptions,
 ): Promise<MaterializeResult> {
-  return materializeDocument(db, pageId, readDocument(doc), opts);
+  return materializeDocument(db, pageId, readDocument(doc, pageId), opts);
 }
 
 /** Mark a page's projection stale so the rebuild worker picks it up. */
