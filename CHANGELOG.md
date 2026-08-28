@@ -13,6 +13,47 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.1.0
+
+The first release worth another person's time.
+
+**Operator action: change the image tag.** `docker-compose.yml` now defaults to
+`:latest` rather than `:main`. If you set `SONE_IMAGE` yourself, point it at
+`ghcr.io/markusthiel/sone:0.1.0` for a version that will never move under
+you, or `:latest` to follow stable releases.
+
+Upgrading from `0.1.0-rc.1` applies four migrations (folders, favourites, tags,
+administration) and needs nothing else. Whoever created the first workspace
+becomes the instance administrator.
+
+The document schema and the sync protocol are both still version 1, so an older
+client keeps working against this server.
+
+### What it does
+
+Write and organise notes, together, on your own server.
+
+- Pages in folders, moved by dragging or by a picker, with a tree that
+  remembers what you collapsed
+- A block editor: headings, lists, to-dos, toggles that collapse, quotes,
+  callouts, code with a copy button, dividers, images, tables, and markdown
+  shortcuts and paste
+- Real-time editing with other people, and edits kept locally when the
+  connection drops
+- Full-text search across a workspace, in the workspace's language
+- Tags, favourites, an outline, and a task panel
+- Share links: read, comment or edit, optionally with a password and an expiry
+- An administration area: accounts, workspaces, settings that take effect
+  without a redeploy, and maintenance that reports what it cannot fix
+- Backup and restore, including the files
+
+### What it does not do yet
+
+Collections and database views render a placeholder. There is no mobile layout
+(ADR-0009), no end-to-end encryption (ADR-0003), no tag colours
+([ADR-0020](docs/adr/0020-tags.md) explains why they need a decision first), and
+no reordering by dragging.
+
 **An administration area.** Settings now has a sub-navigation: Account,
 Appearance and Workspace for everyone, and — for instance administrators —
 Instance, Accounts, Workspaces, Maintenance and About.
