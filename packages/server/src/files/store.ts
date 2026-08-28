@@ -61,10 +61,66 @@ export class StorageError extends Error {
  */
 const KEY_PATTERN = /^[0-9a-f]{2}\/[0-9a-f]{62}(\.[a-z0-9]{1,8})?$/;
 
+/** How long the startup writability probe waits before giving its verdict. */
+export const WRITE_PROBE_TIMEOUT_MS = 3_000;
+
 export class LocalFileStore implements FileStore {
   readonly kind = 'local';
 
   constructor(private readonly root: string) {}
+
+  /**
+   * Confirm the store can actually be written to.
+   *
+   * Called at startup, because the alternative is finding out on somebody's
+   * first photo — and an upload that fails there produces a 500, which tells
+   * them nothing about a directory they could fix in a minute.
+   *
+   * The usual cause is a volume mounted over the image's prepared directory
+   * with different ownership: the image creates and chowns
+   * `/var/lib/sone/files`, and a bind mount or a pre-existing volume replaces
+   * that with whatever the host has.
+   *
+   * Returns the problem rather than throwing, so the caller decides whether it
+   * is fatal.
+   */
+  async checkWritable(timeoutMs = WRITE_PROBE_TIMEOUT_MS): Promise<string | null> {
+    const probe = path.join(this.root, `.write-probe-${process.pid}`);
+
+    const attempt = async (): Promise<string | null> => {
+      try {
+        await mkdir(this.root, { recursive: true });
+        await writeFile(probe, 'ok');
+        await unlink(probe);
+        return null;
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        return `${this.root} is not writable: ${reason}`;
+      }
+    };
+
+    // Bounded, and this is not theoretical: the first version of this check hung
+    // indefinitely on a path it could not resolve, which would have hung the
+    // server's startup — a check that can prevent a boot is worse than no
+    // check.
+    //
+    // A probe that does not finish quickly is itself the finding. A stalled
+    // network mount answers neither yes nor no, and reporting "did not respond"
+    // is more useful than waiting for it.
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<string>((resolve) => {
+      timer = setTimeout(
+        () => resolve(`${this.root} did not respond within ${timeoutMs} ms`),
+        timeoutMs,
+      );
+    });
+
+    try {
+      return await Promise.race([attempt(), timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
 
   private resolve(key: string): string {
     // Validated against a pattern rather than sanitised. The keys this store

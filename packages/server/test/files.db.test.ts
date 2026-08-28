@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, beforeEach, describe, test } from 'node:test';
@@ -361,6 +361,75 @@ describe(
     });
 
     // --- storage -----------------------------------------------------------
+
+    test('an unwritable directory is reported, not discovered later', async () => {
+      // The alternative is finding out on somebody's first photo, where it
+      // becomes a 500 that says nothing about a directory they could fix in a
+      // minute.
+      //
+      // A short timeout, because the point is that a verdict always arrives.
+      // The first version of this probe hung indefinitely on exactly this kind
+      // of path, which would have hung the server's startup.
+      const store = new LocalFileStore('/proc/nonexistent/sone-files');
+      const problem = await store.checkWritable(200);
+      assert.ok(problem, 'an impossible path should be reported');
+      assert.match(problem!, /not writable|did not respond/);
+    });
+
+    test('a writable directory reports no problem', async () => {
+      const store = new LocalFileStore(storageRoot);
+      assert.equal(await store.checkWritable(), null);
+    });
+
+    test('a storage failure is a named error, not a bare 500', async () => {
+      // "Something went wrong" is true and useless. A deployment problem has to
+      // name itself.
+      const session = await setup();
+      const failing = new Router();
+      registerAuthRoutes(failing, {
+        pool: db,
+        signupMode: () => Promise.resolve('open' as const),
+        secureCookies: false,
+      });
+      // A root that is a regular file, so mkdir fails immediately with
+      // ENOTDIR. Deliberately not an unreachable path: one of those does not
+      // fail, it *hangs*, and a hanging store hangs the request — the browser
+      // spins instead of being told anything. The startup probe reports an
+      // unresponsive directory for exactly that reason.
+      const filePath = path.join(storageRoot, 'not-a-directory');
+      await writeFile(filePath, 'x');
+
+      registerFileRoutes(failing, {
+        pool: db,
+        store: new LocalFileStore(filePath),
+        maxUploadBytes: 1024,
+      });
+
+      const broken = createServer((req, res) => {
+        void failing.handle(req, res, 'http://localhost').then((handled) => {
+          if (!handled && !res.headersSent) {
+            res.writeHead(404, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: 'not_found' }));
+          }
+        });
+      });
+      await new Promise<void>((resolve) => broken.listen(0, '127.0.0.1', resolve));
+      const address = broken.address();
+      const brokenBase =
+        typeof address === 'object' && address ? `http://127.0.0.1:${address.port}` : '';
+
+      try {
+        const res = await fetch(`${brokenBase}/api/pages/${session.pageId}/files`, {
+          method: 'POST',
+          headers: { cookie: session.cookie, 'content-type': 'application/octet-stream' },
+          body: new Uint8Array(PNG),
+        });
+        assert.equal(res.status, 500);
+        assert.deepEqual(await res.json(), { error: 'storage_unavailable' });
+      } finally {
+        await new Promise<void>((resolve) => broken.close(() => resolve()));
+      }
+    });
 
     test('the store refuses a key that could escape its root', async () => {
       const store = new LocalFileStore(storageRoot);

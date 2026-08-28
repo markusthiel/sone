@@ -143,7 +143,23 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
       detected.extension,
     );
 
-    const stored = await deps.store.put(body, detected.extension);
+    // Storage failures get their own code.
+    //
+    // An uncaught one became a bare 500 and the block on the page said
+    // "Something went wrong" — true, and useless. A directory that cannot be
+    // written is a deployment problem somebody can fix in a minute once they
+    // are told which one it is.
+    let stored;
+    try {
+      stored = await deps.store.put(body, detected.extension);
+    } catch (err) {
+      console.error(
+        `[files] could not store an upload for page ${pageId}:`,
+        err instanceof Error ? err.message : err,
+      );
+      ctx.fail(500, 'storage_unavailable');
+      return;
+    }
     const actorId =
       claims!.principal.kind === 'anonymous' ? null : claims!.principal.userId;
 
