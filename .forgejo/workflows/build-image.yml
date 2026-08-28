@@ -173,18 +173,67 @@ jobs:
             printf "  node %s\n" "$(node --version)"
           '
 
-      - uses: docker/login-action@v3
-        with:
-          registry: forgejo.thiel.tools
-          username: thiel
-          password: ${{ secrets.REGISTRY_TOKEN }}
+      # Login and push, with retries, because the registry is the same machine
+      # as the forge and the runner.
+      #
+      # On a self-hosted setup these are not independent services: when the
+      # forge is briefly unwell — and it does answer 503 under load — the
+      # registry is unwell at the same moment, and a build that took two minutes
+      # is thrown away for a hiccup that lasted five seconds. This is the one
+      # place in the pipeline where retrying is clearly right: the image is
+      # already built and verified, and pushing it twice is harmless.
+      #
+      # The step also reports what the registry actually said. A bare "login
+      # failed" sent me looking at the token, which was fine; "the registry
+      # answered 503" would have said where to look.
+      - name: Log in to the registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -eu
+          registry=forgejo.thiel.tools
+
+          # Reported before attempting anything, so the log distinguishes "the
+          # registry is down" from "these credentials are wrong". 401 here is
+          # the healthy answer: the endpoint exists and wants authentication.
+          code=$(curl -s -o /dev/null -m 20 -w '%{http_code}' "https://$registry/v2/" || echo "no-response")
+          echo "registry /v2/ answered: $code (401 is expected and healthy)"
+
+          for attempt in 1 2 3 4 5; do
+            if printf '%s' "$REGISTRY_TOKEN" \
+                 | docker login "$registry" --username thiel --password-stdin; then
+              echo "logged in on attempt $attempt"
+              exit 0
+            fi
+            echo "login attempt $attempt failed; retrying in $((attempt * 10))s" >&2
+            sleep $((attempt * 10))
+          done
+
+          echo "Could not log in to $registry after five attempts." >&2
+          echo "If the probe above reported 5xx, the forge was unwell rather" >&2
+          echo "than the credentials being wrong — re-run this workflow." >&2
+          echo "If it reported 401 and login still fails, REGISTRY_TOKEN needs" >&2
+          echo "scope write:package and read:package." >&2
+          exit 1
 
       - name: Push
         run: |
           set -eu
           for tag in ${{ steps.meta.outputs.tags }}; do
-            echo "pushing $tag"
-            docker push "$tag"
+            pushed=""
+            for attempt in 1 2 3; do
+              echo "pushing $tag (attempt $attempt)"
+              if docker push "$tag"; then
+                pushed="yes"
+                break
+              fi
+              echo "push failed; retrying in $((attempt * 15))s" >&2
+              sleep $((attempt * 15))
+            done
+            if [ -z "$pushed" ]; then
+              echo "Could not push $tag after three attempts." >&2
+              exit 1
+            fi
           done
 
       - name: Report
