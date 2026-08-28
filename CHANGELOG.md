@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: "Add columns" appeared to do nothing.** The collection was created and
+nothing displayed it — the folder's row was never marked as one, because that
+mark was read from a document field that nothing writes. Every collection made
+since the feature shipped was invisible.
+
 ## 0.2.0
 
 Collections, and a great many corrections found by running 0.1.0 in earnest.
