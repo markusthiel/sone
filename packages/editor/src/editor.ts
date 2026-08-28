@@ -91,27 +91,29 @@ export interface EditorOptions {
 /**
  * The label drawn beside somebody else's caret.
  *
- * y-prosemirror's default builder reads `user.name` and `user.color` from each
- * awareness state. SONE publishes `displayName` and `color` (PresenceState in
- * @sone/client), so the default found no name and rendered the awareness client
- * id instead — a number beside somebody's caret where their name should be.
+ * Receives `awareness.user`, not the whole awareness state — y-prosemirror reads
+ * `aw.user` and passes that, defaulting it to `{}`. My first version read
+ * `displayName` from the argument, which is never there, so every caret said
+ * "Someone" in the library's fallback orange. @sone/client now publishes a
+ * `user` copy alongside its own fields, and this reads what it is actually
+ * given.
  *
- * Fixed here rather than by renaming the presence field: `displayName` is what
- * the rest of the application calls it, and bending the whole model to one
- * library's expectation is the wrong direction. A builder is the extension
- * point that exists for exactly this.
+ * Kept rather than falling back to y-prosemirror's default builder for two
+ * reasons: the fallbacks below are ours to choose, and the name is inserted as
+ * text with an explicit guarantee — it is another person's input arriving over
+ * the wire.
  *
  * Exported so it can be tested on its own: y-prosemirror keeps its options in a
  * closure, so reaching this through the plugin is not possible.
  */
-export function presenceCursor(state: Record<string, unknown>): HTMLElement {
+export function presenceCursor(user: Record<string, unknown>): HTMLElement {
   const name =
-    typeof state['displayName'] === 'string' && state['displayName'] !== ''
-      ? state['displayName']
+    typeof user['name'] === 'string' && user['name'] !== ''
+      ? user['name']
       : 'Someone';
   const color =
-    typeof state['color'] === 'string' && state['color'] !== ''
-      ? state['color']
+    typeof user['color'] === 'string' && user['color'] !== ''
+      ? user['color']
       : '#8b8b8b';
 
   const cursor = document.createElement('span');
@@ -142,16 +144,8 @@ export function createEditorState(opts: EditorOptions): EditorState {
   if (opts.awareness) {
     plugins.push(
       yCursorPlugin(opts.awareness, {
-        // y-prosemirror's default builder reads `user.name` and `user.color`
-        // from each awareness state. SONE publishes `displayName` and `color`
-        // (PresenceState in @sone/client), so the default found no name and
-        // rendered the awareness client id instead — a number beside somebody's
-        // caret where their name should be.
-        //
-        // Fixed here rather than by renaming the presence field: `displayName`
-        // is what the rest of the application calls it, and bending the whole
-        // model to one library's expectation is the wrong direction. A builder
-        // is the extension point that exists for this.
+        // See presenceCursor: it is handed `awareness.user`, which
+        // @sone/client publishes alongside its own presence fields.
         cursorBuilder: presenceCursor,
       }),
     );

@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: uploading through a share link failed.** Resolving the token is what
+sets the share cookie, and the client only did it when the link's path carried no
+page — so the newer, self-describing links never got a cookie and every upload was
+refused.
+
+**Fixed: every collaborator's caret said "Someone" in the same orange.**
+y-prosemirror reads `awareness.user`, which nothing published, so it used its own
+fallbacks for both the name and the colour.
+
 **Fixed: a guest editing through a share link could not upload images.** The
 upload route read only the member cookie, so the request was refused — and an
 image block with no URL renders its filename as a label, which read as a picture
