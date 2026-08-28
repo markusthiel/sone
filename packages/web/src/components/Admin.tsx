@@ -467,12 +467,19 @@ export function MaintenancePanel(): ReactElement {
           <p className="admin-alert-title">Uploads cannot be written to disk</p>
           <p className="admin-alert-detail">{report.storage.problem}</p>
           <p className="admin-alert-detail muted">
-            The container runs as uid 10001 and cannot change this itself. On the
-            host:{' '}
-            <code>
-              docker run --rm -v sone_files:/v alpine chown -R 10001:10001 /v
-            </code>
-            , then press Run maintenance now to confirm.
+            The container runs as uid 10001 and cannot change this itself. From
+            the host, as root inside the running container:
+            <code>docker exec -u 0 &lt;container&gt; chown -R 10001:10001 /var/lib/sone</code>
+            Then reload this page — no restart is needed.
+          </p>
+          <p className="admin-alert-detail muted">
+            {/* Said here because the obvious command is wrong in a way that
+                looks like it worked: Compose prefixes volume names with the
+                project name, and `docker run -v` given a name that does not
+                exist creates an empty volume and changes that instead. */}
+            Address the container rather than the volume. A volume name guessed
+            wrongly is created empty rather than reported missing, so the command
+            appears to succeed and nothing changes.
           </p>
         </div>
       )}

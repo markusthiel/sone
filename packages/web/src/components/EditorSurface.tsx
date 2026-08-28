@@ -45,9 +45,13 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
         const result = await api.uploadFile(pageId, file);
         return { url: result.url, filename: result.filename };
       } catch (error) {
-        throw new Error(
-          messageFor(error instanceof ApiError ? error.code : 'network_error'),
+        const base = messageFor(
+          error instanceof ApiError ? error.code : 'network_error',
         );
+        // The detail is present only for an instance administrator, and it is
+        // the part that identifies a deployment problem.
+        const detail = error instanceof ApiError ? error.detail : undefined;
+        throw new Error(detail ? `${base} (${detail})` : base);
       }
     },
     [pageId],

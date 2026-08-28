@@ -16,6 +16,14 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
+    /**
+     * A technical reason, sent only to instance administrators.
+     *
+     * Kept separate from `code`, which is looked up in the message catalogue:
+     * this is a path and an errno, useful to whoever is fixing a deployment and
+     * meaningless to anybody else.
+     */
+    readonly detail?: string,
   ) {
     // The message is for the console. The UI renders `code` through the
     // message catalogue.
@@ -478,9 +486,13 @@ export const api = {
     const text = await response.text();
     if (!response.ok) {
       let code: string | null = null;
+      let detail: string | undefined;
       try {
-        const parsed = JSON.parse(text) as { error?: string };
+        const parsed = JSON.parse(text) as { error?: string; detail?: string };
         if (typeof parsed.error === 'string') code = parsed.error;
+        // Present only for instance administrators: it names a path and an
+        // errno, which is what somebody fixing a deployment needs.
+        if (typeof parsed.detail === 'string') detail = parsed.detail;
       } catch {
         // Not JSON, which means something between the browser and SONE answered
         // — almost always a reverse proxy. Its own limits are separate from
@@ -493,7 +505,7 @@ export const api = {
         // the wrong component. The status is what identifies it.
         code = response.status === 413 ? 'proxy_rejected_size' : 'proxy_error';
       }
-      throw new ApiError(response.status, code ?? 'unknown_error');
+      throw new ApiError(response.status, code ?? 'unknown_error', detail);
     }
 
     return JSON.parse(text) as never;

@@ -202,7 +202,20 @@ export async function register(
 
     const created = await queryOne<{ id: string }>(
       client,
-      `INSERT INTO users (email, display_name, password_hash) VALUES ($1,$2,$3) RETURNING id`,
+      // Instance administrator, here and not in a migration.
+      //
+      // Migration 0010 promotes whoever created the first workspace, which
+      // repairs an existing deployment and does nothing for a new one: on an
+      // empty database there is no workspace yet, so nobody is promoted and the
+      // account created a moment later has no administrative rights at all.
+      // The administration area would then be invisible to everyone with no way
+      // to appoint anybody except by editing the database — which is exactly
+      // the situation that migration's comment claims to prevent.
+      //
+      // Whoever sets an instance up administers it, and this is where that
+      // happens.
+      `INSERT INTO users (email, display_name, password_hash, is_instance_admin)
+       VALUES ($1,$2,$3,true) RETURNING id`,
       [email, displayName, passwordHash],
     );
     if (!created) throw new Error('failed to create user');
@@ -257,7 +270,20 @@ export async function bootstrapInstance(
 
     const user = await queryOne<{ id: string }>(
       client,
-      `INSERT INTO users (email, display_name, password_hash) VALUES ($1,$2,$3) RETURNING id`,
+      // Instance administrator, here and not in a migration.
+      //
+      // Migration 0010 promotes whoever created the first workspace, which
+      // repairs an existing deployment and does nothing for a new one: on an
+      // empty database there is no workspace yet, so nobody is promoted and the
+      // account created a moment later has no administrative rights at all.
+      // The administration area would then be invisible to everyone with no way
+      // to appoint anybody except by editing the database — which is exactly
+      // the situation that migration's comment claims to prevent.
+      //
+      // Whoever sets an instance up administers it, and this is where that
+      // happens.
+      `INSERT INTO users (email, display_name, password_hash, is_instance_admin)
+       VALUES ($1,$2,$3,true) RETURNING id`,
       [email, input.displayName.trim().slice(0, 128), passwordHash],
     );
     if (!user) throw new Error('failed to create user');
