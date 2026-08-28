@@ -73,13 +73,16 @@ def main() -> int:
     # both directions — it would fail a correct image, and it would pass an
     # image whose entrypoint quietly forgot to drop privilege. What is checked
     # instead is that the entrypoint really does hand over.
-    entrypoint = " ".join(oci_config.get("Entrypoint") or []) + " " + " ".join(
+    # Named differently from the `entrypoint` list read below, which this
+    # shadowed — a reassignment from string to list that happened to work and
+    # would have confused the next reader.
+    entrypoint_text = " ".join(oci_config.get("Entrypoint") or []) + " " + " ".join(
         oci_config.get("Cmd") or []
     )
-    if "entrypoint.sh" not in entrypoint:
+    if "entrypoint.sh" not in entrypoint_text:
         problems.append(
-            f"entrypoint is {entrypoint.strip()!r}; expected docker/entrypoint.sh, "
-            "which is what drops privilege"
+            f"entrypoint is {entrypoint_text.strip()!r}; expected "
+            "docker/entrypoint.sh, which is what drops privilege"
         )
 
     exposed = oci_config.get("ExposedPorts") or {}
@@ -110,7 +113,11 @@ def main() -> int:
         return 1
 
     print("image configuration verified:")
-    print(f"  user        {user}")
+    # The declared user is deliberately absent: the image has none, because the
+    # entrypoint starts as root and drops to uid 10001. The workflow checks the
+    # running container for that; this only confirms the entrypoint is the one
+    # that does it.
+    print(f"  drops to    uid {EXPECTED_UID} via the entrypoint")
     print(f"  entrypoint  {' '.join(entrypoint)}")
     print(f"  exposed     {', '.join(sorted(exposed))}")
     print(f"  version     {version}")
