@@ -427,6 +427,69 @@ describe(
       assert.equal(res.headers.get('content-type'), 'image/png');
     });
 
+    test('a guest with edit rights can upload', async () => {
+      // Reported as "the image shows as text": the upload was refused with 401,
+      // and an image block with no URL renders the filename as a label. So it
+      // read as a picture turning into words rather than as a refused upload.
+      const session = await setup();
+      await db.query(
+        `INSERT INTO share_tokens
+           (workspace_id, scope_page_id, include_subtree, role, token_hash,
+            allow_anonymous, created_by)
+         VALUES ($1,$2,true,'editor',$3,true,$4)`,
+        [
+          session.workspaceId,
+          session.pageId,
+          createHash('sha256').update('an-editing-share-token', 'utf8').digest(),
+          session.userId,
+        ],
+      );
+
+      const res = await fetch(
+        `${base}/api/pages/${session.pageId}/files?filename=photo.png`,
+        {
+          method: 'POST',
+          headers: {
+            cookie: 'sone_share=an-editing-share-token',
+            'content-type': 'application/octet-stream',
+          },
+          body: PNG,
+        },
+      );
+      const body = await expectJson<{ id: string }>(res, 201);
+      assert.ok(body.id, 'and the file is addressable');
+    });
+
+    test('a guest with only read rights cannot upload', async () => {
+      // The share cookie is a credential, not a promotion.
+      const session = await setup();
+      await db.query(
+        `INSERT INTO share_tokens
+           (workspace_id, scope_page_id, include_subtree, role, token_hash,
+            allow_anonymous, created_by)
+         VALUES ($1,$2,true,'viewer',$3,true,$4)`,
+        [
+          session.workspaceId,
+          session.pageId,
+          createHash('sha256').update('a-read-only-share-token', 'utf8').digest(),
+          session.userId,
+        ],
+      );
+
+      const res = await fetch(
+        `${base}/api/pages/${session.pageId}/files?filename=photo.png`,
+        {
+          method: 'POST',
+          headers: {
+            cookie: 'sone_share=a-read-only-share-token',
+            'content-type': 'application/octet-stream',
+          },
+          body: PNG,
+        },
+      );
+      assert.equal(res.status, 403);
+    });
+
     test('a file is refused without any credential', async () => {
       // The share cookie is a credential, not a bypass.
       const session = await setup();

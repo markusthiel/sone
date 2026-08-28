@@ -161,12 +161,18 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
       return;
     }
 
-    const token = sessionTokenFrom(ctx);
-    if (!token) {
+    // The same resolver the download route uses.
+    //
+    // A guest editing through a share link could not upload: this read only the
+    // member cookie, so the request was 401 and the image block stayed as the
+    // filename in text — which reads as "the picture turned into words" rather
+    // than as a refused upload.
+    const resolved = await claimsForRequest(deps.pool, ctx, page.workspaceId);
+    if (resolved.kind === 'anonymous') {
       ctx.fail(401, 'not_authenticated');
       return;
     }
-    const claims = await resolveSessionClaims(deps.pool, token, page.workspaceId);
+    const claims = resolved.kind === 'ok' ? resolved.claims : null;
     const role = claims ? effectiveRole(claims, page) : null;
     if (role === null) {
       ctx.fail(404, 'not_found');

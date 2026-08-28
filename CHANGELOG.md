@@ -13,6 +13,16 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a guest editing through a share link could not upload images.** The
+upload route read only the member cookie, so the request was refused — and an
+image block with no URL renders its filename as a label, which read as a picture
+turning into text rather than as a refused upload. Guests with edit rights can
+now upload; guests with read rights still cannot.
+
+**Fixed: a collaborator's caret showed a number instead of their name.**
+y-prosemirror's default label reads `user.name`, and SONE publishes
+`displayName`, so it fell back to the internal client id.
+
 **Fixed: images in a shared page did not load, and one of them took the whole
 app down with it.** A share visitor had no HTTP credential — the token
 authenticated the sync connection and nothing else — so every image returned 401.
