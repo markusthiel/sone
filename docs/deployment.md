@@ -315,16 +315,34 @@ The usual cause is a Docker volume that was created **before** this directory
 existed in the image: Docker copies the image's contents and ownership only into
 a *fresh* named volume, so a volume from an earlier version stays owned by root.
 
-The container cannot fix this itself — it never runs as root, deliberately. On
-the host:
+The container cannot fix this itself — it never runs as root, deliberately. Fix
+it from the host, as root *inside the running container*:
 
 ```bash
-docker run --rm -v sone_files:/v alpine chown -R 10001:10001 /v
+docker exec -u 0 <container> chown -R 10001:10001 /var/lib/sone
 ```
 
-Substitute the actual volume name if it differs (`docker volume ls`). No restart
-is needed: Settings → Maintenance re-checks on every visit, and the message
-disappears once the directory is writable.
+`docker ps` gives the container name. Confirm it took:
+
+```bash
+docker exec <container> ls -ld /var/lib/sone/files
+```
+
+The owner should read `10001`. No restart is needed: Settings → Maintenance
+re-checks on every visit, and the message disappears once the directory is
+writable.
+
+**Do not do this by volume name.** An earlier version of these instructions said
+`docker run --rm -v sone_files:/v alpine chown -R 10001:10001 /v`, which is a
+trap: Compose prefixes volume names with the project name, so the volume is
+really called something like `sone_sone_files`. Given a name that does not
+exist, `docker run -v` silently **creates** an empty volume and chowns that,
+leaving the real one untouched and the error unchanged. Addressing the container
+cannot go wrong in that way.
+
+If you must use a volume, find its real name first with
+`docker volume ls | grep files`, or read it off the container with
+`docker inspect -f '{{range .Mounts}}{{.Name}} {{.Destination}}{{"\n"}}{{end}}' <container>`.
 
 The same applies to a bind mount, where the host directory's owner has to be
 10001 — or the mount has to be given permissive modes, which is worse.

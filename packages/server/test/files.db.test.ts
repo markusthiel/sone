@@ -438,7 +438,12 @@ describe(
           body: new Uint8Array(PNG),
         });
         assert.equal(res.status, 500);
-        assert.deepEqual(await res.json(), { error: 'storage_unavailable' });
+        const body = (await res.json()) as { error: string; detail?: string };
+        assert.equal(body.error, 'storage_unavailable');
+        // The owner of a fresh instance is its administrator, so the reason is
+        // included — a path and an errno, which is what somebody fixing a
+        // deployment needs and what previously reached only the container log.
+        assert.match(body.detail ?? '', /ENOTDIR|EEXIST|not a directory/i);
       } finally {
         await new Promise<void>((resolve) => broken.close(() => resolve()));
       }

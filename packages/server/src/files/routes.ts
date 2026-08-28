@@ -21,6 +21,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Pool } from 'pg';
 
 import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/claims.js';
+import { isInstanceAdmin } from '../admin/routes.js';
 import { queryOne } from '../db/pool.js';
 import { detectType, isInlineImage, type FileStore } from './store.js';
 import { sessionTokenFrom } from '../http/auth.js';
@@ -153,11 +154,24 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
     try {
       stored = await deps.store.put(body, detected.extension);
     } catch (err) {
-      console.error(
-        `[files] could not store an upload for page ${pageId}:`,
-        err instanceof Error ? err.message : err,
-      );
-      ctx.fail(500, 'storage_unavailable');
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error(`[files] could not store an upload for page ${pageId}: ${reason}`);
+
+      // The reason goes to an instance administrator and nobody else.
+      //
+      // It names a filesystem path and an errno, which is exactly what somebody
+      // fixing a deployment needs and not something every editor should be
+      // handed. Without it the only route to the cause was the container log,
+      // and a round trip was spent on that.
+      const isAdmin =
+        claims!.principal.kind === 'anonymous'
+          ? false
+          : await isInstanceAdmin(deps.pool, claims!.principal.userId);
+
+      ctx.send(500, {
+        error: 'storage_unavailable',
+        ...(isAdmin ? { detail: reason } : {}),
+      });
       return;
     }
     const actorId =

@@ -107,11 +107,9 @@ describe(
         }),
       );
       const body = await expectJson<{ userId: string }>(res, 201);
-      // The migration promotes whoever created the first workspace; a database
-      // reset between tests re-runs setup, so it is set explicitly here.
-      await db.query(`UPDATE users SET is_instance_admin = true WHERE id = $1`, [
-        body.userId,
-      ]);
+      // No promotion needed: setting an instance up makes that account its
+      // administrator. This used to UPDATE the row by hand, which hid the fact
+      // that a real fresh install had no administrator at all.
       return { cookie: cookieFrom(res), userId: body.userId };
     }
 
@@ -129,6 +127,37 @@ describe(
     }
 
     // --- the guard ---------------------------------------------------------
+
+    test('setting up an instance makes that account its administrator', async () => {
+      // Migration 0010 promotes whoever created the first workspace, which
+      // repairs an existing deployment and does nothing for a new one: on an
+      // empty database there is no workspace to look at. Without this, the
+      // administration area was invisible to everyone on every fresh install,
+      // with no way to appoint anybody except by editing the database.
+      const admin = await setup();
+
+      const row = await db.query<{ is_instance_admin: boolean }>(
+        `SELECT is_instance_admin FROM users WHERE id = $1`,
+        [admin.userId],
+      );
+      assert.equal(row.rows[0]!.is_instance_admin, true);
+
+      const res = await fetch(`${base}/api/admin/overview`, {
+        headers: { cookie: admin.cookie },
+      });
+      await expectStatus(res, 200);
+    });
+
+    test('an account created afterwards is not an administrator', async () => {
+      // Only the person who set the instance up, not everybody who signs up.
+      await setup();
+      const member = await ordinaryUser('later@example.org');
+      const row = await db.query<{ is_instance_admin: boolean }>(
+        `SELECT is_instance_admin FROM users WHERE id = $1`,
+        [member.userId],
+      );
+      assert.equal(row.rows[0]!.is_instance_admin, false);
+    });
 
     test('an administrator can read the overview', async () => {
       const admin = await setup();
