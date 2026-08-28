@@ -13,6 +13,41 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.2.0
+
+Collections, and a great many corrections found by running 0.1.0 in earnest.
+
+**Operator action: none.** Two migrations apply on start. Upgrading from 0.1.0
+keeps everything; the document schema and sync protocol are both still version
+1, so an older client still works against this server.
+
+Share links created before this upgrade keep working but cannot be copied
+again — only their hash was stored. Replace one if you want that.
+
+### Collections
+
+A folder can gain columns and becomes a table: text, number, date, checkbox,
+link, email, phone, select and multi-select, edited in place. A row is a page,
+and its title opens it.
+
+Shown as a board when a select column exists: each option a column, and dragging
+a card into one sets that value. A view can filter and sort, and that work
+happens in the database rather than the browser.
+
+### Everything else
+
+- Entries are dragged with a finger as well as a mouse, into folders or between
+  them to reorder; "Move up" and "Move down" do the same without a pointer
+- Tags have colours, derived from the tag's own name unless a workspace chooses
+  one
+- Share links open the page they were made for, can be copied again, and let a
+  guest with edit rights upload images
+- A collaborator's caret carries their name
+- A server that cannot start says so in the browser instead of leaving a blank
+  page
+
+### In detail
+
 **Tags have colours.** Every tag gets one derived from its own name, so the same
 tag is the same colour for everybody with nothing stored anywhere. A workspace
 can choose a different one.
