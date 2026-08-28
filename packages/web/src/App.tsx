@@ -218,6 +218,7 @@ function Workspace({
         onRename={(id, title) => void renameEntry(id, title)}
         onStartMove={setMovingId}
         onStartShare={setSharingId}
+        onMove={(id, parent) => void moveEntry(id, parent)}
         favourites={favourites}
         favouriteIds={favouriteIds}
         onToggleFavourite={(id, on) => void toggleFavourite(id, on)}

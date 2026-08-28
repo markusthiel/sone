@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import type { FavouriteEntry, PageNode } from '../api/client.ts';
+import { canMoveInto, findNode } from './moveRules.ts';
 import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
@@ -44,6 +45,8 @@ interface SidebarProps {
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
+  /** Moves an entry into a folder, or to the root when the target is null. */
+  onMove: (pageId: string, parentPageId: string | null) => void;
   favourites: FavouriteEntry[];
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
@@ -79,6 +82,7 @@ export function Sidebar({
   onDelete,
   onStartMove,
   onStartShare,
+  onMove,
   favourites,
   favouriteIds,
   onToggleFavourite,
@@ -86,6 +90,10 @@ export function Sidebar({
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
   const [renaming, setRenaming] = useState<string | null>(null);
+  // One drag at a time, and every row has to know about it — so the state
+  // belongs here rather than in a row.
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -209,6 +217,12 @@ export function Sidebar({
             onStartShare={onStartShare}
             favouriteIds={favouriteIds}
             onToggleFavourite={onToggleFavourite}
+            tree={tree}
+            onMove={onMove}
+            dragging={dragging}
+            setDragging={setDragging}
+            dropTarget={dropTarget}
+            setDropTarget={setDropTarget}
           />
         )}
 
@@ -255,6 +269,12 @@ function TreeLevel({
   onStartShare,
   favouriteIds,
   onToggleFavourite,
+  tree,
+  onMove,
+  dragging,
+  setDragging,
+  dropTarget,
+  setDropTarget,
 }: {
   nodes: PageNode[];
   currentPageId: string | null;
@@ -270,6 +290,13 @@ function TreeLevel({
   onStartShare: (pageId: string) => void;
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
+  /** The whole tree, for validating a drop against the subtree rule. */
+  tree: PageNode[];
+  onMove: (pageId: string, parentPageId: string | null) => void;
+  dragging: string | null;
+  setDragging: (id: string | null) => void;
+  dropTarget: string | null;
+  setDropTarget: (update: string | null | ((current: string | null) => string | null)) => void;
 }): ReactElement {
   return (
     <>
@@ -281,7 +308,61 @@ function TreeLevel({
 
         return (
           <div key={node.id} className="tree-node">
-            <div className="tree-row" data-kind={node.kind}>
+            <div
+              className="tree-row"
+              data-kind={node.kind}
+              // HTML5 drag and drop, for pointer devices only.
+              //
+              // iOS Safari does not fire these events at all, so on a tablet
+              // this degrades to nothing and "Move to…" remains the way — which
+              // is the right outcome rather than a gap. A pointer-event
+              // implementation would have to distinguish a drag from a scroll
+              // by threshold and timing, and would be fighting the same gesture
+              // the sidebar needs for scrolling. The picker is better on touch
+              // anyway: it can say why a destination is unavailable.
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = 'move';
+                // Set for the browser's benefit; the id below is what is read.
+                event.dataTransfer.setData('text/plain', title);
+                setDragging(node.id);
+              }}
+              onDragEnd={() => {
+                setDragging(null);
+                setDropTarget(null);
+              }}
+              onDragOver={(event) => {
+                if (!dragging || dragging === node.id) return;
+                const moving = findNode(tree, dragging);
+                if (!moving || !canMoveInto(tree, moving, node.id)) {
+                  // No preventDefault: the browser then shows the "cannot
+                  // drop" cursor by itself, which is the feedback wanted.
+                  return;
+                }
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                setDropTarget(node.id);
+              }}
+              onDragLeave={(event) => {
+                // Only when the pointer has actually left this row, not when it
+                // crosses into a child element of it.
+                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                  setDropTarget((current) => (current === node.id ? null : current));
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const moving = dragging;
+                setDragging(null);
+                setDropTarget(null);
+                if (!moving) return;
+                const entry = findNode(tree, moving);
+                if (!entry || !canMoveInto(tree, entry, node.id)) return;
+                onMove(moving, node.id);
+              }}
+              data-drop={dropTarget === node.id ? 'into' : undefined}
+              data-dragging={dragging === node.id ? 'true' : undefined}
+            >
               <button
                 className="tree-twisty"
                 type="button"
@@ -376,6 +457,12 @@ function TreeLevel({
                   onStartShare={onStartShare}
                   favouriteIds={favouriteIds}
                   onToggleFavourite={onToggleFavourite}
+                  tree={tree}
+                  onMove={onMove}
+                  dragging={dragging}
+                  setDragging={setDragging}
+                  dropTarget={dropTarget}
+                  setDropTarget={setDropTarget}
                 />
               </div>
             )}

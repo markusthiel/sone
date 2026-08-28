@@ -2236,3 +2236,28 @@ select {
 .table-toolbar-button:hover:not(:disabled) { background: var(--sone-bg-hover); }
 .table-toolbar-button.destructive { color: var(--sone-danger); }
 .table-toolbar-button:disabled { opacity: 0.4; }
+
+/* --- dragging in the tree ---
+ *
+ * Pointer devices only: iOS Safari does not fire HTML5 drag events, so on a
+ * tablet this is simply absent and "Move to…" remains the way. That is the
+ * right outcome rather than a gap — a pointer-event implementation would have
+ * to tell a drag from a scroll by threshold and timing, competing with the
+ * gesture the sidebar needs for scrolling.
+ */
+.tree-row[data-dragging='true'] {
+  opacity: 0.4;
+}
+
+/* The destination, drawn as a filled row rather than a line: the drop puts the
+   entry *inside* this folder, and a line between rows would suggest ordering,
+   which this does not do. */
+.tree-row[data-drop='into'] {
+  background: color-mix(in srgb, var(--sone-accent) 16%, transparent);
+  outline: 1px solid var(--sone-accent);
+  outline-offset: -1px;
+}
+
+/* A row being dragged must not swallow the pointer events its own children
+   would otherwise receive. */
+.tree-row[data-dragging='true'] * { pointer-events: none; }
