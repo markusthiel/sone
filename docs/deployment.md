@@ -178,6 +178,17 @@ volumes:
   - /mnt/backups/sone:/var/lib/sone/backups
 ```
 
+## When a page is missing from search or the tree
+
+The page is fine — its document syncs and opens. What failed is the projection,
+the Postgres copy that search and the sidebar read.
+
+Settings → Maintenance shows these under "Failed projections". The maintenance
+pass retries each one with a growing delay and gives up after six attempts, on
+the reasoning that a document which cannot be read is a bug rather than a
+hiccup. After that it waits for a person: fix the cause, then press Retry on
+that page, which clears the counter so automatic retries resume too.
+
 ## Configuration: environment or interface
 
 Two places, and the split matters when something appears not to take effect.

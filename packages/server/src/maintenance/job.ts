@@ -24,12 +24,37 @@ import { queryRows } from '../db/pool.js';
 import { pruneAuthTables } from '../auth/session.js';
 import { pruneShareSessions } from '../auth/share.js';
 import { compactDoc } from '../doc/docStore.js';
+import { rematerialize } from '../materialize/rematerialize.js';
 import { COMPACT_THRESHOLD } from '../doc/docStore.js';
 import type { SyncServer } from '../sync/server.js';
 
 export const DEFAULT_INTERVAL_MS = 5 * 60_000;
 /** Documents compacted per run. Bounded so a backlog does not stall the loop. */
 export const COMPACT_BATCH = 25;
+
+/**
+ * How many times a failed projection is retried before it is left alone.
+ *
+ * Bounded, because a document that cannot be read is usually a bug rather than
+ * a hiccup, and retrying it every five minutes forever fills the log with the
+ * same message and hides everything else. After this it waits for a person —
+ * which the admin screen now offers a button for.
+ */
+export const MAX_PROJECTION_ATTEMPTS = 6;
+
+/** Projections retried per pass. */
+export const RETRY_BATCH = 20;
+
+/**
+ * How long to wait before the next attempt, given how many have failed.
+ *
+ * Exponential from a minute to about an hour. A transient failure — a lock, a
+ * dependency still starting — clears on the first retry; a real one should not
+ * be hammered.
+ */
+export function retryDelayMs(attempts: number): number {
+  return Math.min(60_000 * 2 ** Math.max(0, attempts - 1), 60 * 60_000);
+}
 
 export interface MaintenanceOptions {
   pool: Pool;
@@ -43,6 +68,12 @@ export interface MaintenanceReport {
   prunedAttempts: number;
   prunedShareSessions: number;
   compactedDocuments: number;
+  /** Failed projections attempted again this pass. */
+  retriedProjections: number;
+  /** Of those, the ones that succeeded. */
+  recoveredProjections: number;
+  /** Failures that have exhausted their retries and need a person. */
+  abandonedProjections: number;
   revalidatedConnections: number;
   staleSearchRows: number;
   orphanedPages: number;
@@ -92,6 +123,9 @@ export class Maintenance {
       prunedAttempts: 0,
       prunedShareSessions: 0,
       compactedDocuments: 0,
+      retriedProjections: 0,
+      recoveredProjections: 0,
+      abandonedProjections: 0,
       revalidatedConnections: 0,
       staleSearchRows: 0,
       orphanedPages: 0,
@@ -134,6 +168,13 @@ export class Maintenance {
       report.revalidatedConnections = before;
     });
 
+    await guard('retry failed projections', async () => {
+      const result = await retryFailedProjections(this.opts.pool);
+      report.retriedProjections = result.retried;
+      report.recoveredProjections = result.recovered;
+      report.abandonedProjections = result.abandoned;
+    });
+
     await guard('compact documents', async () => {
       report.compactedDocuments = await compactBacklog(this.opts.pool);
     });
@@ -171,6 +212,16 @@ export class Maintenance {
     report.durationMs = Date.now() - started;
     this.running = false;
 
+    if (report.recoveredProjections > 0) {
+      this.log(`${report.recoveredProjections} projection(s) recovered on retry`);
+    }
+    if (report.abandonedProjections > 0) {
+      this.log(
+        `${report.abandonedProjections} page(s) have failed to project ` +
+          `${MAX_PROJECTION_ATTEMPTS} times and will not be retried automatically; ` +
+          `see Settings → Maintenance`,
+      );
+    }
     if (report.staleSearchRows > 0) {
       this.log(
         `${report.staleSearchRows} page(s) have a stale search index; ` +
@@ -198,6 +249,76 @@ export class Maintenance {
 
     return report;
   }
+}
+
+export interface RetryResult {
+  retried: number;
+  recovered: number;
+  abandoned: number;
+}
+
+/**
+ * Try failed projections again.
+ *
+ * This gap was worth closing: `attempts` has been counted since the first
+ * migration and nothing ever read it, so a page whose document the projection
+ * could not read stayed failed until somebody ran a script. It still synced and
+ * still opened — it was simply missing from search and from the tree, which is
+ * the kind of failure nobody notices until they go looking for something.
+ *
+ * Retried with a growing delay and a hard limit, so a genuinely broken document
+ * is attempted a few times and then left for a person rather than filling the
+ * log forever.
+ */
+export async function retryFailedProjections(
+  pool: Pool,
+  batchSize = RETRY_BATCH,
+): Promise<RetryResult> {
+  const result: RetryResult = { retried: 0, recovered: 0, abandoned: 0 };
+
+  const abandoned = await queryRows<{ n: string }>(
+    pool,
+    `SELECT count(*)::text AS n FROM materialization_state
+      WHERE status = 'failed' AND attempts >= $1`,
+    [MAX_PROJECTION_ATTEMPTS],
+  );
+  result.abandoned = Number(abandoned[0]?.n ?? 0);
+
+  const due = await queryRows<{ page_id: string; workspace_id: string; attempts: number }>(
+    pool,
+    `SELECT m.page_id, p.workspace_id, m.attempts
+       FROM materialization_state m
+       JOIN pages p ON p.id = m.page_id
+      WHERE m.status = 'failed'
+        AND m.attempts < $1
+        -- The delay grows with the attempt count, computed here so the query
+        -- does the filtering rather than fetching everything and discarding.
+        AND m.materialized_at < now() - (least(power(2, greatest(m.attempts - 1, 0)), 60)
+                                         * interval '1 minute')
+      ORDER BY m.materialized_at
+      LIMIT $2`,
+    [MAX_PROJECTION_ATTEMPTS, batchSize],
+  );
+
+  for (const row of due) {
+    result.retried += 1;
+    try {
+      await rematerialize(pool, row.page_id, row.workspace_id);
+
+      const after = await queryRows<{ status: string }>(
+        pool,
+        `SELECT status FROM materialization_state WHERE page_id = $1`,
+        [row.page_id],
+      );
+      if (after[0]?.status === 'ok') result.recovered += 1;
+    } catch {
+      // materializePage records its own failure and bumps attempts. Swallowed
+      // here so one unreadable document does not stop the rest of the batch —
+      // which is the whole point of retrying in a loop.
+    }
+  }
+
+  return result;
 }
 
 /**

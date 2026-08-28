@@ -337,6 +337,18 @@ export const api = {
     request<{ workspaces: AdminWorkspace[] }>('/api/admin/workspaces'),
   adminMaintenance: () => request<MaintenanceReport>('/api/admin/maintenance'),
 
+  adminRunMaintenance: () =>
+    request<{ report: Record<string, number | string[]> }>(
+      '/api/admin/maintenance/run',
+      { method: 'POST' },
+    ),
+
+  adminRetryPage: (pageId: string) =>
+    request<{ pageId: string; recovered: boolean; error?: string }>(
+      `/api/admin/maintenance/retry/${pageId}`,
+      { method: 'POST' },
+    ),
+
   adminUpdateUser: (
     userId: string,
     changes: { isInstanceAdmin?: boolean; deactivated?: boolean },

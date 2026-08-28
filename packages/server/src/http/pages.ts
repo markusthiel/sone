@@ -34,6 +34,7 @@ import { collateClause, workspaceI18n } from '../i18n/locale.js';
 import { applyToDocument, loadDoc } from '../doc/docStore.js';
 import { materializeYDoc } from '../materialize/materialize.js';
 import { createEntry } from '../pages/createEntry.js';
+import { rematerialize } from '../materialize/rematerialize.js';
 import { normaliseTags, writeTags } from '@sone/core';
 import { requireSession, sessionTokenFrom } from './auth.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
@@ -105,26 +106,6 @@ async function claimsFor(
  * Without this the projection lags until a sync room happens to flush, so a
  * rename would appear to do nothing until the page is next opened.
  */
-async function rematerialize(
-  pool: Pool,
-  pageId: string,
-  workspaceId: string,
-  actorId: string | null,
-): Promise<void> {
-  const loaded = await loadDoc(pool, pageId);
-  try {
-    await withTransaction(pool, (client) =>
-      materializeYDoc(client, pageId, loaded.doc, {
-        throughSeq: loaded.throughSeq,
-        workspaceId,
-        actorId,
-      }),
-    );
-  } finally {
-    loaded.doc.destroy();
-  }
-}
-
 interface MoveInput {
   pageId: string;
   entry: { workspaceId: string; ancestorIds: string[] };

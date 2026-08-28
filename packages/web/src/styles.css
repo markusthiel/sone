@@ -2027,3 +2027,10 @@ select {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--sone-text-xs);
 }
+
+.maintenance-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-4);
+  margin-block-end: var(--sone-space-2);
+}

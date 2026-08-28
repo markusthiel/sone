@@ -374,15 +374,64 @@ export function WorkspacesPanel(): ReactElement {
 export function MaintenancePanel(): ReactElement {
   const [report, setReport] = useState<MaintenanceReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [lastRun, setLastRun] = useState<string | null>(null);
+  const [retried, setRetried] = useState<Record<string, string>>({});
+
+  const load = useCallback(async () => {
+    try {
+      setReport(await api.adminMaintenance());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  }, []);
 
   useEffect(() => {
-    void api
-      .adminMaintenance()
-      .then(setReport)
-      .catch((err: unknown) =>
-        setError(err instanceof ApiError ? err.code : 'network_error'),
+    void load();
+  }, [load]);
+
+  /**
+   * Run the scheduled pass now.
+   *
+   * The same job the timer runs, not a second implementation — a separate one
+   * would drift, and the difference would only show when somebody pressed this
+   * expecting the scheduled behaviour.
+   */
+  const runNow = async (): Promise<void> => {
+    setRunning(true);
+    try {
+      const result = await api.adminRunMaintenance();
+      const recovered = Number(result.report['recoveredProjections'] ?? 0);
+      const compacted = Number(result.report['compactedDocuments'] ?? 0);
+      setLastRun(
+        `Recovered ${recovered} projection${recovered === 1 ? '' : 's'}, ` +
+          `compacted ${compacted} document${compacted === 1 ? '' : 's'}.`,
       );
-  }, []);
+      await load();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  /** Try one page again, ignoring its attempt count. */
+  const retry = async (pageId: string): Promise<void> => {
+    try {
+      const result = await api.adminRetryPage(pageId);
+      setRetried((previous) => ({
+        ...previous,
+        [pageId]: result.recovered
+          ? 'Recovered'
+          : `Still failing${result.error ? `: ${result.error}` : ''}`,
+      }));
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
 
   if (error) return <p className="error">{messageFor(error)}</p>;
   if (!report) return <p className="muted">Loading…</p>;
@@ -397,6 +446,18 @@ export function MaintenancePanel(): ReactElement {
   return (
     <section className="settings-section">
       <h2>Maintenance</h2>
+
+      <div className="admin-row-actions maintenance-actions">
+        <button type="button" className="btn" disabled={running} onClick={() => void runNow()}>
+          {running ? 'Running…' : 'Run maintenance now'}
+        </button>
+        {lastRun && <span className="muted">{lastRun}</span>}
+      </div>
+      <p className="muted settings-note">
+        This pass runs on its own every few minutes. Pressing it is for when
+        waiting is not acceptable — after fixing whatever made a projection
+        fail, typically.
+      </p>
 
       {healthy && <p className="muted">Nothing to report.</p>}
 
@@ -438,7 +499,22 @@ export function MaintenancePanel(): ReactElement {
               <div className="admin-row" key={failure.pageId}>
                 <div className="admin-row-main">
                   <span className="admin-name">{failure.pageId.slice(0, 8)}</span>
-                  <span className="admin-meta">{failure.error ?? 'no message recorded'}</span>
+                  <span className="admin-meta">
+                    {failure.error ?? 'no message recorded'}
+                    {retried[failure.pageId] && ` · ${retried[failure.pageId]}`}
+                  </span>
+                </div>
+                <div className="admin-row-actions">
+                  {/* Automatic retries give up after a few attempts. This is
+                      the way back once the cause is fixed: it clears the
+                      counter, so the scheduled retries resume too. */}
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => void retry(failure.pageId)}
+                  >
+                    Retry
+                  </button>
                 </div>
               </div>
             ))}
