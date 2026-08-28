@@ -27,6 +27,21 @@ export function moveRefusal(
   tree: PageNode[],
   entry: PageNode,
   target: MoveTarget,
+  options: {
+    /**
+     * True when the entry is being placed at a position rather than merely put
+     * somewhere.
+     *
+     * The difference matters for exactly one rule. Moving an entry to the
+     * folder it is already in does nothing and is refused — but *reordering*
+     * within that folder is the common case, and it targets the same parent.
+     *
+     * Conflating the two meant every drop between two rows was refused as
+     * "already here", silently: the entry snapped back and a reload showed it
+     * unmoved. Dragging to reorder had never worked, on any device.
+     */
+    reordering?: boolean;
+  } = {},
 ): string | null {
   if (target === entry.id) return 'A folder cannot contain itself';
 
@@ -40,7 +55,7 @@ export function moveRefusal(
   if (!targetNode) return 'That folder no longer exists';
   if (targetNode.kind !== 'folder') return 'Only folders can hold entries';
 
-  if (entry.parentPageId === target) return 'Already here';
+  if (entry.parentPageId === target && !options.reordering) return 'Already here';
 
   // The rule that matters most: moving a folder into its own subtree would
   // detach the whole branch from the tree — it would still exist, be
@@ -59,6 +74,19 @@ export const canMoveInto = (
   entry: PageNode,
   target: MoveTarget,
 ): boolean => moveRefusal(tree, entry, target) === null;
+
+/**
+ * May this entry be placed among the children of `target`?
+ *
+ * The same rules, minus "already here" — which is what a reorder is. Every
+ * other rule still applies: a folder still cannot be placed inside its own
+ * subtree by being dropped beside one of its descendants.
+ */
+export const canReorderInto = (
+  tree: PageNode[],
+  entry: PageNode,
+  target: MoveTarget,
+): boolean => moveRefusal(tree, entry, target, { reordering: true }) === null;
 
 /** Find a node anywhere in the tree. */
 export function findNode(nodes: PageNode[], id: string): PageNode | null {

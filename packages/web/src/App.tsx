@@ -144,6 +144,7 @@ function Workspace({
     moveEntry,
     applyTitle,
     reload: reloadPages,
+    error: pagesError,
   } = usePages(workspaceId);
   // The entry a move dialog is open for, if any.
   const [movingId, setMovingId] = useState<string | null>(null);
@@ -239,6 +240,16 @@ function Workspace({
         }}
         onLogout={onLogout}
       />
+
+      {/* A failed tree operation used to vanish: usePages recorded the error
+          and nothing rendered it, so a refused move looked like a move that
+          did not save. Shown as a transient bar rather than a dialog — it is
+          information, not a decision. */}
+      {pagesError && (
+        <div className="app-error" role="status">
+          {messageFor(pagesError)}
+        </div>
+      )}
 
       <div className="main">
         <div className="topbar">

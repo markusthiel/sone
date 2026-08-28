@@ -2298,3 +2298,13 @@ select {
 }
 .tree-row[data-drop='before']::before { inset-block-start: -1px; }
 .tree-row[data-drop='after']::after { inset-block-end: -1px; }
+
+/* A transient failure of a tree operation. Placed above the layout rather than
+   over it: it is information, not something to dismiss before continuing. */
+.app-error {
+  grid-column: 1 / -1;
+  padding: var(--sone-space-3) var(--sone-space-5);
+  background: color-mix(in srgb, var(--sone-danger) 10%, transparent);
+  color: var(--sone-danger);
+  font-size: var(--sone-text-sm);
+}
