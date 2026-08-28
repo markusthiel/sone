@@ -217,10 +217,19 @@ export type StoredCellValue =
   | { kind: 'phone'; value: string }
   | { kind: string; [key: string]: unknown };
 
+export interface CollectionView {
+  id: string;
+  name: string;
+  viewType: string;
+  /** For a board: `groupByFieldId`. */
+  definition: Record<string, unknown>;
+}
+
 export interface CollectionData {
   pageId: string;
   titleFieldId: string;
   canEdit: boolean;
+  views: CollectionView[];
   fields: CollectionField[];
   rows: CollectionRow[];
 }
@@ -452,6 +461,15 @@ export const api = {
   removeCollectionField: (pageId: string, fieldId: string) =>
     request<{ id: string }>(`/api/pages/${pageId}/collection/fields/${fieldId}`, {
       method: 'DELETE',
+    }),
+
+  addCollectionView: (
+    pageId: string,
+    view: { name?: string; viewType: string; definition?: Record<string, unknown> },
+  ) =>
+    request<{ id: string }>(`/api/pages/${pageId}/collection/views`, {
+      method: 'POST',
+      body: JSON.stringify(view),
     }),
 
   setFieldOptions: (

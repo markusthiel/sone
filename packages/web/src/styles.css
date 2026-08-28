@@ -2625,3 +2625,99 @@ select {
   font-size: var(--sone-text-xs);
   white-space: nowrap;
 }
+
+/* --- views ---
+ *
+ * Shown only when there is a choice, so a collection with one table does not
+ * carry a tab bar containing one tab.
+ */
+.collection-views { display: flex; align-items: center; gap: var(--sone-space-1); flex-wrap: wrap; }
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-3);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.view-tab:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.view-tab.current { background: var(--sone-bg-hover); color: var(--sone-text); font-weight: 600; }
+
+/* --- board ---
+ *
+ * Columns scroll horizontally as a group; each column scrolls vertically on its
+ * own. A board that scrolls as one block hides the columns at the far end.
+ */
+.board {
+  display: flex;
+  gap: var(--sone-space-4);
+  overflow-x: auto;
+  padding-block-end: var(--sone-space-3);
+}
+
+.board-column {
+  flex: 0 0 15rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-2);
+  padding: var(--sone-space-3);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+}
+/* The destination, while a card is travelling. */
+.board-column[data-drop='into'] {
+  outline: 2px solid var(--sone-accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--sone-accent) 10%, var(--sone-bg-subtle));
+}
+
+.board-column-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  font-size: var(--sone-text-sm);
+  font-weight: 600;
+}
+.board-column-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-column-count { color: var(--sone-text-muted); font-weight: 400; }
+
+.board-cards { display: flex; flex-direction: column; gap: var(--sone-space-2); margin: 0; padding: 0; list-style: none; }
+
+.board-card {
+  padding: var(--sone-space-3);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg);
+  font-size: var(--sone-text-sm);
+  /* A card is dragged, so a long press must not select its title. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.board-card a { color: inherit; text-decoration: none; }
+.board-card a:hover { text-decoration: underline; }
+.board-card[data-dragging='true'] { opacity: 0.4; }
+
+.board-empty { font-size: var(--sone-text-xs); margin: 0; }
+
+.board-drag-preview {
+  position: fixed;
+  z-index: 100;
+  margin-block-start: 10px;
+  margin-inline-start: 12px;
+  max-inline-size: 14rem;
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 24%);
+  font-size: var(--sone-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transform: rotate(-1.5deg);
+}
