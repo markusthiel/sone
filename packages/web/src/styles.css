@@ -3000,3 +3000,59 @@ select {
 .ProseMirror [data-color='blue'] { color: #2563eb; }
 .ProseMirror [data-color='purple'] { color: #7c3aed; }
 .ProseMirror [data-color='pink'] { color: #db2777; }
+
+/* --- appearance controls in the block menu ---
+ *
+ * Only the settings that mean something for the block's type are shown. A
+ * section of controls that have no effect teaches people the panel is
+ * decoration.
+ */
+.block-menu-choices {
+  display: flex;
+  gap: var(--sone-space-1);
+  padding: var(--sone-space-1) var(--sone-space-2);
+}
+.block-menu-choice {
+  flex: 1 1 auto;
+  min-block-size: var(--sone-control);
+  padding-inline: var(--sone-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+.block-menu-choice:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.block-menu-choice.current {
+  border-color: var(--sone-accent);
+  color: var(--sone-text);
+  font-weight: 600;
+}
+
+.block-menu-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sone-space-2);
+  padding: var(--sone-space-2);
+}
+.block-menu-swatch {
+  inline-size: 18px;
+  block-size: 18px;
+  padding: 0;
+  border: 1px solid var(--sone-border);
+  border-radius: 50%;
+  background: var(--tag-color, var(--sone-text-muted));
+}
+.block-menu-swatch.current {
+  outline: 2px solid var(--sone-accent);
+  outline-offset: 2px;
+}
+/* "No colour chosen" is a state, not a shade. Drawn as a slash so the default
+   never looks like a decision somebody made. */
+.block-menu-swatch.none {
+  background:
+    linear-gradient(to bottom right,
+      transparent calc(50% - 1px), var(--sone-text-muted) calc(50% - 1px),
+      var(--sone-text-muted) calc(50% + 1px), transparent calc(50% + 1px)),
+    var(--sone-bg);
+}

@@ -205,3 +205,24 @@ test('nothing breaks out of the column on a narrow screen', () => {
   // the side of the page.
   assert.match(css, /max-width: 720px\)[\s\S]{0,400}data-width='full'\][\s\S]{0,80}margin-inline: 0/);
 });
+
+test('the appearance controls act on click, like every other popup', () => {
+  // Acting on pointerdown fires before a finger lifts and cancels the scroll
+  // gesture with it — the root cause of every touch bug in this project.
+  const source = readFileSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/components/BlockMenu.tsx'),
+    'utf8',
+  );
+  assert.equal([...source.matchAll(/onPointerDown=\{/g)].length, 0);
+  assert.match(source, /popupItem\(\(\) => run\(setBlockStyle/);
+});
+
+test('a block type nobody listed still gets a control', () => {
+  // Better a small default than a section that silently vanishes when somebody
+  // adds a block type and forgets the table.
+  const source = readFileSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/components/BlockMenu.tsx'),
+    'utf8',
+  );
+  assert.match(source, /APPEARANCE\[node\.type\.name\] \?\? \{/);
+});

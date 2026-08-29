@@ -28,7 +28,10 @@ import {
   schema,
   selectedBlockRange,
   toggleBlockType,
+  currentBlockStyle,
+  setBlockStyle,
 } from '@sone/editor';
+import { BLOCK_COLORS } from '@sone/core';
 import type { Command } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -63,6 +66,146 @@ const GUTTER_GAP = 6;
  * correct instead of being measured a frame later and moving.
  */
 const GUTTER_WIDTH = 54;
+
+/**
+ * Which presentation settings apply to a block type.
+ *
+ * Width is for things that can usefully be wider than the reading column — an
+ * image, a table, a collection. A wide paragraph is just a harder-to-read
+ * paragraph, which is why the column exists.
+ *
+ * Colour is for things made of text. An image has no colour to set, and
+ * offering one would be a control that does nothing.
+ */
+const APPEARANCE: Record<string, { width: boolean; color: boolean; align: boolean }> = {
+  paragraph: { width: false, color: true, align: true },
+  heading: { width: false, color: true, align: true },
+  quote: { width: false, color: true, align: true },
+  callout: { width: true, color: true, align: false },
+  code: { width: true, color: false, align: false },
+  bulletItem: { width: false, color: true, align: false },
+  numberedItem: { width: false, color: true, align: false },
+  todoItem: { width: false, color: true, align: false },
+  toggleItem: { width: false, color: true, align: false },
+  image: { width: true, color: false, align: true },
+  table: { width: true, color: false, align: false },
+  collectionView: { width: true, color: false, align: false },
+  divider: { width: true, color: true, align: false },
+};
+
+/** The appearance controls for one block. */
+function BlockAppearance({
+  view,
+  node,
+  run,
+}: {
+  view: EditorView;
+  node: PMNodeLike;
+  run: (command: Command) => void;
+}): ReactElement | null {
+  const applies = APPEARANCE[node.type.name] ?? {
+    // A block type nobody listed still gets alignment, which is meaningful for
+    // anything: better a small default than a section that vanishes when
+    // somebody adds a block type and forgets this table.
+    width: false,
+    color: true,
+    align: true,
+  };
+
+  const current = currentBlockStyle(view.state);
+
+  return (
+    <div className="block-menu-group">
+      <p className="block-menu-label">Appearance</p>
+
+      {applies.align && (
+        <div className="block-menu-choices" role="group" aria-label="Alignment">
+          {[
+            { id: null, label: 'Auto' },
+            { id: 'start' as const, label: 'Left' },
+            { id: 'center' as const, label: 'Centre' },
+            { id: 'end' as const, label: 'Right' },
+          ].map((choice) => (
+            <button
+              key={choice.label}
+              type="button"
+              role="menuitemradio"
+              aria-checked={current.align === choice.id}
+              className={
+                current.align === choice.id ? 'block-menu-choice current' : 'block-menu-choice'
+              }
+              {...popupItem(() => run(setBlockStyle({ align: choice.id })))}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {applies.width && (
+        <div className="block-menu-choices" role="group" aria-label="Width">
+          {[
+            { id: null, label: 'Column' },
+            { id: 'wide' as const, label: 'Wide' },
+            { id: 'full' as const, label: 'Full' },
+          ].map((choice) => (
+            <button
+              key={choice.label}
+              type="button"
+              role="menuitemradio"
+              aria-checked={current.width === choice.id}
+              className={
+                current.width === choice.id ? 'block-menu-choice current' : 'block-menu-choice'
+              }
+              {...popupItem(() => run(setBlockStyle({ width: choice.id })))}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {applies.color && (
+        <div className="block-menu-swatches" role="group" aria-label="Colour">
+          {/* Null first, and shown as a slash rather than a colour: "no colour
+              chosen" is a state, not a shade, and drawing it as one would make
+              the default look like a decision. */}
+          <button
+            type="button"
+            role="menuitemradio"
+            aria-checked={current.color === null}
+            aria-label="Default colour"
+            className={
+              current.color === null ? 'block-menu-swatch none current' : 'block-menu-swatch none'
+            }
+            {...popupItem(() => run(setBlockStyle({ color: null })))}
+          />
+          {BLOCK_COLORS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              role="menuitemradio"
+              aria-checked={current.color === color}
+              aria-label={color}
+              title={color}
+              className={
+                current.color === color
+                  ? `block-menu-swatch tag-${color} current`
+                  : `block-menu-swatch tag-${color}`
+              }
+              {...popupItem(() => run(setBlockStyle({ color })))}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The little of a ProseMirror node this needs; see CollectionNodeView. */
+interface PMNodeLike {
+  type: { name: string };
+}
 
 export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | null {
   const [open, setOpen] = useState(false);
@@ -293,6 +436,15 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
               </button>
             );
           })}
+
+          {/* How this block looks.
+            *
+            * Only the settings that mean something for its type: width on a
+            * paragraph does nothing anybody wants, and colour on an image is
+            * not a thing. A section of controls that have no effect teaches
+            * people the panel is decoration.
+            */}
+          <BlockAppearance view={view} node={range.node} run={run} />
 
           {/* Table actions, only inside a table. prosemirror-tables' commands
               refuse elsewhere, and a menu section full of disabled items is
