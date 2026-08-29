@@ -21,7 +21,13 @@ import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/au
 import { registerPageRoutes } from '../src/http/pages.js';
 import { Router } from '../src/http/router.js';
 import { registerFileRoutes } from '../src/files/routes.js';
-import { LocalFileStore, detectType, isInlineImage } from '../src/files/store.js';
+import {
+  LocalFileStore,
+  categoryOf,
+  detectType,
+  isInlineImage,
+  isInlineViewable,
+} from '../src/files/store.js';
 import { hashPassword } from '../src/auth/password.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
 import { expectJson, expectStatus } from './support/http.js';
@@ -147,9 +153,18 @@ describe(
     test('unrecognised bytes are refused rather than given a generic type', () => {
       // A stored file with an unknown type is one somebody will eventually be
       // tempted to serve.
-      assert.equal(detectType(Buffer.from('<html><script>alert(1)</script>')), null);
       assert.equal(detectType(Buffer.alloc(0)), null);
-      assert.equal(detectType(Buffer.from('just text')), null);
+      assert.equal(detectType(Buffer.from([0x01, 0x00, 0x02, 0x00])), null);
+    });
+
+    test('text that looks like markup is stored as text, never as html', () => {
+      // Text files are storable now, and this is the case that makes that safe.
+      // detectType never produces text/html: anything textual becomes
+      // text/plain, and `nosniff` stops the browser deciding otherwise. A file
+      // full of <script> is served as plain text, which is what it is.
+      const detected = detectType(Buffer.from('<html><script>alert(1)</script>'));
+      assert.equal(detected?.mime, 'text/plain');
+      assert.notEqual(detected?.mime, 'text/html');
     });
 
     test('SVG is not an inline type', () => {
@@ -188,8 +203,20 @@ describe(
         headers: { cookie: session.cookie, 'content-type': 'image/png' },
         body: new Uint8Array(Buffer.from('<html><script>alert(1)</script></html>')),
       });
-      assert.equal(res.status, 415);
-      assert.deepEqual(await res.json(), { error: 'unsupported_file_type' });
+
+      // Text is storable now, so this content is accepted — and the point of
+      // the test survives intact: it is stored as what it is, not as what the
+      // upload claimed. Under the declared type it would be served as an image;
+      // under its real one it is plain text, which is harmless.
+      const body = await expectJson<{ mimeType: string; inline: boolean }>(res, 201);
+      assert.equal(body.mimeType, 'text/plain');
+      assert.notEqual(body.mimeType, 'image/png');
+    });
+
+    test('bytes that are neither a known format nor text are still refused', () => {
+      // The other half of the same rule, kept as its own case now that the one
+      // above no longer covers it.
+      assert.equal(detectType(Buffer.from([0xde, 0xad, 0x00, 0xbe, 0xef])), null);
     });
 
     test('a file larger than the limit is refused', async () => {
@@ -300,9 +327,20 @@ describe(
 
     // --- serving headers ---------------------------------------------------
 
-    test('an image is served inline, a PDF as an attachment', async () => {
-      // A PDF viewer is a large attack surface pointed at user-supplied bytes,
-      // so it is downloaded rather than rendered in place.
+    test('what a browser can draw is served inline; the rest is a download', async () => {
+      // This reverses an earlier decision, and the earlier reasoning was not
+      // wrong: a PDF viewer is a large attack surface pointed at user-supplied
+      // bytes, and downloading was the cautious answer.
+      //
+      // Reversed deliberately, because a notes tool where a PDF cannot be read
+      // in place is a notes tool people keep their PDFs somewhere else. What
+      // makes it acceptable is unchanged and asserted below: the response
+      // carries `nosniff` and a sandbox CSP, the type comes from the bytes and
+      // never from the upload, and the viewer is the browser's own — already
+      // sandboxed, already pointed at untrusted bytes all day.
+      //
+      // A Word file is still a download, for a plainer reason: nothing here can
+      // render it.
       const session = await setup();
 
       const image = await expectJson<{ url: string }>(
@@ -322,7 +360,26 @@ describe(
       });
 
       assert.match(imageRes.headers.get('content-disposition') ?? '', /^inline/);
-      assert.match(pdfRes.headers.get('content-disposition') ?? '', /^attachment/);
+      assert.match(pdfRes.headers.get('content-disposition') ?? '', /^inline/);
+
+      // And the hardening that makes it acceptable travels with it.
+      assert.equal(pdfRes.headers.get('x-content-type-options'), 'nosniff');
+      assert.match(pdfRes.headers.get('content-security-policy') ?? '', /sandbox/);
+
+      // Something nothing can render is still a download.
+      const doc = await expectJson<{ url: string }>(
+        await upload(
+          session.cookie,
+          session.pageId,
+          zipWithFirstEntry('word/document.xml'),
+          'notes.docx',
+        ),
+        201,
+      );
+      const docRes = await fetch(`${base}${doc.url}`, {
+        headers: { cookie: session.cookie },
+      });
+      assert.match(docRes.headers.get('content-disposition') ?? '', /^attachment/);
     });
 
     test('the hardening headers are present', async () => {
@@ -589,3 +646,75 @@ describe(
     });
   },
 );
+
+// --- documents, not only images ---------------------------------------------
+
+/** A minimal ZIP whose first entry is named, which is what identifies Office. */
+function zipWithFirstEntry(name: string, extra = ''): Buffer {
+  const filename = Buffer.from(name, 'ascii');
+  const header = Buffer.alloc(30);
+  header.writeUInt32LE(0x04034b50, 0);
+  header.writeUInt16LE(filename.length, 26);
+  return Buffer.concat([header, filename, Buffer.from(extra, 'ascii')]);
+}
+
+test('the modern Office formats are told apart by their first entry', () => {
+  // They are all ZIP containers, and so are a great many other things. The
+  // archive's first entry names the format.
+  assert.match(detectType(zipWithFirstEntry('word/document.xml'))?.mime ?? '', /wordprocessingml/);
+  assert.match(detectType(zipWithFirstEntry('xl/workbook.xml'))?.mime ?? '', /spreadsheetml/);
+  assert.match(detectType(zipWithFirstEntry('ppt/presentation.xml'))?.mime ?? '', /presentationml/);
+});
+
+test('a zip that is not an Office document is still stored', () => {
+  // An archive is a legitimate attachment. Refusing it would mean the only way
+  // to attach one is to rename it, which teaches people to defeat the check.
+  assert.equal(detectType(zipWithFirstEntry('notes/readme.txt'))?.mime, 'application/zip');
+});
+
+test('OpenDocument is identified by its declared mimetype entry', () => {
+  // The specification requires that entry to be first and uncompressed,
+  // precisely so the format can be identified this way.
+  const odt = zipWithFirstEntry('mimetype', 'application/vnd.oasis.opendocument.text');
+  assert.equal(detectType(odt)?.mime, 'application/vnd.oasis.opendocument.text');
+});
+
+test('plain text is recognised, and a binary is not called text', () => {
+  // "Not a format I recognise" is not the same as "plain text": storing an
+  // unknown binary as text/plain would have the browser try to display it.
+  assert.equal(detectType(Buffer.from('Notes for Tuesday\n', 'utf8'))?.mime, 'text/plain');
+  assert.equal(detectType(Buffer.from([0x01, 0x00, 0x02, 0x00, 0x03])), null);
+});
+
+test('an empty file is not text', () => {
+  // Nothing to judge by, and calling it text would show an empty viewer rather
+  // than saying the upload produced nothing.
+  assert.equal(detectType(Buffer.alloc(0)), null);
+});
+
+test('what can be shown in place is decided by what a browser can draw', () => {
+  // Not by which application made the file. A Word document cannot be rendered
+  // without a converter this project does not have, and a card that says what
+  // it is beats a viewer that shows an error.
+  assert.equal(isInlineViewable('application/pdf'), true);
+  assert.equal(isInlineViewable('text/plain'), true);
+  assert.equal(isInlineViewable('image/png'), true);
+  assert.equal(
+    isInlineViewable(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ),
+    false,
+  );
+  assert.equal(isInlineImage('application/pdf'), false, 'a PDF is not an image');
+});
+
+test('categories are coarse on purpose', () => {
+  assert.equal(categoryOf('image/png'), 'image');
+  assert.equal(categoryOf('application/pdf'), 'pdf');
+  assert.equal(categoryOf('text/csv'), 'text');
+  assert.equal(categoryOf('application/zip'), 'archive');
+  assert.equal(
+    categoryOf('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+    'document',
+  );
+});

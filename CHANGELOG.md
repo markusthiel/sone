@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Documents can be uploaded, not only images.** Word, Excel, PowerPoint,
+OpenDocument, PDFs, text and archives. PDFs and text are shown in place; a Word
+or Excel file is offered as a file, because nothing here can render one and a
+card that says what it is beats a viewer showing an error.
+
+**Changed: a PDF is now shown in place** rather than downloaded. The earlier
+caution was not wrong — a PDF viewer is a large attack surface — but a notes tool
+where a PDF cannot be read is one where people keep their PDFs elsewhere. The
+hardening that makes it acceptable is unchanged: the type comes from the bytes,
+never the upload, and the response carries `nosniff` and a sandbox policy.
+
 **Every block can be configured** from the ⋮⋮ menu: alignment, width and colour,
 showing only the settings that mean something for that block. A wide paragraph
 is just a harder-to-read paragraph, and an image has no colour to set.

@@ -29,7 +29,12 @@ import {
 } from '../auth/claims.js';
 import { isInstanceAdmin } from '../admin/routes.js';
 import { queryOne } from '../db/pool.js';
-import { detectType, isInlineImage, type FileStore } from './store.js';
+import {
+  categoryOf,
+  detectType,
+  isInlineViewable,
+  type FileStore,
+} from './store.js';
 import { sessionTokenFrom, shareTokenFrom } from '../http/auth.js';
 import type { RequestContext, Router } from '../http/router.js';
 
@@ -275,7 +280,10 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
       filename,
       mimeType: detected.mime,
       sizeBytes: stored.sizeBytes,
-      inline: isInlineImage(detected.mime),
+      // What the interface needs to decide how to show it: whether it can be
+      // rendered in place at all, and what kind of thing it is when it cannot.
+      inline: isInlineViewable(detected.mime),
+      category: categoryOf(detected.mime),
     });
   });
 
@@ -372,7 +380,14 @@ function serveFile(
   mimeType: string,
   filename: string,
 ): void {
-  const inline = isInlineImage(mimeType);
+  // Images, PDFs and text are shown in place; everything else is a download.
+  //
+  // Text is included now that it can be stored, and it is safe for a specific
+  // reason rather than by hope: detectType never produces text/html — anything
+  // textual becomes text/plain — and `nosniff` stops the browser deciding
+  // otherwise. A file full of <script> is served as plain text, which is what
+  // it is. The sandbox CSP below is the belt to that braces.
+  const inline = isInlineViewable(mimeType);
 
   res.writeHead(200, {
     'content-type': mimeType,
