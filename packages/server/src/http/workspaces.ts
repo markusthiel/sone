@@ -12,6 +12,7 @@
 
 import type { Pool } from 'pg';
 
+import { sanitiseTheme } from '@sone/core';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { createDefaultFolder } from '../pages/createEntry.js';
 import { requireSession } from './auth.js';
@@ -192,6 +193,84 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
    * property of a workspace, and a member of one workspace has no business
    * reading another's.
    */
+  /**
+   * A workspace's theme.
+   *
+   * Readable by any member, because everybody sees what it does. A workspace
+   * with no row answers with an empty theme rather than 404: having no theme is
+   * the ordinary state, not a missing resource.
+   */
+  router.get('/api/workspaces/:workspaceId/theme', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    const role = await roleIn(deps.pool, workspaceId, auth.userId);
+    if (role === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const row = await queryOne<{ settings: unknown }>(
+      deps.pool,
+      `SELECT settings FROM workspace_themes WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+
+    // Sanitised on the way out as well as in. A value written by a newer
+    // version, or by hand, must not reach a client that would then render
+    // something nothing here decided.
+    ctx.send(200, { theme: sanitiseTheme(row?.settings ?? {}) });
+  });
+
+  /**
+   * Set it. Owners and admins only.
+   *
+   * This changes what a workspace looks like for everybody in it, which is what
+   * "defaults" means — so it is not a thing an ordinary member does by
+   * accident.
+   */
+  router.put('/api/workspaces/:workspaceId/theme', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    const role = await roleIn(deps.pool, workspaceId, auth.userId);
+    if (role === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (role !== 'owner' && role !== 'admin') {
+      ctx.fail(403, 'not_authorized');
+      return;
+    }
+
+    let body: { theme?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    // Unusable values are dropped rather than refused: a theme comes from a
+    // form, and one stale field should not cost somebody the rest of their
+    // settings. What comes back says what was actually stored.
+    const theme = sanitiseTheme(body.theme);
+
+    await deps.pool.query(
+      `INSERT INTO workspace_themes (workspace_id, settings, updated_by)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (workspace_id) DO UPDATE
+         SET settings = EXCLUDED.settings,
+             updated_by = EXCLUDED.updated_by,
+             updated_at = now()`,
+      [workspaceId, JSON.stringify(theme), auth.userId],
+    );
+
+    ctx.send(200, { theme });
+  });
+
   router.get('/api/workspaces/:workspaceId/members', async (ctx) => {
     const auth = await requireSession(deps.pool, ctx);
     if (!auth) return;
