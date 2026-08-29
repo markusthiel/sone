@@ -615,12 +615,16 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           // block attributes make: an entry with no icon has to keep following
           // whatever the tree draws by default.
           if (wantsIcon) {
+            // Cleared first, then assigned.
+            //
+            // It was assigned onto the existing object, so a request that
+            // named no colour left the previous one in place — which made
+            // "no colour" the one swatch that could not be chosen: the icon
+            // kept whatever it had.
+            delete next['kind'];
+            delete next['value'];
+            delete next['color'];
             if (icon) Object.assign(next, icon);
-            else {
-              delete next['kind'];
-              delete next['value'];
-              delete next['color'];
-            }
           }
           if (wantsTitleColor) {
             if (titleColor) next['titleColor'] = titleColor;

@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: an icon's colour could not be cleared.** The new icon was assigned onto
+the old one, so a request naming no colour left the previous one in place — "no
+colour" was the one swatch that did nothing. The swatches also sit in two rows of
+five rather than one row that was always one too wide.
+
 **A colour of your own, beside the eight.** Anywhere a colour is chosen there is
 now a tenth swatch — the platform's own colour picker. The eight names remain the
 vocabulary, so changing what a workspace's "blue" means still moves every blue

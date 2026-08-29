@@ -434,7 +434,7 @@ test('the icon picker scrolls in one direction only', () => {
 });
 
 test('the colour swatches land in whole rows', () => {
-  // Ten of them: "as designed", eight colours, and one of your own. Wrapping
-  // gave a row of seven and a stray pair, which reads as a mistake.
-  assert.match(css, /\.block-menu-swatches[^}]*grid-template-columns: repeat\(10/);
+  // Ten of them, in two rows of five. Ten in a line fit only if each is small
+  // enough to be an awkward target, and this menu is a sidebar's width.
+  assert.match(css, /\.block-menu-swatches[^}]*grid-template-columns: repeat\(5/);
 });
