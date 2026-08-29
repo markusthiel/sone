@@ -14,9 +14,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
+import { codeOf, stylesOf } from './helpers/source.ts';
+
 const here = path.dirname(fileURLToPath(import.meta.url));
-const hook = readFileSync(path.resolve(here, '../src/hooks/useWorkspaceTheme.ts'), 'utf8');
-const css = readFileSync(path.resolve(here, '../src/styles.css'), 'utf8');
+const hook = codeOf(new URL('../src/hooks/useWorkspaceTheme.ts', import.meta.url));
+const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 
 test('properties are removed as well as set', () => {
   // A theme that stops specifying a heading colour has to leave no trace, or
@@ -64,7 +66,7 @@ test('the palette is defined once', () => {
 
 // --- the editor -------------------------------------------------------------
 
-const settings = readFileSync(path.resolve(here, '../src/components/ThemeSettings.tsx'), 'utf8');
+const settings = codeOf(new URL('../src/components/ThemeSettings.tsx', import.meta.url));
 
 test('"As designed" removes the setting rather than storing its value', () => {
   // A stored default stops following the design the moment the design changes,

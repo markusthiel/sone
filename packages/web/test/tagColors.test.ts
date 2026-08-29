@@ -10,16 +10,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { codeOf } from './helpers/source.ts';
+
 import { derivedTagColor } from '@sone/core';
 
 test('a tag chip is coloured from the workspace answer, not from the draft', () => {
   // The colour source has to be the full tag list. A first version read it from
   // the filtered suggestions, which are empty whenever the input is — so every
   // chip would have lost its colour the moment somebody stopped typing.
-  const source = readFileSync(
-    new URL('../src/components/TagEditor.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/TagEditor.tsx', import.meta.url));
   assert.match(source, /known\.find\(\(entry\) => entry\.key === keyOf\(tag\)\)\?\.color/);
   assert.doesNotMatch(source, /suggestions\.find\(\(entry\) => entry\.key/);
 });
@@ -27,9 +26,6 @@ test('a tag chip is coloured from the workspace answer, not from the draft', () 
 test('a tag with no workspace entry still gets a colour', () => {
   // A tag typed a moment ago is not in the list yet, and showing it grey until
   // the next refresh would make a new tag look unlike the same tag elsewhere.
-  const source = readFileSync(
-    new URL('../src/components/TagEditor.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/TagEditor.tsx', import.meta.url));
   assert.match(source, /derivedTagColor\(tag\)/);
 });

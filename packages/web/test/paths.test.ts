@@ -10,6 +10,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { codeOf } from './helpers/source.ts';
+
 import { parseRoute, paths, slugify } from '../src/routes/paths.ts';
 
 const PAGE = '00000000-0000-4000-8000-000000000001';
@@ -154,7 +156,7 @@ test('a share link with a page still needs the token resolved', () => {
   // credential for ordinary HTTP requests. Putting the page in the path made
   // the client skip that call, and every image upload through a shared link
   // was refused as a result.
-  const source = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  const source = codeOf(new URL('../src/App.tsx', import.meta.url));
 
   // The guard that caused it must not come back.
   assert.doesNotMatch(
@@ -168,7 +170,7 @@ test('a share link with a page still needs the token resolved', () => {
 test('a share visitor is not asked for their name on every reload', () => {
   // Asking again on a refresh is an omission rather than a decision: nothing
   // about the name is worth re-deciding, and a reload is not a new visit.
-  const source = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  const source = codeOf(new URL('../src/App.tsx', import.meta.url));
 
   // Per token and per tab: two tabs are two people to presence, and a
   // different link is a different circle of people.
