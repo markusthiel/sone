@@ -15,7 +15,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 **Fixed: a full-width image pushed the page sideways.** "Full page" meant the
 window, sidebar included; it means the page's own area now, and the page cannot
-scroll horizontally at all.
+scroll horizontally at all. A full-width image runs to both edges with no
+corners and no border — a block with no ends does not need them marked.
 
 **Fixed: the ⋮⋮ controls vanished over a full-width image.** They sit beside the
 block, which is empty margin beside a paragraph and a photograph beside a
