@@ -303,11 +303,22 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
       return;
     }
     try {
-      const at = view.domAtPos(from + 1);
+      // The node's own element first.
+      //
+      // `domAtPos(from + 1)` looks *inside* the block, which works for a
+      // paragraph and not for an atom: an image or a file has nothing inside to
+      // find, so the lookup returned the editor's root and the gutter was
+      // positioned against that — at the very top of the page, which is exactly
+      // where it appeared.
+      const own = view.nodeDOM(from);
+      const direct = own instanceof HTMLElement ? own : null;
+
+      const at = direct ? null : view.domAtPos(from + 1);
       const element =
-        at.node.nodeType === 1
+        direct ??
+        (at && at.node.nodeType === 1
           ? (at.node as HTMLElement)
-          : (at.node.parentElement as HTMLElement | null);
+          : ((at?.node.parentElement ?? null) as HTMLElement | null));
       const blockElement = element?.closest('[data-block]') ?? element;
       if (!blockElement) return;
 
