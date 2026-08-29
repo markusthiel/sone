@@ -61,3 +61,41 @@ test('the palette is defined once', () => {
     assert.ok(css.includes(`--sone-palette-${color}:`), color);
   }
 });
+
+// --- the editor -------------------------------------------------------------
+
+const settings = readFileSync(path.resolve(here, '../src/components/ThemeSettings.tsx'), 'utf8');
+
+test('"As designed" removes the setting rather than storing its value', () => {
+  // A stored default stops following the design the moment the design changes,
+  // which is the whole reason block attributes use null for this.
+  assert.match(settings, /event\.target\.value === '' \? undefined :/);
+  assert.match(settings, /if \(value === undefined\) delete entry\[property\]/);
+});
+
+test('removing the last property removes the element', () => {
+  // So "has a theme" and "has settings" keep meaning the same thing, exactly as
+  // the server's own validation does.
+  assert.match(settings, /if \(Object\.keys\(entry\)\.length === 0\) delete next\[element\]/);
+});
+
+test('the form shows what was stored, not what was sent', () => {
+  // They differ when something was not usable, and a form claiming a setting
+  // the server dropped is a form that lies quietly.
+  assert.match(settings, /setTheme\(result\.theme\)/);
+});
+
+test('somebody who may not edit gets disabled controls, not a failed save', () => {
+  // A form that lets somebody fill it in and then refuses is worse than one
+  // that says up front it is read-only.
+  assert.match(settings, /disabled=\{!canEdit\}/);
+});
+
+test('no control offers a free value', () => {
+  // Every one is a step or a palette name, from the lists in core.
+  assert.match(settings, /SIZE_STEPS/);
+  assert.match(settings, /SPACE_STEPS/);
+  assert.match(settings, /THEME_COLORS/);
+  assert.doesNotMatch(settings, /type="number"/);
+  assert.doesNotMatch(settings, /type="color"/);
+});

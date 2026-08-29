@@ -20,8 +20,9 @@ follows the workspace, including when the workspace changes later.
 
 Stored per workspace and set by owners and admins. Nothing is written into
 documents, and a workspace with no theme renders exactly as every workspace did
-before. The theme is applied as the page loads; the interface for editing it
-comes next.
+before. Set it under Settings → Appearance defaults. Every control offers "As designed",
+which removes the setting rather than storing the value it currently equals — so
+a workspace that has chosen nothing keeps following the design as it changes.
 
 **Fixed: a toggle could not be filled on a phone.** Its content is the blocks
 indented under it, and indenting was only possible with Tab — which a phone
