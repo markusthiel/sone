@@ -17,7 +17,13 @@
  * modelling it as one would make every style change a tree operation.
  */
 
-import { BLOCK_ATTRS, serialiseProps } from '@sone/core';
+import {
+  BLOCK_ALIGNMENTS,
+  BLOCK_ATTRS,
+  BLOCK_COLORS,
+  BLOCK_WIDTHS,
+  serialiseProps,
+} from '@sone/core';
 import { Schema, type MarkSpec, type Node as PMNode, type NodeSpec } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
 
@@ -36,6 +42,26 @@ function blockDOMAttrs(node: PMNode): Record<string, string> {
   if (typeof id === 'string' && id !== '') attrs['data-block-id'] = id;
   const indent = readIndent(node.attrs);
   if (indent > 0) attrs['data-indent'] = String(indent);
+
+  // Only values the schema knows.
+  //
+  // These come from a document another client wrote, so an unknown one is
+  // dropped rather than emitted: `data-color="'; }"` in a stylesheet selector
+  // is not an attack this can suffer, but a value nothing styles is a setting
+  // that appears to have been accepted and does nothing.
+  const align = node.attrs[BLOCK_ATTRS.align];
+  if (typeof align === 'string' && (BLOCK_ALIGNMENTS as readonly string[]).includes(align)) {
+    attrs['data-align'] = align;
+  }
+  const width = node.attrs[BLOCK_ATTRS.width];
+  if (typeof width === 'string' && (BLOCK_WIDTHS as readonly string[]).includes(width)) {
+    attrs['data-width'] = width;
+  }
+  const color = node.attrs[BLOCK_ATTRS.color];
+  if (typeof color === 'string' && (BLOCK_COLORS as readonly string[]).includes(color)) {
+    attrs['data-color'] = color;
+  }
+
   return attrs;
 }
 
@@ -58,6 +84,16 @@ const blockAttrs = {
    * be a real container — the constraint is absolute (ADR-0018).
    */
   [BLOCK_ATTRS.indent]: { default: null as string | null },
+  /**
+   * Presentation, shared by every block type.
+   *
+   * Null means "as the design decides", which is what almost every block should
+   * carry — an explicit value is somebody overriding, and overrides that are
+   * indistinguishable from defaults cannot be reset.
+   */
+  [BLOCK_ATTRS.align]: { default: null as string | null },
+  [BLOCK_ATTRS.width]: { default: null as string | null },
+  [BLOCK_ATTRS.color]: { default: null as string | null },
 };
 
 /** Read a block's props, tolerating anything malformed. */

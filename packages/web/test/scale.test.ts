@@ -185,3 +185,23 @@ test('the status line truncates rather than wrapping', () => {
   assert.match(css, /\.topbar\b[^}]*flex-wrap:\s*nowrap/);
   assert.match(css, /\.topbar \.status-text\b[^}]*text-overflow:\s*ellipsis/);
 });
+
+test('presentation attributes are styled for every value the schema allows', () => {
+  // A value the schema emits and the stylesheet ignores is a setting that
+  // appears to have been accepted and does nothing.
+  for (const align of ['start', 'center', 'end']) {
+    assert.ok(css.includes(`[data-align='${align}']`), align);
+  }
+  for (const width of ['wide', 'full']) {
+    assert.ok(css.includes(`[data-width='${width}']`), width);
+  }
+  for (const color of ['grey', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink']) {
+    assert.ok(css.includes(`[data-color='${color}']`), color);
+  }
+});
+
+test('nothing breaks out of the column on a narrow screen', () => {
+  // There is no margin to break into, and doing it anyway pushes the text off
+  // the side of the page.
+  assert.match(css, /max-width: 720px\)[\s\S]{0,400}data-width='full'\][\s\S]{0,80}margin-inline: 0/);
+});

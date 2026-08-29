@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Blocks carry presentation: alignment, width and colour.** Three attributes
+shared by every block type rather than a setting per kind, so a new block type
+gains them for free. Width breaks out of the reading column — useful for an
+image or a table, and ignored on a narrow screen where there is no margin to
+break into.
+
+The controls for these come next; this is the model and the styling.
+
 **Edits survive a reload, not just a dropped connection.** A signed-in member's
 browser keeps a copy of each document it opens; when the server comes back, the
 two merge with no comparing and no conflicts to resolve — that is what a CRDT is
