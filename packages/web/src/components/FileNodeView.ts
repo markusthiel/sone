@@ -140,12 +140,7 @@ class FileNodeView implements NodeView {
     const card = document.createElement('div');
     card.className = 'file-card';
 
-    const title = document.createElement('a');
-    title.href = url;
-    title.textContent = name;
-    title.className = 'file-name';
-    // Downloads rather than navigating away from the page being written.
-    title.setAttribute('download', name);
+    const title = this.link(url, name, category);
 
     const meta = document.createElement('span');
     meta.className = 'file-meta';
@@ -160,11 +155,7 @@ class FileNodeView implements NodeView {
     const bar = document.createElement('div');
     bar.className = 'file-line';
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.textContent = name;
-    link.className = 'file-name';
-    link.setAttribute('download', name);
+    const link = this.link(url, name, this.attrs['category']);
 
     const meta = document.createElement('span');
     meta.className = 'file-meta';
@@ -172,6 +163,37 @@ class FileNodeView implements NodeView {
 
     bar.append(link, meta, this.controls(String(this.attrs['display'] ?? 'card'), this.attrs['category']));
     return bar;
+  }
+
+  /**
+   * The file's name, as a link that does the useful thing.
+   *
+   * Opening for anything a browser can draw, downloading for anything it
+   * cannot. It used to always download, which is nearly always wrong for a PDF
+   * sitting in the page as a viewer: somebody clicking its name has it open
+   * already and wants it bigger, not a copy in their downloads folder.
+   *
+   * Downloading is still one click away, in the controls beside it — it is a
+   * choice now rather than the only outcome.
+   *
+   * A new tab rather than the same one: this is a page somebody is writing in,
+   * and navigating away from it to look at an attachment is a way to lose your
+   * place. `noopener` because a tab opened this way can otherwise reach back
+   * into the page that opened it.
+   */
+  private link(url: string, name: string, category: unknown): HTMLAnchorElement {
+    const link = document.createElement('a');
+    link.href = url;
+    link.textContent = name;
+    link.className = 'file-name';
+
+    if (viewable(category)) {
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+    } else {
+      link.setAttribute('download', name);
+    }
+    return link;
   }
 
   /** Switching between the three ways of drawing this. */
@@ -186,6 +208,14 @@ class FileNodeView implements NodeView {
     // Offered only when it would work. A viewer button on a spreadsheet is a
     // promise nothing here can keep.
     if (viewable(category)) options.push({ id: 'full', label: 'Viewer' });
+
+    // Downloading, always available and never the accident.
+    const download = document.createElement('a');
+    download.href = `/api/files/${String(this.attrs['fileId'] ?? '')}`;
+    download.textContent = 'Download';
+    download.className = 'file-display';
+    download.setAttribute('download', String(this.attrs['filename'] ?? 'file'));
+    group.append(download);
 
     for (const option of options) {
       const button = document.createElement('button');

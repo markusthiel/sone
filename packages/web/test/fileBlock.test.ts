@@ -89,3 +89,20 @@ test('a PDF frame is not sandboxed at all', () => {
   assert.doesNotMatch(withoutComments, /allow-same-origin/);
   assert.doesNotMatch(withoutComments, /'allow-scripts'/);
 });
+
+test('the name opens what a browser can draw, and downloads what it cannot', () => {
+  // It always downloaded, which is nearly always wrong for a PDF sitting in the
+  // page as a viewer: whoever clicks its name has it open already and wants it
+  // bigger, not a copy in their downloads folder.
+  assert.match(source, /if \(viewable\(category\)\) \{[\s\S]{0,160}link\.target = '_blank'/);
+  assert.match(source, /\} else \{[\s\S]{0,120}setAttribute\('download', name\)/);
+});
+
+test('a tab opened from here cannot reach back into the page', () => {
+  assert.match(source, /rel = 'noopener noreferrer'/);
+});
+
+test('downloading is still one click away', () => {
+  // A choice now rather than the only outcome.
+  assert.match(source, /download\.textContent = 'Download'/);
+});

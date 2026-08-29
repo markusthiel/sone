@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A file's name now opens it** instead of always downloading. Anything a browser
+can draw opens in a new tab; anything it cannot still downloads, because that is
+the only useful thing to do with it. Downloading is a button beside the name.
+
 **A workspace can have its own defaults for how elements look** — size, colour
 and spacing per element kind. It fills the gaps a block leaves rather than
 overriding: a block that carries its own setting keeps it, and one that does not
