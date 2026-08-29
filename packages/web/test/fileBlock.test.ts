@@ -45,11 +45,25 @@ test('everything but a PDF is sandboxed from the embedding side too', () => {
   assert.match(source, /if \(category !== 'pdf'\) frame\.setAttribute\('sandbox', ''\)/);
 });
 
-test('the display buttons act on click', () => {
+test('the menu acts on click', () => {
   // pointerdown fires before a finger lifts and cancels the scroll gesture with
   // it — the cause of every touch bug this project has had.
   assert.match(source, /addEventListener\('click'/);
   assert.doesNotMatch(source, /addEventListener\('pointerdown'/);
+});
+
+test('the menu closes when attention moves elsewhere', () => {
+  // Otherwise the menu of a file scrolled off screen stays open behind the
+  // page.
+  assert.match(source, /focusout/);
+});
+
+test('"open" is offered only for what a browser can draw', () => {
+  // "Open" on a spreadsheet opens a download, which is what the item below it
+  // already says plainly — two items doing the same thing under different
+  // names.
+  const menu = source.slice(source.indexOf("heading('Do')"));
+  assert.match(menu.slice(0, 700), /if \(viewable\(category\)\)/);
 });
 
 test('a size is shown coarsely, and nonsense shows nothing', () => {
@@ -102,7 +116,8 @@ test('a tab opened from here cannot reach back into the page', () => {
   assert.match(source, /rel = 'noopener noreferrer'/);
 });
 
-test('downloading is still one click away', () => {
-  // A choice now rather than the only outcome.
+test('downloading is always offered, whatever the file is', () => {
+  // It is the one thing that works for every type, so it is never behind a
+  // condition.
   assert.match(source, /download\.textContent = 'Download'/);
 });

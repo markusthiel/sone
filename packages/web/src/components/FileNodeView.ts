@@ -196,41 +196,116 @@ class FileNodeView implements NodeView {
     return link;
   }
 
-  /** Switching between the three ways of drawing this. */
+  /**
+   * One menu, holding everything this block can do.
+   *
+   * A row of buttons for the display and a separate download link beside it was
+   * two kinds of thing in one place: "what should this look like" and "what
+   * should happen now". They read as one row and are not, and the row grew
+   * every time something was added.
+   *
+   * So: what to do at the top, how to show it below, in a menu that is closed
+   * until asked for.
+   */
   private controls(current: string, category: unknown): HTMLElement {
-    const group = document.createElement('div');
-    group.className = 'file-displays';
+    const wrap = document.createElement('div');
+    wrap.className = 'file-menu';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'file-menu-trigger';
+    trigger.textContent = '···';
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', 'What to do with this file');
+
+    const menu = document.createElement('div');
+    menu.className = 'file-menu-items';
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
+
+    const close = (): void => {
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+    };
+
+    // click, not pointerdown — the rule everywhere here, and the cause of every
+    // touch bug this project has had.
+    trigger.addEventListener('click', (event) => {
+      event.preventDefault();
+      const open = menu.hidden;
+      menu.hidden = !open;
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    // Closed when the attention moves elsewhere. Without this the menu of a
+    // file scrolled off screen stays open behind the page.
+    wrap.addEventListener('focusout', (event) => {
+      if (!wrap.contains(event.relatedTarget as Node | null)) close();
+    });
+
+    const url = `/api/files/${String(this.attrs['fileId'] ?? '')}`;
+    const name = String(this.attrs['filename'] ?? 'file');
+
+    const heading = (text: string): void => {
+      const label = document.createElement('p');
+      label.className = 'file-menu-label';
+      label.textContent = text;
+      menu.append(label);
+    };
+
+    heading('Do');
+
+    if (viewable(category)) {
+      // Only offered for something a browser can draw. "Open" on a spreadsheet
+      // opens a download, which is what the item below already says plainly.
+      const open = document.createElement('a');
+      open.href = url;
+      open.target = '_blank';
+      open.rel = 'noopener noreferrer';
+      open.className = 'file-menu-item';
+      open.setAttribute('role', 'menuitem');
+      open.textContent = 'Open in a new tab';
+      open.addEventListener('click', close);
+      menu.append(open);
+    }
+
+    const download = document.createElement('a');
+    download.href = url;
+    download.className = 'file-menu-item';
+    download.setAttribute('role', 'menuitem');
+    download.setAttribute('download', name);
+    download.textContent = 'Download';
+    download.addEventListener('click', close);
+    menu.append(download);
+
+    heading('Show as');
 
     const options: Array<{ id: string; label: string }> = [
       { id: 'card', label: 'Card' },
-      { id: 'line', label: 'Line' },
+      { id: 'line', label: 'One line' },
     ];
-    // Offered only when it would work. A viewer button on a spreadsheet is a
-    // promise nothing here can keep.
+    // Offered only when it would work. A viewer on a spreadsheet is a promise
+    // nothing here can keep.
     if (viewable(category)) options.push({ id: 'full', label: 'Viewer' });
-
-    // Downloading, always available and never the accident.
-    const download = document.createElement('a');
-    download.href = `/api/files/${String(this.attrs['fileId'] ?? '')}`;
-    download.textContent = 'Download';
-    download.className = 'file-display';
-    download.setAttribute('download', String(this.attrs['filename'] ?? 'file'));
-    group.append(download);
 
     for (const option of options) {
       const button = document.createElement('button');
       button.type = 'button';
+      button.className = 'file-menu-item';
+      button.setAttribute('role', 'menuitemradio');
+      button.setAttribute('aria-checked', option.id === current ? 'true' : 'false');
       button.textContent = option.label;
-      button.className = option.id === current ? 'file-display current' : 'file-display';
-      // click, not pointerdown: the rule everywhere here, and the cause of
-      // every touch bug this project has had.
       button.addEventListener('click', (event) => {
         event.preventDefault();
+        close();
         this.onSetDisplay(option.id);
       });
-      group.append(button);
+      menu.append(button);
     }
-    return group;
+
+    wrap.append(trigger, menu);
+    return wrap;
   }
 
   update(node: PMNodeLike): boolean {
