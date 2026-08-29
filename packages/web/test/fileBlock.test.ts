@@ -42,7 +42,7 @@ test('the viewer frame is sandboxed from the embedding side too', () => {
   // The server sends a sandbox policy with the file; this states the same
   // restriction where it is embedded, so the header and the attribute have to
   // agree before anything runs.
-  assert.match(source, /setAttribute\('sandbox', ''\)/);
+  assert.match(source, /setAttribute\('sandbox',/);
 });
 
 test('the display buttons act on click', () => {
@@ -71,4 +71,19 @@ test('the document picker is separate from the image one', () => {
   const uploadAt = surface.indexOf('await api.uploadFile(pageId, file)');
   const insertAt = surface.indexOf('insertFileBlock({');
   assert.ok(uploadAt > 0 && insertAt > uploadAt, 'the upload comes first');
+});
+
+test('a PDF frame is allowed scripts, and never same-origin', () => {
+  // Without scripts the browser's viewer renders page one and nothing reaches
+  // page two. With allow-same-origin, script inside a document somebody
+  // uploaded could read this application's cookies and storage — so the one
+  // that must never appear is that, not scripts.
+  assert.match(source, /category === 'pdf' \? 'allow-scripts' : ''/);
+
+  // Checked against the code rather than the file: a first version scanned the
+  // whole source and failed on the comment that explains why allow-same-origin
+  // is absent. A test that cannot tell prose from code will eventually be
+  // silenced by rewording rather than by fixing anything.
+  const withoutComments = source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+  assert.doesNotMatch(withoutComments, /allow-same-origin/);
 });

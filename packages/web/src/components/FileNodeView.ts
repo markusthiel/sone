@@ -111,10 +111,15 @@ class FileNodeView implements NodeView {
       frame.src = url;
       frame.title = name;
       frame.className = 'file-viewer';
-      // The server already sends a sandbox policy with the file; this is the
-      // same restriction stated from the embedding side, so the attribute and
-      // the header have to agree before anything runs.
-      frame.setAttribute('sandbox', '');
+      // Sandboxed from this side too, and the two have to agree before anything
+      // runs — but a PDF needs scripts, or the viewer renders page one and
+      // nothing reaches page two.
+      //
+      // `allow-scripts` without `allow-same-origin` keeps the containment that
+      // matters: the frame is an opaque origin, so nothing inside it can touch
+      // this application's cookies, storage or DOM. It is allowed to be a
+      // document viewer and nothing else.
+      frame.setAttribute('sandbox', category === 'pdf' ? 'allow-scripts' : '');
       frame.setAttribute('loading', 'lazy');
       this.dom.append(frame, this.bar(name, kind, size, url));
       return;

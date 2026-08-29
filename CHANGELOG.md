@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a PDF showed only its first page.** The viewer was sandboxed so
+thoroughly that the browser's own page navigation could not run. PDFs are now
+allowed scripts — and still not `allow-same-origin`, which is the restriction
+that matters: the frame is an opaque origin, so nothing inside an uploaded
+document can reach this application's cookies or storage.
+
 **Attribution is being recorded.** Every editing session by a signed-in member
 is now mapped to that person in the document, which is what makes "who wrote
 this" answerable later. Nothing displays it yet — recording starts first because
