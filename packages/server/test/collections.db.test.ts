@@ -362,6 +362,42 @@ describe(
       assert.deepEqual((await read(session, second)).rows, []);
     });
 
+    test('a row is not reported as a misplaced entry', async () => {
+      // pages_inside_pages flags children whose parent is not a folder, which
+      // before ADR-0021 could only mean a client wrote one directly. A row
+      // lives inside the page holding its collection by design — and every one
+      // was being reported, so the maintenance job logged the count every five
+      // minutes.
+      //
+      // A check that reports correct data teaches people to ignore it, and the
+      // next real violation goes unnoticed among the false ones.
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      await addRow(session, collection, 'A record');
+
+      const flagged = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pages_inside_pages`,
+      );
+      assert.equal(flagged.rows[0]?.n, 0);
+    });
+
+    test('a page inside a page is still reported', async () => {
+      // The check has to keep working for what it was built for.
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      await db.query(
+        `INSERT INTO pages (id, workspace_id, parent_page_id, title, idx, kind, ancestor_ids)
+         VALUES (gen_random_uuid(), $1, $2, 'Wrongly placed', 'a0', 'page', '{}')`,
+        [session.workspaceId, page],
+      );
+
+      const flagged = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pages_inside_pages`,
+      );
+      assert.equal(flagged.rows[0]?.n, 1);
+    });
+
     test('an archived row leaves the table', async () => {
       const session = await setup();
       const page = await create(session, 'Notes', 'page', session.rootFolder);
