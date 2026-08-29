@@ -585,6 +585,44 @@ describe(
       assert.equal(asOwner.headers.get('content-type'), 'application/pdf');
     });
 
+    test('serving a several-megabyte file works', async () => {
+      // Measured rather than reasoned about: a 200 KB PDF displays and a 3.2 MB
+      // one does not, and nothing else about the two differs. If size matters,
+      // it has to show here.
+      //
+      // Written through the store rather than uploaded, because this harness
+      // caps uploads at 1 KB — the point under test is serving, not the limit.
+      const session = await setup();
+      const large = Buffer.concat([PDF, Buffer.alloc(3 * 1024 * 1024, 0x20)]);
+
+      const store = new LocalFileStore(storageRoot);
+      const stored = await store.put(large);
+
+      const row = await db.query<{ id: string }>(
+        `INSERT INTO files
+           (workspace_id, page_id, filename, mime_type, size_bytes, storage_key,
+            sha256, uploaded_by)
+         VALUES ($1,$2,'big.pdf','application/pdf',$3,$4,$5,$6) RETURNING id`,
+        [
+          session.workspaceId,
+          session.pageId,
+          large.length,
+          stored.key,
+          createHash('sha256').update(large).digest(),
+          session.userId,
+        ],
+      );
+
+      const res = await fetch(`${base}/api/files/${row.rows[0]!.id}`, {
+        headers: { cookie: session.cookie },
+      });
+      const body = res.status === 200 ? '' : await res.text();
+      assert.equal(res.status, 200, body);
+
+      const returned = Buffer.from(await res.arrayBuffer());
+      assert.equal(returned.length, large.length, 'returned whole');
+    });
+
     test('a guest with edit rights can upload', async () => {
       // Reported as "the image shows as text": the upload was refused with 401,
       // and an image block with no URL renders the filename as a label. So it
