@@ -55,3 +55,36 @@ test('a panel open before a page is does not throw', () => {
   assert.match(source, /handle: PageHandle \| null/);
   assert.match(source, /if \(!handle\)/);
 });
+
+// --- choosing somebody ------------------------------------------------------
+
+test('choosing the same person again clears the highlight', () => {
+  // A highlight with no way off is a mode somebody gets stuck in.
+  assert.match(source, /const next = chosen \? null : person\.userId/);
+});
+
+test('the panel does not reach into the editor itself', () => {
+  // It has no view to dispatch on, and handing one across would let any panel
+  // dispatch anything into the editor's own update path.
+  assert.doesNotMatch(source, /EditorView/);
+  assert.match(source, /onHighlight\?\.\(/);
+});
+
+test('the bridge is one command, and is cleared when the editor goes', () => {
+  // A general bridge is how a codebase ends up with two ways to change the same
+  // state, and the first thing to go wrong is that they disagree about which is
+  // authoritative.
+  const bridge = readFileSync(
+    new URL('../src/components/authorHighlightBridge.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(bridge, /export function registerHighlighter/);
+  assert.match(bridge, /export function highlightAuthor/);
+  assert.match(bridge, /current\?\.\(clients\)/, 'a call with no editor does nothing');
+
+  const surface = readFileSync(
+    new URL('../src/components/EditorSurface.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(surface, /registerHighlighter\(null\)/, 'cleared on teardown');
+});

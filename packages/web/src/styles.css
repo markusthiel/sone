@@ -3186,3 +3186,34 @@ select {
   font-weight: 400;
   text-transform: lowercase;
 }
+
+/* --- one person's writing, marked ---
+ *
+ * A tint rather than a block of colour: the point is to see which sentences are
+ * theirs while still reading them, and a solid highlight over half a page makes
+ * the text harder to read than it was.
+ */
+.sone-authored {
+  background: color-mix(in srgb, var(--sone-accent) 18%, transparent);
+  border-radius: 2px;
+}
+
+/* Choosing somebody in the panel. */
+.contributor {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+  padding: var(--sone-space-1) var(--sone-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+}
+.contributor:hover { background: var(--sone-bg-hover); }
+.contributor.current {
+  border-color: var(--sone-accent);
+  background: color-mix(in srgb, var(--sone-accent) 10%, transparent);
+}

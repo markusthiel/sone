@@ -28,6 +28,14 @@ import { api, type WorkspaceMember } from '../api/client.ts';
 
 interface ContributorsProps {
   /**
+   * Marks one person's writing in the editor, or clears it with null.
+   *
+   * Passed in rather than reached for: the editor view lives in the surface,
+   * and a panel dispatching into it directly would be a second way to change
+   * the document's decorations.
+   */
+  onHighlight?: (clients: number[] | null) => void;
+  /**
    * Null while a page is still opening.
    *
    * The panel can be open before a document is: somebody switches page with the
@@ -41,9 +49,15 @@ interface ContributorsProps {
 export function Contributors({
   handle,
   workspaceId,
+  onHighlight,
 }: ContributorsProps): ReactElement {
+  const [selected, setSelected] = useState<string | null>(null);
   const [userIds, setUserIds] = useState<string[]>(() =>
     handle ? [...attributionUsers(handle.doc).keys()] : [],
+  );
+  /** The client ids each person wrote under, which is what the editor marks. */
+  const [clientsByUser, setClientsByUser] = useState<Map<string, number[]>>(
+    () => (handle ? attributionUsers(handle.doc) : new Map()),
   );
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
 
@@ -55,7 +69,11 @@ export function Contributors({
       return undefined;
     }
     const doc = handle.doc;
-    const read = (): void => setUserIds([...attributionUsers(doc).keys()]);
+    const read = (): void => {
+      const users = attributionUsers(doc);
+      setUserIds([...users.keys()]);
+      setClientsByUser(users);
+    };
     read();
     doc.on('update', read);
     return () => doc.off('update', read);
@@ -108,25 +126,46 @@ export function Contributors({
   return (
     <div className="panel-section">
       <ul className="contributor-list">
-        {people.map((person) => (
-          <li key={person.userId} className="contributor">
-            <span
-              className="contributor-initial"
-              aria-hidden="true"
-              data-known={person.known ? 'true' : undefined}
-            >
-              {person.name.trim().charAt(0).toUpperCase() || '?'}
-            </span>
-            <span className={person.known ? 'contributor-name' : 'contributor-name muted'}>
-              {person.name}
-            </span>
-          </li>
-        ))}
+        {people.map((person) => {
+          const chosen = selected === person.userId;
+          return (
+            <li key={person.userId}>
+              <button
+                type="button"
+                className={chosen ? 'contributor current' : 'contributor'}
+                aria-pressed={chosen}
+                onClick={() => {
+                  // Selecting the same person again clears it. A highlight with
+                  // no way off is a mode somebody gets stuck in.
+                  const next = chosen ? null : person.userId;
+                  setSelected(next);
+                  onHighlight?.(next ? (clientsByUser.get(next) ?? []) : null);
+                }}
+              >
+                <span
+                  className="contributor-initial"
+                  aria-hidden="true"
+                  data-known={person.known ? 'true' : undefined}
+                >
+                  {person.name.trim().charAt(0).toUpperCase() || '?'}
+                </span>
+                <span
+                  className={person.known ? 'contributor-name' : 'contributor-name muted'}
+                >
+                  {person.name}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
 
       <p className="muted panel-note">
-        Everyone who has written here, whether or not they are here now — which
-        is what the circles at the top show instead.
+        {selected
+          ? 'Their writing is marked in the page. Choose them again to clear it.'
+          : 'Choose somebody to mark what they wrote. This is everyone who has ' +
+            'written here, whether or not they are here now — which is what the ' +
+            'circles at the top show instead.'}
       </p>
     </div>
   );
