@@ -3578,3 +3578,22 @@ body {
   font-size: var(--sone-text-sm);
 }
 .block-menu-item:hover { background: var(--sone-bg-hover); }
+
+/* Filtering the icons.
+ *
+ * A filter rather than a shorter list: with one, the length stops mattering,
+ * and choosing gets better — somebody types "boat" instead of hunting for it
+ * among two hundred squares.
+ */
+.entry-icon-search {
+  inline-size: 100%;
+  min-block-size: var(--sone-control);
+  margin-block-end: var(--sone-space-2);
+  padding-inline: var(--sone-space-2);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg);
+  font: inherit;
+  font-size: var(--sone-text-sm);
+  color: inherit;
+}

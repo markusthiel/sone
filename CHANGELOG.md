@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Every icon in the set is available, with a search box to find one.** Type
+"boat" rather than hunting through squares. The curated fifty are gone; a name is
+now checked by shape rather than against a list, and an entry whose icon a
+version does not know simply draws the default.
+
 **Fixed: every entry icon drew as the same sheet of paper.** A Lucide icon is an
 object rather than a function, and the check that resolved a name rejected all of
 them — so the picker showed fifty identical icons and choosing one changed

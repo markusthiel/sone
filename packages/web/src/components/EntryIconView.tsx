@@ -7,16 +7,49 @@
  * place in the tree.
  */
 
-import { ENTRY_ICONS } from '@sone/core';
 import * as lucide from 'lucide-react';
 import type { ReactElement } from 'react';
 
 import { FolderIcon, PageIcon } from './icons.tsx';
 
+/**
+ * Every icon the set exports, as the kebab-case names stored in a document.
+ *
+ * Derived rather than listed. A hand-kept list was fifty names somebody chose
+ * once, and with a filter in the picker there is no reason to choose for
+ * anybody: they can search the whole set.
+ *
+ * Aliases and the `*Icon` duplicates lucide ships are dropped, or the same
+ * drawing appears three times under three names.
+ */
+export const ICON_NAMES: string[] = [
+  ...new Set(
+    Object.keys(lucide)
+      .filter((key) => /^[A-Z]/.test(key) && !key.endsWith('Icon') && !key.startsWith('Lucide'))
+      .map(kebab)
+      .filter((name) => /^[a-z][a-z0-9-]*$/.test(name)),
+  ),
+]
+  // Kept only if the name maps *back* to something drawable.
+  //
+  // The conversion is lossy in both directions: `AArrowDown` and `ArrowDownAZ`
+  // have capitals that a single split rule cannot restore, and two exports can
+  // normalise to one name. Rather than write ever cleverer rules, the round
+  // trip decides — a square in the grid that renders as the default icon is
+  // indistinguishable from a real choice, which is the failure to avoid.
+  .filter((name) => componentFor(name) !== null)
+  .sort();
+
+/** Split on both `aB` and `ABc`, so an acronym does not swallow the next word. */
+function kebab(key: string): string {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .toLowerCase();
+}
+
 /** 'folder-open' is exported as FolderOpen. */
 function componentFor(name: string): lucide.LucideIcon | null {
-  if (!(ENTRY_ICONS as readonly string[]).includes(name)) return null;
-
   const exported = name
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

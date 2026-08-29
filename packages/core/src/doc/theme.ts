@@ -314,7 +314,11 @@ export const ENTRY_ICONS = [
   'wind',
 ] as const;
 
-export type EntryIconName = (typeof ENTRY_ICONS)[number];
+/**
+ * A name the picker suggests. Any well-formed name is accepted, so this is a
+ * starting point rather than the limit — see readEntryIcon.
+ */
+export type EntryIconName = string;
 
 /**
  * An entry's own icon and the colours around it.
@@ -349,15 +353,25 @@ export function readEntryIcon(value: unknown): EntryIcon | null {
   const raw = value as Record<string, unknown>;
   if (raw['kind'] !== 'icon') return null;
 
-  // Checked against the list rather than stored as given. A name nothing can
-  // draw is an entry that renders a gap where its icon should be, and the gap
-  // appears long after whoever typed the name has forgotten about it.
-  if (!inList(ENTRY_ICONS, raw['value'])) return null;
+  // Checked by shape rather than against a list.
+  //
+  // It was a closed list, on the reasoning that a stored name has to keep
+  // resolving. That reasoning was weaker than it sounded: the guarantee only
+  // ever held for the icon set installed at the time, and an upgrade that
+  // renames one breaks it either way. What actually protects an entry is the
+  // interface drawing its default when a name does not resolve, which it does.
+  //
+  // So the shape is what is enforced — lower-case, digits and hyphens, bounded
+  // — which keeps the value safe to put in a class name or a lookup, and lets
+  // the picker offer every icon it has rather than the fifty somebody once
+  // chose.
+  const name = raw['value'];
+  if (typeof name !== 'string' || !/^[a-z][a-z0-9-]{0,48}$/.test(name)) return null;
 
   const color = raw['color'];
   return {
     kind: 'icon',
-    value: raw['value'],
+    value: name,
     ...(inList(THEME_COLORS, color) ? { color } : {}),
   };
 }

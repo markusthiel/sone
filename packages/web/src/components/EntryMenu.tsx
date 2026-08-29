@@ -15,9 +15,11 @@
  * right there to edit.
  */
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
-import { ENTRY_ICONS, THEME_COLORS, type EntryIcon } from '@sone/core';
+import { THEME_COLORS, type EntryIcon } from '@sone/core';
+
+import { ICON_NAMES } from './EntryIconView.tsx';
 
 import { api, type PageNode } from '../api/client.ts';
 import { EntryIconView } from './EntryIconView.tsx';
@@ -54,6 +56,18 @@ function EntryAppearance({
 }): ReactElement {
   const icon = node.icon;
   const current = icon?.kind === 'icon' ? icon.value : null;
+  const [query, setQuery] = useState('');
+
+  // Matched on the words in a name, so "arrow" finds `arrow-up` and "up" finds
+  // it too. Bounded, because rendering two thousand icons at once is slow
+  // enough to feel like the menu is broken.
+  const matches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const all = needle === ''
+      ? ICON_NAMES
+      : ICON_NAMES.filter((name) => name.includes(needle));
+    return all.slice(0, 300);
+  }, [query]);
 
   const apply = (changes: { icon?: EntryIcon | null; titleColor?: string | null }): void => {
     void api
@@ -83,6 +97,22 @@ function EntryAppearance({
   return (
     <div className="entry-appearance">
       <p className="entry-menu-label">Icon</p>
+
+      {/* A filter rather than a shorter list.
+        *
+        * The set was fifty hand-picked names, kept short because a long grid is
+        * a wall to scroll past. With a filter the length stops mattering and
+        * the choosing gets better: somebody types "boat" instead of hunting for
+        * it among two hundred squares. */}
+      <input
+        className="entry-icon-search"
+        type="search"
+        value={query}
+        placeholder="Search icons"
+        aria-label="Search icons"
+        onChange={(event) => setQuery(event.target.value)}
+      />
+
       <div className="entry-icon-grid" role="group" aria-label="Icon">
         <button
           type="button"
@@ -94,7 +124,7 @@ function EntryAppearance({
           <EntryIconView icon={null} kind={node.kind === 'folder' ? 'folder' : 'page'} />
         </button>
 
-        {ENTRY_ICONS.map((name) => (
+        {matches.map((name) => (
           <button
             key={name}
             type="button"
