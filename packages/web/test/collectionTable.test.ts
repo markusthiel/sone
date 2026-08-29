@@ -15,6 +15,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { codeOf } from './helpers/source.ts';
+
 import { optionsOf, textOf } from '../src/components/CollectionTable.tsx';
 
 test('text-like kinds are read', () => {
@@ -110,10 +112,7 @@ test('a missing colour becomes grey rather than undefined', () => {
 test('the node view keeps ProseMirror out of the table', () => {
   // Two libraries owning one subtree is a bug factory. The boundary is
   // explicit: ProseMirror owns the div, React owns everything inside it.
-  const source = readFileSync(
-    new URL('../src/components/CollectionNodeView.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/CollectionNodeView.tsx', import.meta.url));
 
   // Without this, typing in a cell is handled as typing in the document.
   assert.match(source, /stopEvent\(\): boolean \{\s*return true;/);
@@ -125,10 +124,7 @@ test('the node view keeps ProseMirror out of the table', () => {
 test('an update in place does not remount the table', () => {
   // Returning false would have ProseMirror destroy and rebuild the node view,
   // unmounting React and losing whatever was half-typed in a cell.
-  const source = readFileSync(
-    new URL('../src/components/CollectionNodeView.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/CollectionNodeView.tsx', import.meta.url));
   assert.match(source, /update\(node: PMNodeLike\): boolean/);
   assert.match(source, /if \(next !== this\.collectionId\)/);
 });
@@ -137,10 +133,7 @@ test('the block is created after the collection exists', () => {
   // The block carries the collection's id, and there is no id until the
   // collection is created. Inserting first would need a placeholder node and a
   // way to repair one whose request failed.
-  const source = readFileSync(
-    new URL('../src/components/EditorSurface.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
   const created = source.indexOf('await api.createCollection(pageId)');
   const inserted = source.indexOf('replaceSelectionWith(node)');
   assert.ok(created > 0 && inserted > created, 'the request comes first');
@@ -150,10 +143,7 @@ test('the interface handles every external slash item', () => {
   // The editor package asserts the same set from its side. This is the half
   // that would otherwise drift: an item marked external whose id nothing here
   // dispatches on is a menu entry that silently does nothing.
-  const source = readFileSync(
-    new URL('../src/components/SlashMenu.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/SlashMenu.tsx', import.meta.url));
   assert.match(source, /item\.id === 'collection'/);
   assert.match(source, /onPickImage\(\)/);
 });
@@ -164,10 +154,7 @@ test('only operators that mean something for the type are offered', () => {
   // "Greater than" on text is not a stricter filter, it is a string comparison
   // that returns the wrong rows quietly. The server skips such a filter, so
   // offering it here would be a control that appears to do nothing.
-  const source = readFileSync(
-    new URL('../src/components/ViewRules.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/ViewRules.tsx', import.meta.url));
   assert.match(source, /case 'number':/);
   assert.match(source, /case 'date':/);
   // multiSelect deliberately has no "is": the stored value is the whole set.
@@ -180,20 +167,14 @@ test('only operators that mean something for the type are offered', () => {
 test('a rule that carries no value does not send one', () => {
   // "is empty" asks whether a value exists at all; sending a value with it
   // would be a rule the server reads as something else.
-  const source = readFileSync(
-    new URL('../src/components/ViewRules.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/ViewRules.tsx', import.meta.url));
   assert.match(source, /operator !== 'isEmpty' && operator !== 'isNotEmpty'/);
 });
 
 test('saving rules keeps what else the view carried', () => {
   // The definition is replaced wholesale, so dropping the rest would silently
   // un-group a board the moment somebody sorted it.
-  const source = readFileSync(
-    new URL('../src/components/ViewRules.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/ViewRules.tsx', import.meta.url));
   assert.match(source, /key !== 'filters' && key !== 'sort'/);
 });
 
@@ -202,10 +183,7 @@ test('saving rules keeps what else the view carried', () => {
 test('searching is debounced, and asks with what settled', () => {
   // A request per keystroke would put a query per character through the
   // database. Two values: what is typed, and what has been asked for.
-  const source = readFileSync(
-    new URL('../src/components/CollectionTable.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
   assert.match(source, /setTimeout\(\(\) => setAsked\(query\), 250\)/);
   assert.match(source, /clearTimeout\(timer\)/, 'and the pending one is cancelled');
 });
@@ -213,9 +191,6 @@ test('searching is debounced, and asks with what settled', () => {
 test('the search goes to the server, not through the rows in hand', () => {
   // Filtering after fetching everything stops working at the size a collection
   // is for — the same reason filters and sorting are in the database.
-  const source = readFileSync(
-    new URL('../src/components/CollectionTable.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
   assert.match(source, /api\.collection\(collectionId, viewRef\.current \?\? undefined, askedRef\.current\)/);
 });

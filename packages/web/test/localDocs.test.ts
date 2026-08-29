@@ -8,11 +8,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-const source = (name: string): string =>
-  readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
+import { codeOf } from './helpers/source.ts';
+
+const source = (name: string): string => codeOf(new URL(`../src/${name}`, import.meta.url));
 
 test('a share-link guest gets no local copy', () => {
   // Somebody arriving through a link is often on a borrowed or shared machine,

@@ -9,10 +9,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-const source = readFileSync(
-  new URL('../src/components/Contributors.tsx', import.meta.url),
-  'utf8',
-);
+import { codeOf } from './helpers/source.ts';
+
+const source = codeOf(new URL('../src/components/Contributors.tsx', import.meta.url));
 
 test('the list is read from the document, not fetched', () => {
   // The mapping is in the page's CRDT. Asking the server for it would be a

@@ -10,10 +10,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-const source = readFileSync(
-  new URL('../src/components/FileNodeView.ts', import.meta.url),
-  'utf8',
-);
+import { codeOf } from './helpers/source.ts';
+
+const source = codeOf(new URL('../src/components/FileNodeView.ts', import.meta.url));
 
 test('a viewer is offered only for what a browser can draw', () => {
   // A viewer button on a spreadsheet is a promise nothing here can keep. The
