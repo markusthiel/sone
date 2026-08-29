@@ -3471,3 +3471,16 @@ body {
   color: var(--sone-text);
 }
 .block-menu-swatch:disabled { opacity: 0.35; }
+
+/* The card's first line: the name, and the menu at the end of it.
+ *
+ * The menu was appended after the card, which put it underneath — a loose
+ * button below a tile, belonging to nothing visible. The line display had it in
+ * the row all along.
+ */
+.file-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+}
+.file-card-head .file-name { flex: 1 1 auto; min-inline-size: 0; }
