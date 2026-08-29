@@ -89,11 +89,22 @@ test('an icon with a colour is read', () => {
   });
 });
 
-test('a name nothing can draw is refused', () => {
-  // Otherwise an entry renders a gap where its icon should be, and the gap
-  // appears long after whoever typed the name has forgotten about it.
-  assert.equal(readEntryIcon({ kind: 'icon', value: 'not-an-icon' }), null);
+test('a malformed name is refused; an unknown one is not', () => {
+  // Checked by shape rather than against a list. The closed list was justified
+  // as "a promise the name resolves", and that promise only ever held for the
+  // icon set installed at the time — what actually protects an entry is the
+  // interface drawing its default when a name does not resolve.
   assert.equal(readEntryIcon({ kind: 'icon', value: 42 }), null);
+  assert.equal(readEntryIcon({ kind: 'icon', value: 'Folder' }), null, 'lower case only');
+  assert.equal(readEntryIcon({ kind: 'icon', value: 'a b' }), null, 'no spaces');
+  assert.equal(readEntryIcon({ kind: 'icon', value: 'x'.repeat(80) }), null, 'bounded');
+
+  // A name this version does not know is stored: a newer client may draw it,
+  // and refusing would lose somebody's choice on the way through an older one.
+  assert.deepEqual(readEntryIcon({ kind: 'icon', value: 'not-yet-known' }), {
+    kind: 'icon',
+    value: 'not-yet-known',
+  });
 });
 
 test('a malformed icon yields null rather than throwing', () => {

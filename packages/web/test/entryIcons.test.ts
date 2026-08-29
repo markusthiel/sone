@@ -11,8 +11,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { ENTRY_ICONS } from '@sone/core';
+import { codeOf } from './helpers/source.ts';
+
 import * as lucide from 'lucide-react';
+
+import { ICON_NAMES } from '../src/components/EntryIconView.tsx';
 
 /** 'folder-open' is exported as FolderOpen. */
 const componentName = (name: string): string =>
@@ -21,46 +24,45 @@ const componentName = (name: string): string =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
 
-test('every offered icon resolves to something drawable', () => {
-  // A name stored in somebody's document has to keep resolving. Without this,
-  // a typo or a rename upstream shows as a gap in the sidebar long after
-  // anybody could connect the two.
-  //
-  // Checked by resolving the way the component does, not by looking the key up.
-  // The first version only asked whether the name existed, and passed while
-  // every icon in the picker rendered as the same sheet of paper — a Lucide
-  // icon is a forwardRef *object*, and the component was testing for a
-  // function.
-  const missing = ENTRY_ICONS.filter((name) => {
-    const found = (lucide as Record<string, unknown>)[componentName(name)];
-    const usable = typeof found === 'function' || (typeof found === 'object' && found !== null);
-    return !usable;
+test('every name the picker offers can be drawn', () => {
+  // Derived from the set rather than hand-kept, so this checks the derivation:
+  // a name that maps back to nothing would be a square in the grid that renders
+  // as the default icon, indistinguishable from a real choice.
+  const missing = ICON_NAMES.filter((name) => {
+    const exported = name
+      .split('-')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('');
+    const found = (lucide as Record<string, unknown>)[exported];
+    return !(typeof found === 'function' || (typeof found === 'object' && found !== null));
   });
-  assert.deepEqual(missing, [], `not drawable: ${missing.join(', ')}`);
+  assert.deepEqual(missing.slice(0, 5), [], `not drawable: ${missing.length}`);
 });
 
-test('the component accepts what lucide actually exports', () => {
-  // The half the check above cannot see: that EntryIconView agrees with it.
-  const source = readFileSync(
-    new URL('../src/components/EntryIconView.tsx', import.meta.url),
-    'utf8',
+test('the same drawing does not appear under several names', () => {
+  // lucide ships aliases and an `*Icon` duplicate of everything. Left in, the
+  // grid shows the same picture three times and the search returns it three
+  // times.
+  assert.equal(new Set(ICON_NAMES).size, ICON_NAMES.length);
+  assert.equal(
+    ICON_NAMES.filter((name) => name.endsWith('-icon')).length,
+    0,
+    'no duplicates of the same drawing',
   );
-  assert.match(source, /typeof found === 'object' && found !== null/);
 });
 
-test('the list is a choice, not a catalogue', () => {
-  // Long enough to find something that fits, short enough to look at.
-  //
-  // The ceiling was 80 when the picker showed everything at once. It scrolls
-  // now, so a wider set costs nothing to look at — but it stays bounded,
-  // because the whole of Lucide is a search problem and a name stored in a
-  // document has to keep resolving.
-  assert.ok(ENTRY_ICONS.length >= 20, 'enough to choose from');
-  assert.ok(ENTRY_ICONS.length <= 200, 'still a list somebody can scan');
+test('the whole set is offered, not a chosen few', () => {
+  // The list was fifty names somebody picked once. With a filter there is no
+  // reason to choose for anybody.
+  assert.ok(ICON_NAMES.length > 500, `only ${ICON_NAMES.length} offered`);
 });
 
-test('no name appears twice', () => {
-  assert.equal(new Set(ENTRY_ICONS).size, ENTRY_ICONS.length);
+test('the picker filters rather than showing everything at once', () => {
+  // Rendering two thousand icons is slow enough to feel like the menu is
+  // broken.
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  assert.match(menu, /name\.includes\(needle\)/);
+  assert.match(menu, /\.slice\(0, 300\)/);
 });
 
 // --- drawing one ------------------------------------------------------------
