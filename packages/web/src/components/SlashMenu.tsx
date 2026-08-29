@@ -61,6 +61,8 @@ interface SlashMenuProps {
    * event.
    */
   onPickImage: () => void;
+  /** Opens the document picker. Separate from the image one; see EditorSurface. */
+  onPickFile: () => void;
   /** Creates a collection and puts a block for it where the caret is. */
   onInsertCollection: () => void;
 }
@@ -69,6 +71,7 @@ export function SlashMenu({
   view,
   revision,
   onPickImage,
+  onPickFile,
   onInsertCollection,
 }: SlashMenuProps): ReactElement | null {
   const menu = slashMenuState(view.state);
@@ -198,6 +201,10 @@ export function SlashMenu({
       // A second — inserting a collection — would have opened a file dialog.
       if (item.id === 'collection') {
         onInsertCollection();
+        return;
+      }
+      if (item.id === 'file') {
+        onPickFile();
         return;
       }
 

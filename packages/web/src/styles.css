@@ -3056,3 +3056,74 @@ select {
       var(--sone-text-muted) calc(50% + 1px), transparent calc(50% + 1px)),
     var(--sone-bg);
 }
+
+/* --- an attached file ---
+ *
+ * Three ways to draw one block, chosen per file: a card, one line, or a viewer.
+ * A Word or Excel file has no viewer here and the controls do not offer one —
+ * rendering those needs a converter, which is a deployment decision for a
+ * self-hosted tool rather than a checkbox.
+ */
+.file-block { margin-block: var(--sone-space-4); }
+
+.file-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sone-space-4);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+}
+
+.file-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border-radius: var(--sone-radius-sm);
+}
+.file-line:hover { background: var(--sone-bg-hover); }
+
+.file-name { color: var(--sone-text); font-weight: 500; }
+.file-meta { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+
+/* Its own scrollbar, so a long document does not stretch the page to its
+   length — the point of a viewer is that the page stays readable around it. */
+.file-viewer {
+  inline-size: 100%;
+  block-size: min(70vh, 40rem);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg);
+}
+
+.file-displays {
+  display: flex;
+  gap: var(--sone-space-1);
+  margin-inline-start: auto;
+  opacity: 0;
+}
+.file-block:hover .file-displays,
+.file-displays:focus-within { opacity: 1; }
+@media (hover: none) { .file-displays { opacity: 0.7; } }
+
+.file-display {
+  min-block-size: var(--sone-control);
+  padding-inline: var(--sone-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+.file-display:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.file-display.current { border-color: var(--sone-accent); color: var(--sone-text); }
+
+.file-block[data-state='pending'] {
+  padding: var(--sone-space-4);
+  border: 1px dashed var(--sone-border);
+  border-radius: var(--sone-radius);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}

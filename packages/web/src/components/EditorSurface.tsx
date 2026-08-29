@@ -12,7 +12,13 @@
 
 import type { PageHandle } from '@sone/client';
 import { pageContent } from '@sone/core';
-import { createEditor, insertImageUpload, seedEmptyPage } from '@sone/editor';
+import {
+  createEditor,
+  insertFileBlock,
+  insertImageUpload,
+  seedEmptyPage,
+  setFileDisplay,
+} from '@sone/editor';
 
 import { ApiError, api } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
@@ -40,6 +46,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
   // dialog opened, somebody chose a photo, and the element that would have
   // heard about it no longer existed. Nothing happened, with no error.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const docInputRef = useRef<HTMLInputElement | null>(null);
 
   /**
    * Create a collection and place a block for it at the caret.
@@ -69,6 +76,38 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
       setError(err instanceof ApiError ? err.code : 'network_error');
     }
   }, [pageId]);
+
+  /**
+   * Upload a document and put a block for it where the caret is.
+   *
+   * The upload first, then the block. The block carries the file's id, its type
+   * and its size — all of which the server decides from the bytes — so there is
+   * nothing to insert until it answers. Inserting a placeholder first would need
+   * a way to repair one whose upload failed, which is machinery to avoid one
+   * round trip.
+   */
+  const attachFile = useCallback(
+    async (file: File): Promise<void> => {
+      const editor = viewRef.current;
+      if (!editor) return;
+
+      try {
+        const uploaded = await api.uploadFile(pageId, file);
+        insertFileBlock({
+          fileId: uploaded.id,
+          filename: uploaded.filename,
+          mimeType: uploaded.mimeType,
+          category: uploaded.category ?? 'document',
+          sizeBytes: uploaded.sizeBytes,
+        })(editor.state, editor.dispatch);
+        editor.focus();
+        setError(null);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.code : 'network_error');
+      }
+    },
+    [pageId],
+  );
 
   const uploader = useCallback(
     async (file: File) => {
@@ -133,7 +172,12 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
       // A collection is a block in the text (ADR-0021), and this is what draws
       // it. The node is an atom, so ProseMirror never descends into what React
       // mounts there.
-      nodeViews: soneNodeViews,
+      nodeViews: soneNodeViews((getPos, display) => {
+        const view = viewRef.current;
+        const pos = getPos();
+        if (!view || pos === undefined) return;
+        setFileDisplay(pos, display as 'card' | 'line' | 'full')(view.state, view.dispatch);
+      }),
     });
     viewRef.current = created;
     setView(created);
@@ -188,12 +232,41 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
           editor.focus();
         }}
       />
+      {/* A second picker, for documents.
+        *
+        * Separate from the image one rather than one input with a wider accept
+        * list: the image path inserts an image block and shows a preview while
+        * it uploads, and a document takes a different block. One input would
+        * have to guess which from the file's type, which is exactly the guess
+        * the server refuses to make from a declared type. */}
+      <input
+        ref={docInputRef}
+        type="file"
+        accept={
+          '.pdf,.txt,.md,.csv,.docx,.xlsx,.pptx,.odt,.ods,.zip,' +
+          'application/pdf,text/plain,text/csv,text/markdown,application/zip,' +
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document,' +
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,' +
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation,' +
+          'application/vnd.oasis.opendocument.text,' +
+          'application/vnd.oasis.opendocument.spreadsheet'
+        }
+        multiple
+        hidden
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          event.target.value = '';
+          for (const file of files) void attachFile(file);
+        }}
+      />
+
       {view && handle.canEdit && (
         <>
           <SlashMenu
             view={view}
             revision={revision}
             onPickImage={() => fileInputRef.current?.click()}
+            onPickFile={() => docInputRef.current?.click()}
             onInsertCollection={() => void insertCollection()}
           />
           <BlockMenu view={view} revision={revision} />

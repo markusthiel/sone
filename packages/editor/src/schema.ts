@@ -334,6 +334,67 @@ const nodes: Record<string, NodeSpec> = {
   },
 
   /**
+   * An attached file.
+   *
+   * Separate from `image` rather than a variant of it, because the two answer
+   * different questions. An image *is* the content — it is looked at. A file is
+   * referred to: it has a name, a size and a type worth showing, and often the
+   * point is that somebody can open it rather than read it here.
+   *
+   * `display` is the file's own, not the shared `width` attribute. Width says
+   * how much room a block takes; display says which of three quite different
+   * things to draw — a card, one line, or a viewer. A wide card and a full
+   * viewer are not points on the same scale.
+   */
+  file: {
+    group: 'block',
+    attrs: {
+      ...blockAttrs,
+      fileId: { default: null },
+      filename: { default: '' },
+      mimeType: { default: '' },
+      /** 'image' | 'pdf' | 'text' | 'document' | 'archive', from the server. */
+      category: { default: 'document' },
+      sizeBytes: { default: null },
+      /** 'card' | 'line' | 'full'. */
+      display: { default: 'card' },
+    },
+    atom: true,
+    draggable: true,
+    parseDOM: [
+      {
+        tag: 'div[data-sone-file]',
+        getAttrs: (dom) => {
+          const element = dom as HTMLElement;
+          return {
+            fileId: element.getAttribute('data-sone-file'),
+            filename: element.getAttribute('data-filename') ?? '',
+            mimeType: element.getAttribute('data-mime') ?? '',
+            category: element.getAttribute('data-category') ?? 'document',
+            display: element.getAttribute('data-display') ?? 'card',
+          };
+        },
+      },
+    ],
+    toDOM: (node) => {
+      const attrs = blockDOMAttrs(node);
+      const fileId = node.attrs['fileId'];
+
+      // Rendered even without an id, for the same reason an image is: an upload
+      // in flight or one that failed must not look like content that vanished.
+      if (typeof fileId === 'string' && fileId !== '') {
+        attrs['data-sone-file'] = fileId;
+      }
+      attrs['data-filename'] = String(node.attrs['filename'] ?? '');
+      attrs['data-mime'] = String(node.attrs['mimeType'] ?? '');
+      attrs['data-category'] = String(node.attrs['category'] ?? 'document');
+      attrs['data-display'] = String(node.attrs['display'] ?? 'card');
+
+      return ['div', attrs, ['span', String(node.attrs['filename'] ?? 'File')]];
+    },
+  },
+
+  /**
    * An embedded database view.
    *
    * An atom to ProseMirror, with its own renderer mounted by a node view

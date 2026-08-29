@@ -646,6 +646,8 @@ export const api = {
     mimeType: string;
     sizeBytes: number;
     inline: boolean;
+    /** 'image' | 'pdf' | 'text' | 'document' | 'archive'. */
+    category: string;
   }> => {
     const response = await fetch(
       `/api/pages/${pageId}/files?filename=${encodeURIComponent(file.name)}`,
