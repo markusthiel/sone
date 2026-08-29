@@ -288,3 +288,15 @@ test('indenting is reachable without a keyboard', () => {
   assert.match(menu, /run\(indentBlockSubtree\)/);
   assert.match(menu, /run\(outdentBlockSubtree\)/);
 });
+
+test('no rule targets a class the editor never emits', () => {
+  // Six did. They were written as `.block`, and blocks carry `data-block` and
+  // no class — so they sat in the stylesheet doing nothing, and paragraphs fell
+  // back to the browser's own margin, which is why spacing looked uneven beside
+  // headings that have deliberate ones.
+  assert.doesNotMatch(css, /(^|[\s,}])\.block[\s[{]/m);
+});
+
+test('paragraph spacing is decided here, not by the browser', () => {
+  assert.match(css, /\.ProseMirror p\[data-block\][^}]*margin-block/);
+});
