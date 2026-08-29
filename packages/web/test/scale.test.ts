@@ -381,10 +381,14 @@ test('an image is offered only the widths that differ', () => {
   assert.match(menu, /node\.type\.name === 'image'\s*\?\s*\[\]/);
 });
 
-test('full width reaches the edges of the page', () => {
+test('full width reaches the edges of the page, and no further', () => {
   // It was a second small step outward, which is why it did not look different
-  // from the column.
-  assert.match(css, /\[data-width='full'\][^}]*100vw/);
+  // from the column. Then it was 100vw — the *window*, sidebar included — so a
+  // full-width image pushed the whole page sideways and the header scrolled
+  // with it. Measured against the content area now.
+  assert.match(css, /\[data-width='full'\][^}]*100cqw/);
+  assert.doesNotMatch(css, /\[data-width='full'\][^}]*100vw/);
+  assert.match(css, /\.main \{[^}]*container-type: inline-size/);
 });
 
 test('the gutter stays legible over whatever it sits on', () => {

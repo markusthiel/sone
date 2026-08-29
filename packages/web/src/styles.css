@@ -358,6 +358,13 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   flex-direction: column;
   min-width: 0;
   overflow-y: auto;
+  /* The bound for a full-width block.
+   *
+   * "Full page" meant 100vw, which is the *window* — sidebar included — so a
+   * full-width image pushed the whole page sideways and the header scrolled
+   * with it. This is the area the page actually occupies, and a block asking
+   * for all of it should get exactly this much. */
+  container-type: inline-size;
 }
 
 .topbar {
@@ -3048,9 +3055,9 @@ select {
  * how it was reported. This one now reaches the edges.
  */
 .ProseMirror [data-width='full'] {
-  margin-inline: calc(50% - 50vw);
-  max-inline-size: 100vw;
-  inline-size: 100vw;
+  margin-inline: calc(50% - 50cqw);
+  max-inline-size: 100cqw;
+  inline-size: 100cqw;
 }
 @media (max-width: 720px) {
   /* Nothing breaks out on a narrow screen: there is no margin to break into,
