@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Two corrections in a collection's table.** The title column now says it is
+fixed rather than simply lacking the bin every other column has, and the menu
+for choosing a new column's type opens towards the empty space beside the table
+instead of back across the rows it is about to add to.
+
 **Fixed: a PDF would not display.** The viewer frame was sandboxed, and
 Chromium's built-in PDF viewer does not run in a sandboxed frame at all — first
 it showed only page one, then Brave refused to show anything. PDF frames carry

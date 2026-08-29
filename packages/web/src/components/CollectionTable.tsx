@@ -340,7 +340,21 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         <table className="collection-table">
           <thead>
             <tr>
-              <th className="collection-title-column">{titleField?.name ?? 'Name'}</th>
+              {/* The title column, which cannot be removed or renamed away: it
+                  is the row's own title, and a table whose entries have no name
+                  is a table of anonymous records.
+
+                  Said with a word rather than by the absence of a bin icon.
+                  Every other column has one and this one does not, which reads
+                  as a bug — somebody looks for the control, does not find it,
+                  and concludes the interface is inconsistent rather than that
+                  the column is special. */}
+              <th className="collection-title-column">
+                {titleField?.name ?? 'Name'}
+                <span className="collection-column-fixed" title="Every entry has a title">
+                  always
+                </span>
+              </th>
               {columns.map((field) => (
                 <th key={field.id}>
                   <ColumnHeader

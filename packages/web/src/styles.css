@@ -2463,7 +2463,12 @@ select {
 .collection-type-menu {
   position: absolute;
   z-index: 20;
-  inset-inline-end: 0;
+  /* Opens towards the empty space beside the table, not back across it.
+   *
+   * With `inset-inline-end: 0` it grew leftward over the rows — covering the
+   * data while you choose what kind of column to add to it. Rightward is where
+   * the new column is about to appear, so the menu points at its own result. */
+  inset-inline-start: 0;
   inset-block-start: 100%;
   display: flex;
   flex-direction: column;
@@ -2485,6 +2490,16 @@ select {
   white-space: nowrap;
 }
 .collection-type-menu button:hover { background: var(--sone-bg-hover); }
+
+/* On a narrow screen there is no space to the right to open into, so it goes
+   back to hanging leftward — over the table, which is worse than off the edge
+   of the screen only when there is somewhere else to go. */
+@media (max-width: 720px) {
+  .collection-type-menu {
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+  }
+}
 
 .collection-add-row {
   align-self: flex-start;
@@ -3155,3 +3170,19 @@ select {
 .contributor-initial[data-known='true'] { background: var(--sone-accent); color: #fff; }
 .contributor-name { font-size: var(--sone-text-sm); }
 .panel-note { font-size: var(--sone-text-xs); margin-block-start: var(--sone-space-4); }
+
+/* The title column cannot be removed.
+ *
+ * Said with a word rather than by the absence of a bin icon: every other column
+ * has one, and a missing control reads as a bug rather than as a rule.
+ */
+.collection-column-fixed {
+  margin-inline-start: var(--sone-space-2);
+  padding-inline: var(--sone-space-2);
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg-hover);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  font-weight: 400;
+  text-transform: lowercase;
+}
