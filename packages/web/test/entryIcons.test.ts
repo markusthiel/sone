@@ -63,3 +63,41 @@ test('an icon with no colour inherits rather than being coloured', () => {
   );
   assert.match(source, /icon\?\.color \? \{ color:.*\} : undefined/);
 });
+
+// --- choosing one -----------------------------------------------------------
+
+const menu = readFileSync(
+  new URL('../src/components/EntryMenu.tsx', import.meta.url),
+  'utf8',
+);
+
+test('changing the icon keeps the colour somebody chose', () => {
+  // Somebody who picked blue wants blue, not blue until they change their mind
+  // about the shape.
+  assert.match(menu, /icon\?\.color \? \{ color: icon\.color/);
+});
+
+test('the icon colour is unavailable while there is no icon', () => {
+  // A colour for an icon that does not exist is a control that cannot do
+  // anything, and one that stores a value nothing will draw.
+  assert.match(menu, /disabled=\{!current\}/);
+});
+
+test('the name colour stands on its own', () => {
+  // It is set through titleColor rather than through the icon, so a name can be
+  // coloured with no icon at all.
+  assert.match(menu, /apply\(\{ titleColor: color \}\)/);
+});
+
+test('a change applies straight away', () => {
+  // Small, reversible and visible the moment it lands — a Save step would be
+  // more ceremony than the decision deserves, and the tree redrawing is what
+  // says it worked.
+  //
+  // Checked by what the choosing does, not by the absence of the word "Save" —
+  // a first version asserted that and matched a different part of the file
+  // entirely. Testing for a missing word is testing prose, and this is the
+  // third time today it caught me.
+  assert.match(menu, /\.setEntryIcon\(node\.id, changes\)/);
+  assert.match(menu, /onClick=\{\(\) => chooseIcon\(name\)\}/, 'the click applies it');
+});

@@ -229,6 +229,7 @@ function Workspace({
         onMove={(id, parent, after) => void moveEntry(id, parent, after)}
         favourites={favourites}
         favouriteIds={favouriteIds}
+        onReloadTree={() => void reloadPages()}
         onToggleFavourite={(id, on) => void toggleFavourite(id, on)}
         onDelete={(id, descendants) => {
           // Confirmed, and the count is in the question. Deleting a folder

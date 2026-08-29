@@ -17,7 +17,10 @@
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
-import type { PageNode } from '../api/client.ts';
+import { ENTRY_ICONS, THEME_COLORS, type EntryIcon } from '@sone/core';
+
+import { api, type PageNode } from '../api/client.ts';
+import { EntryIconView } from './EntryIconView.tsx';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -31,8 +34,154 @@ import {
   TrashIcon,
 } from './icons.tsx';
 
+/**
+ * Choosing an icon and the colours around it.
+ *
+ * Applied straight away rather than behind a Save. The change is small,
+ * reversible and visible the moment it lands — a confirmation step would be
+ * more ceremony than the decision deserves, and it is the tree redrawing that
+ * tells somebody it worked.
+ *
+ * A failure is silent for the same reason a theme's is: this is decoration, and
+ * an error banner about a folder colour would be louder than what it reports.
+ */
+function EntryAppearance({
+  node,
+  onChanged,
+}: {
+  node: PageNode;
+  onChanged: () => void;
+}): ReactElement {
+  const icon = node.icon;
+  const current = icon?.kind === 'icon' ? icon.value : null;
+
+  const apply = (changes: { icon?: EntryIcon | null; titleColor?: string | null }): void => {
+    void api
+      .setEntryIcon(node.id, changes)
+      .then(() => onChanged())
+      .catch(() => {
+        // Decoration. The tree simply does not change.
+      });
+  };
+
+  const chooseIcon = (name: string | null): void => {
+    if (!name) {
+      apply({ icon: null });
+      return;
+    }
+    apply({
+      icon: {
+        kind: 'icon',
+        value: name as EntryIcon['value'],
+        // The colour is kept when the icon changes: somebody who picked blue
+        // wants blue, not blue until they change their mind about the shape.
+        ...(icon?.color ? { color: icon.color as NonNullable<EntryIcon['color']> } : {}),
+      },
+    });
+  };
+
+  return (
+    <div className="entry-appearance">
+      <p className="entry-menu-label">Icon</p>
+      <div className="entry-icon-grid" role="group" aria-label="Icon">
+        <button
+          type="button"
+          className={current === null ? 'entry-icon current' : 'entry-icon'}
+          aria-pressed={current === null}
+          aria-label="Default icon"
+          onClick={() => chooseIcon(null)}
+        >
+          <EntryIconView icon={null} kind={node.kind === 'folder' ? 'folder' : 'page'} />
+        </button>
+
+        {ENTRY_ICONS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className={current === name ? 'entry-icon current' : 'entry-icon'}
+            aria-pressed={current === name}
+            aria-label={name.replace(/-/g, ' ')}
+            title={name.replace(/-/g, ' ')}
+            onClick={() => chooseIcon(name)}
+          >
+            <EntryIconView icon={{ kind: 'icon', value: name }} kind="page" />
+          </button>
+        ))}
+      </div>
+
+      <p className="entry-menu-label">Icon colour</p>
+      <ColourRow
+        current={icon?.color ?? null}
+        label="Icon colour"
+        onChoose={(color) => {
+          if (!current) return;
+          apply({
+            icon: {
+              kind: 'icon',
+              value: current as EntryIcon['value'],
+              ...(color ? { color: color as NonNullable<EntryIcon['color']> } : {}),
+            },
+          });
+        }}
+        disabled={!current}
+      />
+
+      <p className="entry-menu-label">Name colour</p>
+      <ColourRow
+        current={icon?.titleColor ?? null}
+        label="Name colour"
+        onChoose={(color) => apply({ titleColor: color })}
+      />
+    </div>
+  );
+}
+
+/** The palette, with "no colour" first and drawn as a state rather than a shade. */
+function ColourRow({
+  current,
+  label,
+  onChoose,
+  disabled = false,
+}: {
+  current: string | null;
+  label: string;
+  onChoose: (color: string | null) => void;
+  disabled?: boolean;
+}): ReactElement {
+  return (
+    <div className="block-menu-swatches" role="group" aria-label={label}>
+      <button
+        type="button"
+        className={current === null ? 'block-menu-swatch none current' : 'block-menu-swatch none'}
+        aria-pressed={current === null}
+        aria-label={`${label}: as designed`}
+        disabled={disabled}
+        onClick={() => onChoose(null)}
+      />
+      {THEME_COLORS.map((color) => (
+        <button
+          key={color}
+          type="button"
+          className={
+            current === color
+              ? `block-menu-swatch tag-${color} current`
+              : `block-menu-swatch tag-${color}`
+          }
+          aria-pressed={current === color}
+          aria-label={`${label}: ${color}`}
+          title={color}
+          disabled={disabled}
+          onClick={() => onChoose(color)}
+        />
+      ))}
+    </div>
+  );
+}
+
 interface EntryMenuProps {
   node: PageNode;
+  /** Reloads the tree after an icon or colour changed. */
+  onChanged: () => void;
   onRename: (pageId: string, title: string) => void;
   onCreate: (parentPageId: string, kind: 'page' | 'folder') => void;
   onDelete: (pageId: string, descendants: number) => void;
@@ -54,6 +203,7 @@ export function countDescendants(node: PageNode): number {
 
 export function EntryMenu({
   node,
+  onChanged,
   onCreate,
   onDelete,
   onStartRename,
@@ -125,6 +275,14 @@ export function EntryMenu({
           >
             <PencilIcon /> Rename
           </button>
+
+          {/* Icon and the two colours.
+            *
+            * In the menu the entry already has rather than a dialog: choosing
+            * an icon is a small decision, and making somebody open a window for
+            * it turns a moment into a task. The menu stays open while choosing,
+            * because people try several before settling. */}
+          <EntryAppearance node={node} onChanged={onChanged} />
 
           <button
             className="entry-menu-item"

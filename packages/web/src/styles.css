@@ -3414,3 +3414,47 @@ body {
 @media (max-width: 720px) {
   .settings-section:has(.theme-table) { overflow-x: auto; }
 }
+
+/* --- choosing an entry's icon ---
+ *
+ * In the menu the entry already has rather than a dialog: choosing an icon is a
+ * small decision, and making somebody open a window for it turns a moment into
+ * a task.
+ */
+.entry-appearance {
+  padding: var(--sone-space-2);
+  border-block-start: 1px solid var(--sone-border);
+}
+.entry-menu-label {
+  margin: var(--sone-space-2) var(--sone-space-1) var(--sone-space-1);
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+  color: var(--sone-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+/* Scrolls rather than making the menu as tall as the list: fifty icons is a
+   choice to scan, not a wall to climb past on the way to Delete. */
+.entry-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  max-block-size: 9rem;
+  overflow-y: auto;
+}
+.entry-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--sone-control);
+  border: 1px solid transparent;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+}
+.entry-icon:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.entry-icon.current {
+  border-color: var(--sone-accent);
+  color: var(--sone-text);
+}
+.block-menu-swatch:disabled { opacity: 0.35; }
