@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 
 import { selectedBlockRange } from '../src/blockOps.js';
-import { currentBlockStyle, setBlockStyle } from '../src/commands.js';
+import { currentBlockStyle, setBlockStyle, showImageAs } from '../src/commands.js';
 import { schema } from '../src/schema.js';
 
 function stateWith(texts: string[]): EditorState {
@@ -145,4 +145,72 @@ test('an image can be styled like any other block', () => {
     state = state.apply(tr);
   });
   assert.equal(state.doc.child(0).attrs['width'], 'full');
+});
+
+// --- an image shown as a card or a line -------------------------------------
+
+function withImage(): EditorState {
+  const doc = schema.node('doc', null, [
+    schema.node('image', { url: '/api/files/abc', alt: 'A photo', width: 'full' }),
+  ]);
+  return EditorState.create({ doc, schema });
+}
+
+test('an image becomes a file block when shown as a card', () => {
+  // The card and the line are the file block's own. Reached by becoming one
+  // rather than by teaching a second component the same layouts.
+  let state = withImage();
+  showImageAs(0, 'card')(state, (tr) => {
+    state = state.apply(tr);
+  });
+
+  const node = state.doc.child(0);
+  assert.equal(node.type.name, 'file');
+  assert.equal(node.attrs['fileId'], 'abc');
+  assert.equal(node.attrs['category'], 'image');
+  assert.equal(node.attrs['display'], 'card');
+});
+
+test('and back, with the name intact', () => {
+  let state = withImage();
+  showImageAs(0, 'card')(state, (tr) => {
+    state = state.apply(tr);
+  });
+  showImageAs(0, 'image')(state, (tr) => {
+    state = state.apply(tr);
+  });
+
+  const node = state.doc.child(0);
+  assert.equal(node.type.name, 'image');
+  assert.equal(node.attrs['url'], '/api/files/abc');
+  assert.equal(node.attrs['alt'], 'A photo');
+});
+
+test('the block’s own settings survive the conversion', () => {
+  // Alignment, width and colour are somebody's choices about this block, not
+  // about which node type happens to hold it.
+  let state = withImage();
+  showImageAs(0, 'line')(state, (tr) => {
+    state = state.apply(tr);
+  });
+  assert.equal(state.doc.child(0).attrs['width'], 'full');
+});
+
+test('an image from elsewhere cannot become a card', () => {
+  // It has no file id, so the card could not be opened or downloaded. Refused
+  // rather than half-built.
+  const doc = schema.node('doc', null, [
+    schema.node('image', { url: 'https://example.org/cat.png' }),
+  ]);
+  const state = EditorState.create({ doc, schema });
+  assert.equal(showImageAs(0, 'card')(state, undefined), false);
+});
+
+test('asking for what it already is does nothing', () => {
+  const state = withImage();
+  let dispatched = false;
+  showImageAs(0, 'image')(state, () => {
+    dispatched = true;
+  });
+  assert.equal(dispatched, false);
 });

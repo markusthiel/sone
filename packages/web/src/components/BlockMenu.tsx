@@ -31,6 +31,7 @@ import {
   currentBlockStyle,
   setBlockStyle,
   setFileDisplay,
+  showImageAs,
 } from '@sone/editor';
 import { BLOCK_COLORS } from '@sone/core';
 import type { Command } from 'prosemirror-state';
@@ -239,7 +240,9 @@ function FileActions({
     { id: 'card', label: 'Card' },
     { id: 'line', label: 'One line' },
   ];
-  if (viewable) options.push({ id: 'full', label: 'Viewer' });
+  // An image has "Image" in the section below instead: a picture in a viewer
+  // frame is a picture behind a scrollbar, which is worse than the picture.
+  if (viewable && category !== 'image') options.push({ id: 'full', label: 'Viewer' });
 
   return (
     <div className="block-menu-group">
@@ -273,6 +276,51 @@ function FileActions({
             {...popupItem(() => run(setFileDisplay(at, option.id as 'card' | 'line' | 'full')))}
           >
             {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * How an image is shown.
+ *
+ * The three layouts a file has, offered on an image too — and reached by
+ * converting the block rather than by drawing them twice. An image is a file
+ * with a special way of being drawn.
+ */
+function ImageDisplay({
+  node,
+  at,
+  run,
+}: {
+  node: PMNodeLike;
+  at: number;
+  run: (command: Command) => void;
+}): ReactElement {
+  const current = node.type.name === 'image' ? 'image' : String(node.attrs['display'] ?? 'card');
+
+  return (
+    <div className="block-menu-group">
+      <p className="block-menu-label">Show as</p>
+      <div className="block-menu-choices" role="group" aria-label="Show as">
+        {[
+          { id: 'image' as const, label: 'Image' },
+          { id: 'card' as const, label: 'Card' },
+          { id: 'line' as const, label: 'Link' },
+        ].map((choice) => (
+          <button
+            key={choice.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={current === choice.id}
+            className={
+              current === choice.id ? 'block-menu-choice current' : 'block-menu-choice'
+            }
+            {...popupItem(() => run(showImageAs(at, choice.id)))}
+          >
+            {choice.label}
           </button>
         ))}
       </div>
@@ -570,6 +618,14 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
             * where somebody already looks. */}
           {range.node.type.name === 'file' && (
             <FileActions view={view} node={range.node} at={range.from} run={run} />
+          )}
+
+          {/* An image can also be a card or a line: those are the file block's
+              own layouts, reached by becoming one. */}
+          {(range.node.type.name === 'image' ||
+            (range.node.type.name === 'file' &&
+              range.node.attrs['category'] === 'image')) && (
+            <ImageDisplay node={range.node} at={range.from} run={run} />
           )}
 
           <BlockAppearance view={view} node={range.node} run={run} />

@@ -21,7 +21,9 @@ test('a viewer is offered only for what a browser can draw', () => {
   assert.match(source, /const viewable = \(category: unknown\): boolean =>/);
 
   const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
-  assert.match(menu, /if \(viewable\) options\.push\(\{ id: 'full'/);
+  // An image is excluded on top of that: it has "Image", and a picture behind a
+  // scrollbar is worse than the picture.
+  assert.match(menu, /if \(viewable && category !== 'image'\) options\.push\(\{ id: 'full'/);
 });
 
 test('an unrenderable file falls back to a card even if it says otherwise', () => {
@@ -171,4 +173,22 @@ test('a tap selects the block, so the gutter can appear', () => {
 test('a tap on a link or a control is left alone', () => {
   // Those have their own job, and selecting the block as well would fight them.
   assert.match(source, /target\?\.closest\('a, button, iframe'\)/);
+});
+
+// --- an image as a card or a link -------------------------------------------
+
+test('an image is offered the file layouts, by becoming a file', () => {
+  // The card and the link are the file block's own. Reached by converting the
+  // block rather than by teaching a second component the same layouts — which
+  // is the duplication the `···` menu was removed to undo.
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(menu, /showImageAs\(at, choice\.id\)/);
+  assert.match(menu, /\{ id: 'image' as const, label: 'Image' \}/);
+});
+
+test('an image is never offered a viewer frame', () => {
+  // A picture behind a scrollbar is worse than the picture. It has "Image"
+  // instead.
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(menu, /viewable && category !== 'image'/);
 });
