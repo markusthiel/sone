@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A workspace can have its own defaults for how elements look** — size, colour
+and spacing per element kind. It fills the gaps a block leaves rather than
+overriding: a block that carries its own setting keeps it, and one that does not
+follows the workspace, including when the workspace changes later.
+
+Stored per workspace and set by owners and admins. Nothing is written into
+documents, and a workspace with no theme renders exactly as every workspace did
+before. The interface for editing it comes next.
+
 **Fixed: a toggle could not be filled on a phone.** Its content is the blocks
 indented under it, and indenting was only possible with Tab — which a phone
 keyboard does not have. The ⋮⋮ menu now has In and Out, so nesting works

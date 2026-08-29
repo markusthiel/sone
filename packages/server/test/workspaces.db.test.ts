@@ -311,5 +311,142 @@ describe(
       });
       assert.equal(res.status, 404);
     });
+
+    // --- theme ---------------------------------------------------------------
+
+    const readTheme = async (cookie: string, workspaceId: string) =>
+      expectJson<{ theme: Record<string, unknown> }>(
+        await fetch(`${base}/api/workspaces/${workspaceId}/theme`, {
+          headers: { cookie },
+        }),
+      );
+
+    const setTheme = (
+      cookie: string,
+      workspaceId: string,
+      theme: unknown,
+    ): Promise<Response> =>
+      fetch(`${base}/api/workspaces/${workspaceId}/theme`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({ theme }),
+      });
+
+    test('a workspace with no theme has an empty one, not a missing one', async () => {
+      // Having no theme is the ordinary state, and it has to render exactly as
+      // every workspace did before themes existed (ADR-0023).
+      const session = await setup();
+      assert.deepEqual((await readTheme(session.cookie, session.workspaceId)).theme, {});
+    });
+
+    test('a theme is stored and read back', async () => {
+      const session = await setup();
+      await expectStatus(
+        await setTheme(session.cookie, session.workspaceId, {
+          heading1: { size: 2, color: 'blue' },
+        }),
+        200,
+      );
+
+      assert.deepEqual((await readTheme(session.cookie, session.workspaceId)).theme, {
+        heading1: { size: 2, color: 'blue' },
+      });
+    });
+
+    test('an unusable value is dropped and the rest is kept', async () => {
+      // A theme comes from a form, and one stale field should not cost somebody
+      // the rest of their settings. What comes back says what was stored.
+      const session = await setup();
+      const res = await setTheme(session.cookie, session.workspaceId, {
+        heading1: { size: 1, color: '#ff0000' },
+        banner: { size: 3 },
+      });
+      const body = await expectJson<{ theme: Record<string, unknown> }>(res, 200);
+
+      assert.deepEqual(body.theme, { heading1: { size: 1 } });
+      assert.deepEqual((await readTheme(session.cookie, session.workspaceId)).theme, {
+        heading1: { size: 1 },
+      });
+    });
+
+    test('setting it again replaces rather than accumulating', async () => {
+      const session = await setup();
+      await setTheme(session.cookie, session.workspaceId, { heading1: { size: 2 } });
+      await setTheme(session.cookie, session.workspaceId, { body: { color: 'grey' } });
+
+      assert.deepEqual((await readTheme(session.cookie, session.workspaceId)).theme, {
+        body: { color: 'grey' },
+      });
+    });
+
+    test('a value written by hand is not served as-is', async () => {
+      // Sanitised on the way out as well as in: something a newer version or a
+      // database client wrote must not reach a client that would render what
+      // nothing here decided.
+      const session = await setup();
+      await db.query(
+        `INSERT INTO workspace_themes (workspace_id, settings) VALUES ($1, $2)`,
+        [session.workspaceId, JSON.stringify({ heading1: { size: 99 }, body: { color: 'green' } })],
+      );
+
+      assert.deepEqual((await readTheme(session.cookie, session.workspaceId)).theme, {
+        body: { color: 'green' },
+      });
+    });
+
+    test('an ordinary member may read it but not set it', async () => {
+      // It changes what the workspace looks like for everybody in it, which is
+      // what "defaults" means.
+      const session = await setup();
+      const hash = await hashPassword(PASSWORD);
+      const member = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name, password_hash)
+         VALUES ('member@example.org','M',$1) RETURNING id`,
+        [hash],
+      );
+      await db.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        [session.workspaceId, member.rows[0]!.id],
+      );
+      const login = await fetch(
+        `${base}/api/auth/login`,
+        json({ email: 'member@example.org', password: PASSWORD }),
+      );
+      const cookie = cookieFrom(login);
+
+      await expectStatus(
+        await fetch(`${base}/api/workspaces/${session.workspaceId}/theme`, {
+          headers: { cookie },
+        }),
+        200,
+      );
+      assert.equal(
+        (await setTheme(cookie, session.workspaceId, { body: { color: 'red' } })).status,
+        403,
+      );
+    });
+
+    test('somebody outside the workspace sees nothing', async () => {
+      const session = await setup();
+      const hash = await hashPassword(PASSWORD);
+      await db.query(
+        `INSERT INTO users (email, display_name, password_hash)
+         VALUES ('out@example.org','O',$1)`,
+        [hash],
+      );
+      const login = await fetch(
+        `${base}/api/auth/login`,
+        json({ email: 'out@example.org', password: PASSWORD }),
+      );
+
+      assert.equal(
+        (
+          await fetch(`${base}/api/workspaces/${session.workspaceId}/theme`, {
+            headers: { cookie: cookieFrom(login) },
+          })
+        ).status,
+        404,
+      );
+    });
   },
 );
