@@ -3619,15 +3619,36 @@ body {
  * rather than as a form control that wandered in. Every platform has one people
  * already know; a hand-built wheel would be a worse version of it.
  */
+/* The tenth swatch is a pipette, not a circle.
+ *
+ * Nine circles say "one of these"; a tenth circle would say the same and mean
+ * something else. It also stopped being a circle in practice — a colour input
+ * fills its grid cell, so it drew as an oval beside nine round ones.
+ *
+ * The native input covers the label and is invisible: the platform's picker
+ * opens, which is the part worth keeping, without its own chrome deciding the
+ * shape.
+ */
 .block-menu-swatch.custom {
-  padding: 0;
-  border: 1px solid var(--sone-border);
-  background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--sone-border);
+  background: transparent;
+  color: var(--sone-text-muted);
   cursor: pointer;
 }
-.block-menu-swatch.custom::-webkit-color-swatch-wrapper { padding: 0; }
-.block-menu-swatch.custom::-webkit-color-swatch { border: 0; border-radius: 50%; }
-.block-menu-swatch.custom::-moz-color-swatch { border: 0; border-radius: 50%; }
+.block-menu-swatch.custom input[type='color'] {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
 
 /* The workspace palette, in the appearance settings.
  *

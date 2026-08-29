@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { THEME_COLORS, isCustomColor, type EntryIcon } from '@sone/core';
+import { Pipette } from 'lucide-react';
 
 import { ICON_NAMES } from './EntryIconView.tsx';
 
@@ -215,19 +216,37 @@ function ColourRow({
         * A native colour input: every platform has one people already know, and
         * building a wheel would be a worse version of something the browser
         * ships. */}
-      <input
-        type="color"
+      <label
         className={
           isCustomColor(current)
             ? 'block-menu-swatch custom current'
             : 'block-menu-swatch custom'
         }
-        value={isCustomColor(current) ? current : '#888888'}
-        aria-label={`${label}: a colour of your own`}
         title="A colour of your own"
-        disabled={disabled}
-        onChange={(event) => onChoose(event.target.value)}
-      />
+      >
+        {/* A pipette rather than another circle.
+          *
+          * Nine circles say "one of these"; a tenth would say the same and mean
+          * something else. The pipette says a colour is picked here, and it
+          * carries the chosen one so it still reads as a swatch.
+          *
+          * The input covers the label and is invisible: the platform's own
+          * picker opens, which is the part worth keeping, without its chrome
+          * deciding the shape. */}
+        <Pipette
+          size={16}
+          strokeWidth={1.75}
+          aria-hidden="true"
+          style={isCustomColor(current) ? { color: current } : undefined}
+        />
+        <input
+          type="color"
+          value={isCustomColor(current) ? current : '#888888'}
+          aria-label={`${label}: a colour of your own`}
+          disabled={disabled}
+          onChange={(event) => onChoose(event.target.value)}
+        />
+      </label>
     </div>
   );
 }
