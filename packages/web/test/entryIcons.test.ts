@@ -141,7 +141,18 @@ test('a colour of your own sits beside the eight, not instead of them', () => {
 
 test('the picker is the platform’s own', () => {
   // Every platform has one people already know; a hand-built wheel would be a
-  // worse version of something the browser ships.
+  // worse version of something the browser ships. The input is covered rather
+  // than replaced — its chrome decides nothing, its picker still opens.
   const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
-  assert.doesNotMatch(menu, /conic-gradient|hue|saturation/);
+  assert.doesNotMatch(menu, /hue|saturation/);
+  assert.match(menu, /type="color"/);
+});
+
+test('the tenth swatch is a pipette carrying the chosen colour', () => {
+  // Nine circles say "one of these"; a tenth circle would say the same and mean
+  // something else. It also drew as an oval, because a colour input fills its
+  // grid cell.
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  assert.match(menu, /<Pipette/);
+  assert.match(menu, /isCustomColor\(current\) \? \{ color: current \} : undefined/);
 });

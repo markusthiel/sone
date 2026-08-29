@@ -23,7 +23,8 @@ colour" was the one swatch that did nothing. The swatches also sit in two rows o
 five rather than one row that was always one too wide.
 
 **A colour of your own, beside the eight.** Anywhere a colour is chosen there is
-now a tenth swatch — the platform's own colour picker. The eight names remain the
+now a pipette beside the swatches, carrying whatever colour was picked, and it
+opens the platform's own colour picker. The eight names remain the
 vocabulary, so changing what a workspace's "blue" means still moves every blue
 thing; a custom colour is the escape for what a palette cannot cover.
 
