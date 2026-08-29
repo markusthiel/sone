@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Every block can be configured** from the ⋮⋮ menu: alignment, width and colour,
+showing only the settings that mean something for that block. A wide paragraph
+is just a harder-to-read paragraph, and an image has no colour to set.
+
 **Blocks carry presentation: alignment, width and colour.** Three attributes
 shared by every block type rather than a setting per kind, so a new block type
 gains them for free. Width breaks out of the reading column — useful for an
