@@ -8,8 +8,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 
+import { selectedBlockRange } from '../src/blockOps.js';
 import { currentBlockStyle, setBlockStyle } from '../src/commands.js';
 import { schema } from '../src/schema.js';
 
@@ -108,4 +109,40 @@ test('the "no blocks" branch cannot be reached from this schema', () => {
     () => schema.node('doc', null, []),
     /Invalid content for node doc/,
   );
+});
+
+// --- blocks that cannot hold a cursor ---------------------------------------
+
+test('an image selected as a whole is found by the gutter', () => {
+  // An atom cannot hold a text cursor, so selecting one produces a NodeSelection
+  // sitting before it at depth 0. Every control that asks "which block is this"
+  // answered "none": no drag handle, no plus, no appearance menu. Every atom in
+  // the document was unreachable from the gutter, and nobody noticed because
+  // text blocks are the common case.
+  const image = schema.node('image', { src: '/api/files/x' });
+  const doc = schema.node('doc', null, [
+    schema.node('paragraph', null, [schema.text('before')]),
+    image,
+  ]);
+
+  let state = EditorState.create({ doc, schema });
+  const position = state.doc.resolve(0).nodeAfter!.nodeSize; // start of the image
+  state = state.apply(state.tr.setSelection(NodeSelection.create(state.doc, position)));
+
+  const range = selectedBlockRange(state);
+  assert.ok(range, 'the image is a block the gutter can act on');
+  assert.equal(range.node.type.name, 'image');
+});
+
+test('an image can be styled like any other block', () => {
+  // The point of finding it: width and alignment are the settings an image
+  // actually needs, and they were unreachable.
+  const doc = schema.node('doc', null, [schema.node('image', { src: '/api/files/x' })]);
+  let state = EditorState.create({ doc, schema });
+  state = state.apply(state.tr.setSelection(NodeSelection.create(state.doc, 0)));
+
+  setBlockStyle({ width: 'full' })(state, (tr) => {
+    state = state.apply(tr);
+  });
+  assert.equal(state.doc.child(0).attrs['width'], 'full');
 });

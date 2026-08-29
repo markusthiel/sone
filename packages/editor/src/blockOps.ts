@@ -53,6 +53,17 @@ export function selectedBlockIndex(state: EditorState): number | null {
   for (let depth = $from.depth; depth > 0; depth--) {
     if (isBlock($from.node(depth))) return $from.index(depth - 1);
   }
+  // A block selected as a whole rather than written in.
+  //
+  // An atom — an image, a file, an embedded collection — cannot hold a text
+  // cursor, so selecting one produces a NodeSelection sitting *before* it at
+  // depth 0. The loop above starts below that and finds nothing, so every
+  // control that asks "which block is this" answered "none": no drag handle, no
+  // plus, no appearance menu. Every atom in the document was unreachable from
+  // the gutter, and nobody noticed because text blocks are the common case.
+  if ($from.depth === 0 && $from.nodeAfter && isBlock($from.nodeAfter)) {
+    return $from.index();
+  }
   return null;
 }
 
@@ -63,6 +74,10 @@ function selectionParent(state: EditorState): { parent: PMNode; start: number } 
     if (isBlock($from.node(depth))) {
       return { parent: $from.node(depth - 1), start: $from.start(depth - 1) };
     }
+  }
+  // The same case as above: a whole block selected rather than written in.
+  if ($from.depth === 0 && $from.nodeAfter && isBlock($from.nodeAfter)) {
+    return { parent: $from.parent, start: $from.start() };
   }
   return null;
 }

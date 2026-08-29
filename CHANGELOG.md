@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: an image, a file or an embedded table had no drag handle.** A block
+that cannot hold a text cursor was invisible to the gutter, so the ⋮⋮ menu — and
+with it width, alignment and moving the block — could not be reached for any of
+them.
+
 **Fixed: a file card's menu sat below the card** rather than at the end of its
 first line, where the other displays put it.
 
