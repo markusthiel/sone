@@ -79,6 +79,39 @@ export const META_KEYS = {
  * (ADR-0019, ADR-0021). A row is a real document — openable, with its own body —
  * and the tree simply does not show it.
  */
+/** Where a block sits horizontally. */
+export const BLOCK_ALIGNMENTS = ['start', 'center', 'end'] as const;
+export type BlockAlignment = (typeof BLOCK_ALIGNMENTS)[number];
+
+/**
+ * How much width a block takes.
+ *
+ * `normal` is the reading column. `wide` breaks out of it a little and `full`
+ * uses the whole page — useful for an image or a table, meaningless for a
+ * sentence, which is why the interface offers it per type.
+ */
+export const BLOCK_WIDTHS = ['normal', 'wide', 'full'] as const;
+export type BlockWidth = (typeof BLOCK_WIDTHS)[number];
+
+/**
+ * Colours a block may carry.
+ *
+ * The same palette names as tags and select options, so a workspace has one
+ * vocabulary for colour rather than three. Names, not values: a name survives a
+ * theme change where a stored hex cannot.
+ */
+export const BLOCK_COLORS = [
+  'grey',
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'blue',
+  'purple',
+  'pink',
+] as const;
+export type BlockColor = (typeof BLOCK_COLORS)[number];
+
 export const ENTRY_KINDS = ['page', 'folder', 'row'] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
@@ -114,6 +147,22 @@ export const PAGE_KEYS = {
 export const BLOCK_ATTRS = {
   /** Stable block id (uuid). Survives moves and edits. */
   id: 'id',
+  /**
+   * How a block is presented. Three names, shared by every block type.
+   *
+   * First-class attributes rather than keys inside `props`, for the same reason
+   * `indent` is: they have to reach the rendered DOM so a stylesheet can act on
+   * them, and props is an opaque JSON blob that the schema does not unpack.
+   *
+   * A closed set on purpose. "Configurable" could mean arbitrary CSS, and that
+   * is a different product: a document whose blocks carry hand-written styles
+   * cannot be restyled, cannot be exported cleanly, and looks wrong the moment
+   * somebody switches theme. These are choices *within* a design rather than an
+   * escape from it.
+   */
+  align: 'align',
+  width: 'width',
+  color: 'color',
   /** JSON-encoded block-specific settings. Never derived values. */
   props: 'props',
   /**

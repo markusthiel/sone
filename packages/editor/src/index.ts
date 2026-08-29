@@ -3,6 +3,7 @@ export * from './blockIds.js';
 export * from './inputRules.js';
 export * from './keymap.js';
 export * from './blockOps.js';
+export * from './commands.js';
 export * from './links.js';
 export * from './imagePaste.js';
 export * from './tables.js';

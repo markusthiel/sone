@@ -2960,3 +2960,43 @@ select {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* --- how a block is presented ---
+ *
+ * Three attributes shared by every block type, emitted as data-* by the schema.
+ * A closed set on purpose: "configurable" could mean arbitrary CSS, and a
+ * document whose blocks carry hand-written styles cannot be restyled, cannot be
+ * exported cleanly, and looks wrong the moment somebody switches theme. These
+ * are choices within a design rather than an escape from it.
+ *
+ * An unset attribute means "as the design decides", so nothing here applies to
+ * a block that has not been configured — which is almost all of them.
+ */
+.ProseMirror [data-align='start'] { text-align: start; }
+.ProseMirror [data-align='center'] { text-align: center; }
+.ProseMirror [data-align='end'] { text-align: end; }
+
+/* Width breaks out of the reading column rather than changing it: the column
+   is what makes prose readable, and a wide image beside narrow text is the
+   point of the setting. */
+.ProseMirror [data-width='wide'] {
+  margin-inline: calc(var(--sone-space-7) * -1);
+}
+.ProseMirror [data-width='full'] {
+  margin-inline: calc(var(--sone-space-7) * -2);
+}
+@media (max-width: 720px) {
+  /* Nothing breaks out on a narrow screen: there is no margin to break into,
+     and doing it anyway pushes the text off the side. */
+  .ProseMirror [data-width='wide'],
+  .ProseMirror [data-width='full'] { margin-inline: 0; }
+}
+
+.ProseMirror [data-color='grey'] { color: var(--sone-text-muted); }
+.ProseMirror [data-color='red'] { color: #d64545; }
+.ProseMirror [data-color='orange'] { color: #d97706; }
+.ProseMirror [data-color='yellow'] { color: #ca8a04; }
+.ProseMirror [data-color='green'] { color: #16a34a; }
+.ProseMirror [data-color='blue'] { color: #2563eb; }
+.ProseMirror [data-color='purple'] { color: #7c3aed; }
+.ProseMirror [data-color='pink'] { color: #db2777; }
