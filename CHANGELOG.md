@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: paragraph spacing was the browser's, not ours.** Six styling rules were
+written for a class the editor does not emit, so they matched nothing and
+paragraphs fell back to a default margin that sat oddly beside headings with
+deliberate ones. That is the uneven spacing that was reported.
+
 **A file block has a menu**: open in a new tab, download, and how to show it —
 card, one line, or a viewer. The name itself opens anything a browser can draw
 and downloads anything it cannot, so the common case needs no menu at all.

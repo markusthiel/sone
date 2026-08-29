@@ -409,12 +409,31 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   background: transparent;
 }
 
-.block { margin-block: 2px; }
-.block[data-type='heading'] { font-weight: 650; }
-.block[data-level='1'] { font-size: 1.6rem; }
-.block[data-level='2'] { font-size: 1.3rem; }
-.block[data-level='3'] { font-size: 1.1rem; }
-.block[data-type='code'] {
+/* These matched nothing.
+ *
+ * They were written as `.block`, and the editor emits `data-block` and no
+ * class at all — so six rules sat here doing nothing, and paragraphs fell back
+ * to the browser's own 1em margin on <p>. That is why spacing looked uneven:
+ * headings have deliberate em-based margins at their own font sizes, and the
+ * paragraphs between them had whatever the browser thought.
+ *
+ * Rewritten to the attribute that exists rather than deleted, because the
+ * intent in them was right and only the selector was wrong.
+ */
+.ProseMirror [data-block] { margin-block: 2px; }
+.ProseMirror [data-block='heading'] { font-weight: 650; }
+.ProseMirror [data-block][data-level='1'] { font-size: 1.6rem; }
+.ProseMirror [data-block][data-level='2'] { font-size: 1.3rem; }
+.ProseMirror [data-block][data-level='3'] { font-size: 1.1rem; }
+
+/* Paragraph spacing, decided here rather than by the browser.
+ *
+ * Enough to separate two paragraphs and less than a blank line, so an empty
+ * paragraph still reads as a deliberate gap rather than being swallowed.
+ */
+.ProseMirror p[data-block] { margin-block: 0.35em; }
+
+.ProseMirror [data-block='code'] {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9em;
   background: var(--sone-bg-subtle);
