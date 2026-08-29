@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: no drag handle on a touch device.** Tapping a file now selects it, so
+the ⋮⋮ handle appears — there is no hover on a phone or tablet to fall back on,
+and the block was swallowing every tap. The gutter is also fully visible there
+rather than half-faded, which had read as disabled.
+
 **A file's actions moved into the ⋮⋮ menu**, where every other block's settings
 already are — opening, downloading, and whether to show it as a card, one line
 or a viewer. The `···` button on the block is gone.

@@ -19,6 +19,7 @@
  * card that names the file and opens it is the honest answer.
  */
 
+import { NodeSelection } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 
 /** The little of a ProseMirror node this needs; see CollectionNodeView. */
@@ -74,10 +75,28 @@ class FileNodeView implements NodeView {
   readonly dom: HTMLElement;
   private attrs: Record<string, unknown>;
 
-  constructor(node: PMNodeLike) {
+  constructor(
+    node: PMNodeLike,
+    private readonly select: () => void,
+  ) {
     this.dom = document.createElement('div');
     this.dom.className = 'file-block';
     this.dom.contentEditable = 'false';
+
+    // A tap selects the block.
+    //
+    // Without this the gutter is unreachable on a touch device: it appears for
+    // the selected block, there is no hover to fall back on, and `stopEvent`
+    // below keeps every event from reaching ProseMirror — so tapping a file did
+    // nothing at all and the ⋮⋮ handle never came.
+    //
+    // Not on a link or a control inside: those have their own job, and
+    // selecting the block as well would fight them.
+    this.dom.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('a, button, iframe')) return;
+      this.select();
+    });
     this.attrs = node.attrs;
     this.render();
   }
@@ -226,5 +245,10 @@ class FileNodeView implements NodeView {
  * somebody already looks.
  */
 export function fileNodeView(): NonNullable<EditorView['props']['nodeViews']>[string] {
-  return (node) => new FileNodeView(node as unknown as PMNodeLike);
+  return (node, view, getPos) =>
+    new FileNodeView(node as unknown as PMNodeLike, () => {
+      const pos = typeof getPos === 'function' ? getPos() : undefined;
+      if (pos === undefined) return;
+      view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
+    });
 }
