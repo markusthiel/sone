@@ -21,20 +21,42 @@ const componentName = (name: string): string =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
 
-test('every offered icon exists in the set that draws it', () => {
+test('every offered icon resolves to something drawable', () => {
   // A name stored in somebody's document has to keep resolving. Without this,
   // a typo or a rename upstream shows as a gap in the sidebar long after
   // anybody could connect the two.
-  const missing = ENTRY_ICONS.filter(
-    (name) => !(componentName(name) in (lucide as Record<string, unknown>)),
+  //
+  // Checked by resolving the way the component does, not by looking the key up.
+  // The first version only asked whether the name existed, and passed while
+  // every icon in the picker rendered as the same sheet of paper — a Lucide
+  // icon is a forwardRef *object*, and the component was testing for a
+  // function.
+  const missing = ENTRY_ICONS.filter((name) => {
+    const found = (lucide as Record<string, unknown>)[componentName(name)];
+    const usable = typeof found === 'function' || (typeof found === 'object' && found !== null);
+    return !usable;
+  });
+  assert.deepEqual(missing, [], `not drawable: ${missing.join(', ')}`);
+});
+
+test('the component accepts what lucide actually exports', () => {
+  // The half the check above cannot see: that EntryIconView agrees with it.
+  const source = readFileSync(
+    new URL('../src/components/EntryIconView.tsx', import.meta.url),
+    'utf8',
   );
-  assert.deepEqual(missing, [], `not in lucide-react: ${missing.join(', ')}`);
+  assert.match(source, /typeof found === 'object' && found !== null/);
 });
 
 test('the list is a choice, not a catalogue', () => {
   // Long enough to find something that fits, short enough to look at.
+  //
+  // The ceiling was 80 when the picker showed everything at once. It scrolls
+  // now, so a wider set costs nothing to look at — but it stays bounded,
+  // because the whole of Lucide is a search problem and a name stored in a
+  // document has to keep resolving.
   assert.ok(ENTRY_ICONS.length >= 20, 'enough to choose from');
-  assert.ok(ENTRY_ICONS.length <= 80, 'few enough to scan');
+  assert.ok(ENTRY_ICONS.length <= 200, 'still a list somebody can scan');
 });
 
 test('no name appears twice', () => {
