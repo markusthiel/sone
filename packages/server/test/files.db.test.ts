@@ -365,18 +365,22 @@ describe(
       // And the hardening that makes it acceptable travels with it.
       assert.equal(pdfRes.headers.get('x-content-type-options'), 'nosniff');
 
-      // A PDF is allowed scripts and nothing else. Without them the browser's
-      // viewer renders page one and nothing reaches page two — reported as
-      // "you can only see the first page", which is what a silently crippled
-      // viewer looks like.
+      // A PDF carries no sandbox, after two attempts that did.
       //
-      // The part that must never appear is allow-same-origin: with it, script
-      // inside a document somebody uploaded could read this application's
-      // cookies and storage. Without it the frame is an opaque origin and can
-      // only act on itself.
+      // `sandbox` rendered only the first page; `sandbox allow-scripts` made
+      // Chromium browsers refuse to render it at all. The built-in viewer is a
+      // browser component, not page script, and it does not run inside a
+      // sandboxed frame whatever tokens are set — there is no combination to
+      // search for.
+      //
+      // What replaces it is asserted here and above: the type is decided from
+      // the bytes, `nosniff` stops the browser reconsidering that, and the
+      // document may load nothing at all. Those are what prevent active content
+      // in this origin, which is the risk sandbox was there for.
       const pdfPolicy = pdfRes.headers.get('content-security-policy') ?? '';
-      assert.match(pdfPolicy, /sandbox allow-scripts/);
-      assert.doesNotMatch(pdfPolicy, /allow-same-origin/);
+      assert.match(pdfPolicy, /default-src 'none'/);
+      assert.doesNotMatch(pdfPolicy, /sandbox/);
+      assert.equal(pdfRes.headers.get('content-type'), 'application/pdf');
 
       // Everything else keeps the bare policy: nothing else served here needs
       // to run at all.

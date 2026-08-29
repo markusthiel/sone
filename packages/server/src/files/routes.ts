@@ -394,24 +394,32 @@ function serveFile(
     'content-length': bytes.length,
     'content-disposition': `${inline ? 'inline' : 'attachment'}; filename="${filename}"`,
     'x-content-type-options': 'nosniff',
-    // A PDF needs scripts to be readable.
+    // A PDF carries no `sandbox` at all, and this took two attempts to get
+    // right.
     //
-    // A bare `sandbox` disables them, and the browser's own PDF viewer is built
-    // on them: the first page renders and scrolls, and nothing gets you to the
-    // second. Reported as "you can only see page one", which is exactly what a
-    // silently crippled viewer looks like.
+    // First it was `sandbox`, and only the first page rendered. Then
+    // `sandbox allow-scripts`, and Chromium browsers refused to render it at
+    // all — "Diese Seite wurde von Brave blockiert". The built-in PDF viewer is
+    // not page script; it is a browser component, and Chromium does not run it
+    // inside a sandboxed frame whatever tokens are set. Sandbox and the viewer
+    // are simply incompatible, so there is no combination to search for.
     //
-    // `allow-scripts` **without** `allow-same-origin` is the containment that
-    // matters: the resource runs in an opaque origin, so script inside it
-    // cannot read this application's cookies, storage or DOM. It can only act
-    // on itself, which is what a document viewer does anyway.
+    // What keeps this safe without it:
     //
-    // Everything else keeps the bare policy. Nothing else served here needs to
-    // run at all.
+    //   - the type comes from the bytes, never from the upload, so what is
+    //     served as a PDF is a PDF;
+    //   - `nosniff` stops the browser reconsidering that, which is what would
+    //     otherwise let a file be treated as HTML in this origin;
+    //   - `default-src 'none'` stays, so the document can load nothing —
+    //     no scripts, no images, no network of its own;
+    //   - the viewer does its own sandboxing, in a process this application
+    //     does not control and does not need to.
+    //
+    // The risk sandbox guards against is active content in *this* origin, and
+    // the first two lines above are what prevent that. Everything else keeps
+    // the strict policy: nothing else served here needs to run at all.
     'content-security-policy':
-      mimeType === 'application/pdf'
-        ? "sandbox allow-scripts; default-src 'none'"
-        : "sandbox; default-src 'none'",
+      mimeType === 'application/pdf' ? "default-src 'none'" : "sandbox; default-src 'none'",
     'cross-origin-resource-policy': 'same-origin',
     'cache-control': 'private, max-age=31536000, immutable',
   });

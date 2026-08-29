@@ -13,11 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**Fixed: a PDF showed only its first page.** The viewer was sandboxed so
-thoroughly that the browser's own page navigation could not run. PDFs are now
-allowed scripts — and still not `allow-same-origin`, which is the restriction
-that matters: the frame is an opaque origin, so nothing inside an uploaded
-document can reach this application's cookies or storage.
+**Fixed: a PDF would not display.** The viewer frame was sandboxed, and
+Chromium's built-in PDF viewer does not run in a sandboxed frame at all — first
+it showed only page one, then Brave refused to show anything. PDF frames carry
+no sandbox now. What keeps that safe is unchanged and stricter than it sounds:
+the type is decided from the file's bytes rather than from the upload, `nosniff`
+stops the browser reconsidering, and the document is served with permission to
+load nothing at all.
 
 **A "People" tab lists who has written in a page** — everyone who has, whether
 or not they are here now, which is what the circles at the top show instead.
