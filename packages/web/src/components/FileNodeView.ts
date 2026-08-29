@@ -73,13 +73,8 @@ const viewable = (category: unknown): boolean =>
 class FileNodeView implements NodeView {
   readonly dom: HTMLElement;
   private attrs: Record<string, unknown>;
-  /** Set while a menu is open, so it can be closed from elsewhere. */
-  private closeMenu: (() => void) | null = null;
 
-  constructor(
-    node: PMNodeLike,
-    private readonly onSetDisplay: (display: string) => void,
-  ) {
+  constructor(node: PMNodeLike) {
     this.dom = document.createElement('div');
     this.dom.className = 'file-block';
     this.dom.contentEditable = 'false';
@@ -149,7 +144,7 @@ class FileNodeView implements NodeView {
     // the row all along; this is the same arrangement.
     const head = document.createElement('div');
     head.className = 'file-card-head';
-    head.append(this.link(url, name, category), this.controls(display, category));
+    head.append(this.link(url, name, category));
 
     const meta = document.createElement('span');
     meta.className = 'file-meta';
@@ -170,7 +165,7 @@ class FileNodeView implements NodeView {
     meta.className = 'file-meta';
     meta.textContent = size ? `${kind} · ${size}` : kind;
 
-    bar.append(link, meta, this.controls(String(this.attrs['display'] ?? 'card'), this.attrs['category']));
+    bar.append(link, meta);
     return bar;
   }
 
@@ -205,156 +200,11 @@ class FileNodeView implements NodeView {
     return link;
   }
 
-  /**
-   * One menu, holding everything this block can do.
-   *
-   * A row of buttons for the display and a separate download link beside it was
-   * two kinds of thing in one place: "what should this look like" and "what
-   * should happen now". They read as one row and are not, and the row grew
-   * every time something was added.
-   *
-   * So: what to do at the top, how to show it below, in a menu that is closed
-   * until asked for.
-   */
-  private controls(current: string, category: unknown): HTMLElement {
-    const wrap = document.createElement('div');
-    wrap.className = 'file-menu';
-
-    const trigger = document.createElement('button');
-    trigger.type = 'button';
-    trigger.className = 'file-menu-trigger';
-    trigger.textContent = '···';
-    trigger.setAttribute('aria-haspopup', 'menu');
-    trigger.setAttribute('aria-expanded', 'false');
-    trigger.setAttribute('aria-label', 'What to do with this file');
-
-    const menu = document.createElement('div');
-    menu.className = 'file-menu-items';
-    menu.setAttribute('role', 'menu');
-    menu.hidden = true;
-
-    // Closing when a click lands anywhere else.
-    //
-    // `focusout` alone was not enough and left the menu open for good: Safari
-    // does not focus a button when it is clicked, so focus never entered the
-    // menu and never left it. A document listener is what actually observes
-    // "somebody is doing something else now".
-    //
-    // In the capture phase, so it runs before a handler inside the page can
-    // stop the event and leave the menu behind.
-    const onOutside = (event: Event): void => {
-      if (!wrap.contains(event.target as Node | null)) close();
-    };
-
-    const close = (): void => {
-      menu.hidden = true;
-      trigger.setAttribute('aria-expanded', 'false');
-      document.removeEventListener('click', onOutside, true);
-      this.closeMenu = null;
-    };
-
-    // click, not pointerdown — the rule everywhere here, and the cause of every
-    // touch bug this project has had.
-    trigger.addEventListener('click', (event) => {
-      event.preventDefault();
-      // Only one menu at a time, including the menu of another file block.
-      if (this.closeMenu && this.closeMenu !== close) this.closeMenu();
-
-      const open = menu.hidden;
-      menu.hidden = !open;
-      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-
-      if (open) {
-        document.addEventListener('click', onOutside, true);
-        this.closeMenu = close;
-      } else {
-        close();
-      }
-    });
-
-    // Closed when the attention moves elsewhere. Without this the menu of a
-    // file scrolled off screen stays open behind the page.
-    wrap.addEventListener('focusout', (event) => {
-      if (!wrap.contains(event.relatedTarget as Node | null)) close();
-    });
-
-    const url = `/api/files/${String(this.attrs['fileId'] ?? '')}`;
-    const name = String(this.attrs['filename'] ?? 'file');
-
-    const heading = (text: string): void => {
-      const label = document.createElement('p');
-      label.className = 'file-menu-label';
-      label.textContent = text;
-      menu.append(label);
-    };
-
-    heading('Do');
-
-    if (viewable(category)) {
-      // Only offered for something a browser can draw. "Open" on a spreadsheet
-      // opens a download, which is what the item below already says plainly.
-      const open = document.createElement('a');
-      open.href = url;
-      open.target = '_blank';
-      open.rel = 'noopener noreferrer';
-      open.className = 'file-menu-item';
-      open.setAttribute('role', 'menuitem');
-      open.textContent = 'Open in a new tab';
-      open.addEventListener('click', close);
-      menu.append(open);
-    }
-
-    const download = document.createElement('a');
-    download.href = url;
-    download.className = 'file-menu-item';
-    download.setAttribute('role', 'menuitem');
-    download.setAttribute('download', name);
-    download.textContent = 'Download';
-    download.addEventListener('click', close);
-    menu.append(download);
-
-    heading('Show as');
-
-    const options: Array<{ id: string; label: string }> = [
-      { id: 'card', label: 'Card' },
-      { id: 'line', label: 'One line' },
-    ];
-    // Offered only when it would work. A viewer on a spreadsheet is a promise
-    // nothing here can keep.
-    if (viewable(category)) options.push({ id: 'full', label: 'Viewer' });
-
-    for (const option of options) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'file-menu-item';
-      button.setAttribute('role', 'menuitemradio');
-      button.setAttribute('aria-checked', option.id === current ? 'true' : 'false');
-      button.textContent = option.label;
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        close();
-        this.onSetDisplay(option.id);
-      });
-      menu.append(button);
-    }
-
-    wrap.append(trigger, menu);
-    return wrap;
-  }
-
   update(node: PMNodeLike): boolean {
     if (node.type.name !== 'file') return false;
     this.attrs = node.attrs;
-    // The old menu is about to be discarded by render(), and its document
-    // listener would otherwise outlive the element it belongs to.
-    this.closeMenu?.();
     this.render();
     return true;
-  }
-
-  /** ProseMirror discards this view; the listener must not survive it. */
-  destroy(): void {
-    this.closeMenu?.();
   }
 
   /** Everything inside is this view's, not ProseMirror's. */
@@ -370,15 +220,11 @@ class FileNodeView implements NodeView {
 /**
  * Build the file node view.
  *
- * `setDisplay` is passed in rather than imported: the command needs the node's
- * position, which only the view knows, and reaching into the editor from here
- * would be a second way to dispatch.
+ * It draws and nothing else now. Changing how a file is shown lives in the
+ * gutter menu with every other block's settings — the `···` button here was a
+ * second place to ask the same kind of question, and the gutter is where
+ * somebody already looks.
  */
-export function fileNodeView(
-  setDisplay: (getPos: () => number | undefined, display: string) => void,
-): NonNullable<EditorView['props']['nodeViews']>[string] {
-  return (node, _view, getPos) =>
-    new FileNodeView(node as unknown as PMNodeLike, (display) =>
-      setDisplay(getPos as () => number | undefined, display),
-    );
+export function fileNodeView(): NonNullable<EditorView['props']['nodeViews']>[string] {
+  return (node) => new FileNodeView(node as unknown as PMNodeLike);
 }

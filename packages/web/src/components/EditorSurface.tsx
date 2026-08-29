@@ -19,7 +19,6 @@ import {
   highlightClients,
   insertImageUpload,
   seedEmptyPage,
-  setFileDisplay,
 } from '@sone/editor';
 
 import { ApiError, api } from '../api/client.ts';
@@ -216,12 +215,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
       // A collection is a block in the text (ADR-0021), and this is what draws
       // it. The node is an atom, so ProseMirror never descends into what React
       // mounts there.
-      nodeViews: soneNodeViews((getPos, display) => {
-        const view = viewRef.current;
-        const pos = getPos();
-        if (!view || pos === undefined) return;
-        setFileDisplay(pos, display as 'card' | 'line' | 'full')(view.state, view.dispatch);
-      }),
+      nodeViews: soneNodeViews(),
     });
     viewRef.current = created;
     setView(created);

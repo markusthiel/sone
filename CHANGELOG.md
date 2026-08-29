@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A file's actions moved into the ⋮⋮ menu**, where every other block's settings
+already are — opening, downloading, and whether to show it as a card, one line
+or a viewer. The `···` button on the block is gone.
+
 **Fixed: an image, a file or an embedded table had no drag handle.** A block
 that cannot hold a text cursor was invisible to the gutter, so the ⋮⋮ menu — and
 with it width, alignment and moving the block — could not be reached for any of

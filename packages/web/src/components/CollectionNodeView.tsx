@@ -117,12 +117,11 @@ class CollectionNodeView implements NodeView {
 /**
  * The node views this editor needs.
  *
- * A function rather than a constant, because the file view needs a way to
- * dispatch a command and only the surface has the view to dispatch on.
+ * Still a function rather than a constant: it took an argument while the file
+ * view could change how it was displayed, and keeping the shape means the next
+ * view that needs something from the surface does not change every caller.
  */
-export const soneNodeViews = (
-  setFileDisplayAt: (getPos: () => number | undefined, display: string) => void,
-): EditorView['props']['nodeViews'] => ({
+export const soneNodeViews = (): EditorView['props']['nodeViews'] => ({
   collectionView: (node) => new CollectionNodeView(node as unknown as PMNodeLike),
-  file: fileNodeView(setFileDisplayAt),
+  file: fileNodeView(),
 });
