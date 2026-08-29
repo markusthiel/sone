@@ -358,3 +358,17 @@ test('an element that can be hidden is not forced visible by a display rule', ()
 
   assert.deepEqual(offenders, [], `display beats hidden: ${offenders.join(', ')}`);
 });
+
+test('the gutter anchors to a block that has nothing inside it', () => {
+  // `domAtPos(from + 1)` looks inside the block, which works for a paragraph and
+  // not for an atom: an image or a file has nothing inside to find, so the
+  // lookup returned the editor's root and the gutter was positioned against
+  // that — at the very top of the page.
+  const menu = codeOf(
+    new URL('../src/components/BlockMenu.tsx', import.meta.url),
+  );
+  assert.match(menu, /view\.nodeDOM\(from\)/);
+  const nodeDomAt = menu.indexOf('view.nodeDOM(from)');
+  const posAt = menu.indexOf('view.domAtPos(from + 1)');
+  assert.ok(nodeDomAt > 0 && nodeDomAt < posAt, 'the node’s own element is tried first');
+});

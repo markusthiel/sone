@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the ⋮⋮ handle appeared at the top of the page** for an image or a file
+instead of beside the block.
+
 **Fixed: no drag handle on a touch device.** Tapping a file now selects it, so
 the ⋮⋮ handle appears — there is no hover on a phone or tablet to fall back on,
 and the block was swallowing every tap. The gutter is also fully visible there
