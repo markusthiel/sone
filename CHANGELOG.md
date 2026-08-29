@@ -19,6 +19,13 @@ allowed scripts — and still not `allow-same-origin`, which is the restriction
 that matters: the frame is an opaque origin, so nothing inside an uploaded
 document can reach this application's cookies or storage.
 
+**A "People" tab lists who has written in a page** — everyone who has, whether
+or not they are here now, which is what the circles at the top show instead.
+Somebody who has since left the workspace stays in the list: they wrote what
+they wrote.
+
+Highlighting one person's writing is the next step and not in this release.
+
 **Attribution is being recorded.** Every editing session by a signed-in member
 is now mapped to that person in the document, which is what makes "who wrote
 this" answerable later. Nothing displays it yet — recording starts first because
