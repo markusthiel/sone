@@ -983,6 +983,17 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   color: var(--sone-text);
 }
 
+/* On a touch device the gutter is as visible as it gets.
+ *
+ * The faded state exists so the controls stay out of the way until somebody
+ * points at them, and there is nothing to point with here — a permanently
+ * half-visible control reads as disabled.
+ */
+@media (hover: none) {
+  .block-insert,
+  .block-handle { opacity: 1; }
+}
+
 @media (hover: none) {
   .block-insert,
   .block-handle { opacity: 0.7; }

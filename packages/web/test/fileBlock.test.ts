@@ -140,12 +140,17 @@ test('a reader cannot drop into a page they may not edit', () => {
 });
 
 
-test('the block draws and nothing else', () => {
+test('the block has no menu of its own', () => {
   // Changing how a file is shown lives in the gutter menu with every other
   // block's settings. The `···` button here was a second place to ask the same
   // kind of question, and the gutter is where somebody already looks.
+  //
+  // Narrowed from "no click listener at all", which was too broad: the block
+  // needs one to select itself so the gutter can appear on a touch device. A
+  // test that forbids a mechanism rather than a behaviour blocks the fix as
+  // readily as the mistake.
   assert.doesNotMatch(source, /file-menu/);
-  assert.doesNotMatch(source, /addEventListener\('click'/);
+  assert.doesNotMatch(source, /Show as/);
 });
 
 test('the gutter menu carries the file actions instead', () => {
@@ -154,4 +159,16 @@ test('the gutter menu carries the file actions instead', () => {
   assert.match(menu, /Open in a new tab/);
   assert.match(menu, /Download/);
   assert.match(menu, /setFileDisplay\(at,/);
+});
+
+test('a tap selects the block, so the gutter can appear', () => {
+  // The gutter shows for the selected block, there is no hover on a touch
+  // device to fall back on, and stopEvent keeps every event from reaching
+  // ProseMirror — so tapping a file did nothing and the handle never came.
+  assert.match(source, /NodeSelection\.create\(view\.state\.doc, pos\)/);
+});
+
+test('a tap on a link or a control is left alone', () => {
+  // Those have their own job, and selecting the block as well would fight them.
+  assert.match(source, /target\?\.closest\('a, button, iframe'\)/);
 });
