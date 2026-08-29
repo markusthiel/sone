@@ -180,3 +180,41 @@ test('a theme and an icon both accept either shape', () => {
   assert.equal(readEntryIcon({ kind: 'icon', value: 'folder', color: '#abcdef' })?.color, '#abcdef');
   assert.equal(readTitleColor({ titleColor: '#abcdef' }), '#abcdef');
 });
+
+// --- the workspace palette --------------------------------------------------
+
+test('changing a name changes everything that stored it', () => {
+  // The half that makes names worth having. Nothing that stored "blue" knows
+  // this happened; it follows because it stored a name (ADR-0023).
+  const properties = themeProperties({ palette: { blue: '#0a84ff' } });
+  assert.equal(properties['--sone-palette-blue'], '#0a84ff');
+});
+
+test('only the eight names, and only literals', () => {
+  // A name mapped to another name would be an alias — one more thing that can
+  // point at itself, for no gain.
+  assert.deepEqual(sanitiseTheme({ palette: { chartreuse: '#123456' } }), {});
+  assert.deepEqual(sanitiseTheme({ palette: { blue: 'green' } }), {});
+  assert.deepEqual(sanitiseTheme({ palette: { blue: '#ABCDEF' } }), {
+    palette: { blue: '#abcdef' },
+  });
+});
+
+test('a workspace that changed nothing overrides nothing', () => {
+  // Every name it has not touched keeps the design's own value, so a partly
+  // set palette is not a half-broken one.
+  assert.deepEqual(themeProperties({ palette: { red: '#ff0000' } }), {
+    '--sone-palette-red': '#ff0000',
+  });
+  assert.deepEqual(themeProperties({}), {});
+});
+
+test('the palette survives alongside element settings', () => {
+  // They live in one object and are read in one pass; losing one to the other
+  // would be the kind of thing noticed only after somebody set both.
+  const theme = sanitiseTheme({
+    palette: { green: '#00ff00' },
+    heading1: { size: 1 },
+  });
+  assert.deepEqual(theme, { palette: { green: '#00ff00' }, heading1: { size: 1 } });
+});

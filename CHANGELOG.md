@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A workspace decides what its eight colours look like.** Settings → Appearance
+defaults → Palette. Everything that stored a name — tags, columns, blocks, folder
+icons — follows, which is what names were for.
+
 **Fixed: an icon's colour could not be cleared.** The new icon was assigned onto
 the old one, so a request naming no colour left the previous one in place — "no
 colour" was the one swatch that did nothing. The swatches also sit in two rows of

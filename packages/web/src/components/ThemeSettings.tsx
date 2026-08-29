@@ -28,6 +28,25 @@ import { useEffect, useState, type ReactElement } from 'react';
 import { ApiError, api } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
 
+/**
+ * What the stylesheet makes of each name, shown when a workspace has not
+ * chosen. A colour input needs *a* value, and showing black for every unset
+ * name would suggest the palette is black.
+ *
+ * Kept in step with the stylesheet by a test, because two lists of the same
+ * eight colours will otherwise drift.
+ */
+const DEFAULT_PALETTE: Record<string, string> = {
+  grey: '#8a8a8a',
+  red: '#d64545',
+  orange: '#d97706',
+  yellow: '#ca8a04',
+  green: '#16a34a',
+  blue: '#2563eb',
+  purple: '#7c3aed',
+  pink: '#db2777',
+};
+
 /** What each element is called, in words somebody writing would use. */
 const LABELS: Record<ThemedElement, string> = {
   heading1: 'Heading 1',
@@ -126,6 +145,72 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
       </p>
 
       {error && <p className="error">{messageFor(error)}</p>}
+
+      {/* The palette first.
+        *
+        * It is the setting the others are expressed in: an element's colour is
+        * one of these names, so deciding what the names look like comes before
+        * deciding which to use. */}
+      <h3 className="settings-heading">Palette</h3>
+      <p className="muted">
+        What each colour name looks like here. Everything that uses a name —
+        tags, columns, blocks, folder icons — follows.
+      </p>
+
+      <div className="theme-palette">
+        {THEME_COLORS.map((name) => {
+          const value = theme.palette?.[name];
+          return (
+            <label key={name} className="theme-palette-entry">
+              <input
+                type="color"
+                disabled={!canEdit}
+                value={value ?? DEFAULT_PALETTE[name]}
+                aria-label={name}
+                onChange={(event) => {
+                  setSaved(false);
+                  setTheme((current) => ({
+                    ...current,
+                    palette: { ...(current.palette ?? {}), [name]: event.target.value },
+                  }));
+                }}
+              />
+              <span>{name}</span>
+              {value && canEdit && (
+                <button
+                  type="button"
+                  className="theme-palette-reset"
+                  aria-label={`Reset ${name}`}
+                  title="As designed"
+                  onClick={() => {
+                    setSaved(false);
+                    setTheme((current) => {
+                      // Removed rather than set back to the design's value.
+                      // Stored, it would stop following a change to the design
+                      // — the same distinction every other setting here makes.
+                      const palette: Record<string, string> = {
+                        ...(current.palette ?? {}),
+                      };
+                      delete palette[name];
+
+                      const { palette: _dropped, ...rest } = current;
+                      const next: WorkspaceTheme = { ...rest };
+                      if (Object.keys(palette).length > 0) {
+                        next.palette = palette as NonNullable<WorkspaceTheme['palette']>;
+                      }
+                      return next;
+                    });
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </label>
+          );
+        })}
+      </div>
+
+      <h3 className="settings-heading">Elements</h3>
 
       <table className="theme-table">
         <thead>

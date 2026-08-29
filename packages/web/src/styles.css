@@ -3628,3 +3628,43 @@ body {
 .block-menu-swatch.custom::-webkit-color-swatch-wrapper { padding: 0; }
 .block-menu-swatch.custom::-webkit-color-swatch { border: 0; border-radius: 50%; }
 .block-menu-swatch.custom::-moz-color-swatch { border: 0; border-radius: 50%; }
+
+/* The workspace palette, in the appearance settings.
+ *
+ * Shown before the elements, because it is the setting the others are expressed
+ * in: an element's colour is one of these names.
+ */
+.settings-heading {
+  margin-block: var(--sone-space-5) var(--sone-space-1);
+  font-size: var(--sone-text-sm);
+  font-weight: 600;
+}
+.theme-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sone-space-4);
+  margin-block: var(--sone-space-3);
+}
+.theme-palette-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  font-size: var(--sone-text-sm);
+}
+.theme-palette-entry input[type='color'] {
+  inline-size: var(--sone-control);
+  block-size: var(--sone-control);
+  padding: 0;
+  border: 1px solid var(--sone-border);
+  border-radius: 50%;
+  background: transparent;
+}
+.theme-palette-entry input[type='color']::-webkit-color-swatch-wrapper { padding: 0; }
+.theme-palette-entry input[type='color']::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.theme-palette-reset {
+  border: 0;
+  background: transparent;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.theme-palette-reset:hover { color: var(--sone-text); }

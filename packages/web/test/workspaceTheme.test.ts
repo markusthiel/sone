@@ -93,11 +93,50 @@ test('somebody who may not edit gets disabled controls, not a failed save', () =
   assert.match(settings, /disabled=\{!canEdit\}/);
 });
 
-test('no control offers a free value', () => {
-  // Every one is a step or a palette name, from the lists in core.
+test('an element is set in steps and names, never in free values', () => {
+  // Free numbers produce a heading that no longer relates to the body text.
+  //
+  // Narrowed when the palette editor arrived: that one *is* free values, and
+  // deliberately — deciding what "blue" looks like is exactly the choice a
+  // palette exists to hold, and it is made once for the workspace rather than
+  // per element. So the rule is about the element table, not the file.
   assert.match(settings, /SIZE_STEPS/);
   assert.match(settings, /SPACE_STEPS/);
   assert.match(settings, /THEME_COLORS/);
-  assert.doesNotMatch(settings, /type="number"/);
-  assert.doesNotMatch(settings, /type="color"/);
+
+  const table = settings.slice(settings.indexOf('<table className="theme-table">'));
+  assert.doesNotMatch(table, /type="number"/);
+  assert.doesNotMatch(table, /type="color"/);
+});
+
+// --- the workspace palette --------------------------------------------------
+
+test('the editor shows the same defaults the stylesheet defines', () => {
+  // A colour input needs a value, so the editor carries what each unset name
+  // looks like — a second list of the same eight colours, which will otherwise
+  // drift from the first without anybody noticing.
+  const settingsSource = readFileSync(
+    path.resolve(here, '../src/components/ThemeSettings.tsx'),
+    'utf8',
+  );
+
+  for (const name of ['grey', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink']) {
+    const inEditor = new RegExp(`${name}: '(#[0-9a-f]{6})'`).exec(settingsSource)?.[1];
+    assert.ok(inEditor, `${name} missing from the editor`);
+
+    const inSheet = new RegExp(`--sone-palette-${name}: (#[0-9a-f]{6})`).exec(css)?.[1];
+    // Grey is defined from a variable rather than a literal, so it has no hex
+    // to compare — the check is that every other name agrees exactly.
+    if (inSheet) assert.equal(inEditor, inSheet, name);
+  }
+});
+
+test('resetting a name removes it rather than storing the default', () => {
+  // Stored, it would stop following a change to the design — the same
+  // distinction every other setting here makes.
+  const settingsSource = readFileSync(
+    path.resolve(here, '../src/components/ThemeSettings.tsx'),
+    'utf8',
+  );
+  assert.match(settingsSource, /delete palette\[name\]/);
 });
