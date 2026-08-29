@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, api, type InstanceInfo, type SessionInfo } from '../api/client.ts';
+import { clearLocalDocs } from '../storage/localDocs.ts';
 
 export type SessionState =
   | { status: 'loading' }
@@ -85,6 +86,12 @@ export function useSession(): {
       // logged in with a cookie the server has already revoked.
     });
     localStorage.removeItem(LAST_WORKSPACE_KEY);
+    // Local copies go with the session.
+    //
+    // Signing out and leaving somebody's documents in the browser is the
+    // failure this guards against: the next person at that machine would find
+    // them in storage, readable without any credential at all.
+    await clearLocalDocs();
     await reload();
   }, [reload]);
 

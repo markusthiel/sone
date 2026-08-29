@@ -13,6 +13,8 @@ import {
 } from '@sone/client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { persistLocally } from '../storage/localDocs.ts';
+
 const SHARE_SESSION_KEY = 'sone.shareSession';
 
 export interface ClientCredentials {
@@ -75,6 +77,18 @@ export function useSoneClient(credentials: ClientCredentials | null): {
         ...(credentials.displayName ? { displayName: credentials.displayName } : {}),
         ...(stored ? { shareSessionId: stored } : {}),
       },
+      // A local copy, for members only.
+      //
+      // A guest arriving through a share link is often on a borrowed or shared
+      // machine, and leaving somebody else's document in that browser's storage
+      // is a disclosure they never agreed to: the link gave them access to read
+      // a page, not a reason to keep it.
+      //
+      // This is what makes an edit survive a reload. It already survived a lost
+      // connection — the CRDT holds it in memory — but not the case that
+      // actually happens: a tab restored after a crash, a phone that suspended
+      // the page.
+      ...(credentials.shareToken ? {} : { persist: persistLocally }),
       presence: {
         displayName: credentials.displayName ?? 'Someone',
         color: pickColor(credentials.displayName ?? ''),

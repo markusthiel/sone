@@ -350,6 +350,24 @@ worth knowing:
 
 Links created before migration 0011 have no stored token and cannot be copied.
 
+## Local copies in the browser
+
+A signed-in member's browser keeps a copy of each document it opens, so an edit
+made while the server is unreachable survives a reload — not only the connection
+dropping, which the editor already handled in memory.
+
+There is no merging to worry about. Both the local copy and the server's updates
+are applied to the same CRDT, and applying them in any order reaches the same
+document; there is nothing to compare and no conflict for anybody to resolve.
+
+Two things worth knowing:
+
+- **A share-link guest gets no local copy.** They are often on a borrowed
+  machine, and the link grants access to read a page rather than to keep it.
+- **Signing out deletes them**, and copies untouched for 30 days are deleted at
+  startup. The server holds the document, so losing a local copy costs a reload
+  and never any writing.
+
 ## Files
 
 Uploads land under `SONE_STORAGE_PATH` (`/var/lib/sone/files` in the image), and

@@ -129,12 +129,28 @@ interface Entry {
   listeners: Set<(handle: PageHandle) => void>;
   /** Unsubscribe the doc/awareness observers, on teardown. */
   detach: () => void;
+  /** The local copy, if one is being kept. Destroyed with the entry. */
+  persistence: { destroy: () => void } | null;
 }
 
 export interface StoreOptions {
   connection: SyncConnection;
   /** Presence identity for this client. */
   presence?: Partial<PresenceState>;
+  /**
+   * Keep a copy of each document locally.
+   *
+   * Injected rather than imported, for two reasons. The store has no business
+   * knowing about IndexedDB — it is a browser API, and this package is used in
+   * tests under Node where it does not exist. And whether to keep a local copy
+   * at all is a decision about the person, not about syncing: a guest on a
+   * borrowed machine should not leave documents behind, so the caller decides
+   * and can decline by not passing this.
+   *
+   * Returning null declines for one document. The returned handle is destroyed
+   * when the document is released.
+   */
+  persist?: (docId: string, doc: Y.Doc) => { destroy: () => void } | null;
   log?: (msg: string, meta?: unknown) => void;
 }
 
@@ -238,10 +254,21 @@ export class DocumentStore {
       awareness.setLocalState(withEditorUser(this.opts.presence));
     }
 
+    // Local first, before anything from the server arrives.
+    //
+    // The order matters and is the reason no merge logic is needed anywhere:
+    // both the stored copy and the server's updates are applied to the same
+    // Y.Doc, and a CRDT's whole job is that applying them in any order reaches
+    // the same document. There is nothing to compare and no conflict for
+    // anybody to resolve — which is the part of "offline editing" that is
+    // usually hard and here is free.
+    const persistence = this.opts.persist?.(docChannel(pageId), doc) ?? null;
+
     const entry: Entry = {
       pageId,
       doc,
       awareness,
+      persistence,
       refCount: 1,
       handle: null,
       requestId: null,
@@ -525,6 +552,9 @@ export class DocumentStore {
     if (entry.requestId !== null) this.byRequest.delete(entry.requestId);
 
     entry.detach();
+    // Before the doc: the local copy observes it, and destroying the document
+    // first would leave an observer on a destroyed target.
+    entry.persistence?.destroy();
     entry.awareness.destroy();
     entry.doc.destroy();
     entry.listeners.clear();

@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Edits survive a reload, not just a dropped connection.** A signed-in member's
+browser keeps a copy of each document it opens; when the server comes back, the
+two merge with no comparing and no conflicts to resolve — that is what a CRDT is
+for.
+
+A share-link guest gets no local copy: they are often on a borrowed machine, and
+a link grants a page to read rather than one to keep. Signing out deletes the
+copies, and ones untouched for 30 days are swept at startup.
+
 **Fixed: losing the connection broke the layout.** The error banner was a child
 of the app's two-column grid, so adding it pushed the sidebar into one row and
 the page into another — the layout came apart at the moment something had
