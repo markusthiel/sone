@@ -33,6 +33,7 @@ import {
   useIsInstanceAdmin,
 } from './Admin.tsx';
 import { messageFor } from './Auth.tsx';
+import { ThemeSettings } from './ThemeSettings.tsx';
 
 interface SettingsProps {
   section: string;
@@ -51,6 +52,10 @@ const SECTIONS = [
   { id: 'account', label: 'Account', group: 'You' },
   { id: 'appearance', label: 'Appearance', group: 'You' },
   { id: 'workspace', label: 'Workspace', group: 'You' },
+  // Under 'You' rather than 'Administration': a theme belongs to the workspace,
+  // and everybody in it should be able to see what it says even when only
+  // owners and admins may change it (ADR-0023).
+  { id: 'theme', label: 'Appearance defaults', group: 'You' },
   { id: 'instance', label: 'Instance', group: 'Administration', admin: true },
   { id: 'accounts', label: 'Accounts', group: 'Administration', admin: true },
   { id: 'workspaces', label: 'Workspaces', group: 'Administration', admin: true },
@@ -100,6 +105,19 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
         {current === 'appearance' && <AppearanceSettings />}
         {current === 'workspace' && (
           <WorkspaceSettings session={session} workspaceId={workspaceId} />
+        )}
+        {current === 'theme' && (
+          <ThemeSettings
+            workspaceId={workspaceId}
+            canEdit={
+              // The same two roles the server enforces. Stated here so the
+              // controls are disabled rather than failing on save — a form that
+              // lets somebody fill it in and then refuses is worse than one
+              // that says up front it is read-only.
+              session.workspaces.find((entry) => entry.id === workspaceId)?.role === 'owner' ||
+              session.workspaces.find((entry) => entry.id === workspaceId)?.role === 'admin'
+            }
+          />
         )}
         {current === 'instance' && <InstancePanel />}
         {current === 'accounts' && <UsersPanel />}
