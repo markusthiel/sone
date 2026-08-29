@@ -539,6 +539,52 @@ describe(
       assert.equal(res.headers.get('content-type'), 'application/pdf');
     });
 
+    test('a file a guest uploaded can be read back, by anyone who may', async () => {
+      // Reported exactly this way: a PDF uploaded through a share link showed
+      // {"error":"internal"} in the viewer — and not only for the guest. The
+      // owner could not read it either, which points at what the upload stored
+      // rather than at who was asking.
+      const session = await setup();
+      await db.query(
+        `INSERT INTO share_tokens
+           (workspace_id, scope_page_id, include_subtree, role, token_hash,
+            allow_anonymous, created_by)
+         VALUES ($1,$2,true,'editor',$3,true,$4)`,
+        [
+          session.workspaceId,
+          session.pageId,
+          createHash('sha256').update('guest-upload-token', 'utf8').digest(),
+          session.userId,
+        ],
+      );
+
+      const uploaded = await expectJson<{ id: string }>(
+        await fetch(
+          `${base}/api/pages/${session.pageId}/files?filename=guest.pdf`,
+          {
+            method: 'POST',
+            headers: { cookie: 'sone_share=guest-upload-token' },
+            body: new Uint8Array(PDF),
+          },
+        ),
+        201,
+      );
+
+      // What the row looks like matters more than the response did.
+      const row = await db.query<{ uploaded_by: string | null; storage_key: string }>(
+        `SELECT uploaded_by, storage_key FROM files WHERE id = $1`,
+        [uploaded.id],
+      );
+      assert.ok(row.rows[0], 'the row exists');
+
+      const asOwner = await fetch(`${base}/api/files/${uploaded.id}`, {
+        headers: { cookie: session.cookie },
+      });
+      const body = asOwner.status === 200 ? '' : await asOwner.text();
+      assert.equal(asOwner.status, 200, body);
+      assert.equal(asOwner.headers.get('content-type'), 'application/pdf');
+    });
+
     test('a guest with edit rights can upload', async () => {
       // Reported as "the image shows as text": the upload was refused with 401,
       // and an image block with no URL renders the filename as a label. So it
