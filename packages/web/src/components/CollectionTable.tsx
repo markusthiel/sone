@@ -29,13 +29,43 @@ import {
 } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
-import { ColumnsIcon, ListIcon, PlusIcon, TableIcon, TrashIcon } from './icons.tsx';
+import {
+  ColumnsIcon,
+  FilterIcon,
+  ListIcon,
+  PlusIcon,
+  TableIcon,
+  TrashIcon,
+} from './icons.tsx';
 import { CollectionBoard } from './CollectionBoard.tsx';
+import { ViewRules } from './ViewRules.tsx';
 import { OptionEditor, type EditableOption } from './OptionEditor.tsx';
 
 interface CollectionTableProps {
   /** A collection is addressed by its own id: a page may hold several. */
   collectionId: string;
+}
+
+/**
+ * What the rules button says.
+ *
+ * The count rather than "Filter": a view with rules on it looks the same as one
+ * without until you open it, and a table showing fewer rows than somebody
+ * expects is the kind of thing they blame on the software.
+ */
+function ruleSummary(view: { definition: Record<string, unknown> }): string {
+  const filters = Array.isArray(view.definition['filters'])
+    ? (view.definition['filters'] as unknown[]).length
+    : 0;
+  const sorted = Array.isArray(view.definition['sort'])
+    ? (view.definition['sort'] as unknown[]).length > 0
+    : false;
+
+  if (filters === 0 && !sorted) return 'Filter and sort';
+  const parts: string[] = [];
+  if (filters > 0) parts.push(filters === 1 ? '1 filter' : `${filters} filters`);
+  if (sorted) parts.push('sorted');
+  return parts.join(', ');
 }
 
 /** Column types this table can edit. See the note above. */
@@ -64,10 +94,19 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   // looking at is not a property of the collection, and persisting it would
   // change what a colleague sees.
   const [viewId, setViewId] = useState<string | null>(null);
+  const [editingRules, setEditingRules] = useState(false);
+
+  // Read inside `load` without making it depend on the view: changing views
+  // triggers its own reload, and a dependency here would make every render that
+  // touched the view refetch.
+  const viewRef = useRef<string | null>(null);
+  viewRef.current = viewId;
 
   const load = useCallback(async () => {
     try {
-      setData(await api.collection(collectionId));
+      // The chosen view, so its filters and sorting are applied by the
+      // database rather than after the rows arrive.
+      setData(await api.collection(collectionId, viewRef.current ?? undefined));
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -76,7 +115,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, viewId]);
 
   /**
    * Apply a value locally, then save it.
@@ -209,6 +248,17 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             </button>
           ))}
 
+          {data.canEdit && view && (
+            <button
+              type="button"
+              className="view-tab"
+              onClick={() => setEditingRules((open) => !open)}
+              title="Filter and sort this view"
+            >
+              <FilterIcon /> {ruleSummary(view)}
+            </button>
+          )}
+
           {data.canEdit && selectColumns.length > 0 && (
             <button
               type="button"
@@ -220,6 +270,23 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             </button>
           )}
         </div>
+      )}
+
+      {editingRules && view && (
+        <ViewRules
+          view={view}
+          fields={columns}
+          onClose={() => setEditingRules(false)}
+          onSave={(definition) => {
+            setEditingRules(false);
+            void api
+              .updateCollectionView(collectionId, view.id, definition)
+              .then(() => load())
+              .catch((err: unknown) =>
+                setError(err instanceof ApiError ? err.code : 'network_error'),
+              );
+          }}
+        />
       )}
 
       {view?.viewType === 'board' && groupBy && (

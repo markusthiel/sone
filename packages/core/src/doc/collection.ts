@@ -433,3 +433,40 @@ export function selectValueIsKnown(
   if (value.kind === 'multiSelect') return value.optionIds.every((id) => ids.has(id));
   return true;
 }
+
+/**
+ * Change a view: its name, or the rules it applies.
+ *
+ * The definition is replaced wholesale rather than merged. A view's rules are
+ * edited as a set — somebody removing the last filter means "no filters", and a
+ * merge would have no way to express that without a sentinel.
+ */
+export function updateView(
+  doc: Y.Doc,
+  collectionId: string,
+  viewId: string,
+  changes: { name?: string; definition?: Record<string, unknown> },
+): boolean {
+  const views = collectionMap(doc, collectionId)?.get(COLLECTION_KEYS.views);
+  if (!(views instanceof Y.Map)) return false;
+  const view = views.get(viewId);
+  if (!(view instanceof Y.Map)) return false;
+
+  doc.transact(() => {
+    if (changes.name !== undefined) {
+      view.set(VIEW_KEYS.name, changes.name.trim() || 'Untitled view');
+    }
+    if (changes.definition !== undefined) {
+      view.set(VIEW_KEYS.definition, changes.definition);
+    }
+  });
+  return true;
+}
+
+/** Remove a view. A collection keeps its rows and columns either way. */
+export function removeView(doc: Y.Doc, collectionId: string, viewId: string): boolean {
+  const views = collectionMap(doc, collectionId)?.get(COLLECTION_KEYS.views);
+  if (!(views instanceof Y.Map) || !views.has(viewId)) return false;
+  doc.transact(() => views.delete(viewId));
+  return true;
+}

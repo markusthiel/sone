@@ -508,6 +508,17 @@ export const api = {
       body: JSON.stringify(view),
     }),
 
+  /** Replace a view's rules. The definition is set wholesale, not merged. */
+  updateCollectionView: (
+    collectionId: string,
+    viewId: string,
+    definition: Record<string, unknown>,
+  ) =>
+    request<{ id: string }>(`/api/collections/${collectionId}/views/${viewId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ definition }),
+    }),
+
   setFieldOptions: (
     collectionId: string,
     fieldId: string,

@@ -212,6 +212,15 @@ export function ColumnsIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A funnel, for a view's filters and sorting. */
+export function FilterIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 5h18l-7 8v6l-4 2v-8z" />
+    </svg>
+  );
+}
+
 export function TrashIcon(props: IconProps): ReactElement {
   return (
     <svg {...base(props)}>

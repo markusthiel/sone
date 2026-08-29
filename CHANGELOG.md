@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Filters and sorting can be set.** The button beside a collection's views opens
+them, and says how many rules are active rather than only "Filter" — a table
+showing fewer rows than expected is the kind of thing people blame on the
+software. The work happens in the database, as it already did; what was missing
+was any way to reach it.
+
 **A collection can be placed in the text.** Type `/` and choose "Table of
 entries": the collection is created and a block for it appears where the caret
 is, between paragraphs, as in Craft and AppFlowy. Several per page.

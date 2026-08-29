@@ -29,6 +29,7 @@ import {
   setOptions,
   setPropertyValue,
   updateField,
+  updateView,
   type FieldType,
   type SelectOption,
   type StoredValue,
@@ -536,6 +537,58 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       await rematerialize(deps.pool, pageId, auth.workspaceId, auth.actorId);
     }
     ctx.send(201, { id: viewId, viewType });
+  });
+
+  /**
+   * Change a view's rules.
+   *
+   * The filters and the sort live in the view's definition, and until now
+   * nothing could set them: the query side was built and tested and there was
+   * no way to reach it except by hand. That is a half-feature, which is worse
+   * than none — it looks finished from the outside.
+   */
+  router.patch('/api/collections/:collectionId/views/:viewId', async (ctx) => {
+    const resolved = await collectionPage(deps.pool, ctx, 'edit');
+    if (!resolved) return;
+    const { collectionId, pageId, auth } = resolved;
+
+    let body: { name?: string; definition?: Record<string, unknown> };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    if (
+      body.definition !== undefined &&
+      (typeof body.definition !== 'object' ||
+        body.definition === null ||
+        Array.isArray(body.definition))
+    ) {
+      ctx.fail(422, 'invalid_definition');
+      return;
+    }
+
+    const viewId = ctx.params['viewId'] ?? '';
+    let ok = false;
+    const result = await applyToDocument(
+      deps.pool,
+      pageId,
+      (doc) => {
+        ok = updateView(doc, collectionId, viewId, body);
+      },
+      auth.actorId,
+    );
+
+    if (!ok) {
+      ctx.fail(404, 'view_not_found');
+      return;
+    }
+    if (result.changed) {
+      await rematerialize(deps.pool, pageId, auth.workspaceId, auth.actorId);
+    }
+    ctx.send(200, { id: viewId });
   });
 
   /**
