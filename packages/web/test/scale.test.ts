@@ -275,3 +275,16 @@ test('the page does not pull to refresh', () => {
   // somebody was reading.
   assert.match(css, /html,\s*body\s*\{[^}]*overscroll-behavior:\s*none/);
 });
+
+test('indenting is reachable without a keyboard', () => {
+  // Only Tab did this, and a phone keyboard has no Tab key — so on a touch
+  // device nothing could be indented at all. That is what made a toggle
+  // unusable there: its content *is* the blocks indented under it, so a toggle
+  // could have a title and nothing inside it.
+  const menu = readFileSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/components/BlockMenu.tsx'),
+    'utf8',
+  );
+  assert.match(menu, /run\(indentBlockSubtree\)/);
+  assert.match(menu, /run\(outdentBlockSubtree\)/);
+});
