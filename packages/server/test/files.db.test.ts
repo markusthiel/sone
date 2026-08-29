@@ -596,7 +596,7 @@ describe(
       const large = Buffer.concat([PDF, Buffer.alloc(3 * 1024 * 1024, 0x20)]);
 
       const store = new LocalFileStore(storageRoot);
-      const stored = await store.put(large);
+      const stored = await store.put(large, 'pdf');
 
       const row = await db.query<{ id: string }>(
         `INSERT INTO files
