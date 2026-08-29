@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the page zoomed itself on a phone.** Tapping a small search or filter
+field made iOS magnify the whole page, and it does not zoom back out — the next
+gesture to fix that often landed on pull-to-refresh instead. Form controls are
+now large enough on touch that the browser leaves the page alone, and the page
+no longer pulls to refresh. Pinch zoom still works: disabling it would fix the
+symptom by taking a capability away from people who need it.
+
+**The chosen person in the People tab is cleared when you open another page.**
+
 **Fixed: the maintenance log reported every collection row as a misplaced
 entry.** A row lives inside the page holding its collection by design
 (ADR-0021), and the check predates that. It was logged every five minutes.
