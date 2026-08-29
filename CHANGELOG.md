@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the maintenance log reported every collection row as a misplaced
+entry.** A row lives inside the page holding its collection by design
+(ADR-0021), and the check predates that. It was logged every five minutes.
+
 **Fixed: a file with an umlaut in its name could not be opened.** Serving it
 threw while writing the `Content-Disposition` header — HTTP headers carry only
 ASCII — and the viewer showed an internal error where the document should have
