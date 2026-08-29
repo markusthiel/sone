@@ -157,3 +157,13 @@ test('no control invents its own tap size', () => {
     'use var(--sone-tap) so the size can be changed in one place',
   );
 });
+
+test('the caret label fades and the bar does not', () => {
+  // A name beside a caret says "somebody is working here", and left on screen
+  // it goes on saying that after they stopped. The bar stays: it says another
+  // person is in the document, which remains true.
+  assert.match(css, /\.sone-caret-label\s*\{[^}]*animation:/);
+  assert.match(css, /@keyframes sone-caret-label-fade/);
+  // Hovering brings it back, so the information is quiet rather than gone.
+  assert.match(css, /\.ProseMirror-yjs-cursor:hover \.sone-caret-label/);
+});

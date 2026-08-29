@@ -64,3 +64,20 @@ test('the colour is used, and a missing one does not become "undefined"', () => 
   const plain = presenceCursor({ name: 'A' });
   assert.doesNotMatch(plain.getAttribute('style') ?? '', /undefined/);
 });
+
+test('the label carries the class the stylesheet fades', () => {
+  // Our own class rather than y-prosemirror's structure, which would break
+  // silently on an upgrade — the label would simply stop fading and nobody
+  // would connect that to a dependency bump.
+  const cursor = presenceCursor({ name: 'Markus', color: '#2563eb' });
+  assert.ok(cursor.querySelector('.sone-caret-label'), 'the label is targetable');
+});
+
+test('the caret bar itself is not the thing that fades', () => {
+  // The bar says where somebody is and stays; only the name goes quiet. A
+  // caret that vanished entirely would hide that another person is in the
+  // document at all.
+  const cursor = presenceCursor({ name: 'Markus', color: '#2563eb' });
+  assert.ok(cursor.classList.contains('ProseMirror-yjs-cursor'));
+  assert.match(cursor.getAttribute('style') ?? '', /border-color/);
+});

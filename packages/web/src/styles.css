@@ -2893,3 +2893,39 @@ select {
   border-color: var(--sone-accent);
   outline: none;
 }
+
+/* --- somebody else's caret ---
+ *
+ * The bar stays; the name fades.
+ *
+ * A name beside a caret says "somebody is working here". Left on screen it goes
+ * on saying that long after they stopped, and with two or three people the
+ * labels become furniture — sitting inside a paragraph, covering the text they
+ * annotate.
+ *
+ * An animation rather than a timer: y-prosemirror rebuilds the decoration when
+ * awareness changes, so a moving caret makes a new element and restarts this,
+ * while a caret that has not moved keeps its element and the animation finishes.
+ * Movement resets it for free, with no timer to leak.
+ */
+.sone-caret-label {
+  animation: sone-caret-label-fade 5s ease-out forwards;
+}
+
+@keyframes sone-caret-label-fade {
+  0%, 60% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-2px); }
+}
+
+/* Hovering the caret brings the name back, so it can still be identified after
+   it has faded — the information is not gone, only quiet. */
+.ProseMirror-yjs-cursor:hover .sone-caret-label {
+  animation: none;
+  opacity: 1;
+}
+
+/* Somebody who prefers less motion gets the same outcome without the
+   transition: the label is simply not shown after its moment. */
+@media (prefers-reduced-motion: reduce) {
+  .sone-caret-label { animation-duration: 5s; animation-timing-function: step-end; }
+}
