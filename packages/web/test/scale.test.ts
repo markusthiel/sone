@@ -424,3 +424,17 @@ test('nothing frames a block that runs to both edges', () => {
   // both edges has no ends to mark, and the frame reads as a mistake.
   assert.match(css, /\[data-width='full'\] img[\s\S]{0,160}border-radius: 0/);
 });
+
+test('the icon picker scrolls in one direction only', () => {
+  // Eight fixed columns cannot be narrower than their contents, so the grid
+  // overflowed and scrolled sideways as well as down — two directions to search
+  // in, when the list only goes one way.
+  assert.match(css, /\.entry-icon-grid[^}]*grid-template-columns: repeat\(auto-fill/);
+  assert.match(css, /\.entry-icon-grid[^}]*overflow-x: hidden/);
+});
+
+test('the colour swatches land in whole rows', () => {
+  // Nine of them: "as designed" and eight colours. Wrapping gave a row of seven
+  // and a stray pair, which reads as a mistake.
+  assert.match(css, /\.block-menu-swatches[^}]*grid-template-columns: repeat\(9/);
+});

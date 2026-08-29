@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the icon picker scrolled sideways as well as down.** It fits as many
+columns as the menu is wide now. The colour swatches also land in whole rows
+rather than a row of seven and a stray pair.
+
 **Every icon in the set is available, with a search box to find one.** Type
 "boat" rather than hunting through squares. The curated fifty are gone; a name is
 now checked by shape rather than against a list, and an entry whose icon a
