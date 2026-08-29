@@ -277,7 +277,93 @@ export function detectType(bytes: Buffer): DetectedType | null {
     return { mime: 'application/pdf', extension: 'pdf' };
   }
 
+  // The modern Office formats are ZIP containers, and so are a great many other
+  // things. The archive's first entry names the format — `word/`, `xl/`, `ppt/`
+  // — and that is what tells them apart. Read from the local file header rather
+  // than the central directory: it is at a known offset, and a file whose
+  // directory disagrees with its first entry is not one to trust anyway.
+  if (startsWith(0x50, 0x4b, 0x03, 0x04)) {
+    const nameLength = bytes.readUInt16LE(26);
+    const first = bytes.subarray(30, 30 + Math.min(nameLength, 64)).toString('ascii');
+
+    if (first.startsWith('word/')) {
+      return {
+        mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        extension: 'docx',
+      };
+    }
+    if (first.startsWith('xl/')) {
+      return {
+        mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        extension: 'xlsx',
+      };
+    }
+    if (first.startsWith('ppt/')) {
+      return {
+        mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        extension: 'pptx',
+      };
+    }
+    // OpenDocument writes an uncompressed `mimetype` entry first, by
+    // specification, precisely so the format can be identified this way.
+    if (first === 'mimetype') {
+      const declared = bytes.subarray(38, 38 + 64).toString('ascii');
+      if (declared.startsWith('application/vnd.oasis.opendocument.text')) {
+        return { mime: 'application/vnd.oasis.opendocument.text', extension: 'odt' };
+      }
+      if (declared.startsWith('application/vnd.oasis.opendocument.spreadsheet')) {
+        return { mime: 'application/vnd.oasis.opendocument.spreadsheet', extension: 'ods' };
+      }
+    }
+    // A zip that is not an office document. Stored as one rather than refused:
+    // an archive is a legitimate attachment, and refusing it would mean the
+    // only way to attach one is to rename it.
+    return { mime: 'application/zip', extension: 'zip' };
+  }
+
+  // The pre-2007 Office formats share one OLE container and cannot be told
+  // apart without parsing it. Reported as the container, which is honest: the
+  // interface offers it for download and does not claim to know which
+  // application it belongs to.
+  if (startsWith(0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1)) {
+    return { mime: 'application/x-ole-storage', extension: 'doc' };
+  }
+
+  // Text last, and only if the bytes look like text.
+  //
+  // Checked rather than assumed: "not a format I recognise" is not the same as
+  // "plain text", and storing an unknown binary as text/plain would have the
+  // browser try to display it.
+  if (looksLikeText(bytes)) {
+    return { mime: 'text/plain', extension: 'txt' };
+  }
+
   return null;
+}
+
+/**
+ * Does this look like text rather than a binary?
+ *
+ * A NUL byte settles it: no text encoding this application would accept
+ * produces one, and every binary format of any size has them. Beyond that, a
+ * high proportion of control characters means binary.
+ *
+ * Deliberately simple. The cost of guessing wrong is a file offered as text
+ * that renders as noise, not a security problem — the type is never taken from
+ * what the client declared, and text/plain is served with the same nosniff and
+ * sandbox headers as everything else.
+ */
+function looksLikeText(bytes: Buffer): boolean {
+  const sample = bytes.subarray(0, 4096);
+  if (sample.length === 0) return false;
+
+  let control = 0;
+  for (const byte of sample) {
+    if (byte === 0) return false;
+    // Tab, newline and carriage return are text; the rest of C0 is not.
+    if (byte < 0x09 || (byte > 0x0d && byte < 0x20)) control++;
+  }
+  return control / sample.length < 0.05;
 }
 
 /**
@@ -296,3 +382,33 @@ export const INLINE_IMAGE_TYPES = new Set([
 ]);
 
 export const isInlineImage = (mime: string): boolean => INLINE_IMAGE_TYPES.has(mime);
+
+/**
+ * What kind of thing a file is, for the interface to decide how to show it.
+ *
+ * Deliberately coarse. The honest division is not by application but by what a
+ * browser can actually render: an image and a PDF it draws, text it displays,
+ * and a Word or Excel file it cannot open at all without a converter this
+ * project does not have. Calling the last group 'document' rather than
+ * pretending to preview it is the difference between a card that says what it
+ * is and a viewer that shows an error.
+ */
+export type FileCategory = 'image' | 'pdf' | 'text' | 'document' | 'archive';
+
+export function categoryOf(mime: string): FileCategory {
+  if (mime.startsWith('image/')) return 'image';
+  if (mime === 'application/pdf') return 'pdf';
+  if (mime.startsWith('text/')) return 'text';
+  if (mime === 'application/zip') return 'archive';
+  return 'document';
+}
+
+/**
+ * Types the browser will render in place, given the headers this server sends.
+ *
+ * A PDF renders in an iframe; text renders as text. Everything else is offered
+ * as a file — which is not a limitation to apologise for, it is what a browser
+ * can do.
+ */
+export const isInlineViewable = (mime: string): boolean =>
+  isInlineImage(mime) || mime === 'application/pdf' || mime.startsWith('text/');
