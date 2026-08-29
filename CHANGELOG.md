@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a toggle could not be filled on a phone.** Its content is the blocks
+indented under it, and indenting was only possible with Tab — which a phone
+keyboard does not have. The ⋮⋮ menu now has In and Out, so nesting works
+without a keyboard.
+
 **Fixed: the page zoomed itself on a phone.** Tapping a small search or filter
 field made iOS magnify the whole page, and it does not zoom back out — the next
 gesture to fix that often landed on pull-to-refresh instead. Form controls are

@@ -437,6 +437,35 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
             );
           })}
 
+          {/* Moving a block in and out.
+            *
+            * Only Tab did this, and a phone keyboard has no Tab key — so on a
+            * touch device there was no way to indent anything at all. That is
+            * what made a toggle unusable there: its content *is* the blocks
+            * indented under it, so without indenting a toggle can have a title
+            * and nothing inside it, which is exactly what was reported. */}
+          <div className="block-menu-group">
+            <p className="block-menu-label">Nesting</p>
+            <div className="block-menu-choices" role="group" aria-label="Nesting">
+              <button
+                type="button"
+                role="menuitem"
+                className="block-menu-choice"
+                {...popupItem(() => run(outdentBlockSubtree))}
+              >
+                ← Out
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="block-menu-choice"
+                {...popupItem(() => run(indentBlockSubtree))}
+              >
+                → In
+              </button>
+            </div>
+          </div>
+
           {/* How this block looks.
             *
             * Only the settings that mean something for its type: width on a
