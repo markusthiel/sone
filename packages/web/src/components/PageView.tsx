@@ -150,9 +150,12 @@ export function PageStatus({ handle, connectionState, failure }: {
         aria-hidden="true"
       />
       <span
-        className={persistent ? 'error' : 'muted'}
+        // status-text so the bar can truncate it. A long status — "Cannot reach
+        // the sync server" — wrapped onto three lines and took the row's height
+        // with it, so losing the connection also rearranged the page.
+        className={`status-text ${persistent ? 'error' : 'muted'}`}
         style={{ fontSize: '0.85rem' }}
-        title={persistent ? FAILURE_DETAIL[persistent.kind] : undefined}
+        title={persistent ? FAILURE_DETAIL[persistent.kind] : label}
       >
         {label}
       </span>
