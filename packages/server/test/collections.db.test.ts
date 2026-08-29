@@ -657,6 +657,90 @@ describe(
       );
     });
 
+    test('a view\'s rules can be changed, and take effect', async () => {
+      // The query side was built and tested with no way to reach it: the rules
+      // could only be set when the view was created. A half-feature looks
+      // finished from the outside, which is worse than none.
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Count',
+        fieldType: 'number',
+      });
+
+      for (const [title, value] of [
+        ['big', 10],
+        ['small', 2],
+      ] as Array<[string, number]>) {
+        const row = await addRow(session, collection, title);
+        await setValue(session, row, field, { kind: 'number', value });
+      }
+
+      const view = (await read(session, collection)).views[0]!;
+      assert.deepEqual(view.definition, {}, 'no rules to begin with');
+
+      await expectStatus(
+        await fetch(`${base}/api/collections/${collection}/views/${view.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({
+            definition: { filters: [{ fieldId: field, operator: 'gte', value: 9 }] },
+          }),
+        }),
+        200,
+      );
+
+      assert.deepEqual(
+        (await read(session, collection, view.id)).rows.map((row) => row.title),
+        ['big'],
+      );
+    });
+
+    test('clearing the rules shows every row again', async () => {
+      // The definition is replaced rather than merged: removing the last filter
+      // has to mean "no filters", and a merge cannot say that.
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Count',
+        fieldType: 'number',
+      });
+      const row = await addRow(session, collection, 'only');
+      await setValue(session, row, field, { kind: 'number', value: 1 });
+
+      const view = (await read(session, collection)).views[0]!;
+      const patch = (definition: Record<string, unknown>): Promise<Response> =>
+        fetch(`${base}/api/collections/${collection}/views/${view.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ definition }),
+        });
+
+      await patch({ filters: [{ fieldId: field, operator: 'gte', value: 9 }] });
+      assert.equal((await read(session, collection, view.id)).rows.length, 0);
+
+      await patch({});
+      assert.equal((await read(session, collection, view.id)).rows.length, 1);
+    });
+
+    test('a view that does not exist is refused', async () => {
+      const session = await setup();
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+
+      const res = await fetch(
+        `${base}/api/collections/${collection}/views/not-a-view`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ definition: {} }),
+        },
+      );
+      assert.equal(res.status, 404);
+    });
+
     test('a hostile filter value is a value, not SQL', async () => {
       const session = await setup();
       const page = await create(session, 'Notes', 'page', session.rootFolder);

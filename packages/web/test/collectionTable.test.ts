@@ -157,3 +157,42 @@ test('the interface handles every external slash item', () => {
   assert.match(source, /item\.id === 'collection'/);
   assert.match(source, /onPickImage\(\)/);
 });
+
+// --- view rules -------------------------------------------------------------
+
+test('only operators that mean something for the type are offered', () => {
+  // "Greater than" on text is not a stricter filter, it is a string comparison
+  // that returns the wrong rows quietly. The server skips such a filter, so
+  // offering it here would be a control that appears to do nothing.
+  const source = readFileSync(
+    new URL('../src/components/ViewRules.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /case 'number':/);
+  assert.match(source, /case 'date':/);
+  // multiSelect deliberately has no "is": the stored value is the whole set.
+  const multi = source.slice(source.indexOf("case 'multiSelect':"));
+  const untilNext = multi.slice(0, multi.indexOf('default:'));
+  assert.doesNotMatch(untilNext, /id: 'is'/);
+  assert.match(untilNext, /id: 'contains'/);
+});
+
+test('a rule that carries no value does not send one', () => {
+  // "is empty" asks whether a value exists at all; sending a value with it
+  // would be a rule the server reads as something else.
+  const source = readFileSync(
+    new URL('../src/components/ViewRules.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /operator !== 'isEmpty' && operator !== 'isNotEmpty'/);
+});
+
+test('saving rules keeps what else the view carried', () => {
+  // The definition is replaced wholesale, so dropping the rest would silently
+  // un-group a board the moment somebody sorted it.
+  const source = readFileSync(
+    new URL('../src/components/ViewRules.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /key !== 'filters' && key !== 'sort'/);
+});

@@ -2811,3 +2811,63 @@ select {
   color: var(--sone-text-muted);
 }
 .btn.subtle:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+
+/* --- a view's filters and sorting ---
+ *
+ * The query side of this existed for two releases with no way to reach it. A
+ * half-feature looks finished from the outside, which is worse than an absent
+ * one.
+ */
+.view-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-2);
+  margin-block-end: var(--sone-space-4);
+  padding: var(--sone-space-4);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+}
+.view-rules h3 {
+  margin: var(--sone-space-2) 0 0;
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+  color: var(--sone-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.view-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  flex-wrap: wrap;
+}
+.view-rule select,
+.view-rule input {
+  min-block-size: var(--sone-control);
+  padding-inline: var(--sone-space-2);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg);
+  font: inherit;
+  color: inherit;
+}
+.view-rule input { min-inline-size: 8rem; }
+.view-rule-remove {
+  min-block-size: var(--sone-control);
+  min-inline-size: var(--sone-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+}
+.view-rule-remove:hover { color: var(--sone-danger); }
+.view-rules-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sone-space-2);
+  margin-block-start: var(--sone-space-3);
+}
