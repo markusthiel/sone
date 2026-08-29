@@ -73,6 +73,8 @@ const viewable = (category: unknown): boolean =>
 class FileNodeView implements NodeView {
   readonly dom: HTMLElement;
   private attrs: Record<string, unknown>;
+  /** Set while a menu is open, so it can be closed from elsewhere. */
+  private closeMenu: (() => void) | null = null;
 
   constructor(
     node: PMNodeLike,
@@ -224,18 +226,43 @@ class FileNodeView implements NodeView {
     menu.setAttribute('role', 'menu');
     menu.hidden = true;
 
+    // Closing when a click lands anywhere else.
+    //
+    // `focusout` alone was not enough and left the menu open for good: Safari
+    // does not focus a button when it is clicked, so focus never entered the
+    // menu and never left it. A document listener is what actually observes
+    // "somebody is doing something else now".
+    //
+    // In the capture phase, so it runs before a handler inside the page can
+    // stop the event and leave the menu behind.
+    const onOutside = (event: Event): void => {
+      if (!wrap.contains(event.target as Node | null)) close();
+    };
+
     const close = (): void => {
       menu.hidden = true;
       trigger.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('click', onOutside, true);
+      this.closeMenu = null;
     };
 
     // click, not pointerdown — the rule everywhere here, and the cause of every
     // touch bug this project has had.
     trigger.addEventListener('click', (event) => {
       event.preventDefault();
+      // Only one menu at a time, including the menu of another file block.
+      if (this.closeMenu && this.closeMenu !== close) this.closeMenu();
+
       const open = menu.hidden;
       menu.hidden = !open;
       trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+      if (open) {
+        document.addEventListener('click', onOutside, true);
+        this.closeMenu = close;
+      } else {
+        close();
+      }
     });
 
     // Closed when the attention moves elsewhere. Without this the menu of a
@@ -311,8 +338,16 @@ class FileNodeView implements NodeView {
   update(node: PMNodeLike): boolean {
     if (node.type.name !== 'file') return false;
     this.attrs = node.attrs;
+    // The old menu is about to be discarded by render(), and its document
+    // listener would otherwise outlive the element it belongs to.
+    this.closeMenu?.();
     this.render();
     return true;
+  }
+
+  /** ProseMirror discards this view; the listener must not survive it. */
+  destroy(): void {
+    this.closeMenu?.();
   }
 
   /** Everything inside is this view's, not ProseMirror's. */
