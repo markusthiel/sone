@@ -409,14 +409,14 @@ test('the page cannot scroll sideways', () => {
   assert.doesNotMatch(css, /\.main \{[^}]*overflow-x: hidden/);
 });
 
-test('full width is stated as two edges, not as a centring', () => {
-  // The editor is padded on the left only, to make room for list markers, so a
-  // block's box starts inset by that much. Equal margins cannot put one edge at
-  // 0 and the other at the container's width — a small gap on the left, flush
-  // on the right, which is what was seen.
+test('full width is a centring, corrected for the left-only padding', () => {
+  // The reading column is centred in the page, so the breakout has to be a
+  // centring too. Replacing that with a fixed offset forgot the centring and
+  // pushed the block to the right — and the half-indent is the gap that was
+  // left on one side and not the other, since the editor pads only the left.
   const rule = css.slice(css.indexOf("[data-width='full'] {"));
-  assert.match(rule.slice(0, 300), /margin-inline-start: calc\(var\(--sone-text-indent\) \* -1\)/);
-  assert.match(rule.slice(0, 300), /margin-inline-end: 0/);
+  assert.match(rule.slice(0, 400), /50% - 50cqw - var\(--sone-text-indent\) \/ 2/);
+  assert.match(rule.slice(0, 400), /50% - 50cqw \+ var\(--sone-text-indent\) \/ 2/);
 });
 
 test('nothing frames a block that runs to both edges', () => {
