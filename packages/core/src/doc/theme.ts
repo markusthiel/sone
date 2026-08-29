@@ -67,9 +67,48 @@ export const THEME_COLORS = [
 ] as const;
 export type ThemeColor = (typeof THEME_COLORS)[number];
 
+/**
+ * A colour somebody chose: one of the eight names, or their own.
+ *
+ * One field, two shapes (ADR-0023). A name is what makes a workspace
+ * restylable — change what `blue` means and every blue thing follows — and a
+ * literal is the escape for the case a palette cannot cover. Distinguished by
+ * shape rather than by a second field, so nothing has two places to look.
+ */
+export type ChosenColor = ThemeColor | `#${string}`;
+
+/** Is this one of the eight? */
+export const isPaletteName = (value: unknown): value is ThemeColor =>
+  inList(THEME_COLORS, value);
+
+/** A colour of one's own. Six digits only: shorthand and alpha are not offered. */
+export const isCustomColor = (value: unknown): value is `#${string}` =>
+  typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+
+/** Either, or null for anything else. */
+export function readChosenColor(value: unknown): ChosenColor | null {
+  if (isPaletteName(value)) return value;
+  if (isCustomColor(value)) return value.toLowerCase() as `#${string}`;
+  return null;
+}
+
+/**
+ * What to put in a stylesheet for a chosen colour.
+ *
+ * A name becomes the workspace's variable, so it keeps following the palette; a
+ * literal is itself. Returning undefined for anything else is what lets an
+ * older client draw the design's own answer instead of breaking on a value it
+ * does not recognise.
+ */
+export function colorValue(value: unknown): string | undefined {
+  if (isPaletteName(value)) return `var(--sone-palette-${value})`;
+  if (isCustomColor(value)) return value;
+  return undefined;
+}
+
 export interface ElementTheme {
   size?: SizeStep;
-  color?: ThemeColor;
+  color?: ChosenColor;
   spaceAbove?: SpaceStep;
   spaceBelow?: SpaceStep;
 }
@@ -102,7 +141,8 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
     const element: ElementTheme = {};
 
     if (inList(SIZE_STEPS, entry['size'])) element.size = entry['size'];
-    if (inList(THEME_COLORS, entry['color'])) element.color = entry['color'];
+    const color = readChosenColor(entry['color']);
+    if (color) element.color = color;
     if (inList(SPACE_STEPS, entry['spaceAbove'])) element.spaceAbove = entry['spaceAbove'];
     if (inList(SPACE_STEPS, entry['spaceBelow'])) element.spaceBelow = entry['spaceBelow'];
 
@@ -136,8 +176,9 @@ export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
       // scale sees this workspace's proportions, larger.
       properties[`--sone-theme-${element}-size`] = `${(1.125 ** entry.size).toFixed(4)}`;
     }
-    if (entry.color !== undefined) {
-      properties[`--sone-theme-${element}-color`] = `var(--sone-palette-${entry.color})`;
+    const color = colorValue(entry.color);
+    if (color !== undefined) {
+      properties[`--sone-theme-${element}-color`] = color;
     }
     if (entry.spaceAbove !== undefined) {
       properties[`--sone-theme-${element}-space-above`] = `${entry.spaceAbove}`;
@@ -336,8 +377,8 @@ export interface EntryIcon {
   /** The field exists so a second kind could be added without a migration. */
   kind: 'icon';
   value: EntryIconName;
-  /** Palette name, or absent for the colour the design chooses. */
-  color?: ThemeColor;
+  /** A palette name or a colour of one's own; absent means the design decides. */
+  color?: ChosenColor;
 }
 
 /**
@@ -368,17 +409,16 @@ export function readEntryIcon(value: unknown): EntryIcon | null {
   const name = raw['value'];
   if (typeof name !== 'string' || !/^[a-z][a-z0-9-]{0,48}$/.test(name)) return null;
 
-  const color = raw['color'];
+  const color = readChosenColor(raw['color']);
   return {
     kind: 'icon',
     value: name,
-    ...(inList(THEME_COLORS, color) ? { color } : {}),
+    ...(color ? { color } : {}),
   };
 }
 
 /** A title colour, or null. Stored beside the icon, kept separate from it. */
-export function readTitleColor(value: unknown): ThemeColor | null {
+export function readTitleColor(value: unknown): ChosenColor | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const color = (value as Record<string, unknown>)['titleColor'];
-  return inList(THEME_COLORS, color) ? color : null;
+  return readChosenColor((value as Record<string, unknown>)['titleColor']);
 }

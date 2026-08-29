@@ -3146,7 +3146,7 @@ select {
   font-weight: 600;
 }
 
-/* Nine swatches: "as designed" and the eight colours.
+/* Ten swatches: "as designed", the eight colours, and one of your own.
  *
  * A grid rather than a wrapping row, so they land in one line or two full ones
  * instead of a line of seven and a stray pair — which is what wrapping gave and
@@ -3154,7 +3154,7 @@ select {
  */
 .block-menu-swatches {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
+  grid-template-columns: repeat(10, 1fr);
   gap: var(--sone-space-2);
   padding: var(--sone-space-2);
   justify-items: center;
@@ -3614,3 +3614,19 @@ body {
   font-size: var(--sone-text-sm);
   color: inherit;
 }
+
+/* A colour of one's own, in the swatch row.
+ *
+ * A native colour input, stripped of its chrome so it reads as a tenth swatch
+ * rather than as a form control that wandered in. Every platform has one people
+ * already know; a hand-built wheel would be a worse version of it.
+ */
+.block-menu-swatch.custom {
+  padding: 0;
+  border: 1px solid var(--sone-border);
+  background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+  cursor: pointer;
+}
+.block-menu-swatch.custom::-webkit-color-swatch-wrapper { padding: 0; }
+.block-menu-swatch.custom::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.block-menu-swatch.custom::-moz-color-swatch { border: 0; border-radius: 50%; }
