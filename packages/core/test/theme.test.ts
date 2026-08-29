@@ -81,40 +81,40 @@ test('a size is a multiplier, so it composes with the reading scale', () => {
 
 // --- entry icons ------------------------------------------------------------
 
-test('an emoji icon with a colour is read', () => {
-  assert.deepEqual(readEntryIcon({ kind: 'emoji', value: '📁', color: 'blue' }), {
-    kind: 'emoji',
-    value: '📁',
+test('an icon with a colour is read', () => {
+  assert.deepEqual(readEntryIcon({ kind: 'icon', value: 'folder', color: 'blue' }), {
+    kind: 'icon',
+    value: 'folder',
     color: 'blue',
   });
+});
+
+test('a name nothing can draw is refused', () => {
+  // Otherwise an entry renders a gap where its icon should be, and the gap
+  // appears long after whoever typed the name has forgotten about it.
+  assert.equal(readEntryIcon({ kind: 'icon', value: 'not-an-icon' }), null);
+  assert.equal(readEntryIcon({ kind: 'icon', value: 42 }), null);
 });
 
 test('a malformed icon yields null rather than throwing', () => {
   // It comes out of a document another client wrote, and an entry with a bad
   // icon should lose its icon and not its place in the tree.
-  for (const input of [null, 'folder', 42, [], { kind: 'lucide', value: 'folder' }, {}]) {
+  for (const input of [null, 'folder', 42, [], { kind: 'emoji', value: '📁' }, {}]) {
     assert.equal(readEntryIcon(input), null);
   }
 });
 
 test('a colour outside the palette is dropped, the icon kept', () => {
-  assert.deepEqual(readEntryIcon({ kind: 'emoji', value: '📁', color: '#ff0000' }), {
-    kind: 'emoji',
-    value: '📁',
+  assert.deepEqual(readEntryIcon({ kind: 'icon', value: 'folder', color: '#ff0000' }), {
+    kind: 'icon',
+    value: 'folder',
   });
-});
-
-test('a long value is refused', () => {
-  // An emoji is a handful of code points; a long string here is either a
-  // mistake or somebody putting a paragraph in the sidebar.
-  assert.equal(readEntryIcon({ kind: 'emoji', value: 'a'.repeat(40) }), null);
-  assert.equal(readEntryIcon({ kind: 'emoji', value: '   ' }), null);
 });
 
 test('the title colour is read separately from the icon', () => {
   // Colouring a name and colouring its icon are two decisions, and one is
   // commonly wanted without the other.
   assert.equal(readTitleColor({ titleColor: 'green' }), 'green');
-  assert.equal(readTitleColor({ kind: 'emoji', value: '📁' }), null);
+  assert.equal(readTitleColor({ kind: 'icon', value: 'folder' }), null);
   assert.equal(readTitleColor({ titleColor: 'chartreuse' }), null);
 });
