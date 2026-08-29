@@ -31,6 +31,8 @@
 
 import { docChannel } from '@sone/core';
 import * as awarenessProtocol from 'y-protocols/awareness';
+
+import { recordAttribution } from './attribution.js';
 import * as syncProtocol from 'y-protocols/sync';
 import * as decoding from 'lib0/decoding';
 import * as encoding from 'lib0/encoding';
@@ -151,6 +153,14 @@ export interface StoreOptions {
    * when the document is released.
    */
   persist?: (docId: string, doc: Y.Doc) => { destroy: () => void } | null;
+  /**
+   * Record who wrote what.
+   *
+   * On unless switched off (ADR-0022). Anonymous visitors are never recorded —
+   * they have no user id to record against, and attributing to "a guest" would
+   * make one contributor out of several people.
+   */
+  attribution?: boolean;
   log?: (msg: string, meta?: unknown) => void;
 }
 
@@ -263,6 +273,17 @@ export class DocumentStore {
     // anybody to resolve — which is the part of "offline editing" that is
     // usually hard and here is free.
     const persistence = this.opts.persist?.(docChannel(pageId), doc) ?? null;
+
+    // Record this session against the person editing (ADR-0022).
+    //
+    // Before anything is applied, so the mapping is in place for the first
+    // keystroke rather than for everything after the second. Attribution is not
+    // retroactive: an edit made before the mapping exists can never be
+    // attributed, because the information was simply not captured.
+    recordAttribution(doc, {
+      userId: this.opts.presence?.userId ?? null,
+      enabled: this.opts.attribution !== false,
+    });
 
     const entry: Entry = {
       pageId,
