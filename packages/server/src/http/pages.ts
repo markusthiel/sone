@@ -12,6 +12,8 @@
  */
 
 import {
+  readTitleColor,
+  readEntryIcon,
   DOC_KEYS,
   META_KEYS,
   PAGE_KEYS,
@@ -574,11 +576,54 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
 
     const title = body.title.trim().slice(0, 512);
 
+    // An icon and the two colours around it, when the request carries them.
+    //
+    // Stored in the same jsonb the schema has had a column for since the first
+    // migration and nothing ever wrote. The title colour lives beside the icon
+    // rather than inside it: colouring a name and colouring its icon are two
+    // decisions, and one is commonly wanted without the other.
+    const wantsIcon = 'icon' in body;
+    const wantsTitleColor = 'titleColor' in body;
+
+    const icon = wantsIcon ? readEntryIcon(body.icon) : undefined;
+    const titleColor = wantsTitleColor
+      ? readTitleColor({ titleColor: body.titleColor })
+      : undefined;
+
     const result = await applyToDocument(
       deps.pool,
       pageId,
       (doc) => {
-        doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.title, title);
+        const page = doc.getMap(DOC_KEYS.page);
+        page.set(PAGE_KEYS.title, title);
+
+        if (wantsIcon || wantsTitleColor) {
+          const existing = page.get(PAGE_KEYS.icon);
+          const current =
+            existing && typeof existing === 'object' && !Array.isArray(existing)
+              ? (existing as Record<string, unknown>)
+              : {};
+
+          const next: Record<string, unknown> = { ...current };
+          // Null clears rather than storing a default, the same distinction
+          // block attributes make: an entry with no icon has to keep following
+          // whatever the tree draws by default.
+          if (wantsIcon) {
+            if (icon) Object.assign(next, icon);
+            else {
+              delete next['kind'];
+              delete next['value'];
+              delete next['color'];
+            }
+          }
+          if (wantsTitleColor) {
+            if (titleColor) next['titleColor'] = titleColor;
+            else delete next['titleColor'];
+          }
+
+          if (Object.keys(next).length === 0) page.delete(PAGE_KEYS.icon);
+          else page.set(PAGE_KEYS.icon, next);
+        }
       },
       actorId,
     );
@@ -589,7 +634,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       await rematerialize(deps.pool, pageId, page.workspaceId, actorId);
     }
 
-    ctx.send(200, { id: pageId, title });
+    ctx.send(200, { id: pageId, title, ...(wantsIcon ? { icon } : {}), ...(wantsTitleColor ? { titleColor } : {}) });
   });
 
   /**

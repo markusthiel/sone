@@ -1505,6 +1505,86 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.deepEqual(await workspaceTags(session), []);
   });
 
+  test('an icon and its colours are stored and projected', async () => {
+    // The column and the document key have existed since the first migration
+    // and nothing ever wrote one.
+    const session = await setup();
+    const page = await createPage(session, 'Folder');
+
+    await expectStatus(
+      await fetch(`${base}/api/pages/${page}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({
+          title: 'Folder',
+          icon: { kind: 'emoji', value: '📁', color: 'blue' },
+          titleColor: 'green',
+        }),
+      }),
+      200,
+    );
+
+    const stored = await db.query<{ icon: Record<string, unknown> }>(
+      `SELECT icon FROM pages WHERE id = $1`,
+      [page],
+    );
+    assert.deepEqual(stored.rows[0]?.icon, {
+      kind: 'emoji',
+      value: '📁',
+      color: 'blue',
+      titleColor: 'green',
+    });
+  });
+
+  test('clearing an icon leaves the title colour alone', async () => {
+    // They are two decisions, and one is commonly wanted without the other.
+    const session = await setup();
+    const page = await createPage(session, 'Folder');
+    const patch = (body: Record<string, unknown>): Promise<Response> =>
+      fetch(`${base}/api/pages/${page}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ title: 'Folder', ...body }),
+      });
+
+    await patch({ icon: { kind: 'emoji', value: '📁' }, titleColor: 'red' });
+    await expectStatus(await patch({ icon: null }), 200);
+
+    const stored = await db.query<{ icon: Record<string, unknown> | null }>(
+      `SELECT icon FROM pages WHERE id = $1`,
+      [page],
+    );
+    assert.deepEqual(stored.rows[0]?.icon, { titleColor: 'red' });
+  });
+
+  test('a rename does not disturb an icon', async () => {
+    // Titles are renamed far more often than icons are set, and losing one to
+    // the other would be a quiet, repeated annoyance.
+    const session = await setup();
+    const page = await createPage(session, 'Folder');
+    await fetch(`${base}/api/pages/${page}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: session.cookie },
+      body: JSON.stringify({ title: 'Folder', icon: { kind: 'emoji', value: '📁' } }),
+    });
+
+    await expectStatus(
+      await fetch(`${base}/api/pages/${page}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ title: 'Renamed' }),
+      }),
+      200,
+    );
+
+    const stored = await db.query<{ title: string; icon: Record<string, unknown> | null }>(
+      `SELECT title, icon FROM pages WHERE id = $1`,
+      [page],
+    );
+    assert.equal(stored.rows[0]?.title, 'Renamed');
+    assert.deepEqual(stored.rows[0]?.icon, { kind: 'emoji', value: '📁' });
+  });
+
   test('tags are stored and projected', async () => {
     const session = await setup();
     const pageId = await createPage(session, 'Tagged');

@@ -149,3 +149,61 @@ export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
 
   return properties;
 }
+
+// --- entry appearance -------------------------------------------------------
+
+/**
+ * An entry's own icon and the colours around it.
+ *
+ * `pages.icon` has been a jsonb column and a document key since the first
+ * migration, and nothing ever wrote one. This is the shape that goes in it.
+ *
+ * Emoji rather than an icon set. A named set means shipping it, keeping it, and
+ * telling somebody their icon is gone when it is dropped; an emoji is text that
+ * every platform already draws and that survives an export to anything.
+ *
+ * The two colours are separate on purpose. Colouring a folder's name and its
+ * icon together is one decision made twice, and a coloured icon beside a plain
+ * name is a common thing to want — the other way round is rarer but not ours to
+ * forbid.
+ */
+export interface EntryIcon {
+  /** Only 'emoji' for now; the field exists so a second kind needs no migration. */
+  kind: 'emoji';
+  value: string;
+  /** Palette name, or absent for the colour the design chooses. */
+  color?: ThemeColor;
+}
+
+/**
+ * Read an icon from whatever is stored, or null.
+ *
+ * Unknown shapes yield null rather than throwing: this comes out of a document
+ * another client wrote, and an entry with a malformed icon should lose its icon
+ * and not its place in the tree.
+ */
+export function readEntryIcon(value: unknown): EntryIcon | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const raw = value as Record<string, unknown>;
+  if (raw['kind'] !== 'emoji') return null;
+
+  const text = typeof raw['value'] === 'string' ? raw['value'].trim() : '';
+  // Bounded: an emoji is a handful of code points, and a long string here is
+  // either a mistake or somebody putting a paragraph in the sidebar.
+  if (text === '' || [...text].length > 8) return null;
+
+  const color = raw['color'];
+  return {
+    kind: 'emoji',
+    value: text,
+    ...(inList(THEME_COLORS, color) ? { color } : {}),
+  };
+}
+
+/** A title colour, or null. Stored beside the icon, kept separate from it. */
+export function readTitleColor(value: unknown): ThemeColor | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const color = (value as Record<string, unknown>)['titleColor'];
+  return inList(THEME_COLORS, color) ? color : null;
+}

@@ -9,7 +9,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { sanitiseTheme, themeProperties } from '../src/doc/theme.js';
+import {
+  readEntryIcon,
+  readTitleColor,
+  sanitiseTheme,
+  themeProperties,
+} from '../src/doc/theme.js';
 
 test('a usable setting survives', () => {
   assert.deepEqual(sanitiseTheme({ heading1: { size: 2, color: 'blue' } }), {
@@ -72,4 +77,44 @@ test('a size is a multiplier, so it composes with the reading scale', () => {
   assert.ok(Number(bigger['--sone-theme-heading1-size']) > 1);
   assert.ok(Number(smaller['--sone-theme-heading1-size']) < 1);
   assert.equal(themeProperties({ heading1: { size: 0 } })['--sone-theme-heading1-size'], '1.0000');
+});
+
+// --- entry icons ------------------------------------------------------------
+
+test('an emoji icon with a colour is read', () => {
+  assert.deepEqual(readEntryIcon({ kind: 'emoji', value: '📁', color: 'blue' }), {
+    kind: 'emoji',
+    value: '📁',
+    color: 'blue',
+  });
+});
+
+test('a malformed icon yields null rather than throwing', () => {
+  // It comes out of a document another client wrote, and an entry with a bad
+  // icon should lose its icon and not its place in the tree.
+  for (const input of [null, 'folder', 42, [], { kind: 'lucide', value: 'folder' }, {}]) {
+    assert.equal(readEntryIcon(input), null);
+  }
+});
+
+test('a colour outside the palette is dropped, the icon kept', () => {
+  assert.deepEqual(readEntryIcon({ kind: 'emoji', value: '📁', color: '#ff0000' }), {
+    kind: 'emoji',
+    value: '📁',
+  });
+});
+
+test('a long value is refused', () => {
+  // An emoji is a handful of code points; a long string here is either a
+  // mistake or somebody putting a paragraph in the sidebar.
+  assert.equal(readEntryIcon({ kind: 'emoji', value: 'a'.repeat(40) }), null);
+  assert.equal(readEntryIcon({ kind: 'emoji', value: '   ' }), null);
+});
+
+test('the title colour is read separately from the icon', () => {
+  // Colouring a name and colouring its icon are two decisions, and one is
+  // commonly wanted without the other.
+  assert.equal(readTitleColor({ titleColor: 'green' }), 'green');
+  assert.equal(readTitleColor({ kind: 'emoji', value: '📁' }), null);
+  assert.equal(readTitleColor({ titleColor: 'chartreuse' }), null);
 });
