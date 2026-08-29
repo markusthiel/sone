@@ -88,3 +88,18 @@ test('the bridge is one command, and is cleared when the editor goes', () => {
   );
   assert.match(surface, /registerHighlighter\(null\)/, 'cleared on teardown');
 });
+
+test('the chosen person does not travel to the next page', () => {
+  // A new page means a new editor, which draws nothing until asked — so a
+  // selection left showing would claim a highlight that is not on screen. This
+  // is a way of looking at one document, not a setting.
+  const effect = source.slice(source.indexOf('useEffect(() => {'));
+  assert.match(effect.slice(0, 400), /setSelected\(null\)/);
+});
+
+test('nothing about the highlight is written to the document', () => {
+  // It is a way of looking, not a change: no marks, no attributes, nothing
+  // another person would see or that would survive a reload.
+  assert.doesNotMatch(source, /doc\.transact/);
+  assert.doesNotMatch(source, /\.set\(/);
+});
