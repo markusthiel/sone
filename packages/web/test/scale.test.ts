@@ -13,10 +13,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+
+import { codeOf } from './helpers/source.ts';
 
 const raw = readFileSync(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/styles.css'),
@@ -299,4 +301,60 @@ test('no rule targets a class the editor never emits', () => {
 
 test('paragraph spacing is decided here, not by the browser', () => {
   assert.match(css, /\.ProseMirror p\[data-block\][^}]*margin-block/);
+});
+
+test('an element that can be hidden is not forced visible by a display rule', () => {
+  // This is why a file block's menu stayed open, and why no amount of event
+  // handling could have fixed it: the browser's rule for [hidden] is
+  // `display: none`, and any class selector setting `display` beats it. The
+  // element carried hidden="" and rendered anyway.
+  //
+  // Checked rather than remembered, because the mistake is invisible in both
+  // files on their own — the component looks right, the stylesheet looks right,
+  // and only the pair is wrong.
+  const components = readdirSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/components'),
+  ).filter((name) => name.endsWith('.tsx') || name.endsWith('.ts'));
+
+  const offenders: string[] = [];
+
+  for (const file of components) {
+    // Without comments, and `aria-hidden` is not `hidden` — a first version
+    // counted both and produced nine hits of which one was real. A check with
+    // eight false positives is one nobody reads.
+    const source = codeOf(
+      new URL(`../src/components/${file}`, import.meta.url),
+    );
+
+    // Elements that carry both a class and `hidden`, in either order, close
+    // enough together to be the same tag.
+    const pairs = [
+      // The attribute, not the word. `aria-hidden` and `visibility: 'hidden'`
+      // both contain it and neither hides anything the browser's [hidden] rule
+      // would act on — counting them produced nine hits of which one was real,
+      // and a check with eight false positives is one nobody reads.
+      //
+      // Lookaheads rather than plain matches, so one pair does not consume the
+      // text a later pair sits in. Written the obvious way first, it found the
+      // trigger's class, swallowed the next eighty characters, and missed the
+      // menu's — the one element with the bug. The check passed while the bug
+      // was present, which is the worst thing a check can do.
+      ...source.matchAll(
+        /className="([a-z0-9-]+)"(?=[\s\S]{0,200}?(?<![-\w'"])hidden(?=[\s=/>]))/g,
+      ),
+      ...source.matchAll(
+        /(?<![-\w'"])hidden(?=[\s=/>])(?=[\s\S]{0,200}?className="([a-z0-9-]+)")/g,
+      ),
+      ...source.matchAll(/className = '([a-z0-9-]+)'(?=[\s\S]{0,400}?\.hidden\s*=)/g),
+    ];
+
+    for (const [, className] of pairs) {
+      const rule = new RegExp(`\\.${className}\\s*\\{[^}]*display\\s*:`);
+      if (!rule.test(css)) continue;
+      if (css.includes(`.${className}[hidden]`)) continue;
+      offenders.push(`${file}: .${className}`);
+    }
+  }
+
+  assert.deepEqual(offenders, [], `display beats hidden: ${offenders.join(', ')}`);
 });

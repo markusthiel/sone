@@ -3150,6 +3150,19 @@ select {
 }
 .file-menu-trigger:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
 
+/* `hidden` has to win over `display`.
+ *
+ * This is why the menu stayed open, and no event handling could have fixed it:
+ * the browser's own rule for [hidden] is `display: none`, and any class
+ * selector setting `display` beats it. The element carried hidden="" the whole
+ * time and rendered anyway.
+ *
+ * Stated on the class rather than globally, because a global `[hidden]
+ * { display: none !important }` would silently override every other component
+ * that has thought about this.
+ */
+.file-menu-items[hidden] { display: none; }
+
 .file-menu-items {
   position: absolute;
   z-index: 20;
