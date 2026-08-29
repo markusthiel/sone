@@ -508,6 +508,37 @@ describe(
       assert.equal(res.headers.get('content-type'), 'image/png');
     });
 
+    test('a share visitor can load a PDF, not only an image', async () => {
+      // Reported from a shared link: the viewer showed {"error":"internal"}
+      // where the document should be. An image in the same page worked, so the
+      // difference is in what a PDF takes to serve rather than in the sharing.
+      const session = await setup();
+      const uploaded = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PDF, 'doc.pdf'),
+        201,
+      );
+
+      await db.query(
+        `INSERT INTO share_tokens
+           (workspace_id, scope_page_id, include_subtree, role, token_hash,
+            allow_anonymous, created_by)
+         VALUES ($1,$2,true,'viewer',$3,true,$4)`,
+        [
+          session.workspaceId,
+          session.pageId,
+          createHash('sha256').update('a-pdf-share-token', 'utf8').digest(),
+          session.userId,
+        ],
+      );
+
+      const res = await fetch(`${base}/api/files/${uploaded.id}`, {
+        headers: { cookie: 'sone_share=a-pdf-share-token' },
+      });
+      const body = res.status === 200 ? '' : await res.text();
+      assert.equal(res.status, 200, body);
+      assert.equal(res.headers.get('content-type'), 'application/pdf');
+    });
+
     test('a guest with edit rights can upload', async () => {
       // Reported as "the image shows as text": the upload was refused with 401,
       // and an image block with no URL renders the filename as a label. So it
