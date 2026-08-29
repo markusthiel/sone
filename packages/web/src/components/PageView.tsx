@@ -7,14 +7,11 @@
  */
 
 import type { PageHandle } from '@sone/client';
-import { DOC_KEYS, PAGE_KEYS, collectionIds } from '@sone/core';
+import { DOC_KEYS, PAGE_KEYS } from '@sone/core';
 import { useEffect, useState , type ReactElement } from 'react';
 
 import { EditorSurface } from './EditorSurface.tsx';
-import { api } from '../api/client.ts';
-import { CollectionTable } from './CollectionTable.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
-import { TableIcon } from './icons.tsx';
 
 interface PageViewProps {
   handle: PageHandle;
@@ -98,73 +95,10 @@ export function PageView({ handle, pageId, onTitleChange }: PageViewProps): Reac
         <EditorSurface handle={handle} pageId={pageId} />
       </ErrorBoundary>
 
-      {/* Collections held by this page, beneath the writing.
-        *
-        * A collection is content inside a page (ADR-0021), and this is the
-        * simplest honest place for it until the `collectionView` block can be
-        * placed in the flow of the text. That block exists in the schema and is
-        * the next step; putting the table here first means the model is right
-        * even while the placement is not yet.
-        *
-        * Its own boundary: a table that fails must not take the page's writing
-        * with it. */}
-      <ErrorBoundary where="The tables on this page">
-        <PageCollections handle={handle} pageId={pageId} />
-      </ErrorBoundary>
     </div>
   );
 }
 
-/**
- * Every collection this page holds.
- *
- * Read from the document rather than fetched, so a collection added by somebody
- * else appears without a reload — the ids are in the page's own CRDT, which is
- * already open and already syncing.
- */
-function PageCollections({
-  handle,
-  pageId,
-}: {
-  handle: PageHandle;
-  pageId: string;
-}): ReactElement | null {
-  const [ids, setIds] = useState<string[]>(() => collectionIds(handle.doc));
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const read = (): void => setIds(collectionIds(handle.doc));
-    read();
-    handle.doc.on('update', read);
-    return () => handle.doc.off('update', read);
-  }, [handle.doc]);
-
-  const add = (): void => {
-    setBusy(true);
-    void api
-      .createCollection(pageId)
-      .then((created) => setIds((current) => [...current, created.collectionId]))
-      .catch(() => {
-        // The document observer will pick it up if it did land; otherwise the
-        // button simply stays available.
-      })
-      .finally(() => setBusy(false));
-  };
-
-  return (
-    <div className="page-collections">
-      {ids.map((id) => (
-        <CollectionTable key={id} collectionId={id} />
-      ))}
-
-      {handle.canEdit && (
-        <button type="button" className="btn subtle" disabled={busy} onClick={add}>
-          <TableIcon /> Add a table
-        </button>
-      )}
-    </div>
-  );
-}
 
 /**
  * Connection state and who else is here.

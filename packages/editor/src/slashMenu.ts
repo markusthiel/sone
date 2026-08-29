@@ -168,6 +168,31 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     action: { kind: 'insert', build: () => buildTable({ rows: 3, columns: 3 }) },
   },
   {
+    id: 'collection',
+    title: 'Table of entries',
+    hint: 'A collection: rows with columns, each row a page of its own',
+    keywords: [
+      'collection',
+      'database',
+      'grid',
+      'board',
+      'entries',
+      'records',
+      'list',
+      'sammlung',
+      'datenbank',
+    ],
+    group: 'blocks',
+    // External for the same reason the image is: the collection has to be
+    // created on the server before there is an id to put in the node, and a
+    // transaction cannot wait for a request.
+    //
+    // Deliberately not called "Table": that is the simple grid above, and two
+    // things called the same thing in one menu is a worse problem than a longer
+    // name.
+    action: { kind: 'external' },
+  },
+  {
     id: 'divider',
     title: 'Divider',
     hint: 'Horizontal rule',

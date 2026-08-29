@@ -20,6 +20,7 @@ import type { EditorView } from 'prosemirror-view';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { BlockMenu } from './BlockMenu.tsx';
+import { soneNodeViews } from './CollectionNodeView.tsx';
 import { SelectionToolbar } from './SelectionToolbar.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
 import { TableToolbar } from './TableToolbar.tsx';
@@ -39,6 +40,35 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
   // dialog opened, somebody chose a photo, and the element that would have
   // heard about it no longer existed. Nothing happened, with no error.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  /**
+   * Create a collection and place a block for it at the caret.
+   *
+   * The server first, then the document: the block carries the collection's id,
+   * and there is no id until the collection exists. The other order would need
+   * a placeholder node and a way to repair one whose request failed — a lot of
+   * machinery to avoid one round trip.
+   *
+   * If the request fails, nothing is inserted and the error is shown. An empty
+   * block promising a table that was never created is worse than no block.
+   */
+  const insertCollection = useCallback(async (): Promise<void> => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    try {
+      const created = await api.createCollection(pageId);
+      const type = view.state.schema.nodes['collectionView'];
+      if (!type) return;
+
+      const node = type.create({ collectionId: created.collectionId });
+      view.dispatch(view.state.tr.replaceSelectionWith(node));
+      view.focus();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  }, [pageId]);
 
   const uploader = useCallback(
     async (file: File) => {
@@ -67,6 +97,14 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
   // Bumped on every transaction. The slash menu opens, filters and closes
   // without the document changing, so nothing else would prompt a re-render.
   const [revision, setRevision] = useState(0);
+  /**
+   * A failure that has nowhere else to go.
+   *
+   * A failed image upload becomes a block in the document and says so there. A
+   * failed collection has no block — that is the point, nothing is inserted —
+   * so it needs somewhere to be said. Silent is the one option not available.
+   */
+  const [error, setError] = useState<string | null>(null);
 
   // `canEdit` is read through a ref so the editor sees the current value
   // without being recreated. A role can change while a page is open — the
@@ -92,6 +130,10 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
       editable: () => canEditRef.current,
       onStateChange: () => setRevision((n) => n + 1),
       uploadImage: uploader,
+      // A collection is a block in the text (ADR-0021), and this is what draws
+      // it. The node is an atom, so ProseMirror never descends into what React
+      // mounts there.
+      nodeViews: soneNodeViews,
     });
     viewRef.current = created;
     setView(created);
@@ -115,6 +157,8 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
 
   return (
     <>
+      {error && <p className="error">{messageFor(error)}</p>}
+
       <div
         className="editor-surface"
         ref={mountRef}
@@ -150,6 +194,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
             view={view}
             revision={revision}
             onPickImage={() => fileInputRef.current?.click()}
+            onInsertCollection={() => void insertCollection()}
           />
           <BlockMenu view={view} revision={revision} />
           <TableToolbar view={view} revision={revision} />

@@ -12,6 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { optionsOf, textOf } from '../src/components/CollectionTable.tsx';
@@ -102,4 +103,57 @@ test('a missing colour becomes grey rather than undefined', () => {
     config: { options: [{ id: 'o1', name: 'Todo' }] },
   });
   assert.equal(options[0]!.color, 'grey');
+});
+
+// --- the collection block ---------------------------------------------------
+
+test('the node view keeps ProseMirror out of the table', () => {
+  // Two libraries owning one subtree is a bug factory. The boundary is
+  // explicit: ProseMirror owns the div, React owns everything inside it.
+  const source = readFileSync(
+    new URL('../src/components/CollectionNodeView.tsx', import.meta.url),
+    'utf8',
+  );
+
+  // Without this, typing in a cell is handled as typing in the document.
+  assert.match(source, /stopEvent\(\): boolean \{\s*return true;/);
+  // Without this, ProseMirror tries to reconcile what React rendered.
+  assert.match(source, /ignoreMutation\(\): boolean \{\s*return true;/);
+  assert.match(source, /contentEditable = 'false'/);
+});
+
+test('an update in place does not remount the table', () => {
+  // Returning false would have ProseMirror destroy and rebuild the node view,
+  // unmounting React and losing whatever was half-typed in a cell.
+  const source = readFileSync(
+    new URL('../src/components/CollectionNodeView.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /update\(node: PMNodeLike\): boolean/);
+  assert.match(source, /if \(next !== this\.collectionId\)/);
+});
+
+test('the block is created after the collection exists', () => {
+  // The block carries the collection's id, and there is no id until the
+  // collection is created. Inserting first would need a placeholder node and a
+  // way to repair one whose request failed.
+  const source = readFileSync(
+    new URL('../src/components/EditorSurface.tsx', import.meta.url),
+    'utf8',
+  );
+  const created = source.indexOf('await api.createCollection(pageId)');
+  const inserted = source.indexOf('replaceSelectionWith(node)');
+  assert.ok(created > 0 && inserted > created, 'the request comes first');
+});
+
+test('the interface handles every external slash item', () => {
+  // The editor package asserts the same set from its side. This is the half
+  // that would otherwise drift: an item marked external whose id nothing here
+  // dispatches on is a menu entry that silently does nothing.
+  const source = readFileSync(
+    new URL('../src/components/SlashMenu.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /item\.id === 'collection'/);
+  assert.match(source, /onPickImage\(\)/);
 });
