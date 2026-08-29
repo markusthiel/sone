@@ -13,6 +13,16 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Attribution is being recorded.** Every editing session by a signed-in member
+is now mapped to that person in the document, which is what makes "who wrote
+this" answerable later. Nothing displays it yet — recording starts first because
+attribution is not retroactive
+([ADR-0022](docs/adr/0022-attribution.md)): an edit made before the mapping
+exists can never be attributed.
+
+Share-link guests are not recorded: there is no user id to record against, and
+attributing to "a guest" would make one contributor out of several people.
+
 **Documents are a content element.** Type `/` and choose "File": a PDF or text
 file opens as a viewer with its own scrollbar, and anything else becomes a card
 with its name, type and size. Each block switches between card, one line, and —
