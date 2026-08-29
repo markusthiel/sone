@@ -91,6 +91,40 @@ Pinch zoom remains available and is not disabled — iOS ignores that instructio
 anyway, and taking the capability away from people who need it to work around a
 font size is not a trade worth making.
 
+## The palette, and colours outside it
+
+Added after the theme shipped, from a request with two halves: a colour of
+one's own beside the eight, and the eight themselves settable per workspace.
+
+They are one decision. Built separately, a custom colour and a redefined default
+would answer the same question — "what colour is this" — in two ways, and the
+first thing to go wrong is that they disagree.
+
+**The eight names stay the vocabulary.** Everything that carries a colour — a
+tag, a select option, a block, an entry's icon and its name — stores a name, and
+a workspace decides what each name looks like. That is what makes a workspace
+restylable at all: change `blue` once and every blue thing follows, which is the
+whole reason names were chosen over values in ADR-0020 and repeated since.
+
+**A custom colour is a ninth value, not a ninth mechanism.** It is stored in the
+same field, distinguished by shape: a palette name matches `^[a-z]+$`, a custom
+one is `#rrggbb`. Anything that renders a colour already maps a name to a
+variable; it now falls through to the literal when the value is not a name. No
+new column, no second field to keep in step, and an older client that does not
+know about custom colours draws the design's default rather than breaking —
+the same fallback an unknown icon name already gets.
+
+**Contrast is not checked, and that is a decision.** A workspace can choose a
+yellow nobody can read on white. Refusing would mean deciding for somebody what
+their own document may look like, and the ones who would trip over it are also
+the ones most likely to have a reason. What is offered instead is that clearing
+a colour is always one click away and always returns the design's answer.
+
+**Custom colours are per use, the palette is per workspace.** Somebody colouring
+one folder pink is making a decision about that folder; an administrator setting
+what `pink` means is making one about everybody. Storing a custom colour in the
+workspace palette would turn the first into the second by accident.
+
 ## Consequences
 
 The two settings compose without interfering: the theme decides proportions, the
