@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the ⋮⋮ controls vanished over a full-width image.** They sit beside the
+block, which is empty margin beside a paragraph and a photograph beside a
+full-width image. They carry their own background now.
+
 **An image can be shown as a card or a link**, not only as a picture — the same
 three layouts a file has, because an image is a file with a special way of being
 drawn.

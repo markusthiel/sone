@@ -944,6 +944,19 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   inline-size: 54px;
 }
 
+/* The controls carry their own background.
+ *
+ * They sit beside the block, which is empty margin for a paragraph and a
+ * photograph for a full-width image — grey icons on a picture are invisible,
+ * which is how this was reported. A chip behind them keeps them legible over
+ * anything without changing where they sit.
+ */
+.block-gutter {
+  border-radius: var(--sone-radius);
+  background: color-mix(in srgb, var(--sone-bg) 82%, transparent);
+  backdrop-filter: blur(6px);
+}
+
 .block-insert,
 .block-handle {
   /* --sone-control, not --sone-tap: these sit beside a line of text and a 44px
