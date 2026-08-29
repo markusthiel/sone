@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: every entry icon drew as the same sheet of paper.** A Lucide icon is an
+object rather than a function, and the check that resolved a name rejected all of
+them — so the picker showed fifty identical icons and choosing one changed
+nothing. The set is also much wider now, beyond office work: food, weather,
+travel, tools, music, health, study.
+
 **Fixed: a full-width image pushed the page sideways.** "Full page" meant the
 window, sidebar included; it means the page's own area now, and the page cannot
 scroll horizontally at all. A full-width image runs to both edges with no

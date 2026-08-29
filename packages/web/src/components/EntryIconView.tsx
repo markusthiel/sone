@@ -22,8 +22,14 @@ function componentFor(name: string): lucide.LucideIcon | null {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
 
+  // A Lucide icon is a forwardRef component, which is an *object* and not a
+  // function. Checking for a function rejected every one of them, so every
+  // entry fell back to the default page icon — fifty different icons in the
+  // picker all drawn as the same sheet of paper, and choosing one changed
+  // nothing visible.
   const found = (lucide as unknown as Record<string, unknown>)[exported];
-  return typeof found === 'function' ? (found as lucide.LucideIcon) : null;
+  const usable = typeof found === 'function' || (typeof found === 'object' && found !== null);
+  return usable ? (found as lucide.LucideIcon) : null;
 }
 
 interface EntryIconProps {
