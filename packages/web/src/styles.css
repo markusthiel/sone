@@ -3066,16 +3066,21 @@ select {
  * as the width of the text give or take — three names for one thing, which is
  * how it was reported. This one now reaches the edges.
  */
-/* Full width, stated as two edges rather than as a centring.
+/* Full width: centred on the container, corrected for a left-only padding.
  *
- * The editor is padded on the *left* only, to make room for list markers, so a
- * block's box starts inset by that much. Equal margins therefore cannot put one
- * edge at 0 and the other at the container's width — which is exactly what was
- * seen: a small gap on the left, flush on the right.
+ * The reading column is centred in the page, so the breakout has to be a
+ * centring too — `50% - 50cqw` puts a 100cqw box's edges on the container's
+ * edges. My previous attempt replaced that with a fixed offset, which forgot
+ * the centring entirely and pushed the image to the right.
+ *
+ * The correction is half the editor's text indent. That padding is on the left
+ * only, to make room for list markers, so the block's containing box sits half
+ * an indent right of centre — which is precisely the gap that was left on one
+ * side and not the other.
  */
 .ProseMirror [data-width='full'] {
-  margin-inline-start: calc(var(--sone-text-indent) * -1);
-  margin-inline-end: 0;
+  margin-inline-start: calc(50% - 50cqw - var(--sone-text-indent) / 2);
+  margin-inline-end: calc(50% - 50cqw + var(--sone-text-indent) / 2);
   inline-size: 100cqw;
   max-inline-size: 100cqw;
 }
