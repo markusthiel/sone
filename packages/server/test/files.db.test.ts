@@ -364,7 +364,27 @@ describe(
 
       // And the hardening that makes it acceptable travels with it.
       assert.equal(pdfRes.headers.get('x-content-type-options'), 'nosniff');
-      assert.match(pdfRes.headers.get('content-security-policy') ?? '', /sandbox/);
+
+      // A PDF is allowed scripts and nothing else. Without them the browser's
+      // viewer renders page one and nothing reaches page two — reported as
+      // "you can only see the first page", which is what a silently crippled
+      // viewer looks like.
+      //
+      // The part that must never appear is allow-same-origin: with it, script
+      // inside a document somebody uploaded could read this application's
+      // cookies and storage. Without it the frame is an opaque origin and can
+      // only act on itself.
+      const pdfPolicy = pdfRes.headers.get('content-security-policy') ?? '';
+      assert.match(pdfPolicy, /sandbox allow-scripts/);
+      assert.doesNotMatch(pdfPolicy, /allow-same-origin/);
+
+      // Everything else keeps the bare policy: nothing else served here needs
+      // to run at all.
+      assert.match(imageRes.headers.get('content-security-policy') ?? '', /sandbox;/);
+      assert.doesNotMatch(
+        imageRes.headers.get('content-security-policy') ?? '',
+        /allow-scripts/,
+      );
 
       // Something nothing can render is still a download.
       const doc = await expectJson<{ url: string }>(

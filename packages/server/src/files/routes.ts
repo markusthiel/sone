@@ -394,7 +394,24 @@ function serveFile(
     'content-length': bytes.length,
     'content-disposition': `${inline ? 'inline' : 'attachment'}; filename="${filename}"`,
     'x-content-type-options': 'nosniff',
-    'content-security-policy': "sandbox; default-src 'none'",
+    // A PDF needs scripts to be readable.
+    //
+    // A bare `sandbox` disables them, and the browser's own PDF viewer is built
+    // on them: the first page renders and scrolls, and nothing gets you to the
+    // second. Reported as "you can only see page one", which is exactly what a
+    // silently crippled viewer looks like.
+    //
+    // `allow-scripts` **without** `allow-same-origin` is the containment that
+    // matters: the resource runs in an opaque origin, so script inside it
+    // cannot read this application's cookies, storage or DOM. It can only act
+    // on itself, which is what a document viewer does anyway.
+    //
+    // Everything else keeps the bare policy. Nothing else served here needs to
+    // run at all.
+    'content-security-policy':
+      mimeType === 'application/pdf'
+        ? "sandbox allow-scripts; default-src 'none'"
+        : "sandbox; default-src 'none'",
     'cross-origin-resource-policy': 'same-origin',
     'cache-control': 'private, max-age=31536000, immutable',
   });
