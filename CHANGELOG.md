@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An image can be shown as a card or a link**, not only as a picture — the same
+three layouts a file has, because an image is a file with a special way of being
+drawn.
+
 **An image is offered two widths instead of three**, and full width now reaches
 the edges of the page. "Column", "wide" and "full" all read as the width of the
 text give or take — three names for one thing.

@@ -153,3 +153,86 @@ export function setFileDisplay(pos: number, display: FileDisplay): Command {
     return true;
   };
 }
+
+/**
+ * Show an image as a card or a line, and back.
+ *
+ * An image *is* a file with a special way of being drawn, so the card and the
+ * line it can take are the file block's own — reached by making the block a
+ * file block rather than by teaching a second component the same three layouts.
+ * That duplication is what the file block's `···` menu was removed to undo.
+ *
+ * The conversion is lossless in the direction that matters: the file id and the
+ * name survive both ways, and the block attributes — alignment, width, colour —
+ * are carried across, because they are somebody's choices about this block and
+ * not about which node type happens to hold it.
+ */
+export function showImageAs(pos: number, display: 'image' | 'card' | 'line'): Command {
+  return (state, dispatch) => {
+    const node = state.doc.nodeAt(pos);
+    if (!node) return false;
+
+    const isImage = node.type.name === 'image';
+    const isImageFile = node.type.name === 'file' && node.attrs['category'] === 'image';
+    if (!isImage && !isImageFile) return false;
+
+    const wantsImage = display === 'image';
+    if (wantsImage === isImage) {
+      // Already the right node type; only the file block's own display needs
+      // changing, and an image node has none to change.
+      if (isImage) return true;
+      return setFileDisplay(pos, display === 'card' ? 'card' : 'line')(state, dispatch);
+    }
+
+    const target = state.schema.nodes[wantsImage ? 'image' : 'file'];
+    if (!target) return false;
+
+    // Shared block attributes travel; the rest is rebuilt from what each node
+    // type needs.
+    const carried = {
+      [BLOCK_ATTRS.id]: node.attrs[BLOCK_ATTRS.id],
+      [BLOCK_ATTRS.indent]: node.attrs[BLOCK_ATTRS.indent],
+      [BLOCK_ATTRS.align]: node.attrs[BLOCK_ATTRS.align],
+      [BLOCK_ATTRS.width]: node.attrs[BLOCK_ATTRS.width],
+      [BLOCK_ATTRS.color]: node.attrs[BLOCK_ATTRS.color],
+    };
+
+    const url = isImage
+      ? (node.attrs['url'] as string | null)
+      : `/api/files/${String(node.attrs['fileId'] ?? '')}`;
+    const fileId = isImage ? fileIdFrom(url) : (node.attrs['fileId'] as string | null);
+    const name = isImage
+      ? (node.attrs['alt'] as string) || 'Image'
+      : (node.attrs['filename'] as string);
+
+    // An image that is not one of ours — pasted from elsewhere, or still
+    // uploading — has no file id, and a card for it could not be opened or
+    // downloaded. Refused rather than half-built.
+    //
+    // Checked before the dispatch guard, or the command reports that it can act
+    // on something it will refuse: a menu asking "is this available" would show
+    // the entry and then do nothing.
+    if (!fileId) return false;
+    if (!dispatch) return true;
+
+    const next = wantsImage
+      ? target.create({ ...carried, url: `/api/files/${fileId}`, alt: name })
+      : target.create({
+          ...carried,
+          fileId,
+          filename: name,
+          mimeType: 'image/*',
+          category: 'image',
+          display,
+        });
+
+    dispatch(state.tr.replaceWith(pos, pos + node.nodeSize, next));
+    return true;
+  };
+}
+
+/** The id in `/api/files/<id>`, or null for a URL that is not ours. */
+function fileIdFrom(url: string | null): string | null {
+  const match = /^\/api\/files\/([^/?#]+)/.exec(url ?? '');
+  return match?.[1] ?? null;
+}
