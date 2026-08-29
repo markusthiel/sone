@@ -98,10 +98,23 @@ export interface EditorOptions {
  * `user` copy alongside its own fields, and this reads what it is actually
  * given.
  *
- * Kept rather than falling back to y-prosemirror's default builder for two
- * reasons: the fallbacks below are ours to choose, and the name is inserted as
- * text with an explicit guarantee — it is another person's input arriving over
- * the wire.
+ * Kept rather than falling back to y-prosemirror's default builder for three
+ * reasons: the fallbacks below are ours to choose, the name is inserted as text
+ * with an explicit guarantee — it is another person's input arriving over the
+ * wire — and the label carries a class the stylesheet can fade.
+ *
+ * ## Why the label fades
+ *
+ * A name beside a caret says "somebody is working here". Left on screen it says
+ * that long after they have stopped, and in a document with two or three people
+ * the labels become part of the furniture — sitting in the middle of a
+ * paragraph, obscuring the text they are meant to annotate.
+ *
+ * The fade is a CSS animation rather than a timer. y-prosemirror rebuilds the
+ * decoration whenever awareness changes, so a moving caret produces a new
+ * element and restarts the animation; a caret that has not moved keeps the same
+ * element, and the animation runs to its end. Movement resets it for free, with
+ * nothing to clear up and no timer to leak.
  *
  * Exported so it can be tested on its own: y-prosemirror keeps its options in a
  * closure, so reaching this through the plugin is not possible.
@@ -121,6 +134,9 @@ export function presenceCursor(user: Record<string, unknown>): HTMLElement {
   cursor.setAttribute('style', `border-color: ${color}`);
 
   const label = document.createElement('div');
+  // Our own class, so the stylesheet targets this rather than y-prosemirror's
+  // internal structure — which would break silently on an upgrade.
+  label.className = 'sone-caret-label';
   label.setAttribute('style', `background-color: ${color}`);
   // textContent, not innerHTML: a display name is somebody else's input and it
   // arrives from another client over the wire.

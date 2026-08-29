@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A collaborator's name fades from their caret.** The bar stays — somebody else
+is still in the document — but the label goes quiet a few seconds after they stop
+typing, instead of sitting in the middle of a paragraph indefinitely. Hovering
+the caret brings it back.
+
 **A collection can be searched.** The box beside its views matches an entry's
 title or anything in its cells, and narrows whatever the view already showed
 rather than replacing it. Substring matching, not stemming: typing "plan" finds
