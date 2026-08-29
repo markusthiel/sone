@@ -3146,11 +3146,21 @@ select {
   font-weight: 600;
 }
 
+/* Nine swatches: "as designed" and the eight colours.
+ *
+ * A grid rather than a wrapping row, so they land in one line or two full ones
+ * instead of a line of seven and a stray pair — which is what wrapping gave and
+ * what reads as a mistake.
+ */
 .block-menu-swatches {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
   gap: var(--sone-space-2);
   padding: var(--sone-space-2);
+  justify-items: center;
+}
+@media (max-width: 420px) {
+  .block-menu-swatches { grid-template-columns: repeat(5, 1fr); }
 }
 .block-menu-swatch {
   inline-size: 18px;
@@ -3533,10 +3543,17 @@ body {
    choice to scan, not a wall to climb past on the way to Delete. */
 .entry-icon-grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  /* As many as fit, rather than eight regardless.
+   *
+   * Eight fixed columns cannot be narrower than their contents, so on a menu
+   * this wide the grid overflowed and scrolled sideways as well as down — two
+   * directions to search in, when the list only goes one way.
+   */
+  grid-template-columns: repeat(auto-fill, minmax(1.75rem, 1fr));
   gap: 2px;
   max-block-size: 9rem;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 .entry-icon {
   display: inline-flex;
