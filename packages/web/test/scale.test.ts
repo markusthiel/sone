@@ -167,3 +167,21 @@ test('the caret label fades and the bar does not', () => {
   // Hovering brings it back, so the information is quiet rather than gone.
   assert.match(css, /\.ProseMirror-yjs-cursor:hover \.sone-caret-label/);
 });
+
+test('the error banner does not take part in the app grid', () => {
+  // It was a child of `.app`, a two-column grid with no explicit rows, so a
+  // third element pushed the sidebar into one row and the page into another —
+  // the layout came apart at the moment something had already gone wrong. A
+  // message about a failure must not itself be one.
+  const banner = css.slice(css.indexOf('.app-error {'));
+  const rule = banner.slice(0, banner.indexOf('}'));
+  assert.match(rule, /position:\s*fixed/);
+  assert.doesNotMatch(rule, /grid-column/);
+});
+
+test('the status line truncates rather than wrapping', () => {
+  // A status that changes the height of its bar moves everything below it, at
+  // the moment somebody is least able to afford surprises.
+  assert.match(css, /\.topbar\b[^}]*flex-wrap:\s*nowrap/);
+  assert.match(css, /\.topbar \.status-text\b[^}]*text-overflow:\s*ellipsis/);
+});

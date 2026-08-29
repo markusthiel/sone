@@ -363,6 +363,10 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .topbar {
   display: flex;
   align-items: center;
+  /* Never wraps. A long status — "Cannot reach the sync server" — used to
+     break onto three lines and take the row's height with it, so losing the
+     connection also rearranged the page. */
+  flex-wrap: nowrap;
   gap: 8px;
   padding: 8px 12px;
   border-block-end: 1px solid var(--sone-border);
@@ -2316,14 +2320,28 @@ select {
 .tree-row[data-drop='before']::before { inset-block-start: -2px; }
 .tree-row[data-drop='after']::after { inset-block-end: -2px; }
 
-/* A transient failure of a tree operation. Placed above the layout rather than
-   over it: it is information, not something to dismiss before continuing. */
+/* A transient failure of a tree operation.
+ *
+ * Fixed, not a grid child. It was a child of `.app`, which is a two-column
+ * grid with no explicit rows — so adding a third element pushed the sidebar
+ * into one row and the page into another, and the whole layout came apart at
+ * exactly the moment something had already gone wrong. A message about a
+ * failure must not itself be a failure.
+ *
+ * Over the layout rather than in it: it is information, and nothing below it
+ * should move because it appeared.
+ */
 .app-error {
-  grid-column: 1 / -1;
+  position: fixed;
+  z-index: 60;
+  inset-block-start: 0;
+  inset-inline: 0;
   padding: var(--sone-space-3) var(--sone-space-5);
-  background: color-mix(in srgb, var(--sone-danger) 10%, transparent);
+  background: color-mix(in srgb, var(--sone-danger) 12%, var(--sone-bg));
+  border-block-end: 1px solid var(--sone-danger);
   color: var(--sone-danger);
   font-size: var(--sone-text-sm);
+  text-align: center;
 }
 
 /* --- collections ---
@@ -2928,4 +2946,17 @@ select {
    transition: the label is simply not shown after its moment. */
 @media (prefers-reduced-motion: reduce) {
   .sone-caret-label { animation-duration: 5s; animation-timing-function: step-end; }
+}
+
+/* The connection status, when it has something long to say.
+ *
+ * Truncated rather than wrapped: the full text is in the title attribute, and a
+ * status line that changes the height of the bar it sits in moves everything
+ * below it — at the moment somebody is least able to afford surprises.
+ */
+.topbar .status-text {
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: losing the connection broke the layout.** The error banner was a child
+of the app's two-column grid, so adding it pushed the sidebar into one row and
+the page into another — the layout came apart at the moment something had
+already gone wrong. It sits over the layout now, and the connection status
+truncates instead of wrapping onto three lines and taking the bar's height with
+it.
+
 **A collaborator's name fades from their caret.** The bar stays — somebody else
 is still in the document — but the label goes quiet a few seconds after they stop
 typing, instead of sitting in the middle of a paragraph indefinitely. Hovering
