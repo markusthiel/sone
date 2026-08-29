@@ -3127,3 +3127,31 @@ select {
   color: var(--sone-text-muted);
   font-size: var(--sone-text-sm);
 }
+
+/* --- who has written here ---
+ *
+ * Not who is here now: the circles in the top bar answer that (ADR-0022).
+ * Somebody who wrote half the page last week and is not connected today belongs
+ * in this list and not in those.
+ */
+.contributor-list { display: flex; flex-direction: column; gap: var(--sone-space-2); margin: 0; padding: 0; list-style: none; }
+.contributor { display: flex; align-items: center; gap: var(--sone-space-3); }
+.contributor-initial {
+  flex: 0 0 auto;
+  inline-size: var(--sone-control);
+  block-size: var(--sone-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--sone-bg-hover);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+}
+/* Somebody still in the workspace reads as present in the list; somebody who
+   has left is dimmer but still there — they wrote what they wrote, and dropping
+   them would quietly rewrite who worked on the page. */
+.contributor-initial[data-known='true'] { background: var(--sone-accent); color: #fff; }
+.contributor-name { font-size: var(--sone-text-sm); }
+.panel-note { font-size: var(--sone-text-xs); margin-block-start: var(--sone-space-4); }

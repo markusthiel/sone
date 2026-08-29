@@ -27,13 +27,18 @@ import { useTasks, type Task } from '../hooks/useTasks.ts';
 import { TagEditor } from './TagEditor.tsx';
 import { messageFor } from './Auth.tsx';
 import { ChevronRightIcon, PageIcon, TagIcon } from './icons.tsx';
+import { Contributors } from './Contributors.tsx';
 
-export const RIGHT_TABS = ['outline', 'tasks', 'properties'] as const;
+export const RIGHT_TABS = ['outline', 'tasks', 'people', 'properties'] as const;
 export type RightTab = (typeof RIGHT_TABS)[number];
 
 const TAB_LABELS: Record<RightTab, string> = {
   outline: 'Outline',
   tasks: 'Tasks',
+  // "People" rather than "Contributors": shorter, and it does not imply a
+  // ranking of who contributed most, which this list deliberately does not
+  // measure.
+  people: 'People',
   properties: 'Properties',
 };
 
@@ -119,6 +124,11 @@ export function RightSidebar({
         <div className="right-body" role="tabpanel">
           {tab === 'outline' && <OutlinePanel handle={handle} />}
           {tab === 'tasks' && <TasksPanel handle={handle} />}
+          {/* Who has written here — not who is here now, which the circles at
+              the top of the page show instead (ADR-0022). */}
+          {tab === 'people' && (
+            <Contributors handle={handle} workspaceId={workspaceId} />
+          )}
           {tab === 'properties' && (
             <PropertiesPanel pageId={pageId} handle={handle} workspaceId={workspaceId} />
           )}
