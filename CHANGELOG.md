@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Files can be dropped onto a page**, several at once, and they land where they
+were dropped. An image becomes an image block as it always did; anything else
+becomes a file block.
+
 **Fixed: a file block's menu stayed open.** Its stylesheet set `display`, which
 beats the browser's own rule for `hidden` — so the element carried `hidden` and
 rendered anyway. No event handling could have fixed that, and the first attempt

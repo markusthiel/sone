@@ -24,6 +24,7 @@ import {
 
 import { ApiError, api } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
+import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
@@ -130,6 +131,46 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
     [pageId],
   );
 
+  /**
+   * Files dropped onto the page, placed where they were dropped.
+   *
+   * The caret is moved to the drop point first, because every insert here works
+   * on the selection. Without it a file dropped at the end of a long page lands
+   * wherever the caret happened to be, which is usually somewhere the person
+   * cannot see.
+   *
+   * Uploaded one at a time rather than all at once. Dropping five files should
+   * produce five blocks in the order they were dropped, and parallel uploads
+   * finish in whatever order the network decides. It is also gentler on a
+   * server that has just been handed several megabytes.
+   */
+  const dropFiles = useCallback(
+    async (files: File[], at: { left: number; top: number }): Promise<void> => {
+      const editor = viewRef.current;
+      if (!editor || !canEditRef.current) return;
+
+      const position = editor.posAtCoords(at);
+      if (position) {
+        editor.dispatch(
+          editor.state.tr.setSelection(
+            TextSelection.near(editor.state.doc.resolve(position.pos)),
+          ),
+        );
+      }
+
+      for (const file of files) {
+        // An image is an image wherever it came from: the same block, the same
+        // preview while it uploads. Only what cannot be an image becomes a file
+        // block.
+        if (file.type.startsWith('image/')) insertImageUpload(editor, file, uploader);
+        else await attachFile(file);
+      }
+      editor.focus();
+    },
+    [attachFile, uploader],
+  );
+
+
   const mountRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   // The view goes in state, not only a ref, because the slash menu is a React
@@ -219,6 +260,20 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
 
       <div
         className="editor-surface"
+        // Files dropped onto the page.
+        //
+        // `dragover` has to be prevented for a drop to happen at all: without
+        // it the browser navigates away to the file, which loses whatever was
+        // being written.
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes('Files')) event.preventDefault();
+        }}
+        onDrop={(event) => {
+          const files = Array.from(event.dataTransfer.files ?? []);
+          if (files.length === 0) return;
+          event.preventDefault();
+          void dropFiles(files, { left: event.clientX, top: event.clientY });
+        }}
         ref={mountRef}
         // Focus lands on the ProseMirror element inside, which manages its own
         // tabindex and ARIA attributes.
