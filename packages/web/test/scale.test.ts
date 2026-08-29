@@ -386,3 +386,10 @@ test('full width reaches the edges of the page', () => {
   // from the column.
   assert.match(css, /\[data-width='full'\][^}]*100vw/);
 });
+
+test('the gutter stays legible over whatever it sits on', () => {
+  // It sits beside the block, which is empty margin for a paragraph and a
+  // photograph for a full-width image — grey icons on a picture are invisible.
+  const gutter = css.slice(css.indexOf('.block-gutter {'));
+  assert.match(gutter.slice(0, 400), /background:/);
+});
