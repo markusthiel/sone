@@ -111,15 +111,19 @@ class FileNodeView implements NodeView {
       frame.src = url;
       frame.title = name;
       frame.className = 'file-viewer';
-      // Sandboxed from this side too, and the two have to agree before anything
-      // runs — but a PDF needs scripts, or the viewer renders page one and
-      // nothing reaches page two.
+      // No sandbox on a PDF frame, and that is not an oversight.
       //
-      // `allow-scripts` without `allow-same-origin` keeps the containment that
-      // matters: the frame is an opaque origin, so nothing inside it can touch
-      // this application's cookies, storage or DOM. It is allowed to be a
-      // document viewer and nothing else.
-      frame.setAttribute('sandbox', category === 'pdf' ? 'allow-scripts' : '');
+      // Chromium's built-in viewer is a browser component rather than page
+      // script, and it does not run inside a sandboxed frame whatever tokens
+      // are set: with `sandbox` only the first page rendered, and with
+      // `sandbox allow-scripts` Brave refused to render anything. There is no
+      // combination that works, so the safety has to come from the response
+      // instead — and it does: the type is decided from the bytes, `nosniff`
+      // stops the browser reconsidering, and the file's own policy lets it load
+      // nothing. See the header comment in the server's file routes.
+      //
+      // Everything else is still sandboxed to nothing.
+      if (category !== 'pdf') frame.setAttribute('sandbox', '');
       frame.setAttribute('loading', 'lazy');
       this.dom.append(frame, this.bar(name, kind, size, url));
       return;

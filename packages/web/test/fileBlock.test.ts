@@ -38,11 +38,11 @@ test('a file with no id is drawn, not left blank', () => {
   assert.match(source, /Uploading \$\{String\(filename \|\| 'file'\)\}/);
 });
 
-test('the viewer frame is sandboxed from the embedding side too', () => {
-  // The server sends a sandbox policy with the file; this states the same
-  // restriction where it is embedded, so the header and the attribute have to
-  // agree before anything runs.
-  assert.match(source, /setAttribute\('sandbox',/);
+test('everything but a PDF is sandboxed from the embedding side too', () => {
+  // The server sends a sandbox policy with those files; this states the same
+  // restriction where they are embedded, so the header and the attribute have
+  // to agree before anything runs.
+  assert.match(source, /if \(category !== 'pdf'\) frame\.setAttribute\('sandbox', ''\)/);
 });
 
 test('the display buttons act on click', () => {
@@ -73,17 +73,19 @@ test('the document picker is separate from the image one', () => {
   assert.ok(uploadAt > 0 && insertAt > uploadAt, 'the upload comes first');
 });
 
-test('a PDF frame is allowed scripts, and never same-origin', () => {
-  // Without scripts the browser's viewer renders page one and nothing reaches
-  // page two. With allow-same-origin, script inside a document somebody
-  // uploaded could read this application's cookies and storage — so the one
-  // that must never appear is that, not scripts.
-  assert.match(source, /category === 'pdf' \? 'allow-scripts' : ''/);
-
-  // Checked against the code rather than the file: a first version scanned the
-  // whole source and failed on the comment that explains why allow-same-origin
-  // is absent. A test that cannot tell prose from code will eventually be
+test('a PDF frame is not sandboxed at all', () => {
+  // Two attempts said otherwise. `sandbox` rendered page one and no further;
+  // `sandbox allow-scripts` made Chromium browsers refuse to render anything.
+  // The built-in viewer is a browser component rather than page script and does
+  // not run in a sandboxed frame whatever tokens are set, so the safety comes
+  // from the response instead — the type is decided from the bytes, `nosniff`
+  // stops the browser reconsidering, and the file may load nothing.
+  //
+  // Checked against the code rather than the file: an earlier version of this
+  // test scanned the whole source and matched the comment explaining the
+  // reasoning. A test that cannot tell prose from code will eventually be
   // silenced by rewording rather than by fixing anything.
   const withoutComments = source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
   assert.doesNotMatch(withoutComments, /allow-same-origin/);
+  assert.doesNotMatch(withoutComments, /'allow-scripts'/);
 });
