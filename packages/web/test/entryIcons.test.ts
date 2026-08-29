@@ -8,6 +8,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { ENTRY_ICONS } from '@sone/core';
@@ -38,4 +39,27 @@ test('the list is a choice, not a catalogue', () => {
 
 test('no name appears twice', () => {
   assert.equal(new Set(ENTRY_ICONS).size, ENTRY_ICONS.length);
+});
+
+// --- drawing one ------------------------------------------------------------
+
+test('a name that no longer resolves costs the icon, not the entry', () => {
+  // A stored name can stop resolving — a rename upstream, a document written by
+  // a newer version. The tree has to keep drawing the entry.
+  const source = readFileSync(
+    new URL('../src/components/EntryIconView.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /if \(!Chosen\) \{/);
+  assert.match(source, /kind === 'folder' \? <FolderIcon \/> : <PageIcon \/>/);
+});
+
+test('an icon with no colour inherits rather than being coloured', () => {
+  // Which is what lets the tree's own states — selected, muted, dragged — keep
+  // working on an entry somebody gave an icon.
+  const source = readFileSync(
+    new URL('../src/components/EntryIconView.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /icon\?\.color \? \{ color:.*\} : undefined/);
 });

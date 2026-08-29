@@ -28,6 +28,7 @@ import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
 import { WorkspaceMenu } from './WorkspaceMenu.tsx';
+import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import {
   ChevronRightIcon,
   FolderIcon,
@@ -230,6 +231,10 @@ export function Sidebar({
                     ? { 'aria-current': 'page' as const }
                     : {})}
                 >
+                  {/* Favourites carry no icon in their own shape, so they keep
+                      the default one. Reaching for the tree node here would
+                      make the favourites list depend on the tree being loaded,
+                      which it deliberately does not. */}
                   {entry.kind === 'folder' ? <FolderIcon /> : <PageIcon />}{' '}
                   {entry.title || 'Untitled'}
                 </a>
@@ -432,7 +437,8 @@ function TreeLevel({
                   href={paths.page(node.id, node.title)}
                   {...(node.id === currentPageId ? { 'aria-current': 'page' as const } : {})}
                 >
-                  {isFolder ? <FolderIcon /> : <PageIcon />} {title}
+                  <EntryIconView icon={node.icon} kind={isFolder ? 'folder' : 'page'} />{' '}
+                  <span style={titleColorStyle(node.icon)}>{title}</span>
                 </a>
               )}
 

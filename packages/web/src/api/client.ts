@@ -12,7 +12,7 @@
  * wrong, not for display.
  */
 
-import type { WorkspaceTheme } from '@sone/core';
+import type { EntryIcon, WorkspaceTheme } from '@sone/core';
 
 export class ApiError extends Error {
   constructor(
@@ -113,7 +113,7 @@ export interface PageSummary {
   collectionId: string | null;
   idx: string;
   title: string;
-  icon: { kind: string; value: string } | null;
+  icon: { kind: string; value: string; color?: string; titleColor?: string } | null;
   kind: EntryKind;
   archived: boolean;
   lastEditedAt: string;
@@ -310,7 +310,7 @@ export interface WorkspaceMember {
 export interface SearchResult {
   pageId: string;
   title: string;
-  icon: { kind: string; value: string } | null;
+  icon: { kind: string; value: string; color?: string; titleColor?: string } | null;
   breadcrumb: string[];
   rank: number;
 }
@@ -585,6 +585,21 @@ export const api = {
   revokeShareLink: (pageId: string, linkId: string) =>
     request<{ id: string }>(`/api/pages/${pageId}/share-links/${linkId}`, {
       method: 'DELETE',
+    }),
+
+  /**
+   * An entry's icon and the colours around it.
+   *
+   * No title is sent: setting an icon must not overwrite a rename somebody else
+   * made in the meantime.
+   */
+  setEntryIcon: (
+    pageId: string,
+    changes: { icon?: EntryIcon | null; titleColor?: string | null },
+  ) =>
+    request<{ id: string }>(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(changes),
     }),
 
   setTags: (pageId: string, tags: string[]) =>
