@@ -81,11 +81,15 @@ test('a name that no longer resolves costs the icon, not the entry', () => {
 test('an icon with no colour inherits rather than being coloured', () => {
   // Which is what lets the tree's own states — selected, muted, dragged — keep
   // working on an entry somebody gave an icon.
+  //
+  // Read through core now, so a palette name and a colour of one's own are
+  // resolved the same way here as everywhere else — and a value that is neither
+  // yields nothing, which is the same inheriting.
   const source = readFileSync(
     new URL('../src/components/EntryIconView.tsx', import.meta.url),
     'utf8',
   );
-  assert.match(source, /icon\?\.color \? \{ color:.*\} : undefined/);
+  assert.match(source, /colorValue\(icon\?\.color\) \? \{ color: colorValue\(icon\?\.color\) \} : undefined/);
 });
 
 // --- choosing one -----------------------------------------------------------
@@ -124,4 +128,20 @@ test('a change applies straight away', () => {
   // third time today it caught me.
   assert.match(menu, /\.setEntryIcon\(node\.id, changes\)/);
   assert.match(menu, /onClick=\{\(\) => chooseIcon\(name\)\}/, 'the click applies it');
+});
+
+test('a colour of your own sits beside the eight, not instead of them', () => {
+  // The names are what make a workspace restylable — change what blue means and
+  // every blue thing follows — so this is the escape for what a palette cannot
+  // cover, not the ordinary way to pick a colour (ADR-0023).
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  assert.match(menu, /THEME_COLORS\.map/);
+  assert.match(menu, /type="color"/);
+});
+
+test('the picker is the platform’s own', () => {
+  // Every platform has one people already know; a hand-built wheel would be a
+  // worse version of something the browser ships.
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  assert.doesNotMatch(menu, /conic-gradient|hue|saturation/);
 });

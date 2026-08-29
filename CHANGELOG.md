@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A colour of your own, beside the eight.** Anywhere a colour is chosen there is
+now a tenth swatch — the platform's own colour picker. The eight names remain the
+vocabulary, so changing what a workspace's "blue" means still moves every blue
+thing; a custom colour is the escape for what a palette cannot cover.
+
 **Fixed: the icon picker scrolled sideways as well as down.** It fits as many
 columns as the menu is wide now. The colour swatches also land in whole rows
 rather than a row of seven and a stray pair.

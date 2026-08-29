@@ -358,14 +358,17 @@ describe(
       // the rest of their settings. What comes back says what was stored.
       const session = await setup();
       const res = await setTheme(session.cookie, session.workspaceId, {
+        // A hex is a colour now (ADR-0023); 'chartreuse' is neither a palette
+        // name nor a hex, and the unknown element is still dropped.
         heading1: { size: 1, color: '#ff0000' },
+        body: { color: 'chartreuse' },
         banner: { size: 3 },
       });
       const body = await expectJson<{ theme: Record<string, unknown> }>(res, 200);
 
-      assert.deepEqual(body.theme, { heading1: { size: 1 } });
+      assert.deepEqual(body.theme, { heading1: { size: 1, color: '#ff0000' } });
       assert.deepEqual((await readTheme(session.cookie, session.workspaceId)).theme, {
-        heading1: { size: 1 },
+        heading1: { size: 1, color: '#ff0000' },
       });
     });
 

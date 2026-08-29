@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
-import { THEME_COLORS, type EntryIcon } from '@sone/core';
+import { THEME_COLORS, isCustomColor, type EntryIcon } from '@sone/core';
 
 import { ICON_NAMES } from './EntryIconView.tsx';
 
@@ -204,6 +204,30 @@ function ColourRow({
           onClick={() => onChoose(color)}
         />
       ))}
+
+      {/* A colour of one's own, beside the eight rather than instead of them.
+        *
+        * The names are what make a workspace restylable — change what blue
+        * means and every blue thing follows — so this is the escape for the
+        * case a palette cannot cover, not the ordinary way to pick a colour
+        * (ADR-0023).
+        *
+        * A native colour input: every platform has one people already know, and
+        * building a wheel would be a worse version of something the browser
+        * ships. */}
+      <input
+        type="color"
+        className={
+          isCustomColor(current)
+            ? 'block-menu-swatch custom current'
+            : 'block-menu-swatch custom'
+        }
+        value={isCustomColor(current) ? current : '#888888'}
+        aria-label={`${label}: a colour of your own`}
+        title="A colour of your own"
+        disabled={disabled}
+        onChange={(event) => onChoose(event.target.value)}
+      />
     </div>
   );
 }

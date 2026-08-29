@@ -10,6 +10,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  colorValue,
+  isCustomColor,
+  readChosenColor,
   readEntryIcon,
   readTitleColor,
   sanitiseTheme,
@@ -35,7 +38,9 @@ test('a value outside the steps is dropped', () => {
   // Free numbers produce a heading that no longer relates to the body text, and
   // whoever set it cannot see that is what happened.
   assert.deepEqual(sanitiseTheme({ heading1: { size: 47 } }), {});
-  assert.deepEqual(sanitiseTheme({ body: { color: '#ff0000' } }), {}, 'names, not values');
+  // A colour of one's own is accepted now (ADR-0023); a colour that is neither
+  // a palette name nor a six-digit hex still is not.
+  assert.deepEqual(sanitiseTheme({ body: { color: 'chartreuse' } }), {});
 });
 
 test('an element with nothing usable is omitted rather than stored empty', () => {
@@ -115,8 +120,10 @@ test('a malformed icon yields null rather than throwing', () => {
   }
 });
 
-test('a colour outside the palette is dropped, the icon kept', () => {
-  assert.deepEqual(readEntryIcon({ kind: 'icon', value: 'folder', color: '#ff0000' }), {
+test('an unusable colour is dropped, the icon kept', () => {
+  // A hex is a colour now. Something that is neither a name nor a hex is still
+  // dropped, and dropping it must not cost the icon it was attached to.
+  assert.deepEqual(readEntryIcon({ kind: 'icon', value: 'folder', color: 'chartreuse' }), {
     kind: 'icon',
     value: 'folder',
   });
@@ -128,4 +135,48 @@ test('the title colour is read separately from the icon', () => {
   assert.equal(readTitleColor({ titleColor: 'green' }), 'green');
   assert.equal(readTitleColor({ kind: 'icon', value: 'folder' }), null);
   assert.equal(readTitleColor({ titleColor: 'chartreuse' }), null);
+});
+
+// --- a colour of one's own --------------------------------------------------
+
+test('a palette name resolves to the workspace variable', () => {
+  // Which is what makes a workspace restylable: change what blue means and
+  // every blue thing follows.
+  assert.equal(colorValue('blue'), 'var(--sone-palette-blue)');
+});
+
+test('a custom colour is itself', () => {
+  assert.equal(colorValue('#ff8800'), '#ff8800');
+  assert.equal(readChosenColor('#FF8800'), '#ff8800', 'stored lower case');
+});
+
+test('a value that is neither yields nothing to draw', () => {
+  // What lets an older client fall back to the design's own answer rather than
+  // breaking on a value it does not recognise.
+  for (const input of ['chartreuse', '#fff', '#ff88', 'rgb(1,2,3)', 42, null]) {
+    assert.equal(colorValue(input), undefined, String(input));
+    assert.equal(readChosenColor(input), null, String(input));
+  }
+});
+
+test('shorthand and alpha are not offered', () => {
+  // Six digits only. A three-digit form and an eight-digit one would each need
+  // their own handling everywhere a colour is read, for no choice somebody
+  // cannot already make.
+  assert.equal(isCustomColor('#fff'), false);
+  assert.equal(isCustomColor('#ffffff80'), false);
+  assert.equal(isCustomColor('#ffffff'), true);
+});
+
+test('a theme and an icon both accept either shape', () => {
+  // One field, two shapes — not two fields (ADR-0023).
+  assert.deepEqual(sanitiseTheme({ body: { color: '#123456' } }), {
+    body: { color: '#123456' },
+  });
+  assert.equal(
+    themeProperties({ body: { color: '#123456' } })['--sone-theme-body-color'],
+    '#123456',
+  );
+  assert.equal(readEntryIcon({ kind: 'icon', value: 'folder', color: '#abcdef' })?.color, '#abcdef');
+  assert.equal(readTitleColor({ titleColor: '#abcdef' }), '#abcdef');
 });

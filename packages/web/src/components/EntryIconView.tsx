@@ -7,6 +7,7 @@
  * place in the tree.
  */
 
+import { colorValue } from '@sone/core';
 import * as lucide from 'lucide-react';
 import type { ReactElement } from 'react';
 
@@ -87,7 +88,9 @@ export function EntryIconView({ icon, kind }: EntryIconProps): ReactElement {
       aria-hidden="true"
       // A colour only when one was chosen; otherwise it inherits, which is what
       // lets the tree's own states — selected, muted, dragged — keep working.
-      style={icon?.color ? { color: `var(--sone-palette-${icon.color})` } : undefined}
+      // Through core, so a palette name and a colour of one's own are read the
+      // same way here as everywhere else (ADR-0023).
+      style={colorValue(icon?.color) ? { color: colorValue(icon?.color) } : undefined}
     />
   );
 }
@@ -96,5 +99,6 @@ export function EntryIconView({ icon, kind }: EntryIconProps): ReactElement {
 export function titleColorStyle(
   icon: { titleColor?: string } | null,
 ): { color: string } | undefined {
-  return icon?.titleColor ? { color: `var(--sone-palette-${icon.titleColor})` } : undefined;
+  const color = colorValue(icon?.titleColor);
+  return color ? { color } : undefined;
 }
