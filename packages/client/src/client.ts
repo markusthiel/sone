@@ -5,6 +5,7 @@
  * separate from both so each stays testable in isolation.
  */
 
+import type * as Y from 'yjs';
 import {
   SyncConnection,
   type ConnectionFailure,
@@ -15,6 +16,14 @@ import { DocumentStore, type PageHandle, type PresenceState } from './store.js';
 
 export interface SoneClientOptions extends ConnectionOptions {
   presence?: Partial<PresenceState>;
+  /**
+   * Keep a copy of each document locally.
+   *
+   * Passed through to the store, which is where the reasoning lives. Omitting
+   * it means no local copy — the right answer for anybody on a machine that is
+   * not theirs.
+   */
+  persist?: (docId: string, doc: Y.Doc) => { destroy: () => void } | null;
   onStateChange?: (state: ConnectionState) => void;
   onFatal?: (code: string, detail: string) => void;
   onPasswordRequired?: () => void;

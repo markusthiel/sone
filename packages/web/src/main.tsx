@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { sweepLocalDocs } from './storage/localDocs.ts';
+
 import { App } from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { applyAppearance } from './hooks/useAppearance.ts';
@@ -19,6 +21,13 @@ try {
 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root is missing from index.html');
+
+// Drop local copies nobody has opened in a month.
+//
+// At startup rather than on a timer: it touches storage, and a background sweep
+// competing with a page being typed into buys nothing. Failures are ignored —
+// this is a cache bound, and an unswept copy is a nuisance rather than a fault.
+void sweepLocalDocs().catch(() => {});
 
 createRoot(root).render(
   <StrictMode>
