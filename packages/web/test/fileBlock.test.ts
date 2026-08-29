@@ -16,10 +16,12 @@ const source = codeOf(new URL('../src/components/FileNodeView.ts', import.meta.u
 
 test('a viewer is offered only for what a browser can draw', () => {
   // A viewer button on a spreadsheet is a promise nothing here can keep. The
-  // predicate mirrors the server's own answer rather than being a second list
-  // that would drift from it.
+  // offering moved to the gutter menu with the rest of the file's actions; the
+  // block still refuses to draw a viewer it cannot fill.
   assert.match(source, /const viewable = \(category: unknown\): boolean =>/);
-  assert.match(source, /if \(viewable\(category\)\) options\.push\(\{ id: 'full'/);
+
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(menu, /if \(viewable\) options\.push\(\{ id: 'full'/);
 });
 
 test('an unrenderable file falls back to a card even if it says otherwise', () => {
@@ -44,26 +46,8 @@ test('everything but a PDF is sandboxed from the embedding side too', () => {
   assert.match(source, /if \(category !== 'pdf'\) frame\.setAttribute\('sandbox', ''\)/);
 });
 
-test('the menu acts on click', () => {
-  // pointerdown fires before a finger lifts and cancels the scroll gesture with
-  // it — the cause of every touch bug this project has had.
-  assert.match(source, /addEventListener\('click'/);
-  assert.doesNotMatch(source, /addEventListener\('pointerdown'/);
-});
 
-test('the menu closes when attention moves elsewhere', () => {
-  // Otherwise the menu of a file scrolled off screen stays open behind the
-  // page.
-  assert.match(source, /focusout/);
-});
 
-test('"open" is offered only for what a browser can draw', () => {
-  // "Open" on a spreadsheet opens a download, which is what the item below it
-  // already says plainly — two items doing the same thing under different
-  // names.
-  const menu = source.slice(source.indexOf("heading('Do')"));
-  assert.match(menu.slice(0, 700), /if \(viewable\(category\)\)/);
-});
 
 test('a size is shown coarsely, and nonsense shows nothing', () => {
   // Nobody needs the byte count, and "NaN B" beside a filename is worse than
@@ -115,32 +99,9 @@ test('a tab opened from here cannot reach back into the page', () => {
   assert.match(source, /rel = 'noopener noreferrer'/);
 });
 
-test('downloading is always offered, whatever the file is', () => {
-  // It is the one thing that works for every type, so it is never behind a
-  // condition.
-  assert.match(source, /download\.textContent = 'Download'/);
-});
 
-test('the menu closes when a click lands elsewhere', () => {
-  // focusout alone left it open for good: Safari does not focus a button when
-  // it is clicked, so focus never entered the menu and never left it. A
-  // document listener is what actually observes "somebody is doing something
-  // else now".
-  assert.match(source, /document\.addEventListener\('click', onOutside, true\)/);
-  assert.match(source, /document\.removeEventListener\('click', onOutside, true\)/);
-});
 
-test('the listener does not outlive its element', () => {
-  // render() throws the menu away on every update, and ProseMirror throws the
-  // whole view away when the block goes. A listener left on the document would
-  // then be closing a menu that no longer exists.
-  assert.match(source, /destroy\(\): void \{\s*this\.closeMenu\?\.\(\);/);
-  assert.match(source, /this\.closeMenu\?\.\(\);\s*this\.render\(\)/);
-});
 
-test('only one file menu is open at a time', () => {
-  assert.match(source, /if \(this\.closeMenu && this\.closeMenu !== close\) this\.closeMenu\(\)/);
-});
 
 // --- dropping files ---------------------------------------------------------
 
@@ -178,11 +139,19 @@ test('a reader cannot drop into a page they may not edit', () => {
   assert.match(surfaceCode, /!canEditRef\.current/);
 });
 
-test('the menu sits inside the card, not below it', () => {
-  // Appended after the card it rendered underneath: a loose button below a
-  // tile, belonging to nothing visible. The line display had it in the row all
-  // along, and the card now uses the same arrangement.
-  assert.match(source, /head\.append\(this\.link\(url, name, category\), this\.controls\(/);
-  assert.match(source, /card\.append\(head, meta\)/);
-  assert.doesNotMatch(source, /this\.dom\.append\(card, this\.controls\(/);
+
+test('the block draws and nothing else', () => {
+  // Changing how a file is shown lives in the gutter menu with every other
+  // block's settings. The `···` button here was a second place to ask the same
+  // kind of question, and the gutter is where somebody already looks.
+  assert.doesNotMatch(source, /file-menu/);
+  assert.doesNotMatch(source, /addEventListener\('click'/);
+});
+
+test('the gutter menu carries the file actions instead', () => {
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(menu, /range\.node\.type\.name === 'file'/);
+  assert.match(menu, /Open in a new tab/);
+  assert.match(menu, /Download/);
+  assert.match(menu, /setFileDisplay\(at,/);
 });

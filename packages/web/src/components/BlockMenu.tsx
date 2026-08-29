@@ -30,6 +30,7 @@ import {
   toggleBlockType,
   currentBlockStyle,
   setBlockStyle,
+  setFileDisplay,
 } from '@sone/editor';
 import { BLOCK_COLORS } from '@sone/core';
 import type { Command } from 'prosemirror-state';
@@ -202,9 +203,81 @@ function BlockAppearance({
   );
 }
 
+/**
+ * What a file block can do, in the gutter menu.
+ *
+ * The same two questions the `···` menu asked — what to do with it, and how to
+ * show it — and offering a viewer only where a browser can draw one, because a
+ * viewer on a spreadsheet is a promise nothing here can keep.
+ */
+function FileActions({
+  node,
+  at,
+  run,
+}: {
+  view: EditorView;
+  node: PMNodeLike;
+  at: number;
+  run: (command: Command) => void;
+}): ReactElement | null {
+  const fileId = String(node.attrs['fileId'] ?? '');
+  if (fileId === '') return null;
+
+  const url = `/api/files/${fileId}`;
+  const name = String(node.attrs['filename'] ?? 'file');
+  const category = node.attrs['category'];
+  const display = String(node.attrs['display'] ?? 'card');
+  const viewable = category === 'pdf' || category === 'text' || category === 'image';
+
+  const options: Array<{ id: string; label: string }> = [
+    { id: 'card', label: 'Card' },
+    { id: 'line', label: 'One line' },
+  ];
+  if (viewable) options.push({ id: 'full', label: 'Viewer' });
+
+  return (
+    <div className="block-menu-group">
+      <p className="block-menu-label">File</p>
+
+      {viewable && (
+        <a
+          className="block-menu-item"
+          role="menuitem"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open in a new tab
+        </a>
+      )}
+      <a className="block-menu-item" role="menuitem" href={url} download={name}>
+        Download
+      </a>
+
+      <div className="block-menu-choices" role="group" aria-label="Show as">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={display === option.id}
+            className={
+              display === option.id ? 'block-menu-choice current' : 'block-menu-choice'
+            }
+            {...popupItem(() => run(setFileDisplay(at, option.id as 'card' | 'line' | 'full')))}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The little of a ProseMirror node this needs; see CollectionNodeView. */
 interface PMNodeLike {
   type: { name: string };
+  attrs: Record<string, unknown>;
 }
 
 export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | null {
@@ -473,6 +546,15 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
             * not a thing. A section of controls that have no effect teaches
             * people the panel is decoration.
             */}
+          {/* A file's own actions, where every other block's are.
+            *
+            * They lived in a `···` button on the block itself, which was a
+            * second place to ask the same kind of question — and the gutter is
+            * where somebody already looks. */}
+          {range.node.type.name === 'file' && (
+            <FileActions view={view} node={range.node} at={range.from} run={run} />
+          )}
+
           <BlockAppearance view={view} node={range.node} run={run} />
 
           {/* Table actions, only inside a table. prosemirror-tables' commands

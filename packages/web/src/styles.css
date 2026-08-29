@@ -3484,3 +3484,14 @@ body {
   gap: var(--sone-space-3);
 }
 .file-card-head .file-name { flex: 1 1 auto; min-inline-size: 0; }
+
+/* A link that sits in the gutter menu like the buttons around it. */
+.block-menu-item {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-3);
+  color: inherit;
+  font-size: var(--sone-text-sm);
+}
+.block-menu-item:hover { background: var(--sone-bg-hover); }
