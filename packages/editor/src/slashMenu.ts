@@ -168,6 +168,27 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     action: { kind: 'insert', build: () => buildTable({ rows: 3, columns: 3 }) },
   },
   {
+    id: 'file',
+    title: 'File',
+    hint: 'A PDF, a document, a spreadsheet — shown here or offered to open',
+    keywords: [
+      'file',
+      'document',
+      'pdf',
+      'word',
+      'excel',
+      'attachment',
+      'upload',
+      'datei',
+      'dokument',
+      'anhang',
+    ],
+    group: 'blocks',
+    // External for the same reason the image is: a file picker needs a user
+    // gesture and a DOM element, and a transaction has neither.
+    action: { kind: 'external' },
+  },
+  {
     id: 'collection',
     title: 'Table of entries',
     hint: 'A collection: rows with columns, each row a page of its own',

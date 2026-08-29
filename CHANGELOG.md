@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Documents are a content element.** Type `/` and choose "File": a PDF or text
+file opens as a viewer with its own scrollbar, and anything else becomes a card
+with its name, type and size. Each block switches between card, one line, and —
+where a browser can draw it — a viewer.
+
 **Documents can be uploaded, not only images.** Word, Excel, PowerPoint,
 OpenDocument, PDFs, text and archives. PDFs and text are shown in place; a Word
 or Excel file is offered as a file, because nothing here can render one and a

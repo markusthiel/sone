@@ -27,6 +27,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 
 import { CollectionTable } from './CollectionTable.tsx';
+import { fileNodeView } from './FileNodeView.ts';
 
 /**
  * The little of a ProseMirror node this needs.
@@ -113,7 +114,15 @@ class CollectionNodeView implements NodeView {
   }
 }
 
-/** The node views this editor needs. */
-export const soneNodeViews: EditorView['props']['nodeViews'] = {
+/**
+ * The node views this editor needs.
+ *
+ * A function rather than a constant, because the file view needs a way to
+ * dispatch a command and only the surface has the view to dispatch on.
+ */
+export const soneNodeViews = (
+  setFileDisplayAt: (getPos: () => number | undefined, display: string) => void,
+): EditorView['props']['nodeViews'] => ({
   collectionView: (node) => new CollectionNodeView(node as unknown as PMNodeLike),
-};
+  file: fileNodeView(setFileDisplayAt),
+});

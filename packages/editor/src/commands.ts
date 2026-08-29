@@ -96,3 +96,60 @@ export function currentBlockStyle(state: EditorState): {
 
   return { align, width, color };
 }
+
+/** How a file block is drawn. */
+export type FileDisplay = 'card' | 'line' | 'full';
+
+export interface FileBlockAttrs {
+  fileId: string;
+  filename: string;
+  mimeType: string;
+  category: string;
+  sizeBytes?: number | null;
+  display?: FileDisplay;
+}
+
+/**
+ * Insert a file block.
+ *
+ * The default display depends on what the file is, because the useful default
+ * differs: a PDF is usually attached to be read, so it opens as a viewer, while
+ * a spreadsheet nothing here can render is a card with its name on it. Somebody
+ * can change it either way — this only decides which is right more often.
+ */
+export function insertFileBlock(attrs: FileBlockAttrs): Command {
+  return (state, dispatch) => {
+    const type = state.schema.nodes['file'];
+    if (!type) return false;
+    if (!dispatch) return true;
+
+    const display: FileDisplay =
+      attrs.display ?? (attrs.category === 'pdf' || attrs.category === 'text' ? 'full' : 'card');
+
+    dispatch(
+      state.tr.replaceSelectionWith(
+        type.create({
+          fileId: attrs.fileId,
+          filename: attrs.filename,
+          mimeType: attrs.mimeType,
+          category: attrs.category,
+          sizeBytes: attrs.sizeBytes ?? null,
+          display,
+        }),
+      ),
+    );
+    return true;
+  };
+}
+
+/** Change how the file block at `pos` is drawn. */
+export function setFileDisplay(pos: number, display: FileDisplay): Command {
+  return (state, dispatch) => {
+    const node = state.doc.nodeAt(pos);
+    if (!node || node.type.name !== 'file') return false;
+    if (!dispatch) return true;
+
+    dispatch(state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, display }));
+    return true;
+  };
+}

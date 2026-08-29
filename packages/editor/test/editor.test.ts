@@ -939,7 +939,7 @@ test('every item has distinct keywords and a hint', () => {
  * about two packages agreeing, and it belongs where the disagreement would be
  * caught.
  */
-const EXTERNAL_SLASH_IDS = new Set(['image', 'collection']);
+const EXTERNAL_SLASH_IDS = new Set(['image', 'file', 'collection']);
 
 test('every item names something the schema can produce', () => {
   // A menu entry that silently does nothing is worse than no entry, and an
