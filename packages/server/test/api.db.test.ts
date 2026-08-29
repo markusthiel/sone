@@ -1517,7 +1517,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
         headers: { 'content-type': 'application/json', cookie: session.cookie },
         body: JSON.stringify({
           title: 'Folder',
-          icon: { kind: 'emoji', value: '📁', color: 'blue' },
+          icon: { kind: 'icon', value: 'folder', color: 'blue' },
           titleColor: 'green',
         }),
       }),
@@ -1529,8 +1529,8 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       [page],
     );
     assert.deepEqual(stored.rows[0]?.icon, {
-      kind: 'emoji',
-      value: '📁',
+      kind: 'icon',
+      value: 'folder',
       color: 'blue',
       titleColor: 'green',
     });
@@ -1547,7 +1547,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
         body: JSON.stringify({ title: 'Folder', ...body }),
       });
 
-    await patch({ icon: { kind: 'emoji', value: '📁' }, titleColor: 'red' });
+    await patch({ icon: { kind: 'icon', value: 'folder' }, titleColor: 'red' });
     await expectStatus(await patch({ icon: null }), 200);
 
     const stored = await db.query<{ icon: Record<string, unknown> | null }>(
@@ -1565,7 +1565,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     await fetch(`${base}/api/pages/${page}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json', cookie: session.cookie },
-      body: JSON.stringify({ title: 'Folder', icon: { kind: 'emoji', value: '📁' } }),
+      body: JSON.stringify({ title: 'Folder', icon: { kind: 'icon', value: 'folder' } }),
     });
 
     await expectStatus(
@@ -1582,7 +1582,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       [page],
     );
     assert.equal(stored.rows[0]?.title, 'Renamed');
-    assert.deepEqual(stored.rows[0]?.icon, { kind: 'emoji', value: '📁' });
+    assert.deepEqual(stored.rows[0]?.icon, { kind: 'icon', value: 'folder' });
   });
 
   test('tags are stored and projected', async () => {

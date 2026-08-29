@@ -153,14 +153,79 @@ export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
 // --- entry appearance -------------------------------------------------------
 
 /**
+ * The icons an entry may carry.
+ *
+ * Lucide, which is ISC-licensed line work that matches the rest of this
+ * interface — the alternative first attempt was emoji, and it was the wrong
+ * answer: emoji are somebody else's drawings in somebody else's style, they
+ * differ on every platform, and a sidebar of them does not look designed.
+ *
+ * A curated list rather than the whole set. Two thousand icons is a search
+ * problem rather than a choice, and a name stored here has to keep resolving —
+ * a closed list is a promise that it will, and the names are checked against
+ * what the interface actually renders.
+ */
+export const ENTRY_ICONS = [
+  'folder',
+  'folder-open',
+  'file-text',
+  'notebook',
+  'book',
+  'bookmark',
+  'star',
+  'heart',
+  'flag',
+  'target',
+  'lightbulb',
+  'rocket',
+  'briefcase',
+  'building',
+  'home',
+  'users',
+  'user',
+  'message-circle',
+  'mail',
+  'phone',
+  'calendar',
+  'clock',
+  'check-circle',
+  'list-todo',
+  'chart-bar',
+  'trending-up',
+  'coins',
+  'shopping-cart',
+  'package',
+  'truck',
+  'wrench',
+  'settings',
+  'code',
+  'database',
+  'server',
+  'cloud',
+  'lock',
+  'key',
+  'shield',
+  'archive',
+  'camera',
+  'image',
+  'music',
+  'video',
+  'map-pin',
+  'globe',
+  'plane',
+  'car',
+  'leaf',
+  'sun',
+] as const;
+
+export type EntryIconName = (typeof ENTRY_ICONS)[number];
+
+/**
  * An entry's own icon and the colours around it.
  *
  * `pages.icon` has been a jsonb column and a document key since the first
- * migration, and nothing ever wrote one. This is the shape that goes in it.
- *
- * Emoji rather than an icon set. A named set means shipping it, keeping it, and
- * telling somebody their icon is gone when it is dropped; an emoji is text that
- * every platform already draws and that survives an export to anything.
+ * migration, and nothing ever wrote one. This is the shape that goes in it, so
+ * none of this needs a migration.
  *
  * The two colours are separate on purpose. Colouring a folder's name and its
  * icon together is one decision made twice, and a coloured icon beside a plain
@@ -168,9 +233,9 @@ export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
  * forbid.
  */
 export interface EntryIcon {
-  /** Only 'emoji' for now; the field exists so a second kind needs no migration. */
-  kind: 'emoji';
-  value: string;
+  /** The field exists so a second kind could be added without a migration. */
+  kind: 'icon';
+  value: EntryIconName;
   /** Palette name, or absent for the colour the design chooses. */
   color?: ThemeColor;
 }
@@ -186,17 +251,17 @@ export function readEntryIcon(value: unknown): EntryIcon | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
 
   const raw = value as Record<string, unknown>;
-  if (raw['kind'] !== 'emoji') return null;
+  if (raw['kind'] !== 'icon') return null;
 
-  const text = typeof raw['value'] === 'string' ? raw['value'].trim() : '';
-  // Bounded: an emoji is a handful of code points, and a long string here is
-  // either a mistake or somebody putting a paragraph in the sidebar.
-  if (text === '' || [...text].length > 8) return null;
+  // Checked against the list rather than stored as given. A name nothing can
+  // draw is an entry that renders a gap where its icon should be, and the gap
+  // appears long after whoever typed the name has forgotten about it.
+  if (!inList(ENTRY_ICONS, raw['value'])) return null;
 
   const color = raw['color'];
   return {
-    kind: 'emoji',
-    value: text,
+    kind: 'icon',
+    value: raw['value'],
     ...(inList(THEME_COLORS, color) ? { color } : {}),
   };
 }
