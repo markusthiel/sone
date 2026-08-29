@@ -13,9 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**A file's name now opens it** instead of always downloading. Anything a browser
-can draw opens in a new tab; anything it cannot still downloads, because that is
-the only useful thing to do with it. Downloading is a button beside the name.
+**A file block has a menu**: open in a new tab, download, and how to show it —
+card, one line, or a viewer. The name itself opens anything a browser can draw
+and downloads anything it cannot, so the common case needs no menu at all.
 
 **A workspace can have its own defaults for how elements look** — size, colour
 and spacing per element kind. It fills the gaps a block leaves rather than

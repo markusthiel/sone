@@ -3113,27 +3113,65 @@ select {
   background: var(--sone-bg);
 }
 
-.file-displays {
-  display: flex;
-  gap: var(--sone-space-1);
-  margin-inline-start: auto;
-  opacity: 0;
-}
-.file-block:hover .file-displays,
-.file-displays:focus-within { opacity: 1; }
-@media (hover: none) { .file-displays { opacity: 0.7; } }
-
-.file-display {
+/* One menu holding what to do and how to show it.
+ *
+ * A row of display buttons with a download link beside it was two kinds of
+ * thing in one place — "what should this look like" and "what should happen
+ * now" — reading as one row, and growing every time something was added.
+ */
+.file-menu { position: relative; margin-inline-start: auto; }
+.file-menu-trigger {
   min-block-size: var(--sone-control);
-  padding-inline: var(--sone-space-2);
+  min-inline-size: var(--sone-control);
   border: 1px solid transparent;
   border-radius: var(--sone-radius-sm);
   background: transparent;
   color: var(--sone-text-muted);
-  font-size: var(--sone-text-xs);
+  letter-spacing: 1px;
 }
-.file-display:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
-.file-display.current { border-color: var(--sone-accent); color: var(--sone-text); }
+.file-menu-trigger:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+
+.file-menu-items {
+  position: absolute;
+  z-index: 20;
+  inset-inline-end: 0;
+  inset-block-start: calc(100% + var(--sone-space-1));
+  min-inline-size: 12rem;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sone-space-1);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 14%);
+}
+.file-menu-label {
+  margin: var(--sone-space-2) var(--sone-space-2) var(--sone-space-1);
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+  color: var(--sone-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.file-menu-item {
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-3);
+  display: flex;
+  align-items: center;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+}
+.file-menu-item:hover { background: var(--sone-bg-hover); }
+.file-menu-item[aria-checked='true'] { font-weight: 600; }
+.file-menu-item[aria-checked='true']::after {
+  content: '✓';
+  margin-inline-start: auto;
+  color: var(--sone-accent);
+}
 
 .file-block[data-state='pending'] {
   padding: var(--sone-space-4);
