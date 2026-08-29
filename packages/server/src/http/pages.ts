@@ -569,12 +569,21 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       }
     }
 
-    if (typeof body.title !== 'string') {
+    // A title is required only when nothing else was asked for.
+    //
+    // Setting an icon should not mean sending the current title back, which
+    // would overwrite whatever somebody else renamed it to in the meantime —
+    // a lost rename for a change that had nothing to do with the name.
+    const wantsIcon = 'icon' in body;
+    const wantsTitleColor = 'titleColor' in body;
+
+    if (typeof body.title !== 'string' && !wantsIcon && !wantsTitleColor) {
       ctx.fail(422, 'missing_fields');
       return;
     }
 
-    const title = body.title.trim().slice(0, 512);
+    const title =
+      typeof body.title === 'string' ? body.title.trim().slice(0, 512) : null;
 
     // An icon and the two colours around it, when the request carries them.
     //
@@ -582,9 +591,6 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     // migration and nothing ever wrote. The title colour lives beside the icon
     // rather than inside it: colouring a name and colouring its icon are two
     // decisions, and one is commonly wanted without the other.
-    const wantsIcon = 'icon' in body;
-    const wantsTitleColor = 'titleColor' in body;
-
     const icon = wantsIcon ? readEntryIcon(body.icon) : undefined;
     const titleColor = wantsTitleColor
       ? readTitleColor({ titleColor: body.titleColor })
@@ -595,7 +601,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       pageId,
       (doc) => {
         const page = doc.getMap(DOC_KEYS.page);
-        page.set(PAGE_KEYS.title, title);
+        if (title !== null) page.set(PAGE_KEYS.title, title);
 
         if (wantsIcon || wantsTitleColor) {
           const existing = page.get(PAGE_KEYS.icon);
@@ -634,7 +640,12 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       await rematerialize(deps.pool, pageId, page.workspaceId, actorId);
     }
 
-    ctx.send(200, { id: pageId, title, ...(wantsIcon ? { icon } : {}), ...(wantsTitleColor ? { titleColor } : {}) });
+    ctx.send(200, {
+      id: pageId,
+      ...(title !== null ? { title } : {}),
+      ...(wantsIcon ? { icon } : {}),
+      ...(wantsTitleColor ? { titleColor } : {}),
+    });
   });
 
   /**

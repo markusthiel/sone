@@ -15,7 +15,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 **Folders and pages can carry an icon**, with a colour for the icon and a
 separate one for the name. A curated set of Lucide line icons, which match the
-rest of the interface. The picker comes next; this is the model and the API.
+rest of the interface. The tree draws them; the picker for choosing one comes
+next.
 
 **Fixed: paragraph spacing was the browser's, not ours.** Six styling rules were
 written for a class the editor does not emit, so they matched nothing and
