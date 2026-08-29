@@ -2785,18 +2785,21 @@ select {
 }
 .tag-chip svg { color: var(--tag-color); }
 
-/* Collections held by a page, beneath its writing.
+/* A collection, in the flow of the text.
  *
- * A collection is content inside a page (ADR-0021). Separated from the text
- * above it, because a table is a different kind of reading from a paragraph.
+ * The block the schema always had a node for (ADR-0021). Given room above and
+ * below, because a table is a different kind of reading from a paragraph and
+ * running it tight against one makes both harder.
  */
-.page-collections {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sone-space-6);
-  margin-block-start: var(--sone-space-6);
-  padding-block-start: var(--sone-space-5);
-  border-block-start: 1px solid var(--sone-border);
+.collection-block {
+  margin-block: var(--sone-space-6);
+}
+.collection-block-missing {
+  padding: var(--sone-space-4);
+  border: 1px dashed var(--sone-border);
+  border-radius: var(--sone-radius);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
 }
 .btn.subtle {
   align-self: flex-start;

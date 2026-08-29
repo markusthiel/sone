@@ -61,12 +61,15 @@ interface SlashMenuProps {
    * event.
    */
   onPickImage: () => void;
+  /** Creates a collection and puts a block for it where the caret is. */
+  onInsertCollection: () => void;
 }
 
 export function SlashMenu({
   view,
   revision,
   onPickImage,
+  onInsertCollection,
 }: SlashMenuProps): ReactElement | null {
   const menu = slashMenuState(view.state);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -189,6 +192,15 @@ export function SlashMenu({
       if (state) tr.delete(state.from, view.state.selection.head);
       tr.setMeta(slashMenuPluginKey, { close: true });
       view.dispatch(tr);
+      // Which external action, decided by the item rather than assumed.
+      //
+      // There was one for a long time and the branch simply called the picker.
+      // A second — inserting a collection — would have opened a file dialog.
+      if (item.id === 'collection') {
+        onInsertCollection();
+        return;
+      }
+
       // Asking the surface to open the picker, not opening one from here.
       //
       // The input used to live in this component, which unmounts the moment the

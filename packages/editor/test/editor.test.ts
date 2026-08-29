@@ -932,6 +932,15 @@ test('every item has distinct keywords and a hint', () => {
   }
 });
 
+/**
+ * External items, and the interface that handles each one.
+ *
+ * Kept beside the assertion rather than in the source: this is a statement
+ * about two packages agreeing, and it belongs where the disagreement would be
+ * caught.
+ */
+const EXTERNAL_SLASH_IDS = new Set(['image', 'collection']);
+
 test('every item names something the schema can produce', () => {
   // A menu entry that silently does nothing is worse than no entry, and an
   // action naming a node type that does not exist is exactly that.
@@ -944,8 +953,17 @@ test('every item names something the schema can produce', () => {
     } else if (item.action.kind === 'insert') {
       assert.ok(item.action.build(), `${item.id} builds nothing`);
     } else {
-      // `external` is handled by the interface, which has to know the id.
-      assert.equal(item.id, 'image');
+      // `external` is handled by the interface, which dispatches on the id — so
+      // an id the interface does not know about is a menu entry that silently
+      // does nothing.
+      //
+      // This asserted a single id when there was one such item. Naming the set
+      // keeps the same guarantee and says where the other half lives: adding a
+      // third without teaching SlashMenu.tsx about it fails here.
+      assert.ok(
+        EXTERNAL_SLASH_IDS.has(item.id),
+        `${item.id} is external and nothing in the interface handles it`,
+      );
     }
   }
 });

@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A collection can be placed in the text.** Type `/` and choose "Table of
+entries": the collection is created and a block for it appears where the caret
+is, between paragraphs, as in Craft and AppFlowy. Several per page.
+
 **A collection is content in a page, not a folder.** 0.2.0 made a folder *be* a
 table and put every row in the sidebar; a folder stopped meaning one thing, and a
 hundred-row table meant a hundred sidebar entries. A page can now hold
