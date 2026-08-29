@@ -141,3 +141,39 @@ test('the listener does not outlive its element', () => {
 test('only one file menu is open at a time', () => {
   assert.match(source, /if \(this\.closeMenu && this\.closeMenu !== close\) this\.closeMenu\(\)/);
 });
+
+// --- dropping files ---------------------------------------------------------
+
+const surfaceCode = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+
+test('a drop lands where it was dropped', () => {
+  // Every insert here works on the selection, so without moving the caret a
+  // file dropped at the end of a long page lands wherever the caret happened to
+  // be — usually somewhere the person cannot see.
+  assert.match(surfaceCode, /posAtCoords\(at\)/);
+  assert.match(surfaceCode, /TextSelection\.near\(/);
+});
+
+test('dragover is prevented, or the browser navigates away', () => {
+  // Without it the drop never reaches the page: the browser opens the file
+  // instead, losing whatever was being written.
+  assert.match(surfaceCode, /onDragOver=\{\(event\) => \{/);
+  assert.match(surfaceCode, /types\.includes\('Files'\)/);
+});
+
+test('several files keep the order they were dropped in', () => {
+  // Parallel uploads finish in whatever order the network decides, and five
+  // files should produce five blocks in the order somebody chose them.
+  assert.match(surfaceCode, /for \(const file of files\)/);
+  assert.match(surfaceCode, /else await attachFile\(file\)/);
+});
+
+test('an image stays an image however it arrives', () => {
+  // Same block, same preview while it uploads. Only what cannot be an image
+  // becomes a file block.
+  assert.match(surfaceCode, /file\.type\.startsWith\('image\/'\)/);
+});
+
+test('a reader cannot drop into a page they may not edit', () => {
+  assert.match(surfaceCode, /!canEditRef\.current/);
+});
