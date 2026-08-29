@@ -226,3 +226,20 @@ test('a block type nobody listed still gets a control', () => {
   );
   assert.match(source, /APPEARANCE\[node\.type\.name\] \?\? \{/);
 });
+
+test('the column type menu opens away from the data', () => {
+  // It grew leftward across the rows, covering the table while you choose what
+  // kind of column to add to it. Rightward is where the new column is about to
+  // appear — and on a narrow screen there is no room there, so it flips back.
+  const menu = css.slice(css.indexOf('.collection-type-menu {'));
+  const rule = menu.slice(0, menu.indexOf('}'));
+  assert.match(rule, /inset-inline-start:\s*0/);
+  assert.match(css, /max-width: 720px\)[\s\S]{0,200}collection-type-menu[\s\S]{0,120}inset-inline-end:\s*0/);
+});
+
+test('the title column says it is fixed rather than just lacking a bin', () => {
+  // Every other column has a remove button. A missing control reads as a bug —
+  // somebody looks for it, does not find it, and concludes the interface is
+  // inconsistent rather than that the column is special.
+  assert.match(css, /\.collection-column-fixed/);
+});
