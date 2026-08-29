@@ -3259,3 +3259,57 @@ html,
 body {
   overscroll-behavior: none;
 }
+
+/* --- the palette, in one place ---
+ *
+ * The same eight names used by tags, select options, block colours and now
+ * workspace themes. They were written out separately in each of those places,
+ * which meant "blue" could drift into four slightly different blues without
+ * anybody noticing — and a theme that resolves to var(--sone-palette-blue)
+ * needs there to be one.
+ */
+:root {
+  --sone-palette-grey: var(--sone-text-muted);
+  --sone-palette-red: #d64545;
+  --sone-palette-orange: #d97706;
+  --sone-palette-yellow: #ca8a04;
+  --sone-palette-green: #16a34a;
+  --sone-palette-blue: #2563eb;
+  --sone-palette-purple: #7c3aed;
+  --sone-palette-pink: #db2777;
+}
+
+/* --- a workspace's own defaults ---
+ *
+ * Applied where the block's own setting is absent, which is what makes a theme
+ * gaps filled rather than a replacement design (ADR-0023). A block that carries
+ * `data-color` wins, because somebody chose it; one that does not falls through
+ * to the theme, and then to the stylesheet's own answer when there is no theme.
+ *
+ * The size is a multiplier on the existing size rather than a size, so it
+ * composes with the reading scale: somebody reading larger sees this
+ * workspace's proportions, larger.
+ */
+.ProseMirror h1[data-block]:not([data-color]) { color: var(--sone-theme-heading1-color, inherit); }
+.ProseMirror h2[data-block]:not([data-color]) { color: var(--sone-theme-heading2-color, inherit); }
+.ProseMirror h3[data-block]:not([data-color]) { color: var(--sone-theme-heading3-color, inherit); }
+.ProseMirror p[data-block]:not([data-color]) { color: var(--sone-theme-body-color, inherit); }
+.ProseMirror blockquote[data-block]:not([data-color]) { color: var(--sone-theme-quote-color, inherit); }
+
+.ProseMirror h1[data-block] { font-size: calc(1.9rem * var(--sone-theme-heading1-size, 1)); }
+.ProseMirror h2[data-block] { font-size: calc(1.45rem * var(--sone-theme-heading2-size, 1)); }
+.ProseMirror h3[data-block] { font-size: calc(1.2rem * var(--sone-theme-heading3-size, 1)); }
+.ProseMirror p[data-block] { font-size: calc(1em * var(--sone-theme-body-size, 1)); }
+
+.ProseMirror h1[data-block] {
+  margin-block: calc(0.6em + var(--sone-theme-heading1-space-above, 0) * 0.5em)
+                calc(0.2em + var(--sone-theme-heading1-space-below, 0) * 0.5em);
+}
+.ProseMirror h2[data-block] {
+  margin-block: calc(0.6em + var(--sone-theme-heading2-space-above, 0) * 0.5em)
+                calc(0.2em + var(--sone-theme-heading2-space-below, 0) * 0.5em);
+}
+.ProseMirror h3[data-block] {
+  margin-block: calc(0.5em + var(--sone-theme-heading3-space-above, 0) * 0.5em)
+                calc(0.2em + var(--sone-theme-heading3-space-below, 0) * 0.5em);
+}

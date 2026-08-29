@@ -12,6 +12,8 @@
  * wrong, not for display.
  */
 
+import type { WorkspaceTheme } from '@sone/core';
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -374,6 +376,16 @@ export const api = {
     request<{ id: string; name: string }>(`/api/workspaces/${workspaceId}`, {
       method: 'PATCH',
       body: JSON.stringify({ name }),
+    }),
+
+  /** A workspace's own defaults for how elements look. */
+  workspaceTheme: (workspaceId: string) =>
+    request<{ theme: WorkspaceTheme }>(`/api/workspaces/${workspaceId}/theme`),
+
+  setWorkspaceTheme: (workspaceId: string, theme: WorkspaceTheme) =>
+    request<{ theme: WorkspaceTheme }>(`/api/workspaces/${workspaceId}/theme`, {
+      method: 'PUT',
+      body: JSON.stringify({ theme }),
     }),
 
   members: (workspaceId: string) =>

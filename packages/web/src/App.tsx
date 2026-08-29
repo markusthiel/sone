@@ -25,6 +25,7 @@ import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
 import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
+import { useWorkspaceTheme } from './hooks/useWorkspaceTheme.ts';
 import { useFavourites } from './hooks/useFavourites.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
@@ -131,6 +132,12 @@ function Workspace({
   onSwitchWorkspace: (workspaceId: string) => void;
   onLogout: () => void;
 }): ReactElement {
+  // The workspace's own defaults, applied as custom properties on the document
+  // root. Nothing else reads a theme: it changes what the existing variables
+  // resolve to, and the stylesheet already falls back to its own answer where
+  // one is absent (ADR-0023).
+  useWorkspaceTheme(workspaceId);
+
   const { client, state: connectionState, failure } = useSoneClient({
     workspaceId,
     displayName,
