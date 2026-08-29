@@ -64,6 +64,13 @@ export function Contributors({
   // From the document, and again whenever it changes: somebody joining and
   // typing should appear without a reload.
   useEffect(() => {
+    // The chosen person does not travel to the next page.
+    //
+    // A new page means a new editor, which draws nothing until it is asked —
+    // so a selection left showing here would claim a highlight that is not on
+    // screen. This is a way of looking at one document, not a setting.
+    setSelected(null);
+
     if (!handle) {
       setUserIds([]);
       return undefined;

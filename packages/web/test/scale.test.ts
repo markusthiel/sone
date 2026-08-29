@@ -243,3 +243,35 @@ test('the title column says it is fixed rather than just lacking a bin', () => {
   // inconsistent rather than that the column is special.
   assert.match(css, /\.collection-column-fixed/);
 });
+
+test('form controls are big enough that a phone does not zoom in', () => {
+  // iOS zooms whenever a focused control has a font under 16px, and it does not
+  // zoom back out — so tapping a search box left the whole page magnified.
+  assert.match(css, /@media \(pointer: coarse\)[\s\S]{0,400}font-size:\s*max\(16px/);
+});
+
+test('zoom itself is not forbidden', () => {
+  // user-scalable=no would also stop the symptom, and would stop somebody who
+  // needs to magnify a page from doing so. Taking a capability away from people
+  // who depend on it, to work around a font size, is not a trade worth making.
+  //
+  // Checked on the viewport tag rather than on the file: index.html already
+  // carries a comment saying why zoom is not disabled, and a first version of
+  // this test matched that comment. A test that cannot tell prose from markup
+  // gets silenced by rewording rather than by fixing anything — the same
+  // mistake I made in the file-block tests, twice now.
+  const html = readFileSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../index.html'),
+    'utf8',
+  );
+  const viewport = /<meta name="viewport"[^>]*>/.exec(html)?.[0] ?? '';
+  assert.ok(viewport !== '', 'there is a viewport tag');
+  assert.doesNotMatch(viewport, /user-scalable\s*=\s*no/);
+  assert.doesNotMatch(viewport, /maximum-scale/);
+});
+
+test('the page does not pull to refresh', () => {
+  // Dragging a zoomed page back down was reloading it, which loses what
+  // somebody was reading.
+  assert.match(css, /html,\s*body\s*\{[^}]*overscroll-behavior:\s*none/);
+});

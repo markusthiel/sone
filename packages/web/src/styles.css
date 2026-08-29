@@ -3217,3 +3217,45 @@ select {
   border-color: var(--sone-accent);
   background: color-mix(in srgb, var(--sone-accent) 10%, transparent);
 }
+
+/* --- the page must not zoom itself ---
+ *
+ * Reported as: after a reload the page is suddenly larger, and pulling it back
+ * down sometimes reloads it again.
+ *
+ * The cause is not the reload. iOS zooms in whenever a focused form control has
+ * a font smaller than 16px, and it does not zoom back out afterwards — so
+ * tapping a search box or a filter value left the whole page magnified, and the
+ * next gesture to fix it landed on pull-to-refresh.
+ *
+ * Fixed by making the controls big enough rather than by forbidding zoom.
+ * `user-scalable=no` would also stop it, and it would stop somebody who needs
+ * to magnify a page from doing so — taking a capability away from people who
+ * depend on it to work around a font size is not a trade worth making.
+ *
+ * Only on touch: a pointer that can hover is a mouse, and there the smaller
+ * scale is deliberate.
+ */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea,
+  .collection-search,
+  .view-rule input,
+  .view-rule select,
+  .collection-column-input,
+  .tag-input {
+    font-size: max(16px, 1rem);
+  }
+}
+
+/* And the accidental reload.
+ *
+ * `contain` stops a scroll inside a panel from scrolling the page behind it;
+ * `none` on the page itself also stops the browser's own pull-to-refresh, which
+ * is what turned "drag the zoomed page back" into "lose what I was reading".
+ */
+html,
+body {
+  overscroll-behavior: none;
+}
