@@ -147,8 +147,14 @@ function BlockAppearance({
         <div className="block-menu-choices" role="group" aria-label="Width">
           {[
             { id: null, label: 'Column' },
-            { id: 'wide' as const, label: 'Wide' },
-            { id: 'full' as const, label: 'Full' },
+            // "Wide" is a step between the reading column and the page, and for
+            // an image it is a distinction without a difference: all three read
+            // as "the width of the text, or a bit more". An image is either in
+            // the column with the writing or across the page.
+            ...(node.type.name === 'image'
+              ? []
+              : [{ id: 'wide' as const, label: 'Wide' }]),
+            { id: 'full' as const, label: 'Full page' },
           ].map((choice) => (
             <button
               key={choice.label}

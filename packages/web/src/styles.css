@@ -3027,14 +3027,27 @@ select {
 .ProseMirror [data-width='wide'] {
   margin-inline: calc(var(--sone-space-7) * -1);
 }
+
+/* Full means the page, not a little more than the column.
+ *
+ * It was a second small step outward, so "column", "wide" and "full" all read
+ * as the width of the text give or take — three names for one thing, which is
+ * how it was reported. This one now reaches the edges.
+ */
 .ProseMirror [data-width='full'] {
-  margin-inline: calc(var(--sone-space-7) * -2);
+  margin-inline: calc(50% - 50vw);
+  max-inline-size: 100vw;
+  inline-size: 100vw;
 }
 @media (max-width: 720px) {
   /* Nothing breaks out on a narrow screen: there is no margin to break into,
      and doing it anyway pushes the text off the side. */
   .ProseMirror [data-width='wide'],
-  .ProseMirror [data-width='full'] { margin-inline: 0; }
+  .ProseMirror [data-width='full'] {
+    margin-inline: 0;
+    inline-size: auto;
+    max-inline-size: 100%;
+  }
 }
 
 .ProseMirror [data-color='grey'] { color: var(--sone-text-muted); }
