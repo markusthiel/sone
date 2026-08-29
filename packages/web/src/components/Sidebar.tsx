@@ -69,6 +69,8 @@ interface SidebarProps {
   favourites: FavouriteEntry[];
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
+  /** Reloads the tree after an entry's icon or colour changed. */
+  onReloadTree: () => void;
   onLogout: () => void;
 }
 
@@ -105,6 +107,7 @@ export function Sidebar({
   favourites,
   favouriteIds,
   onToggleFavourite,
+  onReloadTree,
   onLogout,
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
@@ -274,6 +277,7 @@ export function Sidebar({
             onStartShare={onStartShare}
             favouriteIds={favouriteIds}
             onToggleFavourite={onToggleFavourite}
+            onReloadTree={onReloadTree}
             tree={tree}
             onMove={onMove}
             drag={drag}
@@ -341,6 +345,7 @@ function TreeLevel({
   onStartShare,
   favouriteIds,
   onToggleFavourite,
+  onReloadTree,
   tree,
   onMove,
   drag,
@@ -359,6 +364,8 @@ function TreeLevel({
   onStartShare: (pageId: string) => void;
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
+  /** Reloads the tree after an entry's icon or colour changed. */
+  onReloadTree: () => void;
   /** The whole tree, for validating a drop against the subtree rule. */
   tree: PageNode[];
   onMove: (
@@ -460,6 +467,7 @@ function TreeLevel({
                   )}
                   <EntryMenu
                     node={node}
+                    onChanged={onReloadTree}
                     onRename={onRename}
                     onCreate={onCreatePage}
                     onDelete={onDelete}
@@ -501,6 +509,7 @@ function TreeLevel({
                   onStartShare={onStartShare}
                   favouriteIds={favouriteIds}
                   onToggleFavourite={onToggleFavourite}
+                  onReloadTree={onReloadTree}
                   tree={tree}
                   onMove={onMove}
                   drag={drag}
