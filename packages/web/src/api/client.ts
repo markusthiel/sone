@@ -462,10 +462,15 @@ export const api = {
     }>(`/api/share/${encodeURIComponent(token)}`),
 
   /** A collection is addressed by its own id: a page may hold several. */
-  collection: (collectionId: string, viewId?: string) =>
-    request<CollectionData>(
-      `/api/collections/${collectionId}${viewId ? `?view=${viewId}` : ''}`,
-    ),
+  collection: (collectionId: string, viewId?: string, query?: string) => {
+    const params = new URLSearchParams();
+    if (viewId) params.set('view', viewId);
+    if (query && query.trim() !== '') params.set('q', query);
+    const search = params.toString();
+    return request<CollectionData>(
+      `/api/collections/${collectionId}${search ? `?${search}` : ''}`,
+    );
+  },
 
   createCollection: (pageId: string) =>
     request<{ pageId: string; collectionId: string }>(`/api/pages/${pageId}/collections`, {

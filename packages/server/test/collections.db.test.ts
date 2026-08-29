@@ -741,6 +741,116 @@ describe(
       assert.equal(res.status, 404);
     });
 
+    // --- searching within a collection --------------------------------------
+
+    async function searchable(session: Session): Promise<{
+      collection: string;
+      field: string;
+    }> {
+      const page = await create(session, 'Notes', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Note',
+        fieldType: 'text',
+      });
+
+      for (const [title, note] of [
+        ['Planning meeting', 'agenda for Tuesday'],
+        ['Grocery list', 'milk and bread'],
+        ['Unplanned outage', 'the disk filled up'],
+      ] as Array<[string, string]>) {
+        const row = await addRow(session, collection, title);
+        await setValue(session, row, field, { kind: 'text', value: note });
+      }
+      return { collection, field };
+    }
+
+    const search = async (
+      session: Session,
+      collectionId: string,
+      query: string,
+    ): Promise<string[]> => {
+      const res = await fetch(
+        `${base}/api/collections/${collectionId}?q=${encodeURIComponent(query)}`,
+        { headers: { cookie: session.cookie } },
+      );
+      const body = await expectJson<{ rows: Array<{ title: string }> }>(res);
+      return body.rows.map((row) => row.title).sort();
+    };
+
+    test('searching matches a row title', async () => {
+      const session = await setup();
+      const { collection } = await searchable(session);
+      assert.deepEqual(await search(session, collection, 'grocery'), ['Grocery list']);
+    });
+
+    test('searching matches a value in a cell', async () => {
+      // The point of searching a table rather than the workspace: what somebody
+      // is looking for is usually in a cell, not in the row's own writing.
+      const session = await setup();
+      const { collection } = await searchable(session);
+      assert.deepEqual(await search(session, collection, 'bread'), ['Grocery list']);
+    });
+
+    test('searching is substring, not stemming', async () => {
+      // A person typing into a table's search box expects "plan" to find
+      // "planning" and "unplanned" alike. A language index deliberately would
+      // not, which is why this is not the workspace search.
+      const session = await setup();
+      const { collection } = await searchable(session);
+      assert.deepEqual(await search(session, collection, 'plan'), [
+        'Planning meeting',
+        'Unplanned outage',
+      ]);
+    });
+
+    test('a wildcard in the query stays a character', async () => {
+      // Otherwise searching for "%" returns everything.
+      const session = await setup();
+      const { collection } = await searchable(session);
+      assert.deepEqual(await search(session, collection, '%'), []);
+    });
+
+    test('an empty query changes nothing', async () => {
+      const session = await setup();
+      const { collection } = await searchable(session);
+      assert.equal((await search(session, collection, '   ')).length, 3);
+    });
+
+    test('searching and filtering apply together', async () => {
+      // They are one query, so a search inside a filtered view narrows what the
+      // view already showed rather than replacing it.
+      const session = await setup();
+      const { collection, field } = await searchable(session);
+
+      const view = await expectJson<{ id: string }>(
+        await addView(session, collection, {
+          filters: [{ fieldId: field, operator: 'contains', value: 'the disk' }],
+        }),
+        201,
+      );
+
+      const res = await fetch(
+        `${base}/api/collections/${collection}?view=${view.id}&q=plan`,
+        { headers: { cookie: session.cookie } },
+      );
+      const body = await expectJson<{ rows: Array<{ title: string }> }>(res);
+      assert.deepEqual(
+        body.rows.map((row) => row.title),
+        ['Unplanned outage'],
+        'both narrow, neither replaces the other',
+      );
+    });
+
+    test('a hostile search value is a value, not SQL', async () => {
+      const session = await setup();
+      const { collection } = await searchable(session);
+      assert.deepEqual(await search(session, collection, "x'; DROP TABLE pages; --"), []);
+
+      const still = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM pages`);
+      assert.ok(still.rows[0]!.n > 0, 'pages still exist');
+    });
+
     test('a hostile filter value is a value, not SQL', async () => {
       const session = await setup();
       const page = await create(session, 'Notes', 'page', session.rootFolder);

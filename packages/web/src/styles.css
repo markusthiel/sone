@@ -2871,3 +2871,25 @@ select {
   gap: var(--sone-space-2);
   margin-block-start: var(--sone-space-3);
 }
+
+/* Searching within one collection.
+ *
+ * In the bar with the views, because it narrows what a view shows rather than
+ * replacing it: the two apply together, in one query.
+ */
+.collection-search {
+  flex: 1 1 12rem;
+  max-inline-size: 18rem;
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-3);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg);
+  font: inherit;
+  font-size: var(--sone-text-sm);
+  color: inherit;
+}
+.collection-search:focus {
+  border-color: var(--sone-accent);
+  outline: none;
+}
