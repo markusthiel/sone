@@ -374,6 +374,45 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
  *   never points at different bytes: storage is content-addressed and a row is
  *   never repointed.
  */
+/**
+ * A Content-Disposition a header can actually carry.
+ *
+ * Node refuses to write a header containing anything outside ASCII, and it
+ * refuses by throwing: a file called "Eine App für alles.pdf" produced
+ * ERR_INVALID_CHAR, the router turned that into a 500, and the viewer showed
+ * {"error":"internal"} where the document should have been. Every file with an
+ * umlaut, an accent or a CJK character in its name was unreachable — which
+ * looked like a size problem, because the files that happened to work had
+ * ASCII names.
+ *
+ * RFC 6266 is the answer and it is deliberately two answers in one header: a
+ * plain `filename` that any client understands, and a `filename*` carrying the
+ * real name UTF-8 percent-encoded. A client that understands the second uses
+ * it; one that does not still gets something readable.
+ *
+ * The plain form is stripped to ASCII rather than transliterated. Guessing that
+ * "ü" should become "ue" is a German answer to a general question, and it would
+ * be wrong for most of the alphabets this has to survive.
+ *
+ * Quotes and control characters are removed from both. A filename is chosen by
+ * whoever uploaded it, so it is untrusted input arriving in a header — a quote
+ * would end the field early and let the rest be read as another parameter.
+ */
+export function contentDisposition(inline: boolean, filename: string): string {
+  const type = inline ? 'inline' : 'attachment';
+
+  // eslint-disable-next-line no-control-regex
+  const withoutControls = filename.replace(/[\u0000-\u001f\u007f]/g, '');
+  const ascii = withoutControls.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
+  // A name that was entirely non-ASCII would otherwise become an empty
+  // fallback, which some clients save as a file with no name at all.
+  const fallback = ascii.trim() === '' ? 'download' : ascii;
+
+  const encoded = encodeURIComponent(withoutControls);
+
+  return `${type}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
+}
+
 function serveFile(
   res: ServerResponse,
   bytes: Buffer,
@@ -392,7 +431,7 @@ function serveFile(
   res.writeHead(200, {
     'content-type': mimeType,
     'content-length': bytes.length,
-    'content-disposition': `${inline ? 'inline' : 'attachment'}; filename="${filename}"`,
+    'content-disposition': contentDisposition(inline, filename),
     'x-content-type-options': 'nosniff',
     // A PDF carries no `sandbox` at all, and this took two attempts to get
     // right.

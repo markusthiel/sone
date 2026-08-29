@@ -28,6 +28,7 @@ import {
   isInlineImage,
   isInlineViewable,
 } from '../src/files/store.js';
+import { contentDisposition } from '../src/files/routes.js';
 import { hashPassword } from '../src/auth/password.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
 import { expectJson, expectStatus } from './support/http.js';
@@ -621,6 +622,54 @@ describe(
 
       const returned = Buffer.from(await res.arrayBuffer());
       assert.equal(returned.length, large.length, 'returned whole');
+    });
+
+    test('a filename with an umlaut can be served', async () => {
+      // The actual bug, and it looked like a size problem for three rounds: a
+      // 3.2 MB file failed and a 200 KB one worked, but what really differed
+      // was that one was called "Eine App für alles.pdf".
+      //
+      // Node refuses to write a non-ASCII header and throws; the router turned
+      // that into a 500, and the viewer showed {"error":"internal"} where the
+      // document should have been. Every file with an umlaut, an accent or a
+      // CJK character in its name was unreachable.
+      const session = await setup();
+      const uploaded = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PDF, 'Für alles — Mac & i.pdf'),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/files/${uploaded.id}`, {
+        headers: { cookie: session.cookie },
+      });
+      assert.equal(res.status, 200, res.status === 200 ? '' : await res.text());
+
+      const disposition = res.headers.get('content-disposition') ?? '';
+      // Both halves of RFC 6266: something any client understands, and the real
+      // name for one that understands more.
+      assert.match(disposition, /filename="[\x20-\x7e]*"/);
+      assert.match(disposition, /filename\*=UTF-8''/);
+      assert.ok(disposition.includes(encodeURIComponent('Für alles — Mac & i.pdf')));
+    });
+
+    test('a filename cannot break out of the header', () => {
+      // It is chosen by whoever uploaded the file, so it is untrusted input
+      // arriving in a header. A quote would end the field early and let the
+      // rest be read as another parameter.
+      const nasty = contentDisposition(false, 'evil"; filename="other.pdf');
+      const plain = nasty.slice(0, nasty.indexOf("filename*"));
+      assert.equal((plain.match(/"/g) ?? []).length, 2, 'exactly one quoted value');
+
+      // And a newline cannot inject a second header, which is what Node was
+      // refusing to allow in the first place.
+      assert.doesNotMatch(contentDisposition(false, 'a\r\nX-Evil: 1.pdf'), /[\r\n]/);
+    });
+
+    test('a name that is entirely non-ASCII still has a usable fallback', () => {
+      // Otherwise the plain form is empty and some clients save a file with no
+      // name at all.
+      assert.match(contentDisposition(false, '文档.pdf'), /filename="[^"]+"/);
+      assert.ok(!contentDisposition(false, '文档.pdf').includes('filename=""'));
     });
 
     test('a guest with edit rights can upload', async () => {

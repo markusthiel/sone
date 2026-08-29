@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a file with an umlaut in its name could not be opened.** Serving it
+threw while writing the `Content-Disposition` header — HTTP headers carry only
+ASCII — and the viewer showed an internal error where the document should have
+been. Every file with an accent, an umlaut or a CJK character in its name was
+affected. The name is now sent both ways RFC 6266 allows: a plain ASCII form
+any client understands, and the real name UTF-8 encoded.
+
 **Two corrections in a collection's table.** The title column now says it is
 fixed rather than simply lacking the bin every other column has, and the menu
 for choosing a new column's type opens towards the empty space beside the table
