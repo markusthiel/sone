@@ -13,8 +13,10 @@
 import type { PageHandle } from '@sone/client';
 import { pageContent } from '@sone/core';
 import {
+  authorHighlightKey,
   createEditor,
   insertFileBlock,
+  highlightClients,
   insertImageUpload,
   seedEmptyPage,
   setFileDisplay,
@@ -25,6 +27,7 @@ import { messageFor } from './Auth.tsx';
 import type { EditorView } from 'prosemirror-view';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
+import { registerHighlighter } from './authorHighlightBridge.ts';
 import { BlockMenu } from './BlockMenu.tsx';
 import { soneNodeViews } from './CollectionNodeView.tsx';
 import { SelectionToolbar } from './SelectionToolbar.tsx';
@@ -182,7 +185,18 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
     viewRef.current = created;
     setView(created);
 
+    // The one command the side panel may send (see authorHighlightBridge).
+    registerHighlighter((clients) => {
+      created.dispatch(
+        created.state.tr.setMeta(
+          authorHighlightKey,
+          highlightClients(clients ? new Set(clients) : null),
+        ),
+      );
+    });
+
     return () => {
+      registerHighlighter(null);
       created.destroy();
       viewRef.current = null;
       setView(null);

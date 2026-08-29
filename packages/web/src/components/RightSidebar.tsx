@@ -28,6 +28,7 @@ import { TagEditor } from './TagEditor.tsx';
 import { messageFor } from './Auth.tsx';
 import { ChevronRightIcon, PageIcon, TagIcon } from './icons.tsx';
 import { Contributors } from './Contributors.tsx';
+import { highlightAuthor } from './authorHighlightBridge.ts';
 
 export const RIGHT_TABS = ['outline', 'tasks', 'people', 'properties'] as const;
 export type RightTab = (typeof RIGHT_TABS)[number];
@@ -127,7 +128,11 @@ export function RightSidebar({
           {/* Who has written here — not who is here now, which the circles at
               the top of the page show instead (ADR-0022). */}
           {tab === 'people' && (
-            <Contributors handle={handle} workspaceId={workspaceId} />
+            <Contributors
+              handle={handle}
+              workspaceId={workspaceId}
+              onHighlight={highlightAuthor}
+            />
           )}
           {tab === 'properties' && (
             <PropertiesPanel pageId={pageId} handle={handle} workspaceId={workspaceId} />

@@ -40,6 +40,7 @@ import { listNumbers } from './listNumbers.js';
 import { placeholders } from './placeholders.js';
 import { imagePaste, type ImageUploader } from './imagePaste.js';
 import { markdownPaste } from './markdownPaste.js';
+import { authorHighlight } from './authorHighlight.js';
 import { schema } from './schema.js';
 import { slashMenu } from './slashMenu.js';
 import { tableKeymap, tablePlugins } from './tables.js';
@@ -168,6 +169,9 @@ export function createEditorState(opts: EditorOptions): EditorState {
   }
 
   plugins.push(
+    // Draws nothing until somebody asks for a person's writing, so a document
+    // nobody is inspecting pays nothing for this.
+    authorHighlight(),
     yUndoPlugin(),
     // Bound here rather than in soneKeymap, because these are the Yjs-aware
     // versions and soneKeymap must stay usable without a Yjs document (tests,

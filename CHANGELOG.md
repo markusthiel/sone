@@ -37,12 +37,14 @@ the type is decided from the file's bytes rather than from the upload, `nosniff`
 stops the browser reconsidering, and the document is served with permission to
 load nothing at all.
 
+**Choosing somebody in the People tab marks what they wrote.** Choosing them
+again clears it. Only writing recorded since attribution began can be marked —
+it is not retroactive.
+
 **A "People" tab lists who has written in a page** — everyone who has, whether
 or not they are here now, which is what the circles at the top show instead.
 Somebody who has since left the workspace stays in the list: they wrote what
 they wrote.
-
-Highlighting one person's writing is the next step and not in this release.
 
 **Attribution is being recorded.** Every editing session by a signed-in member
 is now mapped to that person in the document, which is what makes "who wrote
