@@ -408,3 +408,19 @@ test('the page cannot scroll sideways', () => {
   assert.match(css, /\.main \{[^}]*overflow-x: clip/);
   assert.doesNotMatch(css, /\.main \{[^}]*overflow-x: hidden/);
 });
+
+test('full width is stated as two edges, not as a centring', () => {
+  // The editor is padded on the left only, to make room for list markers, so a
+  // block's box starts inset by that much. Equal margins cannot put one edge at
+  // 0 and the other at the container's width — a small gap on the left, flush
+  // on the right, which is what was seen.
+  const rule = css.slice(css.indexOf("[data-width='full'] {"));
+  assert.match(rule.slice(0, 300), /margin-inline-start: calc\(var\(--sone-text-indent\) \* -1\)/);
+  assert.match(rule.slice(0, 300), /margin-inline-end: 0/);
+});
+
+test('nothing frames a block that runs to both edges', () => {
+  // A rounded corner or a border tells you where a thing ends. A block reaching
+  // both edges has no ends to mark, and the frame reads as a mistake.
+  assert.match(css, /\[data-width='full'\] img[\s\S]{0,160}border-radius: 0/);
+});

@@ -3066,10 +3066,32 @@ select {
  * as the width of the text give or take — three names for one thing, which is
  * how it was reported. This one now reaches the edges.
  */
+/* Full width, stated as two edges rather than as a centring.
+ *
+ * The editor is padded on the *left* only, to make room for list markers, so a
+ * block's box starts inset by that much. Equal margins therefore cannot put one
+ * edge at 0 and the other at the container's width — which is exactly what was
+ * seen: a small gap on the left, flush on the right.
+ */
 .ProseMirror [data-width='full'] {
-  margin-inline: calc(50% - 50cqw);
-  max-inline-size: 100cqw;
+  margin-inline-start: calc(var(--sone-text-indent) * -1);
+  margin-inline-end: 0;
   inline-size: 100cqw;
+  max-inline-size: 100cqw;
+}
+
+/* And nothing framing it.
+ *
+ * A rounded corner or a border is what tells you where a thing ends. A block
+ * running to both edges of the page has no ends to mark, and the frame reads as
+ * a mistake instead — which is how it was reported: visible corners on one side
+ * and none on the other.
+ */
+.ProseMirror [data-width='full'] img,
+.ProseMirror [data-width='full'] .file-viewer,
+.ProseMirror [data-width='full'].file-block img {
+  border-radius: 0;
+  border: 0;
 }
 @media (max-width: 720px) {
   /* Nothing breaks out on a narrow screen: there is no margin to break into,
