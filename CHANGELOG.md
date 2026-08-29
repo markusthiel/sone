@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a file card's menu sat below the card** rather than at the end of its
+first line, where the other displays put it.
+
 **Files can be dropped onto a page**, several at once, and they land where they
 were dropped. An image becomes an image block as it always did; anything else
 becomes a file block.

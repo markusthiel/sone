@@ -142,14 +142,21 @@ class FileNodeView implements NodeView {
     const card = document.createElement('div');
     card.className = 'file-card';
 
-    const title = this.link(url, name, category);
+    // The menu sits in the card's own first line, beside the name.
+    //
+    // Appended after the card before, which put it underneath — a loose button
+    // below a tile, belonging to nothing visible. The line display had it in
+    // the row all along; this is the same arrangement.
+    const head = document.createElement('div');
+    head.className = 'file-card-head';
+    head.append(this.link(url, name, category), this.controls(display, category));
 
     const meta = document.createElement('span');
     meta.className = 'file-meta';
     meta.textContent = size ? `${kind} · ${size}` : kind;
 
-    card.append(title, meta);
-    this.dom.append(card, this.controls(display, category));
+    card.append(head, meta);
+    this.dom.append(card);
   }
 
   /** One row: the name, what it is, and a way to open it. */

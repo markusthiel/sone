@@ -177,3 +177,12 @@ test('an image stays an image however it arrives', () => {
 test('a reader cannot drop into a page they may not edit', () => {
   assert.match(surfaceCode, /!canEditRef\.current/);
 });
+
+test('the menu sits inside the card, not below it', () => {
+  // Appended after the card it rendered underneath: a loose button below a
+  // tile, belonging to nothing visible. The line display had it in the row all
+  // along, and the card now uses the same arrangement.
+  assert.match(source, /head\.append\(this\.link\(url, name, category\), this\.controls\(/);
+  assert.match(source, /card\.append\(head, meta\)/);
+  assert.doesNotMatch(source, /this\.dom\.append\(card, this\.controls\(/);
+});
