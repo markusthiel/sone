@@ -365,6 +365,18 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
    * with it. This is the area the page actually occupies, and a block asking
    * for all of it should get exactly this much. */
   container-type: inline-size;
+  /* A page never scrolls sideways.
+   *
+   * A full-width block is centred against the container while its own
+   * containing block is inset by the editor's text indent, so the arithmetic
+   * leaves a pixel or two hanging over one edge — enough for a scrollbar, which
+   * is what was left after the width itself was fixed.
+   *
+   * `clip` rather than `hidden`: hidden makes this a scroll container, which
+   * would let something scroll here silently instead of overflowing visibly.
+   * Clip forbids it outright, which is the actual rule.
+   */
+  overflow-x: clip;
 }
 
 .topbar {

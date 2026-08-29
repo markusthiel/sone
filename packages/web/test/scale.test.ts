@@ -397,3 +397,14 @@ test('the gutter stays legible over whatever it sits on', () => {
   const gutter = css.slice(css.indexOf('.block-gutter {'));
   assert.match(gutter.slice(0, 400), /background:/);
 });
+
+test('the page cannot scroll sideways', () => {
+  // A full-width block is centred against the container while its own
+  // containing block is inset by the editor's text indent, so the arithmetic
+  // leaves a pixel or two over one edge — enough for a scrollbar.
+  //
+  // `clip` rather than `hidden`: hidden would make this a scroll container and
+  // let something scroll silently instead of overflowing visibly.
+  assert.match(css, /\.main \{[^}]*overflow-x: clip/);
+  assert.doesNotMatch(css, /\.main \{[^}]*overflow-x: hidden/);
+});
