@@ -196,3 +196,26 @@ test('saving rules keeps what else the view carried', () => {
   );
   assert.match(source, /key !== 'filters' && key !== 'sort'/);
 });
+
+// --- searching a collection -------------------------------------------------
+
+test('searching is debounced, and asks with what settled', () => {
+  // A request per keystroke would put a query per character through the
+  // database. Two values: what is typed, and what has been asked for.
+  const source = readFileSync(
+    new URL('../src/components/CollectionTable.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /setTimeout\(\(\) => setAsked\(query\), 250\)/);
+  assert.match(source, /clearTimeout\(timer\)/, 'and the pending one is cancelled');
+});
+
+test('the search goes to the server, not through the rows in hand', () => {
+  // Filtering after fetching everything stops working at the size a collection
+  // is for — the same reason filters and sorting are in the database.
+  const source = readFileSync(
+    new URL('../src/components/CollectionTable.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /api\.collection\(collectionId, viewRef\.current \?\? undefined, askedRef\.current\)/);
+});

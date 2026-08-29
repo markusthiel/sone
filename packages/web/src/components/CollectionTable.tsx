@@ -95,18 +95,31 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   // change what a colleague sees.
   const [viewId, setViewId] = useState<string | null>(null);
   const [editingRules, setEditingRules] = useState(false);
+  /**
+   * What is typed in the search box, and what has been asked for.
+   *
+   * Two values, because the request is debounced: sending one per keystroke
+   * would put a query per character through the database, and the box has to
+   * stay responsive while that settles.
+   */
+  const [query, setQuery] = useState('');
+  const [asked, setAsked] = useState('');
 
   // Read inside `load` without making it depend on the view: changing views
   // triggers its own reload, and a dependency here would make every render that
   // touched the view refetch.
   const viewRef = useRef<string | null>(null);
   viewRef.current = viewId;
+  const askedRef = useRef('');
+  askedRef.current = asked;
 
   const load = useCallback(async () => {
     try {
       // The chosen view, so its filters and sorting are applied by the
       // database rather than after the rows arrive.
-      setData(await api.collection(collectionId, viewRef.current ?? undefined));
+      setData(
+        await api.collection(collectionId, viewRef.current ?? undefined, askedRef.current),
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -115,7 +128,14 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
 
   useEffect(() => {
     void load();
-  }, [load, viewId]);
+  }, [load, viewId, asked]);
+
+  // Settle before asking. 250ms is short enough not to feel laggy and long
+  // enough that a typed word is one request rather than five.
+  useEffect(() => {
+    const timer = setTimeout(() => setAsked(query), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   /**
    * Apply a value locally, then save it.
@@ -232,8 +252,9 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
 
       {/* Views. Shown only when there is a choice to make, so a collection with
           one table does not carry a tab bar with one tab in it. */}
-      {(data.views.length > 1 || selectColumns.length > 0) && (
-        <div className="collection-views" role="tablist" aria-label="Views">
+      {/* Always shown now: it carries the search box, which every collection
+          needs, not only one with a choice of views. */}
+      <div className="collection-views" role="tablist" aria-label="Views">
           {data.views.map((entry) => (
             <button
               key={entry.id}
@@ -247,6 +268,15 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               {entry.name}
             </button>
           ))}
+
+          <input
+            className="collection-search"
+            type="search"
+            value={query}
+            placeholder="Search these entries"
+            aria-label="Search this collection"
+            onChange={(event) => setQuery(event.target.value)}
+          />
 
           {data.canEdit && view && (
             <button
@@ -269,8 +299,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               <PlusIcon /> Board
             </button>
           )}
-        </div>
-      )}
+      </div>
 
       {editingRules && view && (
         <ViewRules

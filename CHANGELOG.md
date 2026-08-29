@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A collection can be searched.** The box beside its views matches an entry's
+title or anything in its cells, and narrows whatever the view already showed
+rather than replacing it. Substring matching, not stemming: typing "plan" finds
+"planning" and "unplanned", which is what a table's search box is expected to do.
+
 **Filters and sorting can be set.** The button beside a collection's views opens
 them, and says how many rules are active rather than only "Filter" — a table
 showing fewer rows than expected is the kind of thing people blame on the

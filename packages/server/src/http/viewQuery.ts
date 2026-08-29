@@ -229,3 +229,40 @@ export function readSorts(definition: Record<string, unknown>): Sort[] {
   }
   return out;
 }
+
+
+/**
+ * A free-text search within one collection.
+ *
+ * Matches the row's title or any of its text-ish values. Not the workspace
+ * search index: that finds *pages* by their body, and the question here is
+ * different — "which entries in this table mention X" — where X is usually in a
+ * cell rather than in the row's own writing.
+ *
+ * ILIKE rather than a tsvector. A collection is bounded and already filtered by
+ * `collection_id`, so this reads at most one table's rows; and a person typing
+ * into a table's search box expects substring matching, not stemming. Searching
+ * for "plan" should find "planning" and also "unplanned", which a language
+ * index deliberately does not do.
+ *
+ * The pattern is escaped, or a value containing % or _ becomes a wildcard.
+ */
+export function buildSearchClause(
+  query: string,
+  bind: (value: unknown) => string,
+): string | null {
+  const trimmed = query.trim();
+  if (trimmed === '') return null;
+
+  const pattern = `%${trimmed.replace(/[\\%_]/g, '\\$&')}%`;
+  const placeholder = bind(pattern);
+
+  return `(
+    p.title ILIKE ${placeholder} ESCAPE '\\'
+    OR EXISTS (
+      SELECT 1 FROM page_properties pp
+       WHERE pp.page_id = p.id
+         AND pp.text_value ILIKE ${placeholder} ESCAPE '\\'
+    )
+  )`;
+}

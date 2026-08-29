@@ -42,7 +42,12 @@ import { queryOne, queryRows } from '../db/pool.js';
 import { applyToDocument } from '../doc/docStore.js';
 import { rematerialize } from '../materialize/rematerialize.js';
 import { sessionTokenFrom } from './auth.js';
-import { buildViewQuery, readFilters, readSorts } from './viewQuery.js';
+import {
+  buildSearchClause,
+  buildViewQuery,
+  readFilters,
+  readSorts,
+} from './viewQuery.js';
 import type { RequestContext, Router } from './router.js';
 
 export interface CollectionDeps {
@@ -320,13 +325,26 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       2,
     );
 
+    // Searching within the collection, in the same query as the filters.
+    //
+    // Doing it in the client would mean fetching every row first, which stops
+    // working at the size a collection is for — the same reason filtering and
+    // sorting are here (ADR-0004).
+    const params = [...built.params];
+    const search = buildSearchClause(ctx.url.searchParams.get('q') ?? '', (value) => {
+      params.push(value);
+      return `$${params.length + 1}`;
+    });
+
+    const conditions = [built.where, search].filter((clause) => clause !== '' && clause !== null);
+
     const rows = await queryRows<{ id: string; title: string; idx: string }>(
       deps.pool,
       `SELECT p.id, p.title, p.idx FROM pages p
         WHERE p.collection_id = $1 AND p.kind = 'row' AND p.archived_at IS NULL
-          ${built.where ? `AND ${built.where}` : ''}
+          ${conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''}
         ORDER BY ${built.orderBy ? `${built.orderBy}, ` : ''}p.idx, p.id`,
-      [collectionId, ...built.params],
+      [collectionId, ...params],
     );
 
     const values = await queryRows<{ page_id: string; field_id: string; value: unknown }>(
