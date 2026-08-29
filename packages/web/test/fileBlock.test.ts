@@ -120,3 +120,24 @@ test('downloading is always offered, whatever the file is', () => {
   // condition.
   assert.match(source, /download\.textContent = 'Download'/);
 });
+
+test('the menu closes when a click lands elsewhere', () => {
+  // focusout alone left it open for good: Safari does not focus a button when
+  // it is clicked, so focus never entered the menu and never left it. A
+  // document listener is what actually observes "somebody is doing something
+  // else now".
+  assert.match(source, /document\.addEventListener\('click', onOutside, true\)/);
+  assert.match(source, /document\.removeEventListener\('click', onOutside, true\)/);
+});
+
+test('the listener does not outlive its element', () => {
+  // render() throws the menu away on every update, and ProseMirror throws the
+  // whole view away when the block goes. A listener left on the document would
+  // then be closing a menu that no longer exists.
+  assert.match(source, /destroy\(\): void \{\s*this\.closeMenu\?\.\(\);/);
+  assert.match(source, /this\.closeMenu\?\.\(\);\s*this\.render\(\)/);
+});
+
+test('only one file menu is open at a time', () => {
+  assert.match(source, /if \(this\.closeMenu && this\.closeMenu !== close\) this\.closeMenu\(\)/);
+});

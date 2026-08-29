@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a file block's menu stayed open.** It only closed when focus left it,
+and Safari does not focus a button when it is clicked — so focus never entered
+the menu and never left. It closes on a click anywhere else now.
+
 **Folders and pages can carry an icon**, with a colour for the icon and a
 separate one for the name. A curated set of Lucide line icons, which match the
 rest of the interface. Choose one from the ⋮ menu beside any entry.
