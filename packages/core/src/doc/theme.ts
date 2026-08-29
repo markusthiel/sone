@@ -113,7 +113,18 @@ export interface ElementTheme {
   spaceBelow?: SpaceStep;
 }
 
-export type WorkspaceTheme = Partial<Record<ThemedElement, ElementTheme>>;
+/**
+ * What each of the eight names looks like in this workspace.
+ *
+ * Only the ones a workspace has changed; the rest keep the design's own values.
+ * This is the half that makes names worth having: change `blue` here and every
+ * blue thing follows, wherever the name was stored (ADR-0023).
+ */
+export type WorkspacePalette = Partial<Record<ThemeColor, `#${string}`>>;
+
+export type WorkspaceTheme = Partial<Record<ThemedElement, ElementTheme>> & {
+  palette?: WorkspacePalette;
+};
 
 const inList = <T>(list: readonly T[], value: unknown): value is T =>
   (list as readonly unknown[]).includes(value);
@@ -132,6 +143,9 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
 
   const out: WorkspaceTheme = {};
+
+  const palette = sanitisePalette((input as Record<string, unknown>)['palette']);
+  if (Object.keys(palette).length > 0) out.palette = palette;
 
   for (const [key, raw] of Object.entries(input as Record<string, unknown>)) {
     if (!inList(THEMED_ELEMENTS, key)) continue;
@@ -154,6 +168,20 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
   return out;
 }
 
+/** The eight names, and what this workspace makes of them. */
+function sanitisePalette(input: unknown): WorkspacePalette {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+
+  const out: WorkspacePalette = {};
+  for (const [name, value] of Object.entries(input as Record<string, unknown>)) {
+    // Only the eight, and only a literal. A name mapped to another name would
+    // be an alias — one more thing that can point at itself, for no gain.
+    if (!inList(THEME_COLORS, name)) continue;
+    if (isCustomColor(value)) out[name] = value.toLowerCase() as `#${string}`;
+  }
+  return out;
+}
+
 /**
  * The custom properties a theme resolves to.
  *
@@ -165,6 +193,12 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
  */
 export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
   const properties: Record<string, string> = {};
+
+  for (const [name, value] of Object.entries(theme.palette ?? {})) {
+    // The same variable the stylesheet defines, overridden for this workspace.
+    // Everything that stored the *name* follows without knowing this happened.
+    properties[`--sone-palette-${name}`] = value;
+  }
 
   for (const element of THEMED_ELEMENTS) {
     const entry = theme[element];
