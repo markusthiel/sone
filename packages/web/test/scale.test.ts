@@ -372,3 +372,17 @@ test('the gutter anchors to a block that has nothing inside it', () => {
   const posAt = menu.indexOf('view.domAtPos(from + 1)');
   assert.ok(nodeDomAt > 0 && nodeDomAt < posAt, 'the node’s own element is tried first');
 });
+
+test('an image is offered only the widths that differ', () => {
+  // "Wide" is a step between the column and the page, and for an image all
+  // three read as "the width of the text, or a bit more" — three names for one
+  // thing, which is how it was reported.
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(menu, /node\.type\.name === 'image'\s*\?\s*\[\]/);
+});
+
+test('full width reaches the edges of the page', () => {
+  // It was a second small step outward, which is why it did not look different
+  // from the column.
+  assert.match(css, /\[data-width='full'\][^}]*100vw/);
+});

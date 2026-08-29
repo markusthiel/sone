@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An image is offered two widths instead of three**, and full width now reaches
+the edges of the page. "Column", "wide" and "full" all read as the width of the
+text give or take — three names for one thing.
+
 **Fixed: the ⋮⋮ handle appeared at the top of the page** for an image or a file
 instead of beside the block.
 
