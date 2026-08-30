@@ -263,6 +263,25 @@ function FileActions({
         Download
       </a>
 
+      {/* The file as uploaded, for an image that has a smaller copy.
+        *
+        * Offered for every image rather than only where a variant exists: the
+        * block does not know whether one was made, and the server answers with
+        * the original either way — so the entry is always truthful, and the
+        * alternative is asking the server on every menu that opens.
+        *
+        * Only for images, because nothing else has a second version. */}
+      {category === 'image' && (
+        <a
+          className="block-menu-item"
+          role="menuitem"
+          href={`${url}?original=true`}
+          download={name}
+        >
+          Download the original
+        </a>
+      )}
+
       <div className="block-menu-choices" role="group" aria-label="Show as">
         {options.map((option) => (
           <button
