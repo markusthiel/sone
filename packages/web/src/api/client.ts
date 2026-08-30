@@ -388,9 +388,53 @@ export const api = {
       body: JSON.stringify({ theme }),
     }),
 
+  groups: (workspaceId: string) =>
+    request<{ groups: Array<{ id: string; name: string; members: number }> }>(
+      `/api/workspaces/${workspaceId}/groups`,
+    ),
+
+  createGroup: (workspaceId: string, name: string) =>
+    request<{ id: string; name: string; members: number }>(
+      `/api/workspaces/${workspaceId}/groups`,
+      { method: 'POST', body: JSON.stringify({ name }) },
+    ),
+
+  groupMembers: (groupId: string) =>
+    request<{ members: Array<{ userId: string; displayName: string }> }>(
+      `/api/groups/${groupId}/members`,
+    ),
+
+  addToGroup: (groupId: string, userId: string) =>
+    request<{ ok: true }>(`/api/groups/${groupId}/members/${userId}`, { method: 'PUT' }),
+
+  removeFromGroup: (groupId: string, userId: string) =>
+    request<{ ok: true }>(`/api/groups/${groupId}/members/${userId}`, { method: 'DELETE' }),
+
+  /** Confirm is required once any page has granted the group access. */
+  deleteGroup: (groupId: string, confirm = false) =>
+    request<{ ok: true; revokedFrom: number }>(
+      `/api/groups/${groupId}${confirm ? '?confirm=true' : ''}`,
+      { method: 'DELETE' },
+    ),
+
+  grantPageAccessToGroup: (pageId: string, groupId: string, access: string) =>
+    request<{ ok: true }>(`/api/pages/${pageId}/groups/${groupId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ access }),
+    }),
+
+  revokePageAccessFromGroup: (pageId: string, groupId: string) =>
+    request<{ ok: true }>(`/api/pages/${pageId}/groups/${groupId}`, { method: 'DELETE' }),
+
   pagePermissions: (pageId: string) =>
     request<{
       restricted: boolean;
+      groups: Array<{
+        groupId: string;
+        name: string;
+        access: string;
+        inheritedFrom: string | null;
+      }>;
       grants: Array<{
         userId: string;
         displayName: string;

@@ -33,6 +33,7 @@ import {
   useIsInstanceAdmin,
 } from './Admin.tsx';
 import { messageFor } from './Auth.tsx';
+import { GroupsPanel } from './GroupsPanel.tsx';
 import { InvitePanel } from './InvitePanel.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
 import { ThemeSettings } from './ThemeSettings.tsx';
@@ -57,6 +58,7 @@ const SECTIONS = [
   // Under 'You' rather than 'Administration': a theme belongs to the workspace,
   // and everybody in it should be able to see what it says even when only
   // owners and admins may change it (ADR-0023).
+  { id: 'groups', label: 'Groups', group: 'You' },
   { id: 'theme', label: 'Appearance defaults', group: 'You' },
   { id: 'instance', label: 'Instance', group: 'Administration', admin: true },
   { id: 'invite', label: 'Invite people', group: 'Administration', admin: true },
@@ -124,6 +126,7 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
           />
         )}
         {current === 'instance' && <InstancePanel />}
+        {current === 'groups' && <GroupsPanel workspaceId={workspaceId} />}
         {current === 'invite' && <InvitePanel />}
         {current === 'sso' && <OidcPanel />}
         {current === 'accounts' && <UsersPanel />}
