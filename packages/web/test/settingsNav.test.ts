@@ -26,12 +26,22 @@ test('the two invitations are told apart by name', () => {
   assert.doesNotMatch(settings, /label: 'Invite people'/);
 });
 
-test('every entry says in one line what is inside it', () => {
-  // This area grows. A list of nouns makes somebody open three sections to find
-  // one thing.
-  const entries = settings.match(/\{ id: '[a-z-]+', label:/g) ?? [];
-  const hints = settings.match(/hint: '/g) ?? [];
-  assert.ok(hints.length >= entries.length, 'each entry has a hint');
+test('the navigation is names, not explanations', () => {
+  // A line of explanation under each entry made every one of them three lines
+  // tall, and a navigation that has to be read is not a navigation — it is a
+  // page about the navigation.
+  assert.doesNotMatch(settings, /<span className="settings-nav-hint">/);
+  // The explanation is still there, on the entry rather than beside it.
+  assert.match(settings, /title=\{entry\.hint\}/);
+});
+
+test('settings is a screen of its own with a way out', () => {
+  // It rendered in the content column, which put a sidebar of pages beside a
+  // list of instance settings — two navigations for two unrelated things, and
+  // neither the one somebody was using (ADR-0027).
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /if \(route\.kind === 'settings'\) \{[\s\S]{0,300}?return \(/);
+  assert.match(settings, /Back to your notes/);
 });
 
 test('the workspace section follows the right, not the admin flag', () => {

@@ -283,6 +283,23 @@ function Workspace({
     if (id && kind === 'page') navigate(paths.page(id));
   };
 
+  // Settings is its own screen, not a page inside the workspace.
+  //
+  // It was rendered in the content column, which put a sidebar of pages beside
+  // a list of instance settings — two navigations for two unrelated things,
+  // side by side, and neither of them the one somebody is using. This returns
+  // early with a surface of its own and a way back (ADR-0027).
+  if (route.kind === 'settings') {
+    return (
+      <Settings
+        section={route.section}
+        session={session}
+        workspaceId={workspaceId}
+        onClose={() => navigate(paths.home())}
+      />
+    );
+  }
+
   return (
     <div
       className="app with-sidebar"
@@ -396,14 +413,6 @@ function Workspace({
 
         {route.kind === 'trash' && (
           <Trash workspaceId={workspaceId} onChanged={() => void reloadPages()} />
-        )}
-
-        {route.kind === 'settings' && (
-          <Settings
-            section={route.section}
-            session={session}
-            workspaceId={workspaceId}
-          />
         )}
 
         {route.kind === 'home' && pages.length === 0 && (

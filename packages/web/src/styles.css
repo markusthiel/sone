@@ -4086,7 +4086,9 @@ body {
  */
 .settings-nav-item {
   display: flex;
-  flex-direction: column;
+  /* A row again: with the explanations gone each entry is one line, and a
+     column of one-line columns is a column with extra steps. */
+  flex-direction: row;
   /* Both, and neither is redundant: a column flex box centres its children
      without the first, and the text inside each child centres without the
      second. The entries were centred in the middle of a left-hand column,
@@ -4097,6 +4099,7 @@ body {
   padding-block: var(--sone-space-2);
 }
 .settings-nav-label { font-size: var(--sone-text-sm); }
+/* Kept for anything that still uses it; the navigation does not. */
 .settings-nav-hint {
   font-size: var(--sone-text-xs);
   color: var(--sone-text-muted);
@@ -4204,4 +4207,55 @@ body {
   margin-inline-start: auto;
   color: var(--sone-text-muted);
   font-size: var(--sone-text-xs);
+}
+
+/* Settings as a screen of its own (ADR-0027).
+ *
+ * It used to render in the content column, which put a sidebar of pages beside
+ * a list of instance settings — two navigations for two unrelated things, and
+ * neither of them the one somebody was using.
+ */
+.settings-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  background: var(--surface-sunken);
+}
+.settings-nav {
+  background: var(--surface);
+  border-inline-end: 1px solid var(--border-subtle);
+  padding: var(--sone-space-4) var(--sone-space-3);
+  overflow-y: auto;
+}
+.settings-back {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  inline-size: 100%;
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-3);
+  margin-block-end: var(--sone-space-5);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font: inherit;
+  font-size: var(--sone-text-sm);
+  text-align: start;
+}
+.settings-back:hover { background: var(--surface-hover); color: var(--sone-text); }
+
+.settings-body {
+  padding: var(--sone-space-7) var(--sone-space-6);
+  overflow-y: auto;
+}
+.settings-body > * { max-inline-size: 42rem; margin-inline: auto; }
+
+@media (max-width: 720px) {
+  /* One column: the navigation above, the section below. A 260px sidebar on a
+     phone leaves a strip nobody can read from. */
+  .settings-screen { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .settings-nav { border-inline-end: 0; border-block-end: 1px solid var(--border-subtle); }
 }
