@@ -3818,3 +3818,19 @@ body {
 }
 .workspace-table td:nth-child(2),
 .workspace-table td:nth-child(3) { text-align: end; font-variant-numeric: tabular-nums; }
+
+/* A name that opens something, drawn as text rather than as a button.
+ *
+ * In a table of names, a button per row reads as a row of controls; the name
+ * is already the thing somebody wants to click.
+ */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sone-accent);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.link-button:hover { text-decoration: underline; }

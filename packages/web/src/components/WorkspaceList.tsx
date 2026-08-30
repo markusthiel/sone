@@ -34,8 +34,10 @@ const when = (value: string | null): string => {
 
 export function WorkspaceList({
   currentWorkspaceId,
+  onOpen,
 }: {
   currentWorkspaceId: string;
+  onOpen: (workspaceId: string, name: string) => void;
 }): ReactElement {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +70,18 @@ export function WorkspaceList({
         {list.map((row) => (
           <tr key={row.id}>
             <td>
-              {row.name || 'Untitled'}
+              {/* The name opens the workspace's own administration.
+                *
+                * A row that only reports numbers makes somebody wonder where
+                * the editing is, and a separate "manage" column would be a
+                * second target for the thing the name already identifies. */}
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => onOpen(row.id, row.name)}
+              >
+                {row.name || 'Untitled'}
+              </button>
               {row.id === currentWorkspaceId && (
                 <span className="muted"> · you are here</span>
               )}

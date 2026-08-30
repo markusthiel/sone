@@ -34,6 +34,7 @@ import {
 } from './Admin.tsx';
 import { messageFor } from './Auth.tsx';
 import { GroupsPanel } from './GroupsPanel.tsx';
+import { WorkspaceDetail } from './WorkspaceDetail.tsx';
 import { WorkspaceList } from './WorkspaceList.tsx';
 import { InvitePanel } from './InvitePanel.tsx';
 import { WorkspaceInvite } from './WorkspaceInvite.tsx';
@@ -120,6 +121,12 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
   // Two rights now, not one (ADR-0027). A section marked `manager` is for
   // whoever may administer workspaces, which an instance administrator is
   // implicitly and somebody granted the right is without being one.
+  // Which workspace is open in the list, if any. State rather than a route,
+  // because it is a step inside one section and not a place to link to.
+  const [openWorkspace, setOpenWorkspace] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+
   const canManageWorkspaces = isAdmin === true || session.user.canManageWorkspaces;
   const available = SECTIONS.filter((entry) => {
     if ('admin' in entry) return isAdmin === true;
@@ -194,7 +201,19 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
         {current === 'invite' && <InvitePanel />}
         {current === 'sso' && <OidcPanel />}
         {current === 'accounts' && <UsersPanel />}
-        {current === 'workspaces' && <WorkspaceList currentWorkspaceId={workspaceId} />}
+        {current === 'workspaces' &&
+          (openWorkspace ? (
+            <WorkspaceDetail
+              workspaceId={openWorkspace.id}
+              name={openWorkspace.name}
+              onBack={() => setOpenWorkspace(null)}
+            />
+          ) : (
+            <WorkspaceList
+              currentWorkspaceId={workspaceId}
+              onOpen={(id, chosenName) => setOpenWorkspace({ id, name: chosenName })}
+            />
+          ))}
         {current === 'workspaces-old' && <WorkspacesPanel />}
         {current === 'maintenance' && <MaintenancePanel />}
         {current === 'about' && <About />}
