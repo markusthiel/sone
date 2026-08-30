@@ -91,40 +91,53 @@ export function OidcPanel(): ReactElement {
 
       {error && <p className="error">{messageFor(error)}</p>}
 
-      <div className="field">
-        <label htmlFor="oidc-issuer">Issuer</label>
-        <input
-          id="oidc-issuer"
-          value={settings.issuer}
-          placeholder="https://login.example.org/realms/main"
-          onChange={(event) => change('issuer', event.target.value)}
-        />
-        <p className="muted">
-          The provider&rsquo;s base URL. Everything else is read from its
-          discovery document, so nothing here needs to know which provider it is.
-        </p>
-      </div>
+      <div className="settings-card">
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Issuer</b>
+            <span>
+              The provider&rsquo;s base URL. Everything else is read from its
+              discovery document, so nothing here needs to know which provider
+              it is.
+            </span>
+          </span>
+          <input
+            id="oidc-issuer"
+            aria-label="Issuer"
+            value={settings.issuer}
+            placeholder="https://login.example.org/realms/main"
+            onChange={(event) => change('issuer', event.target.value)}
+          />
+        </div>
 
-      <div className="field">
-        <label htmlFor="oidc-client">Client ID</label>
-        <input
-          id="oidc-client"
-          value={settings.clientId}
-          onChange={(event) => change('clientId', event.target.value)}
-        />
-      </div>
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Client ID</b>
+            <span>As registered with the provider.</span>
+          </span>
+          <input
+            id="oidc-client"
+            aria-label="Client ID"
+            value={settings.clientId}
+            onChange={(event) => change('clientId', event.target.value)}
+          />
+        </div>
 
-      <div className="field">
-        <label htmlFor="oidc-label">Button label</label>
-        <input
-          id="oidc-label"
-          value={settings.buttonLabel}
-          onChange={(event) => change('buttonLabel', event.target.value)}
-        />
-        <p className="muted">
-          What the sign-in page says. People recognise their own login by name,
-          not by the protocol behind it.
-        </p>
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Button label</b>
+            <span>
+              What the sign-in page says. People recognise their own login by
+              name, not by the protocol behind it.
+            </span>
+          </span>
+          <input
+            id="oidc-label"
+            aria-label="Button label"
+            value={settings.buttonLabel}
+            onChange={(event) => change('buttonLabel', event.target.value)}
+          />
+        </div>
       </div>
 
       <label className="checkbox">
