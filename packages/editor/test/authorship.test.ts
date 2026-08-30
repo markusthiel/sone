@@ -16,6 +16,7 @@ import {
   authoredRanges,
   eachAuthoredText,
   rangesForClients,
+  writingClients,
 } from '../src/authorship.js';
 
 /** Two documents that sync to each other, as two people would. */
@@ -170,4 +171,41 @@ test('a text nobody has written in is skipped', () => {
   assert.equal(visits, 0);
 
   doc.destroy();
+});
+
+// --- who has written here ---------------------------------------------------
+
+test('a document written by one person names one client', () => {
+  // The question the margin asks before drawing anything: a page written alone
+  // needs no marks, because every block is yours and a column of the same
+  // initial says only that you were the one writing.
+  const doc = new Y.Doc();
+  const fragment = doc.getXmlFragment('body');
+  const text = new Y.XmlText();
+  fragment.insert(0, [text]);
+  text.insert(0, 'alone');
+
+  assert.equal(writingClients(fragment).size, 1);
+});
+
+test('a second person writing makes it two', () => {
+  const one = new Y.Doc();
+  const fragment = one.getXmlFragment('body');
+  const text = new Y.XmlText();
+  fragment.insert(0, [text]);
+  text.insert(0, 'mine ');
+
+  const two = new Y.Doc();
+  Y.applyUpdate(two, Y.encodeStateAsUpdate(one));
+  two.getXmlFragment('body').get(0)!.insert(5, 'yours');
+  Y.applyUpdate(one, Y.encodeStateAsUpdate(two));
+
+  assert.equal(writingClients(fragment).size, 2);
+});
+
+test('an empty document names nobody', () => {
+  // Not zero-by-accident: a new page has a paragraph and no text, and drawing
+  // marks on it would be marks about nothing.
+  const doc = new Y.Doc();
+  assert.equal(writingClients(doc.getXmlFragment('body')).size, 0);
 });
