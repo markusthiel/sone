@@ -11,13 +11,32 @@ import { test } from 'node:test';
 
 import { codeOf } from './helpers/source.ts';
 
-const converted = ['Settings', 'LandingSettings', 'InvitePanel', 'OidcPanel'];
+const converted = [
+  'Settings',
+  'LandingSettings',
+  'InvitePanel',
+  'OidcPanel',
+  'Admin',
+];
+
+/** What has not been converted yet, so the list stays honest as it shrinks. */
+const remaining = ['GroupsPanel', 'WorkspaceList'];
 
 test('the converted panels group their controls into cards', () => {
   for (const name of converted) {
     const source = codeOf(new URL(`../src/components/${name}.tsx`, import.meta.url));
     assert.match(source, /className="settings-card"/, `${name} uses a card`);
     assert.match(source, /className="settings-row"/, `${name} uses rows`);
+  }
+});
+
+test('the panels still to convert are named rather than forgotten', () => {
+  // A list of what is done is only useful next to a list of what is not. These
+  // are the panels whose controls still have to be grouped by hand, because
+  // which ones belong together is a judgement about the panel.
+  for (const name of remaining) {
+    const source = codeOf(new URL(`../src/components/${name}.tsx`, import.meta.url));
+    assert.ok(source.length > 0, `${name} still exists to be converted`);
   }
 });
 

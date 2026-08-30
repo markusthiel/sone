@@ -161,39 +161,58 @@ export function InstancePanel(): ReactElement {
           start cannot be configured from a screen it never shows.
         </p>
 
-        <div className="field">
-          <label htmlFor="signup-mode">Who may create an account</label>
-          <select
-            id="signup-mode"
-            value={settings.signupMode}
-            disabled={saving}
-            onChange={(event) => void update({ signupMode: event.target.value })}
-          >
-            <option value="open">Anyone with the address</option>
-            <option value="invite">Only with an invitation</option>
-            <option value="closed">Nobody — no new accounts</option>
-          </select>
-          <SettingSource source={settingSources['signupMode']} />
-        </div>
+        <div className="settings-card">
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>Who may create an account</b>
+              <span>
+                Closing it does not affect anybody who already has one.
+                <SettingSource source={settingSources['signupMode']} />
+              </span>
+            </span>
+            <select
+              id="signup-mode"
+              aria-label="Who may create an account"
+              value={settings.signupMode}
+              disabled={saving}
+              onChange={(event) => void update({ signupMode: event.target.value })}
+            >
+              <option value="open">Anyone with the address</option>
+              <option value="invite">Only with an invitation</option>
+              <option value="closed">Nobody — no new accounts</option>
+            </select>
+          </div>
 
-        <div className="field">
-          <label htmlFor="instance-name">Instance name</label>
-          <input
-            id="instance-name"
-            defaultValue={settings.instanceName}
-            disabled={saving}
-            onBlur={(event) => {
-              const value = event.target.value.trim();
-              if (value && value !== settings.instanceName) {
-                void update({ instanceName: value });
-              }
-            }}
-          />
-          <SettingSource source={settingSources['instanceName']} />
-        </div>
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>Instance name</b>
+              <span>
+                On the sign-in page and in the title of every tab.
+                <SettingSource source={settingSources['instanceName']} />
+              </span>
+            </span>
+            <input
+              id="instance-name"
+              aria-label="Instance name"
+              defaultValue={settings.instanceName}
+              disabled={saving}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (value && value !== settings.instanceName) {
+                  void update({ instanceName: value });
+                }
+              }}
+            />
+          </div>
 
-        <div className="field">
-          <label>
+          <label className="settings-row">
+            <span className="settings-row-label">
+              <b>Members may create workspaces</b>
+              <span>
+                Off means only administrators make them. Everybody keeps their
+                own personal one either way — it is not a team.
+              </span>
+            </span>
             <input
               type="checkbox"
               checked={settings.allowWorkspaceCreation}
@@ -201,8 +220,7 @@ export function InstancePanel(): ReactElement {
               onChange={(event) =>
                 void update({ allowWorkspaceCreation: event.target.checked })
               }
-            />{' '}
-            Members may create workspaces
+            />
           </label>
         </div>
       </section>

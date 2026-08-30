@@ -23,8 +23,8 @@ browser before it is sent, and shows in the sidebar and beside your name.
 **Fixed: settings labels wrapped one word per line** and the page was cropped to
 a narrow strip.
 
-**Invitations and single sign-on are in cards too**, each row saying what its
-setting is for.
+**This instance, invitations and single sign-on are in cards too**, each row saying what its
+setting is for and where its value came from.
 
 **Appearance and Where you land are in cards too**, and each choice now says
 what it does rather than only what it is called.
