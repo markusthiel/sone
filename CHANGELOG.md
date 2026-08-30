@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Groundwork for single sign-on.** The tables and the token verification are in;
+nothing is reachable yet. One OIDC client rather than an integration per
+provider, so Keycloak, Authentik, Zitadel, Entra, Google and the rest are a
+configuration ([ADR-0024](docs/adr/0024-oidc.md)).
+
 **A workspace decides what its eight colours look like.** Settings → Appearance
 defaults → Palette. Everything that stored a name — tags, columns, blocks, folder
 icons — follows, which is what names were for.
