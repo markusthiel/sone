@@ -41,6 +41,7 @@ import { InvitePanel } from './InvitePanel.tsx';
 import { WorkspaceInvite } from './WorkspaceInvite.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
 import { ThemeSettings } from './ThemeSettings.tsx';
+import { AVATAR_BOUND, webVariant } from '../lib/imageVariant.ts';
 
 interface SettingsProps {
   section: string;
@@ -303,6 +304,24 @@ function Account({
   const [passwordDone, setPasswordDone] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // A face that will not load is the ordinary case, not an error: most accounts
+  // have none, and the initial is what stands in for it.
+  const [avatarBroken, setAvatarBroken] = useState(false);
+
+  const pickAvatar = async (chosen: File): Promise<void> => {
+    setError(null);
+    // Bounded to 512 and never sent whole. A photograph from a phone is eight
+    // megabytes for something drawn at 22 pixels (ADR-0029).
+    const small = await webVariant(chosen, AVATAR_BOUND);
+    try {
+      await api.setAvatar(small ?? chosen);
+      // Reloaded: the face appears in the sidebar and beside every block its
+      // owner wrote, and one copy updated here would leave the rest stale.
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
 
   const saveName = (): void => {
     setError(null);
@@ -341,6 +360,39 @@ function Account({
       {error && <p className="error">{messageFor(error)}</p>}
 
       <div className="settings-card">
+        {/* The picture first: it is the part of an account somebody recognises
+          * before they read anything. */}
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Picture</b>
+            <span>
+              Any size — it is shrunk here before it is sent, and shown small.
+            </span>
+          </span>
+          <span className="avatar-choose">
+            <span className="account-avatar" aria-hidden="true">
+              {avatarBroken || !session.user.email ? (
+                session.user.displayName.trim().charAt(0).toUpperCase() || '?'
+              ) : (
+                <img
+                  src={`/api/users/${session.user.id}/avatar`}
+                  alt=""
+                  onError={() => setAvatarBroken(true)}
+                />
+              )}
+            </span>
+            <input
+              id="account-avatar"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                const chosen = event.target.files?.[0];
+                if (chosen) void pickAvatar(chosen);
+              }}
+            />
+          </span>
+        </div>
+
         <div className="settings-row">
           <span className="settings-row-label">
             <b>Name</b>

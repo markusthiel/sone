@@ -4336,3 +4336,30 @@ body {
   .settings-screen { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .settings-nav { border-inline-end: 0; border-block-end: 1px solid var(--border-subtle); }
 }
+
+/* A face where an initial was.
+ *
+ * The same round shape either way, so the row does not change height when a
+ * picture arrives and nothing shifts under the pointer.
+ */
+.sidebar-avatar img,
+.account-avatar img {
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.account-avatar {
+  display: grid;
+  place-items: center;
+  inline-size: 48px;
+  block-size: 48px;
+  border-radius: 50%;
+  background: var(--accent-quiet);
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: 600;
+  overflow: hidden;
+}
+.avatar-choose { display: flex; align-items: center; gap: var(--sone-space-5); }
+.avatar-choose input[type='file'] { font-size: var(--sone-text-sm); max-inline-size: 15rem; }

@@ -78,6 +78,8 @@ interface SidebarProps {
   onLogout: () => void;
   /** For the account entry at the foot of the sidebar. */
   displayName: string;
+  /** Whose picture to show at the foot of the sidebar. */
+  userId: string;
 }
 
 const COLLAPSED_KEY = 'sone.collapsedPages';
@@ -117,9 +119,13 @@ export function Sidebar({
   canManageWorkspaces,
   onLogout,
   displayName,
+  userId,
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
   const [renaming, setRenaming] = useState<string | null>(null);
+  // Most accounts have no picture, so a failed request is the ordinary case
+  // rather than an error worth reporting.
+  const [avatarBroken, setAvatarBroken] = useState(false);
   // One drag at a time, and every row has to know about it — so it belongs
   // here rather than in a row.
   const drag = useTreeDrag({
@@ -321,8 +327,20 @@ export function Sidebar({
           >
             {/* The person, first: it is the one entry that is about them
                 rather than about the instance. */}
+            {/* The picture if there is one, the initial otherwise.
+              * Falling back on error rather than asking first: most accounts
+              * have no picture, and a request that 404s is cheaper than one
+              * that asks whether to make it. */}
             <span className="sidebar-avatar" aria-hidden="true">
-              {displayName.trim().charAt(0).toUpperCase() || '?'}
+              {avatarBroken ? (
+                displayName.trim().charAt(0).toUpperCase() || '?'
+              ) : (
+                <img
+                  src={`/api/users/${userId}/avatar`}
+                  alt=""
+                  onError={() => setAvatarBroken(true)}
+                />
+              )}
             </span>
           </a>
 

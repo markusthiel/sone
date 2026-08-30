@@ -46,7 +46,7 @@ import { registerShareRoutes } from './http/share.js';
 import { registerCollectionRoutes } from './http/collections.js';
 import { registerAdminRoutes } from './admin/routes.js';
 import { SettingsStore } from './admin/settings.js';
-import { registerFileRoutes } from './files/routes.js';
+import { registerAvatarRoutes, registerFileRoutes } from './files/routes.js';
 import { LocalFileStore } from './files/store.js';
 import { createStaticHandler } from './http/static.js';
 import { Maintenance } from './maintenance/job.js';
@@ -273,6 +273,12 @@ async function main(): Promise<void> {
     // The same job the timer runs, so the button and the schedule cannot drift.
     runMaintenance: () =>
       maintenance.runOnce() as unknown as Promise<Record<string, unknown>>,
+  });
+  // The same store, and a route that is not an attachment route (ADR-0029).
+  registerAvatarRoutes(router, {
+    pool,
+    store: fileStore,
+    maxUploadBytes: config.maxUploadBytes,
   });
   registerFileRoutes(router, {
     pool,
