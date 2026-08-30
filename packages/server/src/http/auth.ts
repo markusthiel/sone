@@ -396,6 +396,10 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
          FROM workspace_members m
          JOIN workspaces w ON w.id = m.workspace_id
         WHERE m.user_id = $1
+          -- A workspace marked for deletion stops appearing to its members
+          -- (ADR-0027). It is not gone, and somebody with the right can put it
+          -- back; what it must not do is keep looking like somewhere to write.
+          AND w.deleted_at IS NULL
         ORDER BY w.name COLLATE "und-x-icu"`,
       [auth.userId],
     );

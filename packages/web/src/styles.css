@@ -3834,3 +3834,13 @@ body {
   cursor: pointer;
 }
 .link-button:hover { text-decoration: underline; }
+
+/* An action nothing else undoes for you. */
+.btn.danger {
+  border-color: color-mix(in srgb, var(--sone-danger, #dc2626) 45%, transparent);
+  color: var(--sone-danger, #dc2626);
+}
+.btn.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sone-danger, #dc2626) 10%, transparent);
+}
+.btn.danger:disabled { opacity: 0.45; }

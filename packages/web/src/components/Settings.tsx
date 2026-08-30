@@ -212,6 +212,13 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
             <WorkspaceList
               currentWorkspaceId={workspaceId}
               onOpen={(id, chosenName) => setOpenWorkspace({ id, name: chosenName })}
+              onRestore={(id) => {
+                // Restoring is one click, unlike deleting: putting something
+                // back is not the action that needs slowing down.
+                void api
+                  .setWorkspaceDeletion(id, { restore: true })
+                  .then(() => window.location.reload());
+              }}
             />
           ))}
         {current === 'workspaces-old' && <WorkspacesPanel />}

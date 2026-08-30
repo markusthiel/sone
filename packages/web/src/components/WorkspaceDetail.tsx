@@ -23,6 +23,7 @@ export function WorkspaceDetail({
 }): ReactElement {
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmName, setConfirmName] = useState('');
 
   const load = (): void => {
     void api
@@ -108,6 +109,43 @@ export function WorkspaceDetail({
       {/* The same invitation panel a workspace's own owner uses, given a
         * different workspace. Not a second one that happens to look alike. */}
       <WorkspaceInvite workspaceId={workspaceId} />
+
+      {/* Deleting, last and asking for the name.
+        *
+        * Not a confirmation dialog: those are dismissed by the same reflex that
+        * opened them, and this takes everybody's pages with it. Typing the name
+        * is a moment of reading what you are about to do (ADR-0027).
+        *
+        * Nothing is removed when it is marked — it disappears for its members
+        * and can be put back — and the panel says so, because "delete" that
+        * means "delete later" is worse than either if nobody says which. */}
+      <h3 className="settings-heading">Delete this workspace</h3>
+      <p className="muted">
+        It stops appearing to everybody in it. Nothing is removed yet, and
+        somebody who manages workspaces can put it back.
+      </p>
+      <div className="field">
+        <label htmlFor="confirm-name">Type the name to confirm</label>
+        <input
+          id="confirm-name"
+          value={confirmName}
+          placeholder={name}
+          onChange={(event) => setConfirmName(event.target.value)}
+        />
+      </div>
+      <div className="settings-actions">
+        <button
+          type="button"
+          className="btn danger"
+          disabled={confirmName.trim() !== name}
+          onClick={() => {
+            act(api.setWorkspaceDeletion(workspaceId, { confirmName: confirmName.trim() }));
+            onBack();
+          }}
+        >
+          Delete
+        </button>
+      </div>
     </section>
   );
 }
