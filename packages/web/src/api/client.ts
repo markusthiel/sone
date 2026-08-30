@@ -388,6 +388,36 @@ export const api = {
       body: JSON.stringify({ theme }),
     }),
 
+  pagePermissions: (pageId: string) =>
+    request<{
+      restricted: boolean;
+      grants: Array<{
+        userId: string;
+        displayName: string;
+        email: string;
+        access: string;
+        includeSubtree: boolean;
+        inheritedFrom: string | null;
+      }>;
+    }>(`/api/pages/${pageId}/permissions`),
+
+  setPageRestricted: (pageId: string, restricted: boolean) =>
+    request<{ restricted: boolean }>(`/api/pages/${pageId}/restricted`, {
+      method: 'PUT',
+      body: JSON.stringify({ restricted }),
+    }),
+
+  grantPageAccess: (pageId: string, userId: string, access: string) =>
+    request<{ ok: true }>(`/api/pages/${pageId}/permissions/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ access }),
+    }),
+
+  revokePageAccess: (pageId: string, userId: string) =>
+    request<{ ok: true }>(`/api/pages/${pageId}/permissions/${userId}`, {
+      method: 'DELETE',
+    }),
+
   /** What a token is for, before anybody commits to it. Needs no account. */
   inspectInvitation: (token: string) =>
     request<{

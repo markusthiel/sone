@@ -366,6 +366,7 @@ function Workspace({
 
       {sharingId && (
         <ShareDialog
+          workspaceId={workspaceId}
           pageId={sharingId}
           pageTitle={findNode(tree, sharingId)?.title ?? ''}
           onClose={() => setSharingId(null)}
