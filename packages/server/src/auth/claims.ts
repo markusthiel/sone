@@ -243,6 +243,15 @@ export interface PageLocation {
   id: string;
   workspaceId: string;
   ancestorIds: string[];
+  /**
+   * Whether this page or an ancestor withholds the workspace default.
+   *
+   * Carried here because sync decides with this function and nothing else. The
+   * tree hid a restricted page from the moment restrictions existed, and this
+   * still served its document to anybody who knew the id — the interface
+   * concealed it and the protocol did not.
+   */
+  restricted: boolean;
 }
 
 /**
@@ -259,9 +268,18 @@ export async function loadPageLocation(
     id: string;
     workspace_id: string;
     ancestor_ids: string[];
+    restricted: boolean;
   }>(
     db,
-    `SELECT id, workspace_id, ancestor_ids FROM pages WHERE id = $1`,
+    // Restriction is inherited, so the ancestors are checked here rather than
+    // by the caller — one query, and no way to forget it.
+    `SELECT p.id, p.workspace_id, p.ancestor_ids,
+            EXISTS (
+              SELECT 1 FROM pages r
+               WHERE r.id = ANY(array_append(p.ancestor_ids, p.id))
+                 AND r.restricted
+            ) AS restricted
+       FROM pages p WHERE p.id = $1`,
     [pageId],
   );
   if (!row) return null;
@@ -269,6 +287,7 @@ export async function loadPageLocation(
     id: row.id,
     workspaceId: row.workspace_id,
     ancestorIds: row.ancestor_ids,
+    restricted: row.restricted,
   };
 }
 
@@ -294,10 +313,15 @@ export function effectiveRole(
 
   if (claims.workspaceRole !== null && FULL_ACCESS_ROLES.has(claims.workspaceRole)) {
     consider(workspaceRoleToPageRole(claims.workspaceRole));
-  } else if (claims.workspaceRole === 'member') {
-    // Members see the workspace tree by default. Restricting a subtree from
-    // members is a future feature and will be a deny-grant, not the absence
-    // of this line.
+  } else if (claims.workspaceRole === 'member' && !page.restricted) {
+    // Members see the workspace tree by default — unless the page or a section
+    // above it withholds it (ADR-0026), in which case only an explicit grant
+    // reaches them.
+    //
+    // This condition was the missing half of restrictions: the tree stopped
+    // listing a restricted page and sync went on serving its document to
+    // anybody who knew the id, so the interface concealed what the protocol
+    // did not.
     consider('editor');
   }
 

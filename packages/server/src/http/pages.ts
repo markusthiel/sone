@@ -173,9 +173,14 @@ async function moveEntry(pool: Pool, input: MoveInput): Promise<MoveResult> {
       kind: string;
       ancestor_ids: string[];
       path_only: boolean;
+      restricted: boolean;
     }>(
       pool,
-      `SELECT id, workspace_id, kind, ancestor_ids FROM pages WHERE id = $1`,
+      `SELECT id, workspace_id, kind, ancestor_ids,
+              EXISTS (SELECT 1 FROM pages r
+                       WHERE r.id = ANY(array_append(pages.ancestor_ids, pages.id))
+                         AND r.restricted) AS restricted
+         FROM pages WHERE id = $1`,
       [parentPageId],
     );
     if (!parent || parent.workspace_id !== entry.workspaceId) {
@@ -192,6 +197,8 @@ async function moveEntry(pool: Pool, input: MoveInput): Promise<MoveResult> {
       id: parent.id,
       workspaceId: parent.workspace_id,
       ancestorIds: parent.ancestor_ids,
+      // Fetched with the row, because no listing filtered this one.
+      restricted: parent.restricted,
     });
     if (parentRole === null) return { status: 404, code: 'parent_not_found' };
     if (parentRole === 'viewer' || parentRole === 'commenter') {
@@ -321,6 +328,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           id: row.id,
           workspaceId,
           ancestorIds: row.ancestor_ids,
+          // The listing condition above already excluded restricted pages, so
+          // this second check only has to agree with it.
+          restricted: false,
         }) !== null,
     );
 
@@ -382,7 +392,11 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         ancestor_ids: string[];
       }>(
         deps.pool,
-        `SELECT id, workspace_id, kind, ancestor_ids FROM pages WHERE id = $1`,
+        `SELECT id, workspace_id, kind, ancestor_ids,
+              EXISTS (SELECT 1 FROM pages r
+                       WHERE r.id = ANY(array_append(pages.ancestor_ids, pages.id))
+                         AND r.restricted) AS restricted
+         FROM pages WHERE id = $1`,
         [parentPageId],
       );
       if (!parent || parent.workspace_id !== workspaceId) {
@@ -404,6 +418,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         id: parent.id,
         workspaceId: parent.workspace_id,
         ancestorIds: parent.ancestor_ids,
+        // The listing condition above already excluded restricted pages, so
+        // this second check only has to agree with it.
+        restricted: false,
       });
       if (role === null || role === 'viewer' || role === 'commenter') {
         ctx.fail(403, 'not_authorized');
@@ -482,6 +499,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           id: page.id,
           workspaceId: page.workspace_id,
           ancestorIds: page.ancestor_ids,
+          // The listing condition above already excluded restricted pages, so
+          // this second check only has to agree with it.
+          restricted: false,
         })
       : null;
     if (role === null) {
@@ -727,6 +747,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         id: row.page_id,
         workspaceId,
         ancestorIds: row.ancestor_ids,
+        // The listing condition above already excluded restricted pages, so
+        // this second check only has to agree with it.
+        restricted: false,
       });
       if (role === null) continue;
 
@@ -938,6 +961,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           id: row.id,
           workspaceId,
           ancestorIds: row.ancestor_ids,
+          // The listing condition above already excluded restricted pages, so
+          // this second check only has to agree with it.
+          restricted: false,
         }) !== null,
     );
 
@@ -1197,6 +1223,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           id: row.page_id,
           workspaceId,
           ancestorIds: row.ancestor_ids,
+          // The listing condition above already excluded restricted pages, so
+          // this second check only has to agree with it.
+          restricted: false,
         }) !== null,
     );
 

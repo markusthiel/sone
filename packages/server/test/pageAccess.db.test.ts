@@ -16,6 +16,7 @@ import {
   resolvePageAccess,
   visiblePagesCondition,
 } from '../src/pages/access.js';
+import { effectiveRole, loadPageLocation } from '../src/auth/claims.js';
 import { getTestPool, hasDatabase } from './support/db.js';
 
 describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () => {
@@ -575,5 +576,55 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
       [groupId],
     );
     assert.equal(left.rowCount, 0);
+  });
+
+  // --- the protocol, not only the interface ---------------------------------
+
+  test('a restricted page is refused by the check sync uses', async () => {
+    // The gap this closed: the tree stopped listing a restricted page and sync
+    // went on serving its document to anybody who knew the id. The interface
+    // concealed what the protocol did not.
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+
+    const location = await loadPageLocation(db, grandchild);
+    assert.equal(location?.restricted, true, 'inherited from the section above');
+
+    assert.equal(
+      effectiveRole(
+        {
+          principal: { kind: 'user', userId: member, displayName: 'Member' },
+          workspaceId: workspace,
+          workspaceRole: 'member',
+          grants: [],
+        },
+        location!,
+      ),
+      null,
+    );
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+  });
+
+  test('a grant still reaches a restricted page through the same check', async () => {
+    // Refusing everybody would also be wrong, and is the easy over-correction.
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+    const location = await loadPageLocation(db, child);
+
+    assert.equal(
+      effectiveRole(
+        {
+          principal: { kind: 'user', userId: member, displayName: 'Member' },
+          workspaceId: workspace,
+          workspaceRole: 'member',
+          grants: [
+            { scopePageId: child, includeSubtree: true, role: 'viewer', source: 'page_permission' },
+          ],
+        },
+        location!,
+      ),
+      'viewer',
+    );
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
   });
 });
