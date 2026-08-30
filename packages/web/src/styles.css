@@ -2608,7 +2608,7 @@ select {
  * There were two rules here, and the later one set `display: flex` without a
  * direction — so this one's `column` stayed and the four marks stacked. A
  * property left unset is not a property left alone. */
-.sidebar-footer { margin-block-start: auto; }
+.sidebar-footer { margin-block-start: auto; position: relative; }
 
 /* --- touch behaviour in popups ---
  *
@@ -4335,6 +4335,69 @@ body {
   padding: var(--sone-space-4) var(--sone-space-3);
   border-block-start: 1px solid var(--border-subtle);
 }
+/* The account: a face and a name, which is one target rather than four. */
+.sidebar-account {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-4);
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: var(--sone-tap);
+  padding-inline: var(--sone-space-2);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text);
+  font: inherit;
+  font-size: var(--sone-text-sm);
+  text-align: start;
+}
+.sidebar-account:hover { background: var(--surface-hover); }
+.sidebar-account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The menu opens upwards: it hangs off the bottom of the window otherwise,
+   which is where this button always is. */
+.sidebar-account-menu {
+  position: absolute;
+  inset-block-end: calc(100% + var(--sone-space-2));
+  inset-inline-start: var(--sone-space-2);
+  inline-size: 200px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+  z-index: 60;
+}
+.sidebar-account-menu a,
+.sidebar-account-menu button {
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-4);
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text);
+  font: inherit;
+  font-size: var(--sone-text-sm);
+  text-decoration: none;
+  text-align: start;
+}
+.sidebar-account-menu a:hover,
+.sidebar-account-menu button:hover { background: var(--surface-hover); }
+.sidebar-account-menu button {
+  margin-block-start: 4px;
+  padding-block-start: 4px;
+  border-block-start: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+
 .sidebar-tool {
   display: grid;
   place-items: center;
