@@ -16,6 +16,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 **Profile pictures.** Choose one under Settings → Account; it is shrunk in your
 browser before it is sent, and shows in the sidebar and beside your name.
 
+**Fixed: settings labels wrapped one word per line** and the page was cropped to
+a narrow strip.
+
 **Settings pages have structure.** Controls that belong together sit in a card,
 each row says what it is and why, and space between cards separates one topic
 from the next.
