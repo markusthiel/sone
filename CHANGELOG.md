@@ -23,7 +23,8 @@ browser before it is sent, and shows in the sidebar and beside your name.
 **Fixed: settings labels wrapped one word per line** and the page was cropped to
 a narrow strip.
 
-**This instance, invitations and single sign-on are in cards too**, each row saying what its
+**Every settings panel now shares one shape** — cards of labelled rows for
+settings, and the same frame around the tables that list workspaces and groups, each row saying what its
 setting is for and where its value came from.
 
 **Appearance and Where you land are in cards too**, and each choice now says

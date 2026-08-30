@@ -156,14 +156,23 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
         </div>
       )}
 
-      <div className="field">
-        <label htmlFor="group-name">New group</label>
-        <input
-          id="group-name"
-          value={name}
-          placeholder="Editors"
-          onChange={(event) => setName(event.target.value)}
-        />
+      <div className="settings-card">
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>New group</b>
+            <span>
+              A name for a set of people. Whoever joins it later gets whatever
+              the group has been given, without anybody revisiting the pages.
+            </span>
+          </span>
+          <input
+            id="group-name"
+            aria-label="New group"
+            value={name}
+            placeholder="Editors"
+            onChange={(event) => setName(event.target.value)}
+          />
+        </div>
       </div>
       <div className="settings-actions">
         <button
