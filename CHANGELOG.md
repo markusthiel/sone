@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Settings pages have structure.** Controls that belong together sit in a card,
+each row says what it is and why, and space between cards separates one topic
+from the next.
+
 **Large images are shrunk for display.** An uploaded photograph is stored as you
 sent it and shown at a size a page can use; the ⋮⋮ menu offers "Download the
 original" beside "Download" ([ADR-0029](docs/adr/0029-image-variants.md)).
