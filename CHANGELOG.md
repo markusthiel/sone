@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a restricted page was hidden from the tree and still synchronised.**
+The listing stopped showing it and the protocol went on serving its document to
+anybody holding the id. Restrictions are now checked where sync decides.
+
 **Groups.** A group is a list of people, granted access to a page exactly as a
 person is. Membership is the thing maintained — leaving a group takes its access
 with it. Manage them under Settings → Groups, and give
