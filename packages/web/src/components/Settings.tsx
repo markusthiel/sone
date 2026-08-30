@@ -35,6 +35,7 @@ import {
 import { messageFor } from './Auth.tsx';
 import { GroupsPanel } from './GroupsPanel.tsx';
 import { InvitePanel } from './InvitePanel.tsx';
+import { WorkspaceInvite } from './WorkspaceInvite.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
 import { ThemeSettings } from './ThemeSettings.tsx';
 
@@ -110,7 +111,13 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
         {current === 'account' && <Account session={session} workspaceId={workspaceId} />}
         {current === 'appearance' && <AppearanceSettings />}
         {current === 'workspace' && (
-          <WorkspaceSettings session={session} workspaceId={workspaceId} />
+          <>
+            <WorkspaceSettings session={session} workspaceId={workspaceId} />
+            {/* Inviting is a workspace matter, so it sits with the workspace's
+                own settings rather than in the administration area — which is
+                for the instance. */}
+            <WorkspaceInvite workspaceId={workspaceId} />
+          </>
         )}
         {current === 'theme' && (
           <ThemeSettings

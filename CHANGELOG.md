@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Invite somebody to a workspace** under Settings → Workspace. Works whether or
+not they already have an account: with one they are asked to join, without one
+they register first and end up in both their own workspace and yours.
+
 **Fixed: accepting an invitation left you in your own workspace** rather than the
 one you were invited to — a member of a team, looking at nothing to do with it.
 
