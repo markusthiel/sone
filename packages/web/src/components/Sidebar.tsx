@@ -71,6 +71,8 @@ interface SidebarProps {
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
   /** Reloads the tree after an entry's icon or colour changed. */
   onReloadTree: () => void;
+  /** Whether to offer the way into the workspace administration. */
+  canManageWorkspaces: boolean;
   onLogout: () => void;
 }
 
@@ -108,6 +110,7 @@ export function Sidebar({
   favouriteIds,
   onToggleFavourite,
   onReloadTree,
+  canManageWorkspaces,
   onLogout,
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
@@ -188,6 +191,7 @@ export function Sidebar({
       <nav className={`sidebar${open ? ' open' : ''}`} aria-label="Pages">
         <div className="sidebar-head">
           <WorkspaceMenu
+          canManageWorkspaces={canManageWorkspaces}
             currentId={workspaceId}
             currentName={workspaceName}
             onSwitch={onSwitchWorkspace}
@@ -366,6 +370,7 @@ function TreeLevel({
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
   /** Reloads the tree after an entry's icon or colour changed. */
   onReloadTree: () => void;
+  /** Whether to offer the way into the workspace administration. */
   /** The whole tree, for validating a drop against the subtree rule. */
   tree: PageNode[];
   onMove: (

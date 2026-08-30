@@ -593,7 +593,11 @@ export const api = {
 
   adminUpdateUser: (
     userId: string,
-    changes: { isInstanceAdmin?: boolean; deactivated?: boolean },
+    changes: {
+      isInstanceAdmin?: boolean;
+      canManageWorkspaces?: boolean;
+      deactivated?: boolean;
+    },
   ) =>
     request<{ id: string }>(`/api/admin/users/${userId}`, {
       method: 'PATCH',

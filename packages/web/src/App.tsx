@@ -257,6 +257,7 @@ function Workspace({
       data-sidebar={sidebarVisible ? 'shown' : 'hidden'}
     >
       <Sidebar
+        canManageWorkspaces={session.user.canManageWorkspaces}
         workspaceId={workspaceId}
         workspaceName={workspaceName}
         onSwitchWorkspace={onSwitchWorkspace}
