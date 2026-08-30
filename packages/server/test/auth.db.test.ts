@@ -34,6 +34,7 @@ import {
 } from '../src/auth/session.js';
 import {
   bootstrapInstance,
+  acceptInvitation,
   createInvitation,
   inspectInvitation,
   register,
@@ -842,5 +843,138 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
       [second.userId],
     );
     assert.equal(row.rows[0]?.is_instance_admin, false);
+  });
+
+  // --- accepting an invitation with an account already (ADR-0025) -----------
+
+  test('an existing account can join a workspace by invitation', async () => {
+    // There was no path for this at all: an existing account could only be
+    // added to a workspace by somebody with database access.
+    const joiner = await register(db, 'open', {
+      email: `joiner-${Date.now()}@example.org`,
+      password: PASSWORD,
+      displayName: 'Joiner',
+    });
+
+    const invite = await createInvitation(db, {
+      workspaceId: fx.workspaceId,
+      invitedBy: fx.userId,
+    });
+
+    const result = await acceptInvitation(db, {
+      token: invite.token,
+      userId: joiner.userId,
+    });
+
+    assert.equal(result.workspaceId, fx.workspaceId);
+    assert.equal(result.alreadyMember, false);
+
+    const memberships = await db.query(
+      `SELECT 1 FROM workspace_members WHERE user_id = $1`,
+      [joiner.userId],
+    );
+    assert.equal(memberships.rowCount, 2, 'their own, and the one they joined');
+  });
+
+  test('accepting twice arrives rather than refusing', async () => {
+    // Somebody clicking a link twice should end up at the workspace. Burning a
+    // use for a membership that did not change would also let a double-click
+    // consume somebody else's place on a multi-use link.
+    const joiner = await register(db, 'open', {
+      email: `twice-${Date.now()}@example.org`,
+      password: PASSWORD,
+      displayName: 'Twice',
+    });
+    const invite = await createInvitation(db, {
+      workspaceId: fx.workspaceId,
+      invitedBy: fx.userId,
+    });
+
+    await acceptInvitation(db, { token: invite.token, userId: joiner.userId });
+    const again = await acceptInvitation(db, { token: invite.token, userId: joiner.userId });
+
+    assert.equal(again.workspaceId, fx.workspaceId);
+    assert.equal(again.alreadyMember, true);
+
+    const uses = await db.query<{ uses: number }>(
+      `SELECT uses FROM invitations WHERE id = $1`,
+      [invite.invitationId],
+    );
+    assert.equal(uses.rows[0]?.uses, 1, 'the second time spends nothing');
+  });
+
+  test('an address-bound invitation cannot be accepted by somebody else', async () => {
+    // Otherwise a link intended for one person adds whoever opens it while
+    // signed in as somebody else — a plausible accident as well as a
+    // deliberate act.
+    const other = await register(db, 'open', {
+      email: `other-${Date.now()}@example.org`,
+      password: PASSWORD,
+      displayName: 'Other',
+    });
+    const invite = await createInvitation(db, {
+      workspaceId: fx.workspaceId,
+      invitedBy: fx.userId,
+      email: 'meant-for@example.org',
+    });
+
+    await assert.rejects(
+      () => acceptInvitation(db, { token: invite.token, userId: other.userId }),
+      AuthError,
+    );
+  });
+
+  test('an invitation to the instance alone gives an account and no workspace', async () => {
+    // "Have an account here" without "and belong to this team" — two decisions,
+    // and often only the first is wanted.
+    const email = `instance-${Date.now()}@example.org`;
+    const invite = await createInvitation(db, {
+      workspaceId: null,
+      invitedBy: fx.userId,
+      email,
+    });
+
+    const joined = await register(db, 'invite', {
+      email,
+      password: PASSWORD,
+      displayName: 'Instance only',
+      invitationToken: invite.token,
+    });
+
+    const memberships = await db.query<{ workspace_id: string }>(
+      `SELECT workspace_id FROM workspace_members WHERE user_id = $1`,
+      [joined.userId],
+    );
+    assert.equal(memberships.rowCount, 1, 'only their own');
+
+    const own = await db.query<{ id: string }>(
+      `SELECT id FROM workspaces WHERE personal_for = $1`,
+      [joined.userId],
+    );
+    assert.equal(joined.workspaceId, own.rows[0]?.id, 'and lands there');
+  });
+
+  test('an instance invitation is still spent when used', async () => {
+    // A single-use invitation must not be usable twice merely because it named
+    // no workspace.
+    const email = `spent-${Date.now()}@example.org`;
+    const invite = await createInvitation(db, {
+      workspaceId: null,
+      invitedBy: fx.userId,
+      email,
+    });
+
+    await register(db, 'invite', {
+      email,
+      password: PASSWORD,
+      displayName: 'Spent',
+      invitationToken: invite.token,
+    });
+
+    const uses = await db.query<{ uses: number }>(
+      `SELECT uses FROM invitations WHERE id = $1`,
+      [invite.invitationId],
+    );
+    assert.equal(uses.rows[0]?.uses, 1);
   });
 });

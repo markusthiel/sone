@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Invitations are two things now.** An invitation to the instance creates an
+account and nothing else — the person lands in their own workspace. An invitation
+to a workspace works for people who already have an account, which previously had
+no path at all.
+
 **Everybody has a workspace of their own.** Created with the account, always —
 including for existing accounts, which get one on upgrade. Somebody invited to a
 team now lands in both ([ADR-0025](docs/adr/0025-personal-workspaces.md)).
