@@ -31,6 +31,7 @@ import {
   checkAndRecordVersion,
   pendingDocumentMigrations,
 } from './db/version.js';
+import { registerOidcRoutes } from './auth/oidcRoutes.js';
 import { registerAuthRoutes } from './http/auth.js';
 import { registerHealthRoutes, SONE_COMMIT, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
@@ -209,6 +210,14 @@ async function main(): Promise<void> {
     instanceName: 'SONE',
     allowWorkspaceCreation: true,
     defaultLocale: 'en',
+  });
+
+  registerOidcRoutes(router, {
+    pool,
+    clientSecret: config.oidcClientSecret,
+    publicUrl: config.publicUrl,
+    // Decided the same way as everywhere else here, rather than a new setting.
+    secureCookies: config.publicUrl.startsWith('https://'),
   });
 
   registerAuthRoutes(router, {

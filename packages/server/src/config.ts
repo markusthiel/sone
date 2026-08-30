@@ -22,6 +22,8 @@ export interface Config {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   signupMode: 'open' | 'invite' | 'closed';
   maxUploadBytes: number;
+  /** The provider's client secret, or null. From the environment only. */
+  oidcClientSecret: string | null;
   storage:
     | { backend: 'local'; path: string }
     | {
@@ -128,6 +130,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       'closed',
     ] as const),
     maxUploadBytes: Math.floor(maxUploadMb * 1024 * 1024),
+    // Never in the database (ADR-0024): a secret in a table is a secret in
+    // every backup. Absent means single sign-on stays off, whatever the
+    // administration area says.
+    oidcClientSecret: optional(env, 'SONE_OIDC_CLIENT_SECRET', '') || null,
     storage,
   };
 }
