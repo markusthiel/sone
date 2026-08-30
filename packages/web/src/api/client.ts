@@ -488,6 +488,17 @@ export const api = {
       { method: 'POST' },
     ),
 
+  setMemberRole: (workspaceId: string, userId: string, role: string) =>
+    request<{ ok: true }>(`/api/workspaces/${workspaceId}/members/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    }),
+
+  removeMember: (workspaceId: string, userId: string) =>
+    request<{ ok: true }>(`/api/workspaces/${workspaceId}/members/${userId}`, {
+      method: 'DELETE',
+    }),
+
   inviteToWorkspace: (
     workspaceId: string,
     input: { email?: string | null; role?: string; maxUses?: number },

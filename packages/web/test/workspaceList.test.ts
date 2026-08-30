@@ -57,3 +57,17 @@ test('inviting uses the same panel a workspace owner uses', () => {
 test('opening one is a step inside the section, not a place to link to', () => {
   assert.match(settings, /useState<\{ id: string; name: string \} \| null>/);
 });
+
+test('the list is read back rather than adjusted in place', () => {
+  // The server refuses some of these — the last owner, somebody's own
+  // workspace — and a list updated optimistically would show a change that did
+  // not happen.
+  assert.match(detail, /\.then\(load\)/);
+  assert.doesNotMatch(detail, /setMembers\(members\.filter/);
+});
+
+test('a role is changed where it is shown', () => {
+  // Not in a dialog: the list is where somebody is comparing people, and that
+  // is where the comparison leads to a change.
+  assert.match(detail, /api\.setMemberRole\(workspaceId, member\.userId, event\.target\.value\)/);
+});

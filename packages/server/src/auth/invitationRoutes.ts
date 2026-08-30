@@ -209,6 +209,139 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     ctx.send(200, { invitations: await listInvitations(deps.pool, workspaceId) });
   });
 
+  /**
+   * Change what somebody may do in a workspace.
+   *
+   * Here rather than in workspaces.ts because it is the same question those
+   * routes ask — who may administer this workspace — and answering it in two
+   * files is how the instance-wide right ends up working in one and not the
+   * other.
+   */
+  router.put('/api/workspaces/:workspaceId/members/:userId', async (ctx) => {
+    const user = await requireSession(deps.pool, ctx);
+    if (!user) return;
+
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    if (!(await mayAdminister(deps.pool, ctx, workspaceId, user.userId))) return;
+
+    let body: { role?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const target = ctx.params['userId'] ?? '';
+    const role = typeof body.role === 'string' ? body.role : '';
+    if (!['owner', 'admin', 'member', 'guest'].includes(role)) {
+      ctx.fail(422, 'invalid_role');
+      return;
+    }
+
+    const current = await queryOne<{ role: WorkspaceRole }>(
+      deps.pool,
+      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+      [workspaceId, target],
+    );
+    if (!current) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    // A workspace keeps an owner.
+    //
+    // Demoting the last one leaves a workspace nobody can transfer or delete,
+    // and the person who did it is usually the person who then cannot undo it.
+    if (current.role === 'owner' && role !== 'owner') {
+      const others = await queryOne<{ n: number }>(
+        deps.pool,
+        `SELECT count(*)::int AS n FROM workspace_members
+          WHERE workspace_id = $1 AND role = 'owner' AND user_id <> $2`,
+        [workspaceId, target],
+      );
+      if ((others?.n ?? 0) === 0) {
+        ctx.fail(409, 'last_owner');
+        return;
+      }
+    }
+
+    await deps.pool.query(
+      `UPDATE workspace_members SET role = $3 WHERE workspace_id = $1 AND user_id = $2`,
+      [workspaceId, target, role],
+    );
+    ctx.send(200, { ok: true });
+  });
+
+  /** Remove somebody from a workspace. */
+  router.delete('/api/workspaces/:workspaceId/members/:userId', async (ctx) => {
+    const user = await requireSession(deps.pool, ctx);
+    if (!user) return;
+
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    if (!(await mayAdminister(deps.pool, ctx, workspaceId, user.userId))) return;
+
+    const target = ctx.params['userId'] ?? '';
+    const current = await queryOne<{ role: WorkspaceRole }>(
+      deps.pool,
+      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+      [workspaceId, target],
+    );
+    if (!current) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    if (current.role === 'owner') {
+      const others = await queryOne<{ n: number }>(
+        deps.pool,
+        `SELECT count(*)::int AS n FROM workspace_members
+          WHERE workspace_id = $1 AND role = 'owner' AND user_id <> $2`,
+        [workspaceId, target],
+      );
+      if ((others?.n ?? 0) === 0) {
+        ctx.fail(409, 'last_owner');
+        return;
+      }
+    }
+
+    // Somebody's own workspace is not one they can be removed from. It exists
+    // because they do (ADR-0025), and a personal workspace with no members is
+    // a document store nobody can open.
+    const personal = await queryOne<{ id: string }>(
+      deps.pool,
+      `SELECT id FROM workspaces WHERE id = $1 AND personal_for = $2`,
+      [workspaceId, target],
+    );
+    if (personal) {
+      ctx.fail(409, 'personal_workspace');
+      return;
+    }
+
+    await deps.pool.query(
+      `DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+      [workspaceId, target],
+    );
+
+    // Page grants go with the membership. Left behind they would give access to
+    // somebody who is no longer here — and reinstate it silently if they ever
+    // rejoin.
+    await deps.pool.query(
+      `DELETE FROM page_permissions pp
+        USING pages p
+        WHERE pp.page_id = p.id AND p.workspace_id = $1 AND pp.user_id = $2`,
+      [workspaceId, target],
+    );
+    await deps.pool.query(
+      `DELETE FROM group_members gm
+        USING groups g
+        WHERE gm.group_id = g.id AND g.workspace_id = $1 AND gm.user_id = $2`,
+      [workspaceId, target],
+    );
+
+    ctx.send(200, { ok: true });
+  });
+
   router.delete('/api/invitations/:invitationId', async (ctx) => {
     const user = await requireSession(deps.pool, ctx);
     if (!user) return;
