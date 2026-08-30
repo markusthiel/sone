@@ -57,6 +57,13 @@ export function retryDelayMs(attempts: number): number {
 }
 
 export interface MaintenanceOptions {
+  /**
+   * How long a deleted workspace is kept before it is removed (ADR-0027).
+   *
+   * A month by default: long enough for somebody to notice a mistake, short
+   * enough that "deleted" means what people take it to mean.
+   */
+  workspaceRetentionDays?: number;
   pool: Pool;
   sync?: SyncServer;
   intervalMs?: number;
@@ -67,6 +74,8 @@ export interface MaintenanceReport {
   prunedSessions: number;
   prunedAttempts: number;
   prunedShareSessions: number;
+  /** Workspaces marked for deletion long enough ago to be removed (ADR-0027). */
+  purgedWorkspaces: number;
   compactedDocuments: number;
   /** Failed projections attempted again this pass. */
   retriedProjections: number;
@@ -122,6 +131,7 @@ export class Maintenance {
       prunedSessions: 0,
       prunedAttempts: 0,
       prunedShareSessions: 0,
+      purgedWorkspaces: 0,
       compactedDocuments: 0,
       retriedProjections: 0,
       recoveredProjections: 0,
@@ -155,6 +165,13 @@ export class Maintenance {
       const pruned = await pruneAuthTables(this.opts.pool);
       report.prunedSessions = pruned.sessions;
       report.prunedAttempts = pruned.attempts;
+    });
+
+    await guard('purge deleted workspaces', async () => {
+      report.purgedWorkspaces = await purgeDeletedWorkspaces(
+        this.opts.pool,
+        this.opts.workspaceRetentionDays ?? 30,
+      );
     });
 
     await guard('prune share sessions', async () => {
@@ -356,4 +373,37 @@ export async function compactBacklog(
     }
   }
   return compacted;
+}
+
+/**
+ * Remove workspaces marked for deletion long enough ago.
+ *
+ * Deleting one marks it and takes it out of sight; this is the half that
+ * actually removes it (ADR-0027). Keeping the data forever was also a decision,
+ * and not one anybody made deliberately.
+ *
+ * The retention period is what makes the mark useful: somebody who deletes the
+ * wrong workspace has a month to notice, and after that it is gone in the way
+ * "deleted" is normally understood — which matters when somebody asks whether
+ * their notes are still on this server.
+ *
+ * Everything else follows by cascade: pages, members, invitations, groups and
+ * page grants all reference the workspace. Files on disk do not, and are left
+ * to the orphan sweep that already exists rather than deleted here, where a
+ * mistake would take somebody else's attachment with it.
+ */
+export async function purgeDeletedWorkspaces(
+  pool: Pool,
+  retentionDays: number,
+): Promise<number> {
+  const result = await pool.query(
+    `DELETE FROM workspaces
+      WHERE deleted_at IS NOT NULL
+        AND deleted_at < now() - ($1 || ' days')::interval
+        -- Never a personal one, whatever its mark says. It goes with its
+        -- account, and an account is removed elsewhere.
+        AND personal_for IS NULL`,
+    [String(Math.max(1, retentionDays))],
+  );
+  return result.rowCount ?? 0;
 }

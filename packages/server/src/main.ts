@@ -257,7 +257,11 @@ async function main(): Promise<void> {
   // assignment (the editor view in dispatchTransaction), and "it happens to be
   // assigned by the time anyone calls it" is the same argument that was wrong
   // then.
-  const maintenance = new Maintenance({ pool, sync });
+  const maintenance = new Maintenance({
+    pool,
+    sync,
+    workspaceRetentionDays: config.workspaceRetentionDays,
+  });
 
   registerAdminRoutes(router, {
     pool,

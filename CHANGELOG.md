@@ -24,8 +24,8 @@ correctly, about a moment that had already passed. A refusal is only shown once
 the connection has settled.
 
 **A workspace can be deleted** from the list, by typing its name. It stops
-appearing to everybody in it and nothing is removed — somebody who manages
-workspaces can put it back. Purging what is marked is not automatic yet.
+appearing to everybody in it and can be restored for a month, after which the
+maintenance job removes it. `SONE_WORKSPACE_RETENTION_DAYS` changes that.
 
 **Every workspace in one list**, with people, pages and when each was last
 edited — and open one to change
