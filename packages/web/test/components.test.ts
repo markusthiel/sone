@@ -50,3 +50,19 @@ test('everything that floats shares one treatment', () => {
   assert.ok(lifts.length >= 3, `only ${lifts.length} panels share the lift`);
   assert.match(css, /background: var\(--surface-overlay\)/);
 });
+
+// --- the areas --------------------------------------------------------------
+
+test('the sidebar is separated by a surface, not by a rule', () => {
+  // A step of surface groups; a line divides. The sidebar and the page are one
+  // thing you are working in, not two placed beside each other, and a strong
+  // rule between them says the opposite.
+  assert.match(css, /border-inline-end: 1px solid var\(--border-subtle\)/);
+  assert.match(css, /\.page-body \{[^}]*background: var\(--surface\)/);
+});
+
+test('the page is the sunken surface and the writing sits on top of it', () => {
+  // The only place in the interface where that distinction is worth a surface
+  // of its own.
+  assert.match(css, /body \{[^}]*background: var\(--surface-sunken\)/);
+});
