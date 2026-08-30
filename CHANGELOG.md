@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Invite people to the instance** under Settings → Invite people. They get an
+account and a workspace of their own; adding them to a team is a separate step.
+
 **Invitations have an API at all.** They existed in the server's domain layer
 since the authentication work and nothing ever exposed them, so in practice the
 only way into a workspace was to be there when it was made.
