@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: switching workspaces opened a page from the one you left.** The tree
+was still the old one for a moment, and the root redirects to its first page —
+so the server refused it, correctly, to somebody who had only pressed a switcher.
+
 **Invite somebody to a workspace** under Settings → Workspace. Works whether or
 not they already have an account: with one they are asked to join, without one
 they register first and end up in both their own workspace and yours.
