@@ -341,7 +341,15 @@ button.quiet:hover { background: var(--sone-bg-hover); }
  * focused. A form of equally weighted boxes reads as heavy before anybody has
  * read a single label.
  */
-input, textarea {
+/* Text fields only.
+ *
+ * The rule below sets a full-width box 44px tall, which is right for something
+ * you type in and absurd for a checkbox: they rendered as enormous blue
+ * lozenges filling the row. A checkbox is a mark beside a label and is sized by
+ * the browser, which does it well.
+ */
+input:not([type='checkbox']):not([type='radio']):not([type='color']),
+textarea {
   font: inherit;
   color: inherit;
   width: 100%;
@@ -352,8 +360,11 @@ input, textarea {
   background: var(--surface-sunken);
   transition: border-color 120ms ease, background 120ms ease;
 }
-input:hover, textarea:hover { border-color: var(--border-default); }
-input:focus, textarea:focus {
+input:not([type='checkbox']):not([type='radio']):not([type='color']):hover,
+textarea:hover { border-color: var(--border-default); }
+
+input:not([type='checkbox']):not([type='radio']):not([type='color']):focus,
+textarea:focus {
   /* The accent border replaces the outline rather than joining it: two rings
      around one field is the tell of a control nobody looked at. */
   outline: none;
@@ -361,6 +372,16 @@ input:focus, textarea:focus {
   background: var(--surface);
 }
 input::placeholder, textarea::placeholder { color: var(--sone-text-muted); }
+
+/* A mark beside a label, in the interface's own accent rather than the
+   platform's blue. */
+input[type='checkbox'], input[type='radio'] {
+  inline-size: var(--sone-marker);
+  block-size: var(--sone-marker);
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
 /* Everything else keeps a real focus ring. Fields are the exception above,
    and only because they replace it with something at least as visible. */
 button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-visible {
@@ -606,10 +627,14 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 
 .page-body {
   width: 100%;
-  /* The writing sits on the plain surface rather than the sunken one: a page
-     under the text, and the application around it. It is the only place in the
-     interface where that distinction is worth a surface of its own. */
-  background: var(--surface);
+  /* No surface of its own.
+   *
+   * A sheet under the text sounded right and looked wrong: on a wide screen the
+   * column reads as a lighter panel floating in a darker window, which is a
+   * distinction nobody asked for and one the eye keeps re-noticing.
+   *
+   * The writing sits on the same surface as everything around it; what
+   * separates the areas is the sidebar's step, not a page. */
   max-width: 46rem;
   margin-inline: auto;
   padding: 24px 20px 40vh;
@@ -4053,6 +4078,12 @@ body {
 .settings-nav-item {
   display: flex;
   flex-direction: column;
+  /* Both, and neither is redundant: a column flex box centres its children
+     without the first, and the text inside each child centres without the
+     second. The entries were centred in the middle of a left-hand column,
+     which reads as a mistake before anybody reads a word. */
+  align-items: flex-start;
+  text-align: start;
   gap: 1px;
   padding-block: var(--sone-space-2);
 }

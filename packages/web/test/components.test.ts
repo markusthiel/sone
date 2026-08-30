@@ -12,14 +12,18 @@ const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 test('a field is a surface at rest and a border when focused', () => {
   // A form of equally weighted boxes reads as heavy before anybody has read a
   // single label.
-  assert.match(css, /input, textarea \{[^}]*background: var\(--surface-sunken\)/);
-  assert.match(css, /input:focus, textarea:focus \{[^}]*border-color: var\(--accent\)/);
+  // Matched loosely on purpose: the selector grew a list of exclusions when
+  // checkboxes turned out to be caught by it, and a test that spells the
+  // selector out fails on every such correction without any of them being
+  // wrong.
+  assert.match(css, /background: var\(--surface-sunken\);\n  transition: border-color/);
+  assert.match(css, /:focus,\s*\n?textarea:focus \{[^}]*border-color: var\(--accent\)/);
 });
 
 test('a focused field has one ring, not two', () => {
   // The accent border replaces the outline rather than joining it. Two rings
   // around one field is the tell of a control nobody looked at.
-  assert.match(css, /input:focus, textarea:focus \{[^}]*outline: none/);
+  assert.match(css, /:focus,\s*\n?textarea:focus \{[^}]*outline: none/);
 });
 
 test('everything else keeps a visible focus ring', () => {
@@ -58,11 +62,28 @@ test('the sidebar is separated by a surface, not by a rule', () => {
   // thing you are working in, not two placed beside each other, and a strong
   // rule between them says the opposite.
   assert.match(css, /border-inline-end: 1px solid var\(--border-subtle\)/);
-  assert.match(css, /\.page-body \{[^}]*background: var\(--surface\)/);
+  assert.match(css, /\.page-body \{[^}]*max-width: 46rem/);
 });
 
-test('the page is the sunken surface and the writing sits on top of it', () => {
-  // The only place in the interface where that distinction is worth a surface
-  // of its own.
-  assert.match(css, /body \{[^}]*background: var\(--surface-sunken\)/);
+test('the writing has no surface of its own', () => {
+  // A sheet under the text sounded right and looked wrong: on a wide screen the
+  // column read as a lighter panel floating in a darker window — a distinction
+  // nobody asked for, and one the eye keeps re-noticing.
+  assert.doesNotMatch(css, /\.page-body \{[^}]*background: var\(--surface\)/);
+});
+
+test('a checkbox is not treated as a text field', () => {
+  // The field rule sets a full-width box 44px tall, which is right for
+  // something you type in and absurd for a checkbox: they rendered as enormous
+  // blue lozenges filling the row.
+  assert.match(css, /input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\)/);
+  assert.match(css, /input\[type='checkbox'\], input\[type='radio'\] \{[^}]*accent-color: var\(--accent\)/);
+});
+
+test('the settings navigation reads down the left, not down the middle', () => {
+  // A column flex box centres its children without align-items, and the text
+  // inside each child centres without text-align. Both were missing, so the
+  // entries sat in the middle of a left-hand column.
+  assert.match(css, /\.settings-nav-item \{[^}]*align-items: flex-start/);
+  assert.match(css, /\.settings-nav-item \{[^}]*text-align: start/);
 });
