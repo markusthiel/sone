@@ -3730,3 +3730,22 @@ body {
   background: var(--sone-bg-subtle);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
+
+/* Who may reach a page, in the sharing dialog.
+ *
+ * Before the links, because people inside the workspace are the common case and
+ * a link for people outside is the exception.
+ */
+.page-permissions { margin-block-end: var(--sone-space-5); }
+.permission-list {
+  margin: var(--sone-space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+.permission-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+  min-block-size: var(--sone-control-lg);
+}
+.permission-list li > span:first-child { flex: 1 1 auto; }

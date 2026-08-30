@@ -17,10 +17,13 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type CreatedShareLink, type ShareLink } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
+import { PagePermissions } from './PagePermissions.tsx';
 
 interface ShareDialogProps {
   pageId: string;
   pageTitle: string;
+  /** For the list of people who could be given access. */
+  workspaceId: string;
   onClose: () => void;
 }
 
@@ -36,6 +39,7 @@ const MIN_PASSWORD_LENGTH = 12;
 export function ShareDialog({
   pageId,
   pageTitle,
+  workspaceId,
   onClose,
 }: ShareDialogProps): ReactElement {
   const [links, setLinks] = useState<ShareLink[] | null>(null);
@@ -166,6 +170,15 @@ export function ShareDialog({
         <h2 className="dialog-title">Share “{pageTitle || 'Untitled'}”</h2>
 
         {error && <p className="error">{messageFor(error)}</p>}
+
+        {/* People inside the workspace, before links for people outside.
+          *
+          * The same question asked twice — who gets to see this — and answering
+          * it in two places is how somebody sets one and believes they have set
+          * the other. The common case is also the first one. */}
+        <PagePermissions pageId={pageId} workspaceId={workspaceId} />
+
+        <h3 className="settings-heading">Anyone with a link</h3>
 
         {/* The new link, shown once. */}
         {created && (
