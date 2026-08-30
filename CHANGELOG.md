@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An invitation followed while signed in now asks whether to join.** It used to
+do nothing at all: the sign-up screen only appeared for people without an
+account, so somebody who had one landed in their own workspace with no sign the
+link had meant anything.
+
 **Invite people to the instance** under Settings → Invite people. They get an
 account and a workspace of their own; adding them to a team is a separate step.
 
