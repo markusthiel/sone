@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A right for managing workspaces**, grantable on its own: create, edit, invite
+to and delete workspaces, and set who is in them. Not accounts, not single
+sign-on, not maintenance — and not reading anybody's pages
+([ADR-0027](docs/adr/0027-administration-areas.md)).
+
 **Fixed: switching workspaces opened a page from the one you left.** The tree
 was still the old one for a moment, and the root redirects to its first page —
 so the server refused it, correctly, to somebody who had only pressed a switcher.

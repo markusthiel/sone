@@ -248,13 +248,14 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       email: string | null;
       display_name: string;
       is_instance_admin: boolean;
+      can_manage_workspaces: boolean;
       is_guest: boolean;
       deactivated_at: Date | null;
       created_at: Date;
       workspace_count: string;
     }>(
       deps.pool,
-      `SELECT u.id, u.email, u.display_name, u.is_instance_admin, u.is_guest,
+      `SELECT u.id, u.email, u.display_name, u.is_instance_admin, u.can_manage_workspaces, u.is_guest,
               u.deactivated_at, u.created_at,
               (SELECT count(*) FROM workspace_members m WHERE m.user_id = u.id)::text
                 AS workspace_count
@@ -268,6 +269,7 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         email: row.email,
         displayName: row.display_name,
         isInstanceAdmin: row.is_instance_admin,
+        canManageWorkspaces: row.can_manage_workspaces,
         isGuest: row.is_guest,
         deactivatedAt: row.deactivated_at,
         createdAt: row.created_at,
@@ -309,7 +311,11 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       return;
     }
 
-    let body: { isInstanceAdmin?: boolean; deactivated?: boolean };
+    let body: {
+      isInstanceAdmin?: boolean;
+      canManageWorkspaces?: boolean;
+      deactivated?: boolean;
+    };
     try {
       body = await ctx.json();
     } catch {
@@ -343,6 +349,17 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       await deps.pool.query(`UPDATE users SET is_instance_admin = $2 WHERE id = $1`, [
         userId,
         body.isInstanceAdmin,
+      ]);
+    }
+
+    if (typeof body.canManageWorkspaces === 'boolean') {
+      // Stored even for an instance administrator, who holds it implicitly
+      // anyway (ADR-0027). Clearing it on promotion would silently take the
+      // right away again when somebody is later demoted, which is a change
+      // nobody made.
+      await deps.pool.query(`UPDATE users SET can_manage_workspaces = $2 WHERE id = $1`, [
+        userId,
+        body.canManageWorkspaces,
       ]);
     }
 
