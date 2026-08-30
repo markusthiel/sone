@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { codeOf } from './helpers/source.ts';
+import { codeOf, stylesOf } from './helpers/source.ts';
 
 const converted = [
   'Settings',
@@ -17,10 +17,18 @@ const converted = [
   'InvitePanel',
   'OidcPanel',
   'Admin',
+  'GroupsPanel',
 ];
 
-/** What has not been converted yet, so the list stays honest as it shrinks. */
-const remaining = ['GroupsPanel', 'WorkspaceList'];
+/**
+ * Panels whose content is a table rather than a form.
+ *
+ * The row shape puts a label on one side and a control on the other, which is
+ * right for a setting and wrong for a list of things being compared — six
+ * workspaces are read down a column, not one row at a time. They take the
+ * card's border and padding instead of its rows.
+ */
+const tabular = ['WorkspaceList'];
 
 test('the converted panels group their controls into cards', () => {
   for (const name of converted) {
@@ -30,13 +38,14 @@ test('the converted panels group their controls into cards', () => {
   }
 });
 
-test('the panels still to convert are named rather than forgotten', () => {
-  // A list of what is done is only useful next to a list of what is not. These
-  // are the panels whose controls still have to be grouped by hand, because
-  // which ones belong together is a judgement about the panel.
-  for (const name of remaining) {
+test('a table gets the card frame rather than the card rows', () => {
+  // Forcing a list of things being compared into label-and-control rows would
+  // be applying the pattern rather than using it.
+  const css = stylesOf(new URL('../src/styles.css', import.meta.url));
+  assert.match(css, /\.workspace-table,\s*\n\.groups-table \{[^}]*border: 1px solid var\(--border-subtle\)/);
+  for (const name of tabular) {
     const source = codeOf(new URL(`../src/components/${name}.tsx`, import.meta.url));
-    assert.ok(source.length > 0, `${name} still exists to be converted`);
+    assert.match(source, /<table/, `${name} is a table`);
   }
 });
 

@@ -4255,7 +4255,24 @@ body {
 }
 .settings-nav-item[aria-current='page'] .settings-nav-hint { color: inherit; }
 
-/* The workspace overview. */
+/* A table is the card here.
+ *
+ * The row shape used elsewhere puts a label on one side and a control on the
+ * other, which is right for a setting and wrong for a list of things being
+ * compared — six workspaces are read down a column, not one row at a time. So
+ * the table gets the card's border and padding rather than its rows.
+ */
+.workspace-table,
+.groups-table {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-lg);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+.workspace-table th,
+.workspace-table td { padding-inline: var(--sone-space-5); }
+.workspace-table tr:last-child td { border-block-end: 0; }
+
 .workspace-table {
   inline-size: 100%;
   margin-block: var(--sone-space-3);
