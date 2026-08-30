@@ -426,6 +426,10 @@ export const api = {
   revokePageAccessFromGroup: (pageId: string, groupId: string) =>
     request<{ ok: true }>(`/api/pages/${pageId}/groups/${groupId}`, { method: 'DELETE' }),
 
+  /** A protected section: its own document, restricted from the start. */
+  createContainer: (pageId: string) =>
+    request<{ containerId: string }>(`/api/pages/${pageId}/containers`, { method: 'POST' }),
+
   pagePermissions: (pageId: string) =>
     request<{
       restricted: boolean;

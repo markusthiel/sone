@@ -65,6 +65,7 @@ interface SlashMenuProps {
   onPickFile: () => void;
   /** Creates a collection and puts a block for it where the caret is. */
   onInsertCollection: () => void;
+  onInsertProtectedSection: () => void;
 }
 
 export function SlashMenu({
@@ -73,6 +74,7 @@ export function SlashMenu({
   onPickImage,
   onPickFile,
   onInsertCollection,
+  onInsertProtectedSection,
 }: SlashMenuProps): ReactElement | null {
   const menu = slashMenuState(view.state);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -201,6 +203,10 @@ export function SlashMenu({
       // A second — inserting a collection — would have opened a file dialog.
       if (item.id === 'collection') {
         onInsertCollection();
+        return;
+      }
+      if (item.id === 'protected') {
+        onInsertProtectedSection();
         return;
       }
       if (item.id === 'file') {

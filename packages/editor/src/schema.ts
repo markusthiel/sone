@@ -401,6 +401,35 @@ const nodes: Record<string, NodeSpec> = {
    * (ADR-0004, ADR-0015). Rows are emphatically not editor nodes: a few
    * thousand of them would collapse the document.
    */
+  /**
+   * A protected section, embedded by reference.
+   *
+   * The block holds only the container's id. Its content is a separate document
+   * the server serves to those allowed — which is the only way a permission on
+   * part of a page can be enforced, since a client receives whole documents
+   * (ADR-0026).
+   *
+   * An atom for the same reason a collection view is one: what is inside it is
+   * not part of this document, so there is nothing here for a cursor to enter.
+   */
+  protectedSection: {
+    group: 'block',
+    attrs: {
+      ...blockAttrs,
+      containerId: { default: null },
+    },
+    atom: true,
+    isolating: true,
+    parseDOM: [{ tag: 'div[data-sone-container]' }],
+    toDOM: (node) => [
+      'div',
+      {
+        ...blockDOMAttrs(node),
+        'data-sone-container': node.attrs['containerId'] as string,
+      },
+    ],
+  },
+
   collectionView: {
     group: 'block',
     attrs: {

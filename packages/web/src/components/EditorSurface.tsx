@@ -33,6 +33,7 @@ import { soneNodeViews } from './CollectionNodeView.tsx';
 import { SelectionToolbar } from './SelectionToolbar.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
 import { TableToolbar } from './TableToolbar.tsx';
+import { paths } from '../routes/paths.ts';
 
 interface EditorSurfaceProps {
   handle: PageHandle;
@@ -72,6 +73,35 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
       if (!type) return;
 
       const node = type.create({ collectionId: created.collectionId });
+      view.dispatch(view.state.tr.replaceSelectionWith(node));
+      view.focus();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  }, [pageId]);
+
+  /**
+   * Create a protected section and place a block for it at the caret.
+   *
+   * The same order as a collection and for the same reason: the block carries
+   * an id, and there is no id until the server has made the document.
+   *
+   * The section is restricted the moment it exists (ADR-0026), so there is no
+   * point at which it is part of this page in the ordinary way — which matters
+   * more here than for a collection, because somebody creating one is doing it
+   * precisely to keep something out of the page.
+   */
+  const insertProtectedSection = useCallback(async (): Promise<void> => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    try {
+      const created = await api.createContainer(pageId);
+      const type = view.state.schema.nodes['protectedSection'];
+      if (!type) return;
+
+      const node = type.create({ containerId: created.containerId });
       view.dispatch(view.state.tr.replaceSelectionWith(node));
       view.focus();
       setError(null);
@@ -215,7 +245,11 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
       // A collection is a block in the text (ADR-0021), and this is what draws
       // it. The node is an atom, so ProseMirror never descends into what React
       // mounts there.
-      nodeViews: soneNodeViews(),
+      // A protected section is a document of its own, so opening one is
+      // navigating to it rather than expanding something here.
+      nodeViews: soneNodeViews((containerId) => {
+        window.location.assign(paths.page(containerId));
+      }),
     });
     viewRef.current = created;
     setView(created);
@@ -331,6 +365,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
             onPickImage={() => fileInputRef.current?.click()}
             onPickFile={() => docInputRef.current?.click()}
             onInsertCollection={() => void insertCollection()}
+            onInsertProtectedSection={() => void insertProtectedSection()}
           />
           <BlockMenu view={view} revision={revision} />
           <TableToolbar view={view} revision={revision} />

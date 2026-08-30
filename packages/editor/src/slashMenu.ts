@@ -189,6 +189,27 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     action: { kind: 'external' },
   },
   {
+    id: 'protected',
+    title: 'Protected section',
+    hint: 'A part of this page only the people you add can open',
+    keywords: [
+      'protected',
+      'private',
+      'secret',
+      'restricted',
+      'permission',
+      'geschützt',
+      'privat',
+      'vertraulich',
+    ],
+    group: 'blocks',
+    // External: creating one is a request to the server, which makes the
+    // document before the block that refers to it exists. A transaction cannot
+    // wait for that, and a block pointing at a container that failed to be
+    // created would be a locked door with nothing behind it.
+    action: { kind: 'external' },
+  },
+  {
     id: 'collection',
     title: 'Table of entries',
     hint: 'A collection: rows with columns, each row a page of its own',
