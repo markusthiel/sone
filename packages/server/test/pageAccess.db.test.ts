@@ -396,4 +396,131 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
 
     await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [member]);
   });
+
+  // --- groups (ADR-0026) ----------------------------------------------------
+
+  test('a group grant reaches its members', async () => {
+    const group = await db.query<{ id: string }>(
+      `INSERT INTO groups (workspace_id, name) VALUES ($1,'Editors') RETURNING id`,
+      [workspace],
+    );
+    const groupId = group.rows[0]!.id;
+    await db.query(`INSERT INTO group_members (group_id, user_id) VALUES ($1,$2)`, [
+      groupId,
+      guest,
+    ]);
+    await db.query(
+      `INSERT INTO page_group_permissions (page_id, group_id, role) VALUES ($1,$2,'editor')`,
+      [child, groupId],
+    );
+
+    assert.equal(
+      (await resolvePageAccess(db, { pageId: grandchild, userId: guest })).access,
+      'editor',
+      'and inherits like any other grant',
+    );
+
+    await db.query(`DELETE FROM groups WHERE id = $1`, [groupId]);
+  });
+
+  test('joining a group never reduces what somebody could already do', async () => {
+    // The reason the two are compared rather than one falling back to the
+    // other. Adding somebody to a group that grants less must not demote them.
+    const group = await db.query<{ id: string }>(
+      `INSERT INTO groups (workspace_id, name) VALUES ($1,'Readers') RETURNING id`,
+      [workspace],
+    );
+    const groupId = group.rows[0]!.id;
+    await db.query(`INSERT INTO group_members (group_id, user_id) VALUES ($1,$2)`, [
+      groupId,
+      guest,
+    ]);
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'admin')`,
+      [child, guest],
+    );
+    await db.query(
+      `INSERT INTO page_group_permissions (page_id, group_id, role) VALUES ($1,$2,'viewer')`,
+      [child, groupId],
+    );
+
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: guest })).access, 'admin');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [guest]);
+    await db.query(`DELETE FROM groups WHERE id = $1`, [groupId]);
+  });
+
+  test('leaving a group takes the access with it', async () => {
+    // Which is the point of a group: membership is the thing maintained, not a
+    // list of grants to go and undo one by one.
+    const group = await db.query<{ id: string }>(
+      `INSERT INTO groups (workspace_id, name) VALUES ($1,'Temporary') RETURNING id`,
+      [workspace],
+    );
+    const groupId = group.rows[0]!.id;
+    await db.query(`INSERT INTO group_members (group_id, user_id) VALUES ($1,$2)`, [
+      groupId,
+      guest,
+    ]);
+    await db.query(
+      `INSERT INTO page_group_permissions (page_id, group_id, role) VALUES ($1,$2,'viewer')`,
+      [child, groupId],
+    );
+
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: guest })).access, 'viewer');
+    await db.query(`DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`, [
+      groupId,
+      guest,
+    ]);
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: guest })).access, null);
+
+    await db.query(`DELETE FROM groups WHERE id = $1`, [groupId]);
+  });
+
+  test('a group reaches a restricted page, and the listing agrees', async () => {
+    // The check that matters most: a group grant has to work identically in the
+    // resolver and in the condition every listing uses, or a page is readable
+    // and invisible, or visible and refused.
+    const group = await db.query<{ id: string }>(
+      `INSERT INTO groups (workspace_id, name) VALUES ($1,'Named') RETURNING id`,
+      [workspace],
+    );
+    const groupId = group.rows[0]!.id;
+    await db.query(`INSERT INTO group_members (group_id, user_id) VALUES ($1,$2)`, [
+      groupId,
+      member,
+    ]);
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+    await db.query(
+      `INSERT INTO page_group_permissions (page_id, group_id, role) VALUES ($1,$2,'viewer')`,
+      [child, groupId],
+    );
+
+    const resolved = await resolvePageAccess(db, { pageId: child, userId: member });
+    const listed = await db.query<{ id: string }>(
+      `SELECT p.id FROM pages p
+        WHERE p.id = $1 AND ${visiblePagesCondition('p', '$2', 'false')}`,
+      [child, member],
+    );
+
+    assert.equal(resolved.access, 'viewer');
+    assert.equal(listed.rowCount, 1, 'and it is listed too');
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+    await db.query(`DELETE FROM groups WHERE id = $1`, [groupId]);
+  });
+
+  test('two groups cannot share a name in one workspace', async () => {
+    // Two called "Editors" are two things nobody can tell apart in a list of
+    // who has access.
+    const first = await db.query<{ id: string }>(
+      `INSERT INTO groups (workspace_id, name) VALUES ($1,'Unique') RETURNING id`,
+      [workspace],
+    );
+    await assert.rejects(
+      () => db.query(`INSERT INTO groups (workspace_id, name) VALUES ($1,'unique')`, [workspace]),
+      /groups_name_per_workspace/,
+    );
+    await db.query(`DELETE FROM groups WHERE id = $1`, [first.rows[0]!.id]);
+  });
 });
