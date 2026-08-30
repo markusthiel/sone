@@ -1,0 +1,204 @@
+/**
+ * What somebody may do with a page.
+ *
+ * Against a real tree, because the interesting part is inheritance and a test
+ * with one page tests nothing about it (ADR-0026).
+ */
+
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { after, before, describe, test } from 'node:test';
+
+import { resolvePageAccess, atLeast, morePermissive } from '../src/pages/access.js';
+import { getTestPool, hasDatabase } from './support/db.js';
+
+describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () => {
+  let db: Awaited<ReturnType<typeof getTestPool>>;
+  let workspace: string;
+  let owner: string;
+  let member: string;
+  let guest: string;
+  let root: string;
+  let child: string;
+  let grandchild: string;
+
+  const ancestryOf = new Map<string, string[]>();
+
+  const page = async (parent: string | null, title: string): Promise<string> => {
+    // Ids are assigned by the client here, not the database — a page's id is
+    // also its document's id, so it exists before the row does.
+    const id = randomUUID();
+    const ancestors = parent ? [...ancestryOf.get(parent)!, parent] : [];
+    await db.query(
+      `INSERT INTO pages (id, workspace_id, parent_page_id, title, idx, kind, ancestor_ids)
+       VALUES ($1,$2,$3,$4,0,'page',$5)`,
+      [id, workspace, parent, title, ancestors],
+    );
+    ancestryOf.set(id, ancestors);
+    return id;
+  };
+
+  before(async () => {
+    db = await getTestPool();
+    const stamp = Date.now();
+
+    const users = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash) VALUES
+         ($1,'Owner','x'), ($2,'Member','x'), ($3,'Guest','x')
+       RETURNING id`,
+      [`o-${stamp}@example.org`, `m-${stamp}@example.org`, `g-${stamp}@example.org`],
+    );
+    [owner, member, guest] = users.rows.map((r) => r.id) as [string, string, string];
+
+    const ws = await db.query<{ id: string }>(
+      `INSERT INTO workspaces (name, created_by) VALUES ('Shared', $1) RETURNING id`,
+      [owner],
+    );
+    workspace = ws.rows[0]!.id;
+
+    await db.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES
+         ($1,$2,'owner'), ($1,$3,'member'), ($1,$4,'guest')`,
+      [workspace, owner, member, guest],
+    );
+
+    root = await page(null, 'Root');
+    child = await page(root, 'Child');
+    grandchild = await page(child, 'Grandchild');
+  });
+
+  after(async () => {
+    await db.query(`DELETE FROM workspaces WHERE id = $1`, [workspace]);
+    await db.query(`DELETE FROM users WHERE id = ANY($1)`, [[owner, member, guest]]);
+  });
+
+  test('the workspace role is the default', async () => {
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: owner })).access, 'admin');
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: member })).access, 'editor');
+  });
+
+  test('a guest gets nothing by role alone', async () => {
+    // Being in a workspace as a guest means being shown particular things, not
+    // everything.
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: guest })).access, null);
+  });
+
+  test('a grant on an ancestor reaches its descendants', async () => {
+    // What makes setting rules once on a section work, rather than once per
+    // page in it.
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'viewer')`,
+      [child, guest],
+    );
+
+    const onChild = await resolvePageAccess(db, { pageId: child, userId: guest });
+    const below = await resolvePageAccess(db, { pageId: grandchild, userId: guest });
+    const above = await resolvePageAccess(db, { pageId: root, userId: guest });
+
+    assert.equal(onChild.access, 'viewer');
+    assert.equal(below.access, 'viewer', 'inherited downwards');
+    assert.equal(above.access, null, 'and not upwards');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [guest]);
+  });
+
+  test('the more permissive of two grants wins', async () => {
+    // Otherwise granting somebody access on a page could reduce what an
+    // ancestor already gave them, which nobody setting the second grant
+    // intends.
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'admin'), ($3,$2,'viewer')`,
+      [root, guest, grandchild],
+    );
+
+    const resolved = await resolvePageAccess(db, { pageId: grandchild, userId: guest });
+    assert.equal(resolved.access, 'admin');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [guest]);
+  });
+
+  test('a grant widens an unrestricted page but never narrows it', async () => {
+    // A member has edit by role. Granting them view must not take that away —
+    // a rule meant to include somebody would otherwise exclude them.
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'viewer')`,
+      [child, member],
+    );
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: member })).access, 'editor');
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [member]);
+  });
+
+  test('restricting a page removes the member default, and inherits down', async () => {
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: member })).access, null);
+    assert.equal(
+      (await resolvePageAccess(db, { pageId: grandchild, userId: member })).access,
+      null,
+      'a page under a restricted section is restricted too',
+    );
+    assert.equal(
+      (await resolvePageAccess(db, { pageId: root, userId: member })).access,
+      'editor',
+      'and the section above is untouched',
+    );
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+  });
+
+  test('a restriction cannot lock out the people who can undo it', async () => {
+    // An owner who restricted a page by mistake has to be able to unrestrict
+    // it, and a workspace where that is untrue needs database access to repair.
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: owner })).access, 'admin');
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+  });
+
+  test('a named person reaches a restricted page', async () => {
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'viewer')`,
+      [child, member],
+    );
+
+    const resolved = await resolvePageAccess(db, { pageId: child, userId: member });
+    assert.equal(resolved.access, 'viewer');
+    assert.equal(resolved.reason, 'granted');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [member]);
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+  });
+
+  test('somebody outside the workspace gets nothing', async () => {
+    const stranger = await db.query<{ id: string }>(
+      `INSERT INTO users (email, display_name, password_hash)
+       VALUES ($1,'Stranger','x') RETURNING id`,
+      [`s-${Date.now()}@example.org`],
+    );
+    const resolved = await resolvePageAccess(db, {
+      pageId: child,
+      userId: stranger.rows[0]!.id,
+    });
+    assert.equal(resolved.access, null);
+    await db.query(`DELETE FROM users WHERE id = $1`, [stranger.rows[0]!.id]);
+  });
+
+  test('a missing page is refused rather than allowed', async () => {
+    // The failure that matters: a resolver that cannot find a page must not
+    // decide there is nothing to protect.
+    const resolved = await resolvePageAccess(db, {
+      pageId: '00000000-0000-0000-0000-000000000000',
+      userId: owner,
+    });
+    assert.equal(resolved.access, null);
+  });
+
+  test('the comparisons are ordered by what they allow', () => {
+    assert.equal(atLeast('admin', 'editor'), true);
+    assert.equal(atLeast('viewer', 'editor'), false);
+    assert.equal(atLeast(null, 'viewer'), false);
+    assert.equal(morePermissive('viewer', 'admin'), 'admin');
+    assert.equal(morePermissive(null, 'viewer'), 'viewer');
+    assert.equal(morePermissive(null, null), null);
+  });
+});
