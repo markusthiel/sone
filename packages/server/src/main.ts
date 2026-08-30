@@ -254,6 +254,7 @@ async function main(): Promise<void> {
 
   registerAdminRoutes(router, {
     pool,
+    oidcClientSecret: config.oidcClientSecret,
     settings,
     version: SONE_VERSION,
     commit: SONE_COMMIT,

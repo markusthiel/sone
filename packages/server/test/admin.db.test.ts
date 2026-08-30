@@ -49,6 +49,7 @@ describe(
       registerAuthRoutes(router, { pool: db, signupMode: () => Promise.resolve('open' as const), secureCookies: false });
       registerAdminRoutes(router, {
         pool: db,
+        oidcClientSecret: null,
         settings,
         version: 'test',
         commit: 'abc1234',

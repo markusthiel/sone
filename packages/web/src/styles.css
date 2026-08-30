@@ -3689,3 +3689,25 @@ body {
   font-size: var(--sone-text-sm);
 }
 .theme-palette-reset:hover { color: var(--sone-text); }
+
+/* Signing in through a provider.
+ *
+ * Below the password form, not instead of it: both ways in stay available, and
+ * an instance whose only door is somebody else's service cannot be repaired
+ * when that service is unreachable (ADR-0024).
+ */
+.auth-or {
+  margin-block: var(--sone-space-3);
+  text-align: center;
+  font-size: var(--sone-text-sm);
+}
+.btn.sso {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--sone-control-lg);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  color: var(--sone-text);
+}
+.btn.sso:hover { background: var(--sone-bg-hover); }

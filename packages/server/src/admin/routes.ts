@@ -29,6 +29,13 @@ import type { RequestContext, Router } from '../http/router.js';
 export interface AdminDeps {
   pool: Pool;
   /**
+   * Whether a client secret is configured, not the secret itself.
+   *
+   * The administration area needs to explain why single sign-on is off; it does
+   * not need the credential to do that (ADR-0024).
+   */
+  oidcClientSecret: string | null;
+  /**
    * Re-checks whether uploads can be written.
    *
    * Probed on request rather than reported from startup, because the fix is a
@@ -82,6 +89,104 @@ async function requireAdmin(
 
 export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
   /** What is on this instance, in numbers. */
+  /**
+   * How this instance talks to its identity provider.
+   *
+   * The client secret is never here, in either direction: it comes from the
+   * environment (ADR-0024), and the response says only whether one is present
+   * so the administration area can explain why single sign-on is off.
+   */
+  router.get('/api/admin/oidc', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    const row = await queryOne<{
+      issuer: string;
+      client_id: string;
+      button_label: string;
+      allow_signup: boolean;
+      enabled: boolean;
+    }>(
+      deps.pool,
+      `SELECT issuer, client_id, button_label, allow_signup, enabled FROM oidc_settings`,
+    );
+
+    ctx.send(200, {
+      settings: row
+        ? {
+            issuer: row.issuer,
+            clientId: row.client_id,
+            buttonLabel: row.button_label,
+            allowSignup: row.allow_signup,
+            enabled: row.enabled,
+          }
+        : null,
+      hasClientSecret: deps.oidcClientSecret !== null,
+    });
+  });
+
+  router.put('/api/admin/oidc', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    let body: {
+      issuer?: unknown;
+      clientId?: unknown;
+      buttonLabel?: unknown;
+      allowSignup?: unknown;
+      enabled?: unknown;
+    };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const issuer = typeof body.issuer === 'string' ? body.issuer.trim().replace(/\/+$/, '') : '';
+    const clientId = typeof body.clientId === 'string' ? body.clientId.trim() : '';
+
+    // Checked here as well as at sign-in. A form that accepts an http issuer
+    // and then refuses to use it is a form that lies about what it stored.
+    if (!/^https:\/\//.test(issuer) && !issuer.startsWith('http://localhost')) {
+      ctx.fail(422, 'issuer_not_https');
+      return;
+    }
+    if (clientId === '') {
+      ctx.fail(422, 'missing_fields');
+      return;
+    }
+
+    // Enabling without a secret would mean a button that cannot work. Refused
+    // with a reason rather than stored and quietly ignored.
+    if (body.enabled === true && deps.oidcClientSecret === null) {
+      ctx.fail(422, 'no_client_secret');
+      return;
+    }
+
+    const label =
+      typeof body.buttonLabel === 'string' && body.buttonLabel.trim() !== ''
+        ? body.buttonLabel.trim().slice(0, 64)
+        : 'Single sign-on';
+
+    await deps.pool.query(
+      `INSERT INTO oidc_settings
+         (id, issuer, client_id, button_label, allow_signup, enabled, updated_by)
+       VALUES (true, $1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id) DO UPDATE SET
+         issuer = EXCLUDED.issuer,
+         client_id = EXCLUDED.client_id,
+         button_label = EXCLUDED.button_label,
+         allow_signup = EXCLUDED.allow_signup,
+         enabled = EXCLUDED.enabled,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = now()`,
+      [issuer, clientId, label, body.allowSignup === true, body.enabled === true, admin.userId],
+    );
+
+    ctx.send(200, { ok: true });
+  });
+
   router.get('/api/admin/overview', async (ctx) => {
     const admin = await requireAdmin(deps.pool, ctx);
     if (!admin) return;

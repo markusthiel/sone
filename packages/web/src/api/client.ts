@@ -388,6 +388,34 @@ export const api = {
       body: JSON.stringify({ theme }),
     }),
 
+  /** Whether there is a single sign-on button, and what it reads. */
+  oidcConfig: () =>
+    request<{ enabled: boolean; buttonLabel: string | null }>('/api/auth/oidc/config'),
+
+  adminOidc: () =>
+    request<{
+      settings: {
+        issuer: string;
+        clientId: string;
+        buttonLabel: string;
+        allowSignup: boolean;
+        enabled: boolean;
+      } | null;
+      hasClientSecret: boolean;
+    }>('/api/admin/oidc'),
+
+  setAdminOidc: (settings: {
+    issuer: string;
+    clientId: string;
+    buttonLabel: string;
+    allowSignup: boolean;
+    enabled: boolean;
+  }) =>
+    request<{ ok: true }>('/api/admin/oidc', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+
   members: (workspaceId: string) =>
     request<{ members: WorkspaceMember[]; viewerRole: string }>(
       `/api/workspaces/${workspaceId}/members`,
