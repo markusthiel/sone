@@ -23,6 +23,7 @@ import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/c
 import { queryRows } from '../db/pool.js';
 import { requireSession, sessionTokenFrom } from './auth.js';
 import type { Router } from './router.js';
+import { visiblePagesCondition } from '../pages/access.js';
 
 export interface FavouriteDeps {
   pool: Pool;
@@ -54,6 +55,21 @@ export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): vo
          JOIN pages p ON p.id = f.page_id
         WHERE f.user_id = $1
           AND p.archived_at IS NULL
+          -- The same condition the tree uses (ADR-0026).
+          --
+          -- A favourite outlives the access that created it: somebody who
+          -- starred a page and was later removed from it would otherwise keep
+          -- its title in their sidebar, which is the quietest kind of leak —
+          -- nobody looks at a list they have had for months.
+          --
+          -- No admin shortcut here: this is one person's own list, so the
+          -- workspace role is looked up per row rather than passed in.
+          AND ${visiblePagesCondition('p', '$1', `EXISTS (
+            SELECT 1 FROM workspace_members wm
+             WHERE wm.workspace_id = p.workspace_id
+               AND wm.user_id = $1
+               AND wm.role IN ('owner','admin')
+          )`)}
         ORDER BY f.idx, f.page_id`,
       [auth.userId],
     );
