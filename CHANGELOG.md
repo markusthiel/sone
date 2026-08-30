@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Groundwork for page permissions.** A page can be restricted, and access
+resolves through the tree — a grant on a section reaches what is under it, and
+restricting a section withholds it. Nothing is reachable from the interface yet
+([ADR-0026](docs/adr/0026-page-permissions.md)).
+
 **An invitation followed while signed in now asks whether to join.** It used to
 do nothing at all: the sign-up screen only appeared for people without an
 account, so somebody who had one landed in their own workspace with no sign the
