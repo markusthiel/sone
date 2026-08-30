@@ -15,6 +15,7 @@ import type { Pool } from 'pg';
 import type { Router } from '../http/router.js';
 import { queryOne } from '../db/pool.js';
 import { requireSession } from '../http/auth.js';
+import { administratorRights } from '../admin/rights.js';
 import { AuthError } from './password.js';
 import {
   acceptInvitation,
@@ -30,6 +31,38 @@ export interface InvitationDeps {
 }
 
 const ROLES: readonly string[] = ['admin', 'member', 'guest'];
+
+/**
+ * May this person administer this workspace?
+ *
+ * Two ways to be able to: owner or admin *of it*, or holding the instance-wide
+ * right to manage workspaces (ADR-0027). Asked in one place, because the second
+ * way arrived after the first and every route that forgot it would be a route
+ * where the right silently does not work.
+ */
+async function mayAdminister(
+  pool: Pool,
+  ctx: Parameters<typeof requireSession>[1],
+  workspaceId: string,
+  userId: string,
+): Promise<boolean> {
+  const membership = await queryOne<{ role: WorkspaceRole }>(
+    pool,
+    `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+    [workspaceId, userId],
+  );
+  if (membership && (membership.role === 'owner' || membership.role === 'admin')) {
+    return true;
+  }
+
+  const rights = await administratorRights(pool, userId);
+  if (rights.workspaces) return true;
+
+  // Not found rather than forbidden for a workspace somebody is not in: "you
+  // may not invite here" confirms the workspace exists.
+  ctx.fail(membership ? 403 : 404, membership ? 'forbidden' : 'not_found');
+  return false;
+}
 
 export function registerInvitationRoutes(router: Router, deps: InvitationDeps): void {
   /**
@@ -87,17 +120,7 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     if (!user) return;
 
     const workspaceId = ctx.params['workspaceId'] ?? '';
-    const membership = await queryOne<{ role: WorkspaceRole }>(
-      deps.pool,
-      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-      [workspaceId, user.userId],
-    );
-    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
-      // Not found rather than forbidden for a workspace somebody is not in:
-      // "you may not invite here" confirms the workspace exists.
-      ctx.fail(membership ? 403 : 404, membership ? 'forbidden' : 'not_found');
-      return;
-    }
+    if (!(await mayAdminister(deps.pool, ctx, workspaceId, user.userId))) return;
 
     let body: { email?: unknown; role?: unknown; maxUses?: unknown };
     try {
@@ -181,15 +204,7 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     if (!user) return;
 
     const workspaceId = ctx.params['workspaceId'] ?? '';
-    const membership = await queryOne<{ role: WorkspaceRole }>(
-      deps.pool,
-      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-      [workspaceId, user.userId],
-    );
-    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
-      ctx.fail(membership ? 403 : 404, membership ? 'forbidden' : 'not_found');
-      return;
-    }
+    if (!(await mayAdminister(deps.pool, ctx, workspaceId, user.userId))) return;
 
     ctx.send(200, { invitations: await listInvitations(deps.pool, workspaceId) });
   });

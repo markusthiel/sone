@@ -35,3 +35,25 @@ test('the workspace you are in is one row, marked', () => {
   assert.match(list, /row\.id === currentWorkspaceId/);
   assert.match(list, /you are here/);
 });
+
+// --- administering one of them ----------------------------------------------
+
+const detail = codeOf(new URL('../src/components/WorkspaceDetail.tsx', import.meta.url));
+const settings = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
+
+test('the name opens the workspace rather than a separate control', () => {
+  // A row that only reports numbers makes somebody wonder where the editing is,
+  // and a "manage" column would be a second target for what the name already
+  // identifies.
+  assert.match(list, /onClick=\{\(\) => onOpen\(row\.id, row\.name\)\}/);
+});
+
+test('inviting uses the same panel a workspace owner uses', () => {
+  // Given a different workspace, not reimplemented for administrators. Two
+  // copies are two things to keep in step, and the one used less would rot.
+  assert.match(detail, /<WorkspaceInvite workspaceId=\{workspaceId\} \/>/);
+});
+
+test('opening one is a step inside the section, not a place to link to', () => {
+  assert.match(settings, /useState<\{ id: string; name: string \} \| null>/);
+});

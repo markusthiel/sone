@@ -17,6 +17,7 @@ import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { createDefaultFolder } from '../pages/createEntry.js';
 import { requireSession } from './auth.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
+import { administratorRights } from '../admin/rights.js';
 
 export interface WorkspaceDeps {
   pool: Pool;
@@ -277,7 +278,10 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
 
     const workspaceId = ctx.params['workspaceId'] ?? '';
     const role = await roleIn(deps.pool, workspaceId, auth.userId);
-    if (role === null) {
+    // Or the instance-wide right to administer workspaces, which is how
+    // somebody manages a team they are not in (ADR-0027).
+    const rights = role === null ? await administratorRights(deps.pool, auth.userId) : null;
+    if (role === null && rights?.workspaces !== true) {
       ctx.fail(404, 'not_found');
       return;
     }
