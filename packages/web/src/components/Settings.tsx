@@ -294,20 +294,148 @@ function Account({
   workspaceId: string;
 }): ReactElement {
   const workspace = session.workspaces.find((w) => w.id === workspaceId);
+  const [name, setName] = useState(session.user.displayName);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [passwordDone, setPasswordDone] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const saveName = (): void => {
+    setError(null);
+    void api
+      .updateProfile({ displayName: name.trim() })
+      .then(() => {
+        setSaved(true);
+        // Reloaded rather than patched into place: the name appears in the
+        // sidebar, in presence and beside every block somebody wrote, and a
+        // copy updated here would leave the others saying the old one.
+        window.location.reload();
+      })
+      .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'));
+  };
+
+  const savePassword = (): void => {
+    setBusy(true);
+    setPasswordError(null);
+    void api
+      .changePassword({ currentPassword: current, newPassword: next })
+      .then(() => {
+        setPasswordDone(true);
+        setCurrent('');
+        setNext('');
+      })
+      .catch((err: unknown) =>
+        setPasswordError(err instanceof ApiError ? err.code : 'network_error'),
+      )
+      .finally(() => setBusy(false));
+  };
+
   return (
     <section className="settings-section">
       <h2>Account</h2>
-      <dl className="settings-list">
-        <dt>Name</dt>
-        <dd>{session.user.displayName || '—'}</dd>
-        <dt>Email</dt>
-        <dd>{session.user.email ?? '—'}</dd>
-        <dt>Workspace</dt>
-        <dd>
-          {workspace?.name ?? '—'}
-          {workspace ? ` (${workspace.role})` : ''}
-        </dd>
-      </dl>
+
+      {error && <p className="error">{messageFor(error)}</p>}
+
+      <div className="field">
+        <label htmlFor="account-name">Name</label>
+        <input
+          id="account-name"
+          value={name}
+          onChange={(event) => {
+            setSaved(false);
+            setName(event.target.value);
+          }}
+        />
+        <p className="muted">
+          What other people see beside anything you write here.
+        </p>
+      </div>
+
+      <div className="settings-actions">
+        <button
+          type="button"
+          className="btn primary"
+          disabled={name.trim() === '' || name === session.user.displayName}
+          onClick={saveName}
+        >
+          Save
+        </button>
+        {saved && <span className="muted">Saved.</span>}
+      </div>
+
+      <h3 className="settings-heading">Email</h3>
+      <p className="muted">
+        {session.user.email ?? '—'} — changing it is not possible yet. It
+        identifies your account when signing in, and moving it needs a way to
+        prove the new address is yours.
+      </p>
+
+      <h3 className="settings-heading">Workspace</h3>
+      <p className="muted">
+        {workspace?.name ?? '—'}
+        {workspace ? ` — you are ${workspace.role} here` : ''}
+      </p>
+
+      {/* Changing a password asks for the current one.
+        *
+        * Not a formality: a session left open on a shared machine is the
+        * ordinary way an account is taken, and without this the person who
+        * finds it can lock its owner out in two fields. */}
+      <h3 className="settings-heading">Password</h3>
+
+      {passwordError && <p className="error">{messageFor(passwordError)}</p>}
+
+      <div className="field">
+        <label htmlFor="account-current">Current password</label>
+        <input
+          id="account-current"
+          type="password"
+          autoComplete="current-password"
+          value={current}
+          onChange={(event) => {
+            setPasswordDone(false);
+            setCurrent(event.target.value);
+          }}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="account-next">New password</label>
+        <input
+          id="account-next"
+          type="password"
+          autoComplete="new-password"
+          value={next}
+          onChange={(event) => {
+            setPasswordDone(false);
+            setNext(event.target.value);
+          }}
+        />
+        <p className="muted">
+          At least twelve characters. Length is what makes a password hard to
+          guess; a short one with symbols in it is not.
+        </p>
+      </div>
+
+      <div className="settings-actions">
+        <button
+          type="button"
+          className="btn primary"
+          disabled={busy || current === '' || next.length < 12}
+          onClick={savePassword}
+        >
+          {busy ? 'Changing…' : 'Change password'}
+        </button>
+        {passwordDone && (
+          <span className="muted">
+            Changed. Your other sessions stay signed in.
+          </span>
+        )}
+      </div>
     </section>
   );
 }
