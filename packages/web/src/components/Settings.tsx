@@ -33,6 +33,7 @@ import {
   useIsInstanceAdmin,
 } from './Admin.tsx';
 import { messageFor } from './Auth.tsx';
+import { InvitePanel } from './InvitePanel.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
 import { ThemeSettings } from './ThemeSettings.tsx';
 
@@ -58,6 +59,7 @@ const SECTIONS = [
   // owners and admins may change it (ADR-0023).
   { id: 'theme', label: 'Appearance defaults', group: 'You' },
   { id: 'instance', label: 'Instance', group: 'Administration', admin: true },
+  { id: 'invite', label: 'Invite people', group: 'Administration', admin: true },
   { id: 'sso', label: 'Single sign-on', group: 'Administration', admin: true },
   { id: 'accounts', label: 'Accounts', group: 'Administration', admin: true },
   { id: 'workspaces', label: 'Workspaces', group: 'Administration', admin: true },
@@ -122,6 +124,7 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
           />
         )}
         {current === 'instance' && <InstancePanel />}
+        {current === 'invite' && <InvitePanel />}
         {current === 'sso' && <OidcPanel />}
         {current === 'accounts' && <UsersPanel />}
         {current === 'workspaces' && <WorkspacesPanel />}

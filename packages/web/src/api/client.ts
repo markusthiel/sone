@@ -388,6 +388,36 @@ export const api = {
       body: JSON.stringify({ theme }),
     }),
 
+  /** What a token is for, before anybody commits to it. Needs no account. */
+  inspectInvitation: (token: string) =>
+    request<{
+      workspaceName: string | null;
+      instanceOnly: boolean;
+      needsAddress: boolean;
+    }>(`/api/invitations/${encodeURIComponent(token)}`),
+
+  acceptInvitation: (token: string) =>
+    request<{ workspaceId: string | null; alreadyMember: boolean }>(
+      `/api/invitations/${encodeURIComponent(token)}/accept`,
+      { method: 'POST' },
+    ),
+
+  inviteToWorkspace: (
+    workspaceId: string,
+    input: { email?: string | null; role?: string; maxUses?: number },
+  ) =>
+    request<{ token: string; invitationId: string; expiresAt: string }>(
+      `/api/workspaces/${workspaceId}/invitations`,
+      { method: 'POST', body: JSON.stringify(input) },
+    ),
+
+  /** An account here, without a decision about which team they belong to. */
+  inviteToInstance: (input: { email?: string | null; maxUses?: number }) =>
+    request<{ token: string; invitationId: string; expiresAt: string }>(
+      '/api/admin/invitations',
+      { method: 'POST', body: JSON.stringify(input) },
+    ),
+
   /** Whether there is a single sign-on button, and what it reads. */
   oidcConfig: () =>
     request<{ enabled: boolean; buttonLabel: string | null }>('/api/auth/oidc/config'),
