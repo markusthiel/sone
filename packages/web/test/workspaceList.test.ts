@@ -71,3 +71,25 @@ test('a role is changed where it is shown', () => {
   // is where the comparison leads to a change.
   assert.match(detail, /api\.setMemberRole\(workspaceId, member\.userId, event\.target\.value\)/);
 });
+
+// --- deleting one -----------------------------------------------------------
+
+test('deleting asks for the name rather than a confirmation', () => {
+  // A dialog is dismissed by the same reflex that opened it, and this takes
+  // everybody's pages with it. Typing the name is a moment of reading what you
+  // are about to do (ADR-0027).
+  assert.match(detail, /Type the name to confirm/);
+  assert.match(detail, /disabled=\{confirmName\.trim\(\) !== name\}/);
+});
+
+test('the panel says nothing is removed yet', () => {
+  // "Delete" that means "delete later" is worse than either if nobody says
+  // which.
+  assert.match(detail, /Nothing is removed yet/);
+});
+
+test('restoring is one click', () => {
+  // Putting something back is not the action that needs slowing down.
+  assert.match(list, /onRestore\(row\.id\)/);
+  assert.match(settings, /restore: true/);
+});

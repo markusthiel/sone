@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A workspace can be deleted** from the list, by typing its name. It stops
+appearing to everybody in it and nothing is removed — somebody who manages
+workspaces can put it back. Purging what is marked is not automatic yet.
+
 **Every workspace in one list**, with people, pages and when each was last
 edited — and open one to change
 what people may do there, remove them, or invite somebody. Personal workspaces are counted and folded away, so a hundred accounts

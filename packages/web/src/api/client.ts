@@ -173,6 +173,8 @@ export interface AdminUser {
 export interface AdminWorkspace {
   /** Somebody's own, rather than a team's (ADR-0025). */
   personal: boolean;
+  /** Marked for deletion, and still restorable (ADR-0027). */
+  deletedAt: string | null;
   lastEditedAt: string | null;
   id: string;
   name: string;
@@ -575,6 +577,16 @@ export const api = {
    */
   adminOverview: () => request<AdminOverview>('/api/admin/overview'),
   adminUsers: () => request<{ users: AdminUser[] }>('/api/admin/users'),
+  /** Marks it for deletion, or takes the mark off. Nothing is removed either way. */
+  setWorkspaceDeletion: (
+    workspaceId: string,
+    input: { confirmName?: string; restore?: boolean },
+  ) =>
+    request<{ deletedAt: string | null }>(
+      `/api/admin/workspaces/${workspaceId}/deletion`,
+      { method: 'POST', body: JSON.stringify(input) },
+    ),
+
   adminWorkspaces: () =>
     request<{ workspaces: AdminWorkspace[] }>('/api/admin/workspaces'),
   adminMaintenance: () => request<MaintenanceReport>('/api/admin/maintenance'),

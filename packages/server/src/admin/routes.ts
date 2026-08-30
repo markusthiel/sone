@@ -397,6 +397,7 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       owner: string | null;
       personal: boolean;
       last_edited_at: Date | null;
+      deleted_at: Date | null;
     }>(
       deps.pool,
       `SELECT w.id, w.name, w.created_at, w.personal_for IS NOT NULL AS personal,
@@ -407,7 +408,8 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
                   AND p.kind NOT IN ('row','container'))::text AS page_count,
               (SELECT max(p.last_edited_at) FROM pages p WHERE p.workspace_id = w.id)
                 AS last_edited_at,
-              (SELECT u.display_name FROM users u WHERE u.id = w.created_by) AS owner
+              (SELECT u.display_name FROM users u WHERE u.id = w.created_by) AS owner,
+              w.deleted_at
          FROM workspaces w
         -- Shared first, then personal. Everybody has a personal workspace now
         -- (ADR-0025), so an instance of forty people has forty of them, and a
@@ -428,8 +430,76 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         // Says which workspaces are alive without opening any of them, which is
         // the question somebody scanning this list actually has.
         lastEditedAt: row.last_edited_at,
+        /** Marked for deletion, and still restorable. */
+        deletedAt: row.deleted_at,
       })),
     });
+  });
+
+  /**
+   * Mark a workspace for deletion, or take the mark off again.
+   *
+   * Nothing is removed here. It stops appearing to its members and can be
+   * restored until it is purged — because somebody who deletes the wrong
+   * workspace needs a way back, and the way back has to exist before the button
+   * does (ADR-0027).
+   */
+  router.post('/api/admin/workspaces/:workspaceId/deletion', async (ctx) => {
+    const admin = await requireWorkspaceAdministrator(deps.pool, ctx);
+    if (!admin) return;
+
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    const workspace = await queryOne<{
+      name: string;
+      personal_for: string | null;
+      deleted_at: Date | null;
+    }>(
+      deps.pool,
+      `SELECT name, personal_for, deleted_at FROM workspaces WHERE id = $1`,
+      [workspaceId],
+    );
+    if (!workspace) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    let body: { confirmName?: unknown; restore?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    if (body.restore === true) {
+      await deps.pool.query(
+        `UPDATE workspaces SET deleted_at = NULL, deleted_by = NULL WHERE id = $1`,
+        [workspaceId],
+      );
+      ctx.send(200, { deletedAt: null });
+      return;
+    }
+
+    // A personal workspace goes with its account, not on its own. Removing it
+    // would leave somebody signed in with nowhere to write — and the account
+    // itself is deactivated elsewhere, where that decision belongs.
+    if (workspace.personal_for) {
+      ctx.fail(409, 'personal_workspace');
+      return;
+    }
+
+    // The name, typed. Not a confirmation dialog: those are dismissed by the
+    // same reflex that opened them, and this takes everybody's pages with it.
+    if (typeof body.confirmName !== 'string' || body.confirmName.trim() !== workspace.name) {
+      ctx.fail(422, 'name_mismatch');
+      return;
+    }
+
+    await deps.pool.query(
+      `UPDATE workspaces SET deleted_at = now(), deleted_by = $2 WHERE id = $1`,
+      [workspaceId, admin.userId],
+    );
+    ctx.send(200, { deletedAt: new Date() });
   });
 
   /** Change an instance setting, or clear it back to the environment. */

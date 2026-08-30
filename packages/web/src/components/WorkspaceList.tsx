@@ -20,6 +20,7 @@ interface Row {
   owner: string | null;
   personal: boolean;
   lastEditedAt: string | null;
+  deletedAt: string | null;
 }
 
 const when = (value: string | null): string => {
@@ -35,9 +36,11 @@ const when = (value: string | null): string => {
 export function WorkspaceList({
   currentWorkspaceId,
   onOpen,
+  onRestore,
 }: {
   currentWorkspaceId: string;
   onOpen: (workspaceId: string, name: string) => void;
+  onRestore: (workspaceId: string) => void;
 }): ReactElement {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +87,19 @@ export function WorkspaceList({
               </button>
               {row.id === currentWorkspaceId && (
                 <span className="muted"> · you are here</span>
+              )}
+              {row.deletedAt && (
+                <>
+                  {' '}
+                  <span className="muted">· deleted</span>{' '}
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => onRestore(row.id)}
+                  >
+                    Restore
+                  </button>
+                </>
               )}
             </td>
             <td>{row.memberCount}</td>
