@@ -1223,13 +1223,46 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 }
 .settings-row:first-child { padding-block-start: 0; }
 .settings-row:last-child { padding-block-end: 0; border-block-end: 0; }
-.settings-row .settings-row-label { flex: 1 1 auto; min-inline-size: 0; }
+/* The label takes the room, and cannot be squeezed below a readable width.
+ *
+ * It was collapsing to one word per line: the control beside it is an input,
+ * which carries `width: 100%` from the base rule, so as a flex item its natural
+ * size was the whole row and there was nothing left. A column that narrow does
+ * not read as narrow — it reads as broken. */
+.settings-row .settings-row-label {
+  flex: 1 1 auto;
+  min-inline-size: 14rem;
+}
 .settings-row .settings-row-label b { display: block; font-weight: 550; }
 .settings-row .settings-row-label span {
   color: var(--sone-text-muted);
   font-size: var(--sone-text-sm);
 }
-.settings-row > :not(.settings-row-label) { flex: 0 0 auto; }
+/* The control keeps a definite width instead of asking for all of it. It may
+   shrink on a narrow screen; it may not grow into the label's space. */
+.settings-row > :not(.settings-row-label) {
+  flex: 0 1 auto;
+  inline-size: auto;
+  text-align: end;
+}
+.settings-row input,
+.settings-row select {
+  inline-size: 18rem;
+  max-inline-size: 100%;
+  text-align: start;
+}
+
+/* Below that, side by side stops working: the label wraps to two lines and the
+   field has nowhere to go. Stacked, both get the full width. */
+@media (max-width: 620px) {
+  .settings-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sone-space-3);
+  }
+  .settings-row > :not(.settings-row-label) { text-align: start; }
+  .settings-row input, .settings-row select { inline-size: 100%; }
+}
 
 /* A note under a card rather than inside it: something true about the topic
    that is not a control. */
@@ -4328,7 +4361,13 @@ body {
   padding: var(--sone-space-7) var(--sone-space-6);
   overflow-y: auto;
 }
-.settings-body > * { max-inline-size: 42rem; margin-inline: auto; }
+/* Wider than a column of prose.
+ *
+ * 42rem is right for reading sentences and wrong for a row with a label on one
+ * side and a control on the other — it cropped the page to a strip with empty
+ * space beside it, which reads as something failing to load rather than as a
+ * measure. */
+.settings-body > * { max-inline-size: 60rem; margin-inline: auto; }
 
 @media (max-width: 720px) {
   /* One column: the navigation above, the section below. A 260px sidebar on a
@@ -4362,4 +4401,10 @@ body {
   overflow: hidden;
 }
 .avatar-choose { display: flex; align-items: center; gap: var(--sone-space-5); }
-.avatar-choose input[type='file'] { font-size: var(--sone-text-sm); max-inline-size: 15rem; }
+.avatar-choose input[type='file'] {
+  font-size: var(--sone-text-sm);
+  /* Not the 18rem the row gives a text field: a file picker is a button plus a
+     filename, and stretching it makes the button look like a field. */
+  inline-size: auto;
+  max-inline-size: 14rem;
+}

@@ -74,3 +74,25 @@ test('there is one rule for the actions row', () => {
   const rules = css.match(/\.settings-actions \{/g) ?? [];
   assert.equal(rules.length, 1);
 });
+
+test('a label cannot be squeezed below a readable width', () => {
+  // It collapsed to one word per line: the control beside it is an input, which
+  // carries width: 100% from the base rule, so as a flex item its natural size
+  // was the whole row and nothing was left. That narrow does not read as
+  // narrow — it reads as broken.
+  assert.match(css, /\.settings-row \.settings-row-label \{[^}]*min-inline-size: 14rem/);
+  assert.match(css, /\.settings-row input,\s*\n\.settings-row select \{[^}]*inline-size: 18rem/);
+});
+
+test('the page is wider than a column of prose', () => {
+  // 42rem is right for sentences and wrong for a row with a label on one side
+  // and a control on the other: it cropped the page to a strip, which reads as
+  // something failing to load rather than as a measure.
+  assert.match(css, /\.settings-body > \* \{[^}]*max-inline-size: 60rem/);
+});
+
+test('a narrow screen stacks the row instead of squeezing it', () => {
+  // Side by side stops working below a point, and below it the label wraps to
+  // two lines while the field has nowhere to go.
+  assert.match(css, /@media \(max-width: 620px\) \{\s*\n\s*\.settings-row \{[^}]*flex-direction: column/);
+});
