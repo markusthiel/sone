@@ -14,6 +14,8 @@ import { EditorSurface } from './EditorSurface.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
 
 interface PageViewProps {
+  /** So a refusal is only believed once the connection has settled. */
+  connectionState: string;
   handle: PageHandle;
   pageId: string;
   /**
@@ -26,7 +28,12 @@ interface PageViewProps {
   onTitleChange?: (title: string) => void;
 }
 
-export function PageView({ handle, pageId, onTitleChange }: PageViewProps): ReactElement {
+export function PageView({
+  handle,
+  pageId,
+  connectionState,
+  onTitleChange,
+}: PageViewProps): ReactElement {
   const pageMap = handle.doc.getMap(DOC_KEYS.page);
   const [title, setTitle] = useState<string>(
     () => (pageMap.get(PAGE_KEYS.title) as string | undefined) ?? '',
@@ -78,10 +85,20 @@ export function PageView({ handle, pageId, onTitleChange }: PageViewProps): Reac
        *
        * Read-only is claimed only when the role is actually known and actually
        * read-only. */}
-      {handle.status === 'denied' && (
+      {/* Denied, and the connection settled enough to believe it.
+        *
+        * Switching workspaces reconnects, and a page opened against the old
+        * connection is refused — correctly, and for a page in the workspace
+        * somebody has just arrived in. The refusal was true of a moment that
+        * had already passed, and it was shown to somebody who had only pressed
+        * a switcher.
+        *
+        * A page that is really out of reach still says so: the connection
+        * becomes ready and the denial stands. */}
+      {handle.status === 'denied' && connectionState === 'ready' && (
         <p className="error">You no longer have access to this page.</p>
       )}
-      {handle.status !== 'denied' && handle.role === null && (
+      {(handle.role === null || (handle.status === 'denied' && connectionState !== 'ready')) && (
         <p className="muted">Opening…</p>
       )}
       {handle.status !== 'denied' && handle.role !== null && !handle.canEdit && (

@@ -28,3 +28,19 @@ test('the redirect depends on the loading state, not only the list', () => {
   // rechecked, which is the same bug with more code.
   assert.match(app, /\[route\.kind, pages, pagesLoading, navigate\]/);
 });
+
+test('a refusal is only believed once the connection has settled', () => {
+  // Switching workspaces reconnects, and a page opened against the old
+  // connection is refused — correctly, and for a page in the workspace somebody
+  // has just arrived in. The refusal was true of a moment that had already
+  // passed, and it was shown to somebody who had only pressed a switcher.
+  const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  assert.match(view, /handle\.status === 'denied' && connectionState === 'ready'/);
+});
+
+test('a page really out of reach still says so', () => {
+  // The connection becomes ready and the denial stands. Suppressing it
+  // altogether would trade one wrong message for a missing one.
+  const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  assert.match(view, /You no longer have access to this page/);
+});
