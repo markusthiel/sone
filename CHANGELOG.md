@@ -14,7 +14,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 ## Unreleased
 
 **Every workspace in one list**, with people, pages and when each was last
-edited — and open one to see its members and invite somebody to it. Personal workspaces are counted and folded away, so a hundred accounts
+edited — and open one to change
+what people may do there, remove them, or invite somebody. Personal workspaces are counted and folded away, so a hundred accounts
 do not read as a hundred teams.
 
 **Settings are in three named areas** — You, Workspaces, Instance — and every

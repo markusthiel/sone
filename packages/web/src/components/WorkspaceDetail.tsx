@@ -24,12 +24,28 @@ export function WorkspaceDetail({
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = (): void => {
     void api
       .members(workspaceId)
       .then((result) => setMembers(result.members))
       .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'));
-  }, [workspaceId]);
+  };
+
+  useEffect(load, [workspaceId]);
+
+  /**
+   * Do something, then read the result back.
+   *
+   * Rather than adjusting the list here as well: the server refuses some of
+   * these — the last owner, somebody's own workspace — and a list updated
+   * optimistically would show a change that did not happen.
+   */
+  const act = (work: Promise<unknown>): void => {
+    setError(null);
+    void work
+      .then(load)
+      .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'));
+  };
 
   return (
     <section className="settings-section">
@@ -51,14 +67,38 @@ export function WorkspaceDetail({
               <th>Name</th>
               <th>Role</th>
               <th>Since</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {members.map((member) => (
               <tr key={member.userId}>
                 <td>{member.displayName}</td>
-                <td>{member.role}</td>
+                <td>
+                  <select
+                    value={member.role}
+                    aria-label={`Role for ${member.displayName}`}
+                    onChange={(event) =>
+                      act(api.setMemberRole(workspaceId, member.userId, event.target.value))
+                    }
+                  >
+                    {['owner', 'admin', 'member', 'guest'].map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </td>
                 <td className="muted">{new Date(member.joinedAt).toLocaleDateString()}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => act(api.removeMember(workspaceId, member.userId))}
+                  >
+                    Remove
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
