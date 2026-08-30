@@ -197,7 +197,9 @@ test('a second person writing makes it two', () => {
 
   const two = new Y.Doc();
   Y.applyUpdate(two, Y.encodeStateAsUpdate(one));
-  two.getXmlFragment('body').get(0)!.insert(5, 'yours');
+  // Typed as the fragment's child union, so the cast says which one it is
+  // rather than the test asserting a string into a list of nodes.
+  (two.getXmlFragment('body').get(0) as Y.XmlText).insert(5, 'yours');
   Y.applyUpdate(one, Y.encodeStateAsUpdate(two));
 
   assert.equal(writingClients(fragment).size, 2);
