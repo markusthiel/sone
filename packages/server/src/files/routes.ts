@@ -253,12 +253,33 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
     // this workspace. A second row is still created: the same image on two
     // pages is two attachments with one set of bytes, and deleting one page must
     // not remove the other's image.
+    // A web-sized copy of something already uploaded (ADR-0029).
+    //
+    // Checked rather than trusted: the id has to name a file in this workspace,
+    // or a caller could attach a variant to somebody else's image and change
+    // what everybody sees on a page they cannot reach.
+    const variantOfParam = ctx.url.searchParams.get('variantOf');
+    let variantOf: string | null = null;
+    if (variantOfParam) {
+      const original = await queryOne<{ id: string }>(
+        deps.pool,
+        `SELECT id FROM files
+          WHERE id = $1 AND workspace_id = $2 AND variant_of IS NULL`,
+        [variantOfParam, page.workspaceId],
+      );
+      if (!original) {
+        ctx.fail(422, 'unknown_original');
+        return;
+      }
+      variantOf = original.id;
+    }
+
     const row = await queryOne<{ id: string }>(
       deps.pool,
       `INSERT INTO files
          (workspace_id, page_id, filename, mime_type, size_bytes, sha256,
-          storage, storage_key, uploaded_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          storage, storage_key, uploaded_by, variant, variant_of)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING id`,
       [
         page.workspaceId,
@@ -270,6 +291,8 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
         deps.store.kind,
         stored.key,
         actorId,
+        variantOf ? 'web' : 'original',
+        variantOf,
       ],
     );
     if (!row) throw new Error('failed to record uploaded file');
@@ -306,9 +329,29 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
       storage_key: string;
     }>(
       deps.pool,
-      `SELECT id, workspace_id, page_id, filename, mime_type, size_bytes, storage_key
-         FROM files WHERE id = $1`,
-      [fileId],
+      // The web version by default, the original on request (ADR-0029).
+      //
+      // Resolved here rather than by the caller holding two ids: a block stores
+      // the original's id and nothing else, so a page that was written before
+      // variants existed keeps working and a copy of that block into another
+      // page carries something that still resolves.
+      //
+      // `?original=true` is what "Download the original" asks for. Anything
+      // else gets the smaller file when there is one.
+      `SELECT COALESCE(web.id, f.id) AS id,
+              f.workspace_id, f.page_id, f.filename,
+              COALESCE(web.mime_type, f.mime_type) AS mime_type,
+              COALESCE(web.size_bytes, f.size_bytes) AS size_bytes,
+              COALESCE(web.storage_key, f.storage_key) AS storage_key
+         FROM files f
+         LEFT JOIN LATERAL (
+           SELECT v.id, v.mime_type, v.size_bytes, v.storage_key
+             FROM files v
+            WHERE v.variant_of = f.id AND v.variant = 'web'
+            LIMIT 1
+         ) web ON NOT $2
+        WHERE f.id = $1`,
+      [fileId, ctx.url.searchParams.get('original') === 'true'],
     );
     if (!file) {
       ctx.fail(404, 'not_found');
