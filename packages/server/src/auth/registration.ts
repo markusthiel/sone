@@ -35,7 +35,14 @@ export interface CreatedInvitation {
 export async function createInvitation(
   db: Pool | PoolClient,
   input: {
-    workspaceId: string;
+    /**
+     * The workspace to join, or null to invite somebody to the instance alone.
+     *
+     * The second is an administrator saying "have an account here" without
+     * also saying "and belong to this team" — two decisions, and often only
+     * the first is wanted (ADR-0025).
+     */
+    workspaceId: string | null;
     invitedBy: string;
     email?: string | null;
     role?: WorkspaceRole;
@@ -79,8 +86,9 @@ export async function createInvitation(
 
 export interface InvitationInfo {
   id: string;
-  workspaceId: string;
-  workspaceName: string;
+  /** Null for an invitation to the instance alone (ADR-0025). */
+  workspaceId: string | null;
+  workspaceName: string | null;
   email: string | null;
   role: WorkspaceRole;
   remainingUses: number;
@@ -93,8 +101,8 @@ export async function inspectInvitation(
 ): Promise<InvitationInfo | null> {
   const row = await queryOne<{
     id: string;
-    workspace_id: string;
-    workspace_name: string;
+    workspace_id: string | null;
+    workspace_name: string | null;
     email: string | null;
     role: WorkspaceRole;
     max_uses: number;
@@ -104,7 +112,9 @@ export async function inspectInvitation(
     `SELECT i.id, i.workspace_id, w.name AS workspace_name, i.email, i.role,
             i.max_uses, i.uses
        FROM invitations i
-       JOIN workspaces w ON w.id = i.workspace_id
+       -- Left, because an invitation to the instance names no workspace and an
+       -- inner join silently made those tokens invalid rather than workspaceless.
+       LEFT JOIN workspaces w ON w.id = i.workspace_id
       WHERE i.token_hash = $1
         AND i.revoked_at IS NULL
         AND i.expires_at > now()
@@ -254,7 +264,9 @@ export async function register(
     // Where to land. The invited workspace when there is one, because that is
     // what somebody just accepted; their own otherwise.
     let workspaceId: string | null = personal.id;
-    if (invitation) {
+    // An invitation with no workspace was an invitation to the instance. The
+    // account exists and its own workspace exists, which is the whole of it.
+    if (invitation?.workspaceId) {
       await client.query(
         `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,$3)
          ON CONFLICT (workspace_id, user_id) DO NOTHING`,
@@ -265,6 +277,12 @@ export async function register(
         [invitation.id],
       );
       workspaceId = invitation.workspaceId;
+    } else if (invitation) {
+      // Still counted: a single-use instance invitation must not be usable
+      // twice merely because it named no workspace.
+      await client.query(`UPDATE invitations SET uses = uses + 1 WHERE id = $1`, [
+        invitation.id,
+      ]);
     }
 
     const session = await createSession(client, created.id, {
@@ -375,4 +393,76 @@ export async function listInvitations(
     maxUses: r.max_uses,
     expiresAt: r.expires_at,
   }));
+}
+
+/**
+ * Accept an invitation as somebody who already has an account.
+ *
+ * The other half of a two-step invitation (ADR-0025). Registration handles the
+ * case where the person is new; this handles the far more common one where they
+ * are not, and previously had no path at all — an existing account could only be
+ * added to a workspace by somebody with database access.
+ *
+ * Returns the workspace joined, or null for an invitation to the instance,
+ * which somebody who already has an account has nothing left to accept.
+ */
+export async function acceptInvitation(
+  db: Pool,
+  input: { token: string; userId: string },
+): Promise<{ workspaceId: string | null; alreadyMember: boolean }> {
+  return withTransaction(db, async (client) => {
+    const invitation = await inspectInvitation(client, input.token);
+    if (!invitation) {
+      throw new AuthError('invitation is invalid or has expired', 'expired');
+    }
+
+    if (!invitation.workspaceId) {
+      await client.query(`UPDATE invitations SET uses = uses + 1 WHERE id = $1`, [
+        invitation.id,
+      ]);
+      return { workspaceId: null, alreadyMember: false };
+    }
+
+    // An address-bound invitation belongs to that address.
+    //
+    // Without this, a link intended for one person is a link that adds whoever
+    // opens it while signed in as somebody else — which is a plausible accident
+    // as well as a deliberate one.
+    if (invitation.email) {
+      const user = await queryOne<{ email: string }>(
+        client,
+        `SELECT email FROM users WHERE id = $1`,
+        [input.userId],
+      );
+      if (user?.email.toLowerCase() !== invitation.email.toLowerCase()) {
+        throw new AuthError(
+          'this invitation is for a different address',
+          'invalid_credentials',
+        );
+      }
+    }
+
+    const inserted = await queryOne<{ user_id: string }>(
+      client,
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,$3)
+       ON CONFLICT (workspace_id, user_id) DO NOTHING
+       RETURNING user_id`,
+      [invitation.workspaceId, input.userId, invitation.role],
+    );
+
+    // Already a member: not an error, and the invitation is not spent for it.
+    //
+    // Somebody clicking a link twice, or a link they were already added
+    // through, should arrive at the workspace rather than at a refusal — and
+    // burning a use for a membership that did not change would let a
+    // double-click consume somebody else's place.
+    if (!inserted) {
+      return { workspaceId: invitation.workspaceId, alreadyMember: true };
+    }
+
+    await client.query(`UPDATE invitations SET uses = uses + 1 WHERE id = $1`, [
+      invitation.id,
+    ]);
+    return { workspaceId: invitation.workspaceId, alreadyMember: false };
+  });
 }
