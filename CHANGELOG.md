@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the page heading was drawn as a text field**, and the four marks at the
+foot of the sidebar stacked instead of sitting in a row.
+
 **Settings is a screen of its own**, with its own navigation and a way back to
 your notes — not a page inside the workspace with a sidebar of pages beside it.
 The entries are names now; the explanation is on each entry rather than under it.
