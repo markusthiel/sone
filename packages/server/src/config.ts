@@ -24,6 +24,8 @@ export interface Config {
   maxUploadBytes: number;
   /** The provider's client secret, or null. From the environment only. */
   oidcClientSecret: string | null;
+  /** Days a deleted workspace is kept before it is removed. */
+  workspaceRetentionDays: number;
   storage:
     | { backend: 'local'; path: string }
     | {
@@ -134,6 +136,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // every backup. Absent means single sign-on stays off, whatever the
     // administration area says.
     oidcClientSecret: optional(env, 'SONE_OIDC_CLIENT_SECRET', '') || null,
+    // How long a deleted workspace is kept (ADR-0027). Configurable because
+    // what "deleted" should mean differs per instance, and a month is a
+    // default rather than a rule.
+    workspaceRetentionDays: Math.max(
+      1,
+      Number(optional(env, 'SONE_WORKSPACE_RETENTION_DAYS', '30')) || 30,
+    ),
     storage,
   };
 }

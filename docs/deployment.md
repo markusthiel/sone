@@ -350,6 +350,15 @@ worth knowing:
 
 Links created before migration 0011 have no stored token and cannot be copied.
 
+## Deleted workspaces
+
+A deleted workspace is marked, not removed: it disappears for its members and
+can be restored. `SONE_WORKSPACE_RETENTION_DAYS` decides how long that lasts
+before the maintenance job removes it for good — a month by default.
+
+Long enough for somebody to notice a mistake, short enough that "deleted" means
+what people take it to mean when they ask whether their notes are still here.
+
 ## Single sign-on
 
 Set `SONE_OIDC_CLIENT_SECRET` to the client secret from your provider; everything
