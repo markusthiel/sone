@@ -13,9 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**Groundwork for protected sections.** A protected container inside a page is its
-own document, so the server can decline to send it — the only way a permission on
-part of a page can be enforced. The block for putting one in a page comes next.
+**Protected sections.** Type `/` and choose "Protected section" to put a part of
+a page behind its own permissions. It is a separate document, so the server
+declines to send it to people who may not read it — the only way a permission on
+part of a page can be enforced ([ADR-0026](docs/adr/0026-page-permissions.md)).
 
 **Fixed: a restricted page was hidden from the tree and still synchronised.**
 The listing stopped showing it and the protocol went on serving its document to

@@ -28,6 +28,7 @@ import { createElement } from 'react';
 
 import { CollectionTable } from './CollectionTable.tsx';
 import { fileNodeView } from './FileNodeView.ts';
+import { protectedSectionView } from './ProtectedSectionView.ts';
 
 /**
  * The little of a ProseMirror node this needs.
@@ -121,7 +122,10 @@ class CollectionNodeView implements NodeView {
  * view could change how it was displayed, and keeping the shape means the next
  * view that needs something from the surface does not change every caller.
  */
-export const soneNodeViews = (): EditorView['props']['nodeViews'] => ({
+export const soneNodeViews = (
+  onOpenContainer: (containerId: string) => void,
+): EditorView['props']['nodeViews'] => ({
   collectionView: (node) => new CollectionNodeView(node as unknown as PMNodeLike),
   file: fileNodeView(),
+  protectedSection: protectedSectionView(onOpenContainer),
 });
