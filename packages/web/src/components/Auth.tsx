@@ -5,7 +5,7 @@
  * server sends `invalid_credentials`; the wording is the client's.
  */
 
-import { useState, type FormEvent , type ReactElement } from 'react';
+import { useEffect, useState, type FormEvent , type ReactElement } from 'react';
 
 import { ApiError, api, type InstanceInfo } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
@@ -154,6 +154,34 @@ export function LoginScreen({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * Whether this instance has a provider.
+   *
+   * Fetched rather than passed in with the rest of the instance information,
+   * because the sign-in page is the only place that needs it and everywhere
+   * else would then carry it. A failure leaves the button absent, which is the
+   * same as not having one — the password form is unaffected either way.
+   */
+  const [sso, setSso] = useState<{ enabled: boolean; buttonLabel: string | null }>({
+    enabled: false,
+    buttonLabel: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .oidcConfig()
+      .then((config) => {
+        if (!cancelled) setSso(config);
+      })
+      .catch(() => {
+        // No button. The password form is what matters here.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const submit = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
     setBusy(true);
@@ -199,6 +227,25 @@ export function LoginScreen({
         <button className="primary" type="submit" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
+
+        {/* The provider, when there is one.
+          *
+          * Below the password form rather than instead of it: both ways in stay
+          * available, and an instance whose only door is somebody else's
+          * service cannot be repaired when that service is unreachable
+          * (ADR-0024).
+          *
+          * A link, not a button — it is a navigation to the provider, and the
+          * browser should treat it as one. */}
+        {sso.enabled && (
+          <>
+            <p className="auth-or muted">or</p>
+            <a className="btn sso" href="/api/auth/oidc/start">
+              {sso.buttonLabel ?? 'Single sign-on'}
+            </a>
+          </>
+        )}
+
         {instance.signupMode === 'open' && (
           <p className="muted">
             No account? <a href={paths.signup()}>Create one</a>.
