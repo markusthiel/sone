@@ -12,15 +12,110 @@
  * smallest reliably hittable size with a thumb.
  */
 
+/* ---------------------------------------------------------------------------
+ * Primitives — what a value *is* (ADR-0028).
+ *
+ * Nothing outside the theme blocks below refers to one of these. They exist so
+ * that a theme is a list of choices rather than a set of literals, and so that
+ * "the grey one step lighter" is a name rather than a guess.
+ *
+ * Warm rather than neutral: a pure grey reads as clinical next to writing, and
+ * pure black and pure white shimmer against each other at both ends.
+ * ------------------------------------------------------------------------- */
 :root {
-  --sone-bg: #ffffff;
-  --sone-bg-subtle: #f8f8f7;
-  --sone-bg-hover: #efefee;
-  --sone-border: #e0e0de;
-  --sone-text: #1c1c1a;
-  --sone-text-muted: #6b6b66;
-  --sone-accent: #3e63dd;
-  --sone-danger: #e5484d;
+  --ink-950: #0e0e0d;
+  --ink-900: #161615;
+  --ink-850: #1c1c1a;
+  --ink-800: #232320;
+  --ink-700: #302f2c;
+  --ink-600: #45443f;
+  --ink-400: #8a8880;
+  --ink-300: #a9a79f;
+  --ink-200: #d4d2ca;
+  --ink-100: #eceae3;
+  --ink-050: #f7f5f0;
+  --ink-000: #ffffff;
+
+  --accent-600: #275f56;
+  --accent-500: #2f7d6f;
+  --accent-400: #3f9a89;
+  --accent-300: #6fc0b0;
+  --accent-050: #e6f2ef;
+  --accent-950: #1b3b36;
+
+  --danger-500: #b4442f;
+  --danger-300: #e08e7c;
+}
+
+/* ---------------------------------------------------------------------------
+ * Semantic tokens — what a value is *for*.
+ *
+ * These are the only colour names the interface uses. Both themes below fill
+ * exactly this set, and a test compares the two: a token added to one and
+ * forgotten in the other shows nothing wrong until somebody switches, and then
+ * shows an inherited value that is almost right.
+ *
+ * The `--sone-*` names are kept as the outward vocabulary because several
+ * thousand lines already use them. They are aliases now, not values.
+ * ------------------------------------------------------------------------- */
+:root,
+[data-theme='light'] {
+  --surface-sunken: var(--ink-050);
+  --surface: var(--ink-000);
+  --surface-raised: var(--ink-000);
+  --surface-overlay: var(--ink-000);
+  --surface-hover: #f0eee8;
+
+  --text-primary: var(--ink-900);
+  --text-secondary: var(--ink-600);
+  --text-muted: var(--ink-400);
+
+  --border-subtle: #eae7df;
+  --border-default: #ddd9d0;
+  --border-strong: var(--ink-300);
+
+  --accent: var(--accent-500);
+  --accent-quiet: var(--accent-050);
+  --accent-contrast: var(--ink-000);
+  --danger: var(--danger-500);
+}
+
+[data-theme='dark'] {
+  /* Not an inversion. Height is expressed by a *lighter* surface, because a
+     shadow on a dark background reads as dirt; and the accent is a lighter
+     step, because the one that works on white glows on black. */
+  --surface-sunken: var(--ink-950);
+  --surface: var(--ink-900);
+  --surface-raised: var(--ink-850);
+  --surface-overlay: var(--ink-800);
+  --surface-hover: #262623;
+
+  --text-primary: var(--ink-100);
+  --text-secondary: var(--ink-300);
+  --text-muted: var(--ink-400);
+
+  --border-subtle: #262623;
+  --border-default: var(--ink-700);
+  --border-strong: var(--ink-600);
+
+  --accent: var(--accent-300);
+  --accent-quiet: var(--accent-950);
+  --accent-contrast: var(--ink-950);
+  --danger: var(--danger-300);
+}
+
+:root {
+  /* The outward names, mapped onto the tokens above. Every rule in this file
+     goes on using them, so this change moves the decisions without moving the
+     code that depends on them. */
+  --sone-bg: var(--surface);
+  --sone-bg-subtle: var(--surface-sunken);
+  --sone-bg-hover: var(--surface-hover);
+  --sone-border: var(--border-subtle);
+  --sone-text: var(--text-primary);
+  --sone-text-muted: var(--text-muted);
+  --sone-accent: var(--accent);
+  --sone-danger: var(--danger);
   /* ---------------------------------------------------------------------
    * Scale
    *
@@ -79,14 +174,30 @@
   color-scheme: light dark;
 }
 
+/* Following the system is the default and not sufficient: somebody outside in
+   the sun wants light regardless of what their laptop thinks. So the media
+   query sets the same tokens a chosen theme would, and `data-theme` out-declares
+   it — a media query cannot be overridden from CSS, only replaced. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --sone-bg: #1a1a19;
-    --sone-bg-subtle: #212120;
-    --sone-bg-hover: #2a2a28;
-    --sone-border: #3a3a37;
-    --sone-text: #ededea;
-    --sone-text-muted: #a1a19b;
+  :root:not([data-theme='light']) {
+    --surface-sunken: var(--ink-950);
+    --surface: var(--ink-900);
+    --surface-raised: var(--ink-850);
+    --surface-overlay: var(--ink-800);
+    --surface-hover: #262623;
+
+    --text-primary: var(--ink-100);
+    --text-secondary: var(--ink-300);
+    --text-muted: var(--ink-400);
+
+    --border-subtle: #262623;
+    --border-default: var(--ink-700);
+    --border-strong: var(--ink-600);
+
+    --accent: var(--accent-300);
+    --accent-quiet: var(--accent-950);
+    --accent-contrast: var(--ink-950);
+    --danger: var(--danger-300);
   }
 }
 
@@ -1248,23 +1359,9 @@ body { font-size: var(--sone-ui-text); }
 /* A forced theme overrides the media query rather than sitting beside it. The
    variables are redeclared because prefers-color-scheme cannot be overridden
    from CSS — only out-declared. */
-html[data-theme='dark'] {
-  --sone-bg: #1a1a19;
-  --sone-bg-subtle: #212120;
-  --sone-bg-hover: #2a2a28;
-  --sone-border: #3a3a37;
-  --sone-text: #ededea;
-  --sone-text-muted: #a1a19b;
-}
-
-html[data-theme='light'] {
-  --sone-bg: #ffffff;
-  --sone-bg-subtle: #f8f8f7;
-  --sone-bg-hover: #efefee;
-  --sone-border: #e0e0de;
-  --sone-text: #1c1c1a;
-  --sone-text-muted: #6b6b66;
-}
+/* A chosen theme was six values repeated here; now it is the token list at the
+   top, selected by attribute. Adding a third theme is adding a block there —
+   not editing three places and hoping. */
 
 select {
   font: inherit;

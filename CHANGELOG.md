@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The interface is built on design tokens.** Colours are named for what they are
+for rather than what they are, and a theme is a list of values rather than a set
+of overriding rules — so a third one becomes a block to fill in
+([ADR-0028](docs/adr/0028-design-tokens.md)). Light and dark look as before; this
+is the layer everything after it stands on.
+
 **Fixed: the ⋮⋮ handle covered the menu it had just opened**, on a tablet — and
 swallowed the tap meant for the first entry.
 
