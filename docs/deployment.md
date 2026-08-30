@@ -352,17 +352,16 @@ Links created before migration 0011 have no stored token and cannot be copied.
 
 ## Single sign-on
 
-Set `SONE_OIDC_CLIENT_SECRET` to the client secret from your provider. Everything
-else — the issuer URL, the client id, the button label, whether people unknown to
-this instance may sign up through the provider — is configured in the
-administration area.
-
-Without the secret, single sign-on stays off whatever the administration area
-says. A secret in the database is a secret in every backup.
+Set `SONE_OIDC_CLIENT_SECRET` to the client secret from your provider; everything
+else is configured under Settings → Single sign-on. Without the secret, single
+sign-on stays off whatever the administration area says — a secret in the
+database is a secret in every backup.
 
 Password sign-in remains available alongside it, and the instance administrator
-can always sign in with a password: an instance whose only door is somebody
-else's service cannot be repaired when that service is unreachable.
+can always sign in with a password.
+
+See [docs/single-sign-on.md](single-sign-on.md) for the full walkthrough,
+including a worked Keycloak example and what each error code means.
 
 ## Local copies in the browser
 
