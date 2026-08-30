@@ -22,7 +22,8 @@ do not read as a hundred teams.
 entry says in one line what is inside it. The two invitations are now told apart
 by name: one gives an account, the other puts somebody in a team.
 
-**A right for managing workspaces**, grantable on its own: create, edit, invite
+**A right for managing workspaces**, granted per account under Settings →
+Accounts, with a way into the workspace list from the workspace switcher: create, edit, invite
 to and delete workspaces, and set who is in them. Not accounts, not single
 sign-on, not maintenance — and not reading anybody's pages
 ([ADR-0027](docs/adr/0027-administration-areas.md)).

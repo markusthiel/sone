@@ -20,6 +20,8 @@ import { ChevronRightIcon, FolderPlusIcon, PlusIcon } from './icons.tsx';
 interface WorkspaceMenuProps {
   currentId: string;
   currentName: string;
+  /** Whether to offer the way into the workspace administration (ADR-0027). */
+  canManageWorkspaces: boolean;
   onSwitch: (workspaceId: string) => void;
   onCreated: (workspaceId: string) => void;
 }
@@ -27,6 +29,7 @@ interface WorkspaceMenuProps {
 export function WorkspaceMenu({
   currentId,
   currentName,
+  canManageWorkspaces,
   onSwitch,
   onCreated,
 }: WorkspaceMenuProps): ReactElement {
@@ -176,9 +179,24 @@ export function WorkspaceMenu({
               </button>
             )}
 
-            <a className="workspace-item" href={paths.settings('workspace')} role="menuitem">
-              <FolderPlusIcon /> Workspace settings
-            </a>
+            {/* Straight to this workspace's row in the one list (ADR-0027).
+              *
+              * The section it points at is where every workspace is
+              * administered, including this one — the shortcut saves the walk
+              * through the list, it is not a second place to do the same thing.
+              *
+              * Absent for somebody who may not administer workspaces, rather
+              * than present and refusing: a menu entry that answers "not found"
+              * teaches people to distrust the menu. */}
+            {canManageWorkspaces && (
+              <a
+                className="workspace-item"
+                href={paths.settings('workspaces')}
+                role="menuitem"
+              >
+                <FolderPlusIcon /> Manage workspaces
+              </a>
+            )}
           </div>
         </div>
       )}

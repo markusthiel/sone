@@ -247,7 +247,11 @@ export function UsersPanel(): ReactElement {
 
   const change = async (
     userId: string,
-    changes: { isInstanceAdmin?: boolean; deactivated?: boolean },
+    changes: {
+      isInstanceAdmin?: boolean;
+      canManageWorkspaces?: boolean;
+      deactivated?: boolean;
+    },
   ): Promise<void> => {
     try {
       await api.adminUpdateUser(userId, changes);
@@ -293,6 +297,26 @@ export function UsersPanel(): ReactElement {
                     }
                   />{' '}
                   Administrator
+                </label>
+              )}
+
+              {/* The narrower right, offered separately (ADR-0027).
+                *
+                * Disabled for an administrator, who holds it anyway: a control
+                * that cannot change anything is one somebody clicks and then
+                * wonders about. The stored value is left alone, so demoting
+                * them later gives back whatever was actually granted. */}
+              {!user.isGuest && (
+                <label className="admin-toggle">
+                  <input
+                    type="checkbox"
+                    checked={user.isInstanceAdmin || user.canManageWorkspaces}
+                    disabled={user.isInstanceAdmin}
+                    onChange={(event) =>
+                      void change(user.id, { canManageWorkspaces: event.target.checked })
+                    }
+                  />{' '}
+                  Manages workspaces
                 </label>
               )}
 
