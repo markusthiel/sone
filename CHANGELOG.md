@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Headings are thin and larger.** The same emphasis by other means: size carries
+the weight rather than stroke width, so a heading reads as a change of level
+rather than an announcement.
+
 **The interface is built on design tokens.** Colours are named for what they are
 for rather than what they are, and a theme is a list of values rather than a set
 of overriding rules — so a third one becomes a block to fill in
