@@ -200,6 +200,18 @@ export async function register(
       throw new AuthError('an account with this address already exists', 'invalid_credentials');
     }
 
+    // Instance administrator for the first account only.
+    //
+    // This said `true` unconditionally, so every account created through
+    // sign-up became an instance administrator. The comment below explains why
+    // the promotion exists and the condition it describes was simply missing —
+    // with open sign-up, anybody who registered could administer the instance.
+    const anybodyYet = await queryOne<{ present: boolean }>(
+      client,
+      `SELECT EXISTS (SELECT 1 FROM users) AS present`,
+    );
+    const isFirstAccount = anybodyYet?.present !== true;
+
     const created = await queryOne<{ id: string }>(
       client,
       // Instance administrator, here and not in a migration.
@@ -215,12 +227,33 @@ export async function register(
       // Whoever sets an instance up administers it, and this is where that
       // happens.
       `INSERT INTO users (email, display_name, password_hash, is_instance_admin)
-       VALUES ($1,$2,$3,true) RETURNING id`,
-      [email, displayName, passwordHash],
+       VALUES ($1,$2,$3,$4) RETURNING id`,
+      [email, displayName, passwordHash, isFirstAccount],
     );
     if (!created) throw new Error('failed to create user');
 
-    let workspaceId: string | null = null;
+    // A workspace of their own, always (ADR-0025).
+    //
+    // Before an invitation is considered, so that being invited somewhere is
+    // never a reason to have nowhere of one's own. An ordinary workspace whose
+    // only member is its owner — nothing else in the application knows it is
+    // special.
+    const personal = await queryOne<{ id: string }>(
+      client,
+      `INSERT INTO workspaces (name, personal_for, created_by)
+       VALUES ($1, $2, $2) RETURNING id`,
+      [displayName, created.id],
+    );
+    if (!personal) throw new Error('failed to create personal workspace');
+
+    await client.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'owner')`,
+      [personal.id, created.id],
+    );
+
+    // Where to land. The invited workspace when there is one, because that is
+    // what somebody just accepted; their own otherwise.
+    let workspaceId: string | null = personal.id;
     if (invitation) {
       await client.query(
         `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,$3)

@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Everybody has a workspace of their own.** Created with the account, always —
+including for existing accounts, which get one on upgrade. Somebody invited to a
+team now lands in both ([ADR-0025](docs/adr/0025-personal-workspaces.md)).
+
+**Fixed: every account created through sign-up became an instance
+administrator.** Only the first one does now.
+
 **Single sign-on.** Set `SONE_OIDC_CLIENT_SECRET` and configure the issuer in the
 administration area under Settings → Single sign-on; the sign-in page then offers
 a button beside the password form. One OIDC client rather than an integration per provider, so Keycloak,
