@@ -849,6 +849,19 @@ export const api = {
    * surface for no gain. The filename travels in the query string because a
    * header would need encoding rules of its own.
    */
+  /** Replace your profile picture. The caller shrinks it first (ADR-0029). */
+  setAvatar: async (file: File): Promise<void> => {
+    const response = await fetch('/api/auth/avatar', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: file,
+    });
+    if (!response.ok) throw new ApiError(response.status, 'upload_failed');
+  },
+
+  removeAvatar: () => request<{ ok: true }>('/api/auth/avatar', { method: 'DELETE' }),
+
   uploadFile: async (
     pageId: string,
     file: File,

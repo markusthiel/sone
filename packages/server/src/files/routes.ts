@@ -37,6 +37,7 @@ import {
 } from './store.js';
 import { sessionTokenFrom, shareTokenFrom } from '../http/auth.js';
 import type { RequestContext, Router } from '../http/router.js';
+import { requireSession } from '../http/auth.js';
 
 export interface FileDeps {
   pool: Pool;
@@ -510,3 +511,98 @@ function serveFile(
 
 /** Exported for tests. */
 export { readBinary, safeFilename };
+
+/**
+ * A profile picture.
+ *
+ * Registered here because it needs the file store, and kept apart from the
+ * attachment routes because it is not an attachment: an attachment belongs to a
+ * workspace and a page, and a face belongs to a person (ADR-0029).
+ */
+export function registerAvatarRoutes(router: Router, deps: FileDeps): void {
+  /** Replace your own picture. Only your own: there is no path to anybody else's. */
+  router.put('/api/auth/avatar', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    // A quarter of the attachment limit. A picture bounded to 512 pixels is
+    // tens of kilobytes; anything approaching a megabyte did not go through the
+    // resizing, and accepting it would store something nothing displays.
+    const body = await readBinary(ctx.req, Math.floor(deps.maxUploadBytes / 4));
+    if (body === 'too_large') {
+      ctx.fail(413, 'file_too_large');
+      ctx.req.destroy();
+      return;
+    }
+    if (body.length === 0) {
+      ctx.fail(422, 'empty_file');
+      return;
+    }
+
+    // The bytes decide, as everywhere else. A file that says it is a PNG and is
+    // not would otherwise be served back to every page that shows this person.
+    const detected = detectType(body);
+    if (!detected || !/^image\/(jpeg|png|webp)$/.test(detected.mime)) {
+      ctx.fail(415, 'unsupported_file_type');
+      return;
+    }
+
+    const stored = await deps.store.put(body, detected.extension);
+
+    // The previous one is left in storage for the orphan sweep rather than
+    // deleted here. Content-addressed keys mean two people with the same
+    // picture share one file, and deleting on replace would take the other
+    // person's.
+    await deps.pool.query(
+      `UPDATE users SET avatar_key = $2, avatar_mime = $3 WHERE id = $1`,
+      [auth.userId, stored.key, detected.mime],
+    );
+
+    ctx.send(200, { ok: true });
+  });
+
+  /** Remove it, back to the initial. */
+  router.delete('/api/auth/avatar', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+    await deps.pool.query(
+      `UPDATE users SET avatar_key = NULL, avatar_mime = NULL WHERE id = $1`,
+      [auth.userId],
+    );
+    ctx.send(200, { ok: true });
+  });
+
+  /**
+   * Somebody's picture.
+   *
+   * Readable by anybody signed in, because a face appears beside every block
+   * its owner wrote and in the presence bar of every page they open — deciding
+   * per request who may see whom would be a permission check on every avatar on
+   * screen, answering a question the page has already answered.
+   */
+  router.get('/api/users/:userId/avatar', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    const row = await queryOne<{ avatar_key: string | null; avatar_mime: string | null }>(
+      deps.pool,
+      `SELECT avatar_key, avatar_mime FROM users WHERE id = $1`,
+      [ctx.params['userId'] ?? ''],
+    );
+    if (!row?.avatar_key) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const bytes = await deps.store.get(row.avatar_key);
+    ctx.res.writeHead(200, {
+      'content-type': row.avatar_mime ?? 'application/octet-stream',
+      // Content-addressed, so the bytes at a key never change; a new picture is
+      // a new key. The cache can therefore be long and the interface never
+      // shows a stale face.
+      'content-length': String(bytes.length),
+      'cache-control': 'private, max-age=604800, immutable',
+    });
+    ctx.res.end(bytes);
+  });
+}
