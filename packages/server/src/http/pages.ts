@@ -1168,9 +1168,27 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           AND p.archived_at IS NULL
           AND (ps.tsv @@ websearch_to_tsquery($3::regconfig, $2)
                OR ps.tsv @@ websearch_to_tsquery('simple', $2))
+          -- The same condition the tree uses (ADR-0026).
+          --
+          -- Filtering after the query would still have been correct here, and
+          -- it is done in the database anyway: a restricted page must not
+          -- occupy one of the LIMIT rows, or a search returns fewer results the
+          -- more is hidden — which is itself a signal about what exists.
+          --
+          -- No path-only case: a page nobody may read has nothing to match, and
+          -- surfacing it as a nameless result would say something exists
+          -- without saying what.
+          AND ${visiblePagesCondition('p', '$5', '$6')}
         ORDER BY rank DESC, p.last_edited_at DESC
         LIMIT $4`,
-      [workspaceId, raw, i18n.searchConfig, limit],
+      [
+        workspaceId,
+        raw,
+        i18n.searchConfig,
+        limit,
+        claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
+        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
+      ],
     );
 
     const visible = rows.filter(

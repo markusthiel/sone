@@ -295,4 +295,47 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [guest]);
     await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
   });
+
+  // --- every list, not only the tree ----------------------------------------
+
+  test('a favourite does not outlive the access that created it', async () => {
+    // The quietest kind of leak: somebody stars a page, is later removed from
+    // it, and keeps its title in a sidebar nobody looks at closely for months.
+    await db.query(
+      `INSERT INTO favourites (user_id, page_id, idx) VALUES ($1,$2,0)`,
+      [member, child],
+    );
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+
+    const rows = await db.query<{ page_id: string }>(
+      `SELECT f.page_id
+         FROM favourites f
+         JOIN pages p ON p.id = f.page_id
+        WHERE f.user_id = $1
+          AND ${visiblePagesCondition('p', '$1', 'false')}`,
+      [member],
+    );
+    assert.equal(rows.rowCount, 0);
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+    await db.query(`DELETE FROM favourites WHERE user_id = $1`, [member]);
+  });
+
+  test('a restricted page does not occupy a search result', async () => {
+    // Filtering after the query would be correct and still wrong: a restricted
+    // page would take one of the limited rows, so a search returns fewer
+    // results the more is hidden — which is itself a signal about what exists.
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+
+    const rows = await db.query<{ id: string }>(
+      `SELECT p.id FROM pages p
+        WHERE p.workspace_id = $1
+          AND ${visiblePagesCondition('p', '$2', 'false')}
+        LIMIT 50`,
+      [workspace, member],
+    );
+    assert.ok(!rows.rows.some((r) => r.id === child));
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+  });
 });
