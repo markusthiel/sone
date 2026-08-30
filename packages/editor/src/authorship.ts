@@ -135,3 +135,22 @@ export function eachAuthoredText(
 
   walk(fragment);
 }
+
+/**
+ * Which people have written in this document.
+ *
+ * The question the margin asks before it draws anything: a page written by one
+ * person needs no marks, because every block is theirs and a column of the same
+ * initial says only that they were the one writing.
+ *
+ * Client ids rather than people, because that is what the ranges carry — one
+ * person on two devices counts twice here, which is why the caller maps them
+ * through the attribution table before deciding.
+ */
+export function writingClients(fragment: Y.XmlFragment): Set<number> {
+  const seen = new Set<number>();
+  eachAuthoredText(fragment, (_text, ranges) => {
+    for (const range of ranges) seen.add(range.client);
+  });
+  return seen;
+}
