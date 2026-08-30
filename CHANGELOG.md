@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Settings is a screen of its own**, with its own navigation and a way back to
+your notes — not a page inside the workspace with a sidebar of pages beside it.
+The entries are names now; the explanation is on each entry rather than under it.
+
 **The foot of the sidebar is a row of tools** — your account, trash, settings,
 sign out — instead of three lines of text competing with the pages above them.
 

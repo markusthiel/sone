@@ -46,6 +46,8 @@ interface SettingsProps {
   section: string;
   session: SessionInfo;
   workspaceId: string;
+  /** Back to the notes. Settings is a screen of its own (ADR-0027). */
+  onClose: () => void;
 }
 
 /**
@@ -119,7 +121,12 @@ const SECTIONS = [
   { id: 'about', label: 'About', group: 'Instance', hint: 'Version and licence' },
 ] as const;
 
-export function Settings({ section, session, workspaceId }: SettingsProps): ReactElement {
+export function Settings({
+  section,
+  session,
+  workspaceId,
+  onClose,
+}: SettingsProps): ReactElement {
   const { isAdmin } = useIsInstanceAdmin();
 
   // Only sections this account can actually open. An administration section
@@ -149,6 +156,16 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
   return (
     <div className="settings-screen">
       <nav className="settings-nav" aria-label="Settings sections">
+        {/* The way back, first and plainly.
+          *
+          * A screen of its own needs a door out, and it belongs at the top of
+          * the navigation rather than in a corner: it is the entry somebody
+          * looks for when they have finished, and looking for it should not be
+          * part of finishing. */}
+        <button type="button" className="settings-back" onClick={onClose}>
+          ‹ Back to your notes
+        </button>
+
         {groups.map((group) => (
           <div className="settings-nav-group" key={group}>
             <p className="sidebar-label">{group}</p>
@@ -159,17 +176,17 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
                   key={entry.id}
                   className="settings-nav-item"
                   href={paths.settings(entry.id)}
+                  title={entry.hint}
                   {...(entry.id === current ? { 'aria-current': 'page' as const } : {})}
                 >
-                  <span className="settings-nav-label">{entry.label}</span>
-                  {/* One line saying what is in there.
+                  {/* The name alone.
                     *
-                    * A list of nouns makes somebody open three sections to find
-                    * one thing, and this area is going to keep growing —
-                    * "Invite to the instance" and "Invite somebody here" are
-                    * distinguishable by name only once you already know the
-                    * difference. */}
-                  <span className="settings-nav-hint">{entry.hint}</span>
+                    * A line of explanation under each entry made every one of
+                    * them three lines tall, and a navigation that has to be
+                    * read is not a navigation — it is a page about the
+                    * navigation. The explanation moved onto the entry as its
+                    * title, where it is available and not in the way. */}
+                  {entry.label}
                 </a>
               ))}
           </div>
