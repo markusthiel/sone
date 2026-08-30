@@ -724,8 +724,42 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   gap: 12px;
 }
 
-.field { display: flex; flex-direction: column; gap: 4px; }
-.field label { font-size: 0.85rem; color: var(--sone-text-muted); }
+/* A labelled control.
+ *
+ * Used by every panel that has not been rewritten into cards yet, so it carries
+ * the same rhythm: the name reads as a name rather than as a caption, the
+ * explanation under it is quieter than both, and consecutive fields are a list
+ * rather than a paragraph.
+ *
+ * Doing it here rather than panel by panel because it reaches all of them at
+ * once — the conversion to cards is better and slower, and this is what the
+ * pages look like until each is done.
+ */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-3);
+  max-inline-size: 32rem;
+}
+.field + .field { margin-block-start: var(--sone-space-6); }
+
+.field label {
+  font-size: var(--sone-text-sm);
+  font-weight: 550;
+  color: var(--sone-text);
+}
+/* The sentence under a field, which is an explanation and not a second label. */
+.field .muted, .field p {
+  margin: 0;
+  font-size: var(--sone-text-sm);
+  line-height: 1.5;
+}
+
+/* Space between a panel's parts, whatever shape they are in. Without it a
+   heading, a sentence and a field all sit at one distance and nothing says
+   where a topic ends. */
+.settings-section > h3 { margin-block-start: var(--sone-space-7); }
+.settings-section > p { max-inline-size: 42rem; line-height: 1.55; }
 
 .muted { color: var(--sone-text-muted); }
 .error {

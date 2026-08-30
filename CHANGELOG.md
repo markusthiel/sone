@@ -19,6 +19,10 @@ browser before it is sent, and shows in the sidebar and beside your name.
 **Fixed: settings labels wrapped one word per line** and the page was cropped to
 a narrow strip.
 
+**Every settings panel got the same rhythm** — field names read as names, the
+sentence under one is quieter than both, and consecutive fields are a list
+rather than a paragraph.
+
 **Settings pages have structure.** Controls that belong together sit in a card,
 each row says what it is and why, and space between cards separates one topic
 from the next.
