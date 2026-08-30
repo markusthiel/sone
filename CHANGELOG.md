@@ -13,10 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**Groundwork for image variants.** A page is served the web-sized copy of an
-image when one exists, and `?original=true` gives the file as uploaded. The
-browser knows how to make the smaller copy; the upload does not send it yet
-([ADR-0029](docs/adr/0029-image-variants.md)).
+**Large images are shrunk for display.** An uploaded photograph is stored as you
+sent it and shown at a size a page can use; the ⋮⋮ menu offers "Download the
+original" beside "Download" ([ADR-0029](docs/adr/0029-image-variants.md)).
 
 **Your account is editable.** Change your name, and change your password without
 signing out. Settings → Account.

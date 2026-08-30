@@ -9,6 +9,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { codeOf } from './helpers/source.ts';
+
 import { AVATAR_BOUND, WEB_BOUND, canResize, webVariantSize } from '../src/lib/imageVariant.ts';
 
 test('an image within the bound gets no variant', () => {
@@ -67,4 +69,31 @@ test('only formats a browser will decode are attempted', () => {
   assert.equal(canResize('image/png'), true);
   assert.equal(canResize('image/heic'), false);
   assert.equal(canResize('application/pdf'), false);
+});
+
+// --- uploading the pair, and offering the choice ----------------------------
+
+const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+
+test('the original is uploaded first and its failure is the only fatal one', () => {
+  // It is the file the block refers to. A page that shows the original is the
+  // behaviour SONE had yesterday; losing an upload because the second half did
+  // not work would be a worse trade than sending a few megabytes.
+  const original = surface.indexOf('await api.uploadFile(pageId, file)');
+  const variant = surface.indexOf('webVariant(file)');
+  assert.ok(original > 0 && original < variant);
+  assert.match(surface, /webVariant\(file\)[\s\S]{0,300}?\.catch\(\(\) => null\)/);
+});
+
+test('the variant is linked to the file it was made from', () => {
+  assert.match(surface, /api\.uploadFile\(pageId, smaller, result\.id\)/);
+});
+
+test('the original is offered only for images', () => {
+  // Nothing else has a second version, and an entry that gives the same file
+  // twice under two names is a menu that asks somebody to choose between
+  // nothing.
+  assert.match(menu, /category === 'image' && \(/);
+  assert.match(menu, /\?original=true/);
 });

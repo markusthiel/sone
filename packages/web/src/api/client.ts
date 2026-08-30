@@ -852,6 +852,8 @@ export const api = {
   uploadFile: async (
     pageId: string,
     file: File,
+    /** Marks this upload as the web-sized copy of another (ADR-0029). */
+    variantOf?: string,
   ): Promise<{
     id: string;
     url: string;
@@ -863,7 +865,8 @@ export const api = {
     category: string;
   }> => {
     const response = await fetch(
-      `/api/pages/${pageId}/files?filename=${encodeURIComponent(file.name)}`,
+      `/api/pages/${pageId}/files?filename=${encodeURIComponent(file.name)}` +
+        (variantOf ? `&variantOf=${encodeURIComponent(variantOf)}` : ''),
       {
         method: 'POST',
         credentials: 'same-origin',

@@ -34,6 +34,7 @@ import { SelectionToolbar } from './SelectionToolbar.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
 import { TableToolbar } from './TableToolbar.tsx';
 import { paths } from '../routes/paths.ts';
+import { webVariant } from '../lib/imageVariant.ts';
 
 interface EditorSurfaceProps {
   handle: PageHandle;
@@ -145,7 +146,23 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
   const uploader = useCallback(
     async (file: File) => {
       try {
+        // The original first, because it is the one the block refers to and the
+        // one that must exist even if everything after this fails.
         const result = await api.uploadFile(pageId, file);
+
+        // Then a smaller copy, if this is a photograph worth shrinking.
+        //
+        // Failures here are swallowed on purpose: a page that shows the
+        // original is the behaviour SONE had yesterday, and losing an upload
+        // because the second half of it did not work would be a worse trade
+        // than sending a few megabytes (ADR-0029).
+        void webVariant(file)
+          .then((smaller) => {
+            if (smaller) return api.uploadFile(pageId, smaller, result.id);
+            return null;
+          })
+          .catch(() => null);
+
         return { url: result.url, filename: result.filename };
       } catch (error) {
         const base = messageFor(
