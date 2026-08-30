@@ -1,0 +1,166 @@
+/**
+ * SONE web — configuring the identity provider.
+ *
+ * Everything except the secret, which comes from the environment and is never
+ * sent in either direction (ADR-0024). The form reports whether one is present,
+ * because that is what an administrator needs to understand why single sign-on
+ * is off — not the credential itself.
+ */
+
+import { useEffect, useState, type ReactElement } from 'react';
+
+import { ApiError, api } from '../api/client.ts';
+import { messageFor } from './Auth.tsx';
+
+interface Settings {
+  issuer: string;
+  clientId: string;
+  buttonLabel: string;
+  allowSignup: boolean;
+  enabled: boolean;
+}
+
+const EMPTY: Settings = {
+  issuer: '',
+  clientId: '',
+  buttonLabel: 'Single sign-on',
+  allowSignup: false,
+  enabled: false,
+};
+
+export function OidcPanel(): ReactElement {
+  const [settings, setSettings] = useState<Settings>(EMPTY);
+  const [hasSecret, setHasSecret] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .adminOidc()
+      .then((result) => {
+        if (cancelled) return;
+        setSettings(result.settings ?? EMPTY);
+        setHasSecret(result.hasClientSecret);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof ApiError ? err.code : 'network_error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const save = (): void => {
+    setBusy(true);
+    setError(null);
+    void api
+      .setAdminOidc(settings)
+      .then(() => setSaved(true))
+      .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'))
+      .finally(() => setBusy(false));
+  };
+
+  const change = <K extends keyof Settings>(key: K, value: Settings[K]): void => {
+    setSaved(false);
+    setSettings((current) => ({ ...current, [key]: value }));
+  };
+
+  return (
+    <section className="settings-section">
+      <p className="muted">
+        Sign in through an identity provider. Any provider that speaks OpenID
+        Connect works — Keycloak, Authentik, Zitadel, Entra, Google and others —
+        so this is a configuration rather than a choice of integration.
+      </p>
+
+      {/* The secret's absence is the first thing to say.
+        *
+        * Everything below can be filled in correctly and still not work without
+        * it, and somebody who does not know that will reasonably conclude the
+        * form is broken. */}
+      {!hasSecret && (
+        <p className="warning">
+          No client secret is set. Add <code>SONE_OIDC_CLIENT_SECRET</code> to
+          the server&rsquo;s environment and restart it; single sign-on stays off
+          until then. The secret is deliberately not stored here — a secret in
+          the database is a secret in every backup.
+        </p>
+      )}
+
+      {error && <p className="error">{messageFor(error)}</p>}
+
+      <div className="field">
+        <label htmlFor="oidc-issuer">Issuer</label>
+        <input
+          id="oidc-issuer"
+          value={settings.issuer}
+          placeholder="https://login.example.org/realms/main"
+          onChange={(event) => change('issuer', event.target.value)}
+        />
+        <p className="muted">
+          The provider&rsquo;s base URL. Everything else is read from its
+          discovery document, so nothing here needs to know which provider it is.
+        </p>
+      </div>
+
+      <div className="field">
+        <label htmlFor="oidc-client">Client ID</label>
+        <input
+          id="oidc-client"
+          value={settings.clientId}
+          onChange={(event) => change('clientId', event.target.value)}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="oidc-label">Button label</label>
+        <input
+          id="oidc-label"
+          value={settings.buttonLabel}
+          onChange={(event) => change('buttonLabel', event.target.value)}
+        />
+        <p className="muted">
+          What the sign-in page says. People recognise their own login by name,
+          not by the protocol behind it.
+        </p>
+      </div>
+
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={settings.allowSignup}
+          onChange={(event) => change('allowSignup', event.target.checked)}
+        />
+        Let people without an account here sign up through the provider
+      </label>
+      <p className="muted">
+        Off by default. Trusting a provider to say who somebody is does not
+        oblige you to let everybody there in.
+      </p>
+
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={settings.enabled}
+          disabled={!hasSecret}
+          onChange={(event) => change('enabled', event.target.checked)}
+        />
+        Show the button on the sign-in page
+      </label>
+
+      <p className="muted">
+        Add <code>/api/auth/oidc/callback</code> on this instance&rsquo;s public
+        URL to the provider&rsquo;s list of redirect URIs.
+      </p>
+
+      <div className="settings-actions">
+        <button type="button" className="btn primary" disabled={busy} onClick={save}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+        {saved && <span className="muted">Saved.</span>}
+      </div>
+    </section>
+  );
+}
