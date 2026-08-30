@@ -142,6 +142,11 @@ export function Settings({
     null,
   );
 
+  // Which of the two a phone is showing. Starts on the section, because
+  // arriving at a list of settings when you asked for one setting is a step
+  // nobody wanted.
+  const [listOpen, setListOpen] = useState(false);
+
   const canManageWorkspaces = isAdmin === true || session.user.canManageWorkspaces;
   const available = SECTIONS.filter((entry) => {
     if ('admin' in entry) return isAdmin === true;
@@ -155,7 +160,10 @@ export function Settings({
   const groups = [...new Set(available.map((entry) => entry.group))];
 
   return (
-    <div className="settings-screen">
+    // On a narrow screen the list and the section are two views, not two
+    // columns. Ten entries above a section means the section scrolls in
+    // whatever is left, which was a box a few lines tall.
+    <div className="settings-screen" data-showing={listOpen ? 'list' : 'section'}>
       <nav className="settings-nav" aria-label="Settings sections">
         {/* The way back, first and plainly.
           *
@@ -178,6 +186,7 @@ export function Settings({
                   className="settings-nav-item"
                   href={paths.settings(entry.id)}
                   title={entry.hint}
+                  onClick={() => setListOpen(false)}
                   {...(entry.id === current ? { 'aria-current': 'page' as const } : {})}
                 >
                   {/* The name alone.
@@ -195,6 +204,16 @@ export function Settings({
       </nav>
 
       <div className="settings-body">
+        {/* Only on a phone, where the list is the other view rather than the
+          * column beside this one. */}
+        <button
+          type="button"
+          className="settings-menu-button"
+          onClick={() => setListOpen(true)}
+        >
+          ☰ All settings
+        </button>
+
         <h1>{available.find((entry) => entry.id === current)?.label ?? 'Settings'}</h1>
 
         {current === 'account' && <Account session={session} workspaceId={workspaceId} />}

@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Settings work on a phone.** The list and the section are two views rather than
+one stacked on the other, so a section gets the whole screen instead of scrolling
+in whatever the menu left over.
+
 **Profile pictures.** Choose one under Settings → Account; it is shrunk in your
 browser before it is sent, and shows in the sidebar and beside your name.
 

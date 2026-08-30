@@ -4403,11 +4403,44 @@ body {
  * measure. */
 .settings-body > * { max-inline-size: 60rem; margin-inline: auto; }
 
+/* The button that reaches the list; only a phone ever sees it. */
+.settings-menu-button { display: none; }
+
 @media (max-width: 720px) {
-  /* One column: the navigation above, the section below. A 260px sidebar on a
-     phone leaves a strip nobody can read from. */
-  .settings-screen { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .settings-nav { border-inline-end: 0; border-block-end: 1px solid var(--border-subtle); }
+  /* Two views, not two columns.
+   *
+   * Stacking them put ten entries above the section, so the section scrolled in
+   * whatever was left — a box a few lines tall. One at a time, each with the
+   * whole screen, and a way between them.
+   */
+  .settings-screen { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+
+  .settings-nav,
+  .settings-body { grid-area: 1 / 1; }
+
+  .settings-screen[data-showing='section'] .settings-nav { display: none; }
+  .settings-screen[data-showing='list'] .settings-body { display: none; }
+
+  .settings-nav { border-inline-end: 0; }
+
+  .settings-menu-button {
+    display: flex;
+    align-items: center;
+    gap: var(--sone-space-2);
+    min-block-size: var(--sone-control-lg);
+    margin-block-end: var(--sone-space-5);
+    padding-inline: var(--sone-space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--sone-radius);
+    background: transparent;
+    color: var(--sone-text-secondary, var(--sone-text-muted));
+    font: inherit;
+    font-size: var(--sone-text-sm);
+  }
+
+  /* Entries are the whole width and a comfortable height: this is the only
+     navigation on screen, not a column beside something. */
+  .settings-nav-item { min-block-size: var(--sone-tap); }
 }
 
 /* A face where an initial was.

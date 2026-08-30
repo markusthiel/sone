@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { codeOf } from './helpers/source.ts';
+import { codeOf, stylesOf } from './helpers/source.ts';
 
 const settings = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
 
@@ -77,4 +77,24 @@ test('the switcher offers the way in, and only to those who may', () => {
   // people to distrust the menu.
   assert.match(menu, /\{canManageWorkspaces && \(/);
   assert.match(menu, /paths\.settings\('workspaces'\)/);
+});
+
+test('a phone shows the list or the section, not both', () => {
+  // Stacking them put ten entries above the section, so the section scrolled in
+  // whatever was left — a box a few lines tall.
+  const css = stylesOf(new URL('../src/styles.css', import.meta.url));
+  assert.match(css, /\.settings-screen\[data-showing='section'\] \.settings-nav \{ display: none/);
+  assert.match(css, /\.settings-screen\[data-showing='list'\] \.settings-body \{ display: none/);
+});
+
+test('it starts on the section, not on the list', () => {
+  // Arriving at a list of settings when you asked for one setting is a step
+  // nobody wanted.
+  assert.match(settings, /useState\(false\);/);
+  assert.match(settings, /data-showing=\{listOpen \? 'list' : 'section'\}/);
+});
+
+test('choosing an entry returns to the section', () => {
+  // Otherwise the list stays over the thing it was asked to show.
+  assert.match(settings, /onClick=\{\(\) => setListOpen\(false\)\}/);
 });
