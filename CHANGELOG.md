@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: accepting an invitation left you in your own workspace** rather than the
+one you were invited to — a member of a team, looking at nothing to do with it.
+
 **Fixed: creating an account from an invitation ended on an error.** Registering
 uses the invitation, and the page then looked the same token up again, found it
 spent, and reported a failure — after everything had worked.

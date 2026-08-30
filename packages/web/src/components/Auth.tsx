@@ -56,7 +56,14 @@ export const messageFor = (code: string): string =>
   MESSAGES[code] ?? MESSAGES['unknown_error']!;
 
 interface AuthFormProps {
-  onDone: () => void;
+  /**
+   * Where to land, when signing up decided it.
+   *
+   * An invitation names a workspace, and somebody who has just accepted one
+   * should arrive there rather than in their own — they were invited, and their
+   * own workspace is not what they clicked the link for.
+   */
+  onDone: (workspaceId?: string) => void;
   navigate: (to: string) => void;
 }
 
@@ -271,13 +278,15 @@ export function SignupScreen({
     setBusy(true);
     setError(null);
     try {
-      await api.signup({
+      const created = await api.signup({
         email,
         password,
         displayName,
         ...(invitationToken ? { invitationToken } : {}),
       });
-      onDone();
+      // The workspace the server decided on: the invited one when there was an
+      // invitation, their own otherwise.
+      onDone(created.workspaceId);
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
     } finally {
