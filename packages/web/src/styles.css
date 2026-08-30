@@ -237,7 +237,9 @@ html, body, #root {
 }
 
 body {
-  background: var(--sone-bg);
+  /* The page is the sunken surface; panels sit on top of it. In light that is
+     a shade below white, in dark a shade below the sidebar. */
+  background: var(--surface-sunken);
   color: var(--sone-text);
   font: 15px/1.55 var(--sone-font);
   /* Optical sizing and tabular figures where the face offers them: numbers in
@@ -388,8 +390,18 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   flex-direction: column;
   gap: 4px;
   padding: 12px;
-  border-inline-end: 1px solid var(--sone-border);
-  background: var(--sone-bg-subtle);
+  /* The sidebar sits on its own surface, and the line between it and the
+     content is the faintest one available.
+     *
+     * A step of surface groups; a line divides. The sidebar and the page are
+     * one thing you are working in, not two things placed beside each other,
+     * and a strong rule between them says the opposite.
+     *
+     * In dark this reverses: the content is the sunken surface and the sidebar
+     * the raised one, because nearer means lighter there. Both come from the
+     * tokens, so neither theme is describing the other. */
+  border-inline-end: 1px solid var(--border-subtle);
+  background: var(--surface);
   overflow-y: auto;
 }
 
@@ -594,6 +606,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 
 .page-body {
   width: 100%;
+  /* The writing sits on the plain surface rather than the sunken one: a page
+     under the text, and the application around it. It is the only place in the
+     interface where that distinction is worth a surface of its own. */
+  background: var(--surface);
   max-width: 46rem;
   margin-inline: auto;
   padding: 24px 20px 40vh;

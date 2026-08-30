@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The areas are separated by surface rather than by lines.** The writing sits on
+a page, the application is around it, and the rule between sidebar and content is
+the faintest one available.
+
 **Fields, buttons and menus share one treatment.** A field is a surface that
 gains a border when focused; buttons come in three weights; everything that
 floats has the same surface, border and lift.
