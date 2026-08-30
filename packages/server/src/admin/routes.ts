@@ -21,6 +21,7 @@
 import type { Pool } from 'pg';
 
 import { queryOne, queryRows } from '../db/pool.js';
+import { requireWorkspaceAdministrator } from './rights.js';
 import { requireSession } from '../http/auth.js';
 import { rematerialize } from '../materialize/rematerialize.js';
 import { SETTING_KEYS, SettingError, type SettingKey, type SettingsStore } from './settings.js';
@@ -381,7 +382,10 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
 
   /** Workspaces on the instance, with size. Not their contents. */
   router.get('/api/admin/workspaces', async (ctx) => {
-    const admin = await requireAdmin(deps.pool, ctx);
+    // The workspace right, not the instance one: the point of granting it
+    // separately is that somebody holding it can do this without being an
+    // instance administrator (ADR-0027).
+    const admin = await requireWorkspaceAdministrator(deps.pool, ctx);
     if (!admin) return;
 
     const rows = await queryRows<{
@@ -391,16 +395,24 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       member_count: string;
       page_count: string;
       owner: string | null;
+      personal: boolean;
+      last_edited_at: Date | null;
     }>(
       deps.pool,
-      `SELECT w.id, w.name, w.created_at,
+      `SELECT w.id, w.name, w.created_at, w.personal_for IS NOT NULL AS personal,
               (SELECT count(*) FROM workspace_members m WHERE m.workspace_id = w.id)::text
                 AS member_count,
               (SELECT count(*) FROM pages p
-                WHERE p.workspace_id = w.id AND p.archived_at IS NULL)::text AS page_count,
+                WHERE p.workspace_id = w.id AND p.archived_at IS NULL
+                  AND p.kind NOT IN ('row','container'))::text AS page_count,
+              (SELECT max(p.last_edited_at) FROM pages p WHERE p.workspace_id = w.id)
+                AS last_edited_at,
               (SELECT u.display_name FROM users u WHERE u.id = w.created_by) AS owner
          FROM workspaces w
-        ORDER BY w.name COLLATE "und-x-icu"`,
+        -- Shared first, then personal. Everybody has a personal workspace now
+        -- (ADR-0025), so an instance of forty people has forty of them, and a
+        -- list sorted only by name reads as forty teams (ADR-0027).
+        ORDER BY (w.personal_for IS NOT NULL), w.name COLLATE "und-x-icu"`,
     );
 
     ctx.send(200, {
@@ -411,6 +423,11 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         memberCount: Number(row.member_count),
         pageCount: Number(row.page_count),
         owner: row.owner,
+        /** Somebody's own, rather than a team's (ADR-0025). */
+        personal: row.personal,
+        // Says which workspaces are alive without opening any of them, which is
+        // the question somebody scanning this list actually has.
+        lastEditedAt: row.last_edited_at,
       })),
     });
   });

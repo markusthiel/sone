@@ -171,6 +171,9 @@ export interface AdminUser {
 }
 
 export interface AdminWorkspace {
+  /** Somebody's own, rather than a team's (ADR-0025). */
+  personal: boolean;
+  lastEditedAt: string | null;
   id: string;
   name: string;
   createdAt: string;
