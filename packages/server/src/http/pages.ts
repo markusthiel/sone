@@ -305,7 +305,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           -- Rows are documents, not places (ADR-0021). A hundred-row table
           -- would otherwise put a hundred entries in the sidebar, which is
           -- the part of the folder shape that felt most wrong.
-          AND p.kind <> 'row'
+          -- Rows and containers are documents, not places: a row belongs to a
+          -- collection and a container to the page that embeds it, and neither
+          -- has anywhere to sit in a tree of pages.
+          AND p.kind NOT IN ('row', 'container')
           AND (
             ${visiblePagesCondition('p', '$4', '$3')}
             OR ${isPathOnlyCondition('p', '$4')}

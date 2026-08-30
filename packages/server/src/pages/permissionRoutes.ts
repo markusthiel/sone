@@ -9,6 +9,8 @@
 
 import type { Pool } from 'pg';
 
+import { randomUUID } from 'node:crypto';
+
 import { queryOne, queryRows } from '../db/pool.js';
 import { requireSession } from '../http/auth.js';
 import type { Router } from '../http/router.js';
@@ -196,6 +198,71 @@ export function registerPagePermissionRoutes(router: Router, deps: PermissionDep
     );
 
     ctx.send(200, { ok: true });
+  });
+
+  /**
+   * Create a protected container inside a page.
+   *
+   * Its own document, embedded by reference, because a permission on part of a
+   * document cannot be enforced: a client receives the whole document to merge
+   * changes, so a block the interface declines to draw is still in the
+   * browser's memory (ADR-0026).
+   *
+   * Restricted from the moment it exists. The alternative is a window between
+   * creating one and setting its rules, during which it is an ordinary part of
+   * the page — and whoever created it has every reason to believe otherwise.
+   */
+  router.post('/api/pages/:pageId/containers', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    const pageId = ctx.params['pageId'] ?? '';
+    const resolved = await resolvePageAccess(deps.pool, { pageId, userId: session.userId });
+    // Editing the page is enough to add a protected section to it; managing it
+    // is not required. Somebody writing a page should be able to keep part of
+    // it to themselves without being its administrator.
+    if (!atLeast(resolved.access, 'editor')) {
+      ctx.fail(resolved.access === null ? 404 : 403,
+        resolved.access === null ? 'not_found' : 'forbidden');
+      return;
+    }
+
+    const parent = await queryOne<{ workspace_id: string; ancestor_ids: string[] }>(
+      deps.pool,
+      `SELECT workspace_id, ancestor_ids FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    if (!parent) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const containerId = randomUUID();
+    await deps.pool.query(
+      `INSERT INTO pages
+         (id, workspace_id, parent_page_id, title, idx, kind, ancestor_ids,
+          restricted, created_by)
+       VALUES ($1,$2,$3,$4,'0','container',$5,true,$6)`,
+      [
+        containerId,
+        parent.workspace_id,
+        pageId,
+        'Protected section',
+        [...parent.ancestor_ids, pageId],
+        session.userId,
+      ],
+    );
+
+    // Whoever made it can read it. Without this a container is created that
+    // nobody can open, including the person who just created it — technically
+    // correct and useless.
+    await deps.pool.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, granted_by)
+       VALUES ($1,$2,'admin',$2)`,
+      [containerId, session.userId],
+    );
+
+    ctx.send(201, { containerId });
   });
 
   /** The same, for a group. */

@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Groundwork for protected sections.** A protected container inside a page is its
+own document, so the server can decline to send it — the only way a permission on
+part of a page can be enforced. The block for putting one in a page comes next.
+
 **Fixed: a restricted page was hidden from the tree and still synchronised.**
 The listing stopped showing it and the protocol went on serving its document to
 anybody holding the id. Restrictions are now checked where sync decides.
