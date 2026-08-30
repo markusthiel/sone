@@ -272,6 +272,97 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
     ctx.send(200, { theme });
   });
 
+  /**
+   * Where this person lands in this workspace.
+   *
+   * Resolved on the server rather than by the client choosing between two
+   * fields: the page a fixed landing names may have been deleted or put out of
+   * reach since, and the fallback then has to be the same one the client would
+   * have applied anyway. One answer, decided where the data is.
+   */
+  router.get('/api/workspaces/:workspaceId/landing', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    if ((await roleIn(deps.pool, workspaceId, auth.userId)) === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const row = await queryOne<{
+      mode: string;
+      page_id: string | null;
+      last_page_id: string | null;
+    }>(
+      deps.pool,
+      `SELECT mode, page_id, last_page_id FROM workspace_landing
+        WHERE user_id = $1 AND workspace_id = $2`,
+      [auth.userId, workspaceId],
+    );
+
+    const wanted = row?.mode === 'fixed' ? row.page_id : (row?.last_page_id ?? null);
+
+    // Checked before it is offered. A landing page that was deleted, archived
+    // or restricted since it was chosen would otherwise send somebody to a
+    // refusal every time they sign in — the one page they cannot avoid.
+    const usable = wanted
+      ? await queryOne<{ id: string }>(
+          deps.pool,
+          `SELECT id FROM pages
+            WHERE id = $1 AND workspace_id = $2 AND archived_at IS NULL
+              AND kind NOT IN ('row','container')`,
+          [wanted, workspaceId],
+        )
+      : null;
+
+    ctx.send(200, {
+      mode: row?.mode ?? 'last',
+      pageId: row?.page_id ?? null,
+      /** Where to go now, or null to let the interface decide. */
+      landOn: usable?.id ?? null,
+    });
+  });
+
+  /** Remember where somebody is, and what they want on arrival. */
+  router.put('/api/workspaces/:workspaceId/landing', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    if ((await roleIn(deps.pool, workspaceId, auth.userId)) === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    let body: { mode?: unknown; pageId?: unknown; lastPageId?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const mode = body.mode === 'fixed' ? 'fixed' : body.mode === 'last' ? 'last' : null;
+    const pageId = typeof body.pageId === 'string' ? body.pageId : null;
+    const lastPageId = typeof body.lastPageId === 'string' ? body.lastPageId : null;
+
+    await deps.pool.query(
+      `INSERT INTO workspace_landing (user_id, workspace_id, mode, page_id, last_page_id)
+       VALUES ($1,$2, COALESCE($3,'last'), $4, $5)
+       ON CONFLICT (user_id, workspace_id) DO UPDATE SET
+         -- Each field only when it was named. Recording where somebody is
+         -- happens constantly and must not quietly reset the mode they chose.
+         mode = COALESCE($3, workspace_landing.mode),
+         page_id = CASE WHEN $3 IS NULL THEN workspace_landing.page_id ELSE $4 END,
+         last_page_id = COALESCE($5, workspace_landing.last_page_id),
+         updated_at = now()`,
+      [auth.userId, workspaceId, mode, pageId, lastPageId],
+    );
+
+    ctx.send(200, { ok: true });
+  });
+
   router.get('/api/workspaces/:workspaceId/members', async (ctx) => {
     const auth = await requireSession(deps.pool, ctx);
     if (!auth) return;

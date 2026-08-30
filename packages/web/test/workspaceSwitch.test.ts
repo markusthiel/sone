@@ -26,7 +26,13 @@ test('the root does not redirect while the tree is loading', () => {
 test('the redirect depends on the loading state, not only the list', () => {
   // Without it in the dependencies the guard would be read once and never
   // rechecked, which is the same bug with more code.
-  assert.match(app, /\[route\.kind, pages, pagesLoading, navigate\]/);
+  //
+  // Named rather than matched whole: the list grew when the landing page
+  // arrived, and a test that spells out every dependency fails on every
+  // addition without any of them being wrong.
+  const deps = /\}, \[route\.kind, ([^\]]+)\]\);/.exec(app)?.[1] ?? '';
+  assert.match(deps, /pagesLoading/);
+  assert.match(deps, /workspaceId/, 'and the workspace, since landing is per workspace');
 });
 
 test('a refusal is only believed once the connection has settled', () => {
