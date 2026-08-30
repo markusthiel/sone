@@ -26,6 +26,7 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [spent, setSpent] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +36,18 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
         if (!cancelled) setInvitation(result);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.code : 'network_error');
+        if (cancelled) return;
+        // A token that no longer resolves, seen by somebody who is signed in.
+        //
+        // Almost always an invitation that has already been used — often by
+        // this very person, a moment ago. "Something went wrong" after
+        // everything went right is worse than saying nothing, so this says what
+        // it is and offers the way on.
+        if (err instanceof ApiError && (err.code === 'invalid_invitation' || err.code === 'not_found')) {
+          setSpent(true);
+          return;
+        }
+        setError(err instanceof ApiError ? err.code : 'network_error');
       });
     return () => {
       cancelled = true;
@@ -71,6 +83,18 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
         {/* An invitation to the instance, followed by somebody who already has
           * an account, has nothing left to give. Said plainly rather than
           * refused: nothing is wrong, it simply happened already. */}
+        {spent && (
+          <>
+            <p>
+              This invitation has already been used. If that was you just now,
+              your account is ready.
+            </p>
+            <button type="button" className="btn primary" onClick={() => navigate('/')}>
+              Continue
+            </button>
+          </>
+        )}
+
         {invitation?.instanceOnly && (
           <>
             <p>You already have an account here, so this invitation has nothing to add.</p>
@@ -104,7 +128,7 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
           </>
         )}
 
-        {!invitation && !error && <p className="muted">Checking the invitation…</p>}
+        {!invitation && !error && !spent && <p className="muted">Checking the invitation…</p>}
       </div>
     </div>
   );

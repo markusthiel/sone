@@ -86,7 +86,16 @@ export function App(): ReactElement {
     if (route.kind === 'signup') {
       return (
         <SignupScreen
-          onDone={() => void reload()}
+          onDone={() => {
+            // Away from the invitation link, then reload.
+            //
+            // Registering *uses* the invitation, so leaving the token in the
+            // address bar meant the accept screen below rendered next, looked
+            // the token up, found it spent, and said something went wrong —
+            // after everything had gone right.
+            navigate(paths.home());
+            void reload();
+          }}
           navigate={navigate}
           invitationToken={route.invitationToken}
         />

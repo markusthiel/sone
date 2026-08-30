@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: creating an account from an invitation ended on an error.** Registering
+uses the invitation, and the page then looked the same token up again, found it
+spent, and reported a failure — after everything had worked.
+
 **Protected sections.** Type `/` and choose "Protected section" to put a part of
 a page behind its own permissions. It is a separate document, so the server
 declines to send it to people who may not read it — the only way a permission on

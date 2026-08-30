@@ -66,3 +66,18 @@ test('declining is navigating away, not a state', () => {
   assert.match(accept, /Not now/);
   assert.doesNotMatch(accept, /decline/i);
 });
+
+test('signing up leaves the invitation link behind', () => {
+  // Registering uses the invitation, so leaving the token in the address bar
+  // meant the accept screen rendered next, found the token spent, and said
+  // something went wrong — after everything had gone right.
+  assert.match(app, /navigate\(paths\.home\(\)\);\s*\n\s*void reload\(\);/);
+});
+
+test('a spent invitation says so rather than failing', () => {
+  // Almost always one that has just been used, often by the person reading the
+  // message. "Something went wrong" after everything went right is worse than
+  // saying nothing at all.
+  assert.match(accept, /setSpent\(true\)/);
+  assert.match(accept, /already been used/);
+});
