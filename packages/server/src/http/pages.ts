@@ -43,6 +43,7 @@ import { rematerialize } from '../materialize/rematerialize.js';
 import { normaliseTags, writeTags } from '@sone/core';
 import { requireSession, sessionTokenFrom } from './auth.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
+import { isPathOnlyCondition, visiblePagesCondition } from '../pages/access.js';
 
 export interface PageDeps {
   pool: Pool;
@@ -171,6 +172,7 @@ async function moveEntry(pool: Pool, input: MoveInput): Promise<MoveResult> {
       workspace_id: string;
       kind: string;
       ancestor_ids: string[];
+      path_only: boolean;
     }>(
       pool,
       `SELECT id, workspace_id, kind, ancestor_ids FROM pages WHERE id = $1`,
@@ -281,19 +283,35 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       archived_at: Date | null;
       last_edited_at: Date;
       ancestor_ids: string[];
+      path_only: boolean;
     }>(
       deps.pool,
-      `SELECT id, parent_page_id, collection_id, idx, title, icon, kind,
-              archived_at, last_edited_at, ancestor_ids
-         FROM pages
-        WHERE workspace_id = $1
-          AND ($2 OR archived_at IS NULL)
+      `SELECT p.id, p.parent_page_id, p.collection_id, p.idx, p.title, p.icon,
+              p.kind, p.archived_at, p.last_edited_at, p.ancestor_ids,
+              -- A page somebody reaches only as the path to a child they were
+              -- granted. It appears, and the interface draws it without its
+              -- title (ADR-0026).
+              NOT ${visiblePagesCondition('p', '$4', '$3')} AS path_only
+         FROM pages p
+        WHERE p.workspace_id = $1
+          AND ($2 OR p.archived_at IS NULL)
           -- Rows are documents, not places (ADR-0021). A hundred-row table
           -- would otherwise put a hundred entries in the sidebar, which is
           -- the part of the folder shape that felt most wrong.
-          AND kind <> 'row'
-        ORDER BY idx, id`,
-      [workspaceId, includeArchived],
+          AND p.kind <> 'row'
+          AND (
+            ${visiblePagesCondition('p', '$4', '$3')}
+            OR ${isPathOnlyCondition('p', '$4')}
+          )
+        ORDER BY p.idx, p.id`,
+      [
+        workspaceId,
+        includeArchived,
+        // Owners and admins see the whole workspace, restricted or not: they
+        // are the people who have to be able to undo a restriction.
+        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
+        claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
+      ],
     );
     void collateClause(i18n.sortCollation);
 
@@ -312,8 +330,14 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         parentPageId: row.parent_page_id,
         collectionId: row.collection_id,
         idx: row.idx,
-        title: row.title,
-        icon: row.icon,
+        // A page kept only as the path to a child gives up its title.
+        //
+        // It has to appear, or the child it leads to is reachable only by
+        // knowing its address — but its name is exactly what was withheld, and
+        // sending it "so the interface can hide it" is sending it.
+        title: row.path_only ? null : row.title,
+        pathOnly: row.path_only,
+        icon: row.path_only ? null : row.icon,
         kind: row.kind === 'folder' ? 'folder' : 'page',
         archived: row.archived_at !== null,
         lastEditedAt: row.last_edited_at,
@@ -429,6 +453,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       created_at: Date;
       last_edited_at: Date;
       ancestor_ids: string[];
+      path_only: boolean;
     }>(
       deps.pool,
       `SELECT id, workspace_id, parent_page_id, collection_id, title, icon, kind,
@@ -684,6 +709,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       tag_label: string;
       page_id: string;
       ancestor_ids: string[];
+      path_only: boolean;
     }>(
       deps.pool,
       `SELECT t.tag_key, t.tag_label, t.page_id, p.ancestor_ids

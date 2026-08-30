@@ -9,7 +9,13 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, test } from 'node:test';
 
-import { resolvePageAccess, atLeast, morePermissive } from '../src/pages/access.js';
+import {
+  atLeast,
+  isPathOnlyCondition,
+  morePermissive,
+  resolvePageAccess,
+  visiblePagesCondition,
+} from '../src/pages/access.js';
 import { getTestPool, hasDatabase } from './support/db.js';
 
 describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () => {
@@ -200,5 +206,93 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     assert.equal(morePermissive('viewer', 'admin'), 'admin');
     assert.equal(morePermissive(null, 'viewer'), 'viewer');
     assert.equal(morePermissive(null, null), null);
+  });
+
+  // --- the conditions used by every list of pages ---------------------------
+
+  test('a restricted page is absent from a listing', async () => {
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+
+    const rows = await db.query<{ id: string }>(
+      `SELECT p.id FROM pages p
+        WHERE p.workspace_id = $1 AND ${visiblePagesCondition('p', '$2', '$3')}`,
+      [workspace, member, false],
+    );
+    const ids = rows.rows.map((r) => r.id);
+
+    assert.ok(ids.includes(root), 'the section above is untouched');
+    assert.ok(!ids.includes(child), 'the restricted page');
+    assert.ok(!ids.includes(grandchild), 'and what is under it');
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+  });
+
+  test('a page kept as the path to a granted child is identified', async () => {
+    // It has to appear, or the child is reachable only by knowing its address.
+    // What it must not do is carry its title, which is what was withheld.
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'viewer')`,
+      [grandchild, member],
+    );
+
+    const rows = await db.query<{ id: string; path_only: boolean }>(
+      `SELECT p.id, NOT ${visiblePagesCondition('p', '$2', '$3')} AS path_only
+         FROM pages p
+        WHERE p.workspace_id = $1
+          AND (${visiblePagesCondition('p', '$2', '$3')}
+               OR ${isPathOnlyCondition('p', '$2')})`,
+      [workspace, member, false],
+    );
+    const byId = new Map(rows.rows.map((r) => [r.id, r.path_only]));
+
+    assert.equal(byId.get(grandchild), false, 'the granted page, in full');
+    assert.equal(byId.get(child), true, 'its parent, as a path only');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [member]);
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+  });
+
+  test('an owner sees a restricted page in a listing', async () => {
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+    const rows = await db.query<{ id: string }>(
+      `SELECT p.id FROM pages p
+        WHERE p.workspace_id = $1 AND ${visiblePagesCondition('p', '$2', '$3')}`,
+      [workspace, owner, true],
+    );
+    assert.ok(rows.rows.some((r) => r.id === child));
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+  });
+
+  test('the condition agrees with resolving one page', async () => {
+    // Two answers to one question is how a listing leaks a title the page
+    // itself would refuse. This is the check that they stay the same answer.
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'viewer')`,
+      [child, guest],
+    );
+
+    for (const [person, pageId] of [
+      [member, child],
+      [guest, child],
+      [guest, grandchild],
+      [member, root],
+    ] as const) {
+      const listed = await db.query<{ id: string }>(
+        `SELECT p.id FROM pages p
+          WHERE p.id = $1 AND ${visiblePagesCondition('p', '$2', '$3')}`,
+        [pageId, person, false],
+      );
+      const resolved = await resolvePageAccess(db, { pageId, userId: person });
+      assert.equal(
+        listed.rowCount === 1,
+        resolved.access !== null,
+        `${person} on ${pageId}`,
+      );
+    }
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [guest]);
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
   });
 });

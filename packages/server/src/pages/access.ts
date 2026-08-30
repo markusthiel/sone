@@ -156,3 +156,51 @@ export async function resolvePageAccess(
           : 'role',
   };
 }
+
+/**
+ * A SQL condition for "this person may see this page".
+ *
+ * Written once and pasted into every query that lists pages, because there are
+ * several — the tree, search, favourites, the tasks panel — and the one that
+ * drifts is a disclosure. A title in a search result is a disclosure however
+ * carefully the page itself is protected (ADR-0026).
+ *
+ * Uses `ancestor_ids`, which the page rows already carry, so it is a condition
+ * rather than a walk.
+ *
+ * The caller supplies two placeholders: the user's id, and whether they hold
+ * owner or admin in the workspace.
+ */
+export const visiblePagesCondition = (alias: string, userParam: string, adminParam: string): string => `(
+  ${adminParam}
+  OR NOT EXISTS (
+    SELECT 1 FROM pages r
+     WHERE r.id = ANY(array_append(${alias}.ancestor_ids, ${alias}.id))
+       AND r.restricted
+  )
+  OR EXISTS (
+    SELECT 1 FROM page_permissions pp
+     WHERE pp.user_id = ${userParam}
+       AND (
+         pp.page_id = ${alias}.id
+         OR (pp.include_subtree AND pp.page_id = ANY(${alias}.ancestor_ids))
+       )
+  )
+)`;
+
+/**
+ * A page somebody cannot see, but whose descendant they can.
+ *
+ * It has to appear in the tree or the child has no path to it, and a page
+ * reachable only by knowing its address is one nobody finds. What it must not
+ * do is show its title — so the caller renders a placeholder, and this says
+ * which rows those are.
+ */
+export const isPathOnlyCondition = (alias: string, userParam: string): string => `(
+  EXISTS (
+    SELECT 1 FROM page_permissions pp
+      JOIN pages child ON child.id = pp.page_id
+     WHERE pp.user_id = ${userParam}
+       AND ${alias}.id = ANY(child.ancestor_ids)
+  )
+)`;
