@@ -400,9 +400,18 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       [auth.userId],
     );
 
-    const user = await queryOne<{ locale: string | null; timezone: string | null }>(
+    const user = await queryOne<{
+      locale: string | null;
+      timezone: string | null;
+      is_instance_admin: boolean;
+      can_manage_workspaces: boolean;
+    }>(
       deps.pool,
-      `SELECT locale, timezone FROM users WHERE id = $1`,
+      // The rights come with the session, so the interface can hide a section
+      // somebody cannot reach rather than showing it and failing on arrival
+      // (ADR-0027).
+      `SELECT locale, timezone, is_instance_admin, can_manage_workspaces
+         FROM users WHERE id = $1`,
       [auth.userId],
     );
 
@@ -414,6 +423,11 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         isGuest: auth.isGuest,
         locale: user?.locale ?? null,
         timezone: user?.timezone ?? null,
+        isInstanceAdmin: user?.is_instance_admin === true,
+        // Implied by being an instance administrator, exactly as the server
+        // decides it — one answer, in one place.
+        canManageWorkspaces:
+          user?.is_instance_admin === true || user?.can_manage_workspaces === true,
       },
       workspaces,
     });

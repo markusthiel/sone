@@ -53,21 +53,61 @@ interface SettingsProps {
  * missing from the navigation or reachable without appearing in it.
  */
 const SECTIONS = [
-  { id: 'account', label: 'Account', group: 'You' },
-  { id: 'appearance', label: 'Appearance', group: 'You' },
-  { id: 'workspace', label: 'Workspace', group: 'You' },
-  // Under 'You' rather than 'Administration': a theme belongs to the workspace,
-  // and everybody in it should be able to see what it says even when only
-  // owners and admins may change it (ADR-0023).
-  { id: 'groups', label: 'Groups', group: 'You' },
-  { id: 'theme', label: 'Appearance defaults', group: 'You' },
-  { id: 'instance', label: 'Instance', group: 'Administration', admin: true },
-  { id: 'invite', label: 'Invite people', group: 'Administration', admin: true },
-  { id: 'sso', label: 'Single sign-on', group: 'Administration', admin: true },
-  { id: 'accounts', label: 'Accounts', group: 'Administration', admin: true },
-  { id: 'workspaces', label: 'Workspaces', group: 'Administration', admin: true },
-  { id: 'maintenance', label: 'Maintenance', group: 'Administration', admin: true },
-  { id: 'about', label: 'About', group: 'Administration' },
+  // Three groups, and the names say whose settings they are (ADR-0027).
+  //
+  // "You" and "Administration" left it unclear which of two "Invite people"
+  // entries meant what, because the group named who may change a thing and not
+  // what the thing belongs to. These name the subject: yourself, a workspace,
+  // or the instance everybody shares.
+  { id: 'account', label: 'Account', group: 'You', hint: 'Your name, address and password' },
+  { id: 'appearance', label: 'Appearance', group: 'You', hint: 'How SONE looks to you' },
+
+  {
+    id: 'workspaces',
+    label: 'All workspaces',
+    group: 'Workspaces',
+    hint: 'Every workspace here, and who is in them',
+    manager: true,
+  },
+
+  {
+    id: 'instance',
+    label: 'This instance',
+    group: 'Instance',
+    hint: 'Name, sign-up and defaults',
+    admin: true,
+  },
+  {
+    id: 'accounts',
+    label: 'Accounts',
+    group: 'Instance',
+    hint: 'Everybody with an account here',
+    admin: true,
+  },
+  {
+    id: 'invite',
+    label: 'Invite to the instance',
+    group: 'Instance',
+    // Named against the other invitation rather than "Invite people", which was
+    // also the name of inviting somebody to a workspace.
+    hint: 'An account and a workspace of their own — no team',
+    admin: true,
+  },
+  {
+    id: 'sso',
+    label: 'Single sign-on',
+    group: 'Instance',
+    hint: 'Sign in through an identity provider',
+    admin: true,
+  },
+  {
+    id: 'maintenance',
+    label: 'Maintenance',
+    group: 'Instance',
+    hint: 'Storage, jobs and health',
+    admin: true,
+  },
+  { id: 'about', label: 'About', group: 'Instance', hint: 'Version and licence' },
 ] as const;
 
 export function Settings({ section, session, workspaceId }: SettingsProps): ReactElement {
@@ -76,7 +116,15 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
   // Only sections this account can actually open. An administration section
   // shown to someone who cannot use it would fail with an error that looks like
   // a bug rather than like a decision.
-  const available = SECTIONS.filter((entry) => !('admin' in entry) || isAdmin === true);
+  // Two rights now, not one (ADR-0027). A section marked `manager` is for
+  // whoever may administer workspaces, which an instance administrator is
+  // implicitly and somebody granted the right is without being one.
+  const canManageWorkspaces = isAdmin === true || session.user.canManageWorkspaces;
+  const available = SECTIONS.filter((entry) => {
+    if ('admin' in entry) return isAdmin === true;
+    if ('manager' in entry) return canManageWorkspaces;
+    return true;
+  });
   const current = available.some((entry) => entry.id === section)
     ? section
     : available[0]!.id;
@@ -98,7 +146,15 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
                   href={paths.settings(entry.id)}
                   {...(entry.id === current ? { 'aria-current': 'page' as const } : {})}
                 >
-                  {entry.label}
+                  <span className="settings-nav-label">{entry.label}</span>
+                  {/* One line saying what is in there.
+                    *
+                    * A list of nouns makes somebody open three sections to find
+                    * one thing, and this area is going to keep growing —
+                    * "Invite to the instance" and "Invite somebody here" are
+                    * distinguishable by name only once you already know the
+                    * difference. */}
+                  <span className="settings-nav-hint">{entry.hint}</span>
                 </a>
               ))}
           </div>
@@ -110,7 +166,7 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
 
         {current === 'account' && <Account session={session} workspaceId={workspaceId} />}
         {current === 'appearance' && <AppearanceSettings />}
-        {current === 'workspace' && (
+        {current === 'workspaces-legacy' && (
           <>
             <WorkspaceSettings session={session} workspaceId={workspaceId} />
             {/* Inviting is a workspace matter, so it sits with the workspace's
