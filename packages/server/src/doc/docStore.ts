@@ -12,6 +12,7 @@ import type { Pool, PoolClient } from 'pg';
 import * as Y from 'yjs';
 
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
+import { USERS_KEY, liveClientIds } from '@sone/core';
 
 /** Fold updates into a snapshot once this many have accumulated. */
 export const COMPACT_THRESHOLD = 200;
@@ -219,6 +220,14 @@ export async function applyToDocument(
     // else happened to rebuild it.
     const beforeSnapshot = Y.encodeSnapshot(Y.snapshot(doc));
     mutate(doc);
+
+    // Pruned in the same transaction as the change that made it possible.
+    //
+    // A separate pass would be a second write and a second chance for the
+    // document to be modified in between; here, whatever the mutation removed
+    // is accounted for before anybody sees the result (ADR-0022).
+    pruneAttribution(doc);
+
     const delta = Y.encodeStateAsUpdate(doc, before);
 
     // An update with no changes still encodes to a few bytes, so emptiness is
@@ -241,4 +250,52 @@ function equalUint8(a: Uint8Array, b: Uint8Array): boolean {
     if (a[i] !== b[i]) return false;
   }
   return true;
+}
+
+/**
+ * Drop attribution for people whose writing is no longer in the document.
+ *
+ * ADR-0022's second half, and the reason the first half was written the way it
+ * was: attribution is derived and prunable, so a mapping entry may go once
+ * nothing of that person's text is left. Doing so makes content unattributed
+ * rather than touching content — safe in a way the tombstones underneath are
+ * not, because a CRDT must keep deletions for ever and an annotation costs a
+ * label.
+ *
+ * The point is not tidiness. It is that deleted text should not keep somebody's
+ * name in the record: writing something and removing it should leave no trace
+ * of having written it, which is what somebody deleting a sentence assumes has
+ * happened.
+ *
+ * Server-side only, and not by preference. A live `Y.PermanentUserData`
+ * observes the mapping map and throws when an entry is removed from under it —
+ * so this is safe here, where a document is loaded from storage and written
+ * back, and would not be in a client that still has the observer attached.
+ */
+export function pruneAttribution(doc: Y.Doc): number {
+  const users = doc.getMap(USERS_KEY);
+  if (users.size === 0) return 0;
+
+  const live = liveClientIds(doc);
+  let removed = 0;
+
+  doc.transact(() => {
+    for (const [userId, value] of [...users.entries()]) {
+      const ids = value instanceof Y.Map ? value.get('ids') : null;
+      const list = ids instanceof Y.Array ? (ids.toArray() as unknown[]) : [];
+
+      // Kept if any of their client ids still holds live content. One is
+      // enough: a person who wrote two sentences and deleted one is still an
+      // author of the other.
+      const stillHere = list.some(
+        (entry) => typeof entry === 'number' && live.has(entry),
+      );
+      if (stillHere) continue;
+
+      users.delete(userId);
+      removed += 1;
+    }
+  });
+
+  return removed;
 }

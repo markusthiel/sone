@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Attribution is pruned.** When nothing of somebody's writing is left in a page,
+their entry goes with it — deleted text should not keep a name in the record
+([ADR-0022](docs/adr/0022-attribution.md)).
+
 **SONE opens where you left off.** Each workspace remembers the page you were
 last on, and you can choose a fixed one instead under Settings → Where you land.
 It applies on sign-in, on a workspace switch, and whenever SONE is opened without
