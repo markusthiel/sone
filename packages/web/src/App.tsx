@@ -337,6 +337,7 @@ function Workspace({
 
         {route.kind === 'page' && !isFolder && handle && (
           <PageView
+            connectionState={connectionState}
             handle={handle}
             pageId={routePageId!}
             // Keeps the sidebar in step with the heading as it is typed. The
@@ -622,7 +623,7 @@ function ShareSession({
           <PageStatus handle={handle} connectionState={state} />
         </div>
         {handle && effectivePageId ? (
-          <PageView handle={handle} pageId={effectivePageId} />
+          <PageView handle={handle} pageId={effectivePageId} connectionState={state} />
         ) : (
           <div className="page-body">
             <p className="muted">Opening…</p>

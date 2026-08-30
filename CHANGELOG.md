@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: switching workspaces still reported no access.** The connection
+reconnects on a switch, and a page opened against the old one is refused —
+correctly, about a moment that had already passed. A refusal is only shown once
+the connection has settled.
+
 **A workspace can be deleted** from the list, by typing its name. It stops
 appearing to everybody in it and nothing is removed — somebody who manages
 workspaces can put it back. Purging what is marked is not automatic yet.
