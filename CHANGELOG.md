@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the ⋮⋮ handle covered the menu it had just opened**, on a tablet — and
+swallowed the tap meant for the first entry.
+
 **Attribution is pruned.** When nothing of somebody's writing is left in a page,
 their entry goes with it — deleted text should not keep a name in the record
 ([ADR-0022](docs/adr/0022-attribution.md)).
