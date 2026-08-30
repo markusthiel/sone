@@ -340,19 +340,45 @@ function Account({
 
       {error && <p className="error">{messageFor(error)}</p>}
 
-      <div className="field">
-        <label htmlFor="account-name">Name</label>
-        <input
-          id="account-name"
-          value={name}
-          onChange={(event) => {
-            setSaved(false);
-            setName(event.target.value);
-          }}
-        />
-        <p className="muted">
-          What other people see beside anything you write here.
-        </p>
+      <div className="settings-card">
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Name</b>
+            <span>What other people see beside anything you write here.</span>
+          </span>
+          <input
+            id="account-name"
+            aria-label="Name"
+            value={name}
+            onChange={(event) => {
+              setSaved(false);
+              setName(event.target.value);
+            }}
+          />
+        </div>
+
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Email</b>
+            <span>
+              Identifies your account when you sign in. Changing it needs a way
+              to prove the new address is yours, which this instance cannot do
+              yet.
+            </span>
+          </span>
+          <span className="muted">{session.user.email ?? '—'}</span>
+        </div>
+
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Workspace</b>
+            <span>Where you are right now.</span>
+          </span>
+          <span className="muted">
+            {workspace?.name ?? '—'}
+            {workspace ? ` · ${workspace.role}` : ''}
+          </span>
+        </div>
       </div>
 
       <div className="settings-actions">
@@ -367,19 +393,6 @@ function Account({
         {saved && <span className="muted">Saved.</span>}
       </div>
 
-      <h3 className="settings-heading">Email</h3>
-      <p className="muted">
-        {session.user.email ?? '—'} — changing it is not possible yet. It
-        identifies your account when signing in, and moving it needs a way to
-        prove the new address is yours.
-      </p>
-
-      <h3 className="settings-heading">Workspace</h3>
-      <p className="muted">
-        {workspace?.name ?? '—'}
-        {workspace ? ` — you are ${workspace.role} here` : ''}
-      </p>
-
       {/* Changing a password asks for the current one.
         *
         * Not a formality: a session left open on a shared machine is the
@@ -389,36 +402,48 @@ function Account({
 
       {passwordError && <p className="error">{messageFor(passwordError)}</p>}
 
-      <div className="field">
-        <label htmlFor="account-current">Current password</label>
-        <input
-          id="account-current"
-          type="password"
-          autoComplete="current-password"
-          value={current}
-          onChange={(event) => {
-            setPasswordDone(false);
-            setCurrent(event.target.value);
-          }}
-        />
-      </div>
+      <div className="settings-card">
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Current password</b>
+            <span>
+              Asked for because a session left open on a shared machine is the
+              ordinary way an account is taken.
+            </span>
+          </span>
+          <input
+            id="account-current"
+            aria-label="Current password"
+            type="password"
+            autoComplete="current-password"
+            value={current}
+            onChange={(event) => {
+              setPasswordDone(false);
+              setCurrent(event.target.value);
+            }}
+          />
+        </div>
 
-      <div className="field">
-        <label htmlFor="account-next">New password</label>
-        <input
-          id="account-next"
-          type="password"
-          autoComplete="new-password"
-          value={next}
-          onChange={(event) => {
-            setPasswordDone(false);
-            setNext(event.target.value);
-          }}
-        />
-        <p className="muted">
-          At least twelve characters. Length is what makes a password hard to
-          guess; a short one with symbols in it is not.
-        </p>
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>New password</b>
+            <span>
+              At least twelve characters. Length is what makes a password hard
+              to guess; a short one with symbols in it is not.
+            </span>
+          </span>
+          <input
+            id="account-next"
+            aria-label="New password"
+            type="password"
+            autoComplete="new-password"
+            value={next}
+            onChange={(event) => {
+              setPasswordDone(false);
+              setNext(event.target.value);
+            }}
+          />
+        </div>
       </div>
 
       <div className="settings-actions">

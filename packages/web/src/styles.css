@@ -1172,8 +1172,74 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 
 /* --- settings --- */
 
-.settings-section { margin-block-start: 28px; }
-.settings-section h2 { font-size: 1.1rem; margin-block-end: 8px; }
+/* ---------------------------------------------------------------------------
+ * Structure in a settings page.
+ *
+ * Everything used to run together: a heading, a sentence, a field, another
+ * sentence, all at the same distance from each other, so nothing said where one
+ * thing ended and the next began. Reading it meant working that out line by
+ * line.
+ *
+ * Three devices, and no more. A section heading opens a topic. A card groups
+ * the controls that belong to it. Space between cards is what separates topics;
+ * a rule inside a card is what separates rows.
+ * ------------------------------------------------------------------------- */
+
+.settings-section { margin-block-start: var(--sone-space-7); }
+
+/* The page's own name, once, at the top. */
+.settings-section h2 {
+  font-size: 1.6rem;
+  font-weight: var(--sone-heading-weight);
+  letter-spacing: var(--sone-heading-tracking);
+  margin-block-end: var(--sone-space-6);
+}
+
+/* A group of controls that belong together.
+ *
+ * Bordered rather than filled: a filled panel on a page of filled panels is a
+ * page of grey rectangles, and the border is enough to say "these three things
+ * are one thing".
+ */
+.settings-card {
+  margin-block: var(--sone-space-4) var(--sone-space-6);
+  padding: var(--sone-space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-lg);
+  background: var(--surface-raised);
+}
+.settings-card > * + * { margin-block-start: var(--sone-space-5); }
+
+/* A row inside a card: what it is on the left, the control on the right.
+ *
+ * The explanation belongs under the name and not beside the control, because a
+ * sentence next to a switch is a sentence people read as part of the switch. */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-6);
+  padding-block: var(--sone-space-4);
+  border-block-end: 1px solid var(--border-subtle);
+}
+.settings-row:first-child { padding-block-start: 0; }
+.settings-row:last-child { padding-block-end: 0; border-block-end: 0; }
+.settings-row .settings-row-label { flex: 1 1 auto; min-inline-size: 0; }
+.settings-row .settings-row-label b { display: block; font-weight: 550; }
+.settings-row .settings-row-label span {
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.settings-row > :not(.settings-row-label) { flex: 0 0 auto; }
+
+/* A note under a card rather than inside it: something true about the topic
+   that is not a control. */
+.settings-note {
+  margin-block: calc(var(--sone-space-5) * -1) var(--sone-space-6);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+
+
 
 .settings-list {
   display: grid;
@@ -3811,11 +3877,18 @@ body {
   font: inherit;
   color: inherit;
 }
+/* The buttons for a card sit under it, not in it: an action is what you do
+   after reading, and putting it in the same box as the fields makes it one more
+   row to read.
+   *
+   * One rule. There were briefly two, which is how the sidebar footer stacked
+   * last week — a second rule that sets some of the same properties leaves the
+   * rest of the first one standing. */
 .settings-actions {
   display: flex;
   align-items: center;
-  gap: var(--sone-space-3);
-  margin-block-start: var(--sone-space-4);
+  gap: var(--sone-space-5);
+  margin-block: var(--sone-space-4) var(--sone-space-6);
 }
 /* On a narrow screen the table scrolls rather than squeezing five controls
    into a phone's width, where none of them would be usable. */
