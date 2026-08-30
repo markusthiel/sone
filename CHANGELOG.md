@@ -15,8 +15,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 **Page permissions are enforced in the tree, in search and in favourites.** A restricted page and everything
 under it is absent for people who were not granted it; a page kept only as the
-path to a granted child appears without its title. Setting them is not in the
-interface yet
+path to a granted child appears without its title. They can be set through the API;
+the interface for it comes next
 ([ADR-0026](docs/adr/0026-page-permissions.md)).
 
 **An invitation followed while signed in now asks whether to join.** It used to
