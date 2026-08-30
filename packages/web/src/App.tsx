@@ -74,7 +74,10 @@ export function App(): ReactElement {
       <AcceptInvitation
         token={route.invitationToken}
         navigate={navigate}
-        onJoined={() => void reload()}
+        onJoined={(workspaceId) => {
+          if (workspaceId) selectWorkspace(workspaceId);
+          void reload();
+        }}
       />
     );
   }
@@ -86,13 +89,19 @@ export function App(): ReactElement {
     if (route.kind === 'signup') {
       return (
         <SignupScreen
-          onDone={() => {
+          onDone={(workspaceId) => {
             // Away from the invitation link, then reload.
             //
             // Registering *uses* the invitation, so leaving the token in the
             // address bar meant the accept screen below rendered next, looked
             // the token up, found it spent, and said something went wrong —
             // after everything had gone right.
+            //
+            // And land where the invitation pointed. Everybody now has a
+            // workspace of their own (ADR-0025), so without this somebody who
+            // accepted an invitation arrives in their own empty one — a member
+            // of the team they joined, looking at nothing to do with it.
+            if (workspaceId) selectWorkspace(workspaceId);
             navigate(paths.home());
             void reload();
           }}

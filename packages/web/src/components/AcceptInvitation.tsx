@@ -16,7 +16,8 @@ import { messageFor } from './Auth.tsx';
 interface Props {
   token: string;
   navigate: (path: string) => void;
-  onJoined: () => void;
+  /** Given the workspace joined, so the caller can land there. */
+  onJoined: (workspaceId: string | null) => void;
 }
 
 export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactElement {
@@ -61,8 +62,10 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
       .acceptInvitation(token)
       .then((result) => {
         // Straight to the workspace, because that is what somebody just
-        // accepted and looking at it is how they know it worked.
-        onJoined();
+        // accepted and looking at it is how they know it worked. Without it
+        // they arrive in their own — a member of the team they joined, looking
+        // at nothing to do with it.
+        onJoined(result.workspaceId);
         // Home, which opens whichever workspace the reload settles on. There
         // is no path to a workspace by id — workspaces are chosen in the
         // switcher, not addressed — and inventing one here would be a route

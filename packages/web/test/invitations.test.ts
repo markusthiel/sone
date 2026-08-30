@@ -81,3 +81,21 @@ test('a spent invitation says so rather than failing', () => {
   assert.match(accept, /setSpent\(true\)/);
   assert.match(accept, /already been used/);
 });
+
+test('signing up through an invitation lands in the invited workspace', () => {
+  // Everybody now has a workspace of their own, so without this somebody who
+  // accepted an invitation arrives in their own empty one — a member of the
+  // team they joined, looking at nothing to do with it.
+  assert.match(app, /if \(workspaceId\) selectWorkspace\(workspaceId\)/);
+
+  const auth = codeOf(new URL('../src/components/Auth.tsx', import.meta.url));
+  assert.match(auth, /onDone\(created\.workspaceId\)/);
+});
+
+test('accepting with an account already lands there too', () => {
+  // The other route to the same place, and it had the same fault: it navigated
+  // home, which is now somebody's own workspace rather than the one they just
+  // joined.
+  assert.match(accept, /onJoined\(result\.workspaceId\)/);
+  assert.match(app, /onJoined=\{\(workspaceId\) => \{/);
+});
