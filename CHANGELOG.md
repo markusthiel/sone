@@ -15,8 +15,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 **Groups.** A group is a list of people, granted access to a page exactly as a
 person is. Membership is the thing maintained — leaving a group takes its access
-with it. Groups can be created, filled and granted access
-through the API; the interface for managing them comes next.
+with it. Manage them under Settings → Groups, and give
+one access to a page in the sharing dialog.
 
 **Page permissions are enforced in the tree, in search and in favourites.** A restricted page and everything
 under it is absent for people who were not granted it; a page kept only as the

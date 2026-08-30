@@ -19,6 +19,13 @@ interface Grant {
   inheritedFrom: string | null;
 }
 
+interface GroupGrant {
+  groupId: string;
+  name: string;
+  access: string;
+  inheritedFrom: string | null;
+}
+
 const LEVELS: Array<{ id: string; label: string }> = [
   { id: 'viewer', label: 'Can view' },
   { id: 'editor', label: 'Can edit' },
@@ -35,6 +42,8 @@ export function PagePermissions({
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [restricted, setRestricted] = useState(false);
   const [grants, setGrants] = useState<Grant[]>([]);
+  const [groupGrants, setGroupGrants] = useState<GroupGrant[]>([]);
+  const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -44,6 +53,7 @@ export function PagePermissions({
       .then((result) => {
         setRestricted(result.restricted);
         setGrants(result.grants);
+        setGroupGrants(result.groups);
         setLoaded(true);
       })
       .catch((err: unknown) => {
@@ -70,6 +80,14 @@ export function PagePermissions({
         // Without the list there is nobody to add, and the grants already set
         // are still shown and still removable.
       });
+
+    // Groups are listed only for people who administer the workspace, so this
+    // failing is ordinary rather than exceptional: somebody managing one page
+    // sees the group grants that exist and cannot add new ones.
+    void api
+      .groups(workspaceId)
+      .then((result) => setGroups(result.groups))
+      .catch(() => {});
   }, [workspaceId]);
 
   const act = (work: Promise<unknown>): void => {
@@ -82,6 +100,9 @@ export function PagePermissions({
   // People in the workspace who have no grant here yet.
   const granted = new Set(grants.map((g) => g.userId));
   const addable = members.filter((m) => !granted.has(m.userId));
+
+  const grantedGroups = new Set(groupGrants.map((g) => g.groupId));
+  const addableGroups = groups.filter((g) => !grantedGroups.has(g.id));
 
   if (!loaded) return <p className="muted">Checking…</p>;
 
@@ -145,6 +166,79 @@ export function PagePermissions({
           </li>
         ))}
       </ul>
+
+      {/* Groups, above people.
+        *
+        * Granting a group is the thing that scales, and listing it second would
+        * make the page-by-page, person-by-person habit the obvious one — which
+        * is exactly what groups exist to replace. */}
+      {(groupGrants.length > 0 || groups.length > 0) && (
+        <>
+          <h3 className="settings-heading">Groups</h3>
+          <ul className="permission-list">
+            {groupGrants.map((grant) => (
+              <li key={grant.groupId}>
+                <span>{grant.name}</span>
+                {grant.inheritedFrom ? (
+                  <span className="muted">
+                    {LEVELS.find((l) => l.id === grant.access)?.label ?? grant.access} · from{' '}
+                    {grant.inheritedFrom}
+                  </span>
+                ) : (
+                  <>
+                    <select
+                      value={grant.access}
+                      aria-label={`Access for ${grant.name}`}
+                      onChange={(event) =>
+                        act(
+                          api.grantPageAccessToGroup(pageId, grant.groupId, event.target.value),
+                        )
+                      }
+                    >
+                      {LEVELS.map((level) => (
+                        <option key={level.id} value={level.id}>
+                          {level.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => act(api.revokePageAccessFromGroup(pageId, grant.groupId))}
+                    >
+                      Remove
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          {addableGroups.length > 0 && (
+            <div className="field">
+              <label htmlFor="grant-group">Add a group</label>
+              <select
+                id="grant-group"
+                value=""
+                onChange={(event) => {
+                  if (event.target.value) {
+                    act(api.grantPageAccessToGroup(pageId, event.target.value, 'viewer'));
+                  }
+                }}
+              >
+                <option value="">Choose a group…</option>
+                {addableGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <h3 className="settings-heading">People</h3>
+        </>
+      )}
 
       {addable.length > 0 && (
         <div className="field">
