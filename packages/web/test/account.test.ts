@@ -96,3 +96,17 @@ test('a narrow screen stacks the row instead of squeezing it', () => {
   // two lines while the field has nowhere to go.
   assert.match(css, /@media \(max-width: 620px\) \{\s*\n\s*\.settings-row \{[^}]*flex-direction: column/);
 });
+
+test('the older panels share the same rhythm', () => {
+  // Most panels still use `.field` rather than cards. Lifting that shape
+  // reaches all of them at once; converting each is better and slower, and this
+  // is what the pages look like until it is done.
+  assert.match(css, /\.field \+ \.field \{ margin-block-start: var\(--sone-space-6\)/);
+  assert.match(css, /\.field label \{[^}]*font-weight: 550/);
+});
+
+test('a field does not run the width of the page', () => {
+  // A text input 60rem wide invites an answer nobody wants to type and is
+  // harder to read back than one of a sane measure.
+  assert.match(css, /\.field \{[^}]*max-inline-size: 32rem/);
+});
