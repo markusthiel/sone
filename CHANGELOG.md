@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Invitations have an API at all.** They existed in the server's domain layer
+since the authentication work and nothing ever exposed them, so in practice the
+only way into a workspace was to be there when it was made.
+
 **Invitations are two things now.** An invitation to the instance creates an
 account and nothing else — the person lands in their own workspace. An invitation
 to a workspace works for people who already have an account, which previously had
