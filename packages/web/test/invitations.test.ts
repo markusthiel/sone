@@ -99,3 +99,25 @@ test('accepting with an account already lands there too', () => {
   assert.match(accept, /onJoined\(result\.workspaceId\)/);
   assert.match(app, /onJoined=\{\(workspaceId\) => \{/);
 });
+
+// --- inviting to a workspace ------------------------------------------------
+
+const wsInvite = codeOf(new URL('../src/components/WorkspaceInvite.tsx', import.meta.url));
+
+test('a workspace invitation names a role', () => {
+  // Unlike an instance invitation, which places nobody: this one decides what
+  // somebody can do the moment they arrive.
+  assert.match(wsInvite, /inviteToWorkspace\(workspaceId, \{ email: email\.trim\(\) \|\| null, role \}\)/);
+});
+
+test('it says it works with or without an account', () => {
+  // The question somebody actually has when they already invited a person to
+  // the instance and now wants them in a team.
+  assert.match(wsInvite, /whether or not they already have an account/);
+});
+
+test('an address-bound invitation says only that person can accept it', () => {
+  // The server enforces it; saying so is what stops somebody forwarding the
+  // link and wondering why it failed.
+  assert.match(wsInvite, /only they can accept it/);
+});
