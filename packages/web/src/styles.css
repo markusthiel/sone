@@ -953,6 +953,22 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .block-gutter {
   position: fixed;
   z-index: 30;
+}
+
+/* While its own menu is open, the gutter gets out of the way.
+ *
+ * The menu sits above it by z-index already, and on a tablet the handle was
+ * still drawn over the panel — a control floating on top of the thing it
+ * opened, and one that swallows the tap meant for the first entry.
+ *
+ * Lowered rather than hidden: it stays where it is, so the menu keeps pointing
+ * at something and nothing shifts as it opens.
+ */
+.block-gutter:has(.block-handle[aria-expanded='true']) {
+  z-index: 1;
+}
+
+.block-gutter {
   display: flex;
   align-items: center;
   justify-content: flex-end;

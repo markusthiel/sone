@@ -438,3 +438,10 @@ test('the colour swatches land in whole rows', () => {
   // enough to be an awkward target, and this menu is a sidebar's width.
   assert.match(css, /\.block-menu-swatches[^}]*grid-template-columns: repeat\(5/);
 });
+
+test('the gutter gets out of the way of its own menu', () => {
+  // The menu sits above it by z-index already, and on a tablet the handle was
+  // still drawn over the panel — a control floating on top of the thing it
+  // opened, and one that swallows the tap meant for the first entry.
+  assert.match(css, /\.block-gutter:has\(\.block-handle\[aria-expanded='true'\]\)[^}]*z-index: 1/);
+});
