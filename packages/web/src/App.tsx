@@ -31,6 +31,7 @@ import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
 import { api, type PageNode } from './api/client.ts';
 import { paths } from './routes/paths.ts';
+import { AcceptInvitation } from './components/AcceptInvitation.tsx';
 
 export function App(): ReactElement {
   const { route, navigate } = useRoute();
@@ -61,6 +62,21 @@ export function App(): ReactElement {
     // Setup outranks the requested route: nothing else can work yet, and
     // redirecting would lose the fact that this is a fresh instance.
     return <SetupScreen onDone={() => void reload()} navigate={navigate} />;
+  }
+
+  // An invitation followed by somebody who is already signed in.
+  //
+  // The sign-up route below only renders for anonymous visitors, so this used
+  // to do nothing visible: the person landed in their own workspace with no
+  // sign the link had meant anything, and the invitation was not consumed.
+  if (state.status === 'authenticated' && route.kind === 'signup' && route.invitationToken) {
+    return (
+      <AcceptInvitation
+        token={route.invitationToken}
+        navigate={navigate}
+        onJoined={() => void reload()}
+      />
+    );
   }
 
   if (state.status === 'anonymous') {

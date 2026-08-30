@@ -34,3 +34,35 @@ test('the token is shown once, and says so', () => {
   // after somebody has closed the panel would be too late to be useful.
   assert.match(panel, /not stored anywhere it can be read again/);
 });
+
+// --- accepting with an account already --------------------------------------
+
+const accept = codeOf(new URL('../src/components/AcceptInvitation.tsx', import.meta.url));
+const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+
+test('a signed-in visitor following an invitation is not ignored', () => {
+  // The sign-up route only renders for anonymous visitors, so this used to do
+  // nothing visible: the person landed in their own workspace with no sign the
+  // link had meant anything, and the invitation was not consumed.
+  assert.match(app, /status === 'authenticated' && route\.kind === 'signup' && route\.invitationToken/);
+});
+
+test('joining says what it will and will not change', () => {
+  // Somebody being invited to a team reasonably wonders whether their own
+  // workspace is about to be replaced by it.
+  assert.match(accept, /Your own workspace stays where it is/);
+});
+
+test('an instance invitation somebody already satisfied says so', () => {
+  // Nothing is wrong — it simply happened already, and refusing would read as
+  // a broken link.
+  assert.match(accept, /instanceOnly &&/);
+  assert.match(accept, /nothing to add/);
+});
+
+test('declining is navigating away, not a state', () => {
+  // An invitation nobody accepts expires on its own. A "declined" state would
+  // be a thing to store, to show, and to explain.
+  assert.match(accept, /Not now/);
+  assert.doesNotMatch(accept, /decline/i);
+});
