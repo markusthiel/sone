@@ -1312,7 +1312,16 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 
 .block-menu {
   position: fixed;
-  z-index: 41;
+  /* Above everything, including its own gutter.
+   *
+   * Lowering the gutter was the first attempt and did not hold — reported again
+   * from the same device, with the menu still behind. Rather than keep guessing
+   * which rule lifts it, the menu is raised past the whole range: it is the
+   * frontmost thing on screen while it is open, which is also simply true.
+   *
+   * 60 rather than 42, so the next panel added at 43 does not quietly land on
+   * top of an open menu. */
+  z-index: 60;
   inline-size: 220px;
   max-block-size: 70vh;
   overflow-y: auto;
@@ -4147,3 +4156,52 @@ body {
   background: color-mix(in srgb, var(--sone-danger, #dc2626) 10%, transparent);
 }
 .btn.danger:disabled { opacity: 0.45; }
+
+/* The row of tools at the foot of the sidebar.
+ *
+ * Three lines of text there read as three more places to go, competing with the
+ * pages above them — which are the reason somebody is looking at this column.
+ * As a row of marks they are tools: recognisable, out of the way, one line
+ * instead of three.
+ */
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  padding: var(--sone-space-4) var(--sone-space-3);
+  border-block-start: 1px solid var(--border-subtle);
+}
+.sidebar-tool {
+  display: grid;
+  place-items: center;
+  inline-size: var(--sone-control-lg);
+  block-size: var(--sone-control-lg);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text-muted);
+  transition: background 120ms ease, color 120ms ease;
+}
+.sidebar-tool:hover { background: var(--surface-hover); color: var(--sone-text); }
+.sidebar-tool svg { inline-size: 16px; block-size: 16px; }
+
+/* The person, and the only one of the four that is about them rather than
+   about the instance — so it carries their initial rather than a symbol. */
+.sidebar-avatar {
+  display: grid;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  background: var(--accent-quiet);
+  color: var(--accent);
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+}
+
+/* Pushed to the end: it is a fact about the build, not a tool. */
+.sidebar-version {
+  margin-inline-start: auto;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}

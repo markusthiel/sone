@@ -294,6 +294,7 @@ function Workspace({
     >
       <Sidebar
         canManageWorkspaces={session.user.canManageWorkspaces}
+        displayName={session.user.displayName}
         workspaceId={workspaceId}
         workspaceName={workspaceName}
         onSwitchWorkspace={onSwitchWorkspace}

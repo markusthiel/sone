@@ -279,3 +279,28 @@ export type EntryIconName = keyof typeof ENTRY_ICONS;
 
 export const isEntryIconName = (value: unknown): value is EntryIconName =>
   typeof value === 'string' && value in ENTRY_ICONS;
+
+/**
+ * Settings and signing out, for the row of tools at the foot of the sidebar.
+ *
+ * Drawn here rather than pulled from the icon set the entries use: those are
+ * chosen per entry and can be anything, while these three are fixed parts of the
+ * interface and should not change when somebody picks a new folder icon.
+ */
+export function SettingsIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+      <circle cx="8" cy="8" r="2.2" />
+      <path d="M8 1.4v1.8M8 12.8v1.8M14.6 8h-1.8M3.2 8H1.4M12.7 3.3l-1.3 1.3M4.6 11.4l-1.3 1.3M12.7 12.7l-1.3-1.3M4.6 4.6L3.3 3.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function SignOutIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+      <path d="M6.2 2.5H3.3A1.3 1.3 0 0 0 2 3.8v8.4a1.3 1.3 0 0 0 1.3 1.3h2.9" strokeLinecap="round" />
+      <path d="M10.6 5.2 13.4 8l-2.8 2.8M13.4 8H6.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
