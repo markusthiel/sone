@@ -627,4 +627,93 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
 
     await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
   });
+
+  // --- protected containers (ADR-0026) --------------------------------------
+
+  test('a container is a document of its own, not a block', async () => {
+    // A permission on part of a document cannot be enforced: a client receives
+    // the whole document to merge changes, so a block the interface declines to
+    // draw is still in the browser's memory. The only real protection is not
+    // sending it.
+    const containerId = randomUUID();
+    await db.query(
+      `INSERT INTO pages
+         (id, workspace_id, parent_page_id, title, idx, kind, ancestor_ids, restricted)
+       VALUES ($1,$2,$3,'Protected','0','container',$4,true)`,
+      [containerId, workspace, child, [root, child]],
+    );
+
+    // Sync asks this, and it is the same question a page is protected by.
+    const location = await loadPageLocation(db, containerId);
+    assert.equal(location?.restricted, true);
+    assert.equal(
+      effectiveRole(
+        {
+          principal: { kind: 'user', userId: member, displayName: 'Member' },
+          workspaceId: workspace,
+          workspaceRole: 'member',
+          grants: [],
+        },
+        location!,
+      ),
+      null,
+      'a member of the workspace cannot open it',
+    );
+
+    await db.query(`DELETE FROM pages WHERE id = $1`, [containerId]);
+  });
+
+  test('a container does not appear in the tree', async () => {
+    // It is a document, not a place. A page with three protected sections would
+    // otherwise gain three children in the sidebar.
+    const containerId = randomUUID();
+    await db.query(
+      `INSERT INTO pages
+         (id, workspace_id, parent_page_id, title, idx, kind, ancestor_ids, restricted)
+       VALUES ($1,$2,$3,'Protected','0','container',$4,true)`,
+      [containerId, workspace, child, [root, child]],
+    );
+
+    const listed = await db.query<{ id: string }>(
+      `SELECT id FROM pages
+        WHERE workspace_id = $1 AND kind NOT IN ('row','container')`,
+      [workspace],
+    );
+    assert.ok(!listed.rows.some((r) => r.id === containerId));
+
+    // And it is not a violation of the tree's shape either, the way a page
+    // inside a page would be.
+    const violations = await db.query<{ child_id: string }>(
+      `SELECT child_id FROM pages_inside_pages WHERE workspace_id = $1`,
+      [workspace],
+    );
+    assert.ok(!violations.rows.some((r) => r.child_id === containerId));
+
+    await db.query(`DELETE FROM pages WHERE id = $1`, [containerId]);
+  });
+
+  test('a container inherits nothing from the page that holds it', async () => {
+    // The point of it. A section restricted inside a page everybody can read
+    // has to stay closed, so the page's own openness must not reach it.
+    const containerId = randomUUID();
+    await db.query(
+      `INSERT INTO pages
+         (id, workspace_id, parent_page_id, title, idx, kind, ancestor_ids, restricted)
+       VALUES ($1,$2,$3,'Protected','0','container',$4,true)`,
+      [containerId, workspace, child, [root, child]],
+    );
+
+    assert.equal(
+      (await resolvePageAccess(db, { pageId: child, userId: member })).access,
+      'editor',
+      'the page is open',
+    );
+    assert.equal(
+      (await resolvePageAccess(db, { pageId: containerId, userId: member })).access,
+      null,
+      'and the section inside it is not',
+    );
+
+    await db.query(`DELETE FROM pages WHERE id = $1`, [containerId]);
+  });
 });

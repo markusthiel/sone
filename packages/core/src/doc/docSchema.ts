@@ -112,7 +112,7 @@ export const BLOCK_COLORS = [
 ] as const;
 export type BlockColor = (typeof BLOCK_COLORS)[number];
 
-export const ENTRY_KINDS = ['page', 'folder', 'row'] as const;
+export const ENTRY_KINDS = ['page', 'folder', 'row', 'container'] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
 export const PAGE_KEYS = {
