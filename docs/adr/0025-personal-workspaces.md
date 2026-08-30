@@ -97,6 +97,20 @@ The count of workspaces per instance now grows with people rather than with
 teams. The administration overview should count them separately, or a hundred
 personal workspaces will read as a hundred teams.
 
+## Revisited
+
+The condition this ADR set for reconsidering itself — page-level permissions —
+arrived immediately, in [ADR-0026](0026-page-permissions.md).
+
+Part of the case for personal workspaces here was that permissions live at the
+workspace boundary, so one boundary meant one set of rules. With rules on pages
+that is no longer true, and the argument does not survive.
+
+The decision does, on a better footing: a notes application owes somebody a
+place of their own, and that is worth a boundary regardless of where permissions
+are enforced. The cost recorded above — moving a page between one's own
+workspace and a shared one crosses a boundary — is unchanged and still accepted.
+
 ## Alternatives considered
 
 **A private space inside a shared workspace**, as Outline and Docmost do.
