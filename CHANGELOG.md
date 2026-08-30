@@ -14,8 +14,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 ## Unreleased
 
 **Single sign-on.** Set `SONE_OIDC_CLIENT_SECRET` and configure the issuer in the
-administration area; the sign-in page then offers a button beside the password
-form. One OIDC client rather than an integration per provider, so Keycloak,
+administration area under Settings → Single sign-on; the sign-in page then offers
+a button beside the password form. One OIDC client rather than an integration per provider, so Keycloak,
 Authentik, Zitadel, Entra, Google and the rest are a configuration
 ([ADR-0024](docs/adr/0024-oidc.md)). Password sign-in stays. One OIDC client rather than an integration per
 provider, so Keycloak, Authentik, Zitadel, Entra, Google and the rest are a

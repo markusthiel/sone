@@ -3711,3 +3711,22 @@ body {
   color: var(--sone-text);
 }
 .btn.sso:hover { background: var(--sone-bg-hover); }
+
+/* Something an administrator has to act on before a setting can work.
+ *
+ * Not an error — nothing has failed — and not muted, because it is the reason
+ * the rest of the form will not do anything.
+ */
+.warning {
+  padding: var(--sone-space-3) var(--sone-space-4);
+  border: 1px solid color-mix(in srgb, var(--sone-warning, #d97706) 40%, transparent);
+  border-radius: var(--sone-radius);
+  background: color-mix(in srgb, var(--sone-warning, #d97706) 10%, transparent);
+  font-size: var(--sone-text-sm);
+}
+.warning code {
+  padding-inline: 4px;
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg-subtle);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
