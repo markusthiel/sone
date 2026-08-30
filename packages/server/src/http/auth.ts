@@ -66,7 +66,17 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out;
 }
 
-function setSessionCookie(ctx: RequestContext, token: string, secure: boolean): void {
+/**
+ * Exported so single sign-on can end in the same session as a password does.
+ *
+ * A second copy would be a second set of cookie attributes to keep in step, and
+ * the one that drifted would be the one nobody was looking at.
+ */
+export function setSessionCookie(
+  ctx: RequestContext,
+  token: string,
+  secure: boolean,
+): void {
   const attrs = [
     `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
     'Path=/',

@@ -350,6 +350,20 @@ worth knowing:
 
 Links created before migration 0011 have no stored token and cannot be copied.
 
+## Single sign-on
+
+Set `SONE_OIDC_CLIENT_SECRET` to the client secret from your provider. Everything
+else — the issuer URL, the client id, the button label, whether people unknown to
+this instance may sign up through the provider — is configured in the
+administration area.
+
+Without the secret, single sign-on stays off whatever the administration area
+says. A secret in the database is a secret in every backup.
+
+Password sign-in remains available alongside it, and the instance administrator
+can always sign in with a password: an instance whose only door is somebody
+else's service cannot be repaired when that service is unreachable.
+
 ## Local copies in the browser
 
 A signed-in member's browser keeps a copy of each document it opens, so an edit

@@ -13,8 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**Groundwork for single sign-on.** The tables and the token verification are in;
-nothing is reachable yet. One OIDC client rather than an integration per
+**Single sign-on works from the server's side.** The routes are in place;
+the sign-in button comes next. Set `SONE_OIDC_CLIENT_SECRET` and configure the
+issuer in the administration area. One OIDC client rather than an integration per
 provider, so Keycloak, Authentik, Zitadel, Entra, Google and the rest are a
 configuration ([ADR-0024](docs/adr/0024-oidc.md)).
 
