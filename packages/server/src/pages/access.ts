@@ -94,6 +94,10 @@ export async function resolvePageAccess(
          JOIN ancestry a ON p.id = a.parent_page_id
      ),
      grants AS (
+       -- Granted to them, and granted to a group they are in. Read together
+       -- rather than in turn, because the more permissive of the two wins and
+       -- that is a comparison, not a fallback: adding somebody to a group must
+       -- never reduce what they could already do (ADR-0026).
        SELECT pp.role
          FROM page_permissions pp
          JOIN ancestry a ON a.id = pp.page_id
@@ -101,6 +105,13 @@ export async function resolvePageAccess(
         -- own grant either way, so the page it was made on always counts.
         WHERE pp.user_id = $2
           AND (pp.include_subtree OR pp.page_id = $1)
+       UNION ALL
+       SELECT gp.role
+         FROM page_group_permissions gp
+         JOIN ancestry a ON a.id = gp.page_id
+         JOIN group_members gm ON gm.group_id = gp.group_id
+        WHERE gm.user_id = $2
+          AND (gp.include_subtree OR gp.page_id = $1)
      )
      SELECT
        m.role::text AS role,
@@ -186,6 +197,15 @@ export const visiblePagesCondition = (alias: string, userParam: string, adminPar
          OR (pp.include_subtree AND pp.page_id = ANY(${alias}.ancestor_ids))
        )
   )
+  OR EXISTS (
+    SELECT 1 FROM page_group_permissions gp
+      JOIN group_members gm ON gm.group_id = gp.group_id
+     WHERE gm.user_id = ${userParam}
+       AND (
+         gp.page_id = ${alias}.id
+         OR (gp.include_subtree AND gp.page_id = ANY(${alias}.ancestor_ids))
+       )
+  )
 )`;
 
 /**
@@ -201,6 +221,13 @@ export const isPathOnlyCondition = (alias: string, userParam: string): string =>
     SELECT 1 FROM page_permissions pp
       JOIN pages child ON child.id = pp.page_id
      WHERE pp.user_id = ${userParam}
+       AND ${alias}.id = ANY(child.ancestor_ids)
+  )
+  OR EXISTS (
+    SELECT 1 FROM page_group_permissions gp
+      JOIN group_members gm ON gm.group_id = gp.group_id
+      JOIN pages child ON child.id = gp.page_id
+     WHERE gm.user_id = ${userParam}
        AND ${alias}.id = ANY(child.ancestor_ids)
   )
 )`;

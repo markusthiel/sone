@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Groups.** A group is a list of people, granted access to a page exactly as a
+person is. Membership is the thing maintained — leaving a group takes its access
+with it. Managing them is not in the interface yet.
+
 **Page permissions are enforced in the tree, in search and in favourites.** A restricted page and everything
 under it is absent for people who were not granted it; a page kept only as the
 path to a granted child appears without its title. Set them in the sharing dialog: give
