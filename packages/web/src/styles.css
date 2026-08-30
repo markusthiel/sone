@@ -3770,3 +3770,28 @@ body {
   color: var(--sone-text-muted);
   font-size: var(--sone-text-sm);
 }
+
+/* The settings navigation.
+ *
+ * Groups named for whose settings they are — you, a workspace, the instance —
+ * rather than for who may change them, and each entry saying in one line what
+ * is inside (ADR-0027). This area grows, and a list of nouns makes somebody
+ * open three sections to find one thing.
+ */
+.settings-nav-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-block: var(--sone-space-2);
+}
+.settings-nav-label { font-size: var(--sone-text-sm); }
+.settings-nav-hint {
+  font-size: var(--sone-text-xs);
+  color: var(--sone-text-muted);
+  /* Hidden when the pointer is coarse and space is short: on a phone the
+     navigation is a list to get past, not to read. */
+}
+@media (max-width: 720px) {
+  .settings-nav-hint { display: none; }
+}
+.settings-nav-item[aria-current='page'] .settings-nav-hint { color: inherit; }

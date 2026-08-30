@@ -95,6 +95,9 @@ export interface SessionInfo {
     isGuest: boolean;
     locale: string | null;
     timezone: string | null;
+    isInstanceAdmin: boolean;
+    /** May administer every workspace. Implied by isInstanceAdmin (ADR-0027). */
+    canManageWorkspaces: boolean;
   };
   workspaces: Array<{
     id: string;
@@ -158,6 +161,8 @@ export interface AdminUser {
   email: string | null;
   displayName: string;
   isInstanceAdmin: boolean;
+  /** May administer every workspace. Implied by isInstanceAdmin (ADR-0027). */
+  canManageWorkspaces: boolean;
   isGuest: boolean;
   deactivatedAt: string | null;
   createdAt: string;
