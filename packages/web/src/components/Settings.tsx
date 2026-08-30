@@ -34,6 +34,7 @@ import {
 } from './Admin.tsx';
 import { messageFor } from './Auth.tsx';
 import { GroupsPanel } from './GroupsPanel.tsx';
+import { LandingSettings } from './LandingSettings.tsx';
 import { WorkspaceDetail } from './WorkspaceDetail.tsx';
 import { WorkspaceList } from './WorkspaceList.tsx';
 import { InvitePanel } from './InvitePanel.tsx';
@@ -63,6 +64,12 @@ const SECTIONS = [
   // or the instance everybody shares.
   { id: 'account', label: 'Account', group: 'You', hint: 'Your name, address and password' },
   { id: 'appearance', label: 'Appearance', group: 'You', hint: 'How SONE looks to you' },
+  {
+    id: 'landing',
+    label: 'Where you land',
+    group: 'You',
+    hint: 'The page each workspace opens on',
+  },
 
   {
     id: 'workspaces',
@@ -201,6 +208,7 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
         {current === 'invite' && <InvitePanel />}
         {current === 'sso' && <OidcPanel />}
         {current === 'accounts' && <UsersPanel />}
+        {current === 'landing' && <LandingSettings workspaceId={workspaceId} />}
         {current === 'workspaces' &&
           (openWorkspace ? (
             <WorkspaceDetail

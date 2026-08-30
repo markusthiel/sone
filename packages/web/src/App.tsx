@@ -233,9 +233,45 @@ function Workspace({
     // the workspace just left, and the server refuses it. Correctly, and to
     // somebody who only pressed a switcher.
     if (pagesLoading) return;
-    const first = pages[0];
-    if (first) navigate(paths.page(first.id, first.title));
-  }, [route.kind, pages, pagesLoading, navigate]);
+
+    let cancelled = false;
+    void api
+      .landing(workspaceId)
+      .then((landing) => {
+        if (cancelled) return;
+        // Where they were, or the page they chose — the server has already
+        // checked it is still reachable, so this is a page or nothing.
+        const target = landing.landOn ?? pages[0]?.id ?? null;
+        if (!target) return;
+        const node = pages.find((page) => page.id === target);
+        navigate(paths.page(target, node?.title ?? ''));
+      })
+      .catch(() => {
+        // The first page, as before. A landing preference that cannot be read
+        // should cost somebody a good guess, not a blank screen.
+        const first = pages[0];
+        if (first) navigate(paths.page(first.id, first.title));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [route.kind, pages, pagesLoading, navigate, workspaceId]);
+
+  // Remember where they are.
+  //
+  // On the page rather than on leaving it: a tab closed without warning is the
+  // common way a session ends, and an unload handler is the least reliable
+  // moment in a browser.
+  useEffect(() => {
+    if (!routePageId || isFolder) return;
+    const timer = setTimeout(() => {
+      void api.setLanding(workspaceId, { lastPageId: routePageId }).catch(() => {
+        // Where somebody was is worth remembering and not worth reporting.
+      });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [routePageId, isFolder, workspaceId]);
 
   const onCreateEntry = async (
     parentPageId: string | null,

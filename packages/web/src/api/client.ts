@@ -545,6 +545,21 @@ export const api = {
       body: JSON.stringify(settings),
     }),
 
+  /** Where to land in this workspace, already checked to be reachable. */
+  landing: (workspaceId: string) =>
+    request<{ mode: 'last' | 'fixed'; pageId: string | null; landOn: string | null }>(
+      `/api/workspaces/${workspaceId}/landing`,
+    ),
+
+  setLanding: (
+    workspaceId: string,
+    input: { mode?: 'last' | 'fixed'; pageId?: string | null; lastPageId?: string },
+  ) =>
+    request<{ ok: true }>(`/api/workspaces/${workspaceId}/landing`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+
   members: (workspaceId: string) =>
     request<{ members: WorkspaceMember[]; viewerRole: string }>(
       `/api/workspaces/${workspaceId}/members`,

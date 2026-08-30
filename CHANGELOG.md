@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**SONE opens where you left off.** Each workspace remembers the page you were
+last on, and you can choose a fixed one instead under Settings → Where you land.
+It applies on sign-in, on a workspace switch, and whenever SONE is opened without
+a page in the address.
+
 **Fixed: switching workspaces still reported no access.** The connection
 reconnects on a switch, and a page opened against the old one is refused —
 correctly, about a moment that had already passed. A refusal is only shown once
