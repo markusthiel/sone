@@ -167,6 +167,34 @@
   /* Text sizes for the interface. The editor has its own scale, set per person
      (see Appearance), because reading prose and scanning a sidebar are
      different jobs. */
+  /* ---------------------------------------------------------------------
+   * Type
+   *
+   * One family in two roles. Serifs are out: they set a tone a note does not
+   * need, and the distinction between "what you wrote" and "what the
+   * application says" is carried by size and weight instead.
+   *
+   * Inter when the system has it, and the platform's own face otherwise.
+   * Deliberately not fetched from a font service: this is self-hosted
+   * software, and a stylesheet that reaches out to Google tells Google who
+   * opened somebody's notes and when.
+   * ------------------------------------------------------------------- */
+  --sone-font: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+    sans-serif;
+  --sone-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Headings are thin and set tight. Size carries the weight, not stroke
+     width — a bold heading over a note shouts at the thing it introduces.
+     Held here rather than per heading so the run stays a run. */
+  /* One run of heading sizes, read by the editor and by the workspace theme's
+     multiplier alike. */
+  --sone-h1: 2.1rem;
+  --sone-h2: 1.55rem;
+  --sone-h3: 1.2rem;
+
+  --sone-heading-weight: 300;
+  --sone-heading-tracking: -0.02em;
+
   --sone-text-xs: 0.75rem;
   --sone-text-sm: 0.85rem;
   --sone-text-md: 0.9rem;
@@ -211,7 +239,10 @@ html, body, #root {
 body {
   background: var(--sone-bg);
   color: var(--sone-text);
-  font: 15px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font: 15px/1.55 var(--sone-font);
+  /* Optical sizing and tabular figures where the face offers them: numbers in
+     a column that do not line up read as a mistake nobody can name. */
+  font-variant-numeric: tabular-nums;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -529,9 +560,12 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 }
 
 .page-title {
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1.2;
+  /* The largest thing on the page, and the quietest of its size. It names what
+     is below rather than competing with it. */
+  font-size: 2.5rem;
+  font-weight: var(--sone-heading-weight);
+  letter-spacing: var(--sone-heading-tracking);
+  line-height: 1.15;
   border: 0;
   /* Matching the editor's text column exactly. */
   padding: 0 0 0 var(--sone-text-indent);
@@ -667,9 +701,31 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .ProseMirror [data-indent='7'] { margin-inline-start: 12.25rem; }
 .ProseMirror [data-indent='8'] { margin-inline-start: 14rem; }
 
-.ProseMirror h1[data-block] { font-size: 1.9rem; font-weight: 700; margin-block: 0.6em 0.2em; }
-.ProseMirror h2[data-block] { font-size: 1.45rem; font-weight: 650; margin-block: 0.6em 0.2em; }
-.ProseMirror h3[data-block] { font-size: 1.2rem; font-weight: 650; margin-block: 0.5em 0.2em; }
+/* Headings: thin, set tight, and larger than before.
+ *
+ * The weight came down from 700 and the size went up, which is the same
+ * emphasis by other means — and the means matter. A heading in the middle of
+ * somebody's notes should read as a change of level, not as an announcement.
+ */
+.ProseMirror h1[data-block] {
+  font-size: var(--sone-h1); line-height: 1.15;
+  font-weight: var(--sone-heading-weight);
+  letter-spacing: var(--sone-heading-tracking);
+  margin-block: 0.7em 0.25em;
+}
+.ProseMirror h2[data-block] {
+  font-size: var(--sone-h2); line-height: 1.2;
+  font-weight: var(--sone-heading-weight);
+  letter-spacing: var(--sone-heading-tracking);
+  margin-block: 0.7em 0.25em;
+}
+.ProseMirror h3[data-block] {
+  font-size: var(--sone-h3); line-height: 1.3;
+  /* A step heavier: at this size a light weight stops reading as a heading and
+     starts reading as slightly larger text. */
+  font-weight: 450;
+  margin-block: 0.6em 0.2em;
+}
 .ProseMirror h4[data-block],
 .ProseMirror h5[data-block],
 .ProseMirror h6[data-block] { font-size: 1.05rem; font-weight: 650; }
@@ -3570,9 +3626,21 @@ body {
 .ProseMirror p[data-block]:not([data-color]) { color: var(--sone-theme-body-color, inherit); }
 .ProseMirror blockquote[data-block]:not([data-color]) { color: var(--sone-theme-quote-color, inherit); }
 
-.ProseMirror h1[data-block] { font-size: calc(1.9rem * var(--sone-theme-heading1-size, 1)); }
-.ProseMirror h2[data-block] { font-size: calc(1.45rem * var(--sone-theme-heading2-size, 1)); }
-.ProseMirror h3[data-block] { font-size: calc(1.2rem * var(--sone-theme-heading3-size, 1)); }
+/* The base sizes live in one place and the workspace multiplier reads them.
+ *
+ * They were written out again here, so changing a heading above left the theme
+ * rule applying the old size — the new value visible until somebody set a
+ * multiplier, and then silently replaced. Exactly the drift the token layer
+ * exists to prevent, one layer up. */
+.ProseMirror h1[data-block] {
+  font-size: calc(var(--sone-h1) * var(--sone-theme-heading1-size, 1));
+}
+.ProseMirror h2[data-block] {
+  font-size: calc(var(--sone-h2) * var(--sone-theme-heading2-size, 1));
+}
+.ProseMirror h3[data-block] {
+  font-size: calc(var(--sone-h3) * var(--sone-theme-heading3-size, 1));
+}
 .ProseMirror p[data-block] { font-size: calc(1em * var(--sone-theme-body-size, 1)); }
 
 .ProseMirror h1[data-block] {
@@ -3768,10 +3836,16 @@ body {
  * Shown before the elements, because it is the setting the others are expressed
  * in: an element's colour is one of these names.
  */
+/* A section label in the interface, not a heading in a document: small, firm
+   and set apart. The opposite treatment to a document heading, on purpose —
+   one names a place, the other names a passage. */
 .settings-heading {
   margin-block: var(--sone-space-5) var(--sone-space-1);
-  font-size: var(--sone-text-sm);
+  font-size: var(--sone-text-xs);
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sone-text-muted);
 }
 .theme-palette {
   display: flex;
