@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fields, buttons and menus share one treatment.** A field is a surface that
+gains a border when focused; buttons come in three weights; everything that
+floats has the same surface, border and lift.
+
 **Headings are thin and larger.** The same emphasis by other means: size carries
 the weight rather than stroke width, so a heading reads as a change of level
 rather than an announcement.
