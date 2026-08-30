@@ -52,6 +52,9 @@ foot of the sidebar stacked instead of sitting in a row.
 your notes — not a page inside the workspace with a sidebar of pages beside it.
 The entries are names now; the explanation is on each entry rather than under it.
 
+**Your picture opens an account menu** — edit your profile, settings, trash,
+sign out — instead of a row of icons.
+
 **The foot of the sidebar is a row of tools** — your account, trash, settings,
 sign out — instead of three lines of text competing with the pages above them.
 

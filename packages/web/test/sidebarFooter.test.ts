@@ -10,21 +10,19 @@ import { codeOf, stylesOf } from './helpers/source.ts';
 const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
 const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 
-test('the footer is marks, not sentences', () => {
-  // Three lines of text there read as three more places to go, competing with
-  // the pages above them — which are why somebody is looking at this column.
-  assert.doesNotMatch(sidebar, />\s*Sign out\s*</);
+test('the footer is one line, not a list of places to go', () => {
+  // Three lines of text read as three more destinations competing with the
+  // pages above them, which are why somebody is looking at this column. It was
+  // then four icons, and is now one mark with a menu behind it — see
+  // accountMenu.test.ts for what the menu holds.
   assert.doesNotMatch(sidebar, /<TrashIcon \/> Trash/);
   assert.match(css, /\.sidebar-footer \{[^}]*display: flex/);
 });
 
-test('every mark says what it is for', () => {
-  // On the control rather than beside it: an icon nobody has met yet is a
-  // guess, and a guess about "sign out" is an expensive one.
-  for (const label of ['Trash', 'Settings', 'Sign out']) {
-    assert.match(sidebar, new RegExp(`aria-label="${label}"`));
-  }
-  assert.match(sidebar, /aria-label=\{`\$\{displayName\} — your account`\}/);
+test('the one mark says what it opens', () => {
+  // An icon nobody has met yet is a guess, and this one now leads to signing
+  // out among other things.
+  assert.match(sidebar, /aria-label=\{`\$\{displayName\} — account and settings`\}/);
 });
 
 test('the account entry carries the person, not a symbol', () => {

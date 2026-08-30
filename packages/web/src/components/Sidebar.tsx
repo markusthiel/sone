@@ -126,6 +126,7 @@ export function Sidebar({
   // Most accounts have no picture, so a failed request is the ordinary case
   // rather than an error worth reporting.
   const [avatarBroken, setAvatarBroken] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   // One drag at a time, and every row has to know about it — so it belongs
   // here rather than in a row.
   const drag = useTreeDrag({
@@ -318,19 +319,22 @@ export function Sidebar({
           *
           * Each keeps a label for anybody who cannot see the icon or has not
           * met it yet; it is on the control rather than beside it. */}
+        {/* One mark, and a menu behind it.
+          *
+          * Four icons in a row asked somebody to learn four symbols for things
+          * they use rarely — and the row still grows every time the account
+          * gains a page. Behind the face there is room for names, which are
+          * what these entries are actually distinguished by.
+          */}
         <div className="sidebar-footer">
-          <a
-            className="sidebar-tool"
-            href={paths.settings('account')}
-            title={displayName}
-            aria-label={`${displayName} — your account`}
+          <button
+            type="button"
+            className="sidebar-account"
+            aria-haspopup="menu"
+            aria-expanded={accountOpen}
+            aria-label={`${displayName} — account and settings`}
+            onClick={() => setAccountOpen(!accountOpen)}
           >
-            {/* The person, first: it is the one entry that is about them
-                rather than about the instance. */}
-            {/* The picture if there is one, the initial otherwise.
-              * Falling back on error rather than asking first: most accounts
-              * have no picture, and a request that 404s is cheaper than one
-              * that asks whether to make it. */}
             <span className="sidebar-avatar" aria-hidden="true">
               {avatarBroken ? (
                 displayName.trim().charAt(0).toUpperCase() || '?'
@@ -342,34 +346,7 @@ export function Sidebar({
                 />
               )}
             </span>
-          </a>
-
-          <a
-            className="sidebar-tool"
-            href={paths.trash()}
-            title="Trash"
-            aria-label="Trash"
-          >
-            <TrashIcon />
-          </a>
-
-          <a
-            className="sidebar-tool"
-            href={paths.settings()}
-            title="Settings"
-            aria-label="Settings"
-          >
-            <SettingsIcon />
-          </a>
-
-          <button
-            className="sidebar-tool"
-            type="button"
-            onClick={onLogout}
-            title="Sign out"
-            aria-label="Sign out"
-          >
-            <SignOutIcon />
+            <span className="sidebar-account-name">{displayName}</span>
           </button>
 
           <a
@@ -379,6 +356,25 @@ export function Sidebar({
           >
             {WEB_VERSION}
           </a>
+
+          {accountOpen && (
+            <div className="sidebar-account-menu" role="menu">
+              <a role="menuitem" href={paths.settings('account')} onClick={() => setAccountOpen(false)}>
+                Edit your profile
+              </a>
+              <a role="menuitem" href={paths.settings()} onClick={() => setAccountOpen(false)}>
+                Settings
+              </a>
+              <a role="menuitem" href={paths.trash()} onClick={() => setAccountOpen(false)}>
+                Trash
+              </a>
+              {/* Last and set apart: the one entry here somebody cannot undo by
+                  pressing it again. */}
+              <button type="button" role="menuitem" onClick={onLogout}>
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 
