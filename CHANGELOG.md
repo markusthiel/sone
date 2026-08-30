@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Groundwork for image variants.** A file can now be the web-sized copy of
+another, and the browser knows how to make one. Nothing uploads two files yet
+([ADR-0029](docs/adr/0029-image-variants.md)).
+
 **Your account is editable.** Change your name, and change your password without
 signing out. Settings → Account.
 
