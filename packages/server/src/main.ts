@@ -32,6 +32,7 @@ import {
   pendingDocumentMigrations,
 } from './db/version.js';
 import { registerInvitationRoutes } from './auth/invitationRoutes.js';
+import { registerPagePermissionRoutes } from './pages/permissionRoutes.js';
 import { registerOidcRoutes } from './auth/oidcRoutes.js';
 import { registerAuthRoutes } from './http/auth.js';
 import { registerHealthRoutes, SONE_COMMIT, SONE_VERSION } from './http/health.js';
@@ -214,6 +215,7 @@ async function main(): Promise<void> {
   });
 
   registerInvitationRoutes(router, { pool });
+  registerPagePermissionRoutes(router, { pool });
 
   registerOidcRoutes(router, {
     pool,

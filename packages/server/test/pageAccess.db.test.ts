@@ -338,4 +338,62 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
 
     await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
   });
+
+  // --- the rules the routes enforce -----------------------------------------
+
+  test('a grant made on an ancestor is reported as inherited', async () => {
+    // A panel that shows an empty list for a page somebody clearly reaches is a
+    // panel that makes people set the same rule again, one level down.
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'viewer')`,
+      [root, guest],
+    );
+
+    const rows = await db.query<{ user_id: string; inherited_from: string | null }>(
+      `SELECT pp.user_id,
+              CASE WHEN pp.page_id = $1 THEN NULL ELSE anc.title END AS inherited_from
+         FROM pages target
+         JOIN page_permissions pp
+           ON pp.page_id = target.id
+           OR (pp.include_subtree AND pp.page_id = ANY(target.ancestor_ids))
+         LEFT JOIN pages anc ON anc.id = pp.page_id
+        WHERE target.id = $1`,
+      [grandchild],
+    );
+
+    assert.equal(rows.rowCount, 1);
+    assert.equal(rows.rows[0]?.inherited_from, 'Root', 'named, so it can be found');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [guest]);
+  });
+
+  test('a grant that does not include the subtree stops at its page', async () => {
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree)
+       VALUES ($1,$2,'viewer',false)`,
+      [child, guest],
+    );
+
+    assert.equal((await resolvePageAccess(db, { pageId: child, userId: guest })).access, 'viewer');
+    assert.equal(
+      (await resolvePageAccess(db, { pageId: grandchild, userId: guest })).access,
+      null,
+    );
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [guest]);
+  });
+
+  test('managing a page is something a grant can give', async () => {
+    // So a section can be handed to somebody who then manages access to it
+    // without being an administrator of the whole workspace.
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'admin')`,
+      [child, member],
+    );
+
+    const resolved = await resolvePageAccess(db, { pageId: grandchild, userId: member });
+    assert.equal(atLeast(resolved.access, 'admin'), true);
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [member]);
+  });
 });
