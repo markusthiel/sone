@@ -185,6 +185,7 @@ function Workspace({
     moveEntry,
     applyTitle,
     reload: reloadPages,
+    loading: pagesLoading,
     error: pagesError,
   } = usePages(workspaceId);
   // The entry a move dialog is open for, if any.
@@ -225,9 +226,16 @@ function Workspace({
   // The root redirects to the first page rather than showing an empty shell.
   useEffect(() => {
     if (route.kind !== 'home') return;
+    // Not while the tree is being fetched.
+    //
+    // Redirecting from a list that is still loading means redirecting to
+    // whatever was there before — which after a workspace switch is a page in
+    // the workspace just left, and the server refuses it. Correctly, and to
+    // somebody who only pressed a switcher.
+    if (pagesLoading) return;
     const first = pages[0];
     if (first) navigate(paths.page(first.id, first.title));
-  }, [route.kind, pages, navigate]);
+  }, [route.kind, pages, pagesLoading, navigate]);
 
   const onCreateEntry = async (
     parentPageId: string | null,

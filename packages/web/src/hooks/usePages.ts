@@ -71,6 +71,14 @@ export function usePages(workspaceId: string | null): {
   }, [workspaceId]);
 
   useEffect(() => {
+    // Cleared before fetching, not only marked as loading.
+    //
+    // The old workspace's tree stayed in place until the new one arrived, and
+    // anything reading it in that moment was reading the wrong workspace. What
+    // it cost: opening the root redirects to the first page in the tree, so
+    // switching workspaces opened a page from the one just left — and the
+    // server refused it, correctly, with "you no longer have access".
+    setPages([]);
     setLoading(true);
     void reload();
   }, [reload]);
