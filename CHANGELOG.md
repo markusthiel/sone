@@ -13,9 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**The areas are separated by surface rather than by lines.** The writing sits on
-a page, the application is around it, and the rule between sidebar and content is
-the faintest one available.
+**The areas are separated by surface rather than by lines.** The rule between
+sidebar and content is the faintest one available.
+
+**Fixed: checkboxes and radio buttons rendered as full-width blue lozenges**, and
+the settings navigation was centred down the middle of its column.
 
 **Fields, buttons and menus share one treatment.** A field is a surface that
 gains a border when focused; buttons come in three weights; everything that
