@@ -768,4 +768,79 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
       null,
     );
   });
+
+  // --- a workspace of one's own (ADR-0025) ----------------------------------
+
+  test('an account gets a workspace of its own', async () => {
+    // A notes application whose first screen is empty because nobody has
+    // invited you anywhere has failed at the thing it is for.
+    const result = await register(db, 'open', {
+      email: `own-${Date.now()}@example.org`,
+      password: PASSWORD,
+      displayName: 'Own',
+    });
+
+    const rows = await db.query<{ id: string; name: string }>(
+      `SELECT w.id, w.name FROM workspaces w WHERE w.personal_for = $1`,
+      [result.userId],
+    );
+    assert.equal(rows.rowCount, 1);
+    assert.equal(rows.rows[0]?.name, 'Own');
+    assert.equal(result.workspaceId, rows.rows[0]?.id, 'and lands there');
+
+    const member = await db.query<{ role: string }>(
+      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+      [rows.rows[0]?.id, result.userId],
+    );
+    assert.equal(member.rows[0]?.role, 'owner');
+  });
+
+  test('being invited somewhere does not cost somebody their own workspace', async () => {
+    // One flow, two outcomes. Somebody invited to a team still needs a place
+    // for their own notes.
+    // The fixture's workspace stands in for the team somebody is invited to.
+    const email = `invited-${Date.now()}@example.org`;
+    const invite = await createInvitation(db, {
+      workspaceId: fx.workspaceId,
+      invitedBy: fx.userId,
+      email,
+    });
+
+    const invited = await register(db, 'invite', {
+      email,
+      password: PASSWORD,
+      displayName: 'Invited',
+      invitationToken: invite.token,
+    });
+
+    const own = await db.query(
+      `SELECT 1 FROM workspaces WHERE personal_for = $1`,
+      [invited.userId],
+    );
+    assert.equal(own.rowCount, 1, 'their own workspace exists');
+
+    const memberships = await db.query<{ workspace_id: string }>(
+      `SELECT workspace_id FROM workspace_members WHERE user_id = $1`,
+      [invited.userId],
+    );
+    assert.equal(memberships.rowCount, 2, 'their own, and the one they joined');
+    assert.equal(invited.workspaceId, fx.workspaceId, 'and lands in the invited one');
+  });
+
+  test('only the first account administers the instance', async () => {
+    // This was unconditional: every account created through sign-up became an
+    // instance administrator. With open sign-up, anybody who registered could
+    // administer the instance.
+    const second = await register(db, 'open', {
+      email: `later-${Date.now()}@example.org`,
+      password: PASSWORD,
+      displayName: 'Later',
+    });
+
+    const row = await db.query<{ is_instance_admin: boolean }>(
+      `SELECT is_instance_admin FROM users WHERE id = $1`,
+      [second.userId],
+    );
+    assert.equal(row.rows[0]?.is_instance_admin, false);
+  });
 });
