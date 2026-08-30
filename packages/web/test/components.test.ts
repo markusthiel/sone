@@ -76,7 +76,7 @@ test('a checkbox is not treated as a text field', () => {
   // The field rule sets a full-width box 44px tall, which is right for
   // something you type in and absurd for a checkbox: they rendered as enormous
   // blue lozenges filling the row.
-  assert.match(css, /input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\)/);
+  assert.match(css, /input:not\(:where\(\[type='checkbox'\]/);
   assert.match(css, /input\[type='checkbox'\], input\[type='radio'\] \{[^}]*accent-color: var\(--accent\)/);
 });
 
@@ -86,4 +86,21 @@ test('the settings navigation reads down the left, not down the middle', () => {
   // entries sat in the middle of a left-hand column.
   assert.match(css, /\.settings-nav-item \{[^}]*align-items: flex-start/);
   assert.match(css, /\.settings-nav-item \{[^}]*text-align: start/);
+});
+
+test('the field rule cannot outweigh a class written for one field', () => {
+  // Chained `:not(a):not(b):not(c)` adds three classes' worth of specificity, so
+  // the generic rule beat `.page-title` and drew a box around the page heading.
+  // `:where()` contributes none.
+  assert.match(css, /input:not\(:where\(\[type='checkbox'\], \[type='radio'\], \[type='color'\]\)\)/);
+  assert.doesNotMatch(css, /input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\)/);
+});
+
+test('the sidebar footer is laid out in one rule', () => {
+  // There were two, and the later one set `display: flex` without a direction —
+  // so the earlier one's `column` stayed and the four marks stacked. A property
+  // left unset is not a property left alone.
+  const rules = css.match(/\.sidebar-footer \{/g) ?? [];
+  assert.equal(rules.length, 2, 'one for placement, one for layout');
+  assert.doesNotMatch(css, /\.sidebar-footer \{[^}]*flex-direction: column/);
 });

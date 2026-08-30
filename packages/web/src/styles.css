@@ -343,12 +343,18 @@ button.quiet:hover { background: var(--sone-bg-hover); }
  */
 /* Text fields only.
  *
+ * The exclusions sit inside `:where()`, which contributes no specificity. Chained
+ * as `:not(a):not(b):not(c)` they added three classes' worth, so this rule
+ * outweighed `.page-title` and drew a box around the page's heading — a
+ * selector that quietly wins against every class written for a particular
+ * field.
+ *
  * The rule below sets a full-width box 44px tall, which is right for something
  * you type in and absurd for a checkbox: they rendered as enormous blue
  * lozenges filling the row. A checkbox is a mark beside a label and is sized by
  * the browser, which does it well.
  */
-input:not([type='checkbox']):not([type='radio']):not([type='color']),
+input:not(:where([type='checkbox'], [type='radio'], [type='color'])),
 textarea {
   font: inherit;
   color: inherit;
@@ -360,10 +366,10 @@ textarea {
   background: var(--surface-sunken);
   transition: border-color 120ms ease, background 120ms ease;
 }
-input:not([type='checkbox']):not([type='radio']):not([type='color']):hover,
+input:not(:where([type='checkbox'], [type='radio'], [type='color'])):hover,
 textarea:hover { border-color: var(--border-default); }
 
-input:not([type='checkbox']):not([type='radio']):not([type='color']):focus,
+input:not(:where([type='checkbox'], [type='radio'], [type='color'])):focus,
 textarea:focus {
   /* The accent border replaces the outline rather than joining it: two rings
      around one field is the tell of a control nobody looked at. */
@@ -2464,14 +2470,12 @@ select {
   margin-block-end: var(--sone-space-2);
 }
 
-.sidebar-footer {
-  margin-block-start: auto;
-  padding-block-start: var(--sone-space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sone-space-1);
-}
-.sidebar-footer .tree-link { gap: var(--sone-space-3); }
+/* The row of tools; the rule that lays it out is further down.
+ *
+ * There were two rules here, and the later one set `display: flex` without a
+ * direction — so this one's `column` stayed and the four marks stacked. A
+ * property left unset is not a property left alone. */
+.sidebar-footer { margin-block-start: auto; }
 
 /* --- touch behaviour in popups ---
  *
