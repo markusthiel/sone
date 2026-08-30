@@ -49,23 +49,28 @@ export function InvitePanel(): ReactElement {
 
       {error && <p className="error">{messageFor(error)}</p>}
 
-      <div className="field">
-        <label htmlFor="invite-email">Email address (optional)</label>
-        <input
-          id="invite-email"
-          type="email"
-          value={email}
-          placeholder="someone@example.org"
-          onChange={(event) => {
-            setLink(null);
-            setEmail(event.target.value);
-          }}
-        />
-        <p className="muted">
-          With an address the invitation is for that person and can be used once.
-          Without one it is a link anybody holding it may use, which is how you
-          invite a group without typing every address.
-        </p>
+      <div className="settings-card">
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Email address</b>
+            <span>
+              Optional. With one, the invitation is for that person and can be
+              used once. Without one it is a link anybody holding it may use —
+              which is how you invite a group without typing every address.
+            </span>
+          </span>
+          <input
+            id="invite-email"
+            aria-label="Email address"
+            type="email"
+            value={email}
+            placeholder="someone@example.org"
+            onChange={(event) => {
+              setLink(null);
+              setEmail(event.target.value);
+            }}
+          />
+        </div>
       </div>
 
       <div className="settings-actions">
@@ -80,13 +85,23 @@ export function InvitePanel(): ReactElement {
         * somebody that after they have closed the panel would be too late to be
         * useful. */}
       {link && (
-        <div className="field">
-          <label htmlFor="invite-link">Invitation link</label>
-          <input id="invite-link" readOnly value={link} onFocus={(e) => e.target.select()} />
-          <p className="muted">
-            Copy it now — it is not stored anywhere it can be read again. Send it
-            to the person yourself; this instance does not send mail.
-          </p>
+        <div className="settings-card">
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>Invitation link</b>
+              <span>
+                Copy it now — it is not stored anywhere it can be read again.
+                Send it to the person yourself; this instance does not send mail.
+              </span>
+            </span>
+            <input
+              id="invite-link"
+              aria-label="Invitation link"
+              readOnly
+              value={link}
+              onFocus={(e) => e.target.select()}
+            />
+          </div>
         </div>
       )}
     </section>
