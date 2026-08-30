@@ -34,6 +34,7 @@ import {
 } from './Admin.tsx';
 import { messageFor } from './Auth.tsx';
 import { GroupsPanel } from './GroupsPanel.tsx';
+import { WorkspaceList } from './WorkspaceList.tsx';
 import { InvitePanel } from './InvitePanel.tsx';
 import { WorkspaceInvite } from './WorkspaceInvite.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
@@ -193,7 +194,8 @@ export function Settings({ section, session, workspaceId }: SettingsProps): Reac
         {current === 'invite' && <InvitePanel />}
         {current === 'sso' && <OidcPanel />}
         {current === 'accounts' && <UsersPanel />}
-        {current === 'workspaces' && <WorkspacesPanel />}
+        {current === 'workspaces' && <WorkspaceList currentWorkspaceId={workspaceId} />}
+        {current === 'workspaces-old' && <WorkspacesPanel />}
         {current === 'maintenance' && <MaintenancePanel />}
         {current === 'about' && <About />}
       </div>

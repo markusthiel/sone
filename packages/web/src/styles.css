@@ -3795,3 +3795,26 @@ body {
   .settings-nav-hint { display: none; }
 }
 .settings-nav-item[aria-current='page'] .settings-nav-hint { color: inherit; }
+
+/* The workspace overview. */
+.workspace-table {
+  inline-size: 100%;
+  margin-block: var(--sone-space-3);
+  border-collapse: collapse;
+  font-size: var(--sone-text-sm);
+}
+.workspace-table th,
+.workspace-table td {
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border-block-end: 1px solid var(--sone-border);
+  text-align: start;
+}
+.workspace-table th {
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+  color: var(--sone-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.workspace-table td:nth-child(2),
+.workspace-table td:nth-child(3) { text-align: end; font-variant-numeric: tabular-nums; }

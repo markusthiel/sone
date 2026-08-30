@@ -52,9 +52,11 @@ export async function administratorRights(
 /**
  * Require the right to administer workspaces, or answer and return null.
  *
- * Forbidden rather than not-found: unlike a single workspace, the existence of
- * the administration area is not a secret — refusing to say it exists would
- * only puzzle somebody who has no way to reach it anyway.
+ * Not-found rather than forbidden, matching every other administration route.
+ * I wrote 403 here first, reasoning that the area's existence is no secret —
+ * which may be true and is beside the point: a second convention for the same
+ * situation means somebody reading two refusals cannot tell whether the
+ * difference is deliberate.
  */
 export async function requireWorkspaceAdministrator(
   pool: Pool,
@@ -65,7 +67,7 @@ export async function requireWorkspaceAdministrator(
 
   const rights = await administratorRights(pool, session.userId);
   if (!rights.workspaces) {
-    ctx.fail(403, 'forbidden');
+    ctx.fail(404, 'not_found');
     return null;
   }
   return rights;
@@ -81,7 +83,7 @@ export async function requireInstanceAdministrator(
 
   const rights = await administratorRights(pool, session.userId);
   if (!rights.instance) {
-    ctx.fail(403, 'forbidden');
+    ctx.fail(404, 'not_found');
     return null;
   }
   return rights;
