@@ -19,6 +19,9 @@ browser before it is sent, and shows in the sidebar and beside your name.
 **Fixed: settings labels wrapped one word per line** and the page was cropped to
 a narrow strip.
 
+**Appearance and Where you land are in cards too**, and each choice now says
+what it does rather than only what it is called.
+
 **Every settings panel got the same rhythm** — field names read as names, the
 sentence under one is quieter than both, and consecutive fields are a list
 rather than a paragraph.

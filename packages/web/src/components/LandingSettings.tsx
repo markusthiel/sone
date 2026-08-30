@@ -58,51 +58,63 @@ export function LandingSettings({ workspaceId }: { workspaceId: string }): React
 
       {error && <p className="error">{messageFor(error)}</p>}
 
-      <label className="checkbox">
-        <input
-          type="radio"
-          name="landing"
-          checked={mode === 'last'}
-          onChange={() => save({ mode: 'last', pageId })}
-        />
-        The page you were on last
-      </label>
+      <div className="settings-card">
+        <label className="settings-row">
+          <span className="settings-row-label">
+            <b>The page you were on last</b>
+            <span>Follows you: whatever you had open in this workspace.</span>
+          </span>
+          <input
+            type="radio"
+            name="landing"
+            checked={mode === 'last'}
+            onChange={() => save({ mode: 'last', pageId })}
+          />
+        </label>
 
-      <label className="checkbox">
-        <input
-          type="radio"
-          name="landing"
-          checked={mode === 'fixed'}
-          onChange={() => save({ mode: 'fixed', pageId })}
-        />
-        A particular page
-      </label>
+        <label className="settings-row">
+          <span className="settings-row-label">
+            <b>A particular page</b>
+            <span>Always the same one, whatever you were doing.</span>
+          </span>
+          <input
+            type="radio"
+            name="landing"
+            checked={mode === 'fixed'}
+            onChange={() => save({ mode: 'fixed', pageId })}
+          />
+        </label>
+      </div>
 
       {mode === 'fixed' && (
-        <div className="field">
-          <label htmlFor="landing-page">Page</label>
-          <select
-            id="landing-page"
-            value={pageId ?? ''}
-            onChange={(event) => save({ mode: 'fixed', pageId: event.target.value || null })}
-          >
-            <option value="">Choose a page…</option>
-            {pages
-              .filter((page) => page.kind !== 'folder')
-              .map((page) => (
-                <option key={page.id} value={page.id}>
-                  {page.title || 'Untitled'}
-                </option>
-              ))}
-          </select>
-          {/* Said rather than left to be discovered.
-            *
-            * A chosen page can be deleted or put out of reach afterwards, and
-            * a landing that refuses to land is worse than an arbitrary one. */}
-          <p className="muted">
-            If that page is ever deleted or closed to you, SONE opens the first
-            one instead rather than refusing.
-          </p>
+        <div className="settings-card">
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>Page</b>
+              <span>
+                If it is ever deleted or closed to you, SONE opens the first one
+                instead rather than refusing.
+              </span>
+            </span>
+            {/* The fallback is said rather than left to be discovered: a
+              * landing that refuses to land is worse than an arbitrary one, and
+              * it is the one page somebody cannot avoid. */}
+            <select
+              id="landing-page"
+              aria-label="Page"
+              value={pageId ?? ''}
+              onChange={(event) => save({ mode: 'fixed', pageId: event.target.value || null })}
+            >
+              <option value="">Choose a page…</option>
+              {pages
+                .filter((page) => page.kind !== 'folder')
+                .map((page) => (
+                  <option key={page.id} value={page.id}>
+                    {page.title || 'Untitled'}
+                  </option>
+                ))}
+            </select>
+          </div>
         </div>
       )}
 

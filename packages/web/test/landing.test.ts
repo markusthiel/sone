@@ -31,11 +31,25 @@ test('where somebody is is recorded on the page, not on leaving it', () => {
 
 test('a chosen page that goes out of reach falls back rather than refusing', () => {
   // The one page somebody cannot avoid, so it must not be the one that fails.
-  assert.match(panel, /opens the first\s*\n?\s*one instead rather than refusing/);
+  assert.match(panel, /opens the first one\s*\n?\s*instead rather than refusing/);
 });
 
 test('the fixed page is chosen per workspace', () => {
   // A page in one workspace is no use in another.
   assert.match(panel, /workspaceId: string/);
   assert.match(panel, /\.setLanding\(workspaceId, next\)/);
+});
+
+test('the choice is a card of rows, like the account page', () => {
+  // The pattern is the point: two panels that group controls differently are
+  // two panels somebody has to learn separately.
+  assert.match(panel, /<div className="settings-card">/);
+  assert.match(panel, /<label className="settings-row">/);
+});
+
+test('each choice says what it does, not just what it is called', () => {
+  // "The page you were on last" and "A particular page" are distinguishable by
+  // name only once you already know the difference.
+  assert.match(panel, /Follows you: whatever you had open in this workspace/);
+  assert.match(panel, /Always the same one, whatever you were doing/);
 });
