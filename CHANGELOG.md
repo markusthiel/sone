@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The foot of the sidebar is a row of tools** — your account, trash, settings,
+sign out — instead of three lines of text competing with the pages above them.
+
 **The areas are separated by surface rather than by lines.** The rule between
 sidebar and content is the faintest one available.
 

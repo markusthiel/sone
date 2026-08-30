@@ -38,6 +38,8 @@ import {
   SearchIcon,
   SidebarIcon,
   StarIcon,
+  SettingsIcon,
+  SignOutIcon,
   TrashIcon,
 } from './icons.tsx';
 
@@ -74,6 +76,8 @@ interface SidebarProps {
   /** Whether to offer the way into the workspace administration. */
   canManageWorkspaces: boolean;
   onLogout: () => void;
+  /** For the account entry at the foot of the sidebar. */
+  displayName: string;
 }
 
 const COLLAPSED_KEY = 'sone.collapsedPages';
@@ -112,6 +116,7 @@ export function Sidebar({
   onReloadTree,
   canManageWorkspaces,
   onLogout,
+  displayName,
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -297,17 +302,63 @@ export function Sidebar({
           <FolderPlusIcon /> New folder
         </button>
 
+        {/* A row of marks, not a list of sentences.
+          *
+          * Three lines of text at the foot of a sidebar read as three more
+          * places to go, competing with the pages above them — which are the
+          * reason somebody is looking at this column at all. As icons they are
+          * a row of tools: recognisable, out of the way, and taking one line
+          * instead of three.
+          *
+          * Each keeps a label for anybody who cannot see the icon or has not
+          * met it yet; it is on the control rather than beside it. */}
         <div className="sidebar-footer">
-          <a className="tree-link" href={paths.trash()}>
-            <TrashIcon /> Trash
+          <a
+            className="sidebar-tool"
+            href={paths.settings('account')}
+            title={displayName}
+            aria-label={`${displayName} — your account`}
+          >
+            {/* The person, first: it is the one entry that is about them
+                rather than about the instance. */}
+            <span className="sidebar-avatar" aria-hidden="true">
+              {displayName.trim().charAt(0).toUpperCase() || '?'}
+            </span>
           </a>
-          <a className="tree-link" href={paths.settings()}>
-            Settings
+
+          <a
+            className="sidebar-tool"
+            href={paths.trash()}
+            title="Trash"
+            aria-label="Trash"
+          >
+            <TrashIcon />
           </a>
-          <button className="quiet" type="button" onClick={onLogout}>
-            Sign out
+
+          <a
+            className="sidebar-tool"
+            href={paths.settings()}
+            title="Settings"
+            aria-label="Settings"
+          >
+            <SettingsIcon />
+          </a>
+
+          <button
+            className="sidebar-tool"
+            type="button"
+            onClick={onLogout}
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            <SignOutIcon />
           </button>
-          <a className="sidebar-version" href={paths.settings('about')}>
+
+          <a
+            className="sidebar-version"
+            href={paths.settings('about')}
+            title="Version and licence"
+          >
             {WEB_VERSION}
           </a>
         </div>
