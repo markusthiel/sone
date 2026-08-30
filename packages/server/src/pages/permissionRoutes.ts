@@ -71,8 +71,34 @@ export function registerPagePermissionRoutes(router: Router, deps: PermissionDep
       [pageId],
     );
 
+    const groupGrants = await queryRows<{
+      group_id: string;
+      name: string;
+      role: PageAccess;
+      inherited_from: string | null;
+    }>(
+      deps.pool,
+      `SELECT gp.group_id, g.name, gp.role,
+              CASE WHEN gp.page_id = $1 THEN NULL ELSE anc.title END AS inherited_from
+         FROM pages target
+         JOIN page_group_permissions gp
+           ON gp.page_id = target.id
+           OR (gp.include_subtree AND gp.page_id = ANY(target.ancestor_ids))
+         JOIN groups g ON g.id = gp.group_id
+         LEFT JOIN pages anc ON anc.id = gp.page_id
+        WHERE target.id = $1
+        ORDER BY inherited_from NULLS FIRST, g.name`,
+      [pageId],
+    );
+
     ctx.send(200, {
       restricted: page?.restricted ?? false,
+      groups: groupGrants.map((row) => ({
+        groupId: row.group_id,
+        name: row.name,
+        access: row.role,
+        inheritedFrom: row.inherited_from,
+      })),
       grants: grants.map((row) => ({
         userId: row.user_id,
         displayName: row.display_name,
@@ -169,6 +195,84 @@ export function registerPagePermissionRoutes(router: Router, deps: PermissionDep
       [pageId, target, access, body.includeSubtree !== false, session.userId],
     );
 
+    ctx.send(200, { ok: true });
+  });
+
+  /** The same, for a group. */
+  router.put('/api/pages/:pageId/groups/:groupId', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    const pageId = ctx.params['pageId'] ?? '';
+    const resolved = await resolvePageAccess(deps.pool, { pageId, userId: session.userId });
+    if (!atLeast(resolved.access, 'admin')) {
+      ctx.fail(resolved.access === null ? 404 : 403,
+        resolved.access === null ? 'not_found' : 'forbidden');
+      return;
+    }
+
+    let body: { access?: unknown; includeSubtree?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const access = LEVELS.includes(body.access as PageAccess)
+      ? (body.access as PageAccess)
+      : null;
+    if (!access) {
+      ctx.fail(422, 'invalid_access');
+      return;
+    }
+
+    // The group has to belong to the page's workspace. A group from elsewhere
+    // would carry people who are not members here, which is the side door page
+    // grants already refuse.
+    const group = await queryOne<{ id: string }>(
+      deps.pool,
+      `SELECT g.id FROM groups g
+         JOIN pages p ON p.workspace_id = g.workspace_id
+        WHERE p.id = $1 AND g.id = $2`,
+      [pageId, ctx.params['groupId'] ?? ''],
+    );
+    if (!group) {
+      ctx.fail(422, 'not_a_group');
+      return;
+    }
+
+    await deps.pool.query(
+      `INSERT INTO page_group_permissions
+         (page_id, group_id, role, include_subtree, granted_by)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (page_id, group_id) DO UPDATE SET
+         role = EXCLUDED.role,
+         include_subtree = EXCLUDED.include_subtree,
+         granted_by = EXCLUDED.granted_by,
+         granted_at = now()`,
+      [pageId, group.id, access, body.includeSubtree !== false, session.userId],
+    );
+
+    ctx.send(200, { ok: true });
+  });
+
+  router.delete('/api/pages/:pageId/groups/:groupId', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    const pageId = ctx.params['pageId'] ?? '';
+    const resolved = await resolvePageAccess(deps.pool, { pageId, userId: session.userId });
+    if (!atLeast(resolved.access, 'admin')) {
+      ctx.fail(resolved.access === null ? 404 : 403,
+        resolved.access === null ? 'not_found' : 'forbidden');
+      return;
+    }
+
+    await deps.pool.query(
+      `DELETE FROM page_group_permissions WHERE page_id = $1 AND group_id = $2`,
+      [pageId, ctx.params['groupId'] ?? ''],
+    );
     ctx.send(200, { ok: true });
   });
 

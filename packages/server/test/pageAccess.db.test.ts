@@ -523,4 +523,57 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     );
     await db.query(`DELETE FROM groups WHERE id = $1`, [first.rows[0]!.id]);
   });
+
+  test('a group grant is reported beside the personal ones', async () => {
+    // The panel has to show both, or somebody removes a person's grant and
+    // wonders why they still reach the page.
+    const group = await db.query<{ id: string }>(
+      `INSERT INTO groups (workspace_id, name) VALUES ($1,'Listed') RETURNING id`,
+      [workspace],
+    );
+    const groupId = group.rows[0]!.id;
+    await db.query(
+      `INSERT INTO page_group_permissions (page_id, group_id, role) VALUES ($1,$2,'viewer')`,
+      [root, groupId],
+    );
+
+    const rows = await db.query<{ name: string; inherited_from: string | null }>(
+      `SELECT g.name,
+              CASE WHEN gp.page_id = $1 THEN NULL ELSE anc.title END AS inherited_from
+         FROM pages target
+         JOIN page_group_permissions gp
+           ON gp.page_id = target.id
+           OR (gp.include_subtree AND gp.page_id = ANY(target.ancestor_ids))
+         JOIN groups g ON g.id = gp.group_id
+         LEFT JOIN pages anc ON anc.id = gp.page_id
+        WHERE target.id = $1`,
+      [child],
+    );
+
+    assert.equal(rows.rows[0]?.name, 'Listed');
+    assert.equal(rows.rows[0]?.inherited_from, 'Root', 'and where it came from');
+
+    await db.query(`DELETE FROM groups WHERE id = $1`, [groupId]);
+  });
+
+  test('deleting a group takes its page grants with it', async () => {
+    // The rows go by cascade. Left behind, they would name a group that no
+    // longer exists and grant access to nobody in a way nothing could show.
+    const group = await db.query<{ id: string }>(
+      `INSERT INTO groups (workspace_id, name) VALUES ($1,'Doomed') RETURNING id`,
+      [workspace],
+    );
+    const groupId = group.rows[0]!.id;
+    await db.query(
+      `INSERT INTO page_group_permissions (page_id, group_id, role) VALUES ($1,$2,'viewer')`,
+      [child, groupId],
+    );
+
+    await db.query(`DELETE FROM groups WHERE id = $1`, [groupId]);
+    const left = await db.query(
+      `SELECT 1 FROM page_group_permissions WHERE group_id = $1`,
+      [groupId],
+    );
+    assert.equal(left.rowCount, 0);
+  });
 });
