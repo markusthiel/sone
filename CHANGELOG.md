@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Your account is editable.** Change your name, and change your password without
+signing out. Settings → Account.
+
 **Fixed: the page heading was drawn as a text field**, and the four marks at the
 foot of the sidebar stacked instead of sitting in a row.
 
