@@ -51,7 +51,8 @@ interface SettingsProps {
 }
 
 const SECTIONS: readonly ShellSection[] = [
-  { id: 'profile', label: 'Profile', hint: 'Your name, address, picture and password' },
+  { id: 'profile', label: 'Profile', hint: 'Your name, address and picture' },
+  { id: 'sign-in', label: 'Signing in', hint: 'Your password' },
   { id: 'appearance', label: 'Appearance', hint: 'How SONE looks to you' },
   { id: 'landing', label: 'Where you land', hint: 'The page each workspace opens on' },
   { id: 'about', label: 'About', hint: 'Version and licence' },
@@ -79,7 +80,8 @@ export function Settings({
       onListOpen={setListOpen}
       onClose={onClose}
     >
-      {current === 'profile' && <Account session={session} workspaceId={workspaceId} />}
+      {current === 'profile' && <Profile session={session} workspaceId={workspaceId} />}
+      {current === 'sign-in' && <SignIn />}
       {current === 'appearance' && <AppearanceSettings />}
       {current === 'landing' && <LandingSettings workspaceId={workspaceId} />}
       {current === 'about' && <About />}
@@ -87,7 +89,16 @@ export function Settings({
   );
 }
 
-function Account({
+/**
+ * Your name, your address and your picture (ADR-0032).
+ *
+ * Split from signing in, which used to sit under the same heading. They are
+ * different jobs done at different times: a name is changed once and rarely
+ * again, a password when something has happened — and a form that offers a
+ * current-password field while somebody is editing their display name reads as
+ * being asked to authenticate for no reason.
+ */
+function Profile({
   session,
   workspaceId,
 }: {
@@ -98,12 +109,6 @@ function Account({
   const [name, setName] = useState(session.user.displayName);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState('');
-  const [passwordDone, setPasswordDone] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   // A face that will not load is the ordinary case, not an error: most accounts
   // have none, and the initial is what stands in for it.
   const [avatarBroken, setAvatarBroken] = useState(false);
@@ -137,26 +142,8 @@ function Account({
       .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'));
   };
 
-  const savePassword = (): void => {
-    setBusy(true);
-    setPasswordError(null);
-    void api
-      .changePassword({ currentPassword: current, newPassword: next })
-      .then(() => {
-        setPasswordDone(true);
-        setCurrent('');
-        setNext('');
-      })
-      .catch((err: unknown) =>
-        setPasswordError(err instanceof ApiError ? err.code : 'network_error'),
-      )
-      .finally(() => setBusy(false));
-  };
-
   return (
     <section className="settings-section">
-      <h2>Account</h2>
-
       {error && <p className="error">{messageFor(error)}</p>}
 
       <div className="settings-card">
@@ -244,14 +231,48 @@ function Account({
         </button>
         {saved && <span className="muted">Saved.</span>}
       </div>
+    </section>
+  );
+}
 
+/**
+ * Signing in: the password, and whatever else ever guards the way in.
+ *
+ * Its own section rather than the foot of the profile. Changing a password is
+ * deliberate, usually prompted by something having happened, and it belongs
+ * where it can be found by looking for it — which is also where single sign-on
+ * and a second factor would go.
+ */
+function SignIn(): ReactElement {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [passwordDone, setPasswordDone] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const savePassword = (): void => {
+    setBusy(true);
+    setPasswordError(null);
+    void api
+      .changePassword({ currentPassword: current, newPassword: next })
+      .then(() => {
+        setPasswordDone(true);
+        setCurrent('');
+        setNext('');
+      })
+      .catch((err: unknown) =>
+        setPasswordError(err instanceof ApiError ? err.code : 'network_error'),
+      )
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <section className="settings-section">
       {/* Changing a password asks for the current one.
         *
         * Not a formality: a session left open on a shared machine is the
         * ordinary way an account is taken, and without this the person who
         * finds it can lock its owner out in two fields. */}
-      <h3 className="settings-heading">Password</h3>
-
       {passwordError && <p className="error">{messageFor(passwordError)}</p>}
 
       <div className="settings-card">
