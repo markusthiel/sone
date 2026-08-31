@@ -6,10 +6,16 @@
  *
  * Two decisions shape it.
  *
- * **A row is a page.** The first column is its title, and clicking it opens the
- * page — because that is what it is. A collection is a folder with columns, not
- * a spreadsheet that happens to live in a notes app, and a row that could not be
- * opened would be a record rather than a note.
+ * **A row is a page.** The first column is its title, and a control at the end of
+ * that cell opens the page — because that is what a row is. Clicking the cell
+ * itself edits the title, which is the inversion ADR-0034 argues for: filling a
+ * table means working down the first column, and when the cell was a link every
+ * attempt to do so left the table.
+ *
+ * **A paste of a grid becomes entries**, appended after whatever is there rather
+ * than overwriting it, in one request, up to fifty at a time. Pasting twice adds
+ * to the first fifty, which is what makes the cap a limit on an operation rather
+ * than on a table.
  *
  * **Only column types that can be filled are offered.** The model knows about
  * select, relation, formula and rollup; this offers text, number, date,
@@ -33,11 +39,16 @@ import {
   ColumnsIcon,
   FilterIcon,
   ListIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChevronRightIcon,
   PlusIcon,
   TableIcon,
   TrashIcon,
 } from './icons.tsx';
 import { CollectionBoard } from './CollectionBoard.tsx';
+import { MAX_PASTE_ROWS, looksLikeGrid, parsePastedGrid } from './pastedGrid.ts';
+import { useTableHistory } from '../hooks/useTableHistory.ts';
 import { ViewRules } from './ViewRules.tsx';
 import { OptionEditor, type EditableOption } from './OptionEditor.tsx';
 
@@ -100,6 +111,8 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
    * outside the scroller.
    */
   const [addingColumn, setAddingColumn] = useState<{ x: number; y: number } | null>(null);
+  /** Whether the "empty the table" confirmation is showing. */
+  const [clearing, setClearing] = useState(false);
   // Which view is showing. Local rather than stored: which view somebody is
   // looking at is not a property of the collection, and persisting it would
   // change what a colleague sees.
@@ -256,6 +269,165 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
     }
   };
 
+  /**
+   * Undo and redo for this table's own operations (ADR-0034).
+   *
+   * Declared here because every operation below records itself on it, and the
+   * two buttons that drive it live in the toolbar.
+   */
+  const history = useTableHistory(setError);
+
+  /** Rename a row, which is writing its page's title. */
+  const writeTitle = useCallback(
+    async (rowId: string, title: string, previous: string) => {
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              rows: current.rows.map((row) => (row.id === rowId ? { ...row, title } : row)),
+            }
+          : current,
+      );
+      try {
+        await api.renameEntry(rowId, title);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.code : 'network_error');
+        await load();
+        return;
+      }
+      history.push({
+        label: 'rename an entry',
+        forward: () => api.renameEntry(rowId, title).then(() => load()),
+        backward: () => api.renameEntry(rowId, previous).then(() => load()),
+      });
+    },
+    [history, load],
+  );
+
+  /**
+   * Take a pasted grid and make entries of it.
+   *
+   * `anchorRowId` is the row the paste landed in, and `columnFrom` the column it
+   * landed on — cells to the left of it are not touched, so pasting into the
+   * second column fills the second onwards.
+   *
+   * An *empty* anchor row is filled with the first line rather than left behind:
+   * that is the row somebody just made in order to paste into it, and an empty
+   * entry sitting above the result is a page nobody wanted. A row with anything
+   * in it is never overwritten — the rest is appended, which is the whole point.
+   */
+  const pasteGrid = useCallback(
+    async (text: string, anchorRowId: string | null, columnFrom: number) => {
+      const grid = parsePastedGrid(text);
+      if (grid.rows.length === 0) return;
+
+      // `columnFrom` counts the title as 0, so column 1 is the first value
+      // column. Slicing by it directly skipped one — a paste starting in the
+      // first value column would have filled the second onwards.
+      const targets = columnFrom === 0 ? columns : columns.slice(columnFrom - 1);
+      const anchor = anchorRowId
+        ? (data?.rows.find((row) => row.id === anchorRowId) ?? null)
+        : null;
+      const anchorEmpty =
+        anchor !== null &&
+        anchor.title.trim() === '' &&
+        Object.values(anchor.values).every((value) => value === null || value === undefined);
+
+      const lines = [...grid.rows];
+      let filledAnchor: { rowId: string; title: string; previous: string } | null = null;
+
+      if (anchorEmpty && anchor) {
+        const first = lines.shift()!;
+        // The first column of a paste is the entry's name only when the paste
+        // starts at the title column; otherwise the name is left alone and the
+        // values fill from where it started.
+        const title = columnFrom === 0 ? (first[0] ?? '') : anchor.title;
+        const offset = columnFrom === 0 ? 1 : 0;
+        for (const [at, field] of targets.entries()) {
+          const cell = first[at + offset];
+          if (cell === undefined) continue;
+          await api.setCellValue(anchor.id, field.id, valueFromText(field, cell));
+        }
+        if (columnFrom === 0) await api.renameEntry(anchor.id, title);
+        filledAnchor = { rowId: anchor.id, title, previous: anchor.title };
+      }
+
+      let created: string[] = [];
+      if (lines.length > 0) {
+        const rows = lines.map((cells) => {
+          const values: Record<string, StoredCellValue | null> = {};
+          const offset = columnFrom === 0 ? 1 : 0;
+          for (const [at, field] of targets.entries()) {
+            const cell = cells[at + offset];
+            if (cell !== undefined) values[field.id] = valueFromText(field, cell);
+          }
+          return { title: columnFrom === 0 ? (cells[0] ?? '') : '', values };
+        });
+
+        try {
+          const result = await api.addCollectionRows(collectionId, rows);
+          created = result.created;
+        } catch (err) {
+          setError(err instanceof ApiError ? err.code : 'network_error');
+          await load();
+          return;
+        }
+      }
+
+      await load();
+
+      // One entry on the stack for the whole paste, including the anchor row it
+      // filled: undoing half a paste would be worse than not offering it.
+      history.push({
+        label:
+          created.length + (filledAnchor ? 1 : 0) === 1
+            ? 'paste an entry'
+            : `paste ${created.length + (filledAnchor ? 1 : 0)} entries`,
+        forward: async () => {
+          for (const rowId of created) await api.restoreEntry(rowId);
+          if (filledAnchor) await api.renameEntry(filledAnchor.rowId, filledAnchor.title);
+          await load();
+        },
+        backward: async () => {
+          // Archived rather than deleted, which is what makes it reversible:
+          // restoring is the exact inverse and needs no ids that do not exist yet.
+          for (const rowId of created) await api.archivePage(rowId);
+          if (filledAnchor) await api.renameEntry(filledAnchor.rowId, filledAnchor.previous);
+          await load();
+        },
+      });
+
+      if (grid.ignored > 0) {
+        // Said, not silently dropped. The rest is still on the clipboard, and
+        // pasting again appends — so this is an instruction rather than a refusal.
+        setError('paste_capped');
+      }
+    },
+    [collectionId, columns, data, history, load],
+  );
+
+  /** Empty the table: every row archived, and every row restorable. */
+  const clearRows = useCallback(async () => {
+    try {
+      const result = await api.clearCollectionRows(collectionId);
+      await load();
+      history.push({
+        label: `empty the table (${result.archived.length})`,
+        forward: async () => {
+          for (const rowId of result.archived) await api.archivePage(rowId);
+          await load();
+        },
+        backward: async () => {
+          for (const rowId of result.archived) await api.restoreEntry(rowId);
+          await load();
+        },
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  }, [collectionId, history, load]);
+
   return (
     <div className="collection">
       {error && <p className="error">{messageFor(error)}</p>}
@@ -297,6 +469,52 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             >
               <FilterIcon /> {ruleSummary(view)}
             </button>
+          )}
+
+          {data.canEdit && (
+            <>
+              {/* Undo and redo, drawn always rather than only when there is
+                  something to reverse: a control that appears and disappears in
+                  a toolbar is one people stop looking for. Disabled says the
+                  same thing and stays in place. */}
+              <button
+                type="button"
+                className="view-tab"
+                disabled={history.undoLabel === null || history.busy}
+                title={history.undoLabel ? `Undo: ${history.undoLabel}` : 'Nothing to undo'}
+                aria-label={history.undoLabel ? `Undo: ${history.undoLabel}` : 'Nothing to undo'}
+                onClick={() => void history.undo()}
+              >
+                <ArrowUpIcon />
+              </button>
+              <button
+                type="button"
+                className="view-tab"
+                disabled={history.redoLabel === null || history.busy}
+                title={history.redoLabel ? `Redo: ${history.redoLabel}` : 'Nothing to redo'}
+                aria-label={history.redoLabel ? `Redo: ${history.redoLabel}` : 'Nothing to redo'}
+                onClick={() => void history.redo()}
+              >
+                <ArrowDownIcon />
+              </button>
+
+              {/* Last, and only where there is something to empty. It archives
+                  rather than deletes — a row is a page, so this fills the trash
+                  and can be undone (ADR-0034) — and it says so rather than
+                  asking "are you sure", which is dismissed by the same reflex
+                  that opened it. */}
+              {data.rows.length > 0 && (
+                <button
+                  type="button"
+                  className="view-tab collection-clear"
+                  disabled={history.busy}
+                  title={`Move all ${data.rows.length} entries to the trash`}
+                  onClick={() => setClearing(true)}
+                >
+                  <TrashIcon /> Empty
+                </button>
+              )}
+            </>
           )}
 
           {data.canEdit && selectColumns.length > 0 && (
@@ -402,17 +620,53 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             </tr>
           </thead>
 
-          <tbody>
+          <tbody
+            // One handler for the whole body rather than one per cell: the paste
+            // has to know which cell it landed in, and that comes from the event
+            // either way — while a listener per cell is a listener per row.
+            onPaste={(event) => {
+              if (!data.canEdit) return;
+              const text = event.clipboardData.getData('text/plain');
+              // A single value is left to the browser: it goes into the field
+              // somebody is typing in, which is what they meant.
+              if (!text || !looksLikeGrid(text)) return;
+
+              const cell = (event.target as HTMLElement).closest<HTMLElement>('[data-column]');
+              const rowElement = (event.target as HTMLElement).closest<HTMLElement>('[data-row]');
+              event.preventDefault();
+              void pasteGrid(
+                text,
+                rowElement?.dataset['row'] ?? null,
+                Number(cell?.dataset['column'] ?? '0'),
+              );
+            }}
+          >
             {data.rows.map((row) => (
-              <tr key={row.id}>
-                <td className="collection-title-column">
-                  {/* A row is a page, so its title opens it. */}
-                  <a href={paths.page(row.id, row.title)}>
-                    {row.title || <span className="muted">Untitled</span>}
+              <tr key={row.id} data-row={row.id}>
+                <td className="collection-title-column" data-column="0">
+                  {/* The name, edited here (ADR-0034).
+                    *
+                    * It was a link, and clicking it left the table — which is
+                    * exactly the gesture somebody makes while filling the first
+                    * column. The page is one control to the right, which is
+                    * where the rarer want belongs. */}
+                  <TitleCell
+                    key={row.id}
+                    title={row.title}
+                    canEdit={data.canEdit}
+                    onChange={(title) => void writeTitle(row.id, title, row.title)}
+                  />
+                  <a
+                    className="collection-open-row"
+                    href={paths.page(row.id, row.title)}
+                    title={`Open ${row.title || 'this entry'}`}
+                    aria-label={`Open ${row.title || 'this entry'}`}
+                  >
+                    <ChevronRightIcon />
                   </a>
                 </td>
-                {columns.map((field) => (
-                  <td key={field.id}>
+                {columns.map((field, at) => (
+                  <td key={field.id} data-column={at + 1}>
                     <Cell
                       field={field}
                       value={row.values[field.id] ?? null}
@@ -468,6 +722,31 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         </div>
       )}
 
+      {clearing && (
+        <div className="collection-confirm" role="alert">
+          <p>
+            Move all {data?.rows.length ?? 0} entries to the trash? Each one is a
+            page, so nothing is destroyed — they can be restored from the trash,
+            or with undo.
+          </p>
+          <div className="settings-actions">
+            <button
+              type="button"
+              className="btn danger"
+              onClick={() => {
+                setClearing(false);
+                void clearRows();
+              }}
+            >
+              Empty the table
+            </button>
+            <button type="button" className="btn" onClick={() => setClearing(false)}>
+              Keep them
+            </button>
+          </div>
+        </div>
+      )}
+
       {data.canEdit && (
         <button
           type="button"
@@ -488,6 +767,49 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * A row's name, edited in place (ADR-0034).
+ *
+ * Committed on blur or Enter rather than as it is typed. A title is a page's
+ * title — the sidebar, search and every link to it read the same value — and a
+ * request per keystroke would be a rename per keystroke in all of them. Escape
+ * puts back what was there, which is the only way out of a half-typed change that
+ * does not require remembering the old value.
+ *
+ * Uncontrolled, keyed on the row by the caller, so a reload that brings back the
+ * same value does not fight the caret.
+ */
+function TitleCell({
+  title,
+  canEdit,
+  onChange,
+}: {
+  title: string;
+  canEdit: boolean;
+  onChange: (title: string) => void;
+}): ReactElement {
+  return (
+    <input
+      className="collection-title-input"
+      defaultValue={title}
+      readOnly={!canEdit}
+      placeholder="Untitled"
+      aria-label="Name"
+      onBlur={(event) => {
+        const next = event.currentTarget.value.trim();
+        if (next !== title) onChange(next);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+        else if (event.key === 'Escape') {
+          event.currentTarget.value = title;
+          event.currentTarget.blur();
+        }
+      }}
+    />
   );
 }
 
@@ -788,6 +1110,65 @@ function SelectCell({
  * been typed there. The tag exists precisely so that cannot happen quietly, and
  * the compiler refused to let me ignore it.
  */
+/**
+ * Turn one pasted string into a value the column can hold (ADR-0034).
+ *
+ * Text arrives from a clipboard with no types in it, so the column decides.
+ * Anything that cannot be read as the column's type becomes null — an empty cell
+ * rather than a refused paste, because one unparseable date in fifty rows should
+ * not cost somebody the other forty-nine, and an empty cell is visible.
+ *
+ * A select is matched on the option's *name*, which is what a spreadsheet
+ * contains; an unknown name is null rather than a new option, for the reason the
+ * ADR gives about inferring structure from data.
+ */
+export function valueFromText(
+  field: CollectionField,
+  text: string,
+): StoredCellValue | null {
+  const trimmed = text.trim();
+  if (trimmed === '') return null;
+
+  switch (field.fieldType) {
+    case 'number': {
+      // A comma decimal separator, because that is what a German spreadsheet
+      // writes and the paste is the one place this application meets one.
+      const parsed = Number(trimmed.replace(/\s/g, '').replace(',', '.'));
+      return Number.isFinite(parsed) ? { kind: 'number', value: parsed } : null;
+    }
+    case 'checkbox': {
+      const yes = ['true', 'yes', 'y', '1', 'x', 'ja', 'wahr', '✓'];
+      return yes.includes(trimmed.toLowerCase()) ? { kind: 'checkbox', value: true } : null;
+    }
+    case 'date': {
+      // ISO only. Guessing between 03/04 as March and April is a coin toss with
+      // somebody's data, and a wrong date looks right.
+      return /^\d{4}-\d{2}-\d{2}/.test(trimmed)
+        ? { kind: 'date', start: trimmed.slice(0, 10), end: null }
+        : null;
+    }
+    case 'select':
+    case 'multiSelect': {
+      const options = optionsOf(field);
+      const names = trimmed.split(',').map((part) => part.trim().toLowerCase());
+      const matched = options.filter((option) => names.includes(option.name.toLowerCase()));
+      if (matched.length === 0) return null;
+      return field.fieldType === 'select'
+        ? { kind: 'select', optionId: matched[0]!.id }
+        : { kind: 'multiSelect', optionIds: matched.map((option) => option.id) };
+    }
+    case 'text':
+    case 'url':
+    case 'email':
+    case 'phone':
+      return { kind: field.fieldType, value: text } as StoredCellValue;
+    default:
+      // A derived column, or one this table cannot edit. Skipped rather than
+      // guessed at.
+      return null;
+  }
+}
+
 export function textOf(value: StoredCellValue | null): string {
   if (!value) return '';
   const kind = value.kind;

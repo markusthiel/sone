@@ -3278,6 +3278,54 @@ select {
 }
 .collection-table thead .collection-title-column { background: var(--sone-bg-subtle); }
 
+/* The name and the way into the page, on one line (ADR-0034).
+ *
+ * The name is edited here, so it takes the room; the control that opens the page
+ * is small and at the end, which is the order of how often each is wanted. */
+.collection-table tbody .collection-title-column {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+}
+.collection-title-input {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.collection-open-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  min-block-size: 24px;
+  border-radius: var(--sone-radius-sm);
+  color: var(--sone-text-muted);
+  /* De-emphasised, never hidden: a control revealed by hover does not exist on
+     a phone (ADR-0016). */
+  opacity: 0.45;
+}
+.collection-title-column:hover .collection-open-row,
+.collection-open-row:hover,
+.collection-open-row:focus-visible { opacity: 1; }
+.collection-open-row:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.collection-open-row svg { inline-size: 14px; block-size: 14px; }
+@media (hover: none) {
+  .collection-open-row { opacity: 0.7; }
+}
+
+/* Emptying the table asks first, in a sentence rather than a dialog: a dialog is
+   dismissed by the same reflex that opened it, and this moves every entry to the
+   trash. */
+.collection-confirm {
+  padding: var(--sone-space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+}
+.collection-confirm p { margin-block: 0 var(--sone-space-3); }
+.collection-clear:hover:not(:disabled) { color: var(--sone-danger); }
+
 /* Cells are inputs without looking like a form: a grid of boxed fields is
    unreadable at a glance, which is the one thing a table has to be. */
 .collection-table input[type='text'],

@@ -750,6 +750,28 @@ export const api = {
     }),
 
   /** A row is created through its collection and never appears in the tree. */
+  /**
+   * Add several rows at once, appended after whatever is there (ADR-0034).
+   *
+   * One request for a whole pasted grid: fifty rows through the single-row route
+   * is two hundred round trips and a table that fills in visibly.
+   */
+  addCollectionRows: (
+    collectionId: string,
+    rows: Array<{ title: string; values?: Record<string, StoredCellValue | null> }>,
+  ) =>
+    request<{ collectionId: string; created: string[] }>(
+      `/api/collections/${collectionId}/rows/bulk`,
+      { method: 'POST', body: JSON.stringify({ rows }) },
+    ),
+
+  /** Archive every row: a row is a page, so emptying a table fills the trash. */
+  clearCollectionRows: (collectionId: string) =>
+    request<{ collectionId: string; archived: string[] }>(
+      `/api/collections/${collectionId}/rows`,
+      { method: 'DELETE' },
+    ),
+
   addCollectionRow: (collectionId: string, title = '') =>
     request<{ id: string }>(`/api/collections/${collectionId}/rows`, {
       method: 'POST',
