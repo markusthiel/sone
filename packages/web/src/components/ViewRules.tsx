@@ -88,6 +88,20 @@ function operatorsFor(fieldType: string): Array<{ id: string; label: string }> {
 }
 
 /** Columns that can be filtered or sorted at all. */
+/**
+ * How much room a row takes.
+ *
+ * A property of the *view*, because the same entries can be a list in one and an
+ * overview in another. Read tolerantly: a definition written by a newer version,
+ * or by hand, must not make the panel refuse to open.
+ */
+export type Density = 'compact' | 'normal' | 'tall';
+
+export function readDensity(view: { definition: Record<string, unknown> }): Density {
+  const raw = view.definition['density'];
+  return raw === 'compact' || raw === 'tall' ? raw : 'normal';
+}
+
 const usable = (field: CollectionField): boolean =>
   ['text', 'number', 'date', 'checkbox', 'select', 'multiSelect', 'url', 'email', 'phone'].includes(
     field.fieldType,
@@ -112,6 +126,7 @@ export function ViewRules({
   const columns = fields.filter(usable);
   const [filters, setFilters] = useState<Filter[]>(() => readFilters(view));
   const [sort, setSort] = useState<Sort | null>(() => readSort(view));
+  const [density, setDensity] = useState<Density>(() => readDensity(view));
 
   const typeOf = (fieldId: string): string =>
     fields.find((field) => field.id === fieldId)?.fieldType ?? 'text';
@@ -137,12 +152,15 @@ export function ViewRules({
           }
         : {}),
       ...(sort ? { sort: [sort] } : {}),
+      // Only when it is not the default, so a view that never had an opinion
+      // does not acquire one — and changing the default later reaches those.
+      ...(density === 'normal' ? {} : { density }),
       // Anything else the view carried — a board's groupByFieldId — is kept.
       // The definition is replaced wholesale, so dropping it here would silently
       // un-group a board when somebody sorted it.
       ...Object.fromEntries(
         Object.entries(view.definition).filter(
-          ([key]) => key !== 'filters' && key !== 'sort',
+          ([key]) => key !== 'filters' && key !== 'sort' && key !== 'density',
         ),
       ),
     });
@@ -165,6 +183,25 @@ export function ViewRules({
 
   return (
     <div className="view-rules" role="dialog" aria-label="View rules">
+      {/* Row height, per view rather than per table.
+        *
+        * The same entries can be a list in one view and an overview in another,
+        * so this belongs to the view that draws them — which is also why it sits
+        * here, beside the filters and the sort, rather than in a workspace
+        * setting. */}
+      <h3>Row height</h3>
+      <div className="view-rule">
+        <select
+          value={density}
+          aria-label="Row height"
+          onChange={(event) => setDensity(event.target.value as Density)}
+        >
+          <option value="compact">Compact</option>
+          <option value="normal">Normal</option>
+          <option value="tall">Tall</option>
+        </select>
+      </div>
+
       <h3>Sort</h3>
       <div className="view-rule">
         <select

@@ -60,7 +60,7 @@ import {
 import { CollectionBoard } from './CollectionBoard.tsx';
 import { MAX_PASTE_ROWS, looksLikeGrid, parsePastedGrid } from './pastedGrid.ts';
 import { useTableHistory } from '../hooks/useTableHistory.ts';
-import { ViewRules } from './ViewRules.tsx';
+import { readDensity, ViewRules } from './ViewRules.tsx';
 import { OptionEditor, type EditableOption } from './OptionEditor.tsx';
 
 interface CollectionTableProps {
@@ -480,6 +480,9 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   const titleField = data.fields.find((field) => field.id === data.titleFieldId);
 
   const view = data.views.find((entry) => entry.id === viewId) ?? data.views[0];
+  // How tall a row is, from the view being drawn rather than from the table: the
+  // same entries can be a list in one view and an overview in another.
+  const density = view ? readDensity(view) : 'normal';
   const selectColumns = columns.filter(
     (field) => field.fieldType === 'select' && optionsOf(field).length > 0,
   );
@@ -643,7 +646,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         className="collection-scroll"
         hidden={view?.viewType === 'board' && groupBy !== undefined}
       >
-        <table className="collection-table">
+        <table className="collection-table" data-density={density}>
           <thead>
             <tr>
               {/* The title column, which cannot be removed or renamed away: it
