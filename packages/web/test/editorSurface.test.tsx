@@ -320,4 +320,72 @@ describe('editor surface', () => {
 
     assert.ok(container.querySelector('.ProseMirror'), 'mounted from what is there');
   });
+
+  test('choosing a video uploads it, says so, and inserts a block', async () => {
+    // Driven rather than read, because the report was "the video upload does not
+    // work" and the code looked right — which is the situation in which mounting
+    // it is the only thing that answers.
+    const { createElement, act: reactAct } = await import('react');
+    const { EditorSurface } = await import('../src/components/EditorSurface.tsx');
+    const handle = (await makeHandle()) as { doc: import('yjs').Doc };
+
+    let resolveUpload: (() => void) | null = null;
+    const held = new Promise<void>((resolve) => {
+      resolveUpload = resolve;
+    });
+    (globalThis as unknown as { fetch: unknown }).fetch = async () => {
+      await held;
+      return {
+        status: 201,
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            id: 'f1',
+            url: '/api/files/f1',
+            filename: 'clip.mp4',
+            mimeType: 'video/mp4',
+            sizeBytes: 8388640,
+            inline: true,
+            category: 'video',
+          }),
+      };
+    };
+
+    await render(
+      createElement(EditorSurface as never, {
+        handle,
+        pageId: '00000000-0000-4000-8000-0000000000aa',
+      }),
+    );
+
+    const input = container.querySelector<HTMLInputElement>('input[accept*="video/mp4"]');
+    assert.ok(input, 'the picker exists');
+    // Every format the server stores is choosable: one it hides is a file
+    // somebody cannot pick and cannot be told why.
+    for (const kind of ['.mp4', '.mov', '.webm', '.mkv']) {
+      assert.match(input.getAttribute('accept') ?? '', new RegExp(kind.replace('.', '\\.')));
+    }
+
+    const file = new dom.window.File([new Uint8Array([1, 2, 3])], 'clip.mp4', {
+      type: 'video/mp4',
+    });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+
+    await reactAct(async () => {
+      input.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    });
+
+    // While it is in flight. This is what was missing: a video is the first
+    // thing sent whole — a photograph is shrunk first — so seconds of silence
+    // read as nothing happening.
+    assert.match(container.innerHTML, /Uploading clip\.mp4/);
+
+    resolveUpload?.();
+    await reactAct(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    });
+
+    assert.match(container.innerHTML, /class="video-block/, 'the block arrived');
+    assert.doesNotMatch(container.innerHTML, /Uploading clip\.mp4/, 'and the progress went');
+  });
 });

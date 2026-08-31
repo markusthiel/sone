@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An upload in progress says so.** A video is the first thing SONE sends whole — a
+photograph is shrunk in the browser first — so eight megabytes was seconds of
+silence, which is indistinguishable from nothing happening. The picker also offers
+every format the server will actually store, rather than a shorter list.
+
 **An entry can be moved to another workspace** ([ADR-0038](docs/adr/0038-move-between-workspaces.md)),
 with everything under it. The server side is in place; the confirmation that shows
 what a move costs — revoked share links, dropped restrictions, severed relations —
