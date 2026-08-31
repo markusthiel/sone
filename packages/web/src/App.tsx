@@ -21,6 +21,7 @@ import {
   readRightPanelOpen,
 } from './components/RightSidebar.tsx';
 import { SearchScreen } from './components/Search.tsx';
+import { LocaleProvider, resolveLocale } from './i18n/useT.tsx';
 import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
@@ -126,28 +127,39 @@ export function App(): ReactElement {
   // --- authenticated ------------------------------------------------------
 
   return (
-    <Workspace
-      workspaceId={state.workspaceId}
-      workspaceName={
-        state.session.workspaces.find((w) => w.id === state.workspaceId)?.name ??
-        'Workspace'
-      }
-      displayName={state.session.user.displayName}
-      session={state.session}
-      route={route}
-      navigate={navigate}
-      onSwitchWorkspace={(id) => {
-        selectWorkspace(id);
-        // Back to the root: a page id from the previous workspace is not
-        // reachable in the new one, and leaving it in the URL would show a
-        // not-found for a page that exists.
-        navigate(paths.home());
-        // The session response carries the workspace list, so a freshly created
-        // workspace has to be picked up before it can be selected.
-        void reload();
-      }}
-      onLogout={() => void logout()}
-    />
+    /* The language, resolved from the person, then the workspace, then the
+     * browser (ADR-0041). Here rather than in main.tsx, because the first two of
+     * those come from the session — and an unauthenticated screen has nothing to
+     * resolve from, so it stays English until there is somebody to ask. */
+    <LocaleProvider
+      initial={resolveLocale(
+        state.session.user.locale,
+        state.session.workspaces.find((w) => w.id === state.workspaceId)?.default_locale,
+      )}
+    >
+      <Workspace
+        workspaceId={state.workspaceId}
+        workspaceName={
+          state.session.workspaces.find((w) => w.id === state.workspaceId)?.name ??
+          'Workspace'
+        }
+        displayName={state.session.user.displayName}
+        session={state.session}
+        route={route}
+        navigate={navigate}
+        onSwitchWorkspace={(id) => {
+          selectWorkspace(id);
+          // Back to the root: a page id from the previous workspace is not
+          // reachable in the new one, and leaving it in the URL would show a
+          // not-found for a page that exists.
+          navigate(paths.home());
+          // The session response carries the workspace list, so a freshly created
+          // workspace has to be picked up before it can be selected.
+          void reload();
+        }}
+        onLogout={() => void logout()}
+      />
+    </LocaleProvider>
   );
 }
 

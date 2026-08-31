@@ -25,7 +25,9 @@ test('the footer is one line, not a list of places to go', () => {
 test('the one mark says what it opens', () => {
   // An icon nobody has met yet is a guess, and this one now leads to signing
   // out among other things.
-  assert.match(sidebar, /aria-label=\{`\$\{displayName\} — account and settings`\}/);
+  // Through the catalogue now (ADR-0041) — and the label still names the person,
+  // which is what the message's own parameter is for.
+  assert.match(sidebar, /aria-label=\{t\('account\.label', \{ name: displayName \}\)\}/);
 });
 
 test('the account entry carries the person, not a symbol', () => {
