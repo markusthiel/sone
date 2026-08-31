@@ -743,11 +743,47 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   letter-spacing: var(--sone-heading-tracking);
   line-height: 1.15;
   border: 0;
+  /* Declared and transparent, so showing it changes nothing but its colour. A
+     border that appears on focus moves the words underneath it by a pixel, and
+     a heading that jumps as you click it is worse than no hint at all. */
+  border-block-end: 1px solid transparent;
   /* Matching the editor's text column exactly. */
   padding: 0 0 0 var(--sone-text-indent);
   min-height: 0;
   background: transparent;
 }
+
+/* Editing a title is a line, not a box.
+ *
+ * The field rule above fills a focused input with the raised surface and draws
+ * a border round it, which is right for a form and wrong here: clicking a
+ * heading turned it into a white bar across the page, and it read as a dialog
+ * having opened rather than as a caret having been placed.
+ *
+ * `input.page-title` rather than `.page-title`, because that field rule is an
+ * element plus a pseudo-class and would otherwise win — the same trap the
+ * comment beside it already records.
+ *
+ * A line and the caret, and nothing else. A pencil was the other candidate and
+ * I would not: it has to be either a control, which means deciding what
+ * clicking it does that clicking the title does not, or decoration that is
+ * permanently in the way — there is no hover to hide it behind on a touch
+ * device, which is where this is mostly used.
+ */
+input.page-title:focus,
+input.page-title:focus-visible {
+  outline: none;
+  background: transparent;
+  border-block-end-color: var(--border-default);
+}
+
+/* The same hint before the click, on both kinds: the line appears faintly under
+   the pointer, and the caret cursor says what the click will do. A page's title
+   is an input at rest, so without this it looks like plain text until something
+   happens. */
+input.page-title:hover:not(:focus),
+.folder-title:hover { border-block-end-color: var(--border-subtle); }
+.folder-title:focus-visible { border-block-end-color: var(--border-default); }
 
 /* These matched nothing.
  *
