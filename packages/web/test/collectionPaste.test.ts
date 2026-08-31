@@ -196,3 +196,17 @@ test('the column menu looks like every other menu, and names types by shape', ()
     );
   }
 });
+
+test('being over the cap says how many were left', () => {
+  // It went through the error channel, which could not carry a count and framed
+  // a successful paste of fifty as a failure. What somebody needs to know is
+  // whether one more paste finishes the job.
+  assert.match(table, /grid\.ignored === 1/);
+  assert.match(table, /\$\{grid\.ignored\} more were not added/);
+  assert.match(table, /className="muted collection-notice"/);
+
+  // And it is no longer an error, in either place.
+  assert.doesNotMatch(table, /setError\('paste_capped'\)/);
+  const auth = codeOf(new URL('../src/components/Auth.tsx', import.meta.url));
+  assert.doesNotMatch(auth, /paste_capped/);
+});
