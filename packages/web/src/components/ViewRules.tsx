@@ -13,6 +13,7 @@
  * it here would produce a control that appears to do nothing.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useState, type ReactElement } from 'react';
 
 import type { CollectionField, CollectionView } from '../api/client.ts';
@@ -123,6 +124,7 @@ export function ViewRules({
   onSave,
   onClose,
 }: ViewRulesProps): ReactElement {
+  const { t } = useT();
   const columns = fields.filter(usable);
   const [filters, setFilters] = useState<Filter[]>(() => readFilters(view));
   const [sort, setSort] = useState<Sort | null>(() => readSort(view));
@@ -168,13 +170,13 @@ export function ViewRules({
 
   if (columns.length === 0) {
     return (
-      <div className="view-rules" role="dialog" aria-label="View rules">
+      <div className="view-rules" role="dialog" aria-label={t('view.rules')}>
         <p className="muted">
-          Add a column first — there is nothing to filter or sort by yet.
+          {t('view.noColumns')}
         </p>
         <div className="view-rules-actions">
           <button type="button" className="btn" onClick={onClose}>
-            Close
+            {t('action.close')}
           </button>
         </div>
       </div>
@@ -182,31 +184,31 @@ export function ViewRules({
   }
 
   return (
-    <div className="view-rules" role="dialog" aria-label="View rules">
+    <div className="view-rules" role="dialog" aria-label={t('view.rules')}>
       {/* Row height, per view rather than per table.
         *
         * The same entries can be a list in one view and an overview in another,
         * so this belongs to the view that draws them — which is also why it sits
         * here, beside the filters and the sort, rather than in a workspace
         * setting. */}
-      <h3>Row height</h3>
+      <h3>{t('view.rowHeight')}</h3>
       <div className="view-rule">
         <select
           value={density}
-          aria-label="Row height"
+          aria-label={t('view.rowHeight')}
           onChange={(event) => setDensity(event.target.value as Density)}
         >
-          <option value="compact">Compact</option>
-          <option value="normal">Normal</option>
-          <option value="tall">Tall</option>
+          <option value="compact">{t('view.rowHeight.compact')}</option>
+          <option value="normal">{t('view.rowHeight.normal')}</option>
+          <option value="tall">{t('view.rowHeight.tall')}</option>
         </select>
       </div>
 
-      <h3>Sort</h3>
+      <h3>{t('view.sort')}</h3>
       <div className="view-rule">
         <select
           value={sort?.fieldId ?? ''}
-          aria-label="Sort by"
+          aria-label={t('view.sort.by')}
           onChange={(event) =>
             setSort(
               event.target.value
@@ -215,7 +217,7 @@ export function ViewRules({
             )
           }
         >
-          <option value="">Not sorted</option>
+          <option value="">{t('view.sort.none')}</option>
           {columns.map((field) => (
             <option key={field.id} value={field.id}>
               {field.name}
@@ -226,19 +228,19 @@ export function ViewRules({
         {sort && (
           <select
             value={sort.direction}
-            aria-label="Sort direction"
+            aria-label={t('view.sort.direction')}
             onChange={(event) =>
               setSort({ ...sort, direction: event.target.value === 'desc' ? 'desc' : 'asc' })
             }
           >
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
+            <option value="asc">{t('view.sort.ascending')}</option>
+            <option value="desc">{t('view.sort.descending')}</option>
           </select>
         )}
       </div>
 
-      <h3>Filters</h3>
-      {filters.length === 0 && <p className="muted">Every entry is shown.</p>}
+      <h3>{t('view.filters')}</h3>
+      {filters.length === 0 && <p className="muted">{t('view.filters.none')}</p>}
 
       {filters.map((filter, index) => {
         const operators = operatorsFor(typeOf(filter.fieldId));
@@ -246,7 +248,7 @@ export function ViewRules({
           <div className="view-rule" key={`${filter.fieldId}-${index}`}>
             <select
               value={filter.fieldId}
-              aria-label="Column"
+              aria-label={t('view.filter.column')}
               onChange={(event) => {
                 const fieldId = event.target.value;
                 // The operator may not apply to the new column, so it is reset
@@ -269,7 +271,7 @@ export function ViewRules({
 
             <select
               value={filter.operator}
-              aria-label="Condition"
+              aria-label={t('view.filter.condition')}
               onChange={(event) =>
                 setFilters((current) =>
                   current.map((entry, at) =>
@@ -288,7 +290,7 @@ export function ViewRules({
             {wantsValue(filter.operator) && (
               <input
                 value={String(filter.value ?? '')}
-                aria-label="Value"
+                aria-label={t('view.filter.value')}
                 type={typeOf(filter.fieldId) === 'number' ? 'number' : 'text'}
                 onChange={(event) =>
                   setFilters((current) =>
@@ -303,7 +305,7 @@ export function ViewRules({
             <button
               type="button"
               className="view-rule-remove"
-              aria-label="Remove this filter"
+              aria-label={t('view.filter.remove')}
               onClick={() =>
                 setFilters((current) => current.filter((_, at) => at !== index))
               }
@@ -327,15 +329,15 @@ export function ViewRules({
           ])
         }
       >
-        <PlusIcon /> Add a filter
+        <PlusIcon /> {t('view.filter.add')}
       </button>
 
       <div className="view-rules-actions">
         <button type="button" className="btn" onClick={onClose}>
-          Cancel
+          {t('action.cancel')}
         </button>
         <button type="button" className="btn primary" onClick={save}>
-          Apply
+          {t('action.apply')}
         </button>
       </div>
     </div>

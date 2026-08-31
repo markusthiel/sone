@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The panel beside a page and a view's filter and sort rules speak German.** Ten
+files are translated; the admin area, the editor's own menus and the collection
+table are still English.
+
 **The workspace settings, the trash and search speak German too.** Eight files are
 translated now; the admin area, the editor's menus and the collection table are
 still English.
