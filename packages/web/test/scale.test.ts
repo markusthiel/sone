@@ -232,14 +232,27 @@ test('a block type nobody listed still gets a control', () => {
   assert.match(source, /APPEARANCE\[node\.type\.name\] \?\? \{/);
 });
 
-test('the column type menu opens away from the data', () => {
-  // It grew leftward across the rows, covering the table while you choose what
-  // kind of column to add to it. Rightward is where the new column is about to
-  // appear — and on a narrow screen there is no room there, so it flips back.
+test('the column type menu is not clipped by the table it belongs to', () => {
+  // It was absolute inside the scroll container, and a container with
+  // `overflow-x: auto` clips the other axis too — so the list of column types
+  // was cut off at the edge of the table and the ones below the fold could
+  // neither be read nor chosen. That is the report.
   const menu = css.slice(css.indexOf('.collection-type-menu {'));
   const rule = menu.slice(0, menu.indexOf('}'));
-  assert.match(rule, /inset-inline-start:\s*0/);
-  assert.match(css, /max-width: 720px\)[\s\S]{0,200}collection-type-menu[\s\S]{0,120}inset-inline-end:\s*0/);
+  assert.match(rule, /position: fixed/);
+  assert.doesNotMatch(rule, /inset-inline-start|inset-block-start/);
+
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  // Placed from the button's own rectangle, and clamped so it cannot open off
+  // the right edge of the window — the same failure in another direction.
+  assert.match(table, /getBoundingClientRect\(\)/);
+  assert.match(table, /Math\.min\(addingColumn\.x/);
+  // Rendered after the table rather than inside the header cell, or the fixed
+  // position would still be measured inside something that clips.
+  assert.ok(
+    table.indexOf('className="collection-type-menu"') > table.indexOf('</table>'),
+    'the menu is drawn outside the scroller',
+  );
 });
 
 test('the title column says it is fixed rather than just lacking a bin', () => {
