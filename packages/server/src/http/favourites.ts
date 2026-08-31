@@ -31,16 +31,29 @@ export interface FavouriteDeps {
 
 export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): void {
   /**
-   * The caller's favourites.
+   * The caller's favourites, in one workspace.
    *
    * Joined against pages so a favourite for a page that has been archived or
    * removed does not appear as a broken row. Filtered rather than deleted: a
    * page can come back from the archive, and the shortcut should still be there
    * when it does.
+   *
+   * `?workspace=<id>` is what the sidebar asks with, and it matters.
+   *
+   * The list is one person's and spans every workspace they belong to, which is
+   * right for the data and wrong for the sidebar: a sidebar is a view of *one*
+   * workspace, so a shortcut from another appeared in it and could not be
+   * opened — the page is in a workspace this session is not looking at, and the
+   * refusal read as "you no longer have access", which is not what happened.
+   *
+   * Unscoped remains valid, because the list itself is instance-wide and
+   * something may yet want all of it. The caller says which it means.
    */
   router.get('/api/favourites', async (ctx) => {
     const auth = await requireSession(deps.pool, ctx);
     if (!auth) return;
+
+    const scope = ctx.url.searchParams.get('workspace');
 
     const rows = await queryRows<{
       page_id: string;
@@ -70,8 +83,9 @@ export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): vo
                AND wm.user_id = $1
                AND wm.role IN ('owner','admin')
           )`)}
+          AND ($2::uuid IS NULL OR p.workspace_id = $2)
         ORDER BY f.idx, f.page_id`,
-      [auth.userId],
+      [auth.userId, scope],
     );
 
     // Membership is re-checked rather than assumed: someone removed from a
