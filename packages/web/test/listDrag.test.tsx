@@ -22,6 +22,35 @@ import { after, before, describe, test } from 'node:test';
 
 import { JSDOM } from 'jsdom';
 
+import { codeOf, stylesOf } from './helpers/source.ts';
+
+const css = stylesOf(new URL('../src/styles.css', import.meta.url));
+
+describe('what a drag looks like', () => {
+  test('the travelling label is one treatment, used by both surfaces', () => {
+    // The lines say where a drop lands; the label says what is landing. The
+    // switcher had the lines and no label, so a panel four rows tall gave no
+    // sign that a whole workspace was moving.
+    assert.match(css, /\.drag-preview \{/);
+    assert.doesNotMatch(css, /\.tree-drag-preview \{/);
+    for (const component of ['Sidebar', 'WorkspaceMenu']) {
+      assert.match(
+        codeOf(new URL(`../src/components/${component}.tsx`, import.meta.url)),
+        /className="drag-preview"/,
+        `${component} draws what is travelling`,
+      );
+    }
+  });
+
+  test('the sidebar head spends no gap on a control that is not there', () => {
+    // The collapse button is hidden on a wide screen and its container is still
+    // a flex item, so the row separated the workspace button from nothing — and
+    // the button came out 8px narrower than the panel below it.
+    assert.doesNotMatch(css, /\.sidebar-head \{[^}]*gap:/);
+    assert.match(css, /\.sidebar-head-actions > \* \{[^}]*margin-inline-start: 8px/);
+  });
+});
+
 let dom: JSDOM;
 let render: (element: unknown) => Promise<void>;
 let act: <T>(fn: () => T | Promise<T>) => Promise<void>;

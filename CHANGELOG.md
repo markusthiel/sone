@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Dragging a workspace now shows which workspace you are dragging**, the way the
+page tree does — the two lines said where it would land and nothing said what was
+moving.
+
+**Fixed: the workspace button was 8px narrower than the menu that drops out of
+it.** The sidebar's collapse button is hidden on a wide screen and its container
+still took up a gap.
+
 **The writing is on white and the furniture is tinted**, where it used to be the
 other way round. The sidebar, the top bar and the right panel now carry a very
 slight warm tint — about two per cent — and the page itself is the brightest

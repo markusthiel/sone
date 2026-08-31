@@ -392,7 +392,7 @@ export function Sidebar({
        * and outside the nav so the sidebar's own scrolling cannot clip it. */}
       {drag.dragging && drag.pointer && (
         <div
-          className="tree-drag-preview"
+          className="drag-preview"
           style={{ left: drag.pointer.x, top: drag.pointer.y }}
           aria-hidden="true"
         >
