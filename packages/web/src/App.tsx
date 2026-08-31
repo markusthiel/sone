@@ -10,6 +10,7 @@ import { useEffect, useState , type ReactElement } from 'react';
 import { LoginScreen, SetupScreen, SignupScreen, messageFor } from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
 import { MoveDialog } from './components/MoveDialog.tsx';
+import { MoveToWorkspaceDialog } from './components/MoveToWorkspaceDialog.tsx';
 import { ShareDialog } from './components/ShareDialog.tsx';
 import { Trash } from './components/Trash.tsx';
 import { SidebarIcon } from './components/icons.tsx';
@@ -196,6 +197,8 @@ function Workspace({
   } = usePages(workspaceId);
   // The entry a move dialog is open for, if any.
   const [movingId, setMovingId] = useState<string | null>(null);
+  /** The entry being moved to another workspace (ADR-0038). */
+  const [movingToWorkspaceId, setMovingToWorkspaceId] = useState<string | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
   const {
     favourites,
@@ -367,6 +370,7 @@ function Workspace({
         onCreatePage={(parent, kind) => void onCreateEntry(parent, kind)}
         onRename={(id, title) => void renameEntry(id, title)}
         onStartMove={setMovingId}
+        onStartMoveToWorkspace={setMovingToWorkspaceId}
         onStartShare={setSharingId}
         onMove={(id, parent, after) => void moveEntry(id, parent, after)}
         favourites={favourites}
@@ -493,6 +497,23 @@ function Workspace({
           pageId={sharingId}
           pageTitle={findNode(tree, sharingId)?.title ?? ''}
           onClose={() => setSharingId(null)}
+        />
+      )}
+
+      {movingToWorkspaceId && (
+        <MoveToWorkspaceDialog
+          entry={findNode(tree, movingToWorkspaceId)!}
+          session={session}
+          currentWorkspaceId={workspaceId}
+          onCancel={() => setMovingToWorkspaceId(null)}
+          onMoved={() => {
+            setMovingToWorkspaceId(null);
+            // The entry is not in this workspace any more, so the tree is
+            // reloaded and — if it was the page being read — the way out is the
+            // workspace's own landing page rather than a page that is elsewhere.
+            if (pageId === movingToWorkspaceId) navigate(paths.home());
+            void reloadPages();
+          }}
         />
       )}
 

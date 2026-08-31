@@ -266,6 +266,7 @@ interface EntryMenuProps {
   onDelete: (pageId: string, descendants: number) => void;
   onStartRename: (pageId: string) => void;
   onStartMove: (pageId: string) => void;
+  onStartMoveToWorkspace: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
   onReorder: (pageId: string, direction: 'up' | 'down') => void;
   /** False at the ends of the list, so the entries are visibly unavailable. */
@@ -287,6 +288,7 @@ export function EntryMenu({
   onDelete,
   onStartRename,
   onStartMove,
+  onStartMoveToWorkspace,
   onStartShare,
   onReorder,
   canMoveUp,
@@ -433,6 +435,25 @@ export function EntryMenu({
             }}
           >
             <MoveIcon /> Move to…
+          </button>
+
+          {/* Out of this workspace entirely (ADR-0038).
+            *
+            * Its own entry rather than a destination in the list above, because
+            * it is a different decision: a move within a workspace loses
+            * nothing, and this one revokes share links, drops restrictions and
+            * severs links to what stays behind. The dialog says which before it
+            * does any of it. */}
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onStartMoveToWorkspace(node.id);
+            }}
+          >
+            <MoveIcon /> Move to a workspace…
           </button>
 
           {isFolder && (

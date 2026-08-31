@@ -800,6 +800,32 @@ export const api = {
     ),
 
   /** Archive every row: a row is a page, so emptying a table fills the trash. */
+  /**
+   * Move an entry and everything under it to another workspace (ADR-0038).
+   *
+   * `dryRun` counts what it would cost and changes nothing, which is what the
+   * confirmation shows. The real move counts again in its own transaction, so
+   * what was shown is what happened.
+   */
+  moveToWorkspace: (pageId: string, workspaceId: string, dryRun = false) =>
+    request<{
+      pageId: string;
+      workspaceId: string;
+      parentPageId: string | null;
+      dryRun: boolean;
+      cost: {
+        pages: number;
+        files: number;
+        shareLinks: number;
+        restrictions: number;
+        references: number;
+        favourites: number;
+      };
+    }>(
+      `/api/pages/${pageId}/move-to-workspace${dryRun ? '?dryRun=true' : ''}`,
+      { method: 'POST', body: JSON.stringify({ workspaceId }) },
+    ),
+
   /** Move named rows to the trash (ADR-0040). Recoverable, like any page. */
   archiveCollectionRows: (collectionId: string, rowIds: string[]) =>
     request<{ collectionId: string; archived: string[] }>(
