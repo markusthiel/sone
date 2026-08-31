@@ -21,6 +21,7 @@ import {
   type AdminWorkspace,
   type MaintenanceReport,
 } from '../api/client.ts';
+import { useT } from '../i18n/useT.tsx';
 import { messageFor } from './Auth.tsx';
 
 /** Bytes in a form a person can judge at a glance. */
@@ -69,6 +70,7 @@ export function useIsInstanceAdmin(): { isAdmin: boolean | null } {
 // --- instance ---------------------------------------------------------------
 
 export function InstancePanel(): ReactElement {
+  const { t } = useT();
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -108,21 +110,21 @@ export function InstancePanel(): ReactElement {
   };
 
   if (error) return <p className="error">{messageFor(error)}</p>;
-  if (!overview) return <p className="muted">Loading…</p>;
+  if (!overview) return <p className="muted">{t('admin.loading')}</p>;
 
   const { counts, settings, settingSources } = overview;
 
   return (
     <>
       <section className="settings-section">
-        <h2>This instance</h2>
+        <h2>{t('admin.instance')}</h2>
         <dl className="settings-list">
-          <dt>Version</dt>
+          <dt>{t('admin.version')}</dt>
           <dd>
             {overview.version}
             <span className="muted"> · {overview.commit.slice(0, 8)}</span>
           </dd>
-          <dt>Accounts</dt>
+          <dt>{t('admin.accounts')}</dt>
           <dd>
             {counts.users}
             {counts.admins > 0 && (
@@ -135,14 +137,14 @@ export function InstancePanel(): ReactElement {
               <span className="muted"> · {counts.deactivated} deactivated</span>
             )}
           </dd>
-          <dt>Workspaces</dt>
+          <dt>{t('admin.workspaces')}</dt>
           <dd>{counts.workspaces}</dd>
-          <dt>Content</dt>
+          <dt>{t('admin.content')}</dt>
           <dd>
             {counts.pages} page{counts.pages === 1 ? '' : 's'} in {counts.folders} folder
             {counts.folders === 1 ? '' : 's'}
           </dd>
-          <dt>Files</dt>
+          <dt>{t('admin.files')}</dt>
           <dd>
             {counts.files} attachment{counts.files === 1 ? '' : 's'}
             {/* Distinct files, not rows: storage is content-addressed, so the
@@ -153,7 +155,7 @@ export function InstancePanel(): ReactElement {
       </section>
 
       <section className="settings-section">
-        <h2>Settings</h2>
+        <h2>{t('admin.settings')}</h2>
         <p className="muted settings-note">
           These are stored in the database and take effect immediately. Anything
           needed before the database opens — the database URL, the secret key,
@@ -164,22 +166,22 @@ export function InstancePanel(): ReactElement {
         <div className="settings-card">
           <div className="settings-row">
             <span className="settings-row-label">
-              <b>Who may create an account</b>
+              <b>{t('admin.signup')}</b>
               <span>
-                Closing it does not affect anybody who already has one.
+                {t('admin.signup.note')}
                 <SettingSource source={settingSources['signupMode']} />
               </span>
             </span>
             <select
               id="signup-mode"
-              aria-label="Who may create an account"
+              aria-label={t('admin.signup')}
               value={settings.signupMode}
               disabled={saving}
               onChange={(event) => void update({ signupMode: event.target.value })}
             >
-              <option value="open">Anyone with the address</option>
-              <option value="invite">Only with an invitation</option>
-              <option value="closed">Nobody — no new accounts</option>
+              <option value="open">{t('admin.signup.open')}</option>
+              <option value="invite">{t('admin.signup.invite')}</option>
+              <option value="closed">{t('admin.signup.closed')}</option>
             </select>
           </div>
 
@@ -196,7 +198,7 @@ export function InstancePanel(): ReactElement {
             * often reading English while they do it. */}
           <div className="settings-row">
             <span className="settings-row-label">
-              <b>How the interface addresses people</b>
+              <b>{t('admin.addressForm')}</b>
               <span>
                 In German and other languages that distinguish it. English has one
                 form and is unaffected.
@@ -205,27 +207,27 @@ export function InstancePanel(): ReactElement {
             </span>
             <select
               id="address-form"
-              aria-label="How the interface addresses people"
+              aria-label={t('admin.addressForm')}
               value={settings.addressForm}
               disabled={saving}
               onChange={(event) => void update({ addressForm: event.target.value })}
             >
-              <option value="informal">Informally — “du”</option>
-              <option value="formal">Formally — “Sie”</option>
+              <option value="informal">{t('admin.addressForm.informal')}</option>
+              <option value="formal">{t('admin.addressForm.formal')}</option>
             </select>
           </div>
 
           <div className="settings-row">
             <span className="settings-row-label">
-              <b>Instance name</b>
+              <b>{t('admin.instanceName')}</b>
               <span>
-                On the sign-in page and in the title of every tab.
+                {t('admin.instanceName.hint')}
                 <SettingSource source={settingSources['instanceName']} />
               </span>
             </span>
             <input
               id="instance-name"
-              aria-label="Instance name"
+              aria-label={t('admin.instanceName')}
               defaultValue={settings.instanceName}
               disabled={saving}
               onBlur={(event) => {
@@ -239,7 +241,7 @@ export function InstancePanel(): ReactElement {
 
           <label className="settings-row">
             <span className="settings-row-label">
-              <b>Members may create workspaces</b>
+              <b>{t('admin.mayCreateWorkspaces')}</b>
               <span>
                 Off means only administrators make them. Everybody keeps their
                 own personal one either way — it is not a team.
@@ -268,10 +270,11 @@ export function InstancePanel(): ReactElement {
  * looks like the environment being ignored.
  */
 function SettingSource({ source }: { source: string | undefined }): ReactElement | null {
+  const { t } = useT();
   if (source !== 'database') return null;
   return (
     <span className="muted setting-source">
-      Set here, overriding the environment
+      {t('admin.settingSource.database')}
     </span>
   );
 }
@@ -279,6 +282,7 @@ function SettingSource({ source }: { source: string | undefined }): ReactElement
 // --- accounts ---------------------------------------------------------------
 
 export function UsersPanel(): ReactElement {
+  const { t } = useT();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -313,11 +317,11 @@ export function UsersPanel(): ReactElement {
   };
 
   if (error) return <p className="error">{messageFor(error)}</p>;
-  if (!users) return <p className="muted">Loading…</p>;
+  if (!users) return <p className="muted">{t('admin.loading')}</p>;
 
   return (
     <section className="settings-section">
-      <h2>Accounts</h2>
+      <h2>{t('admin.accounts')}</h2>
 
       <div className="admin-table">
         {users.map((user) => (
@@ -400,6 +404,7 @@ export function UsersPanel(): ReactElement {
 // --- workspaces -------------------------------------------------------------
 
 export function WorkspacesPanel(): ReactElement {
+  const { t } = useT();
   const [workspaces, setWorkspaces] = useState<AdminWorkspace[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -413,11 +418,11 @@ export function WorkspacesPanel(): ReactElement {
   }, []);
 
   if (error) return <p className="error">{messageFor(error)}</p>;
-  if (!workspaces) return <p className="muted">Loading…</p>;
+  if (!workspaces) return <p className="muted">{t('admin.loading')}</p>;
 
   return (
     <section className="settings-section">
-      <h2>Workspaces</h2>
+      <h2>{t('admin.workspaces')}</h2>
 
       <div className="admin-table">
         {workspaces.map((workspace) => (
@@ -446,6 +451,7 @@ export function WorkspacesPanel(): ReactElement {
 // --- maintenance ------------------------------------------------------------
 
 export function MaintenancePanel(): ReactElement {
+  const { t } = useT();
   const [report, setReport] = useState<MaintenanceReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -508,7 +514,7 @@ export function MaintenancePanel(): ReactElement {
   };
 
   if (error) return <p className="error">{messageFor(error)}</p>;
-  if (!report) return <p className="muted">Loading…</p>;
+  if (!report) return <p className="muted">{t('admin.loading')}</p>;
 
   const { counts } = report;
   const healthy =
@@ -519,7 +525,7 @@ export function MaintenancePanel(): ReactElement {
 
   return (
     <section className="settings-section">
-      <h2>Maintenance</h2>
+      <h2>{t('admin.maintenance')}</h2>
 
       <div className="admin-row-actions maintenance-actions">
         <button type="button" className="btn" disabled={running} onClick={() => void runNow()}>
@@ -538,13 +544,13 @@ export function MaintenancePanel(): ReactElement {
           upload fails until somebody fixes it on the host. */}
       {report.storage.writable === false && (
         <div className="admin-alert">
-          <p className="admin-alert-title">Uploads cannot be written to disk</p>
+          <p className="admin-alert-title">{t('admin.uploadsUnwritable')}</p>
           <p className="admin-alert-detail">{report.storage.problem}</p>
           <p className="admin-alert-detail muted">
             The container runs as uid 10001 and cannot change this itself. From
             the host, as root inside the running container:
             <code>docker exec -u 0 &lt;container&gt; chown -R 10001:10001 /var/lib/sone</code>
-            Then reload this page — no restart is needed.
+            {t('admin.reloadNote')}
           </p>
           <p className="admin-alert-detail muted">
             {/* Said here because the obvious command is wrong in a way that
@@ -559,7 +565,7 @@ export function MaintenancePanel(): ReactElement {
       )}
 
       {healthy && report.storage.writable && (
-        <p className="muted">Nothing to report.</p>
+        <p className="muted">{t('admin.nothingToReport')}</p>
       )}
 
       <dl className="settings-list">
@@ -583,7 +589,7 @@ export function MaintenancePanel(): ReactElement {
           count={counts.failedMaterialisations}
           explain="A document the projection could not read. The page still exists and syncs; it is missing from search and from the tree."
         />
-        <dt>Waiting to project</dt>
+        <dt>{t('admin.waitingToProject')}</dt>
         <dd>
           {counts.pendingMaterialisations}
           {counts.pendingMaterialisations > 0 && (
@@ -594,7 +600,7 @@ export function MaintenancePanel(): ReactElement {
 
       {report.failures.length > 0 && (
         <>
-          <h3 className="admin-subheading">Recent failures</h3>
+          <h3 className="admin-subheading">{t('admin.recentFailures')}</h3>
           <div className="admin-table">
             {report.failures.map((failure) => (
               <div className="admin-row" key={failure.pageId}>
@@ -614,7 +620,7 @@ export function MaintenancePanel(): ReactElement {
                     className="btn"
                     onClick={() => void retry(failure.pageId)}
                   >
-                    Retry
+                    {t('action.retry')}
                   </button>
                 </div>
               </div>
@@ -642,6 +648,7 @@ function Anomaly({
   count: number;
   explain: string;
 }): ReactElement {
+  const { t } = useT();
   return (
     <>
       <dt>{label}</dt>

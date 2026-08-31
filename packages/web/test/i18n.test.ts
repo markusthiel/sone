@@ -118,7 +118,19 @@ test('no German message addresses somebody without a branch', () => {
   // Words are matched whole, so "Dateien" is not a "die"-form and "Sie" inside a
   // formal branch is exactly where it belongs.
   const familiar = /\b(du|dich|dir|dein|deine|deiner|deinen|deinem|deines)\b/i;
+
+  /*
+   * Keys that *name* a form of address rather than using one.
+   *
+   * The setting's own options are "du" and "Sie" — the word is the label, not the
+   * reader being addressed, and branching there would produce "Vertraut — Sie".
+   * An exemption with a reason rather than a looser pattern: a pattern that let
+   * these through would let a real one through as well.
+   */
+  const naming = new Set(['admin.addressForm.informal', 'admin.addressForm.formal']);
+
   for (const [key, message] of Object.entries(de)) {
+    if (naming.has(key)) continue;
     if (!familiar.test(message)) continue;
     assert.match(
       message,
@@ -177,6 +189,8 @@ const MIGRATED = [
   'src/components/Search.tsx',
   'src/components/RightSidebar.tsx',
   'src/components/ViewRules.tsx',
+  'src/components/AdminScreen.tsx',
+  'src/components/Admin.tsx',
 ];
 
 test('every error code the client can show has a message', () => {

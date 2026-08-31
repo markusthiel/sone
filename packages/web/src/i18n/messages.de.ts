@@ -83,6 +83,47 @@ export const de: Record<keyof typeof en, string> = {
   'entry.deleteWithChildren':
     'In den Papierkorb, mit {count, plural, one {# Eintrag} other {# Einträgen}} darin',
 
+  // --- der Verwaltungsbereich --------------------------------------------
+  'admin.instance': 'Diese Instanz',
+  'admin.instance.hint': 'Name, Registrierung und Vorgaben',
+  'admin.accounts': 'Konten',
+  'admin.accounts.hint': 'Alle, die hier ein Konto haben',
+  'admin.workspaces': 'Alle Workspaces',
+  'admin.workspaces.hint': 'Jeder Workspace hier, und wer darin ist',
+  'admin.invitations': 'Einladungen',
+  'admin.invitations.hint': 'Ein Konto und ein eigener Workspace — kein Team',
+  'admin.sso': 'Single Sign-on',
+  'admin.sso.hint': 'Anmeldung über einen Identitätsanbieter',
+  'admin.maintenance': 'Wartung',
+  'admin.maintenance.hint': 'Speicher, Aufgaben und Gesundheit',
+
+  'admin.settings': 'Einstellungen',
+  'admin.instanceName': 'Name der Instanz',
+  'admin.signup': 'Wer ein Konto anlegen darf',
+  'admin.signup.open': 'Jeder, der die Adresse hat',
+  'admin.signup.invite': 'Nur mit Einladung',
+  'admin.signup.closed': 'Niemand — keine neuen Konten',
+  'admin.mayCreateWorkspaces': 'Mitglieder dürfen Workspaces anlegen',
+  'admin.addressForm': 'Wie die Oberfläche die Leute anspricht',
+  'admin.addressForm.hint':
+    'Auf Deutsch und in anderen Sprachen, die das unterscheiden. Englisch hat nur ' +
+    'eine Form und bleibt unberührt.',
+  'admin.addressForm.informal': 'Vertraut — „du"',
+  'admin.addressForm.formal': 'Förmlich — „Sie"',
+  'admin.version': 'Version',
+  'admin.content': 'Inhalt',
+  'admin.files': 'Dateien',
+  'admin.waitingToProject': 'Wartet auf Projektion',
+  'admin.recentFailures': 'Letzte Fehler',
+  'admin.nothingToReport': 'Nichts zu melden.',
+  'admin.uploadsUnwritable': 'Uploads können nicht auf die Platte geschrieben werden',
+  'admin.loading': 'Wird geladen…',
+  'admin.signup.note': 'Wer schon eines hat, ist davon nicht betroffen.',
+  'admin.instanceName.hint': 'Auf der Anmeldeseite und im Titel jedes Tabs.',
+  'admin.settingSource.database': 'Hier gesetzt, überschreibt die Umgebung',
+  'admin.reloadNote': 'Danach diese Seite neu laden — ein Neustart ist nicht nötig.',
+  'action.retry': 'Erneut versuchen',
+
   // --- die Einstellungsbereiche und ihre Hülle ---------------------------
   'area.you': '{address, select, formal {Ihre Einstellungen} other {Deine Einstellungen}}',
   'area.workspace': 'Dieser Workspace',
