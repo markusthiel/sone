@@ -28,6 +28,7 @@ import { createElement } from 'react';
 
 import { CollectionTable } from './CollectionTable.tsx';
 import { fileNodeView } from './FileNodeView.ts';
+import { videoNodeView } from './VideoNodeView.ts';
 import { protectedSectionView } from './ProtectedSectionView.ts';
 
 /**
@@ -127,5 +128,6 @@ export const soneNodeViews = (
 ): EditorView['props']['nodeViews'] => ({
   collectionView: (node) => new CollectionNodeView(node as unknown as PMNodeLike),
   file: fileNodeView(),
+  video: videoNodeView(),
   protectedSection: protectedSectionView(onOpenContainer),
 });

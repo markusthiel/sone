@@ -3347,6 +3347,110 @@ select {
    on the clipboard. Quiet, and above the table it is about. */
 .collection-notice { margin: 0; font-size: var(--sone-text-sm); }
 
+/* --- a video in the text (ADR-0037) ---
+ *
+ * The player takes the block's width, which is the shared attribute every block
+ * has — content width by default, full width when asked. The card and the line
+ * are the file block's shapes, because a video referred to rather than watched is
+ * the same thing as a document referred to rather than read.
+ */
+.video-block { margin-block: var(--sone-space-5); }
+
+.video-player {
+  display: block;
+  inline-size: 100%;
+  /* A player with no video yet is a black strip of unpredictable height, which
+     makes the page jump when the metadata arrives. 16:9 is what almost
+     everything is, and the browser overrides it once it knows better. */
+  aspect-ratio: 16 / 9;
+  border-radius: var(--sone-radius);
+  background: #000;
+}
+
+.video-frame {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: var(--sone-radius);
+}
+
+/* The consent step: what stands where the provider's frame will be.
+ *
+ * Deliberately not a thumbnail. A provider's thumbnail comes from the provider,
+ * which is the request this whole design exists to avoid until somebody asks. */
+.video-consent {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-5);
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  padding: var(--sone-space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+  background: var(--surface-chrome);
+  color: var(--sone-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+}
+.video-consent:hover { background: var(--surface-hover); }
+.video-consent-play {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 48px;
+  block-size: 48px;
+  border-radius: 999px;
+  background: var(--sone-accent);
+  color: var(--sone-accent-contrast, #fff);
+  font-size: var(--sone-text-md);
+}
+.video-consent-label { display: flex; flex-direction: column; gap: var(--sone-space-2); min-inline-size: 0; }
+.video-consent-label span { color: var(--sone-text-muted); font-size: var(--sone-text-sm); }
+
+/* A card, and its one-line form. The file block's shapes, on purpose. */
+.video-card,
+.video-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-4);
+  padding: var(--sone-space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+  background: var(--surface-chrome);
+  color: var(--sone-text);
+  text-decoration: none;
+}
+.video-line { padding-block: var(--sone-space-2); border: 0; background: transparent; }
+.video-card:hover,
+.video-line:hover { background: var(--surface-hover); }
+.video-card-mark { flex: none; color: var(--sone-text-muted); }
+.video-card-text { display: flex; flex-direction: column; gap: 2px; min-inline-size: 0; }
+.video-card-text span { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+
+/* Why this is not playing, and how to watch it anyway. */
+.video-note {
+  margin-block: var(--sone-space-2) 0;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.video-note a { margin-inline-start: var(--sone-space-2); }
+
+.video-broken {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-2);
+  padding: var(--sone-space-5);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--sone-radius);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+/* The address is text and never a link: one this refused to embed is not one to
+   offer a click on either. */
+.video-broken-detail { font-family: var(--sone-font-mono); font-size: var(--sone-text-xs); word-break: break-all; }
+
 /* --- a cell holding files (ADR-0035) ---
  *
  * One column type for every kind of file; what differs by kind is the drawing.
