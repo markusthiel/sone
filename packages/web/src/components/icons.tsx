@@ -458,3 +458,89 @@ export function SignOutIcon(props: IconProps): ReactElement {
     </svg>
   );
 }
+
+/* --- marks for the block menu (the `/` list) ---
+ *
+ * Drawn here with the rest of the set rather than picked from the entry icons:
+ * these name kinds of block, which are fixed, and an entry icon is whatever
+ * somebody chose. The two must not be able to drift into each other.
+ */
+
+/** A numbered list. The digits are the whole point, so they are drawn. */
+export function OrderedListIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M10 6h11M10 12h11M10 18h11" />
+      <path d="M4 5.5 5.2 5v3.2M3.4 15.2c0-.7.6-1.2 1.3-1.2.6 0 1.1.4 1.1 1 0 .5-.4.9-.8 1.2L3.4 18h2.6" />
+    </svg>
+  );
+}
+
+/** A quotation: a bar and the text beside it, which is how one is drawn. */
+export function QuoteIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M4.5 5v14" />
+      <path d="M9 8h11M9 12h11M9 16h7" />
+    </svg>
+  );
+}
+
+/** A callout: something set aside and pointed at. */
+export function CalloutIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="13" rx="2" />
+      <path d="M8 21l3-4M12 8v4M12 14.5h.01" />
+    </svg>
+  );
+}
+
+/** Code: the two brackets everybody reads as code. */
+export function CodeIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 7l-5 5 5 5M15 7l5 5-5 5" />
+    </svg>
+  );
+}
+
+/** A toggle: a disclosure arrow with a line of text. */
+export function ToggleIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 8l4 4-4 4" />
+      <path d="M12 6h9M12 12h9M12 18h9" />
+    </svg>
+  );
+}
+
+/** A video: a screen with a play mark in it. */
+export function VideoIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M11 9.5l4 2.5-4 2.5z" />
+    </svg>
+  );
+}
+
+/** A protected section: a page with a lock. */
+export function LockIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="4.5" y="10.5" width="15" height="9.5" rx="2" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5M12 14.5v2" />
+    </svg>
+  );
+}
+
+/** A divider: the rule itself. */
+export function DividerIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 12h18" />
+      <path d="M6 7h12M6 17h12" opacity="0.4" />
+    </svg>
+  );
+}
