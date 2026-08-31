@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Search finds a part of a word, and a result says what it found**
+([ADR-0033](docs/adr/0033-search-results.md)). Typing "testordn" now finds
+"Testordner"; the last word you type matches as a prefix while the earlier ones
+stay exact. Each result is a card with its own icon, whether it is a page or a
+folder, the path to where it lives, and the passage that matched with the match
+marked — and clicking it lands on that passage rather than at the top of the
+page. Typos still find nothing; that is a separate change. No operator action and
+no reindex.
+
 **The right panel lists the files, images and links in the page.** Files and
 links open from the list, with a control on each row that goes to where it sits in
 the page; images are thumbnails, and clicking one takes you to it. **The tabs are

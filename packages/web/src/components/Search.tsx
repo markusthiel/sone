@@ -4,13 +4,29 @@
  * Debounced, and requests are superseded rather than cancelled: an out-of-order
  * response from a slower earlier query would otherwise overwrite the newer one,
  * which looks like search returning the wrong results.
+ *
+ * A result is a card rather than a link (ADR-0033): its own icon, what kind of
+ * thing it is, where it lives, and the passage that matched with the match
+ * marked. A list of titles could not say which of those it had found, which was
+ * half the report behind this.
+ *
+ * Folders and pages are separate groups. A folder answers "where is that" and a
+ * page answers "where did I write that", and mixed together the two kinds of
+ * answer have to be told apart by reading each row.
  */
 
-import { useEffect, useRef, useState , type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 
-import { ApiError, api, type SearchResult } from '../api/client.ts';
+import {
+  ApiError,
+  MATCH_CLOSE,
+  MATCH_OPEN,
+  api,
+  type SearchResult,
+} from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
+import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 
 export function SearchScreen({
   workspaceId,
@@ -70,19 +86,101 @@ export function SearchScreen({
       {error && <p className="error">{messageFor(error)}</p>}
 
       {query.trim().length >= 2 && !searching && results.length === 0 && !error && (
-        <p className="muted">No pages matched.</p>
+        <p className="muted">Nothing matched.</p>
       )}
 
-      <ul style={{ listStyle: 'none', padding: 0 }}>
+      {/* Folders first, as in the sidebar and in a folder's own view. A filing
+          system that orders one way in one place and another elsewhere makes
+          people hunt. */}
+      <Group
+        label="Folders"
+        results={results.filter((result) => result.kind === 'folder')}
+      />
+      <Group
+        label="Pages"
+        results={results.filter((result) => result.kind !== 'folder')}
+      />
+    </div>
+  );
+}
+
+function Group({
+  label,
+  results,
+}: {
+  label: string;
+  results: SearchResult[];
+}): ReactElement | null {
+  // Hidden entirely when empty rather than shown as a heading over nothing,
+  // which takes space to say there are none of something nobody asked about.
+  if (results.length === 0) return null;
+
+  return (
+    <section className="search-group">
+      <h2 className="sidebar-label">{label}</h2>
+      <ul className="search-results">
         {results.map((result) => (
-          <li key={result.pageId} style={{ marginBlock: 8 }}>
-            <a href={paths.page(result.pageId, result.title)}>
-              {result.icon?.kind === 'emoji' ? `${result.icon.value} ` : ''}
-              {result.title || 'Untitled'}
+          <li key={result.pageId}>
+            <a
+              className="search-hit"
+              // At the block that matched, where there is one, so a hit in the
+              // middle of a long page does not land at the top of it.
+              href={paths.page(result.pageId, result.title, result.blockId)}
+            >
+              <span className="search-hit-head">
+                <EntryIconView
+                  icon={result.icon}
+                  kind={result.kind === 'folder' ? 'folder' : 'page'}
+                />
+                <span className="search-hit-title" style={titleColorStyle(result.icon)}>
+                  {result.title || 'Untitled'}
+                </span>
+                {/* Said, not inferred. A rank number means nothing to a reader,
+                    and "why is this here" is the question a search result has to
+                    answer before any other. */}
+                {result.titleMatch && <span className="search-hit-why">title</span>}
+              </span>
+
+              {result.trail.length > 0 && (
+                <span className="search-hit-path">
+                  {result.trail.map((step) => step.title || 'Untitled').join(' / ')}
+                </span>
+              )}
+
+              {result.snippet && (
+                <span className="search-hit-snippet">
+                  <Snippet text={result.snippet} />
+                </span>
+              )}
             </a>
           </li>
         ))}
       </ul>
-    </div>
+    </section>
+  );
+}
+
+/**
+ * A passage with its match marked.
+ *
+ * Split rather than rendered as HTML. The delimiters are control characters for
+ * exactly this reason: the text comes out of somebody's document, and putting it
+ * through `innerHTML` to get two tags would be a stored-XSS hole (ADR-0033).
+ *
+ * An odd index is inside a match, because the split alternates: text, match,
+ * text, match. A snippet with an unbalanced delimiter therefore degrades to
+ * plain text rather than to nothing.
+ */
+function Snippet({ text }: { text: string }): ReactElement {
+  const parts = text.split(MATCH_OPEN).flatMap((chunk, at) =>
+    at === 0 ? [chunk] : chunk.split(MATCH_CLOSE),
+  );
+
+  return (
+    <>
+      {parts.map((part, at) =>
+        at % 2 === 1 ? <mark key={at}>{part}</mark> : <span key={at}>{part}</span>,
+      )}
+    </>
   );
 }

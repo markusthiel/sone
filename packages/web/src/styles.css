@@ -2075,6 +2075,86 @@ select {
 
 .right-body { flex: 1; min-block-size: 0; overflow-y: auto; padding: 8px; }
 
+/* --- search results ---
+ *
+ * A card, not a link. A title alone could not say whether the thing found was a
+ * page or a folder, where it lived, or which sentence matched — which was half
+ * the report behind this (ADR-0033).
+ */
+.search-group { margin-block-start: var(--sone-space-6); }
+.search-group h2 { margin-block-end: var(--sone-space-2); }
+
+.search-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+.search-hit {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-lg);
+  color: var(--sone-text);
+}
+.search-hit:hover {
+  background: var(--sone-bg-hover);
+  border-color: var(--border-default);
+  text-decoration: none;
+}
+
+.search-hit-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+}
+.search-hit-head svg { flex: none; inline-size: 16px; block-size: 16px; }
+
+.search-hit-title {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* Why this result is here, in a word. A rank number means nothing to a reader. */
+.search-hit-why {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-quiet);
+  color: var(--accent);
+  font-size: var(--sone-text-xs);
+}
+
+.search-hit-path {
+  display: block;
+  margin-block-start: 2px;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Two lines at most: a passage is context for the match, and a paragraph of it
+   is a page somebody has to read to decide whether to open the page. */
+.search-hit-snippet {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-block-start: 6px;
+  color: var(--text-secondary);
+  font-size: var(--sone-text-sm);
+}
+.search-hit-snippet mark {
+  /* The match, tinted rather than highlighted in yellow: this is one word inside
+     a quiet line, and a block of colour would be the loudest thing on the
+     screen. */
+  background: var(--accent-quiet);
+  color: var(--sone-text);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 /* --- what a document refers to: its files, images and links ---
  *
  * One row shape for files and links: an icon, a name that may wrap to a second

@@ -333,10 +333,28 @@ export interface WorkspaceMember {
 export interface SearchResult {
   pageId: string;
   title: string;
+  /** A folder is drawn as a folder (ADR-0019). */
+  kind: string;
   icon: { kind: string; value: string; color?: string; titleColor?: string } | null;
-  breadcrumb: string[];
+  /** Where it lives, outermost first. Titles, because ids cannot be shown. */
+  trail: Array<{ pageId: string; title: string }>;
+  /** Whether what matched was the title, said rather than inferred from a rank. */
+  titleMatch: boolean;
+  /**
+   * The matching passage, with the match between U+0002 and U+0003 (ADR-0033).
+   *
+   * Never HTML: rendering markup built from document content would mean
+   * innerHTML on it. Split on the two characters and build elements.
+   */
+  snippet: string | null;
+  /** The block the passage came from, so a result can land on it. */
+  blockId: string | null;
   rank: number;
 }
+
+/** The delimiters `ts_headline` marks a match with. */
+export const MATCH_OPEN = '\u0002';
+export const MATCH_CLOSE = '\u0003';
 
 export interface VersionInfo {
   version: string;
