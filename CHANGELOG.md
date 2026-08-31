@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The icon sits in front of a page or folder name again**, not above it, and the
+heading no longer moves when you click it. A folder's name was a button that
+became an input, and the swap changed the heading's height enough to nudge
+everything below it down. It is the same input a page's title is now, so there is
+nothing to swap.
+
 **Editing a title is a line under the words rather than a box around them.**
 Clicking a page or folder name turned it into a filled input the width of the
 page, which read as a dialog opening instead of a caret being placed. The line

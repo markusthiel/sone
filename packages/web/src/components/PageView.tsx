@@ -105,21 +105,21 @@ export function PageView({
 
   return (
     <div className="page-body">
-      {/* Above the title, not in front of it: an icon in front pushes the name
-          off the column every block below it lines up on. */}
-      <span className="entry-heading-icon">
-        <EntryIconView icon={icon.icon} kind="page" />
-      </span>
-
-      <input
-        className="page-title"
-        style={titleColorStyle(icon.titleColor ? { titleColor: icon.titleColor } : null)}
-        value={title}
-        onChange={(e) => commitTitle(e.target.value)}
-        placeholder="Untitled"
-        readOnly={!handle.canEdit}
-        aria-label="Page title"
-      />
+      {/* The icon and the name on one line, the same shape a folder has. */}
+      <div className="entry-heading">
+        <span className="entry-heading-icon">
+          <EntryIconView icon={icon.icon} kind="page" />
+        </span>
+        <input
+          className="page-title"
+          style={titleColorStyle(icon.titleColor ? { titleColor: icon.titleColor } : null)}
+          value={title}
+          onChange={(e) => commitTitle(e.target.value)}
+          placeholder="Untitled"
+          readOnly={!handle.canEdit}
+          aria-label="Page title"
+        />
+      </div>
 
       {/* Three states, told apart on purpose.
        *

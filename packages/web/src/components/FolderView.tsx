@@ -11,7 +11,7 @@
  * exists and is the control people expect for it.
  */
 
-import { useState, type ReactElement } from 'react';
+import type { ReactElement } from 'react';
 
 import { type PageNode } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
@@ -32,7 +32,6 @@ export function FolderView({
   onCreate,
   onRename,
 }: FolderViewProps): ReactElement {
-  const [renaming, setRenaming] = useState(false);
   const folders = folder.children.filter((child) => child.kind === 'folder');
   const pages = folder.children.filter((child) => child.kind === 'page');
 
@@ -52,44 +51,46 @@ export function FolderView({
         </nav>
       )}
 
-      {/* The folder's own icon, above the name — the same shape a page has, and
-          the same icon and colours the sidebar shows for it (ADR-0030). It drew
-          the default folder icon before, so decorating a folder changed the tree
-          and left its own page looking undecorated. */}
-      <span className="entry-heading-icon">
-        <EntryIconView icon={folder.icon} kind="folder" />
-      </span>
-
-      {renaming ? (
+      {/* The folder's icon and its name, on one line — the same shape and the
+          same element a page has (ADR-0030).
+        *
+        * It was a button that became an input when clicked, on the reasoning
+        * that a folder's name should not be edited by accident. Two things were
+        * wrong with that. A click on the name of the folder you are already
+        * looking at is not "let me see inside", because you are inside; and the
+        * swap changed the heading's height, so clicking it nudged everything
+        * below down — which is what "it feels unsafe" was.
+        *
+        * An input at rest, like the page's title. Committed on blur or Enter
+        * rather than per keystroke, because there is no document open here to
+        * write into. */}
+      <div className="entry-heading">
+        <span className="entry-heading-icon">
+          <EntryIconView icon={folder.icon} kind="folder" />
+        </span>
         <input
           className="page-title"
           style={titleColorStyle(folder.icon)}
+          // Keyed on the folder, so arriving at a different one replaces the
+          // field rather than carrying the previous name into it — an
+          // uncontrolled input keeps its own value across a prop change.
+          key={folder.id}
           defaultValue={folder.title}
-          autoFocus
           onBlur={(event) => {
-            setRenaming(false);
             const next = event.currentTarget.value.trim();
             if (next !== folder.title) onRename(folder.id, next);
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.currentTarget.blur();
-            else if (event.key === 'Escape') setRenaming(false);
+            else if (event.key === 'Escape') {
+              event.currentTarget.value = folder.title;
+              event.currentTarget.blur();
+            }
           }}
+          placeholder="Untitled folder"
           aria-label="Folder name"
         />
-      ) : (
-        // A button, not an input: a folder name is not edited by accident, and
-        // a click here is far more often "I want to see inside" than "I want to
-        // rename". Renaming is one deliberate click away.
-        <button
-          className="folder-title"
-          type="button"
-          style={titleColorStyle(folder.icon)}
-          onClick={() => setRenaming(true)}
-        >
-          {folder.title || 'Untitled folder'}
-        </button>
-      )}
+      </div>
 
       <div className="folder-actions">
         <button type="button" className="btn" onClick={() => onCreate(folder.id, 'page')}>

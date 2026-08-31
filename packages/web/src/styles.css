@@ -705,39 +705,53 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   .page-body { padding-inline-start: 36px; }
 }
 
-/* An entry's own icon, above its name.
+/* An entry's own icon, in front of its name.
  *
- * Above rather than beside it, which is what the folder view did: an icon in
- * front of the title pushes the title off the column every block below it lines
- * up on, and the misalignment is more noticeable than the icon. Craft and Notion
- * both put it above for the same reason.
+ * I put it above, on the argument that an icon in front pushes the name off the
+ * column every block below it lines up on. The argument is true and it was
+ * overruled, twice, which makes it the wrong trade: the icon belongs where the
+ * eye looks for the name, and about thirty pixels of heading indent is a smaller
+ * loss than a heading that reads as a separate element from its own icon.
+ *
+ * The indent is on the row, so the icon starts exactly where a block below it
+ * would. What moves is the name, not the pair.
  *
  * Drawn from the entry's own icon and colour (ADR-0030) rather than the default
  * for its kind — decorating a folder in the sidebar and then finding the plain
  * one on its own page is the report this answers.
  */
-.entry-heading-icon {
-  display: block;
+.entry-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* The indent lives on the row, so the icon is what sits on the editor's text
+     column and the name follows it. */
   padding-inline-start: var(--sone-text-indent);
-  margin-block-end: 6px;
+}
+
+.entry-heading-icon {
+  display: flex;
+  flex: none;
   line-height: 1;
   color: var(--sone-text-muted);
 }
 .entry-heading-icon svg {
   /* Bigger than the 16px the component asks for, which is sized for a tree
      row. */
-  inline-size: 30px;
-  block-size: 30px;
+  inline-size: 26px;
+  block-size: 26px;
 }
 
-.page-title,
-.folder-title {
+.page-title {
   /* The largest thing on the page, and the quietest of its size. It names what
      is below rather than competing with it.
      *
-     * One rule for both kinds. A folder's name was 2rem and bold while a page's
-     * was 2.5rem and light, so moving between the two looked like moving
-     * between two applications. */
+     * One rule, and one element, for both kinds. A folder's name was 2rem and
+     * bold while a page's was 2.5rem and light, so moving between the two looked
+     * like moving between two applications — and a folder's was a button that
+     * became an input when clicked, which is the jump this removes. */
+  flex: 1 1 auto;
+  min-inline-size: 0;
   font-size: 2.5rem;
   font-weight: var(--sone-heading-weight);
   letter-spacing: var(--sone-heading-tracking);
@@ -747,8 +761,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      border that appears on focus moves the words underneath it by a pixel, and
      a heading that jumps as you click it is worse than no hint at all. */
   border-block-end: 1px solid transparent;
-  /* Matching the editor's text column exactly. */
-  padding: 0 0 0 var(--sone-text-indent);
+  /* None of its own: the row it sits in carries the indent. */
+  padding: 0;
   min-height: 0;
   background: transparent;
 }
@@ -777,13 +791,11 @@ input.page-title:focus-visible {
   border-block-end-color: var(--border-default);
 }
 
-/* The same hint before the click, on both kinds: the line appears faintly under
-   the pointer, and the caret cursor says what the click will do. A page's title
-   is an input at rest, so without this it looks like plain text until something
-   happens. */
-input.page-title:hover:not(:focus),
-.folder-title:hover { border-block-end-color: var(--border-subtle); }
-.folder-title:focus-visible { border-block-end-color: var(--border-default); }
+/* The same hint before the click: the line appears faintly under the pointer,
+   and the caret cursor says what the click will do. A title is an input at rest
+   and looks like plain text, so without this nothing says it can be edited until
+   something happens. */
+input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle); }
 
 /* These matched nothing.
  *
@@ -2199,16 +2211,6 @@ select {
 .folder-view .breadcrumb a { color: var(--sone-text-muted); }
 .folder-view .breadcrumb a:hover { color: var(--sone-text); }
 
-/* The rest of what makes the folder's name a button rather than an input. Its
-   size, weight and indent come from the shared rule above, with `.page-title`. */
-.folder-title {
-  display: block;
-  inline-size: 100%;
-  background: transparent;
-  color: inherit;
-  text-align: start;
-  cursor: text;
-}
 
 .folder-actions { display: flex; gap: 8px; margin-block: 20px 8px; flex-wrap: wrap; }
 .folder-actions button { display: inline-flex; align-items: center; gap: 6px; }
