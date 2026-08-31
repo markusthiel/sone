@@ -465,3 +465,17 @@ test('the gutter gets out of the way of its own menu', () => {
   // opened, and one that swallows the tap meant for the first entry.
   assert.match(css, /\.block-gutter:has\(\.block-handle\[aria-expanded='true'\]\)[^}]*z-index: 1/);
 });
+
+test('a full-width block draws its selection inside itself', () => {
+  // The outline sits 2px outside the box, which is right inside the column and
+  // wrong at full width: the box is exactly the page, so a 2px offset plus a 2px
+  // line hangs four pixels over the edge. That is what "the width goes a bit past
+  // the page" was — the frame rather than the block, and `.main` clipping it is
+  // why nothing scrolled and it only looked wrong.
+  assert.match(
+    css,
+    /\[data-width='full'\]\.ProseMirror-selectednode[\s\S]{0,200}outline-offset: -2px/,
+  );
+  // The table's scroller loses its side borders too, for the same two pixels.
+  assert.match(css, /\[data-width='full'\] \.collection-scroll/);
+});

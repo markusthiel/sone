@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a full-width table looked a few pixels too wide.** It was not the block —
+the selection outline is drawn two pixels outside it, which is right inside the
+column and wrong for a block that already reaches both edges. It is drawn inside
+now, and the table's frame loses its side borders there for the same reason.
+
 **Fixed: Column, Wide and Full page did nothing for a video, a table or a file.**
 The setting only ever reached an image. A player or an embedded frame now runs to
 the page's edges the way a picture does, capped so a wide video still fits on

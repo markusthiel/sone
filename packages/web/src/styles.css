@@ -1209,6 +1209,20 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   outline-offset: 2px;
 }
 
+/* Drawn inside, for a block that already reaches both edges.
+ *
+ * The outline sits 2px outside the box, which is right for a block inside the
+ * column and wrong for one at full width: the box is exactly the page, so the
+ * outline is four pixels wider than the page and hangs over the edge. That is
+ * what "the width goes a bit past the page" was — the frame, not the block.
+ *
+ * `.main` clips it, so nothing scrolls; it simply looked like an error. Inset
+ * here rather than removed, because the selection still has to be visible. */
+.ProseMirror [data-width='full'].ProseMirror-selectednode,
+.ProseMirror [data-width='full'] .ProseMirror-selectednode {
+  outline-offset: -2px;
+}
+
 [data-editable='false'] .ProseMirror { cursor: default; }
 
 /* ---------------------------------------------------------------------------
@@ -3525,6 +3539,10 @@ select {
   outline-offset: 2px;
   border-radius: var(--sone-radius);
 }
+.video-block[data-width='full'].ProseMirror-selectednode {
+  outline-offset: -2px;
+  border-radius: 0;
+}
 
 .video-player {
   display: block;
@@ -4409,7 +4427,10 @@ select {
 .ProseMirror [data-width='full'] .video-player,
 .ProseMirror [data-width='full'] .video-frame,
 .ProseMirror [data-width='full'] .video-consent,
-.ProseMirror [data-width='full'].collection-block {
+.ProseMirror [data-width='full'].collection-block,
+/* The scroller's own frame goes too: its left and right border are two more
+   pixels each, on a box that is already exactly the page. */
+.ProseMirror [data-width='full'] .collection-scroll {
   border-radius: 0;
   border-inline: 0;
 }
