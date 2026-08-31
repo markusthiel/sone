@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Every error message is translated.** All twenty-two of them, in German as well —
+the table moved out of the sign-in screen and into the catalogue, which is where a
+second language can reach it. The messages that diagnose a deployment keep their
+technical terms in both languages, because an operator has to find them again in
+their own configuration.
+
 **The account menu has a mark beside every entry.** The three settings areas carry
 the same symbols there as in the switcher at the top of a settings column.
 

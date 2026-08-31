@@ -171,6 +171,30 @@ const MIGRATED = [
   'src/components/MoveToWorkspaceDialog.tsx',
 ];
 
+test('every error code the client can show has a message', () => {
+  // The table moved out of Auth.tsx into the catalogue, which is where a
+  // translated one has to live (ADR-0041). Nothing may be dropped in the move:
+  // an error code with no message shows "Something went wrong", which is true
+  // and useless.
+  const client = readFileSync(new URL('../src/api/client.ts', import.meta.url), 'utf8');
+  const auth = readFileSync(new URL('../src/components/Auth.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(auth, /const MESSAGES/, 'the old table is gone');
+
+  // The codes this client raises itself, as opposed to the ones the server
+  // sends: those are the ones a test can enumerate.
+  const raised = new Set(
+    [...client.matchAll(/'(proxy_rejected_size|proxy_error|network_error|unexpected_response)'/g)].map(
+      ([, code]) => code,
+    ),
+  );
+  for (const code of raised) {
+    // `unexpected_response` is deliberately absent — it means a proxy replaced
+    // the body, and `proxy_error` is what the reader is shown for it.
+    if (code === 'unexpected_response') continue;
+    assert.ok(`error.${code}` in en, `error.${code} is missing`);
+  }
+});
+
 test('a migrated file has no English left in its markup', () => {
   for (const file of MIGRATED) {
     const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');

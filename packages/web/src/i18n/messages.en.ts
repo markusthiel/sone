@@ -45,6 +45,49 @@ export const en = {
     '{count, plural, one {# favourite} other {# favourites}} held by people who are not in ' +
     'the new workspace will be dropped.',
 
+  // --- what went wrong ---------------------------------------------------
+  //
+  // The server sends a code and the client owns the wording (ADR-0011). This is
+  // the table that used to live in Auth.tsx; it belongs here, which is what
+  // ADR-0041 said when it decided error codes stay codes.
+  'error.invalid_credentials': 'That email and password combination did not work.',
+  'error.rate_limited': 'Too many attempts. Please wait a few minutes and try again.',
+  'error.weak_password': 'Passwords need to be at least 12 characters.',
+  'error.missing_fields': 'Please fill in every field.',
+  'error.invitation_invalid': 'This invitation has expired or has already been used.',
+  'error.no_workspace': 'Your account is not a member of any workspace yet.',
+  'error.network_error': 'Could not reach the server.',
+  'error.invalid_role': 'A share link cannot grant that role.',
+  'error.too_many_rows': 'That is more than fifty entries. Paste them in smaller pieces.',
+  'error.not_archived': 'That entry is not in the trash.',
+  'error.parent_missing':
+    'The folder this was in is gone. Restore that folder first, or move this ' +
+    'somewhere else.',
+  'error.clipboard_unavailable':
+    'Could not copy automatically. Select the link and copy it by hand.',
+  'error.file_too_large': 'That file is too large.',
+  'error.clipboard_refused':
+    'This browser would not let the page write to the clipboard. Selecting the ' +
+    'rows and pressing copy does the same thing.',
+  'error.proxy_rejected_size':
+    'The web server in front of SONE refused the file for being too large. ' +
+    'Its upload limit is separate from SONE’s — with nginx it is ' +
+    'client_max_body_size, which allows only 1 MB unless it is raised.',
+  'error.proxy_error':
+    'Something between the browser and SONE rejected the request. Check the ' +
+    'reverse proxy’s log rather than SONE’s.',
+  'error.unsupported_file_type': 'That file type is not supported.',
+  'error.empty_file': 'That file is empty.',
+  'error.storage_unavailable':
+    'SONE could not write the file to disk. The server log names the directory; ' +
+    'the usual cause is a volume whose ownership does not match the user in ' +
+    'the container.',
+  'error.file_missing_from_storage':
+    'The file is recorded but missing from storage. The instance may have been ' +
+    'restored without its files.',
+  'error.rows_required': 'Nothing was selected.',
+  'error.unknown_error': 'Something went wrong.',
+
   // --- what a dialog's buttons say ---------------------------------------
   'action.cancel': 'Cancel',
   'action.move': 'Move',

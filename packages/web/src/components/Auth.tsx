@@ -8,59 +8,41 @@
 import { useEffect, useState, type FormEvent , type ReactElement } from 'react';
 
 import { ApiError, api, type InstanceInfo } from '../api/client.ts';
+import { en, type MessageKey } from '../i18n/messages.en.ts';
+import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 
 /**
- * Message catalogue.
+ * The English wording for an error code.
  *
- * English only for now. This is the table an ICU catalogue replaces, and
- * keeping the indirection from the start means adding a language is a file
- * rather than a refactor.
+ * The table itself moved into the message catalogue (ADR-0041), which is where a
+ * translated one has to live. This stays because the screens that show it before
+ * anybody has signed in are outside the locale provider: there is no session to
+ * ask a language of yet, and a hook cannot be called from a module-level helper
+ * either.
+ *
+ * Everything inside the application uses `useMessage`, which is this with the
+ * catalogue behind it.
  */
-const MESSAGES: Record<string, string> = {
-  invalid_credentials: 'That email and password combination did not work.',
-  rate_limited: 'Too many attempts. Please wait a few minutes and try again.',
-  weak_password: 'Passwords need to be at least 12 characters.',
-  missing_fields: 'Please fill in every field.',
-  invitation_invalid: 'This invitation has expired or has already been used.',
-  no_workspace: 'Your account is not a member of any workspace yet.',
-  network_error: 'Could not reach the server.',
-  invalid_role: 'A share link cannot grant that role.',
-  too_many_rows: 'That is more than fifty entries. Paste them in smaller pieces.',
-  not_archived: 'That entry is not in the trash.',
-  parent_missing:
-    'The folder this was in is gone. Restore that folder first, or move this ' +
-    'somewhere else.',
-  clipboard_unavailable:
-    'Could not copy automatically. Select the link and copy it by hand.',
-  file_too_large: 'That file is too large.',
-  // The browser refused the clipboard, which it does without a secure context or
-  // a gesture it recognises. Named, because nothing else on screen would have
-  // changed and silence would read as the copy having worked (ADR-0040).
-  clipboard_refused:
-    'This browser would not let the page write to the clipboard. Selecting the ' +
-    'rows and pressing copy does the same thing.',
-  proxy_rejected_size:
-    'The web server in front of SONE refused the file for being too large. ' +
-    'Its upload limit is separate from SONE’s — with nginx it is ' +
-    'client_max_body_size, which allows only 1 MB unless it is raised.',
-  proxy_error:
-    'Something between the browser and SONE rejected the request. Check the ' +
-    'reverse proxy’s log rather than SONE’s.',
-  unsupported_file_type: 'That file type is not supported.',
-  empty_file: 'That file is empty.',
-  storage_unavailable:
-    'SONE could not write the file to disk. The server log names the directory; ' +
-    'the usual cause is a volume whose ownership does not match the user in ' +
-    'the container.',
-  file_missing_from_storage:
-    'The file is recorded but missing from storage. The instance may have been ' +
-    'restored without its files.',
-  unknown_error: 'Something went wrong.',
-};
-
 export const messageFor = (code: string): string =>
-  MESSAGES[code] ?? MESSAGES['unknown_error']!;
+  en[`error.${code}` as MessageKey] ?? en['error.unknown_error'];
+
+/**
+ * The same lookup, translated.
+ *
+ * A hook rather than a function taking `t`, so a call site changes from
+ * `messageFor(error)` to `message(error)` and nothing else.
+ */
+export function useMessage(): (code: string) => string {
+  const { t } = useT();
+  return (code) => {
+    const key = `error.${code}` as MessageKey;
+    // A code with no message is a code somebody forgot; the fallback is the same
+    // one the English table used, not the code itself, because a reader cannot
+    // do anything with `parent_missing`.
+    return key in en ? t(key) : t('error.unknown_error');
+  };
+}
 
 interface AuthFormProps {
   /**

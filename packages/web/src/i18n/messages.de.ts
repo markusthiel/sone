@@ -54,6 +54,48 @@ export const de: Record<keyof typeof en, string> = {
     '{count, plural, one {# Favorit} other {# Favoriten}} von Leuten, die nicht im neuen ' +
     'Workspace sind, {count, plural, one {fällt} other {fallen}} weg.',
 
+  // --- was schiefgegangen ist --------------------------------------------
+  'error.invalid_credentials': 'Diese E-Mail-Adresse und dieses Passwort passen nicht zusammen.',
+  'error.rate_limited': 'Zu viele Versuche. Bitte ein paar Minuten warten.',
+  'error.weak_password': 'Ein Passwort braucht mindestens 12 Zeichen.',
+  'error.missing_fields': 'Bitte alle Felder ausfüllen.',
+  'error.invitation_invalid': 'Diese Einladung ist abgelaufen oder schon benutzt.',
+  'error.no_workspace':
+    '{address, select, formal {Ihr Konto ist} other {Dein Konto ist}} noch in keinem ' +
+    'Workspace Mitglied.',
+  'error.network_error': 'Der Server ist nicht erreichbar.',
+  'error.invalid_role': 'Ein Freigabe-Link kann diese Rolle nicht vergeben.',
+  'error.too_many_rows': 'Das sind mehr als fünfzig Einträge. Bitte in kleineren Stücken einfügen.',
+  'error.not_archived': 'Dieser Eintrag ist nicht im Papierkorb.',
+  'error.parent_missing':
+    'Der Ordner, in dem das lag, ist weg. Erst diesen Ordner wiederherstellen, oder das ' +
+    'hier woandershin verschieben.',
+  'error.clipboard_unavailable':
+    'Automatisches Kopieren ging nicht. Den Link markieren und von Hand kopieren.',
+  'error.file_too_large': 'Diese Datei ist zu groß.',
+  'error.clipboard_refused':
+    'Dieser Browser hat der Seite den Zugriff auf die Zwischenablage verweigert. Die ' +
+    'Zeilen markieren und Kopieren drücken tut dasselbe.',
+  // Diagnosen für Betreiber: die Begriffe bleiben, weil man sie in der eigenen
+  // Konfiguration wiederfinden muss.
+  'error.proxy_rejected_size':
+    'Der Webserver vor SONE hat die Datei als zu groß abgelehnt. Sein Upload-Limit ist ' +
+    'ein anderes als das von SONE — bei nginx ist es client_max_body_size, das ohne ' +
+    'Änderung nur 1 MB erlaubt.',
+  'error.proxy_error':
+    'Etwas zwischen Browser und SONE hat die Anfrage abgelehnt. Das Log des Reverse ' +
+    'Proxy sagt mehr als das von SONE.',
+  'error.unsupported_file_type': 'Dieser Dateityp wird nicht unterstützt.',
+  'error.empty_file': 'Diese Datei ist leer.',
+  'error.storage_unavailable':
+    'SONE konnte die Datei nicht auf die Platte schreiben. Das Server-Log nennt das ' +
+    'Verzeichnis; meist gehört das Volume einem anderen Benutzer als dem im Container.',
+  'error.file_missing_from_storage':
+    'Die Datei ist verzeichnet, fehlt aber im Speicher. Vielleicht wurde die Instanz ohne ' +
+    'ihre Dateien wiederhergestellt.',
+  'error.rows_required': 'Es war nichts ausgewählt.',
+  'error.unknown_error': 'Da ist etwas schiefgegangen.',
+
   'action.cancel': 'Abbrechen',
   'action.move': 'Verschieben',
   'action.moving': 'Wird verschoben…',
