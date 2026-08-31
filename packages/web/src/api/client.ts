@@ -230,8 +230,19 @@ export interface CollectionRow {
  * values written before that are still the old kind until something rewrites
  * them. A reader has to know what it is holding.
  */
+/** A file a cell refers to, resolved by the collection response (ADR-0035). */
+export interface CollectionFile {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  /** 'image' | 'pdf' | 'text' | 'document' | 'archive', decided by the server. */
+  category: string;
+}
+
 export type StoredCellValue =
   | { kind: 'text'; value: string }
+  | { kind: 'files'; fileIds: string[] }
   | { kind: 'number'; value: number }
   | { kind: 'checkbox'; value: boolean }
   | { kind: 'date'; start: string; end: string | null }
@@ -256,6 +267,14 @@ export interface CollectionData {
   views: CollectionView[];
   fields: CollectionField[];
   rows: CollectionRow[];
+  /**
+   * What the files in these cells are, by id.
+   *
+   * Resolved once for the table rather than stored in each cell: a name and a
+   * size are the file's own facts, and copying them into every cell that
+   * mentions one is how a renamed file keeps its old name in three places.
+   */
+  files?: CollectionFile[];
 }
 
 export interface TrashEntry {

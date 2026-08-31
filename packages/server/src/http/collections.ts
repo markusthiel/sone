@@ -41,6 +41,7 @@ import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/c
 import { queryOne, queryRows } from '../db/pool.js';
 import { applyToDocument } from '../doc/docStore.js';
 import { rematerialize } from '../materialize/rematerialize.js';
+import { categoryOf } from '../files/store.js';
 import { sessionTokenFrom } from './auth.js';
 import {
   buildSearchClause,
@@ -73,7 +74,22 @@ const CREATABLE_FIELD_TYPES = new Set<FieldType>([
   'url',
   'email',
   'phone',
+  // One media type, not three (ADR-0035). The file itself already says whether
+  // it is an image, a PDF or something else — the server classifies every
+  // upload — so a column that also declared it would be a second answer to the
+  // same question, and the only thing it could add is refusing a PDF in an
+  // "image" column.
+  'files',
 ]);
+
+/**
+ * Most files one cell may hold (ADR-0035).
+ *
+ * A cell is a cell. Somebody with twenty documents about one entry has a page to
+ * put them on — that is what a row being a page is for — and a table whose cells
+ * are folders is a table nobody can read.
+ */
+const MAX_CELL_FILES = 8;
 
 /** Field types whose options can be edited. */
 const HAS_OPTIONS = new Set<string>(['select', 'multiSelect', 'status']);
@@ -552,11 +568,54 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       byRow.set(value.page_id, existing);
     }
 
+    // What the files in this collection's cells actually are (ADR-0035).
+    //
+    // A cell stores ids and nothing else, because a name and a size are the
+    // file's own facts and copying them into every cell that mentions it is how
+    // a renamed file keeps its old name in three places. So they are read here,
+    // once for the whole table, and the interface is given a map rather than a
+    // request per chip.
+    const referenced = [
+      ...new Set(
+        [...byRow.values()].flatMap((cells) =>
+          Object.values(cells).flatMap((value) => {
+            const files = (value as { kind?: unknown; fileIds?: unknown } | null)?.fileIds;
+            return Array.isArray(files) ? files.filter((id): id is string => typeof id === 'string') : [];
+          }),
+        ),
+      ),
+    ];
+
+    const fileRows = referenced.length === 0
+      ? []
+      : await queryRows<{
+          id: string;
+          filename: string;
+          mime_type: string;
+          size_bytes: string;
+        }>(
+          deps.pool,
+          // Bounded to this workspace. A cell holding an id from elsewhere is
+          // either a bug or a copied document, and either way it must not be
+          // the thing that reveals another workspace's filenames.
+          `SELECT id, filename, mime_type, size_bytes::text
+             FROM files WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
+          [referenced, auth.workspaceId],
+        );
+
     ctx.send(200, {
       pageId,
       collectionId,
       titleFieldId: collection.title_field_id,
       canEdit: auth.canEdit,
+      /** The files any cell refers to, by id. Absent ones are simply not here. */
+      files: fileRows.map((file) => ({
+        id: file.id,
+        filename: file.filename,
+        mimeType: file.mime_type,
+        sizeBytes: Number(file.size_bytes),
+        category: categoryOf(file.mime_type),
+      })),
       views: views.map((view) => ({
         id: view.id,
         name: view.name,
@@ -922,6 +981,39 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     // was never there. Options already removed are a different matter: those
     // values stay, because a row owns its values and erasing them would make
     // one misclick in the option editor unrecoverable.
+    // A files value must name files that exist, in this workspace.
+    //
+    // Checked before storing for the same reason a select value is: a cell
+    // pointing at nothing renders as a chip nobody can open, and one pointing at
+    // another workspace's file would be the thing that leaks a filename. Bounded
+    // too — a cell is a cell, and a hundred attachments in one belong on the
+    // row's own page (ADR-0035).
+    if (value !== null && field.field_type === 'files') {
+      const ids =
+        value.kind === 'files' && Array.isArray(value.fileIds)
+          ? value.fileIds.filter((id): id is string => typeof id === 'string')
+          : null;
+      if (ids === null) {
+        ctx.fail(422, 'invalid_value');
+        return;
+      }
+      if (ids.length > MAX_CELL_FILES) {
+        ctx.fail(422, 'too_many_files', { limit: MAX_CELL_FILES });
+        return;
+      }
+      if (ids.length > 0) {
+        const known = await queryRows<{ id: string }>(
+          deps.pool,
+          `SELECT id FROM files WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
+          [ids, auth.workspaceId],
+        );
+        if (known.length !== new Set(ids).size) {
+          ctx.fail(404, 'file_not_found');
+          return;
+        }
+      }
+    }
+
     if (value !== null && HAS_OPTIONS.has(field.field_type)) {
       const known = Array.isArray(field.config['options'])
         ? (field.config['options'] as SelectOption[])

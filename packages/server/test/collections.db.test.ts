@@ -1160,5 +1160,111 @@ describe(
         404,
       );
     });
+
+    // --- a files column (ADR-0035) -----------------------------------------
+
+    test('a files column can be created, and holds file ids', async () => {
+      // One column type for every kind of file. The model has had `files` since
+      // the first migration; only the interface never offered it.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, {
+        name: 'Attachments',
+        fieldType: 'files',
+      });
+      const row = await addRow(session, collection, 'Entry');
+
+      const upload = await db.query<{ id: string }>(
+        `INSERT INTO files (workspace_id, page_id, filename, mime_type, size_bytes, sha256, storage_key)
+         VALUES ($1, $2, 'plan.pdf', 'application/pdf', 1024, '\\x00', 'k1') RETURNING id`,
+        [session.workspaceId, row],
+      );
+      const fileId = upload.rows[0]!.id;
+
+      await expectStatus(
+        await setValue(session, row, field, { kind: 'files', fileIds: [fileId] }),
+        200,
+      );
+
+      const body = await read(session, collection);
+      assert.deepEqual(body.rows[0]!.values[field], { kind: 'files', fileIds: [fileId] });
+    });
+
+    test('the collection says what its files are, once for the table', async () => {
+      // A cell stores ids: a name and a size are the file's own facts, and a copy
+      // in every cell is how a renamed file keeps its old name in three places.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, { name: 'Files', fieldType: 'files' });
+      const row = await addRow(session, collection, 'Entry');
+
+      const upload = await db.query<{ id: string }>(
+        `INSERT INTO files (workspace_id, page_id, filename, mime_type, size_bytes, sha256, storage_key)
+         VALUES ($1, $2, 'photo.png', 'image/png', 2048, '\\x00', 'k2') RETURNING id`,
+        [session.workspaceId, row],
+      );
+      await expectStatus(
+        await setValue(session, row, field, { kind: 'files', fileIds: [upload.rows[0]!.id] }),
+        200,
+      );
+
+      const body = await expectJson<{
+        files: Array<{ id: string; filename: string; category: string }>;
+      }>(
+        await fetch(`${base}/api/collections/${collection}`, {
+          headers: { cookie: session.cookie },
+        }),
+      );
+      assert.equal(body.files.length, 1);
+      assert.equal(body.files[0]!.filename, 'photo.png');
+      // The category comes from the mime type, which is the server's answer to
+      // "what kind of file is this" — the column does not need to declare it.
+      assert.equal(body.files[0]!.category, 'image');
+    });
+
+    test('a cell cannot name a file that does not exist here', async () => {
+      // A chip nobody can open is the least of it: an id from another workspace
+      // would be the thing that leaks a filename.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, { name: 'Files', fieldType: 'files' });
+      const row = await addRow(session, collection, 'Entry');
+
+      const res = await setValue(session, row, field, {
+        kind: 'files',
+        fileIds: ['00000000-0000-4000-8000-000000000009'],
+      });
+      const body = await expectJson<{ error: string }>(res, 404);
+      assert.equal(body.error, 'file_not_found');
+    });
+
+    test('a cell is a cell: eight files at most', async () => {
+      // Somebody with twenty documents about one entry has a page to put them
+      // on, which is what a row being a page is for.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const field = await fieldOf(session, collection, { name: 'Files', fieldType: 'files' });
+      const row = await addRow(session, collection, 'Entry');
+
+      const made: string[] = [];
+      for (let at = 0; at < 9; at++) {
+        const upload = await db.query<{ id: string }>(
+          `INSERT INTO files (workspace_id, page_id, filename, mime_type, size_bytes, sha256, storage_key)
+           VALUES ($1, $2, $3, 'text/plain', 10, '\\x00', $4) RETURNING id`,
+          [session.workspaceId, row, `f${at}.txt`, `key-${at}`],
+        );
+        made.push(upload.rows[0]!.id);
+      }
+
+      const body = await expectJson<{ error: string }>(
+        await setValue(session, row, field, { kind: 'files', fileIds: made }),
+        422,
+      );
+      assert.equal(body.error, 'too_many_files');
+    });
   },
 );
