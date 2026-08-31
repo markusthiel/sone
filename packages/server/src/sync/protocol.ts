@@ -21,6 +21,8 @@
 import * as decoding from 'lib0/decoding';
 import * as encoding from 'lib0/encoding';
 
+import { SCHEMA_VERSION, isClientSchemaCompatible } from '@sone/core';
+
 export const PROTOCOL_VERSION = 1;
 
 /**
@@ -78,6 +80,14 @@ export const SyncError = {
   MessageTooLarge: 'message_too_large',
   RateLimited: 'rate_limited',
   Internal: 'internal',
+  /**
+   * The client speaks a different document format (ADR-0039).
+   *
+   * Its own code rather than `auth_failed`: somebody whose tab is a day old has
+   * done nothing wrong and needs one instruction — reload — not a message about
+   * credentials.
+   */
+  DocumentSchemaMismatch: 'document_schema_mismatch',
 } as const;
 
 export type SyncErrorCode = (typeof SyncError)[keyof typeof SyncError];
@@ -106,6 +116,8 @@ export const LIMITS = {
 
 export interface AuthPayload {
   protocolVersion: number;
+  /** The document format the client speaks; must equal the server's (ADR-0039). */
+  documentSchemaVersion?: number;
   workspaceId: string;
   /**
    * Session token, or a share token, or neither.
@@ -348,6 +360,22 @@ function validateAuth(value: unknown): AuthPayload {
     );
   }
 
+  // The document format, which is a separate contract from the wire format above
+  // (ADR-0013) and is checked for equality rather than a minimum.
+  //
+  // A client older than the server deletes blocks it cannot draw — y-prosemirror
+  // removes an element it cannot turn into a node, from the shared document, for
+  // everyone. A client newer writes blocks the server cannot project. Both are
+  // refused, and an absent value is an old client rather than a lenient one.
+  const documentSchemaVersion = v['documentSchemaVersion'];
+  if (!isClientSchemaCompatible(Number(documentSchemaVersion))) {
+    throw new ProtocolError(
+      `client speaks document schema ${String(documentSchemaVersion ?? 'unknown')}; ` +
+        `this server speaks ${SCHEMA_VERSION}. Reload the page.`,
+      SyncError.DocumentSchemaMismatch,
+    );
+  }
+
   if (!isUuid(v['workspaceId'])) {
     throw new ProtocolError('auth: workspaceId is not a uuid');
   }
@@ -361,6 +389,7 @@ function validateAuth(value: unknown): AuthPayload {
 
   const payload: AuthPayload = {
     protocolVersion: PROTOCOL_VERSION,
+    documentSchemaVersion: SCHEMA_VERSION,
     workspaceId: v['workspaceId'],
   };
   if (sessionToken !== undefined) payload.sessionToken = sessionToken;

@@ -132,7 +132,12 @@ describe('version comparison', () => {
 
 describe('document migrations', () => {
   const makeDoc = (version: number): Y.Doc => {
-    const doc = new Y.Doc();
+    // A fixed client id, so two documents built the same way encode the same
+    // bytes. Yjs puts the client id in every update, so without this the
+    // determinism check below compares two random numbers and fails the moment
+    // the chain stops being empty — which is what happened when it did.
+    const doc = new Y.Doc({ guid: 'fixture' });
+    doc.clientID = 1;
     doc.getMap(DOC_KEYS.meta).set(META_KEYS.schemaVersion, version);
     doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.title, 'Doc');
     doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.idx, 'a0');

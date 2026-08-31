@@ -76,20 +76,36 @@ export interface DocumentMigration {
  *      forever after, since the old format stops being producible.
  */
 export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [
-  // Example of the shape, kept as a comment rather than as dead code:
-  //
-  // {
-  //   from: 1,
-  //   to: 2,
-  //   description: 'move block.props.level into block.props.headingLevel',
-  //   migrate: (doc) => {
-  //     const blocks = doc.getMap(DOC_KEYS.blocks);
-  //     // Sort the keys: iteration order of a Y.Map is not guaranteed stable
-  //     // across implementations, and a non-deterministic migration diverges.
-  //     for (const id of [...blocks.keys()].sort()) { ... }
-  //   },
-  // },
+  {
+    from: 1,
+    to: 2,
+    description: 'the video block exists; a client that cannot draw one must not open documents',
+    // Nothing to change. That looks odd and is deliberate (ADR-0039).
+    //
+    // `migrateDocument` refuses a gap in the chain, so the step has to exist —
+    // and what it records is not a change of shape but a change of requirement.
+    // A client whose schema predates a block type does not ignore that block: it
+    // deletes it from the shared document, for everyone. So the version is what
+    // lets the server refuse such a client at the handshake instead.
+    migrate: () => {},
+  },
 ];
+
+/*
+ * The shape of a real migration, kept as prose rather than as dead code:
+ *
+ *   {
+ *     from: 2,
+ *     to: 3,
+ *     description: 'move block.props.level into block.props.headingLevel',
+ *     migrate: (doc) => {
+ *       const blocks = doc.getMap(DOC_KEYS.blocks);
+ *       // Sort the keys: iteration order of a Y.Map is not guaranteed stable
+ *       // across implementations, and a non-deterministic migration diverges.
+ *       for (const id of [...blocks.keys()].sort()) { ... }
+ *     },
+ *   }
+ */
 
 /** Read the schema version recorded in a document. Defaults to 1. */
 export function documentSchemaVersion(doc: Y.Doc): number {

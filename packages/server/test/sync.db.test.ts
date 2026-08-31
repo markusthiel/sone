@@ -19,6 +19,8 @@ import {
   readBlockTree,
 } from '@sone/core';
 import type { Pool } from 'pg';
+
+import { SCHEMA_VERSION } from '@sone/core';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
 import * as syncProtocol from 'y-protocols/sync';
@@ -199,6 +201,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         sessionToken,
       }),
@@ -268,6 +271,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         sessionToken: 'not-a-real-token',
       }),
@@ -285,6 +289,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         sessionToken: session.token,
       }),
@@ -304,6 +309,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         sessionToken: session.token,
       }),
@@ -498,6 +504,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         shareToken: link.token,
         displayName: 'Reader',
@@ -536,6 +543,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         shareToken: link.token,
         displayName: 'Editor',
@@ -584,6 +592,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         shareToken: link.token,
       }),
@@ -613,6 +622,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     first.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         shareToken: link.token,
       }),
@@ -627,6 +637,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     first.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         shareToken: link.token,
         sharePassword: 'the-link-password',
@@ -649,6 +660,7 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.send(
       encodeAuth({
         protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
         workspaceId: fx.workspaceId,
         shareToken: link.token,
       }),

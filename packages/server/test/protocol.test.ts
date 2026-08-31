@@ -12,6 +12,8 @@ import { test } from 'node:test';
 
 import * as encoding from 'lib0/encoding';
 
+import { SCHEMA_VERSION } from '@sone/core';
+
 import {
   ClientMessage,
   LIMITS,
@@ -42,6 +44,7 @@ const PAGE = '00000000-0000-4000-8000-000000000002';
 test('auth round-trips with a session token', () => {
   const frame = encodeAuth({
     protocolVersion: PROTOCOL_VERSION,
+    documentSchemaVersion: SCHEMA_VERSION,
     workspaceId: WORKSPACE,
     sessionToken: 'abc123',
   });
@@ -56,6 +59,7 @@ test('auth round-trips with a session token', () => {
 test('auth round-trips with a share token and display name', () => {
   const frame = encodeAuth({
     protocolVersion: PROTOCOL_VERSION,
+    documentSchemaVersion: SCHEMA_VERSION,
     workspaceId: WORKSPACE,
     shareToken: 'share-token',
     displayName: 'Visitor',
@@ -219,7 +223,11 @@ test('auth with neither credential is accepted and means cookie auth', () => {
   encoding.writeVarUint(e, ClientMessage.Auth);
   encoding.writeVarString(
     e,
-    JSON.stringify({ protocolVersion: PROTOCOL_VERSION, workspaceId: WORKSPACE }),
+    JSON.stringify({
+      protocolVersion: PROTOCOL_VERSION,
+      documentSchemaVersion: SCHEMA_VERSION,
+      workspaceId: WORKSPACE,
+    }),
   );
   const decoded = decodeClientMessage(encoding.toUint8Array(e));
   assert.equal(decoded.type, ClientMessage.Auth);
@@ -313,5 +321,42 @@ test('handles and request ids survive values above one byte', () => {
       assert.equal(decoded.requestId, n);
       assert.equal(decoded.handle, n);
     }
+  }
+});
+
+test('a client that does not say which document format it speaks is refused', () => {
+  // Exactly what a tab from before this change sends: nothing. It is refused
+  // rather than tolerated, because a client that cannot draw a block type deletes
+  // it from the shared document, for everyone (ADR-0039).
+  const frame = encodeAuth({
+    protocolVersion: PROTOCOL_VERSION,
+    workspaceId: WORKSPACE,
+    sessionToken: 'abc123',
+  });
+  assert.throws(
+    () => decodeClientMessage(frame),
+    (err: unknown) =>
+      err instanceof ProtocolError && err.code === SyncError.DocumentSchemaMismatch,
+  );
+});
+
+test('a client speaking a different document format is refused, with its own reason', () => {
+  // Not `auth_failed`: somebody whose tab is a day old has done nothing wrong and
+  // needs one instruction, which is to reload.
+  for (const version of [SCHEMA_VERSION - 1, SCHEMA_VERSION + 1]) {
+    const frame = encodeAuth({
+      protocolVersion: PROTOCOL_VERSION,
+      documentSchemaVersion: version,
+      workspaceId: WORKSPACE,
+      sessionToken: 'abc123',
+    });
+    assert.throws(
+      () => decodeClientMessage(frame),
+      (err: unknown) =>
+        err instanceof ProtocolError &&
+        err.code === SyncError.DocumentSchemaMismatch &&
+        /Reload the page/.test(err.message),
+      `schema ${version}`,
+    );
   }
 });

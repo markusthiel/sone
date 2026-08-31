@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a video block was deleted moments after being added — by another open
+tab** ([ADR-0039](docs/adr/0039-client-schema-refusal.md)). A page open in a
+browser that predates a block type does not ignore that block: it removes it from
+the shared document, for everybody. Such a client is now refused with an
+instruction to reload, instead of being allowed to delete writing it cannot draw.
+
+**Operator note: after this upgrade, every open tab must be reloaded** before it can
+edit again. That is the fix working.
+
 **Fixed: a video disappeared moments after being added.** Its block was the one
 piece of content that did not take itself out of the editor's editable region, so
 the browser treated the player as text it could edit — and removed it.
