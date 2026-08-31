@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A browser running an older build than the server now says so**, in a strip under
+the topbar with a Reload button, instead of only in Settings → About.
+
 **Entries in a table can be selected** ([ADR-0040](docs/adr/0040-row-selection.md)),
 with a checkbox per row and one in the heading for everything the view is showing.
 A selection can be **copied** — as the same tab-separated grid a paste reads, so
