@@ -121,6 +121,48 @@ export const en = {
   'about.syncProtocol': 'Sync protocol',
   'about.checking': 'checking…',
 
+  // --- this workspace's settings -----------------------------------------
+  'workspace.nameAndMark': 'Name and mark',
+  'workspace.nameAndMark.hint': 'What this workspace is called and how it is recognised',
+  'workspace.typography': 'Typography',
+  'workspace.typography.hint': 'How this workspace reads',
+  'workspace.people': 'People',
+  'workspace.people.hint': 'Who is in this workspace, their roles, and inviting more',
+  'workspace.groups': 'Groups',
+  'workspace.groups.hint': 'Named sets of people, for page permissions',
+  'workspace.name': 'Name',
+  'workspace.name.hint': 'What this workspace is called, everywhere it appears.',
+  'workspace.nameLabel': 'Workspace name',
+  'workspace.role': 'Your role',
+  'workspace.role.hint': 'What you may do here. Roles are set from the people section.',
+  'workspace.mark': 'Mark',
+  'workspace.saveFailed': 'Could not save that. Try again.',
+
+  // --- the trash ---------------------------------------------------------
+  'trash.title': 'Trash',
+  'trash.note':
+    'Deleted entries stay here until they are destroyed. Nothing is removed on a ' +
+    'schedule — an instance that quietly empties its own trash is one that loses ' +
+    'somebody’s work while they are on holiday.',
+  'trash.empty': 'Nothing has been deleted.',
+  'trash.restore': 'Restore',
+  'trash.destroy': 'Destroy',
+  'trash.keep': 'Keep',
+  'trash.confirm': 'Destroy permanently? This cannot be undone.',
+  'trash.loading': 'Loading…',
+
+  // --- search ------------------------------------------------------------
+  'search.title': 'Search',
+  'search.field': 'Search pages',
+  'search.placeholder': 'Search pages…',
+  'search.folders': 'Folders',
+  'search.pages': 'Pages',
+  'search.nothing': 'Nothing matched.',
+  'search.didYouMean': 'Did you mean',
+  'search.similar': 'Similar names',
+  // Why a result matched: the name rather than something in the text.
+  'search.matchedTitle': 'title',
+
   // --- choosing an icon and a colour -------------------------------------
   'icon.heading': 'Icon',
   'icon.search': 'Search icons',

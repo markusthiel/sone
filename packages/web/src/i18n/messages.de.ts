@@ -139,6 +139,49 @@ export const de: Record<keyof typeof en, string> = {
   'about.syncProtocol': 'Sync-Protokoll',
   'about.checking': 'wird geprüft…',
 
+  // --- Einstellungen dieses Workspace ------------------------------------
+  'workspace.nameAndMark': 'Name und Zeichen',
+  'workspace.nameAndMark.hint': 'Wie dieser Workspace heißt und woran man ihn erkennt',
+  'workspace.typography': 'Typografie',
+  'workspace.typography.hint': 'Wie dieser Workspace liest',
+  'workspace.people': 'Leute',
+  'workspace.people.hint': 'Wer in diesem Workspace ist, mit welcher Rolle, und wie man einlädt',
+  'workspace.groups': 'Gruppen',
+  'workspace.groups.hint': 'Benannte Gruppen von Leuten, für Seitenrechte',
+  'workspace.name': 'Name',
+  'workspace.name.hint': 'Wie dieser Workspace heißt, überall wo er auftaucht.',
+  'workspace.nameLabel': 'Name des Workspace',
+  'workspace.role': '{address, select, formal {Ihre Rolle} other {Deine Rolle}}',
+  'workspace.role.hint':
+    'Was {address, select, formal {Sie hier dürfen} other {du hier darfst}}. Rollen werden ' +
+    'im Abschnitt „Leute" gesetzt.',
+  'workspace.mark': 'Zeichen',
+  'workspace.saveFailed': 'Das konnte nicht gespeichert werden. Bitte noch einmal.',
+
+  // --- der Papierkorb ----------------------------------------------------
+  'trash.title': 'Papierkorb',
+  'trash.note':
+    'Gelöschte Einträge bleiben hier, bis sie vernichtet werden. Nichts wird nach einem ' +
+    'Zeitplan entfernt — eine Instanz, die ihren Papierkorb still leert, ist eine, die ' +
+    'jemandes Arbeit verliert, während er im Urlaub ist.',
+  'trash.empty': 'Es wurde nichts gelöscht.',
+  'trash.restore': 'Wiederherstellen',
+  'trash.destroy': 'Vernichten',
+  'trash.keep': 'Behalten',
+  'trash.confirm': 'Endgültig vernichten? Das lässt sich nicht zurücknehmen.',
+  'trash.loading': 'Wird geladen…',
+
+  // --- Suche -------------------------------------------------------------
+  'search.title': 'Suche',
+  'search.field': 'Seiten suchen',
+  'search.placeholder': 'Seiten suchen…',
+  'search.folders': 'Ordner',
+  'search.pages': 'Seiten',
+  'search.nothing': 'Nichts gefunden.',
+  'search.didYouMean': 'Vielleicht',
+  'search.similar': 'Ähnliche Namen',
+  'search.matchedTitle': 'Name',
+
   // --- Symbol und Farbe wählen -------------------------------------------
   'icon.heading': 'Symbol',
   'icon.search': 'Symbole suchen',

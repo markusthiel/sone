@@ -19,22 +19,23 @@ import { useState, type ReactElement } from 'react';
 import { api, type SessionInfo, type WorkspaceIcon } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { GroupsPanel } from './GroupsPanel.tsx';
-import { SettingsShell, resolveSection, type ShellSection } from './SettingsShell.tsx';
+import { useT } from '../i18n/useT.tsx';
+import { SettingsShell, resolveSection } from './SettingsShell.tsx';
 import { ThemeSettings } from './ThemeSettings.tsx';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { WorkspaceInvite } from './WorkspaceInvite.tsx';
 import { WorkspaceMembers } from './WorkspaceMembers.tsx';
 
-const SECTIONS: readonly ShellSection[] = [
-  { id: 'general', label: 'Name and mark', hint: 'What this workspace is called and how it is recognised' },
+const SECTIONS = [
+  { id: 'general', label: 'workspace.nameAndMark', hint: 'workspace.nameAndMark.hint' },
   // Unreachable until now. It was rendered by the old screen and had been
   // removed from that screen's list, so the per-workspace heading sizes and text
   // scale could not be opened at all (ADR-0032).
-  { id: 'typography', label: 'Typography', hint: 'How this workspace reads' },
-  { id: 'people', label: 'People', hint: 'Who is in this workspace, their roles, and inviting more' },
+  { id: 'typography', label: 'workspace.typography', hint: 'workspace.typography.hint' },
+  { id: 'people', label: 'workspace.people', hint: 'workspace.people.hint' },
   // Unreachable for the same reason.
-  { id: 'groups', label: 'Groups', hint: 'Named sets of people, for page permissions' },
-];
+  { id: 'groups', label: 'workspace.groups', hint: 'workspace.groups.hint' },
+] as const;
 
 interface WorkspaceSettingsProps {
   section: string;
@@ -52,6 +53,7 @@ export function WorkspaceSettingsScreen({
   onClose,
   onLogout,
 }: WorkspaceSettingsProps): ReactElement {
+  const { t } = useT();
   const [listOpen, setListOpen] = useState(false);
   const current = resolveSection(SECTIONS, section);
   const workspace = session.workspaces.find((entry) => entry.id === workspaceId);
@@ -69,7 +71,11 @@ export function WorkspaceSettingsScreen({
       areaId="workspace"
       subtitle={workspace?.name || 'Untitled'}
       canAdminister={canAdminister}
-      sections={SECTIONS}
+      sections={SECTIONS.map((entry) => ({
+        id: entry.id,
+        label: t(entry.label),
+        hint: t(entry.hint),
+      }))}
       current={current}
       hrefFor={(id) => paths.workspaceSettings(id)}
       listOpen={listOpen}
@@ -133,6 +139,7 @@ function General({
   role: string;
   canEdit: boolean;
 }): ReactElement {
+  const { t } = useT();
   const [draft, setDraft] = useState(name);
   // Held here rather than reloaded: reloading threw the panel away and the list
   // it came back to draws no marks, so a saved change looked unsaved (ADR-0030).
@@ -154,13 +161,13 @@ function General({
 
   return (
     <section className="settings-section">
-      {error && <p className="error">Could not save that. Try again.</p>}
+      {error && <p className="error">{t('workspace.saveFailed')}</p>}
 
       <div className="settings-card">
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Name</b>
-            <span>What this workspace is called, everywhere it appears.</span>
+            <b>{t('workspace.name')}</b>
+            <span>{t('workspace.name.hint')}</span>
           </span>
           <input
             value={draft}
@@ -170,13 +177,13 @@ function General({
               if (event.key === 'Enter') event.currentTarget.blur();
             }}
             disabled={!canEdit}
-            aria-label="Workspace name"
+            aria-label={t('workspace.nameLabel')}
           />
         </div>
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Your role</b>
-            <span>What you may do here. Roles are set from the people section.</span>
+            <b>{t('workspace.role')}</b>
+            <span>{t('workspace.role.hint')}</span>
           </span>
           <span>{role}</span>
         </div>
@@ -184,7 +191,7 @@ function General({
 
       {/* How it is recognised, which is what somebody scanning a switcher of
         * five workspaces actually uses (ADR-0030). */}
-      <h3 className="settings-heading">Mark</h3>
+      <h3 className="settings-heading">{t('workspace.mark')}</h3>
       <div className="settings-card">
         <WorkspaceAppearance workspaceId={workspaceId} icon={chosen} onChanged={setChosen} />
       </div>

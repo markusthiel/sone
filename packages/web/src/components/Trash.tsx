@@ -15,7 +15,8 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type TrashEntry } from '../api/client.ts';
-import { messageFor } from './Auth.tsx';
+import { useT } from '../i18n/useT.tsx';
+import { useMessage } from './Auth.tsx';
 import { FolderIcon, PageIcon } from './icons.tsx';
 
 interface TrashProps {
@@ -25,6 +26,8 @@ interface TrashProps {
 }
 
 export function Trash({ workspaceId, onChanged }: TrashProps): ReactElement {
+  const { t } = useT();
+  const message = useMessage();
   const [entries, setEntries] = useState<TrashEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -72,25 +75,23 @@ export function Trash({ workspaceId, onChanged }: TrashProps): ReactElement {
     }
   };
 
-  if (error) return <p className="error">{messageFor(error)}</p>;
-  if (!entries) return <p className="muted">Loading…</p>;
+  if (error) return <p className="error">{message(error)}</p>;
+  if (!entries) return <p className="muted">{t('trash.loading')}</p>;
 
   if (entries.length === 0) {
     return (
       <div className="page-body">
-        <h1>Trash</h1>
-        <p className="muted">Nothing has been deleted.</p>
+        <h1>{t('trash.title')}</h1>
+        <p className="muted">{t('trash.empty')}</p>
       </div>
     );
   }
 
   return (
     <div className="page-body">
-      <h1>Trash</h1>
+      <h1>{t('trash.title')}</h1>
       <p className="muted settings-note">
-        Deleted entries stay here until they are destroyed. Nothing is removed on
-        a schedule — an instance that quietly empties its own trash is one that
-        loses somebody’s work while they are on holiday.
+        {t('trash.note')}
       </p>
 
       <div className="admin-table">
@@ -116,17 +117,17 @@ export function Trash({ workspaceId, onChanged }: TrashProps): ReactElement {
                 <>
                   {/* The confirmation says what cannot be undone rather than
                       asking "are you sure", which nobody reads. */}
-                  <span className="muted">Destroy permanently? This cannot be undone.</span>
+                  <span className="muted">{t('trash.confirm')}</span>
                   <button
                     type="button"
                     className="btn destructive"
                     disabled={busy}
                     onClick={() => void destroy(entry)}
                   >
-                    Destroy
+                    {t('trash.destroy')}
                   </button>
                   <button type="button" className="btn" onClick={() => setConfirming(null)}>
-                    Keep
+                    {t('trash.keep')}
                   </button>
                 </>
               ) : (
@@ -137,7 +138,7 @@ export function Trash({ workspaceId, onChanged }: TrashProps): ReactElement {
                     disabled={busy}
                     onClick={() => void restore(entry)}
                   >
-                    Restore
+                    {t('trash.restore')}
                   </button>
                   <button
                     type="button"
@@ -145,7 +146,7 @@ export function Trash({ workspaceId, onChanged }: TrashProps): ReactElement {
                     disabled={busy}
                     onClick={() => setConfirming(entry.id)}
                   >
-                    Destroy
+                    {t('trash.destroy')}
                   </button>
                 </>
               )}

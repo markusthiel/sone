@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The workspace settings, the trash and search speak German too.** Eight files are
+translated now; the admin area, the editor's menus and the collection table are
+still English.
+
 **The settings speak German**: the three areas and their switcher, the way back to
 your notes, and every section of your own settings — profile, signing in,
 appearance, where you land, about. Five files are translated now.

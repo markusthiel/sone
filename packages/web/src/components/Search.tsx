@@ -25,6 +25,7 @@ import {
   type SearchResult,
   type SimilarName,
 } from '../api/client.ts';
+import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
@@ -36,6 +37,7 @@ export function SearchScreen({
   workspaceId: string;
   initialQuery: string;
 }): ReactElement {
+  const { t } = useT();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
   /** Names that are close, offered only when the search found little. */
@@ -78,12 +80,12 @@ export function SearchScreen({
 
   return (
     <div className="page-body">
-      <h1>Search</h1>
+      <h1>{t('search.title')}</h1>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search pages…"
-        aria-label="Search pages"
+        placeholder={t('search.placeholder')}
+        aria-label={t('search.field')}
         autoFocus
         type="search"
       />
@@ -94,17 +96,17 @@ export function SearchScreen({
         !searching &&
         results.length === 0 &&
         similar.length === 0 &&
-        !error && <p className="muted">Nothing matched.</p>}
+        !error && <p className="muted">{t('search.nothing')}</p>}
 
       {/* Folders first, as in the sidebar and in a folder's own view. A filing
           system that orders one way in one place and another elsewhere makes
           people hunt. */}
       <Group
-        label="Folders"
+        label={t('search.folders')}
         results={results.filter((result) => result.kind === 'folder')}
       />
       <Group
-        label="Pages"
+        label={t('search.pages')}
         results={results.filter((result) => result.kind !== 'folder')}
       />
 
@@ -116,7 +118,7 @@ export function SearchScreen({
       {similar.length > 0 && (
         <section className="search-group">
           <h2 className="sidebar-label">
-            {results.length === 0 ? 'Did you mean' : 'Similar names'}
+            {results.length === 0 ? t('search.didYouMean') : t('search.similar')}
           </h2>
           <ul className="search-results">
             {similar.map((entry) => (
@@ -153,6 +155,7 @@ function Group({
   label: string;
   results: SearchResult[];
 }): ReactElement | null {
+  const { t } = useT();
   // Hidden entirely when empty rather than shown as a heading over nothing,
   // which takes space to say there are none of something nobody asked about.
   if (results.length === 0) return null;
@@ -180,7 +183,7 @@ function Group({
                 {/* Said, not inferred. A rank number means nothing to a reader,
                     and "why is this here" is the question a search result has to
                     answer before any other. */}
-                {result.titleMatch && <span className="search-hit-why">title</span>}
+                {result.titleMatch && <span className="search-hit-why">{t('search.matchedTitle')}</span>}
               </span>
 
               {result.trail.length > 0 && (
