@@ -420,6 +420,39 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
     viewRef.current = created;
     setView(created);
 
+    /**
+     * Who removed a block, when one disappears.
+     *
+     * A block that vanishes has been deleted from the document, and there are
+     * only three candidates: this browser's own editor, y-prosemirror throwing
+     * away an element it could not turn into a node, or an update from the
+     * server — another client, or another tab. A Yjs transaction says which:
+     * `local` separates this browser from the wire, and the origin names the
+     * plugin.
+     *
+     * Two rounds of reasoning about a vanishing video went into mechanisms that
+     * were real and not the cause, because nothing in the running application
+     * could answer this question. Now it can, and it costs one observer.
+     */
+    const watchRemovals = (events: Array<{ changes: { deleted: Set<unknown> } }>, tx: {
+      local: boolean;
+      origin: unknown;
+    }): void => {
+      for (const event of events) {
+        for (const item of event.changes.deleted) {
+          const content = (item as { content?: { type?: { nodeName?: string } } }).content;
+          const name = content?.type?.nodeName;
+          if (typeof name !== 'string') continue;
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[sone] block removed: ${name} — ${tx.local ? 'by this browser' : 'from the network'}`,
+            { origin: String((tx.origin as { key?: string })?.key ?? tx.origin) },
+          );
+        }
+      }
+    };
+    fragment.observeDeep(watchRemovals as never);
+
     // The one command the side panel may send (see authorHighlightBridge).
     registerHighlighter((clients) => {
       created.dispatch(
@@ -431,6 +464,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
     });
 
     return () => {
+      fragment.unobserveDeep(watchRemovals as never);
       registerHighlighter(null);
       created.destroy();
       viewRef.current = null;
