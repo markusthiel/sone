@@ -3425,6 +3425,69 @@ select {
    uploaded, it is in the page, and it may be perfect for the person it is for. */
 .editor-notice { margin-block: var(--sone-space-3); font-size: var(--sone-text-sm); }
 
+/* --- a collection drawn as covers (ADR-0039) ---
+ *
+ * The cover is cropped rather than fitted. A grid of mixed aspect ratios fitted
+ * inside one box is a grid of letterboxes with ragged whitespace, which reads as
+ * broken rather than as considerate — and the grid is the whole point of the
+ * view.
+ */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sone-space-5);
+  margin: var(--sone-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gallery-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-lg);
+  background: var(--surface-chrome);
+  overflow: hidden;
+}
+.gallery-card a {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  color: var(--sone-text);
+  text-decoration: none;
+}
+.gallery-card:hover { border-color: var(--border-default); }
+
+.gallery-cover {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--surface-sunken);
+}
+/* A row with no image: a panel of the same size, not an icon. What keeps a grid
+   a grid is that every cell is the same shape. */
+.gallery-cover-empty { border-block-end: 1px solid var(--border-subtle); }
+
+.gallery-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-2);
+  padding: var(--sone-space-4);
+}
+.gallery-card-body strong { font-weight: 600; }
+
+.gallery-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.gallery-chip {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-sm);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+
 /* --- a video in the text (ADR-0037) ---
  *
  * The player takes the block's width, which is the shared attribute every block

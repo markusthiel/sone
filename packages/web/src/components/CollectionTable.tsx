@@ -60,6 +60,7 @@ import {
 import { CollectionBoard } from './CollectionBoard.tsx';
 import { MAX_PASTE_ROWS, looksLikeGrid, parsePastedGrid } from './pastedGrid.ts';
 import { useTableHistory } from '../hooks/useTableHistory.ts';
+import { CollectionGallery } from './CollectionGallery.tsx';
 import { readDensity, ViewRules } from './ViewRules.tsx';
 import { OptionEditor, type EditableOption } from './OptionEditor.tsx';
 
@@ -494,6 +495,16 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         ) ?? selectColumns[0])
       : undefined;
 
+  const addGallery = async (): Promise<void> => {
+    try {
+      const created = await api.addCollectionView(collectionId, { viewType: 'gallery' });
+      await load();
+      setViewId(created.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
+
   const addBoard = async (fieldId: string): Promise<void> => {
     try {
       const created = await api.addCollectionView(collectionId, {
@@ -610,6 +621,22 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
           )}
       </div>
 
+      {/* The offer to add a gallery, where the board's offer is and on the same
+          rule: only when the collection has something to draw it with (ADR-0039).
+          A gallery of blank panels is not a view. */}
+      {data.canEdit &&
+        !data.views.some((entry) => entry.viewType === 'gallery') &&
+        columns.some((field) => field.fieldType === 'files') && (
+          <button
+            type="button"
+            className="view-tab add"
+            onClick={() => void addGallery()}
+            title="Show these entries as covers"
+          >
+            <PlusIcon /> Gallery
+          </button>
+        )}
+
       {editingRules && view && (
         <ViewRules
           view={view}
@@ -624,6 +651,19 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                 setError(err instanceof ApiError ? err.code : 'network_error'),
               );
           }}
+        />
+      )}
+
+      {view?.viewType === 'gallery' && (
+        <CollectionGallery
+          rows={data.rows}
+          fields={columns}
+          coverFieldId={
+            typeof view.definition['coverFieldId'] === 'string'
+              ? view.definition['coverFieldId']
+              : null
+          }
+          files={fileIndex}
         />
       )}
 
@@ -644,7 +684,10 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
 
       <div
         className="collection-scroll"
-        hidden={view?.viewType === 'board' && groupBy !== undefined}
+        hidden={
+          view?.viewType === 'gallery' ||
+          (view?.viewType === 'board' && groupBy !== undefined)
+        }
       >
         <table className="collection-table" data-density={density}>
           <thead>

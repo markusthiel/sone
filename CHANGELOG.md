@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A collection can be shown as a gallery** ([ADR-0039](docs/adr/0039-gallery-view.md)):
+cards with a cover, switched to like the board. The cover is the first image in a
+files column, and an entry without one gets a blank panel rather than a
+placeholder. The offer to add one appears once the table has a files column. No
+migration.
+
 **A table's row height can be set**, under "Filter and sort" beside the rules it
 belongs with: compact, normal or tall. It is the view's setting rather than the
 table's, since the same entries can be a list in one view and an overview in

@@ -52,7 +52,12 @@ export interface NewField {
 export interface NewView {
   id: string;
   name: string;
-  viewType: 'table' | 'board' | 'list';
+  /**
+   * Which drawing. A subset of `ViewType`: these are the ones that can be
+   * created, and the model's union is deliberately wider than what exists
+   * (ADR-0039 filled in the gallery).
+   */
+  viewType: 'table' | 'board' | 'gallery' | 'list';
   definition?: Record<string, unknown>;
 }
 
