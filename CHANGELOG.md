@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a table block had no handle.** Clicking the frame around a table now
+selects the block, which is what brings up the ⋮⋮. It appeared for a moment after
+inserting one and never again, because inserting is the only thing that had been
+selecting it. Clicks inside the table — cells, views, buttons — are still the
+table's own.
+
 **A video block can be reached by its handle.** Clicking beside the player selects
 it, which is what brings up the ⋮⋮ — and with it the width and the card and link
 forms. Clicking the player itself still plays it.
