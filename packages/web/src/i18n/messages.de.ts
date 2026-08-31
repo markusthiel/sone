@@ -54,6 +54,43 @@ export const de: Record<keyof typeof en, string> = {
     '{count, plural, one {# Favorit} other {# Favoriten}} von Leuten, die nicht im neuen ' +
     'Workspace sind, {count, plural, one {fällt} other {fallen}} weg.',
 
+  // --- Seitenleiste und Baum ---------------------------------------------
+  'sidebar.label': 'Seiten',
+  'sidebar.close': 'Navigation schließen',
+  'sidebar.hide': 'Seitenleiste ausblenden',
+  'sidebar.search': 'Suchen',
+  'sidebar.favourites': 'Favoriten',
+  'sidebar.newFolder': 'Neuer Ordner',
+  'sidebar.empty': 'Noch keine Seiten.',
+  'sidebar.rename': 'Umbenennen',
+  'sidebar.newPageIn': 'Neue Seite in {title}',
+  'sidebar.removeFavourite': '{title} entfernen',
+
+  // --- das Menü eines Eintrags -------------------------------------------
+  'entry.menu': 'Mehr zu {title}',
+  'entry.rename': 'Umbenennen',
+  'entry.icon': 'Symbol und Farbe',
+  'entry.favourite': 'Zu Favoriten hinzufügen',
+  'entry.unfavourite': 'Aus Favoriten entfernen',
+  'entry.share': 'Teilen…',
+  'entry.move': 'Verschieben nach…',
+  'entry.moveToWorkspace': 'In einen Workspace verschieben…',
+  'entry.newPage': 'Neue Seite',
+  'entry.newFolder': 'Neuer Ordner',
+  'entry.moveUp': 'Nach oben',
+  'entry.moveDown': 'Nach unten',
+  'entry.delete': 'In den Papierkorb',
+  'entry.deleteWithChildren':
+    'In den Papierkorb, mit {count, plural, one {# Eintrag} other {# Einträgen}} darin',
+
+  // --- Symbol und Farbe wählen -------------------------------------------
+  'icon.heading': 'Symbol',
+  'icon.search': 'Symbole suchen',
+  'icon.default': 'Standardsymbol',
+  'icon.colour': 'Symbolfarbe',
+  'icon.nameColour': 'Namensfarbe',
+  'icon.ownColour': 'Eine eigene Farbe',
+
   // --- was schiefgegangen ist --------------------------------------------
   'error.invalid_credentials': 'Diese E-Mail-Adresse und dieses Passwort passen nicht zusammen.',
   'error.rate_limited': 'Zu viele Versuche. Bitte ein paar Minuten warten.',

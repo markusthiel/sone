@@ -169,6 +169,8 @@ test('the person comes before the workspace, and the browser last', () => {
 const MIGRATED = [
   'src/components/AccountMenu.tsx',
   'src/components/MoveToWorkspaceDialog.tsx',
+  'src/components/EntryMenu.tsx',
+  'src/components/Sidebar.tsx',
 ];
 
 test('every error code the client can show has a message', () => {
@@ -208,8 +210,11 @@ test('a migrated file has no English left in its markup', () => {
 
     // And the attributes people read: a title or an aria-label in English is
     // invisible to a screenshot and perfectly visible to a screen reader.
+    // The attribute name has to stand alone: `data-placeholder="true"` is not a
+    // placeholder anybody reads, and matching it made the guard cry wolf on its
+    // first real use.
     const attributes = [
-      ...source.matchAll(/(?:title|aria-label|placeholder)="([^"]{4,})"/g),
+      ...source.matchAll(/(?<![\w-])(?:title|aria-label|placeholder)="([^"]{4,})"/g),
     ].map(([, text]) => text);
     assert.deepEqual(attributes, [], `${file} has literal attributes: ${attributes.join(' | ')}`);
   }

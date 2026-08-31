@@ -45,6 +45,43 @@ export const en = {
     '{count, plural, one {# favourite} other {# favourites}} held by people who are not in ' +
     'the new workspace will be dropped.',
 
+  // --- the sidebar and the tree ------------------------------------------
+  'sidebar.label': 'Pages',
+  'sidebar.close': 'Close navigation',
+  'sidebar.hide': 'Hide the sidebar',
+  'sidebar.search': 'Search',
+  'sidebar.favourites': 'Favourites',
+  'sidebar.newFolder': 'New folder',
+  'sidebar.empty': 'No pages yet.',
+  'sidebar.rename': 'Rename',
+  'sidebar.newPageIn': 'New page inside {title}',
+  'sidebar.removeFavourite': 'Remove {title}',
+
+  // --- an entry's own menu -----------------------------------------------
+  'entry.menu': 'More for {title}',
+  'entry.rename': 'Rename',
+  'entry.icon': 'Icon and colour',
+  'entry.favourite': 'Add to favourites',
+  'entry.unfavourite': 'Remove from favourites',
+  'entry.share': 'Share…',
+  'entry.move': 'Move to…',
+  'entry.moveToWorkspace': 'Move to a workspace…',
+  'entry.newPage': 'New page',
+  'entry.newFolder': 'New folder',
+  'entry.moveUp': 'Move up',
+  'entry.moveDown': 'Move down',
+  'entry.delete': 'Move to the trash',
+  'entry.deleteWithChildren':
+    'Move to the trash, with {count, plural, one {# entry} other {# entries}} inside',
+
+  // --- choosing an icon and a colour -------------------------------------
+  'icon.heading': 'Icon',
+  'icon.search': 'Search icons',
+  'icon.default': 'Default icon',
+  'icon.colour': 'Icon colour',
+  'icon.nameColour': 'Name colour',
+  'icon.ownColour': 'A colour of your own',
+
   // --- what went wrong ---------------------------------------------------
   //
   // The server sends a code and the client owns the wording (ADR-0011). This is

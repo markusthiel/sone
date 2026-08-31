@@ -20,6 +20,8 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { THEME_COLORS, isCustomColor, type EntryIcon } from '@sone/core';
 import { Pipette } from 'lucide-react';
 
+import { useT } from '../i18n/useT.tsx';
+
 import { ICON_NAMES } from './EntryIconView.tsx';
 
 import { api, type PageNode } from '../api/client.ts';
@@ -55,6 +57,7 @@ function EntryAppearance({
   node: PageNode;
   onChanged: () => void;
 }): ReactElement {
+  const { t } = useT();
   const icon = node.icon;
   const current = icon?.kind === 'icon' ? icon.value : null;
   const [query, setQuery] = useState('');
@@ -97,7 +100,7 @@ function EntryAppearance({
 
   return (
     <div className="entry-appearance">
-      <p className="entry-menu-label">Icon</p>
+      <p className="entry-menu-label">{t('icon.heading')}</p>
 
       {/* A filter rather than a shorter list.
         *
@@ -109,17 +112,17 @@ function EntryAppearance({
         className="entry-icon-search"
         type="search"
         value={query}
-        placeholder="Search icons"
-        aria-label="Search icons"
+        placeholder={t('icon.search')}
+        aria-label={t('icon.search')}
         onChange={(event) => setQuery(event.target.value)}
       />
 
-      <div className="entry-icon-grid" role="group" aria-label="Icon">
+      <div className="entry-icon-grid" role="group" aria-label={t('icon.heading')}>
         <button
           type="button"
           className={current === null ? 'entry-icon current' : 'entry-icon'}
           aria-pressed={current === null}
-          aria-label="Default icon"
+          aria-label={t('icon.default')}
           onClick={() => chooseIcon(null)}
         >
           <EntryIconView icon={null} kind={node.kind === 'folder' ? 'folder' : 'page'} />
@@ -140,7 +143,7 @@ function EntryAppearance({
         ))}
       </div>
 
-      <p className="entry-menu-label">Icon colour</p>
+      <p className="entry-menu-label">{t('icon.colour')}</p>
       <ColourRow
         current={icon?.color ?? null}
         label="Icon colour"
@@ -157,7 +160,7 @@ function EntryAppearance({
         disabled={!current}
       />
 
-      <p className="entry-menu-label">Name colour</p>
+      <p className="entry-menu-label">{t('icon.nameColour')}</p>
       <ColourRow
         current={icon?.titleColor ?? null}
         label="Name colour"
@@ -185,6 +188,7 @@ export function ColourRow({
   onChoose: (color: string | null) => void;
   disabled?: boolean;
 }): ReactElement {
+  const { t } = useT();
   return (
     <div className="block-menu-swatches" role="group" aria-label={label}>
       <button
@@ -228,7 +232,7 @@ export function ColourRow({
             ? 'block-menu-swatch custom current'
             : 'block-menu-swatch custom'
         }
-        title="A colour of your own"
+        title={t('icon.ownColour')}
       >
         {/* A pipette rather than another circle.
           *
@@ -296,6 +300,7 @@ export function EntryMenu({
   isFavourite,
   onToggleFavourite,
 }: EntryMenuProps): ReactElement {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -331,7 +336,7 @@ export function EntryMenu({
         ref={buttonRef}
         className="entry-more"
         type="button"
-        aria-label={`Actions for ${title}`}
+        aria-label={t('entry.menu', { title })}
         aria-expanded={open}
         onClick={(event) => {
           // Stops the click reaching the row, which would navigate.
@@ -354,7 +359,7 @@ export function EntryMenu({
               onStartRename(node.id);
             }}
           >
-            <PencilIcon /> Rename
+            <PencilIcon /> {t('entry.rename')}
           </button>
 
           {/* Icon and the two colours.
@@ -375,7 +380,7 @@ export function EntryMenu({
             }}
           >
             <StarIcon data-filled={isFavourite ? 'true' : 'false'} />{' '}
-            {isFavourite ? 'Remove from favourites' : 'Add to favourites'}
+            {isFavourite ? t('entry.unfavourite') : t('entry.favourite')}
           </button>
 
           {/* Reordering without dragging.
@@ -397,7 +402,7 @@ export function EntryMenu({
               onReorder(node.id, 'up');
             }}
           >
-            <ArrowUpIcon /> Move up
+            <ArrowUpIcon /> {t('entry.moveUp')}
           </button>
 
           <button
@@ -410,7 +415,7 @@ export function EntryMenu({
               onReorder(node.id, 'down');
             }}
           >
-            <ArrowDownIcon /> Move down
+            <ArrowDownIcon /> {t('entry.moveDown')}
           </button>
 
           <button
@@ -422,7 +427,7 @@ export function EntryMenu({
               onStartShare(node.id);
             }}
           >
-            <ShareIcon /> Share…
+            <ShareIcon /> {t('entry.share')}
           </button>
 
           <button
@@ -434,7 +439,7 @@ export function EntryMenu({
               onStartMove(node.id);
             }}
           >
-            <MoveIcon /> Move to…
+            <MoveIcon /> {t('entry.move')}
           </button>
 
           {/* Out of this workspace entirely (ADR-0038).
@@ -453,7 +458,7 @@ export function EntryMenu({
               onStartMoveToWorkspace(node.id);
             }}
           >
-            <MoveIcon /> Move to a workspace…
+            <MoveIcon /> {t('entry.moveToWorkspace')}
           </button>
 
           {isFolder && (
@@ -467,7 +472,7 @@ export function EntryMenu({
                   onCreate(node.id, 'page');
                 }}
               >
-                <PlusIcon /> New page
+                <PlusIcon /> {t('entry.newPage')}
               </button>
               <button
                 className="entry-menu-item"
@@ -478,7 +483,7 @@ export function EntryMenu({
                   onCreate(node.id, 'folder');
                 }}
               >
-                <FolderPlusIcon /> New folder
+                <FolderPlusIcon /> {t('entry.newFolder')}
               </button>
             </>
           )}
@@ -496,7 +501,9 @@ export function EntryMenu({
             {/* The count is stated here rather than only in a confirmation,
                 because it changes whether someone opens the confirmation at
                 all. */}
-            {descendants > 0 ? `Delete (${descendants + 1} items)` : 'Delete'}
+            {descendants > 0
+              ? t('entry.deleteWithChildren', { count: descendants })
+              : t('entry.delete')}
           </button>
         </div>
       )}

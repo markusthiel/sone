@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The sidebar and an entry's menu speak German too** — the tree, the favourites,
+search, and every entry in the ⋮ menu including the icon and colour picker. Four
+files are translated now; the rest of the interface is still English.
+
 **Every error message is translated.** All twenty-two of them, in German as well —
 the table moved out of the sign-in screen and into the catalogue, which is where a
 second language can reach it. The messages that diagnose a deployment keep their
