@@ -57,23 +57,41 @@ export function resolveLocale(
 
 type Catalogue = Record<string, string>;
 
+/**
+ * How the interface addresses somebody, where a language distinguishes it.
+ *
+ * "du" or "Sie", chosen by whoever runs the instance. Not a locale of its own: a
+ * second German catalogue would duplicate every string and the two would drift.
+ * It is a `select` branch inside the messages that need it, and it is passed to
+ * every message automatically — so a translator adds the branch where their
+ * language needs it and nothing else changes.
+ *
+ * English messages simply have no branch, which is what "meaningless in English"
+ * looks like in a catalogue.
+ */
+export type AddressForm = 'informal' | 'formal';
+
 interface LocaleState {
   locale: Locale;
   catalogue: Catalogue;
+  address: AddressForm;
   setLocale: (locale: Locale) => void;
 }
 
 const LocaleContext = createContext<LocaleState>({
   locale: FALLBACK,
   catalogue: en,
+  address: 'informal',
   setLocale: () => undefined,
 });
 
 export function LocaleProvider({
   initial,
+  address = 'informal',
   children,
 }: {
   initial: Locale;
+  address?: AddressForm;
   children: ReactNode;
 }): ReactElement {
   const [locale, setLocale] = useState<Locale>(initial);
@@ -99,7 +117,10 @@ export function LocaleProvider({
     document.documentElement.lang = locale;
   }, [locale]);
 
-  const value = useMemo(() => ({ locale, catalogue, setLocale }), [locale, catalogue]);
+  const value = useMemo(
+    () => ({ locale, catalogue, address, setLocale }),
+    [locale, catalogue, address],
+  );
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 
@@ -115,13 +136,18 @@ export function useT(): {
   locale: Locale;
   setLocale: (locale: Locale) => void;
 } {
-  const { locale, catalogue, setLocale } = useContext(LocaleContext);
+  const { locale, catalogue, address, setLocale } = useContext(LocaleContext);
   return useMemo(
     () => ({
       locale,
       setLocale,
-      t: (key, values) => formatMessage(catalogue[key] ?? en[key] ?? key, values, locale),
+      // `address` is passed to every message without being asked for, so a
+      // catalogue can branch on it wherever its language needs to and no caller
+      // has to know that the language it is being rendered in has forms of
+      // address at all.
+      t: (key, values) =>
+        formatMessage(catalogue[key] ?? en[key] ?? key, { address, ...values }, locale),
     }),
-    [locale, catalogue, setLocale],
+    [locale, catalogue, address, setLocale],
   );
 }

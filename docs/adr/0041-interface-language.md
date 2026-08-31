@@ -81,6 +81,35 @@ That is what ADR-0011 decided and it survives unchanged — the existing catalog
 in `Auth.tsx` simply becomes part of the message catalogue, which is where it
 should have been.
 
+### The form of address is an instance setting, and a branch in the message
+
+German distinguishes "du" from "Sie", and which one an instance should use is not
+something this project can decide for it: a family's notes and a company's
+handbook want different tones.
+
+So it is one setting in the administration area, and in the catalogue it is a
+`select` on `address` — passed to every message automatically, so a translator adds
+the branch where their language needs one and nothing else changes. English
+messages have no branch, which is what "meaningless in English" looks like in a
+catalogue.
+
+**Not a second locale.** `de-formal` would duplicate every German string, and two
+catalogues of the same language drift — one gets a correction and the other does
+not, and nobody notices because nobody reads both.
+
+**Not a personal setting.** Two members of one workspace reading different forms of
+address in the same sentence would be stranger than either choice, and it is the
+people running the instance who know which their readers expect. It is delivered
+with `/api/instance` rather than with the session, because the sign-in screen is
+addressed too and there is nobody to ask yet.
+
+The default is "du", because that is what the interface said before the setting
+existed and an instance should not change its tone by being upgraded.
+
+The branch is named `other` rather than `informal`, so a message still renders
+when nothing is passed and a language without the distinction needs no branch at
+all.
+
 ### A test makes the migration hold
 
 The extraction is a thousand strings across sixty components and cannot happen in

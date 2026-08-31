@@ -183,6 +183,38 @@ export function InstancePanel(): ReactElement {
             </select>
           </div>
 
+          {/* The tone of the house (ADR-0041).
+            *
+            * An instance setting rather than a personal one: two members of one
+            * workspace reading different forms of address in the same sentence
+            * would be stranger than either choice, and it is the people running
+            * the instance who know which their readers expect.
+            *
+            * Only visible where a language distinguishes it, which is why the
+            * hint says English is unaffected rather than hiding the control on an
+            * English instance — somebody setting up for German colleagues is
+            * often reading English while they do it. */}
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>How the interface addresses people</b>
+              <span>
+                In German and other languages that distinguish it. English has one
+                form and is unaffected.
+                <SettingSource source={settingSources['addressForm']} />
+              </span>
+            </span>
+            <select
+              id="address-form"
+              aria-label="How the interface addresses people"
+              value={settings.addressForm}
+              disabled={saving}
+              onChange={(event) => void update({ addressForm: event.target.value })}
+            >
+              <option value="informal">Informally — “du”</option>
+              <option value="formal">Formally — “Sie”</option>
+            </select>
+          </div>
+
           <div className="settings-row">
             <span className="settings-row-label">
               <b>Instance name</b>

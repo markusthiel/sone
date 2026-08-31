@@ -38,6 +38,19 @@ export const SETTING_KEYS = {
   allowWorkspaceCreation: { type: 'boolean' },
   /** Default interface language for new accounts. */
   defaultLocale: { type: 'string', maxLength: 35 },
+  /**
+   * How the interface addresses somebody, in languages that distinguish it.
+   *
+   * `informal` is "du" and `formal` is "Sie". A property of the instance rather
+   * than of a person: it is the tone the people running it have chosen for their
+   * own house, and two members of one workspace reading different forms of
+   * address in the same sentence would be stranger than either choice.
+   *
+   * Meaningless in English, which is why it is one setting and not a locale of
+   * its own: a second German catalogue would duplicate every string and drift
+   * (ADR-0041).
+   */
+  addressForm: { type: 'enum', values: ['informal', 'formal'] as const },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_KEYS;
@@ -47,6 +60,7 @@ export interface InstanceSettings {
   instanceName: string;
   allowWorkspaceCreation: boolean;
   defaultLocale: string;
+  addressForm: 'informal' | 'formal';
 }
 
 /** Where each value came from, so the interface can say so. */
@@ -62,6 +76,7 @@ export interface SettingsDefaults {
   instanceName: string;
   allowWorkspaceCreation: boolean;
   defaultLocale: string;
+  addressForm: 'informal' | 'formal';
 }
 
 /** How long a resolved set of settings is reused. */

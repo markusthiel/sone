@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Whether the interface says "du" or "Sie" is an instance setting**, under
+Administration → Settings. It applies to German and any other language that
+distinguishes the two; English is unaffected. New instances say "du".
+
 **The interface can speak German** ([ADR-0041](docs/adr/0041-interface-language.md)).
 The machinery is in place — a catalogue, plural rules per language, and a language
 chosen from your own setting, then the workspace's, then the browser's — and two
