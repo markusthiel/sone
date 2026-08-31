@@ -104,6 +104,17 @@ test('every node view takes its contents out of the editable region', () => {
   }
 });
 
+test('a drawing failure keeps the block and says where the reason is', () => {
+  // A node view that raises during a dispatch does not fail alone: the exception
+  // leaves the editor mid-transaction, the error boundary replaces the surface,
+  // and everything unmounted with it — including an open dialog — comes back
+  // empty. From the outside that is "the window closed and the block is gone",
+  // with nothing saying why.
+  assert.match(view, /private render\(\): void \{\s*try \{\s*this\.draw\(\);/);
+  assert.match(view, /console\.error\('\[sone\] drawing a video block failed'/);
+  assert.match(view, /The block is still here/);
+});
+
 test('the node is one type with three sources', () => {
   // Not three node types: they are one thing in the document, and three would be
   // three node views and three sets of width handling to keep in step.

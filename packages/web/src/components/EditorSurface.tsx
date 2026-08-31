@@ -344,7 +344,15 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
    * page, and it may play perfectly for the person it was put there for.
    */
   const [notice, setNotice] = useState<string | null>(null);
-  /** Whether the "add a video" dialog is up (ADR-0037). */
+  /**
+   * Whether the "add a video" dialog is up (ADR-0037).
+   *
+   * Kept here rather than inside the slash menu, which unmounts the moment it
+   * closes — the picker learnt that lesson already. It is still state in this
+   * component, so anything that unmounts *this* takes the dialog with it; that is
+   * what an editor crash looks like from the outside, and the node view no longer
+   * throws for exactly that reason.
+   */
   const [videoOpen, setVideoOpen] = useState(false);
 
   // `canEdit` is read through a ref so the editor sees the current value
