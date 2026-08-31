@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The writing is on white and the furniture is tinted**, where it used to be the
+other way round. The sidebar, the top bar and the right panel now carry a very
+slight warm tint — about two per cent — and the page itself is the brightest
+thing on screen, which is the way round every tool people already use has it, and
+the way round paper has it. Nothing changes in the dark theme: it already had
+this relationship, and now both themes say so in the same words.
+
 **A folder and a page are titled the same way**, and both show the icon and
 colours you chose for them. A folder's name was bold and smaller than a page's,
 and both drew the default icon for their kind — so decorating a folder changed

@@ -65,6 +65,24 @@
   --surface-raised: var(--ink-000);
   --surface-overlay: var(--ink-000);
   --surface-hover: #f0eee8;
+  /* The writing surface, and the furniture around it.
+   *
+   * These two were the other way round: the page was the sunken surface and the
+   * sidebar sat on white above it. It is the wrong way for a writing tool —
+   * paper is the brightest thing on a desk, and every application people
+   * already use tints the chrome and leaves the document alone.
+   *
+   * The step is deliberately smaller than any other in this file: about two per
+   * cent, warm. Enough that the areas are told apart without a border doing the
+   * work, not enough to read as a panel. Anything stronger and the sidebar
+   * becomes a thing you look at rather than a place things are.
+   *
+   * Kept separate from --surface-sunken, which is a hair darker still, so a
+   * field or a code block inside the chrome keeps standing out from it. Reusing
+   * one value for both would have made every input in the sidebar disappear
+   * into the sidebar. */
+  --surface-page: var(--ink-000);
+  --surface-chrome: #faf8f4;
 
   --text-primary: var(--ink-900);
   --text-secondary: var(--ink-600);
@@ -89,6 +107,13 @@
   --surface-raised: var(--ink-850);
   --surface-overlay: var(--ink-800);
   --surface-hover: #262623;
+  /* Unchanged here, and that is the point: dark already had the relationship
+     the light theme was missing. The page is the darkest surface and the chrome
+     a step nearer, because nearer means lighter in the dark. Naming the two
+     roles makes both themes say the same thing rather than one describing the
+     other. */
+  --surface-page: var(--ink-950);
+  --surface-chrome: var(--ink-900);
 
   --text-primary: var(--ink-100);
   --text-secondary: var(--ink-300);
@@ -213,6 +238,8 @@
     --surface-raised: var(--ink-850);
     --surface-overlay: var(--ink-800);
     --surface-hover: #262623;
+    --surface-page: var(--ink-950);
+    --surface-chrome: var(--ink-900);
 
     --text-primary: var(--ink-100);
     --text-secondary: var(--ink-300);
@@ -237,9 +264,9 @@ html, body, #root {
 }
 
 body {
-  /* The page is the sunken surface; panels sit on top of it. In light that is
-     a shade below white, in dark a shade below the sidebar. */
-  background: var(--surface-sunken);
+  /* The writing surface. White in light, the darkest surface in dark — either
+     way the thing you are reading, with the furniture a step away from it. */
+  background: var(--surface-page);
   color: var(--sone-text);
   font: 15px/1.55 var(--sone-font);
   /* Optical sizing and tabular figures where the face offers them: numbers in
@@ -424,11 +451,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      * one thing you are working in, not two things placed beside each other,
      * and a strong rule between them says the opposite.
      *
-     * In dark this reverses: the content is the sunken surface and the sidebar
-     * the raised one, because nearer means lighter there. Both come from the
-     * tokens, so neither theme is describing the other. */
+     * Furniture, not paper: a whisper of tint against the page's white. In dark
+     * that comes out as a step lighter than the page rather than darker, because
+     * nearer means lighter there — one role, and each theme fills it. */
   border-inline-end: 1px solid var(--border-subtle);
-  background: var(--surface);
+  background: var(--surface-chrome);
   overflow-y: auto;
 }
 
@@ -503,7 +530,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  /* No gap on the row. The collapse control is hidden on a wide screen, but its
+     container is still a flex item — so the row spent 8px separating the
+     workspace button from nothing, and the button came out 8px narrower than the
+     panel that drops out of it. The spacing belongs to the control that needs
+     it, which takes no space when it is not there. */
   margin-block-end: 8px;
   /* The positioning context for the workspace panel, which hangs from this row.
      *
@@ -637,7 +668,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   border-block-end: 1px solid var(--sone-border);
   position: sticky;
   inset-block-start: 0;
-  background: var(--sone-bg);
+  /* Furniture, with the sidebar and the right panel. It is sticky, so the text
+     scrolls under it — and text passing behind a bar the same colour as itself
+     is how a heading ends up looking cut in half. */
+  background: var(--surface-chrome);
   z-index: 5;
 }
 
@@ -1556,6 +1590,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 /* --- folders --- */
 
 .sidebar-head-actions { display: flex; gap: 2px; flex: none; }
+.sidebar-head-actions > * { margin-inline-start: 8px; }
 
 /* A folder is a button, not a link: it has no document to open, so clicking
    its name expands it. Styled to match a page entry so the tree reads evenly,
@@ -1916,7 +1951,10 @@ select {
   flex-direction: column;
   min-block-size: 0;
   border-inline-start: 1px solid var(--sone-border);
-  background: var(--sone-bg-subtle);
+  /* The third piece of furniture. It was the sunken surface, which happened to
+     match the page it sat beside — so the panel and the content were one colour
+     and only a line said where one ended. */
+  background: var(--surface-chrome);
   overflow: hidden;
 }
 
@@ -3121,15 +3159,22 @@ select {
 }
 .collection-add-row:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
 
-/* The entry travelling under the pointer.
+/* The thing travelling under the pointer.
  *
  * The lines say where a drop lands; this says what is landing. HTML5 dragging
  * drew it for free, and a pointer-event implementation has to draw its own.
  *
  * Offset down and right of the pointer so it never sits under the finger, which
  * would hide the very row being aimed at.
+ *
+ * Named for the gesture rather than for the tree, because the workspace switcher
+ * needs the same thing: two lines and no label say where a drop lands without
+ * saying that a whole workspace is what is moving. It was called
+ * `tree-drag-preview` and I argued the switcher was too small for one — the
+ * report says otherwise, and a panel four rows tall is exactly where "what am I
+ * even dragging" is easiest to lose.
  */
-.tree-drag-preview {
+.drag-preview {
   position: fixed;
   z-index: 100;
   display: flex;
