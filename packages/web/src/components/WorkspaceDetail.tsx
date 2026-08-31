@@ -8,17 +8,20 @@
 
 import { useEffect, useState, type ReactElement } from 'react';
 
-import { ApiError, api, type WorkspaceMember } from '../api/client.ts';
+import { ApiError, api, type WorkspaceIcon, type WorkspaceMember } from '../api/client.ts';
+import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { messageFor } from './Auth.tsx';
 import { WorkspaceInvite } from './WorkspaceInvite.tsx';
 
 export function WorkspaceDetail({
   workspaceId,
   name,
+  icon,
   onBack,
 }: {
   workspaceId: string;
   name: string;
+  icon: WorkspaceIcon | null;
   onBack: () => void;
 }): ReactElement {
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
@@ -57,6 +60,17 @@ export function WorkspaceDetail({
       <h3 className="settings-heading">{name || 'Untitled'}</h3>
 
       {error && <p className="error">{messageFor(error)}</p>}
+
+      {/* How it is recognised, before who is in it: the mark is the thing
+        * somebody scanning a switcher of five workspaces uses (ADR-0030). */}
+      <h3 className="settings-heading">Appearance</h3>
+      <div className="settings-card">
+        <WorkspaceAppearance
+          workspaceId={workspaceId}
+          icon={icon}
+          onChanged={() => window.location.reload()}
+        />
+      </div>
 
       <h3 className="settings-heading">People</h3>
       {members === null ? (

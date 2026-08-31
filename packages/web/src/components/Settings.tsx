@@ -15,7 +15,13 @@
 
 import { useEffect, useState, type ReactElement } from 'react';
 
-import { ApiError, api, type SessionInfo, type VersionInfo } from '../api/client.ts';
+import {
+  ApiError,
+  api,
+  type SessionInfo,
+  type VersionInfo,
+  type WorkspaceIcon,
+} from '../api/client.ts';
 import { WEB_COMMIT, WEB_VERSION, isStaleBundle } from '../buildInfo.ts';
 import {
   SCALE_LABELS,
@@ -138,7 +144,7 @@ export function Settings({
   // implicitly and somebody granted the right is without being one.
   // Which workspace is open in the list, if any. State rather than a route,
   // because it is a step inside one section and not a place to link to.
-  const [openWorkspace, setOpenWorkspace] = useState<{ id: string; name: string } | null>(
+  const [openWorkspace, setOpenWorkspace] = useState<{ id: string; name: string; icon: WorkspaceIcon | null } | null>(
     null,
   );
 
@@ -251,12 +257,15 @@ export function Settings({
             <WorkspaceDetail
               workspaceId={openWorkspace.id}
               name={openWorkspace.name}
+              icon={openWorkspace.icon}
               onBack={() => setOpenWorkspace(null)}
             />
           ) : (
             <WorkspaceList
               currentWorkspaceId={workspaceId}
-              onOpen={(id, chosenName) => setOpenWorkspace({ id, name: chosenName })}
+              onOpen={(id, chosenName, chosenIcon) =>
+                setOpenWorkspace({ id, name: chosenName, icon: chosenIcon })
+              }
               onRestore={(id) => {
                 // Restoring is one click, unlike deleting: putting something
                 // back is not the action that needs slowing down.

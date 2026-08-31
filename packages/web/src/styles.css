@@ -4584,3 +4584,12 @@ body {
 }
 .workspace-item-name { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-item-meta { flex: 0 0 auto; color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+
+/* The "no icon" option in the workspace chooser shows an initial, because that
+   is what choosing it produces — an option that does not look like its result
+   is a guess. */
+.workspace-mark-sample {
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+  color: var(--accent);
+}

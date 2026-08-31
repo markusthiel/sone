@@ -397,10 +397,11 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       owner: string | null;
       personal: boolean;
       last_edited_at: Date | null;
+      icon: unknown;
       deleted_at: Date | null;
     }>(
       deps.pool,
-      `SELECT w.id, w.name, w.created_at, w.personal_for IS NOT NULL AS personal,
+      `SELECT w.id, w.name, w.created_at, w.icon, w.personal_for IS NOT NULL AS personal,
               (SELECT count(*) FROM workspace_members m WHERE m.workspace_id = w.id)::text
                 AS member_count,
               (SELECT count(*) FROM pages p
@@ -427,6 +428,8 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         owner: row.owner,
         /** Somebody's own, rather than a team's (ADR-0025). */
         personal: row.personal,
+        /** How it is recognised in a list (ADR-0030). */
+        icon: row.icon ?? null,
         // Says which workspaces are alive without opening any of them, which is
         // the question somebody scanning this list actually has.
         lastEditedAt: row.last_edited_at,
