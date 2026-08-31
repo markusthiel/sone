@@ -95,8 +95,16 @@ describe('editor surface', () => {
     dom?.window.close();
   });
 
-  /** A page handle backed by a real Y.Doc, without a server. */
-  async function makeHandle(): Promise<unknown> {
+  /**
+   * A page handle backed by a real Y.Doc, without a server.
+   *
+   * `status` and whether the body is seeded are parameters, because the bug this
+   * component had was entirely about the moment between mounting and the
+   * server's content arriving.
+   */
+  async function makeHandle(
+    options: { status?: string; seed?: boolean } = {},
+  ): Promise<unknown> {
     const Y = await import('yjs');
     const { pageContent } = await import('@sone/core');
     const { seedEmptyPage } = await import('@sone/editor');
@@ -104,7 +112,7 @@ describe('editor surface', () => {
     // package, so it is not resolvable from here. The awareness object only
     // needs the shape the cursor plugin touches.
     const doc = new Y.Doc();
-    seedEmptyPage(pageContent(doc));
+    if (options.seed !== false) seedEmptyPage(pageContent(doc));
 
     const awareness = {
       doc,
@@ -121,7 +129,7 @@ describe('editor surface', () => {
     return {
       doc,
       awareness,
-      status: 'synced',
+      status: options.status ?? 'synced',
       role: 'admin',
       canEdit: true,
       peers: () => [],
@@ -235,5 +243,81 @@ describe('editor surface', () => {
       container.querySelector('.slash-menu'),
       'and the menu should be in the DOM',
     );
+  });
+
+  test('an unsynced document is not seeded, and not mounted', async () => {
+    // The bug: a document is empty locally until the server's state arrives, and
+    // the editor seeded an empty paragraph into that emptiness on every mount. The
+    // seed is a real CRDT insert, so when the content merged in the page had its
+    // blocks *and* a stray paragraph — one per visit, landing wherever the two
+    // inserts happened to order, which is why they turned up in the middle as
+    // often as at the end.
+    const Y = await import('yjs');
+    const { pageContent } = await import('@sone/core');
+    const { createElement } = await import('react');
+    const { EditorSurface } = await import('../src/components/EditorSurface.tsx');
+
+    const handle = (await makeHandle({ status: 'syncing', seed: false })) as {
+      doc: import('yjs').Doc;
+    };
+    const fragment = pageContent(handle.doc);
+    assert.equal(fragment.length, 0, 'nothing there yet, as on a real open');
+
+    await render(
+      createElement(EditorSurface as never, {
+        handle,
+        pageId: '00000000-0000-4000-8000-000000000001',
+      }),
+    );
+
+    assert.equal(fragment.length, 0, 'and still nothing: no paragraph was written');
+    assert.equal(
+      container.querySelector('.ProseMirror'),
+      null,
+      'nothing is mounted before the content is known, because mounting is what seeds',
+    );
+    void Y;
+  });
+
+  test('a page that really is empty gets its one paragraph once synced', async () => {
+    // The case the seeding exists for, which must keep working: a page created by
+    // the API has no body, and the schema requires at least one block.
+    const { pageContent } = await import('@sone/core');
+    const { createElement } = await import('react');
+    const { EditorSurface } = await import('../src/components/EditorSurface.tsx');
+
+    const handle = (await makeHandle({ status: 'synced', seed: false })) as {
+      doc: import('yjs').Doc;
+    };
+    const fragment = pageContent(handle.doc);
+
+    await render(
+      createElement(EditorSurface as never, {
+        handle,
+        pageId: '00000000-0000-4000-8000-000000000002',
+      }),
+    );
+
+    assert.equal(fragment.length, 1, 'exactly one, and only now that it is believable');
+  });
+
+  test('an offline document with content is still shown', async () => {
+    // Waiting for `synced` alone would leave somebody offline unable to read a
+    // page they have a local copy of.
+    const { pageContent } = await import('@sone/core');
+    const { createElement } = await import('react');
+    const { EditorSurface } = await import('../src/components/EditorSurface.tsx');
+
+    const handle = (await makeHandle({ status: 'offline' })) as { doc: import('yjs').Doc };
+    assert.equal(pageContent(handle.doc).length, 1, 'a local copy');
+
+    await render(
+      createElement(EditorSurface as never, {
+        handle,
+        pageId: '00000000-0000-4000-8000-000000000003',
+      }),
+    );
+
+    assert.ok(container.querySelector('.ProseMirror'), 'mounted from what is there');
   });
 });
