@@ -87,6 +87,19 @@ test('clicking beside the player selects the block, and the controls still work'
   assert.match(view, /closest\('video, iframe, a, button'\)\) return;/);
 });
 
+test('every interactive node view can be selected, or its handle is unreachable', () => {
+  // The gutter appears for the selected block and these views stop every event
+  // from reaching ProseMirror, so a click had to select the block explicitly.
+  // The video and the table both went without it: the table's ⋮⋮ appeared for a
+  // moment after inserting one — the insertion leaves the selection there — and
+  // then never again.
+  for (const name of ['VideoNodeView.ts', 'FileNodeView.ts', 'CollectionNodeView.tsx']) {
+    const source = codeOf(new URL(`../src/components/${name}`, import.meta.url));
+    assert.match(source, /NodeSelection\.create\(view\.state\.doc, pos\)/, `${name} selects`);
+    assert.match(source, /closest\(/, `${name} leaves its own controls alone`);
+  }
+});
+
 test('every node view takes its contents out of the editable region', () => {
   // The video view did not, and that is what made an uploaded video vanish: the
   // contents of an atom sat inside the editor's editable region, so the browser

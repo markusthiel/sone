@@ -22,6 +22,7 @@
  * up in neither place.
  */
 
+import { NodeSelection } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
@@ -49,12 +50,32 @@ class CollectionNodeView implements NodeView {
   private root: Root | null = null;
   private collectionId: string | null;
 
-  constructor(node: PMNodeLike) {
+  constructor(
+    node: PMNodeLike,
+    private readonly select: () => void,
+  ) {
     this.dom = document.createElement('div');
     this.dom.className = 'collection-block';
     // Kept out of the editor's own text handling: a table is not text, and a
     // caret has no meaning inside one.
     this.dom.contentEditable = 'false';
+
+    // A click on the block's own frame selects it.
+    //
+    // The gutter appears for the selected block, and `stopEvent` below keeps
+    // every event from ProseMirror — so clicking a table selected nothing and
+    // its ⋮⋮ never came. It appeared for a moment after inserting one, because
+    // the insertion leaves the selection on the block, and then never again.
+    //
+    // Only the frame, and this is the difference from the file and the video:
+    // a table is full of controls, and most of it is somebody working in a cell.
+    // Anything interactive keeps its click; the padding around the table is what
+    // selects.
+    this.dom.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, button, a, [role="tab"], td, th')) return;
+      this.select();
+    });
 
     this.collectionId = (node.attrs['collectionId'] as string | null) ?? null;
     this.render();
@@ -126,7 +147,12 @@ class CollectionNodeView implements NodeView {
 export const soneNodeViews = (
   onOpenContainer: (containerId: string) => void,
 ): EditorView['props']['nodeViews'] => ({
-  collectionView: (node) => new CollectionNodeView(node as unknown as PMNodeLike),
+  collectionView: (node, view, getPos) =>
+    new CollectionNodeView(node as unknown as PMNodeLike, () => {
+      const pos = typeof getPos === 'function' ? getPos() : undefined;
+      if (pos === undefined) return;
+      view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
+    }),
   file: fileNodeView(),
   video: videoNodeView(),
   protectedSection: protectedSectionView(onOpenContainer),
