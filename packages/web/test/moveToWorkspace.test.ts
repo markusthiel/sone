@@ -49,7 +49,9 @@ test('only workspaces the person administers are offered', () => {
 test('it is its own menu entry, not a destination in the ordinary move', () => {
   // A move within a workspace loses nothing; this one revokes share links and
   // drops restrictions. One list holding both would make them look alike.
-  assert.match(menu, /Move to a workspace…/);
+  // Translated (ADR-0041), so the entry is a key — and the key still says which
+  // of the two moves it is.
+  assert.match(menu, /t\('entry\.moveToWorkspace'\)/);
   assert.match(menu, /onStartMoveToWorkspace\(node\.id\)/);
 });
 

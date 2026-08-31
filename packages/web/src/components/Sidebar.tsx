@@ -24,6 +24,7 @@ import {
   stepTarget,
 } from './moveRules.ts';
 import { useTreeDrag, type TreeDrag } from '../hooks/useTreeDrag.ts';
+import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
 import { AccountMenu } from './AccountMenu.tsx';
@@ -129,6 +130,7 @@ export function Sidebar({
   displayName,
   userId,
 }: SidebarProps): ReactElement {
+  const { t } = useT();
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
   const [renaming, setRenaming] = useState<string | null>(null);
   // One drag at a time, and every row has to know about it — so it belongs
@@ -202,9 +204,9 @@ export function Sidebar({
   return (
     <>
       {open && (
-        <button className="scrim" aria-label="Close navigation" onClick={onClose} type="button" />
+        <button className="scrim" aria-label={t('sidebar.close')} onClick={onClose} type="button" />
       )}
-      <nav className={`sidebar${open ? ' open' : ''}`} aria-label="Pages">
+      <nav className={`sidebar${open ? ' open' : ''}`} aria-label={t('sidebar.label')}>
         <div className="sidebar-head">
           <WorkspaceMenu
           canManageWorkspaces={canManageWorkspaces}
@@ -224,8 +226,8 @@ export function Sidebar({
               className="quiet drawer-close"
               type="button"
               onClick={onClose}
-              title="Hide the sidebar"
-              aria-label="Hide the sidebar"
+              title={t('sidebar.hide')}
+              aria-label={t('sidebar.hide')}
             >
               <SidebarIcon />
             </button>
@@ -233,7 +235,7 @@ export function Sidebar({
         </div>
 
         <a className="sidebar-search" href={paths.search()}>
-          <SearchIcon /> Search
+          <SearchIcon /> {t('sidebar.search')}
         </a>
 
         {/* Above the tree, because a shortcut list is only useful if it is the
@@ -241,7 +243,7 @@ export function Sidebar({
             as an empty heading, which would take space to say nothing. */}
         {favourites.length > 0 && (
           <div className="sidebar-section">
-            <p className="sidebar-label">Favourites</p>
+            <p className="sidebar-label">{t('sidebar.favourites')}</p>
             {favourites.map((entry) => (
               <div className="tree-row" data-kind={entry.kind} key={entry.pageId}>
                 <span className="tree-twisty" data-placeholder="true" aria-hidden="true" />
@@ -277,7 +279,7 @@ export function Sidebar({
 
         {tree.length === 0 ? (
           <p className="muted" style={{ padding: '8px' }}>
-            No pages yet.
+            {t('sidebar.empty')}
           </p>
         ) : (
           <TreeLevel
@@ -312,7 +314,7 @@ export function Sidebar({
           type="button"
           onClick={() => onCreatePage(null, 'folder')}
         >
-          <FolderPlusIcon /> New folder
+          <FolderPlusIcon /> {t('sidebar.newFolder')}
         </button>
 
         {/* The face, and the menu behind it (AccountMenu).
@@ -398,6 +400,7 @@ function TreeLevel({
   ) => void;
   drag: TreeDrag;
 }): ReactElement {
+  const { t } = useT();
   return (
     <>
       {nodes.map((node) => {
@@ -482,8 +485,8 @@ function TreeLevel({
                       className="tree-add"
                       type="button"
                       onClick={() => onCreatePage(node.id, 'page')}
-                      title={`New page inside ${title}`}
-                      aria-label={`New page inside ${title}`}
+                      title={t('sidebar.newPageIn', { title })}
+                      aria-label={t('sidebar.newPageIn', { title })}
                     >
                       <PlusIcon />
                     </button>
@@ -567,6 +570,7 @@ function RenameField({
   onCommit: (title: string) => void;
   onCancel: () => void;
 }): ReactElement {
+  const { t } = useT();
   const [value, setValue] = useState(initial);
   const committed = useRef(false);
 
@@ -598,7 +602,7 @@ function RenameField({
         }
       }}
       onFocus={(event) => event.currentTarget.select()}
-      aria-label="Rename"
+      aria-label={t('sidebar.rename')}
     />
   );
 }
