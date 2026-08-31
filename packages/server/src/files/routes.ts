@@ -89,6 +89,10 @@ function safeFilename(raw: string | undefined, extension: string): string {
     .split(/[/\\]/)
     .pop()!
     // Control characters and quotes would break the header they end up in.
+    //
+    // The lint rule against control characters in a regular expression is right
+    // almost everywhere and wrong here: stripping them is the point.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f"\\]/g, '')
     .trim()
     .slice(0, 200);

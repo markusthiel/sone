@@ -13,26 +13,72 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**Fixed: empty lines appeared on a page every time it was opened.** A document is
-empty until the server's copy arrives, and the editor was writing an empty
-paragraph into that emptiness on every visit — one per open, appearing anywhere in
-the page depending on how the two edits merged. Existing stray lines are ordinary
-empty paragraphs and can be deleted; no new ones will appear.
+Nothing an operator or a reader would notice: `pnpm lint` runs for the first time
+(it was in the scripts and had never had eslint installed or configured), and the
+architecture records now say which decisions are actually implemented — nine of
+them still said "not yet" long after they were.
 
-**Fixed: a table disappeared and a new one could not be added.** Introduced by
-yesterday's work on the same component and visible only once the page had loaded,
-which is why the tests did not see it.
+## 0.3.0
 
-**A table column can hold files** ([ADR-0035](docs/adr/0035-files-column.md)) —
-one column type for every kind, not one for images and another for PDFs. An image
-shows as a thumbnail, anything else as its name; up to eight per cell, and each
-one opens in a new tab. A file added here belongs to the entry's own page, so it
-is reachable exactly as far as the entry is. No migration.
+Everything a workspace needs to be shared with somebody: accounts, invitations,
+groups and per-page permissions — and a great deal of work on how the thing looks
+and reads while using it.
 
-**The menu for adding a column looks like the rest of the menus**, and names each
-column type with an icon as well as a word. It had a frame and a type scale of its
-own, and after being moved out of the table it inherited the page's font — so it
-read as belonging to a different application.
+**Operator action: none.** Sixteen migrations apply on start. The document schema
+and the sync protocol are both still version 1, so an older client keeps working
+against this server and a client from this release keeps working against an older
+one.
+
+Two settings are worth knowing about, both optional and both with sensible
+defaults: `SONE_WORKSPACE_RETENTION_DAYS` decides how long a deleted workspace can
+be restored, and `SONE_OIDC_CLIENT_SECRET` is what turns single sign-on on. Both
+are documented in `docs/deployment.md`.
+
+**Operator note:** a folder that carried a collection becomes an ordinary folder
+again and keeps its pages. The columns are not converted — the shape existed for
+one release, and converting it faithfully would mean rewriting every child
+document.
+
+### Collections in a page
+
+**A collection is content in a page, not a folder.** 0.2.0 made a folder *be* a
+table and put every row in the sidebar; a folder stopped meaning one thing, and a
+hundred-row table meant a hundred sidebar entries. A page can now hold
+collections — several, as in Craft — and a folder is a folder again.
+
+**Rows are documents that are not in the tree.** Each one is a real page you can
+open, with its own writing, and none of them clutter the sidebar. Craft and
+AppFlowy both work this way; [ADR-0021](docs/adr/0021-collections-in-pages.md)
+records why.
+
+**A collection can be placed in the text.** Type `/` and choose "Table of
+entries": the collection is created and a block for it appears where the caret
+is, between paragraphs, as in Craft and AppFlowy. Several per page.
+
+**Fixed: "Add columns" appeared to do nothing.** The collection was created and
+nothing displayed it — the folder's row was never marked as one, because that
+mark was read from a document field that nothing writes. Every collection made
+since the feature shipped was invisible.
+
+**Filters and sorting can be set.** The button beside a collection's views opens
+them, and says how many rules are active rather than only "Filter" — a table
+showing fewer rows than expected is the kind of thing people blame on the
+software. The work happens in the database, as it already did; what was missing
+was any way to reach it.
+
+**A collection can be searched.** The box beside its views matches an entry's
+title or anything in its cells, and narrows whatever the view already showed
+rather than replacing it. Substring matching, not stemming: typing "plan" finds
+"planning" and "unplanned", which is what a table's search box is expected to do.
+
+**Two corrections in a collection's table.** The title column now says it is
+fixed rather than simply lacking the bin every other column has, and the menu
+for choosing a new column's type opens towards the empty space beside the table
+instead of back across the rows it is about to add to.
+
+**Fixed: the maintenance log reported every collection row as a misplaced
+entry.** A row lives inside the page holding its collection by design
+(ADR-0021), and the check predates that. It was logged every five minutes.
 
 **A table can be filled by pasting** ([ADR-0034](docs/adr/0034-collection-table-editing.md)).
 Copy a selection out of a spreadsheet, click an entry's name and paste: each line
@@ -49,235 +95,140 @@ cell to open its page. Filling the first column no longer means leaving the tabl
 where "to the trash" is literal: an entry is a page, so nothing is destroyed and
 everything can be restored.
 
+**The menu for adding a column looks like the rest of the menus**, and names each
+column type with an icon as well as a word. It had a frame and a type scale of its
+own, and after being moved out of the table it inherited the page's font — so it
+read as belonging to a different application.
+
 **Fixed: the menu for adding a column to a table was cut off.** It opened inside
 the table's own scroll area, which clips, so the column types below the fold could
 neither be read nor chosen.
 
-**Invitations you have sent can be seen and withdrawn.** Both invitation forms
-produced a link and then forgot it, so one sent to the wrong address stayed valid
-until it expired and nothing said it existed. The list sits under the form it
-belongs to — This workspace → People, and Administration → Invitations — and shows
-who each is for, how often it has been used and when it expires. The link itself
-is never shown again: only a hash of it is stored, and a list that reprinted them
-would turn "who can open this screen" into "who can join".
+**A table column can hold files** ([ADR-0035](docs/adr/0035-files-column.md)) —
+one column type for every kind, not one for images and another for PDFs. An image
+shows as a thumbnail, anything else as its name; up to eight per cell, and each
+one opens in a new tab. A file added here belongs to the entry's own page, so it
+is reachable exactly as far as the entry is. No migration.
 
-**A workspace's owners and administrators can manage their own members**, under
-This workspace → People: roles, removing somebody, and inviting. It needed the
-instance-wide right before — not because the server asked for it, but because the
-table only existed inside the administration screen. Every member sees the list;
-those who may not change it read it.
+**Fixed: a table disappeared and a new one could not be added.** Introduced while
+the paste work above was being built, and visible only once a page had loaded —
+which is why the tests did not see it.
 
-**Search finds a part of a word, and a result says what it found**
-([ADR-0033](docs/adr/0033-search-results.md)). Typing "testordn" now finds
-"Testordner"; the last word you type matches as a prefix while the earlier ones
-stay exact. Each result is a card with its own icon, whether it is a page or a
-folder, the path to where it lives, and the passage that matched with the match
-marked — and clicking it lands on that passage rather than at the top of the
-page. Typos still find nothing; that is a separate change. No operator action and
-no reindex.
+### Files, images and documents
 
-**The right panel lists the files, images and links in the page.** Files and
-links open from the list, with a control on each row that goes to where it sits in
-the page; images are thumbnails, and clicking one takes you to it. **The tabs are
-icons now** rather than words, so there is room for the three new ones — each
-still says its name when you hover it, and the chosen one is named above the
-panel.
+**Documents can be uploaded, not only images.** Word, Excel, PowerPoint,
+OpenDocument, PDFs, text and archives. PDFs and text are shown in place; a Word
+or Excel file is offered as a file, because nothing here can render one and a
+card that says what it is beats a viewer showing an error.
 
-**Settings are three places instead of one list** ([ADR-0032](docs/adr/0032-three-settings-areas.md)):
-your own settings, this workspace, and — only if you administer the instance —
-the instance. The account menu had two entries that landed on the same page; it
-now has one per area. **Two sections come back with this: a workspace's
-typography and its groups had fallen out of the navigation and could not be
-opened at all**, which is where the per-workspace font sizes went. Old
-`/settings/…` links are redirected to wherever their section now lives. No
-operator action.
+**Documents are a content element.** Type `/` and choose "File": a PDF or text
+file opens as a viewer with its own scrollbar, and anything else becomes a card
+with its name, type and size. Each block switches between card, one line, and —
+where a browser can draw it — a viewer.
 
-**The icon sits in front of a page or folder name again**, not above it, and the
-heading no longer moves when you click it. A folder's name was a button that
-became an input, and the swap changed the heading's height enough to nudge
-everything below it down. It is the same input a page's title is now, so there is
-nothing to swap.
+**Changed: a PDF is now shown in place** rather than downloaded. The earlier
+caution was not wrong — a PDF viewer is a large attack surface — but a notes tool
+where a PDF cannot be read is one where people keep their PDFs elsewhere. The
+hardening that makes it acceptable is unchanged: the type comes from the bytes,
+never the upload, and the response carries `nosniff` and a sandbox policy.
 
-**Editing a title is a line under the words rather than a box around them.**
-Clicking a page or folder name turned it into a filled input the width of the
-page, which read as a dialog opening instead of a caret being placed. The line
-also appears faintly under the pointer, so a title says it can be edited before
-you click it.
+**Fixed: a PDF would not display.** The viewer frame was sandboxed, and
+Chromium's built-in PDF viewer does not run in a sandboxed frame at all — first
+it showed only page one, then Brave refused to show anything. PDF frames carry
+no sandbox now. What keeps that safe is unchanged and stricter than it sounds:
+the type is decided from the file's bytes rather than from the upload, `nosniff`
+stops the browser reconsidering, and the document is served with permission to
+load nothing at all.
 
-**Dragging a workspace now shows which workspace you are dragging**, the way the
-page tree does — the two lines said where it would land and nothing said what was
-moving.
+**Fixed: a file with an umlaut in its name could not be opened.** Serving it
+threw while writing the `Content-Disposition` header — HTTP headers carry only
+ASCII — and the viewer showed an internal error where the document should have
+been. Every file with an accent, an umlaut or a CJK character in its name was
+affected. The name is now sent both ways RFC 6266 allows: a plain ASCII form
+any client understands, and the real name UTF-8 encoded.
 
-**Fixed: the workspace button was 8px narrower than the menu that drops out of
-it.** The sidebar's collapse button is hidden on a wide screen and its container
-still took up a gap.
+**A file block has a menu**: open in a new tab, download, and how to show it —
+card, one line, or a viewer. The name itself opens anything a browser can draw
+and downloads anything it cannot, so the common case needs no menu at all.
 
-**The writing is on white and the furniture is tinted**, where it used to be the
-other way round. The sidebar, the top bar and the right panel now carry a very
-slight warm tint — about two per cent — and the page itself is the brightest
-thing on screen, which is the way round every tool people already use has it, and
-the way round paper has it. Nothing changes in the dark theme: it already had
-this relationship, and now both themes say so in the same words.
+**Fixed: a file block's menu stayed open.** Its stylesheet set `display`, which
+beats the browser's own rule for `hidden` — so the element carried `hidden` and
+rendered anyway. No event handling could have fixed that, and the first attempt
+tried.
 
-**A folder and a page are titled the same way**, and both show the icon and
-colours you chose for them. A folder's name was bold and smaller than a page's,
-and both drew the default icon for their kind — so decorating a folder changed
-the sidebar and left its own page looking undecorated. The icon sits above the
-name rather than in front of it, so the name stays on the column the text below
-it lines up on. The entries listed inside a folder show their own icons too.
+**Files can be dropped onto a page**, several at once, and they land where they
+were dropped. An image becomes an image block as it always did; anything else
+becomes a file block.
 
-**Fixed: the ⋮ button on a sidebar row did not light up under the pointer**,
-while the + beside it did, which made it look like nothing would happen.
+**Fixed: a file card's menu sat below the card** rather than at the end of its
+first line, where the other displays put it.
 
-**Drag your workspaces into the order you want.** The switcher was alphabetical,
-which is nobody's order; now you arrange it and it stays that way
-([ADR-0031](docs/adr/0031-workspace-order.md)). Press and hold a row on a touch
-device, or just drag it with a mouse. The order is yours alone — arranging your
-list does not change anybody else's — and the first workspace is the one a
-browser with nothing remembered opens, so dragging the one you live in to the top
-makes it the one you land in. No operator action: the migration runs on start,
-and a list nobody has arranged stays alphabetical until somebody does. Reordering
-is a drag only; there is no keyboard equivalent yet.
+**Fixed: an image, a file or an embedded table had no drag handle.** A block
+that cannot hold a text cursor was invisible to the gutter, so the ⋮⋮ menu — and
+with it width, alignment and moving the block — could not be reached for any of
+them.
 
-**Fixed: a workspace marked for deletion still appeared in the switcher**, so it
-offered somewhere to write that the rest of the interface had already taken away.
+**A file's actions moved into the ⋮⋮ menu**, where every other block's settings
+already are — opening, downloading, and whether to show it as a card, one line
+or a viewer. The `···` button on the block is gone.
 
-**Fixed: the switcher panel was wider than the sidebar** — it sat hard against
-the page on one side, kept a gap on the other, and its rows stepped to the right
-of the button that opened them. Both of its edges are now the sidebar's edges,
-and the marks stay on one line.
+**Fixed: no drag handle on a touch device.** Tapping a file now selects it, so
+the ⋮⋮ handle appears — there is no hover on a phone or tablet to fall back on,
+and the block was swallowing every tap. The gutter is also fully visible there
+rather than half-faded, which had read as disabled.
 
-**Fixed: a workspace's name colour was saved and never shown**, and a colour
-picked from the palette did nothing at all while a custom one worked.
+**Fixed: the ⋮⋮ handle appeared at the top of the page** for an image or a file
+instead of beside the block.
 
-**Fixed: choosing a workspace icon reloaded the page and looked as if nothing had
-been saved.** It had been; the panel was thrown away and the list showed no
-marks. The panel stays now, and the list shows the mark.
+**An image is offered two widths instead of three**, and full width now reaches
+the edges of the page. "Column", "wide" and "full" all read as the width of the
+text give or take — three names for one thing.
 
-**Fixed: the workspace switcher stacked its icons above the names** and centred
-both. Its rows are now cards with the mark first, and the button lines up with
-the search field below it.
+**An image can be shown as a card or a link**, not only as a picture — the same
+three layouts a file has, because an image is a file with a special way of being
+drawn.
 
-**A workspace can have an icon and colours of its own**, chosen under
-Settings → All workspaces with the same controls entries use ([ADR-0030](docs/adr/0030-workspace-appearance.md)). The switcher is
-one line per workspace: a mark, a name, and the number of people only where there
-is more than one.
+**Fixed: the ⋮⋮ controls vanished over a full-width image.** They sit beside the
+block, which is empty margin beside a paragraph and a photograph beside a
+full-width image. They carry their own background now.
 
-**Settings work on a phone.** The list and the section are two views rather than
-one stacked on the other, so a section gets the whole screen instead of scrolling
-in whatever the menu left over.
-
-**Profile pictures.** Choose one under Settings → Account; it is shrunk in your
-browser before it is sent, and shows in the sidebar and beside your name.
-
-**Fixed: settings labels wrapped one word per line** and the page was cropped to
-a narrow strip.
-
-**Every settings panel now shares one shape** — cards of labelled rows for
-settings, and the same frame around the tables that list workspaces and groups, each row saying what its
-setting is for and where its value came from.
-
-**Appearance and Where you land are in cards too**, and each choice now says
-what it does rather than only what it is called.
-
-**Every settings panel got the same rhythm** — field names read as names, the
-sentence under one is quieter than both, and consecutive fields are a list
-rather than a paragraph.
-
-**Settings pages have structure.** Controls that belong together sit in a card,
-each row says what it is and why, and space between cards separates one topic
-from the next.
+**Fixed: a full-width image pushed the page sideways.** "Full page" meant the
+window, sidebar included; it means the page's own area now, and the page cannot
+scroll horizontally at all. A full-width image runs to both edges with no
+corners and no border — a block with no ends does not need them marked.
 
 **Large images are shrunk for display.** An uploaded photograph is stored as you
 sent it and shown at a size a page can use; the ⋮⋮ menu offers "Download the
 original" beside "Download" ([ADR-0029](docs/adr/0029-image-variants.md)).
 
-**Your account is editable.** Change your name, and change your password without
-signing out. Settings → Account.
+### Who wrote what
 
-**Fixed: the page heading was drawn as a text field**, and the four marks at the
-foot of the sidebar stacked instead of sitting in a row.
+**Attribution is being recorded.** Every editing session by a signed-in member
+is now mapped to that person in the document, which is what makes "who wrote
+this" answerable later. Nothing displays it yet — recording starts first because
+attribution is not retroactive
+([ADR-0022](docs/adr/0022-attribution.md)): an edit made before the mapping
+exists can never be attributed.
 
-**Settings is a screen of its own**, with its own navigation and a way back to
-your notes — not a page inside the workspace with a sidebar of pages beside it.
-The entries are names now; the explanation is on each entry rather than under it.
+Share-link guests are not recorded: there is no user id to record against, and
+attributing to "a guest" would make one contributor out of several people.
 
-**Your picture opens an account menu** — edit your profile, settings, trash,
-sign out — instead of a row of icons.
+**A "People" tab lists who has written in a page** — everyone who has, whether
+or not they are here now, which is what the circles at the top show instead.
+Somebody who has since left the workspace stays in the list: they wrote what
+they wrote.
 
-**The foot of the sidebar is a row of tools** — your account, trash, settings,
-sign out — instead of three lines of text competing with the pages above them.
+**Choosing somebody in the People tab marks what they wrote.** Choosing them
+again clears it. Only writing recorded since attribution began can be marked —
+it is not retroactive.
 
-**The areas are separated by surface rather than by lines.** The rule between
-sidebar and content is the faintest one available.
-
-**Fixed: checkboxes and radio buttons rendered as full-width blue lozenges**, and
-the settings navigation was centred down the middle of its column.
-
-**Fields, buttons and menus share one treatment.** A field is a surface that
-gains a border when focused; buttons come in three weights; everything that
-floats has the same surface, border and lift.
-
-**Headings are thin and larger.** The same emphasis by other means: size carries
-the weight rather than stroke width, so a heading reads as a change of level
-rather than an announcement.
-
-**The interface is built on design tokens.** Colours are named for what they are
-for rather than what they are, and a theme is a list of values rather than a set
-of overriding rules — so a third one becomes a block to fill in
-([ADR-0028](docs/adr/0028-design-tokens.md)). Light and dark look as before; this
-is the layer everything after it stands on.
-
-**Fixed: the ⋮⋮ handle covered the menu it had just opened**, on a tablet — and
-swallowed the tap meant for the first entry.
+**The chosen person in the People tab is cleared when you open another page.**
 
 **Attribution is pruned.** When nothing of somebody's writing is left in a page,
 their entry goes with it — deleted text should not keep a name in the record
 ([ADR-0022](docs/adr/0022-attribution.md)).
 
-**SONE opens where you left off.** Each workspace remembers the page you were
-last on, and you can choose a fixed one instead under Settings → Where you land.
-It applies on sign-in, on a workspace switch, and whenever SONE is opened without
-a page in the address.
-
-**Fixed: switching workspaces still reported no access.** The connection
-reconnects on a switch, and a page opened against the old one is refused —
-correctly, about a moment that had already passed. A refusal is only shown once
-the connection has settled.
-
-**A workspace can be deleted** from the list, by typing its name. It stops
-appearing to everybody in it and can be restored for a month, after which the
-maintenance job removes it. `SONE_WORKSPACE_RETENTION_DAYS` changes that.
-
-**Every workspace in one list**, with people, pages and when each was last
-edited — and open one to change
-what people may do there, remove them, or invite somebody. Personal workspaces are counted and folded away, so a hundred accounts
-do not read as a hundred teams.
-
-**Settings are in three named areas** — You, Workspaces, Instance — and every
-entry says in one line what is inside it. The two invitations are now told apart
-by name: one gives an account, the other puts somebody in a team.
-
-**A right for managing workspaces**, granted per account under Settings →
-Accounts, with a way into the workspace list from the workspace switcher: create, edit, invite
-to and delete workspaces, and set who is in them. Not accounts, not single
-sign-on, not maintenance — and not reading anybody's pages
-([ADR-0027](docs/adr/0027-administration-areas.md)).
-
-**Fixed: switching workspaces opened a page from the one you left.** The tree
-was still the old one for a moment, and the root redirects to its first page —
-so the server refused it, correctly, to somebody who had only pressed a switcher.
-
-**Invite somebody to a workspace** under Settings → Workspace. Works whether or
-not they already have an account: with one they are asked to join, without one
-they register first and end up in both their own workspace and yours.
-
-**Fixed: accepting an invitation left you in your own workspace** rather than the
-one you were invited to — a member of a team, looking at nothing to do with it.
-
-**Fixed: creating an account from an invitation ended on an error.** Registering
-uses the invitation, and the page then looked the same token up again, found it
-spent, and reported a failure — after everything had worked.
+### Access: permissions, groups and protected sections
 
 **Protected sections.** Type `/` and choose "Protected section" to put a part of
 a page behind its own permissions. It is a separate document, so the server
@@ -300,22 +251,7 @@ somebody access to a page, or restrict it so only the people you name reach it
 and everything under it
 ([ADR-0026](docs/adr/0026-page-permissions.md)).
 
-**An invitation followed while signed in now asks whether to join.** It used to
-do nothing at all: the sign-up screen only appeared for people without an
-account, so somebody who had one landed in their own workspace with no sign the
-link had meant anything.
-
-**Invite people to the instance** under Settings → Invite people. They get an
-account and a workspace of their own; adding them to a team is a separate step.
-
-**Invitations have an API at all.** They existed in the server's domain layer
-since the authentication work and nothing ever exposed them, so in practice the
-only way into a workspace was to be there when it was made.
-
-**Invitations are two things now.** An invitation to the instance creates an
-account and nothing else — the person lands in their own workspace. An invitation
-to a workspace works for people who already have an account, which previously had
-no path at all.
+### Accounts, invitations and single sign-on
 
 **Everybody has a workspace of their own.** Created with the account, always —
 including for existing accounts, which get one on upgrade. Somebody invited to a
@@ -324,6 +260,34 @@ team now lands in both ([ADR-0025](docs/adr/0025-personal-workspaces.md)).
 **Fixed: every account created through sign-up became an instance
 administrator.** Only the first one does now.
 
+**Invitations are two things now.** An invitation to the instance creates an
+account and nothing else — the person lands in their own workspace. An invitation
+to a workspace works for people who already have an account, which previously had
+no path at all.
+
+**Invitations have an API at all.** They existed in the server's domain layer
+since the authentication work and nothing ever exposed them, so in practice the
+only way into a workspace was to be there when it was made.
+
+**Invite people to the instance** under Settings → Invite people. They get an
+account and a workspace of their own; adding them to a team is a separate step.
+
+**An invitation followed while signed in now asks whether to join.** It used to
+do nothing at all: the sign-up screen only appeared for people without an
+account, so somebody who had one landed in their own workspace with no sign the
+link had meant anything.
+
+**Invite somebody to a workspace** under Settings → Workspace. Works whether or
+not they already have an account: with one they are asked to join, without one
+they register first and end up in both their own workspace and yours.
+
+**Fixed: accepting an invitation left you in your own workspace** rather than the
+one you were invited to — a member of a team, looking at nothing to do with it.
+
+**Fixed: creating an account from an invitation ended on an error.** Registering
+uses the invitation, and the page then looked the same token up again, found it
+spent, and reported a failure — after everything had worked.
+
 **Single sign-on.** Set `SONE_OIDC_CLIENT_SECRET` and configure the issuer in the
 administration area under Settings → Single sign-on; the sign-in page then offers
 a button beside the password form. One OIDC client rather than an integration per provider, so Keycloak,
@@ -331,6 +295,194 @@ Authentik, Zitadel, Entra, Google and the rest are a configuration
 ([ADR-0024](docs/adr/0024-oidc.md)). Password sign-in stays. One OIDC client rather than an integration per
 provider, so Keycloak, Authentik, Zitadel, Entra, Google and the rest are a
 configuration ([ADR-0024](docs/adr/0024-oidc.md)).
+
+**Invitations you have sent can be seen and withdrawn.** Both invitation forms
+produced a link and then forgot it, so one sent to the wrong address stayed valid
+until it expired and nothing said it existed. The list sits under the form it
+belongs to — This workspace → People, and Administration → Invitations — and shows
+who each is for, how often it has been used and when it expires. The link itself
+is never shown again: only a hash of it is stored, and a list that reprinted them
+would turn "who can open this screen" into "who can join".
+
+**A workspace's owners and administrators can manage their own members**, under
+This workspace → People: roles, removing somebody, and inviting. It needed the
+instance-wide right before — not because the server asked for it, but because the
+table only existed inside the administration screen. Every member sees the list;
+those who may not change it read it.
+
+### Settings, your account and administration
+
+**Settings are in three named areas** — You, Workspaces, Instance — and every
+entry says in one line what is inside it. The two invitations are now told apart
+by name: one gives an account, the other puts somebody in a team.
+
+**A right for managing workspaces**, granted per account under Settings →
+Accounts, with a way into the workspace list from the workspace switcher: create, edit, invite
+to and delete workspaces, and set who is in them. Not accounts, not single
+sign-on, not maintenance — and not reading anybody's pages
+([ADR-0027](docs/adr/0027-administration-areas.md)).
+
+**Every workspace in one list**, with people, pages and when each was last
+edited — and open one to change
+what people may do there, remove them, or invite somebody. Personal workspaces are counted and folded away, so a hundred accounts
+do not read as a hundred teams.
+
+**A workspace can be deleted** from the list, by typing its name. It stops
+appearing to everybody in it and can be restored for a month, after which the
+maintenance job removes it. `SONE_WORKSPACE_RETENTION_DAYS` changes that.
+
+**Settings is a screen of its own**, with its own navigation and a way back to
+your notes — not a page inside the workspace with a sidebar of pages beside it.
+The entries are names now; the explanation is on each entry rather than under it.
+
+**Your account is editable.** Change your name, and change your password without
+signing out. Settings → Account.
+
+**Settings pages have structure.** Controls that belong together sit in a card,
+each row says what it is and why, and space between cards separates one topic
+from the next.
+
+**Every settings panel got the same rhythm** — field names read as names, the
+sentence under one is quieter than both, and consecutive fields are a list
+rather than a paragraph.
+
+**Appearance and Where you land are in cards too**, and each choice now says
+what it does rather than only what it is called.
+
+**Every settings panel now shares one shape** — cards of labelled rows for
+settings, and the same frame around the tables that list workspaces and groups, each row saying what its
+setting is for and where its value came from.
+
+**Fixed: settings labels wrapped one word per line** and the page was cropped to
+a narrow strip.
+
+**Settings work on a phone.** The list and the section are two views rather than
+one stacked on the other, so a section gets the whole screen instead of scrolling
+in whatever the menu left over.
+
+**Profile pictures.** Choose one under Settings → Account; it is shrunk in your
+browser before it is sent, and shows in the sidebar and beside your name.
+
+**Your picture opens an account menu** — edit your profile, settings, trash,
+sign out — instead of a row of icons.
+
+**The foot of the sidebar is a row of tools** — your account, trash, settings,
+sign out — instead of three lines of text competing with the pages above them.
+
+**Settings are three places instead of one list** ([ADR-0032](docs/adr/0032-three-settings-areas.md)):
+your own settings, this workspace, and — only if you administer the instance —
+the instance. The account menu had two entries that landed on the same page; it
+now has one per area. **Two sections come back with this: a workspace's
+typography and its groups had fallen out of the navigation and could not be
+opened at all**, which is where the per-workspace font sizes went. Old
+`/settings/…` links are redirected to wherever their section now lives. No
+operator action.
+
+**SONE opens where you left off.** Each workspace remembers the page you were
+last on, and you can choose a fixed one instead under Settings → Where you land.
+It applies on sign-in, on a workspace switch, and whenever SONE is opened without
+a page in the address.
+
+**Fixed: switching workspaces opened a page from the one you left.** The tree
+was still the old one for a moment, and the root redirects to its first page —
+so the server refused it, correctly, to somebody who had only pressed a switcher.
+
+**Fixed: switching workspaces still reported no access.** The connection
+reconnects on a switch, and a page opened against the old one is refused —
+correctly, about a moment that had already passed. A refusal is only shown once
+the connection has settled.
+
+### Workspaces
+
+**Drag your workspaces into the order you want.** The switcher was alphabetical,
+which is nobody's order; now you arrange it and it stays that way
+([ADR-0031](docs/adr/0031-workspace-order.md)). Press and hold a row on a touch
+device, or just drag it with a mouse. The order is yours alone — arranging your
+list does not change anybody else's — and the first workspace is the one a
+browser with nothing remembered opens, so dragging the one you live in to the top
+makes it the one you land in. No operator action: the migration runs on start,
+and a list nobody has arranged stays alphabetical until somebody does. Reordering
+is a drag only; there is no keyboard equivalent yet.
+
+**Fixed: a workspace marked for deletion still appeared in the switcher**, so it
+offered somewhere to write that the rest of the interface had already taken away.
+
+**Fixed: the switcher panel was wider than the sidebar** — it sat hard against
+the page on one side, kept a gap on the other, and its rows stepped to the right
+of the button that opened them. Both of its edges are now the sidebar's edges,
+and the marks stay on one line.
+
+**Dragging a workspace now shows which workspace you are dragging**, the way the
+page tree does — the two lines said where it would land and nothing said what was
+moving.
+
+**Fixed: the workspace button was 8px narrower than the menu that drops out of
+it.** The sidebar's collapse button is hidden on a wide screen and its container
+still took up a gap.
+
+### Search
+
+**Search finds a part of a word, and a result says what it found**
+([ADR-0033](docs/adr/0033-search-results.md)). Typing "testordn" now finds
+"Testordner"; the last word you type matches as a prefix while the earlier ones
+stay exact. Each result is a card with its own icon, whether it is a page or a
+folder, the path to where it lives, and the passage that matched with the match
+marked — and clicking it lands on that passage rather than at the top of the
+page. Typos still find nothing; that is a separate change. No operator action and
+no reindex.
+
+### The right panel
+
+**The right panel lists the files, images and links in the page.** Files and
+links open from the list, with a control on each row that goes to where it sits in
+the page; images are thumbnails, and clicking one takes you to it. **The tabs are
+icons now** rather than words, so there is room for the three new ones — each
+still says its name when you hover it, and the chosen one is named above the
+panel.
+
+### How it looks
+
+**The interface is built on design tokens.** Colours are named for what they are
+for rather than what they are, and a theme is a list of values rather than a set
+of overriding rules — so a third one becomes a block to fill in
+([ADR-0028](docs/adr/0028-design-tokens.md)). Light and dark look as before; this
+is the layer everything after it stands on.
+
+**Headings are thin and larger.** The same emphasis by other means: size carries
+the weight rather than stroke width, so a heading reads as a change of level
+rather than an announcement.
+
+**Fields, buttons and menus share one treatment.** A field is a surface that
+gains a border when focused; buttons come in three weights; everything that
+floats has the same surface, border and lift.
+
+**Fixed: checkboxes and radio buttons rendered as full-width blue lozenges**, and
+the settings navigation was centred down the middle of its column.
+
+**The areas are separated by surface rather than by lines.** The rule between
+sidebar and content is the faintest one available.
+
+**Fixed: the page heading was drawn as a text field**, and the four marks at the
+foot of the sidebar stacked instead of sitting in a row.
+
+**Fixed: the ⋮⋮ handle covered the menu it had just opened**, on a tablet — and
+swallowed the tap meant for the first entry.
+
+**Fixed: paragraph spacing was the browser's, not ours.** Six styling rules were
+written for a class the editor does not emit, so they matched nothing and
+paragraphs fell back to a default margin that sat oddly beside headings with
+deliberate ones. That is the uneven spacing that was reported.
+
+**A workspace can have its own defaults for how elements look** — size, colour
+and spacing per element kind. It fills the gaps a block leaves rather than
+overriding: a block that carries its own setting keeps it, and one that does not
+follows the workspace, including when the workspace changes later.
+
+Stored per workspace and set by owners and admins. Nothing is written into
+documents, and a workspace with no theme renders exactly as every workspace did
+before. Set it under Settings → Appearance defaults. Every control offers "As designed",
+which removes the setting rather than storing the value it currently equals — so
+a workspace that has chosen nothing keeps following the design as it changes.
 
 **A workspace decides what its eight colours look like.** Settings → Appearance
 defaults → Palette. Everything that stored a name — tags, columns, blocks, folder
@@ -362,148 +514,56 @@ them — so the picker showed fifty identical icons and choosing one changed
 nothing. The set is also much wider now, beyond office work: food, weather,
 travel, tools, music, health, study.
 
-**Fixed: a full-width image pushed the page sideways.** "Full page" meant the
-window, sidebar included; it means the page's own area now, and the page cannot
-scroll horizontally at all. A full-width image runs to both edges with no
-corners and no border — a block with no ends does not need them marked.
-
-**Fixed: the ⋮⋮ controls vanished over a full-width image.** They sit beside the
-block, which is empty margin beside a paragraph and a photograph beside a
-full-width image. They carry their own background now.
-
-**An image can be shown as a card or a link**, not only as a picture — the same
-three layouts a file has, because an image is a file with a special way of being
-drawn.
-
-**An image is offered two widths instead of three**, and full width now reaches
-the edges of the page. "Column", "wide" and "full" all read as the width of the
-text give or take — three names for one thing.
-
-**Fixed: the ⋮⋮ handle appeared at the top of the page** for an image or a file
-instead of beside the block.
-
-**Fixed: no drag handle on a touch device.** Tapping a file now selects it, so
-the ⋮⋮ handle appears — there is no hover on a phone or tablet to fall back on,
-and the block was swallowing every tap. The gutter is also fully visible there
-rather than half-faded, which had read as disabled.
-
-**A file's actions moved into the ⋮⋮ menu**, where every other block's settings
-already are — opening, downloading, and whether to show it as a card, one line
-or a viewer. The `···` button on the block is gone.
-
-**Fixed: an image, a file or an embedded table had no drag handle.** A block
-that cannot hold a text cursor was invisible to the gutter, so the ⋮⋮ menu — and
-with it width, alignment and moving the block — could not be reached for any of
-them.
-
-**Fixed: a file card's menu sat below the card** rather than at the end of its
-first line, where the other displays put it.
-
-**Files can be dropped onto a page**, several at once, and they land where they
-were dropped. An image becomes an image block as it always did; anything else
-becomes a file block.
-
-**Fixed: a file block's menu stayed open.** Its stylesheet set `display`, which
-beats the browser's own rule for `hidden` — so the element carried `hidden` and
-rendered anyway. No event handling could have fixed that, and the first attempt
-tried.
-
 **Folders and pages can carry an icon**, with a colour for the icon and a
 separate one for the name. A curated set of Lucide line icons, which match the
 rest of the interface. Choose one from the ⋮ menu beside any entry.
 
-**Fixed: paragraph spacing was the browser's, not ours.** Six styling rules were
-written for a class the editor does not emit, so they matched nothing and
-paragraphs fell back to a default margin that sat oddly beside headings with
-deliberate ones. That is the uneven spacing that was reported.
+**A workspace can have an icon and colours of its own**, chosen under
+Settings → All workspaces with the same controls entries use ([ADR-0030](docs/adr/0030-workspace-appearance.md)). The switcher is
+one line per workspace: a mark, a name, and the number of people only where there
+is more than one.
 
-**A file block has a menu**: open in a new tab, download, and how to show it —
-card, one line, or a viewer. The name itself opens anything a browser can draw
-and downloads anything it cannot, so the common case needs no menu at all.
+**Fixed: the workspace switcher stacked its icons above the names** and centred
+both. Its rows are now cards with the mark first, and the button lines up with
+the search field below it.
 
-**A workspace can have its own defaults for how elements look** — size, colour
-and spacing per element kind. It fills the gaps a block leaves rather than
-overriding: a block that carries its own setting keeps it, and one that does not
-follows the workspace, including when the workspace changes later.
+**Fixed: choosing a workspace icon reloaded the page and looked as if nothing had
+been saved.** It had been; the panel was thrown away and the list showed no
+marks. The panel stays now, and the list shows the mark.
 
-Stored per workspace and set by owners and admins. Nothing is written into
-documents, and a workspace with no theme renders exactly as every workspace did
-before. Set it under Settings → Appearance defaults. Every control offers "As designed",
-which removes the setting rather than storing the value it currently equals — so
-a workspace that has chosen nothing keeps following the design as it changes.
+**Fixed: a workspace's name colour was saved and never shown**, and a colour
+picked from the palette did nothing at all while a custom one worked.
 
-**Fixed: a toggle could not be filled on a phone.** Its content is the blocks
-indented under it, and indenting was only possible with Tab — which a phone
-keyboard does not have. The ⋮⋮ menu now has In and Out, so nesting works
-without a keyboard.
+**The writing is on white and the furniture is tinted**, where it used to be the
+other way round. The sidebar, the top bar and the right panel now carry a very
+slight warm tint — about two per cent — and the page itself is the brightest
+thing on screen, which is the way round every tool people already use has it, and
+the way round paper has it. Nothing changes in the dark theme: it already had
+this relationship, and now both themes say so in the same words.
 
-**Fixed: the page zoomed itself on a phone.** Tapping a small search or filter
-field made iOS magnify the whole page, and it does not zoom back out — the next
-gesture to fix that often landed on pull-to-refresh instead. Form controls are
-now large enough on touch that the browser leaves the page alone, and the page
-no longer pulls to refresh. Pinch zoom still works: disabling it would fix the
-symptom by taking a capability away from people who need it.
+**A folder and a page are titled the same way**, and both show the icon and
+colours you chose for them. A folder's name was bold and smaller than a page's,
+and both drew the default icon for their kind — so decorating a folder changed
+the sidebar and left its own page looking undecorated. The icon sits above the
+name rather than in front of it, so the name stays on the column the text below
+it lines up on. The entries listed inside a folder show their own icons too.
 
-**The chosen person in the People tab is cleared when you open another page.**
+**Fixed: the ⋮ button on a sidebar row did not light up under the pointer**,
+while the + beside it did, which made it look like nothing would happen.
 
-**Fixed: the maintenance log reported every collection row as a misplaced
-entry.** A row lives inside the page holding its collection by design
-(ADR-0021), and the check predates that. It was logged every five minutes.
+**Editing a title is a line under the words rather than a box around them.**
+Clicking a page or folder name turned it into a filled input the width of the
+page, which read as a dialog opening instead of a caret being placed. The line
+also appears faintly under the pointer, so a title says it can be edited before
+you click it.
 
-**Fixed: a file with an umlaut in its name could not be opened.** Serving it
-threw while writing the `Content-Disposition` header — HTTP headers carry only
-ASCII — and the viewer showed an internal error where the document should have
-been. Every file with an accent, an umlaut or a CJK character in its name was
-affected. The name is now sent both ways RFC 6266 allows: a plain ASCII form
-any client understands, and the real name UTF-8 encoded.
+**The icon sits in front of a page or folder name again**, not above it, and the
+heading no longer moves when you click it. A folder's name was a button that
+became an input, and the swap changed the heading's height enough to nudge
+everything below it down. It is the same input a page's title is now, so there is
+nothing to swap.
 
-**Two corrections in a collection's table.** The title column now says it is
-fixed rather than simply lacking the bin every other column has, and the menu
-for choosing a new column's type opens towards the empty space beside the table
-instead of back across the rows it is about to add to.
-
-**Fixed: a PDF would not display.** The viewer frame was sandboxed, and
-Chromium's built-in PDF viewer does not run in a sandboxed frame at all — first
-it showed only page one, then Brave refused to show anything. PDF frames carry
-no sandbox now. What keeps that safe is unchanged and stricter than it sounds:
-the type is decided from the file's bytes rather than from the upload, `nosniff`
-stops the browser reconsidering, and the document is served with permission to
-load nothing at all.
-
-**Choosing somebody in the People tab marks what they wrote.** Choosing them
-again clears it. Only writing recorded since attribution began can be marked —
-it is not retroactive.
-
-**A "People" tab lists who has written in a page** — everyone who has, whether
-or not they are here now, which is what the circles at the top show instead.
-Somebody who has since left the workspace stays in the list: they wrote what
-they wrote.
-
-**Attribution is being recorded.** Every editing session by a signed-in member
-is now mapped to that person in the document, which is what makes "who wrote
-this" answerable later. Nothing displays it yet — recording starts first because
-attribution is not retroactive
-([ADR-0022](docs/adr/0022-attribution.md)): an edit made before the mapping
-exists can never be attributed.
-
-Share-link guests are not recorded: there is no user id to record against, and
-attributing to "a guest" would make one contributor out of several people.
-
-**Documents are a content element.** Type `/` and choose "File": a PDF or text
-file opens as a viewer with its own scrollbar, and anything else becomes a card
-with its name, type and size. Each block switches between card, one line, and —
-where a browser can draw it — a viewer.
-
-**Documents can be uploaded, not only images.** Word, Excel, PowerPoint,
-OpenDocument, PDFs, text and archives. PDFs and text are shown in place; a Word
-or Excel file is offered as a file, because nothing here can render one and a
-card that says what it is beats a viewer showing an error.
-
-**Changed: a PDF is now shown in place** rather than downloaded. The earlier
-caution was not wrong — a PDF viewer is a large attack surface — but a notes tool
-where a PDF cannot be read is one where people keep their PDFs elsewhere. The
-hardening that makes it acceptable is unchanged: the type comes from the bytes,
-never the upload, and the response carries `nosniff` and a sandbox policy.
+### Writing and blocks
 
 **Every block can be configured** from the ⋮⋮ menu: alignment, width and colour,
 showing only the settings that mean something for that block. A wide paragraph
@@ -516,6 +576,18 @@ image or a table, and ignored on a narrow screen where there is no margin to
 break into.
 
 The controls for these come next; this is the model and the styling.
+
+**Fixed: a toggle could not be filled on a phone.** Its content is the blocks
+indented under it, and indenting was only possible with Tab — which a phone
+keyboard does not have. The ⋮⋮ menu now has In and Out, so nesting works
+without a keyboard.
+
+**Fixed: the page zoomed itself on a phone.** Tapping a small search or filter
+field made iOS magnify the whole page, and it does not zoom back out — the next
+gesture to fix that often landed on pull-to-refresh instead. Form controls are
+now large enough on touch that the browser leaves the page alone, and the page
+no longer pulls to refresh. Pinch zoom still works: disabling it would fix the
+symptom by taking a capability away from people who need it.
 
 **Edits survive a reload, not just a dropped connection.** A signed-in member's
 browser keeps a copy of each document it opens; when the server comes back, the
@@ -538,40 +610,11 @@ is still in the document — but the label goes quiet a few seconds after they s
 typing, instead of sitting in the middle of a paragraph indefinitely. Hovering
 the caret brings it back.
 
-**A collection can be searched.** The box beside its views matches an entry's
-title or anything in its cells, and narrows whatever the view already showed
-rather than replacing it. Substring matching, not stemming: typing "plan" finds
-"planning" and "unplanned", which is what a table's search box is expected to do.
-
-**Filters and sorting can be set.** The button beside a collection's views opens
-them, and says how many rules are active rather than only "Filter" — a table
-showing fewer rows than expected is the kind of thing people blame on the
-software. The work happens in the database, as it already did; what was missing
-was any way to reach it.
-
-**A collection can be placed in the text.** Type `/` and choose "Table of
-entries": the collection is created and a block for it appears where the caret
-is, between paragraphs, as in Craft and AppFlowy. Several per page.
-
-**A collection is content in a page, not a folder.** 0.2.0 made a folder *be* a
-table and put every row in the sidebar; a folder stopped meaning one thing, and a
-hundred-row table meant a hundred sidebar entries. A page can now hold
-collections — several, as in Craft — and a folder is a folder again.
-
-**Rows are documents that are not in the tree.** Each one is a real page you can
-open, with its own writing, and none of them clutter the sidebar. Craft and
-AppFlowy both work this way; [ADR-0021](docs/adr/0021-collections-in-pages.md)
-records why.
-
-**Operator note:** a folder that carried a collection becomes an ordinary folder
-again and keeps its pages. The columns are not converted — the shape existed for
-one release, and converting it faithfully would mean rewriting every child
-document.
-
-**Fixed: "Add columns" appeared to do nothing.** The collection was created and
-nothing displayed it — the folder's row was never marked as one, because that
-mark was read from a document field that nothing writes. Every collection made
-since the feature shipped was invisible.
+**Fixed: empty lines appeared on a page every time it was opened.** A document is
+empty until the server's copy arrives, and the editor was writing an empty
+paragraph into that emptiness on every visit — one per open, appearing anywhere in
+the page depending on how the two edits merged. Existing stray lines are ordinary
+empty paragraphs and can be deleted; no new ones will appear.
 
 ## 0.2.0
 

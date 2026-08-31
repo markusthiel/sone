@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted, not yet implemented.
+Accepted and implemented.
+
+Extended since: the page and the chrome are separate surface roles, which is what
+puts the writing on white and the furniture a step away from it.
 
 ## Context
 

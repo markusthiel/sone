@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted, not yet implemented.
+Accepted and implemented.
+
+Pruning is server-side only, as the record requires: `Y.PermanentUserData` throws
+when entries are removed, so `liveClientIds` lives in `@sone/core` where the
+server can reach it.
 
 ## Context
 
