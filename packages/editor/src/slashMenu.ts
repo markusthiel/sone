@@ -189,6 +189,31 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     action: { kind: 'external' },
   },
   {
+    id: 'video',
+    title: 'Video',
+    hint: 'Upload one, paste a link, or point at a live stream',
+    keywords: [
+      'video',
+      'movie',
+      'film',
+      'youtube',
+      'vimeo',
+      'peertube',
+      'embed',
+      'stream',
+      'live',
+      'mp4',
+      'clip',
+      'einbetten',
+      'livestream',
+    ],
+    group: 'blocks',
+    // External for the same reason the file is, and one more: a link has to be
+    // read by the allowlist before a block exists, and a transaction cannot ask
+    // somebody for the link (ADR-0037).
+    action: { kind: 'external' },
+  },
+  {
     id: 'protected',
     title: 'Protected section',
     hint: 'A part of this page only the people you add can open',

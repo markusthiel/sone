@@ -308,6 +308,33 @@ export function detectType(bytes: Buffer): DetectedType | null {
       // anyone they shared with.
       return { mime: 'image/heic', extension: 'heic' };
     }
+
+    // Video in the same container (ADR-0037).
+    //
+    // The brand is the only thing that tells these apart, and it is a short
+    // allowlist rather than "anything else with an ftyp box": an unrecognised
+    // brand should keep being refused, which is what stops this becoming the
+    // generic type that everything unknown is stored as.
+    if (brand === 'qt  ') {
+      // A `.mov` from a phone or a camera. Its codec is another question — HEVC
+      // is common and most browsers cannot play it — which is why the interface
+      // says so at the moment of choosing the file rather than storing it and
+      // showing a black rectangle later.
+      return { mime: 'video/quicktime', extension: 'mov' };
+    }
+    if (['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'mmp4', 'dash', 'M4V ', 'M4VP'].includes(brand)) {
+      return { mime: 'video/mp4', extension: 'mp4' };
+    }
+  }
+
+  // Matroska and WebM share a container, and only the doctype distinguishes
+  // them. WebM plays everywhere; a general Matroska file mostly does not, and it
+  // is stored under its own type so the interface can say which it has.
+  if (startsWith(0x1a, 0x45, 0xdf, 0xa3)) {
+    const head = bytes.subarray(0, 64).toString('latin1');
+    return head.includes('webm')
+      ? { mime: 'video/webm', extension: 'webm' }
+      : { mime: 'video/x-matroska', extension: 'mkv' };
   }
 
   if (startsWith(0x25, 0x50, 0x44, 0x46)) {
@@ -430,15 +457,34 @@ export const isInlineImage = (mime: string): boolean => INLINE_IMAGE_TYPES.has(m
  * pretending to preview it is the difference between a card that says what it
  * is and a viewer that shows an error.
  */
-export type FileCategory = 'image' | 'pdf' | 'text' | 'document' | 'archive';
+export type FileCategory = 'image' | 'video' | 'pdf' | 'text' | 'document' | 'archive';
 
 export function categoryOf(mime: string): FileCategory {
   if (mime.startsWith('image/')) return 'image';
+  // Its own category rather than a document: a video is watched, which means a
+  // player and a duration rather than a name and a size (ADR-0037).
+  if (mime.startsWith('video/')) return 'video';
   if (mime === 'application/pdf') return 'pdf';
   if (mime.startsWith('text/')) return 'text';
   if (mime === 'application/zip') return 'archive';
   return 'document';
 }
+
+/**
+ * Video a browser can be expected to play (ADR-0037).
+ *
+ * MP4 and WebM, and QuickTime because a `.mov` carrying H.264 plays in every
+ * browser that matters. Matroska is stored and not on this list: it is a
+ * container that can hold anything, and most browsers refuse it.
+ *
+ * A container is not a codec, which is the part that cannot be answered here at
+ * all: an MP4 holding HEVC is playable in Safari and a black rectangle in
+ * Chromium. That question belongs to the browser doing the playing, and it is
+ * asked there — before the upload, where the answer can still change somebody's
+ * mind.
+ */
+export const isPlayableVideo = (mime: string): boolean =>
+  mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/quicktime';
 
 /**
  * Types the browser will render in place, given the headers this server sends.
@@ -448,4 +494,9 @@ export function categoryOf(mime: string): FileCategory {
  * can do.
  */
 export const isInlineViewable = (mime: string): boolean =>
-  isInlineImage(mime) || mime === 'application/pdf' || mime.startsWith('text/');
+  isInlineImage(mime) ||
+  // A video is played in place, so it must not arrive as an attachment: the
+  // browser would offer to save it instead of handing it to the player.
+  isPlayableVideo(mime) ||
+  mime === 'application/pdf' ||
+  mime.startsWith('text/');

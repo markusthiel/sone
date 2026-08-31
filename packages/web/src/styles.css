@@ -3347,6 +3347,35 @@ select {
    on the clipboard. Quiet, and above the table it is about. */
 .collection-notice { margin: 0; font-size: var(--sone-text-sm); }
 
+/* The dialog that asks where a video comes from.
+ *
+ * One field rather than tabs: asking somebody to first say which kind of address
+ * they are about to paste is asking them to know something we can read. */
+.video-dialog {
+  position: fixed;
+  inset-block-start: 20vh;
+  inset-inline: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-4);
+  inline-size: min(28rem, calc(100vw - 2rem));
+  margin-inline: auto;
+  padding: var(--sone-space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--sone-shadow-lg, 0 12px 32px rgb(0 0 0 / 18%));
+}
+.video-dialog-or { margin: 0; color: var(--sone-text-muted); font-size: var(--sone-text-sm); }
+.video-dialog-url { inline-size: 100%; }
+.video-dialog-verdict { margin: 0; font-size: var(--sone-text-sm); }
+.video-dialog-actions { display: flex; justify-content: flex-end; gap: var(--sone-space-3); }
+
+/* A note about something that worked but may not play. Not an error: it
+   uploaded, it is in the page, and it may be perfect for the person it is for. */
+.editor-notice { margin-block: var(--sone-space-3); font-size: var(--sone-text-sm); }
+
 /* --- a video in the text (ADR-0037) ---
  *
  * The player takes the block's width, which is the shared attribute every block

@@ -2,7 +2,12 @@
 
 ## Status
 
-Proposed.
+Accepted and implemented, with one limitation carried forward: a live HLS stream
+plays only in browsers with native support (Safari and iOS). Chromium and Firefox
+need a player library this application does not ship, and the block says so rather
+than showing a black rectangle. `hls.js` is the answer if that turns out to
+matter; it is a dependency decision worth making deliberately rather than as part
+of this.
 
 ## Context
 

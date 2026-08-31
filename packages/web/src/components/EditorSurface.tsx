@@ -11,11 +11,12 @@
  */
 
 import type { PageHandle } from '@sone/client';
-import { pageContent } from '@sone/core';
+import { pageContent, readStreamLink, readVideoLink } from '@sone/core';
 import {
   authorHighlightKey,
   createEditor,
   insertFileBlock,
+  insertVideoBlock,
   highlightClients,
   insertImageUpload,
   seedEmptyPage,
@@ -33,6 +34,7 @@ import { soneNodeViews } from './CollectionNodeView.tsx';
 import { SelectionToolbar } from './SelectionToolbar.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
 import { TableToolbar } from './TableToolbar.tsx';
+import { VideoDialog } from './VideoDialog.tsx';
 import { paths } from '../routes/paths.ts';
 import { webVariant } from '../lib/imageVariant.ts';
 
@@ -40,6 +42,20 @@ interface EditorSurfaceProps {
   handle: PageHandle;
   /** Needed to upload files, which are authorised through their page. */
   pageId: string;
+}
+
+/**
+ * What to say about a video this browser would not play.
+ *
+ * Names the format, because "this may not play" without saying what is wrong is
+ * a sentence nobody can act on — and names the way out, which is a conversion
+ * done by whatever the person already uses rather than by us (ADR-0037).
+ */
+function unplayableNotice(file: File): string {
+  const looksAppleish = /quicktime|x-m4v/.test(file.type) || /\.mov$/i.test(file.name);
+  return looksAppleish
+    ? `${file.name} is a QuickTime file. It is uploaded and will play in Safari; other browsers usually cannot, because the video inside is HEVC. Exporting it as MP4 (H.264) plays everywhere.`
+    : `${file.name} is a format this browser cannot play (${file.type || 'unknown type'}). It is uploaded, but MP4 (H.264) or WebM is what plays everywhere.`;
 }
 
 export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElement {
@@ -51,6 +67,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
   // dialog opened, somebody chose a photo, and the element that would have
   // heard about it no longer existed. Nothing happened, with no error.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
   const docInputRef = useRef<HTMLInputElement | null>(null);
 
   /**
@@ -143,6 +160,72 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
     [pageId],
   );
 
+  /**
+   * Upload a video and insert a block for it (ADR-0037).
+   *
+   * Separate from `attachFile` because it inserts a different block, in the same
+   * way the image path is separate: one input choosing between them by the file's
+   * declared type would be exactly the guess the server refuses to make.
+   *
+   * Nothing is transcoded, here or on the server, and the reasons are in
+   * ADR-0037. What happens instead is this warning: the browser is asked whether
+   * it could play the file *before* it is sent, because an iPhone `.mov` carrying
+   * HEVC is the ordinary case, most browsers draw a black rectangle for it, and a
+   * sentence at the moment of choosing is worth more than any conversion we could
+   * honestly run. It is a warning and not a refusal — the file may well play for
+   * the person it is meant for, and it is their page.
+   */
+  const attachVideo = useCallback(
+    async (file: File): Promise<void> => {
+      const editor = viewRef.current;
+      if (!editor) return;
+
+      const probe = document.createElement('video');
+      const verdict = file.type ? probe.canPlayType(file.type) : '';
+      if (verdict === '') setNotice(unplayableNotice(file));
+      else setNotice(null);
+
+      try {
+        const uploaded = await api.uploadFile(pageId, file);
+        insertVideoBlock({
+          source: 'file',
+          fileId: uploaded.id,
+          title: uploaded.filename,
+        })(editor.state, editor.dispatch);
+        editor.focus();
+        setError(null);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.code : 'network_error');
+      }
+    },
+    [pageId],
+  );
+
+  /**
+   * Insert a video from an address.
+   *
+   * Read by the allowlist first, in the browser, so a link nothing embeds is
+   * refused before a block exists rather than becoming a block that renders an
+   * apology. The same rule runs at render time, from the same function, which is
+   * what makes tightening the list reach documents already written.
+   */
+  const insertVideoLink = useCallback((raw: string): boolean => {
+    const editor = viewRef.current;
+    if (!editor) return false;
+
+    const embed = readVideoLink(raw);
+    const stream = embed ? null : readStreamLink(raw);
+    if (!embed && !stream) return false;
+
+    insertVideoBlock(
+      embed
+        ? { source: 'embed', url: embed.pageUrl }
+        : { source: 'stream', url: stream!.url },
+    )(editor.state, editor.dispatch);
+    editor.focus();
+    return true;
+  }, []);
+
   const uploader = useCallback(
     async (file: File) => {
       try {
@@ -209,11 +292,17 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
         // preview while it uploads. Only what cannot be an image becomes a file
         // block.
         if (file.type.startsWith('image/')) insertImageUpload(editor, file, uploader);
+        // A dropped video becomes a video, not an attachment named after one
+        // (ADR-0037). Decided from the browser's own type here because that is
+        // all a drop carries; the server still decides from the bytes, and a
+        // mismatch means an ordinary file block's worth of disagreement rather
+        // than a wrong file stored.
+        else if (file.type.startsWith('video/')) await attachVideo(file);
         else await attachFile(file);
       }
       editor.focus();
     },
-    [attachFile, uploader],
+    [attachFile, attachVideo, uploader],
   );
 
 
@@ -234,6 +323,15 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
    * so it needs somewhere to be said. Silent is the one option not available.
    */
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Something worth saying that is not a failure.
+   *
+   * A video this browser cannot play is not an error: it uploaded, it is in the
+   * page, and it may play perfectly for the person it was put there for.
+   */
+  const [notice, setNotice] = useState<string | null>(null);
+  /** Whether the "add a video" dialog is up (ADR-0037). */
+  const [videoOpen, setVideoOpen] = useState(false);
 
   // `canEdit` is read through a ref so the editor sees the current value
   // without being recreated. A role can change while a page is open — the
@@ -331,6 +429,14 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
   return (
     <>
       {error && <p className="error">{messageFor(error)}</p>}
+      {notice && (
+        <p className="muted editor-notice">
+          {notice}{' '}
+          <button type="button" className="link-button" onClick={() => setNotice(null)}>
+            Dismiss
+          </button>
+        </p>
+      )}
 
       <div
         className="editor-surface"
@@ -403,6 +509,24 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
         }}
       />
 
+      {/* A third picker, for video.
+        *
+        * Its own rather than a wider accept list on the document one, for the
+        * reason written there: the two insert different blocks, and one input
+        * would have to guess which from a declared type — the guess the server
+        * refuses to make. */}
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime,.mp4,.m4v,.webm,.mov"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) void attachVideo(file);
+        }}
+      />
+
       {view && handle.canEdit && (
         <>
           <SlashMenu
@@ -412,7 +536,18 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
             onPickFile={() => docInputRef.current?.click()}
             onInsertCollection={() => void insertCollection()}
             onInsertProtectedSection={() => void insertProtectedSection()}
+            onInsertVideo={() => setVideoOpen(true)}
           />
+          {videoOpen && (
+            <VideoDialog
+              onUpload={() => {
+                setVideoOpen(false);
+                videoInputRef.current?.click();
+              }}
+              onLink={insertVideoLink}
+              onClose={() => setVideoOpen(false)}
+            />
+          )}
           <BlockMenu view={view} revision={revision} />
           <TableToolbar view={view} revision={revision} />
           <SelectionToolbar view={view} revision={revision} />
