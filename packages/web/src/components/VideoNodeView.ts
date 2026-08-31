@@ -64,6 +64,16 @@ class VideoNodeView implements NodeView {
   constructor(private node: PMNodeLike) {
     this.dom = document.createElement('div');
     this.dom.className = 'video-block';
+    // Not editable, and this is the line that was missing.
+    //
+    // Every other node view here sets it — the file, the collection, the
+    // protected section — and without it the contents of an atom sit inside the
+    // editor's editable region. The browser then treats a `<video>` and its
+    // controls as content it may edit: Chromium removes it on its own, that
+    // removal is a document change, and ProseMirror faithfully applies it. The
+    // block uploaded, played, and vanished — and no test that does not run a real
+    // editing engine can see it, which is why jsdom kept saying it was fine.
+    this.dom.contentEditable = 'false';
     this.render();
   }
 
@@ -86,15 +96,16 @@ class VideoNodeView implements NodeView {
     return true;
   }
 
-  stopEvent(event: Event): boolean {
-    // The player's own controls, and the consent button. Without this, pressing
-    // play selects the block instead.
-    return (
-      event.type === 'click' ||
-      event.type === 'pointerdown' ||
-      event.type === 'keydown' ||
-      event.type.startsWith('touch')
-    );
+  /**
+   * Everything inside is this view's, not ProseMirror's.
+   *
+   * All events rather than a list of them, as the file view does. The list was a
+   * guess about which ones matter, and a player's controls raise more than
+   * anybody's list contains — `dragstart` from the video element, key events on
+   * the scrubber, a double-click for fullscreen.
+   */
+  stopEvent(): boolean {
+    return true;
   }
 
   private render(): void {
@@ -102,6 +113,14 @@ class VideoNodeView implements NodeView {
     const display = textOf(this.node, 'display') || 'player';
     this.dom.dataset['source'] = source;
     this.dom.dataset['display'] = display;
+    // The attributes `parseDOM` looks for, so that anything which does re-read
+    // this DOM rebuilds the same node rather than nothing. Cheap, and the
+    // difference between a bad day and a lost block.
+    this.dom.dataset['soneVideo'] = source;
+    const fileId = textOf(this.node, 'fileId');
+    if (fileId !== '') this.dom.dataset['file'] = fileId;
+    this.dom.dataset['url'] = textOf(this.node, 'url');
+    this.dom.dataset['title'] = textOf(this.node, 'title');
     this.dom.replaceChildren();
 
     if (source === 'file') this.renderFile(display);

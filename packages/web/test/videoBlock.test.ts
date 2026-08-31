@@ -76,6 +76,34 @@ test('a player reserves its shape before it knows it', () => {
   assert.match(css, /\.video-consent \{[^}]*aspect-ratio: 16 \/ 9/);
 });
 
+test('every node view takes its contents out of the editable region', () => {
+  // The video view did not, and that is what made an uploaded video vanish: the
+  // contents of an atom sat inside the editor's editable region, so the browser
+  // treated a <video> and its controls as content it could edit — Chromium
+  // removed it, the removal was a document change, and ProseMirror applied it.
+  //
+  // Checked across all of them rather than for the video alone, because the
+  // next interactive block will be written by somebody reading this file.
+  const views = [
+    'VideoNodeView.ts',
+    'FileNodeView.ts',
+    'CollectionNodeView.tsx',
+    'ProtectedSectionView.ts',
+  ];
+  for (const name of views) {
+    const source = codeOf(new URL(`../src/components/${name}`, import.meta.url));
+    assert.match(
+      source,
+      /\.contentEditable = 'false'/,
+      `${name} marks its own DOM as not editable`,
+    );
+    // And claims its own events, all of them: a list of event types is a guess
+    // about which ones matter, and a player's controls raise more than any list
+    // contains.
+    assert.match(source, /stopEvent\(\): boolean \{\s*return true;/, `${name} stops events`);
+  }
+});
+
 test('the node is one type with three sources', () => {
   // Not three node types: they are one thing in the document, and three would be
   // three node views and three sets of width handling to keep in step.

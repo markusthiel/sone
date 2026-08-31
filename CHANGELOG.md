@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a video disappeared moments after being added.** Its block was the one
+piece of content that did not take itself out of the editor's editable region, so
+the browser treated the player as text it could edit — and removed it.
+
 **An upload in progress says so.** A video is the first thing SONE sends whole — a
 photograph is shrunk in the browser first — so eight megabytes was seconds of
 silence, which is indistinguishable from nothing happening. The picker also offers
