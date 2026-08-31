@@ -264,37 +264,20 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
     }
   };
 
-  if (error && !data) return <p className="error">{messageFor(error)}</p>;
-  if (!data) return <p className="muted">Loading…</p>;
+  /* The value columns, which `pasteGrid` needs — so computed before the guard
+     and tolerant of there being no data yet, rather than after it where a hook
+     could not reach it. */
+  const columns = (data?.fields ?? []).filter((field) => field.id !== data?.titleFieldId);
 
-  const columns = data.fields.filter((field) => field.id !== data.titleFieldId);
-  const titleField = data.fields.find((field) => field.id === data.titleFieldId);
-
-  const view = data.views.find((entry) => entry.id === viewId) ?? data.views[0];
-  const selectColumns = columns.filter(
-    (field) => field.fieldType === 'select' && optionsOf(field).length > 0,
-  );
-
-  const groupBy =
-    view?.viewType === 'board'
-      ? (columns.find(
-          (field) => field.id === view.definition['groupByFieldId'],
-        ) ?? selectColumns[0])
-      : undefined;
-
-  const addBoard = async (fieldId: string): Promise<void> => {
-    try {
-      const created = await api.addCollectionView(collectionId, {
-        viewType: 'board',
-        definition: { groupByFieldId: fieldId },
-      });
-      await load();
-      setViewId(created.id);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.code : 'network_error');
-    }
-  };
-
+  /* Everything below is a hook, so all of it sits above the early return for
+   * a table that has not loaded yet. React counts hooks per render: a hook
+   * after a conditional return runs on the renders that get past it and not
+   * on the ones that do not, which is a different number each time — and the
+   * component throws rather than rendering. That is what "the table vanished
+   * and a new one would not appear" was: on the first render `data` is null,
+   * the guard returned, and the hooks after it were skipped; the moment the
+   * data arrived there were five more than before.
+   */
   /**
    * The files any cell refers to, by id (ADR-0035).
    *
@@ -472,6 +455,37 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       setError(err instanceof ApiError ? err.code : 'network_error');
     }
   }, [collectionId, history, load]);
+
+  if (error && !data) return <p className="error">{messageFor(error)}</p>;
+  if (!data) return <p className="muted">Loading…</p>;
+
+  const titleField = data.fields.find((field) => field.id === data.titleFieldId);
+
+  const view = data.views.find((entry) => entry.id === viewId) ?? data.views[0];
+  const selectColumns = columns.filter(
+    (field) => field.fieldType === 'select' && optionsOf(field).length > 0,
+  );
+
+  const groupBy =
+    view?.viewType === 'board'
+      ? (columns.find(
+          (field) => field.id === view.definition['groupByFieldId'],
+        ) ?? selectColumns[0])
+      : undefined;
+
+  const addBoard = async (fieldId: string): Promise<void> => {
+    try {
+      const created = await api.addCollectionView(collectionId, {
+        viewType: 'board',
+        definition: { groupByFieldId: fieldId },
+      });
+      await load();
+      setViewId(created.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
+
 
   return (
     <div className="collection">
