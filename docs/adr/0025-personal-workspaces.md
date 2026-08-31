@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted, not yet implemented.
+Accepted and implemented.
+
+The last part — seeing and withdrawing an invitation that has been sent — arrived
+after the rest, which is why nothing could be undone for a while.
 
 ## Context
 

@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted, not yet implemented.
+Accepted and implemented; the single-screen arrangement it describes is
+superseded by ADR-0032, which keeps its reasoning about naming the subject and
+makes the subject the boundary.
 
 ## Context
 

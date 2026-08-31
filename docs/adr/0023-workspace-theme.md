@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted, implementation in progress.
+Accepted and implemented.
+
+The controls were briefly unreachable — they were rendered by the settings screen
+and missing from its list — and are back under This workspace → Typography
+(ADR-0032).
 
 ## Context
 

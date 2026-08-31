@@ -16,7 +16,7 @@ test('a field is a surface at rest and a border when focused', () => {
   // checkboxes turned out to be caught by it, and a test that spells the
   // selector out fails on every such correction without any of them being
   // wrong.
-  assert.match(css, /background: var\(--surface-sunken\);\n  transition: border-color/);
+  assert.match(css, /background: var\(--surface-sunken\);\n {2}transition: border-color/);
   assert.match(css, /:focus,\s*\n?textarea:focus \{[^}]*border-color: var\(--accent\)/);
 });
 
