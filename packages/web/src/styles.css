@@ -3278,6 +3278,95 @@ select {
 }
 .collection-table thead .collection-title-column { background: var(--sone-bg-subtle); }
 
+/* --- a cell holding files (ADR-0035) ---
+ *
+ * One column type for every kind of file; what differs by kind is the drawing.
+ * An image is a thumbnail, because that is how an image is recognised — a
+ * filename out of a camera says nothing. Everything else is an icon and a name.
+ *
+ * Chips wrap rather than scroll: a cell with three files is a row two lines
+ * tall, which is honest, where a scroller inside a table cell is a thing nobody
+ * finds.
+ */
+.cell-files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.cell-file {
+  display: inline-flex;
+  align-items: center;
+  max-inline-size: 12rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-sm);
+  background: var(--sone-bg);
+}
+.cell-file a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-inline-size: 0;
+  padding: 2px 4px;
+  color: var(--sone-text);
+  font-size: var(--sone-text-xs);
+}
+.cell-file a:hover { text-decoration: none; background: var(--sone-bg-hover); }
+.cell-file svg { flex: none; inline-size: 12px; block-size: 12px; color: var(--sone-text-muted); }
+.cell-file img {
+  /* Square and cropped, so a column of mixed photographs is a column and not a
+     ragged edge. */
+  inline-size: 28px;
+  block-size: 28px;
+  object-fit: cover;
+  border-radius: var(--sone-radius-sm);
+  display: block;
+}
+.cell-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cell-file-remove {
+  flex: none;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+.cell-file-remove:hover { color: var(--sone-danger); }
+
+/* The real input is hidden and the button opens it: a bare file input in a table
+   cell is the widest thing in the row and cannot be labelled usefully. Hidden by
+   size rather than by `display: none`, which would make it unclickable from the
+   button. */
+.cell-file-input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.cell-file-add {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 22px;
+  min-block-size: 22px;
+  padding: 0;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+}
+.cell-file-add:hover:not(:disabled) { background: var(--sone-bg-hover); color: var(--sone-text); }
+.cell-file-add svg { inline-size: 12px; block-size: 12px; }
+
 /* The name and the way into the page, on one line (ADR-0034).
  *
  * The name is edited here, so it takes the room; the control that opens the page

@@ -24,13 +24,14 @@
  * column nobody can fill, and offering one is worse than leaving it out.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import {
   ApiError,
   api,
   type CollectionData,
   type CollectionField,
+  type CollectionFile,
   type StoredCellValue,
 } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
@@ -48,6 +49,7 @@ import {
   ListIcon,
   MailIcon,
   PhoneIcon,
+  PaperclipIcon,
   PlusIcon,
   SelectIcon,
   TableIcon,
@@ -112,6 +114,10 @@ const ADDABLE: ReadonlyArray<{
   { type: 'url', label: 'Link', Icon: LinkIcon },
   { type: 'email', label: 'Email', Icon: MailIcon },
   { type: 'phone', label: 'Phone', Icon: PhoneIcon },
+  // One type for every kind of file (ADR-0035): an image, a PDF and a
+  // spreadsheet are the same decision — attach a thing — and differ in how they
+  // are drawn, not in what column they belong in.
+  { type: 'files', label: 'Files', Icon: PaperclipIcon },
 ];
 
 /** How long after the last keystroke a text cell is saved. */
@@ -288,6 +294,25 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       setError(err instanceof ApiError ? err.code : 'network_error');
     }
   };
+
+  /**
+   * The files any cell refers to, by id (ADR-0035).
+   *
+   * From the collection response, plus anything uploaded since the last reload —
+   * an upload has to name its chip immediately, and waiting for a round trip to
+   * learn the name of a file this browser just chose would be absurd.
+   */
+  const [uploaded, setUploaded] = useState<CollectionFile[]>([]);
+  const rememberFile = useCallback((file: CollectionFile) => {
+    setUploaded((current) => [...current, file]);
+  }, []);
+  const fileIndex = useMemo(
+    () =>
+      new Map<string, CollectionFile>(
+        [...(data?.files ?? []), ...uploaded].map((file) => [file.id, file]),
+      ),
+    [data?.files, uploaded],
+  );
 
   /**
    * Undo and redo for this table's own operations (ADR-0034).
@@ -691,7 +716,10 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                       field={field}
                       value={row.values[field.id] ?? null}
                       canEdit={data.canEdit}
+                      files={fileIndex}
+                      pageId={row.id}
                       onChange={(value) => void write(row.id, field.id, value)}
+                      onUploaded={rememberFile}
                     />
                   </td>
                 ))}
@@ -948,17 +976,165 @@ export function optionsOf(field: CollectionField): EditableOption[] {
  * not only less code — a native date input is the thing people already know how
  * to use, and on a phone it brings up the right keyboard.
  */
-function Cell({
+/**
+ * A cell holding files (ADR-0035).
+ *
+ * One column type for every kind of file, not one each for images and PDFs. The
+ * file already says what it is — the server classifies every upload — so a column
+ * that also declared it would be a second answer to the same question, and the
+ * only thing it could add is refusing a PDF in an "image" column.
+ *
+ * What differs by kind is the drawing, which is where it belongs: an image is a
+ * thumbnail, because that is how an image is recognised; everything else is an
+ * icon and a name, because that is how a document is.
+ *
+ * The cell stores ids. The names and sizes come from the collection, resolved
+ * once for the whole table — a file's name is the file's own fact, and a copy of
+ * it in every cell is how a renamed file keeps its old name in three places.
+ */
+function FilesCell({
   field,
   value,
   canEdit,
+  files,
+  pageId,
   onChange,
+  onUploaded,
 }: {
   field: CollectionField;
   value: StoredCellValue | null;
   canEdit: boolean;
+  files: Map<string, CollectionFile>;
+  pageId: string;
   onChange: (value: StoredCellValue | null) => void;
+  onUploaded: (file: CollectionFile) => void;
 }): ReactElement {
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement | null>(null);
+
+  const ids = value?.kind === 'files' && Array.isArray(value.fileIds) ? value.fileIds : [];
+
+  const set = (next: string[]): void =>
+    onChange(next.length === 0 ? null : { kind: 'files', fileIds: next });
+
+  const upload = async (chosen: File): Promise<void> => {
+    setBusy(true);
+    try {
+      // Uploaded against the row, which is a page — so the file is authorised
+      // through the thing it belongs to, and deleting the row takes it along.
+      const result = await api.uploadFile(pageId, chosen);
+      onUploaded({
+        id: result.id,
+        filename: result.filename,
+        mimeType: result.mimeType,
+        sizeBytes: result.sizeBytes,
+        category: result.category,
+      });
+      set([...ids, result.id]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="cell-files">
+      {ids.map((id) => {
+        const file = files.get(id);
+        const name = file?.filename ?? 'File';
+        return (
+          <span className="cell-file" key={id}>
+            <a href={`/api/files/${id}`} target="_blank" rel="noreferrer" title={name}>
+              {file?.category === 'image' ? (
+                // The thumbnail is the name, for an image: a filename out of a
+                // camera says nothing and the picture says everything.
+                <img src={`/api/files/${id}`} alt={name} loading="lazy" />
+              ) : (
+                <>
+                  <PaperclipIcon />
+                  <span className="cell-file-name">{name}</span>
+                </>
+              )}
+            </a>
+            {canEdit && (
+              <button
+                type="button"
+                className="cell-file-remove"
+                aria-label={`Remove ${name}`}
+                // The reference goes; the file stays where it was uploaded, on
+                // the row's own page. Removing a chip is not deleting a file, and
+                // a cell is the wrong place to make that decision.
+                onClick={() => set(ids.filter((other) => other !== id))}
+              >
+                ×
+              </button>
+            )}
+          </span>
+        );
+      })}
+
+      {canEdit && (
+        <>
+          <input
+            ref={input}
+            type="file"
+            className="cell-file-input"
+            aria-label={`Add a file to ${field.name}`}
+            onChange={(event) => {
+              const chosen = event.target.files?.[0];
+              event.target.value = '';
+              if (chosen) void upload(chosen);
+            }}
+          />
+          <button
+            type="button"
+            className="cell-file-add"
+            disabled={busy}
+            title={`Add a file to ${field.name}`}
+            aria-label={`Add a file to ${field.name}`}
+            onClick={() => input.current?.click()}
+          >
+            {busy ? '…' : <PlusIcon />}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Cell({
+  field,
+  value,
+  canEdit,
+  files,
+  pageId,
+  onChange,
+  onUploaded,
+}: {
+  field: CollectionField;
+  value: StoredCellValue | null;
+  canEdit: boolean;
+  /** What the ids in a files cell refer to. Empty for every other type. */
+  files: Map<string, CollectionFile>;
+  /** The row, which is the page a file uploaded here belongs to. */
+  pageId: string;
+  onChange: (value: StoredCellValue | null) => void;
+  /** So a newly uploaded file can be named before the next reload. */
+  onUploaded: (file: CollectionFile) => void;
+}): ReactElement {
+  if (field.fieldType === 'files') {
+    return (
+      <FilesCell
+        field={field}
+        value={value}
+        canEdit={canEdit}
+        files={files}
+        pageId={pageId}
+        onChange={onChange}
+        onUploaded={onUploaded}
+      />
+    );
+  }
+
   if (field.fieldType === 'checkbox') {
     const checked = value?.kind === 'checkbox' && value.value === true;
     return (

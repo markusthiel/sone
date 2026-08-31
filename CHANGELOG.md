@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A table column can hold files** ([ADR-0035](docs/adr/0035-files-column.md)) —
+one column type for every kind, not one for images and another for PDFs. An image
+shows as a thumbnail, anything else as its name; up to eight per cell, and each
+one opens in a new tab. A file added here belongs to the entry's own page, so it
+is reachable exactly as far as the entry is. No migration.
+
 **The menu for adding a column looks like the rest of the menus**, and names each
 column type with an icon as well as a word. It had a frame and a type scale of its
 own, and after being moved out of the table it inherited the page's font — so it

@@ -187,7 +187,7 @@ test('the column menu looks like every other menu, and names types by shape', ()
 
   // Every addable type has an icon, or the menu is a mix of shapes and gaps.
   const entries = [...table.matchAll(/\{ type: '[a-zA-Z]+', label: '[^']+', Icon: (\w+) \}/g)];
-  assert.equal(entries.length, 9, 'nine types, nine icons');
+  assert.equal(entries.length, 10, 'every addable type, with an icon each');
   for (const [, icon] of entries) {
     assert.match(
       codeOf(new URL('../src/components/icons.tsx', import.meta.url)),
