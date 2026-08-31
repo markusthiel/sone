@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { stylesOf } from './helpers/source.ts';
+import { codeOf, stylesOf } from './helpers/source.ts';
 
 const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 
@@ -79,6 +79,17 @@ test('the furniture is tinted and the writing is not', () => {
   }
 });
 
+test('a heading does not move when it is clicked', () => {
+  // Two ways it did. The border was declared on focus, so the words below moved
+  // a pixel; and a folder's name was a button that became an input, which
+  // changed the heading's height and nudged the whole page down. The border is
+  // declared transparent at rest, and there is one element now instead of two.
+  assert.match(css, /\.page-title \{[^}]*border-block-end: 1px solid transparent/);
+  const folderView = codeOf(new URL('../src/components/FolderView.tsx', import.meta.url));
+  assert.doesNotMatch(folderView, /renaming/, 'no rename state to swap elements on');
+  assert.match(folderView, /className="page-title"/, 'the same element a page uses');
+});
+
 test('editing a title is a line, not a box', () => {
   // The field rule fills a focused input with a surface and draws a border
   // round it, which is right for a form: clicking a heading turned it into a
@@ -94,7 +105,7 @@ test('editing a title is a line, not a box', () => {
   // Declared transparent at rest, so showing it moves nothing.
   assert.match(
     css,
-    /\.page-title,\s*\n\.folder-title \{[^}]*border-block-end: 1px solid transparent/,
+    /\.page-title \{[^}]*border-block-end: 1px solid transparent/,
   );
 });
 
