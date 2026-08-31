@@ -61,8 +61,10 @@ export function WorkspaceSettingsScreen({
 
   return (
     <SettingsShell
-      area={workspace?.name || 'This workspace'}
+      // The area names the subject; the name below it says which workspace.
+      area="This workspace"
       areaId="workspace"
+      subtitle={workspace?.name || 'Untitled'}
       canAdminister={canAdminister}
       sections={SECTIONS}
       current={current}

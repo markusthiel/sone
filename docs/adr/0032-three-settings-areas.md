@@ -115,6 +115,14 @@ The CSS is therefore named `switcher-*` rather than `workspace-*`: the shape
 belongs to the position, and naming it after one of the two things it holds would
 leave the other looking like a borrowed style.
 
+In the workspace area the switcher carries the workspace's own name as a quieter
+second line. "This workspace" is true of five of them, and somebody with five has
+to see which one they are editing before they change its typography. A second line
+rather than a second switcher, because which workspace is being configured is a
+fact on that screen and not a choice: choosing a different one is what the
+administration list is for, and two identical dropdowns stacked on one of three
+screens would be an exception to explain rather than a shape to learn.
+
 ### One shell, three areas
 
 The list-and-section layout — including the two-view arrangement a phone gets —

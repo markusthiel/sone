@@ -63,8 +63,19 @@ test('the administration area is absent from the switcher without the right', ()
 
 test('three areas, and each names whose settings it holds', () => {
   assert.match(you, /area="You"/);
-  assert.match(workspace, /area=\{workspace\?\.name \|\| 'This workspace'\}/);
+  assert.match(workspace, /area="This workspace"/);
   assert.match(instance, /area="The instance"/);
+});
+
+test('the workspace area says which workspace, under the area name', () => {
+  // "This workspace" is true of five workspaces. Somebody with five needs to see
+  // which one they are editing before they change its typography — and as a
+  // quieter second line, because it is a fact rather than a choice.
+  assert.match(workspace, /subtitle=\{workspace\?\.name \|\| 'Untitled'\}/);
+  assert.match(shell, /className="switcher-sub"/);
+  // And the heading that used to repeat the area name is gone, or the column says
+  // the same thing twice in two lines.
+  assert.doesNotMatch(shell, /className="sidebar-label">\{area\}/);
 });
 
 test('the profile and signing in are two sections', () => {
