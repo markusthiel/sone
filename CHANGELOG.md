@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the workspace switcher stacked its icons above the names** and centred
+both. Its rows are now cards with the mark first, and the button lines up with
+the search field below it.
+
 **A workspace can have an icon and colours of its own**, chosen under
 Settings → All workspaces with the same controls entries use ([ADR-0030](docs/adr/0030-workspace-appearance.md)). The switcher is
 one line per workspace: a mark, a name, and the number of people only where there

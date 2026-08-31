@@ -1556,7 +1556,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   flex: 1;
   min-width: 0;
   min-block-size: 28px;
-  padding: 4px 6px;
+  /* The same inset as the search field below it. It was 4px/6px against the
+     field's 6px/8px, which is two pixels of misalignment — invisible to
+     measure and visible to look at. */
+  padding: 6px 8px;
   font-size: inherit;
 }
 
@@ -1687,10 +1690,13 @@ select {
 .workspace-button {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sone-space-3);
   inline-size: 100%;
-  min-block-size: 34px;
-  padding: 4px 6px;
+  min-block-size: var(--sone-control-lg);
+  /* The same inset as the search field below it. It was 4px/6px against the
+     field's 6px/8px — two pixels, which is invisible to measure and visible to
+     look at, because the eye compares the two left edges and not the numbers. */
+  padding: 6px 8px;
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
@@ -1733,11 +1739,17 @@ select {
 
 .workspace-item {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sone-space-1);
+  /* A row: the mark, then the name. It was a column, which put the icon above
+     the text and centred both — and my later rule set `display: flex` without
+     resetting the direction, so the column survived. Third time this session
+     that a half-overriding second rule has done this; one rule now. */
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sone-space-3);
   inline-size: 100%;
-  min-block-size: var(--sone-control-lg);
+  /* Twice the height of its text, so it reads as a card to choose rather than a
+     line in a list. */
+  min-block-size: calc(var(--sone-control-lg) * 1.6);
   padding: var(--sone-space-3) var(--sone-space-4);
   border: 0;
   border-radius: var(--sone-radius);
@@ -4577,11 +4589,6 @@ body {
 .workspace-mark svg { inline-size: 14px; block-size: 14px; }
 
 /* One line: a mark, a name, and the people count only where there are people. */
-.workspace-item {
-  display: flex;
-  align-items: center;
-  gap: var(--sone-space-3);
-}
 .workspace-item-name { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-item-meta { flex: 0 0 auto; color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
 

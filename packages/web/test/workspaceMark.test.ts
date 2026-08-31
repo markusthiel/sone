@@ -78,3 +78,27 @@ test('it is offered where a workspace is administered', () => {
   // Naming and decorating are the same act, so they belong in the same place.
   assert.match(detail, /<WorkspaceAppearance/);
 });
+
+test('a switcher row is a row, in one rule', () => {
+  // It was a column, which put the icon above the name and centred both — and
+  // the later rule set `display: flex` without resetting the direction, so the
+  // column survived. Third time this session that a half-overriding second rule
+  // has done this.
+  const rules = css.match(/\.workspace-item \{/g) ?? [];
+  assert.equal(rules.length, 1, 'one rule lays it out');
+  assert.match(css, /\.workspace-item \{[^}]*flex-direction: row/);
+  assert.doesNotMatch(css, /\.workspace-item \{[^}]*flex-direction: column/);
+});
+
+test('a row is taller than its text, so it reads as a card', () => {
+  assert.match(css, /min-block-size: calc\(var\(--sone-control-lg\) \* 1\.6\)/);
+});
+
+test('the switcher is inset like the search field below it', () => {
+  // Two pixels of difference is invisible to measure and visible to look at:
+  // the eye compares the two left edges, not the numbers.
+  const button = /\.workspace-button \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const search = /\.sidebar-search \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const inset = (rule: string): string => /padding: ([^;]+);/.exec(rule)?.[1] ?? '';
+  assert.equal(inset(button), inset(search));
+});
