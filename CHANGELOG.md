@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Downloads are resumable, and no longer read into memory whole.** A file is
+streamed and byte ranges are answered, which is what makes seeking in a large file
+possible at all — the groundwork for video ([ADR-0037](docs/adr/0037-video.md)) and
+an improvement to every large download on the way.
+
 **Fixed: the mark on the settings switcher was drawn the width of the column.**
 Two icons in the set had no size of their own and filled whatever they were put
 in; a stylesheet happened to size them in the sidebar.

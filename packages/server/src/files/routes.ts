@@ -17,6 +17,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { Readable } from 'node:stream';
 
 import type { Pool } from 'pg';
 
@@ -385,9 +386,9 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
       }
     }
 
-    let bytes: Buffer;
+    let total: number;
     try {
-      bytes = await deps.store.get(file.storage_key);
+      total = await deps.store.size(file.storage_key);
     } catch {
       // The row exists and the bytes do not, which means storage was restored
       // without its files or a backup was partial. Reported as a server error
@@ -396,7 +397,38 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
       return;
     }
 
-    serveFile(ctx.res, bytes, file.mime_type, file.filename);
+    // A byte range, if one was asked for (ADR-0037).
+    //
+    // This is what makes a video seekable — a browser seeks by asking for a
+    // range, and Safari will not play a `<video>` at all unless ranges are
+    // advertised — and it is why nothing here reads a whole file into memory any
+    // more. Every existing download benefits: it is resumable now.
+    const asked = parseRange(ctx.req.headers['range'], total);
+    if (asked === 'unsatisfiable') {
+      // 416 must say what the size actually is, or a client cannot correct its
+      // own request.
+      ctx.res.writeHead(416, {
+        'content-range': `bytes */${total}`,
+        'accept-ranges': 'bytes',
+      });
+      ctx.res.end();
+      return;
+    }
+
+    let stream: Readable;
+    try {
+      stream = await deps.store.read(file.storage_key, asked ?? undefined);
+    } catch {
+      ctx.fail(500, 'file_missing_from_storage');
+      return;
+    }
+
+    serveFile(ctx.res, stream, {
+      mimeType: file.mime_type,
+      filename: file.filename,
+      total,
+      ...(asked ? { range: asked } : {}),
+    });
   });
 }
 
@@ -463,10 +495,18 @@ export function contentDisposition(inline: boolean, filename: string): string {
 
 function serveFile(
   res: ServerResponse,
-  bytes: Buffer,
-  mimeType: string,
-  filename: string,
+  body: Readable,
+  what: {
+    mimeType: string;
+    filename: string;
+    /** The whole file's length, which a partial response still has to name. */
+    total: number;
+    /** Inclusive bounds, when this is a partial response. */
+    range?: { start: number; end: number };
+  },
 ): void {
+  const { mimeType, filename, total, range } = what;
+  const length = range ? range.end - range.start + 1 : total;
   // Images, PDFs and text are shown in place; everything else is a download.
   //
   // Text is included now that it can be stored, and it is safe for a specific
@@ -476,9 +516,15 @@ function serveFile(
   // it is. The sandbox CSP below is the belt to that braces.
   const inline = isInlineViewable(mimeType);
 
-  res.writeHead(200, {
+  res.writeHead(range ? 206 : 200, {
     'content-type': mimeType,
-    'content-length': bytes.length,
+    'content-length': length,
+    // Advertised on every response, not only a partial one: a client asks for a
+    // range because the first answer said it could.
+    'accept-ranges': 'bytes',
+    ...(range
+      ? { 'content-range': `bytes ${range.start}-${range.end}/${total}` }
+      : {}),
     'content-disposition': contentDisposition(inline, filename),
     'x-content-type-options': 'nosniff',
     // A PDF carries no `sandbox` at all, and this took two attempts to get
@@ -510,7 +556,51 @@ function serveFile(
     'cross-origin-resource-policy': 'same-origin',
     'cache-control': 'private, max-age=31536000, immutable',
   });
-  res.end(bytes);
+
+  // Piped rather than buffered. An error part way through cannot become a status
+  // code — the headers are already written — so the response is destroyed
+  // instead, which is what a truncated body should look like to a client.
+  body.on('error', () => res.destroy());
+  body.pipe(res);
+}
+
+/**
+ * The one range a `Range` header asks for, or null for the whole file.
+ *
+ * Deliberately narrow: a single `bytes=a-b`, `bytes=a-` or `bytes=-n`. Multipart
+ * ranges are legal HTTP and are asked for by nothing that matters here, and
+ * answering them means generating a multipart body — so an unparseable or
+ * multiple range is treated as no range at all, which is always a correct
+ * answer.
+ *
+ * `'unsatisfiable'` is the third case and must not be collapsed into the second:
+ * a start beyond the end of the file is a client that has the wrong idea about
+ * the size, and answering 200 with the whole file would hide that from it.
+ */
+export function parseRange(
+  header: string | string[] | undefined,
+  total: number,
+): { start: number; end: number } | null | 'unsatisfiable' {
+  if (typeof header !== 'string') return null;
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!match) return null;
+
+  const [, rawStart, rawEnd] = match;
+  if (rawStart === '' && rawEnd === '') return null;
+
+  // A suffix range: the last n bytes. `bytes=-500` of a 100-byte file is the
+  // whole file rather than an error, which is what the specification says.
+  if (rawStart === '') {
+    const wanted = Number(rawEnd);
+    if (wanted === 0) return 'unsatisfiable';
+    return { start: Math.max(0, total - wanted), end: total - 1 };
+  }
+
+  const start = Number(rawStart);
+  if (start >= total) return 'unsatisfiable';
+  const end = rawEnd === '' ? total - 1 : Math.min(Number(rawEnd), total - 1);
+  if (end < start) return 'unsatisfiable';
+  return { start, end };
 }
 
 /** Exported for tests. */
