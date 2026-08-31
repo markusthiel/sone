@@ -172,11 +172,23 @@ offered for a file and an embed and hidden for a stream.
 one thing in the document — a video in a page — and three types would mean three
 node views, three menus and three sets of width handling to keep in step.
 
-Adding a node type is additive for a client that knows it and invisible to one that
-does not, which is what the stale-bundle warning already exists to catch:
-`isStaleBundle` tells somebody holding an old bundle that the server is newer.
-`SCHEMA_VERSION` stays 1 — a new block type is not a format change, in the same way
-`kind: 'folder'` was not (ADR-0019).
+`SCHEMA_VERSION` stays 1 for now, and **the sentence that used to be here was
+wrong**. It said a new node type is "additive for a client that knows it and
+invisible to one that does not". It is not invisible. y-prosemirror builds each
+node with `schema.node(el.nodeName, …)` and, when that throws, deletes the element
+from the shared document inside a transaction — so the deletion syncs to everybody.
+A client with an older schema does not ignore a block it cannot draw; it removes
+it, silently, for everyone.
+
+There is now a test in `@sone/editor` that demonstrates exactly this, in both
+directions, because nothing in the codebase said it out loud.
+
+The consequence is that adding a block type **is** a document format change whether
+or not the stored shape changed, and the protection has to be that an older client
+cannot open a document at all rather than that it "does not understand" one block.
+`isClientSchemaCompatible` already expresses the rule — it demands equality, not a
+minimum — but nothing calls it, which is its own finding and belongs in a record of
+its own rather than as a footnote here.
 
 ## Consequences
 
