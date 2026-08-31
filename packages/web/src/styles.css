@@ -4555,3 +4555,32 @@ body {
   inline-size: auto;
   max-inline-size: 14rem;
 }
+
+/* The mark that identifies a workspace (ADR-0030).
+ *
+ * The same size and shape whether it is a chosen icon or an initial, so a list
+ * of workspaces is a column of marks rather than a ragged edge — and decorating
+ * one does not move the others.
+ */
+.workspace-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 6px;
+  background: var(--accent-quiet);
+  color: var(--accent);
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+}
+.workspace-mark svg { inline-size: 14px; block-size: 14px; }
+
+/* One line: a mark, a name, and the people count only where there are people. */
+.workspace-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+}
+.workspace-item-name { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-item-meta { flex: 0 0 auto; color: var(--sone-text-muted); font-size: var(--sone-text-xs); }

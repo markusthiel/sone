@@ -62,9 +62,10 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
       default_locale: string;
       page_count: string;
       member_count: string;
+      icon: unknown;
     }>(
       deps.pool,
-      `SELECT w.id, w.name, m.role, w.default_locale,
+      `SELECT w.id, w.name, m.role, w.default_locale, w.icon,
               (SELECT count(*) FROM pages p
                 WHERE p.workspace_id = w.id AND p.archived_at IS NULL)::text AS page_count,
               (SELECT count(*) FROM workspace_members mm
@@ -86,6 +87,8 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
         defaultLocale: row.default_locale,
         pageCount: Number(row.page_count),
         memberCount: Number(row.member_count),
+        /** How it is recognised in a list (ADR-0030). */
+        icon: row.icon ?? null,
       })),
     });
   });
@@ -160,30 +163,55 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
 
     const workspaceId = ctx.params['workspaceId'] ?? '';
     const role = await roleIn(deps.pool, workspaceId, auth.userId);
-    if (role === null) {
+    // Or the instance-wide right, which is how somebody administers a workspace
+    // they are not in (ADR-0027). Naming and decorating are the same act, so
+    // the same people may do both (ADR-0030).
+    const rights = role === null ? await administratorRights(deps.pool, auth.userId) : null;
+    if (role === null && rights?.workspaces !== true) {
       // Same answer as a workspace that does not exist: the difference would
       // reveal which workspaces are on this instance.
       ctx.fail(404, 'not_found');
       return;
     }
-    if (role !== 'owner' && role !== 'admin') {
+    if (role !== null && role !== 'owner' && role !== 'admin') {
       ctx.fail(403, 'not_authorized');
       return;
     }
 
-    const body = await readBody<{ name?: string }>(ctx);
+    const body = await readBody<{
+      name?: string;
+      icon?: { icon?: string; iconColor?: string; titleColor?: string } | null;
+    }>(ctx);
     if (!body) return;
-    const name = (body.name ?? '').trim().slice(0, 256);
-    if (name.length === 0) {
-      ctx.fail(422, 'missing_fields');
-      return;
+
+    // The icon may be changed without the name and the name without the icon.
+    // Requiring both would mean a picker that has to send a name it did not ask
+    // anybody about, which is how a rename happens by accident.
+    if ('icon' in body) {
+      await deps.pool.query(`UPDATE workspaces SET icon = $2 WHERE id = $1`, [
+        workspaceId,
+        body.icon === null ? null : JSON.stringify(body.icon),
+      ]);
     }
 
-    await deps.pool.query(`UPDATE workspaces SET name = $2 WHERE id = $1`, [
-      workspaceId,
-      name,
-    ]);
-    ctx.send(200, { id: workspaceId, name });
+    if (body.name !== undefined) {
+      const name = body.name.trim().slice(0, 256);
+      if (name.length === 0) {
+        ctx.fail(422, 'missing_fields');
+        return;
+      }
+      await deps.pool.query(`UPDATE workspaces SET name = $2 WHERE id = $1`, [
+        workspaceId,
+        name,
+      ]);
+    }
+
+    const row = await queryOne<{ name: string; icon: unknown }>(
+      deps.pool,
+      `SELECT name, icon FROM workspaces WHERE id = $1`,
+      [workspaceId],
+    );
+    ctx.send(200, { id: workspaceId, name: row?.name ?? '', icon: row?.icon ?? null });
   });
 
   /**

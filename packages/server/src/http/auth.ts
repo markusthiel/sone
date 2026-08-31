@@ -390,9 +390,10 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       name: string;
       role: string;
       default_locale: string;
+      icon: unknown;
     }>(
       deps.pool,
-      `SELECT w.id, w.name, m.role, w.default_locale
+      `SELECT w.id, w.name, m.role, w.default_locale, w.icon
          FROM workspace_members m
          JOIN workspaces w ON w.id = m.workspace_id
         WHERE m.user_id = $1
