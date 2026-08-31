@@ -6,12 +6,13 @@
  * things to keep in step, and the one used less is the one that would rot.
  */
 
-import { useEffect, useState, type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 
-import { ApiError, api, type WorkspaceIcon, type WorkspaceMember } from '../api/client.ts';
+import { ApiError, api, type WorkspaceIcon } from '../api/client.ts';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { messageFor } from './Auth.tsx';
 import { WorkspaceInvite } from './WorkspaceInvite.tsx';
+import { WorkspaceMembers } from './WorkspaceMembers.tsx';
 
 export function WorkspaceDetail({
   workspaceId,
@@ -24,32 +25,21 @@ export function WorkspaceDetail({
   icon: WorkspaceIcon | null;
   onBack: () => void;
 }): ReactElement {
-  const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmName, setConfirmName] = useState('');
   const [chosen, setChosen] = useState<WorkspaceIcon | null>(icon);
 
-  const load = (): void => {
-    void api
-      .members(workspaceId)
-      .then((result) => setMembers(result.members))
-      .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'));
-  };
-
-  useEffect(load, [workspaceId]);
-
   /**
-   * Do something, then read the result back.
+   * Do something and report a failure.
    *
-   * Rather than adjusting the list here as well: the server refuses some of
-   * these — the last owner, somebody's own workspace — and a list updated
-   * optimistically would show a change that did not happen.
+   * The members table reloads itself now, so nothing here has to read a list
+   * back — what is left is deletion, which navigates away on success.
    */
   const act = (work: Promise<unknown>): void => {
     setError(null);
-    void work
-      .then(load)
-      .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'));
+    void work.catch((err: unknown) =>
+      setError(err instanceof ApiError ? err.code : 'network_error'),
+    );
   };
 
   return (
@@ -82,52 +72,10 @@ export function WorkspaceDetail({
       </div>
 
       <h3 className="settings-heading">People</h3>
-      {members === null ? (
-        <p className="muted">Loading…</p>
-      ) : (
-        <table className="workspace-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Since</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((member) => (
-              <tr key={member.userId}>
-                <td>{member.displayName}</td>
-                <td>
-                  <select
-                    value={member.role}
-                    aria-label={`Role for ${member.displayName}`}
-                    onChange={(event) =>
-                      act(api.setMemberRole(workspaceId, member.userId, event.target.value))
-                    }
-                  >
-                    {['owner', 'admin', 'member', 'guest'].map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="muted">{new Date(member.joinedAt).toLocaleDateString()}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => act(api.removeMember(workspaceId, member.userId))}
-                  >
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {/* The same table a workspace's own settings show (ADR-0032). It lived
+        * here, which is why administering members required the instance-wide
+        * right in the interface while the server had never asked for it. */}
+      <WorkspaceMembers workspaceId={workspaceId} canAdminister />
 
       {/* The same invitation panel a workspace's own owner uses, given a
         * different workspace. Not a second one that happens to look alike. */}

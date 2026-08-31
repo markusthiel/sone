@@ -23,6 +23,7 @@ import { SettingsShell, resolveSection, type ShellSection } from './SettingsShel
 import { ThemeSettings } from './ThemeSettings.tsx';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { WorkspaceInvite } from './WorkspaceInvite.tsx';
+import { WorkspaceMembers } from './WorkspaceMembers.tsx';
 
 const SECTIONS: readonly ShellSection[] = [
   { id: 'general', label: 'Name and mark', hint: 'What this workspace is called and how it is recognised' },
@@ -30,7 +31,7 @@ const SECTIONS: readonly ShellSection[] = [
   // removed from that screen's list, so the per-workspace heading sizes and text
   // scale could not be opened at all (ADR-0032).
   { id: 'typography', label: 'Typography', hint: 'How this workspace reads' },
-  { id: 'people', label: 'People', hint: 'Who is in this workspace, and inviting more' },
+  { id: 'people', label: 'People', hint: 'Who is in this workspace, their roles, and inviting more' },
   // Unreachable for the same reason.
   { id: 'groups', label: 'Groups', hint: 'Named sets of people, for page permissions' },
 ];
@@ -78,7 +79,21 @@ export function WorkspaceSettingsScreen({
       {current === 'typography' && (
         <ThemeSettings workspaceId={workspaceId} canEdit={canEdit} />
       )}
-      {current === 'people' && <WorkspaceInvite workspaceId={workspaceId} />}
+      {current === 'people' && (
+        <section className="settings-section">
+          {/* The same table the administration list shows, and the reason this
+            * section exists: the server has always let a workspace's owners and
+            * administrators manage their own members, and only the interface
+            * required the instance-wide right for it (ADR-0032). */}
+          <WorkspaceMembers workspaceId={workspaceId} canAdminister={canEdit} />
+
+          {/* Inviting is offered only to those who may. The server refuses
+            * either way; a form that lets somebody fill it in and then refuses
+            * is worse than one that is not there — and unlike a role, an
+            * invitation has nothing to read when you cannot make one. */}
+          {canEdit && <WorkspaceInvite workspaceId={workspaceId} />}
+        </section>
+      )}
       {current === 'groups' && <GroupsPanel workspaceId={workspaceId} />}
     </SettingsShell>
   );

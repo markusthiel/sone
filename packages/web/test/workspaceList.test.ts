@@ -62,18 +62,45 @@ test('opening one is a step inside the section, not a place to link to', () => {
   assert.match(settings, /useState<\{\s*\n?\s*id: string;/);
 });
 
+const members = codeOf(new URL('../src/components/WorkspaceMembers.tsx', import.meta.url));
+
 test('the list is read back rather than adjusted in place', () => {
   // The server refuses some of these — the last owner, somebody's own
   // workspace — and a list updated optimistically would show a change that did
   // not happen.
-  assert.match(detail, /\.then\(load\)/);
-  assert.doesNotMatch(detail, /setMembers\(members\.filter/);
+  assert.match(members, /\.then\(load\)/);
+  assert.doesNotMatch(members, /setMembers\(members\.filter/);
 });
 
 test('a role is changed where it is shown', () => {
   // Not in a dialog: the list is where somebody is comparing people, and that
   // is where the comparison leads to a change.
-  assert.match(detail, /api\.setMemberRole\(workspaceId, member\.userId, event\.target\.value\)/);
+  assert.match(
+    members,
+    /api\.setMemberRole\(workspaceId, member\.userId, event\.target\.value\)/,
+  );
+});
+
+test('the members table is one table, used from both places', () => {
+  // It lived inside the administration screen, which is why administering
+  // members required the instance-wide right in the interface while the server
+  // had never asked for it (ADR-0032).
+  const workspace = codeOf(
+    new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
+  );
+  assert.match(detail, /<WorkspaceMembers workspaceId=\{workspaceId\} canAdminister \/>/);
+  assert.match(workspace, /<WorkspaceMembers workspaceId=\{workspaceId\} canAdminister=\{canEdit\}/);
+  // And no second copy of the table left behind in either.
+  for (const source of [detail, workspace]) {
+    assert.doesNotMatch(source, /Role for \$\{/);
+  }
+});
+
+test('a member who may not administer reads the list rather than losing it', () => {
+  // Knowing who else is in a workspace is not administration, and a section
+  // that disappears makes people ask whether they are in the right place.
+  assert.match(members, /canAdminister \? \(/);
+  assert.match(members, /\{canAdminister && \(/);
 });
 
 // --- deleting one -----------------------------------------------------------
