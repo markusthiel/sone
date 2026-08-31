@@ -37,7 +37,7 @@ test('the row is one line and the item count is gone', () => {
   // How many pages a workspace holds is not how anybody recognises it, and it
   // was the reason every row needed two lines.
   assert.doesNotMatch(menu, /workspace\.pageCount/);
-  assert.match(css, /\.workspace-item \{[^}]*align-items: center/);
+  assert.match(css, /\.switcher-item \{[^}]*align-items: center/);
 });
 
 test('the icon reuses the entry renderer rather than a second one', () => {
@@ -88,10 +88,10 @@ test('a switcher row is a row, in one rule', () => {
   // the later rule set `display: flex` without resetting the direction, so the
   // column survived. Third time this session that a half-overriding second rule
   // has done this.
-  const rules = css.match(/\.workspace-item \{/g) ?? [];
+  const rules = css.match(/\.switcher-item \{/g) ?? [];
   assert.equal(rules.length, 1, 'one rule lays it out');
-  assert.match(css, /\.workspace-item \{[^}]*flex-direction: row/);
-  assert.doesNotMatch(css, /\.workspace-item \{[^}]*flex-direction: column/);
+  assert.match(css, /\.switcher-item \{[^}]*flex-direction: row/);
+  assert.doesNotMatch(css, /\.switcher-item \{[^}]*flex-direction: column/);
 });
 
 test('a row is taller than its text, so it reads as a card', () => {
@@ -101,7 +101,7 @@ test('a row is taller than its text, so it reads as a card', () => {
 test('the switcher is inset like the search field below it', () => {
   // Two pixels of difference is invisible to measure and visible to look at:
   // the eye compares the two left edges, not the numbers.
-  const button = /\.workspace-button \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const button = /\.switcher-button \{([^}]*)\}/.exec(css)?.[1] ?? '';
   const search = /\.sidebar-search \{([^}]*)\}/.exec(css)?.[1] ?? '';
   const inset = (rule: string): string => /padding: ([^;]+);/.exec(rule)?.[1] ?? '';
   assert.equal(inset(button), inset(search));

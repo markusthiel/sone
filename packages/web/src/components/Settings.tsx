@@ -69,10 +69,16 @@ export function Settings({
   // nobody wanted.
   const [listOpen, setListOpen] = useState(false);
   const current = resolveSection(SECTIONS, section);
+  // Read from the session rather than probed: the switcher only has to decide
+  // whether to offer the entry, and the area behind it asks the server itself.
+  const canAdminister =
+    session.user.isInstanceAdmin || session.user.canManageWorkspaces;
 
   return (
     <SettingsShell
       area="You"
+      areaId="settings"
+      canAdminister={canAdminister}
       sections={SECTIONS}
       current={current}
       hrefFor={(id) => paths.settings(id)}

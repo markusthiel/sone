@@ -52,6 +52,8 @@ export function WorkspaceSettingsScreen({
   const [listOpen, setListOpen] = useState(false);
   const current = resolveSection(SECTIONS, section);
   const workspace = session.workspaces.find((entry) => entry.id === workspaceId);
+  const canAdminister =
+    session.user.isInstanceAdmin || session.user.canManageWorkspaces;
 
   // The same two roles the server enforces, stated here so the controls are
   // disabled rather than failing on save.
@@ -60,6 +62,8 @@ export function WorkspaceSettingsScreen({
   return (
     <SettingsShell
       area={workspace?.name || 'This workspace'}
+      areaId="workspace"
+      canAdminister={canAdminister}
       sections={SECTIONS}
       current={current}
       hrefFor={(id) => paths.workspaceSettings(id)}

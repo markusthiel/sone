@@ -179,10 +179,10 @@ export function WorkspaceMenu({
   };
 
   return (
-    <div className="workspace-menu-wrap">
+    <div className="switcher-wrap">
       <button
         ref={buttonRef}
-        className="workspace-button"
+        className="switcher-button"
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
@@ -190,10 +190,10 @@ export function WorkspaceMenu({
         title={currentName}
       >
         <WorkspaceMark name={currentName} icon={currentIcon} />
-        <span className="workspace-name" style={titleColorStyle(currentIcon)}>
+        <span className="switcher-name" style={titleColorStyle(currentIcon)}>
           {currentName}
         </span>
-        <ChevronRightIcon className="workspace-caret" />
+        <ChevronRightIcon className="switcher-caret" />
       </button>
 
       {/* What is travelling, drawn under the pointer.
@@ -224,14 +224,14 @@ export function WorkspaceMenu({
       )}
 
       {open && (
-        <div className="workspace-menu" ref={panelRef} role="menu">
+        <div className="switcher-menu" ref={panelRef} role="menu">
           {workspaces === null && !error && <p className="muted small">Loading…</p>}
           {error && <p className="error small">{messageFor(error)}</p>}
 
           {workspaces?.map((workspace, at) => (
             <button
               key={workspace.id}
-              className="workspace-item"
+              className="switcher-item"
               type="button"
               role="menuitem"
               aria-current={workspace.id === currentId}
@@ -276,20 +276,20 @@ export function WorkspaceMenu({
               {/* The name colour, which was saved and never applied — the
                   chooser offered it and nothing read it back. */}
               <span
-                className="workspace-item-name"
+                className="switcher-item-name"
                 style={titleColorStyle(workspace.icon ?? null)}
               >
                 {workspace.name || 'Untitled'}
               </span>
               {workspace.memberCount > 1 && (
-                <span className="workspace-item-meta">
+                <span className="switcher-item-meta">
                   {workspace.memberCount} people
                 </span>
               )}
             </button>
           ))}
 
-          <div className="workspace-menu-footer">
+          <div className="switcher-footer">
             {creating ? (
               <div className="workspace-create">
                 <input
@@ -319,7 +319,7 @@ export function WorkspaceMenu({
               </div>
             ) : (
               <button
-                className="workspace-item"
+                className="switcher-item"
                 type="button"
                 role="menuitem"
                 onClick={() => setCreating(true)}
@@ -342,7 +342,7 @@ export function WorkspaceMenu({
                 member; what they may not change is disabled rather than
                 hidden. */}
             <a
-              className="workspace-item"
+              className="switcher-item"
               href={paths.workspaceSettings()}
               role="menuitem"
             >
@@ -350,7 +350,7 @@ export function WorkspaceMenu({
             </a>
 
             {canManageWorkspaces && (
-              <a className="workspace-item" href={paths.admin('workspaces')} role="menuitem">
+              <a className="switcher-item" href={paths.admin('workspaces')} role="menuitem">
                 <FolderPlusIcon /> All workspaces
               </a>
             )}

@@ -548,7 +548,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   position: relative;
 }
 
-.workspace-name {
+.switcher-name {
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1827,14 +1827,27 @@ select {
   background: var(--sone-bg);
 }
 
-/* --- workspace switcher --- */
+/* --- the switcher at the top of a column ---
+ *
+ * One shape, two things. In the application it names the workspace you are in
+ * and offers the others; in the settings screens it names the area you are in —
+ * you, this workspace, the instance — and offers those. Named `switcher-*` rather
+ * than `workspace-*` for exactly that reason: the classes describe a control at
+ * the top of a column, and calling them after one of the two things they hold
+ * would leave the other looking like a borrowed style.
+ *
+ * The same shape in the same place is the point rather than an economy: it is
+ * where somebody has already learnt to look for "where am I, and what else is
+ * there". What differs is what the answer is about, and that is what the button's
+ * own label says.
+ */
 
-/* No positioning context here on purpose: the panel is anchored to
-   `.sidebar-head` so that it spans the sidebar's column and not just the part of
-   the row the name button occupies. */
-.workspace-menu-wrap { flex: 1; min-width: 0; }
+/* No positioning context here on purpose: the panel is anchored to the head it
+   sits in, so that it spans the whole column and not just the part of the row the
+   name button occupies. */
+.switcher-wrap { flex: 1; min-width: 0; }
 
-.workspace-button {
+.switcher-button {
   display: flex;
   align-items: center;
   gap: var(--sone-space-3);
@@ -1851,9 +1864,9 @@ select {
   font-weight: 600;
   text-align: start;
 }
-.workspace-button:hover { background: var(--sone-bg-hover); }
+.switcher-button:hover { background: var(--sone-bg-hover); }
 
-.workspace-caret {
+.switcher-caret {
   flex: none;
   inline-size: 0.8em;
   block-size: 0.8em;
@@ -1861,7 +1874,20 @@ select {
   transform: rotate(90deg);
 }
 
-.workspace-menu {
+/* The settings column's own head, for the same reason `.sidebar-head` has one:
+   the panel hangs from the row and spans the column.
+   *
+   * The area names are longer than a workspace's, so the panel is given room to
+   * be as wide as the column rather than as wide as the button — which is the
+   * same rule the workspace one follows, from the other direction. */
+.settings-nav-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-block-end: var(--sone-space-4);
+}
+
+.switcher-menu {
   position: absolute;
   z-index: 43;
   inset-block-start: 100%;
@@ -1889,7 +1915,7 @@ select {
   box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
 }
 
-.workspace-item {
+.switcher-item {
   display: flex;
   /* A row: the mark, then the name. It was a column, which put the icon above
      the text and centred both — and my later rule set `display: flex` without
@@ -1924,9 +1950,9 @@ select {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
-.workspace-item:hover { background: var(--sone-bg-hover); text-decoration: none; }
-.workspace-item[aria-current='true'] { background: var(--sone-bg-hover); font-weight: 600; }
-.workspace-item svg { inline-size: 1em; block-size: 1em; vertical-align: -0.15em; }
+.switcher-item:hover { background: var(--sone-bg-hover); text-decoration: none; }
+.switcher-item[aria-current='true'] { background: var(--sone-bg-hover); font-weight: 600; }
+.switcher-item svg { inline-size: 1em; block-size: 1em; vertical-align: -0.15em; }
 
 /* --- arranging the switcher (ADR-0031) ---
  *
@@ -1940,17 +1966,17 @@ select {
  * whether this is a drag or a scroll of a tall list. Scrolling is suppressed for
  * the duration of a drag instead (hooks/usePointerDrag.ts).
  */
-.workspace-item[data-dragging='true'] {
+.switcher-item[data-dragging='true'] {
   opacity: 0.5;
   background: var(--sone-bg-hover);
   box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
 }
 /* A row being carried must not swallow the pointer events its own children would
    receive, and must not be found by elementFromPoint before the row under it. */
-.workspace-item[data-dragging='true'] * { pointer-events: none; }
+.switcher-item[data-dragging='true'] * { pointer-events: none; }
 
-.workspace-item[data-drop='before']::before,
-.workspace-item[data-drop='after']::after {
+.switcher-item[data-drop='before']::before,
+.switcher-item[data-drop='after']::after {
   content: '';
   position: absolute;
   /* Past the row's own edges, so it reads as a line between two rows rather
@@ -1961,14 +1987,14 @@ select {
   background: var(--sone-accent);
   z-index: 2;
 }
-.workspace-item[data-drop='before']::before { inset-block-start: -2px; }
-.workspace-item[data-drop='after']::after { inset-block-end: -2px; }
+.switcher-item[data-drop='before']::before { inset-block-start: -2px; }
+.switcher-item[data-drop='after']::after { inset-block-end: -2px; }
 
 /* The name and the count are declared once, further down beside
    `.workspace-mark` — there used to be a pair here as well, and the two halves
    disagreed about how the row flexes. */
 
-.workspace-menu-footer {
+.switcher-footer {
   margin-block-start: 4px;
   padding-block-start: 4px;
   border-block-start: 1px solid var(--sone-border);
@@ -5141,8 +5167,8 @@ body {
 .workspace-mark svg { inline-size: 14px; block-size: 14px; }
 
 /* One line: a mark, a name, and the people count only where there are people. */
-.workspace-item-name { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workspace-item-meta { flex: 0 0 auto; color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+.switcher-item-name { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.switcher-item-meta { flex: 0 0 auto; color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
 
 /* The "no icon" option in the workspace chooser shows an initial, because that
    is what choosing it produces — an option that does not look like its result

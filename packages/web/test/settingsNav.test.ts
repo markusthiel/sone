@@ -20,6 +20,47 @@ const workspace = codeOf(
 );
 const instance = codeOf(new URL('../src/components/AdminScreen.tsx', import.meta.url));
 
+test('the switcher at the top of the column is the same shape, holding areas', () => {
+  // Where the workspace switcher sits in the application, so it is where
+  // somebody has already learnt to look for "where am I, and what else is
+  // there". The classes are the switcher's own — `switcher-*`, not
+  // `workspace-*` — because the shape belongs to the position rather than to
+  // either of the two things it holds.
+  assert.match(shell, /className="switcher-button"/);
+  assert.match(shell, /className="switcher-menu"/);
+  assert.match(shell, /className="switcher-item"/);
+
+  // The three areas, named for the subject as the areas themselves are.
+  for (const label of ['Your settings', 'This workspace', 'Administration']) {
+    assert.match(shell, new RegExp(`label: '${label}'`));
+  }
+
+  // Never in the workspace switcher's own menu: "which workspace" and "whose
+  // settings" are different questions, and one menu holding both means two
+  // things.
+  const workspaceMenu = codeOf(
+    new URL('../src/components/WorkspaceMenu.tsx', import.meta.url),
+  );
+  assert.doesNotMatch(workspaceMenu, /Your settings|Administration/);
+});
+
+test('the administration area is absent from the switcher without the right', () => {
+  // Absent rather than present and refusing, as the entry into it is.
+  assert.match(shell, /area\.id !== 'admin' \|\| canAdminister/);
+  // And the right comes from the session, since the switcher only decides
+  // whether to offer the entry — the area behind it asks the server.
+  for (const [name, source] of [
+    ['you', you],
+    ['this workspace', workspace],
+  ] as const) {
+    assert.match(
+      source,
+      /session\.user\.isInstanceAdmin \|\| session\.user\.canManageWorkspaces/,
+      name,
+    );
+  }
+});
+
 test('three areas, and each names whose settings it holds', () => {
   assert.match(you, /area="You"/);
   assert.match(workspace, /area=\{workspace\?\.name \|\| 'This workspace'\}/);
