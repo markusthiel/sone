@@ -13,7 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing an operator or a reader would notice: `pnpm lint` runs for the first time
+**Pasting more than fifty entries says how many were left over**, and says it as a
+note rather than an error — fifty went in, and the rest is still on the clipboard.
+
+Nothing else an operator or a reader would notice: `pnpm lint` runs for the first time
 (it was in the scripts and had never had eslint installed or configured), and the
 architecture records now say which decisions are actually implemented — nine of
 them still said "not yet" long after they were.

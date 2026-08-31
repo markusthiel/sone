@@ -3278,6 +3278,10 @@ select {
 }
 .collection-table thead .collection-title-column { background: var(--sone-bg-subtle); }
 
+/* A notice, which is not an error: fifty entries went in and the rest is still
+   on the clipboard. Quiet, and above the table it is about. */
+.collection-notice { margin: 0; font-size: var(--sone-text-sm); }
+
 /* --- a cell holding files (ADR-0035) ---
  *
  * One column type for every kind of file; what differs by kind is the drawing.

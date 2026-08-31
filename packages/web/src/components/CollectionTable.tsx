@@ -139,6 +139,14 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   const [addingColumn, setAddingColumn] = useState<{ x: number; y: number } | null>(null);
   /** Whether the "empty the table" confirmation is showing. */
   const [clearing, setClearing] = useState(false);
+  /**
+   * Something worth saying that is not a failure.
+   *
+   * Separate from `error` because the two read differently and are dismissed
+   * differently: an error stays until the thing that failed works, and a notice
+   * is about what just happened.
+   */
+  const [notice, setNotice] = useState<string | null>(null);
   // Which view is showing. Local rather than stored: which view somebody is
   // looking at is not a property of the collection, and persisting it would
   // change what a colleague sees.
@@ -347,6 +355,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
    */
   const pasteGrid = useCallback(
     async (text: string, anchorRowId: string | null, columnFrom: number) => {
+      setNotice(null);
       const grid = parsePastedGrid(text);
       if (grid.rows.length === 0) return;
 
@@ -427,9 +436,18 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       });
 
       if (grid.ignored > 0) {
-        // Said, not silently dropped. The rest is still on the clipboard, and
-        // pasting again appends — so this is an instruction rather than a refusal.
-        setError('paste_capped');
+        // Said with the number, and not as an error.
+        //
+        // It went through the error channel, which was wrong twice over: nothing
+        // failed — fifty entries were added — and the message could not carry a
+        // count, because the catalogue maps a code to a fixed sentence. What
+        // somebody needs to know here is how many are left, so they know whether
+        // one more paste finishes the job.
+        setNotice(
+          grid.ignored === 1
+            ? `Fifty entries at a time. One more was not added — paste it again and it will go below these.`
+            : `Fifty entries at a time. ${grid.ignored} more were not added — paste them again and they will go below these.`,
+        );
       }
     },
     [collectionId, columns, data, history, load],
@@ -490,6 +508,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   return (
     <div className="collection">
       {error && <p className="error">{messageFor(error)}</p>}
+      {notice && <p className="muted collection-notice">{notice}</p>}
 
       {/* Views. Shown only when there is a choice to make, so a collection with
           one table does not carry a tab bar with one tab in it. */}

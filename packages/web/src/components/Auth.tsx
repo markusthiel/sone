@@ -26,9 +26,6 @@ const MESSAGES: Record<string, string> = {
   no_workspace: 'Your account is not a member of any workspace yet.',
   network_error: 'Could not reach the server.',
   invalid_role: 'A share link cannot grant that role.',
-  // Not a failure: fifty entries were added and the rest is still on the
-  // clipboard, so this says what to do rather than what went wrong (ADR-0034).
-  paste_capped: 'Fifty entries at a time. Paste the rest and it will be added below.',
   too_many_rows: 'That is more than fifty entries. Paste them in smaller pieces.',
   not_archived: 'That entry is not in the trash.',
   parent_missing:
