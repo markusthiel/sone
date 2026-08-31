@@ -39,8 +39,6 @@ import {
   SearchIcon,
   SidebarIcon,
   StarIcon,
-  SettingsIcon,
-  SignOutIcon,
   TrashIcon,
 } from './icons.tsx';
 

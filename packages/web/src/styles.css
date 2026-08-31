@@ -1885,6 +1885,18 @@ select {
   font-weight: 400;
 }
 
+/* Whatever mark the button carries, at the size the row is built for.
+ *
+ * Belt and braces after one icon in the set turned out to have no intrinsic size
+ * and filled the column: a rule here means the row cannot be broken from the
+ * outside by an icon that forgets to size itself. The caret keeps its own,
+ * smaller size — hence the exclusion rather than a blanket rule. */
+.switcher-button > svg:not(.switcher-caret) {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+}
+
 .switcher-caret {
   flex: none;
   inline-size: 0.8em;
