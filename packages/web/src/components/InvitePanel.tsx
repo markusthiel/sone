@@ -12,12 +12,14 @@ import { useState, type ReactElement } from 'react';
 import { ApiError, api } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
+import { PendingInvitations } from './PendingInvitations.tsx';
 
 export function InvitePanel(): ReactElement {
   const [email, setEmail] = useState('');
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState(0);
 
   const invite = (): void => {
     setBusy(true);
@@ -34,7 +36,10 @@ export function InvitePanel(): ReactElement {
       // configured public URL and not necessarily the one somebody reached it
       // by — behind a proxy those differ, and a link nobody can open is worse
       // than no link.
-      .then((result) => setLink(`${window.location.origin}${paths.signup(result.token)}`))
+      .then((result) => {
+        setLink(`${window.location.origin}${paths.signup(result.token)}`);
+        setCreated((previous) => previous + 1);
+      })
       .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'))
       .finally(() => setBusy(false));
   };
@@ -104,6 +109,11 @@ export function InvitePanel(): ReactElement {
           </div>
         </div>
       )}
+
+      {/* Null: the invitations that name no workspace (ADR-0025). Same rows and
+          same component as a workspace's, because the difference between the two
+          invitations is which list to ask for and not how a row looks. */}
+      <PendingInvitations workspaceId={null} reloadToken={created} />
     </section>
   );
 }

@@ -12,6 +12,7 @@ import { useState, type ReactElement } from 'react';
 import { ApiError, api } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
+import { PendingInvitations } from './PendingInvitations.tsx';
 
 const ROLES: Array<{ id: string; label: string; hint: string }> = [
   { id: 'member', label: 'Member', hint: 'Can read and write everything not restricted' },
@@ -25,6 +26,9 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Bumped after one is created, so the list beside this form includes it
+  // without the form having to know the list exists.
+  const [created, setCreated] = useState(0);
 
   const invite = (): void => {
     setBusy(true);
@@ -36,7 +40,10 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
       // Built from where the browser is, not from the server's configured
       // public URL: behind a proxy those differ, and a link nobody can open is
       // worse than no link.
-      .then((result) => setLink(`${window.location.origin}${paths.signup(result.token)}`))
+      .then((result) => {
+        setLink(`${window.location.origin}${paths.signup(result.token)}`);
+        setCreated((previous) => previous + 1);
+      })
       .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'))
       .finally(() => setBusy(false));
   };
@@ -110,6 +117,11 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
           </p>
         </div>
       )}
+
+      {/* What has been sent and not yet used up. Both forms produced a link and
+          then forgot it, so one sent to the wrong address stayed valid until it
+          expired and nothing said it existed (ADR-0025). */}
+      <PendingInvitations workspaceId={workspaceId} reloadToken={created} />
     </section>
   );
 }

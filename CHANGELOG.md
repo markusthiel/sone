@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Invitations you have sent can be seen and withdrawn.** Both invitation forms
+produced a link and then forgot it, so one sent to the wrong address stayed valid
+until it expired and nothing said it existed. The list sits under the form it
+belongs to — This workspace → People, and Administration → Invitations — and shows
+who each is for, how often it has been used and when it expires. The link itself
+is never shown again: only a hash of it is stored, and a list that reprinted them
+would turn "who can open this screen" into "who can join".
+
 **A workspace's owners and administrators can manage their own members**, under
 This workspace → People: roles, removing somebody, and inviting. It needed the
 instance-wide right before — not because the server asked for it, but because the

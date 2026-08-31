@@ -356,6 +356,17 @@ export interface SearchResult {
 export const MATCH_OPEN = '\u0002';
 export const MATCH_CLOSE = '\u0003';
 
+/** An invitation that has not been used up, withdrawn or expired. */
+export interface PendingInvitation {
+  id: string;
+  /** Null means anybody with the link. */
+  email: string | null;
+  role: string;
+  uses: number;
+  maxUses: number;
+  expiresAt: string;
+}
+
 export interface VersionInfo {
   version: string;
   commit: string;
@@ -526,6 +537,19 @@ export const api = {
       instanceOnly: boolean;
       needsAddress: boolean;
     }>(`/api/invitations/${encodeURIComponent(token)}`),
+
+  /** Outstanding invitations to a workspace, so they can be seen and withdrawn. */
+  workspaceInvitations: (workspaceId: string) =>
+    request<{ invitations: PendingInvitation[] }>(
+      `/api/workspaces/${workspaceId}/invitations`,
+    ),
+
+  /** The same, for invitations that name no workspace (ADR-0025). */
+  instanceInvitations: () =>
+    request<{ invitations: PendingInvitation[] }>('/api/admin/invitations'),
+
+  revokeInvitation: (invitationId: string) =>
+    request<{ ok: true }>(`/api/invitations/${invitationId}`, { method: 'DELETE' }),
 
   acceptInvitation: (token: string) =>
     request<{ workspaceId: string | null; alreadyMember: boolean }>(

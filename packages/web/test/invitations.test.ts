@@ -13,7 +13,11 @@ test('an instance invitation names no workspace', () => {
   // The thing that could not be expressed before: an account here, without a
   // decision about which team somebody belongs to (ADR-0025).
   assert.match(panel, /inviteToInstance\(/);
-  assert.doesNotMatch(panel, /workspaceId/);
+  // Nothing in the creating half names one. The list beside it passes null,
+  // which is how "the invitations that name no workspace" is asked for — so the
+  // absence is asserted on the call rather than on the whole file.
+  assert.doesNotMatch(panel, /inviteToInstance\([^)]*workspaceId/);
+  assert.doesNotMatch(panel, /workspaceId=\{workspaceId\}/);
 });
 
 test('the link uses the sign-up path that already exists', () => {
@@ -120,4 +124,39 @@ test('an address-bound invitation says only that person can accept it', () => {
   // The server enforces it; saying so is what stops somebody forwarding the
   // link and wondering why it failed.
   assert.match(wsInvite, /only they can accept it/);
+});
+
+// --- seeing and withdrawing what was sent (ADR-0025) -------------------------
+
+test('an invitation can be seen and withdrawn after it is created', () => {
+  // Both forms produced a link and then forgot it, so one sent to the wrong
+  // address stayed valid until it expired and nothing said it existed.
+  const pending = codeOf(new URL('../src/components/PendingInvitations.tsx', import.meta.url));
+  assert.match(pending, /\.revokeInvitation\(invitation\.id\)/);
+  assert.match(pending, /\.then\(load\)/, 'read back rather than removed in place');
+
+  // One component for both scopes: null asks for the invitations that name no
+  // workspace.
+  assert.match(pending, /workspaceId === null\s*\?\s*api\.instanceInvitations\(\)/);
+  const workspace = codeOf(new URL('../src/components/WorkspaceInvite.tsx', import.meta.url));
+  const instance = codeOf(new URL('../src/components/InvitePanel.tsx', import.meta.url));
+  assert.match(workspace, /<PendingInvitations workspaceId=\{workspaceId\}/);
+  assert.match(instance, /<PendingInvitations workspaceId=\{null\}/);
+});
+
+test('the list never reprints the link', () => {
+  // A token is a credential. A list that shows every outstanding one turns "who
+  // can see this screen" into "who can join".
+  const pending = codeOf(new URL('../src/components/PendingInvitations.tsx', import.meta.url));
+  assert.doesNotMatch(pending, /paths\.signup|invitation\.token/);
+});
+
+test('creating one refreshes the list beside the form', () => {
+  // Otherwise the thing just created is the one thing missing from the list of
+  // what is outstanding.
+  for (const name of ['WorkspaceInvite', 'InvitePanel']) {
+    const source = codeOf(new URL(`../src/components/${name}.tsx`, import.meta.url));
+    assert.match(source, /setCreated\(\(previous\) => previous \+ 1\)/, name);
+    assert.match(source, /reloadToken=\{created\}/, name);
+  }
 });
