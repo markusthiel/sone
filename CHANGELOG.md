@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: choosing a workspace icon reloaded the page and looked as if nothing had
+been saved.** It had been; the panel was thrown away and the list showed no
+marks. The panel stays now, and the list shows the mark.
+
 **Fixed: the workspace switcher stacked its icons above the names** and centred
 both. Its rows are now cards with the mark first, and the button lines up with
 the search field below it.

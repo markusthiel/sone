@@ -46,6 +46,7 @@ test('the icon reuses the entry renderer rather than a second one', () => {
 // --- choosing one -----------------------------------------------------------
 
 const chooser = codeOf(new URL('../src/components/WorkspaceAppearance.tsx', import.meta.url));
+const list = codeOf(new URL('../src/components/WorkspaceList.tsx', import.meta.url));
 const detail = codeOf(new URL('../src/components/WorkspaceDetail.tsx', import.meta.url));
 
 test('the chooser reuses the entry controls rather than resembling them', () => {
@@ -101,4 +102,24 @@ test('the switcher is inset like the search field below it', () => {
   const search = /\.sidebar-search \{([^}]*)\}/.exec(css)?.[1] ?? '';
   const inset = (rule: string): string => /padding: ([^;]+);/.exec(rule)?.[1] ?? '';
   assert.equal(inset(button), inset(search));
+});
+
+test('choosing an icon does not reload the page', () => {
+  // Reloading threw the panel away: the open workspace is state and not a
+  // route, so the page came back at the list — which showed no marks, so the
+  // change looked as if it had not been saved. It had.
+  assert.doesNotMatch(detail, /onChanged=\{\(\) => window\.location\.reload\(\)\}/);
+  assert.match(detail, /onChanged=\{setChosen\}/);
+});
+
+test('the chooser is given what it last saved', () => {
+  // Otherwise choosing a colour after an icon sends a stale copy of the icon
+  // and undoes it.
+  assert.match(detail, /icon=\{chosen\}/);
+  assert.match(chooser, /\.then\(\(saved\) => onChanged\(saved\.icon\)\)/);
+});
+
+test('the list shows the mark it let somebody choose', () => {
+  // Not seeing it where workspaces are compared is why this looked unsaved.
+  assert.match(list, /<WorkspaceMark name=\{row\.name\} icon=\{row\.icon \?\? null\} \/>/);
 });

@@ -20,7 +20,8 @@ export function WorkspaceAppearance({
 }: {
   workspaceId: string;
   icon: WorkspaceIcon | null;
-  onChanged: () => void;
+  /** Handed what was saved, so the caller does not have to guess it. */
+  onChanged: (icon: WorkspaceIcon | null) => void;
 }): ReactElement {
   const [query, setQuery] = useState('');
   const current = icon?.icon ?? null;
@@ -39,7 +40,10 @@ export function WorkspaceAppearance({
     // rename happens by accident.
     void api
       .updateWorkspaceIcon(workspaceId, next)
-      .then(() => onChanged())
+      // The server's answer rather than what was sent: if it ever normalises
+      // anything, the interface should show what is stored and not what was
+      // hoped for.
+      .then((saved) => onChanged(saved.icon))
       .catch(() => {
         // Decoration. Nothing changes and nothing is lost.
       });
