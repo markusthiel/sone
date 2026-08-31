@@ -65,6 +65,20 @@ test('the sidebar is separated by a surface, not by a rule', () => {
   assert.match(css, /\.page-body \{[^}]*max-width: 46rem/);
 });
 
+test('the furniture is tinted and the writing is not', () => {
+  // The other way round to begin with: the page was the sunken surface and the
+  // sidebar sat on white above it. Wrong way for a writing tool — paper is the
+  // brightest thing on a desk.
+  assert.match(css, /body \{[^}]*background: var\(--surface-page\)/);
+  for (const area of ['\\.sidebar', '\\.topbar', '\\.right-panel']) {
+    assert.match(
+      css,
+      new RegExp(`${area} \\{[^}]*background: var\\(--surface-chrome\\)`),
+      `${area} is furniture`,
+    );
+  }
+});
+
 test('the writing has no surface of its own', () => {
   // A sheet under the text sounded right and looked wrong: on a wide screen the
   // column read as a lighter panel floating in a darker window — a distinction

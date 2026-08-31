@@ -46,6 +46,28 @@ test('the media query fills the same set as the chosen dark theme', () => {
   assert.deepEqual(missing, [], 'in the chosen dark theme and not in the automatic one');
 });
 
+test('the page and the chrome are different surfaces in both themes', () => {
+  // The step between them is what tells the areas apart without a border doing
+  // the work. Equal values in either theme would leave one theme with no
+  // distinction at all — and it would look deliberate.
+  for (const [name, selector] of [
+    ['light', ":root,\n\\[data-theme='light'\\]"],
+    ['dark', "\\[data-theme='dark'\\]"],
+  ] as const) {
+    const pattern = new RegExp(`${selector}\\s*\\{([^}]*)\\}`);
+    const body = pattern.exec(css)?.[1] ?? '';
+    const page = /--surface-page:\s*([^;]+);/.exec(body)?.[1]?.trim();
+    const chrome = /--surface-chrome:\s*([^;]+);/.exec(body)?.[1]?.trim();
+    assert.ok(page, `${name} declares a page surface`);
+    assert.ok(chrome, `${name} declares a chrome surface`);
+    assert.notEqual(chrome, page, `${name}: the chrome is not the page`);
+    // And not the sunken surface either, or a field inside the chrome would
+    // disappear into it.
+    const sunken = /--surface-sunken:\s*([^;]+);/.exec(body)?.[1]?.trim();
+    assert.notEqual(chrome, sunken, `${name}: the chrome is not the sunken surface`);
+  }
+});
+
 test('the outward names are aliases, not values', () => {
   // Several thousand lines use --sone-*. They keep working because they point
   // at tokens now — this change moved the decisions without moving the code
