@@ -3407,24 +3407,25 @@ select {
   z-index: 40;
   display: flex;
   flex-direction: column;
-  padding: var(--sone-space-1);
-  border: 1px solid var(--sone-border);
-  border-radius: var(--sone-radius);
+  /* The same frame every floating menu here has — surface, subtle border, lift,
+     4px of padding, the larger radius — rather than a near-copy of it. Its items
+     carry `entry-menu-item`, so there is one item treatment and this rule has
+     nothing to say about type.
+     *
+     * A width, because the menu is no longer inside the table: without one it
+     * sized itself to the longest word, which next to icons reads as cramped.
+     * With one it lines up with the other menus. */
+  inline-size: 190px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-lg);
   background: var(--surface-overlay);
   box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+  /* Its own type size. It inherited the page's when it moved out of the table,
+     which is why it read as belonging to a different application — the table set
+     a smaller size and the menu used to be inside it. */
+  font-size: 0.88rem;
 }
-.collection-type-menu button {
-  min-block-size: var(--sone-control-lg);
-  padding-inline: var(--sone-space-4);
-  border: 0;
-  border-radius: var(--sone-radius-sm);
-  background: transparent;
-  color: var(--sone-text);
-  text-align: start;
-  font-weight: 400;
-  white-space: nowrap;
-}
-.collection-type-menu button:hover { background: var(--sone-bg-hover); }
 
 /* The narrow-screen rule that used to hang it leftward is gone: the position is
    computed and clamped now, so there is no breakpoint at which the menu has to

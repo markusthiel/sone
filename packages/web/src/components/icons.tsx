@@ -257,6 +257,71 @@ export function TagIcon(props: IconProps): ReactElement {
   );
 }
 
+/* --- column types, for the menu that adds one ---
+ *
+ * A type is easier to recognise as a shape than as a word, and the menu was a
+ * column of nine words in the page's own font. Same construction as the rest of
+ * the set: a 24×24 box, 1.5 stroke, no fills.
+ */
+
+/** A capital sitting on a baseline, for a text column. */
+export function TextIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 6.5h11M10.5 6.5V17" />
+      <path d="M15 12.5h4M17 12.5V17" />
+    </svg>
+  );
+}
+
+/** A hash, for a number column. */
+export function HashIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M9.5 4 8 20M16 4l-1.5 16M4.5 9h15M3.5 15h15" />
+    </svg>
+  );
+}
+
+/** A month, for a date column. */
+export function CalendarIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="5.5" width="17" height="15" rx="2" />
+      <path d="M3.5 10h17M8 3.5v4M16 3.5v4" />
+    </svg>
+  );
+}
+
+/** A closed box with a chevron: one of a set, chosen. */
+export function SelectIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+      <path d="m9 10.5 3 3 3-3" />
+    </svg>
+  );
+}
+
+/** An envelope, for an email column. */
+export function MailIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      <path d="m3.6 7 8.4 6 8.4-6" />
+    </svg>
+  );
+}
+
+/** A handset, for a phone column. */
+export function PhoneIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M7 3.5h3l1.5 4-2 1.5a10 10 0 0 0 5 5l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.7 1.5C11.6 17.7 6.3 12.4 5.5 5.2A1.5 1.5 0 0 1 7 3.5Z" />
+    </svg>
+  );
+}
+
 /* --- the right panel's tabs (ADR-0016: a control that matters is drawn, not
    hidden behind hover) ---
  *
