@@ -773,7 +773,9 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     }
 
     const viewType = body.viewType;
-    if (viewType !== 'table' && viewType !== 'board') {
+    // A gallery is a third view type rather than a mode of the table (ADR-0039),
+    // so filters, sorting and the search box apply to it as they do to any view.
+    if (viewType !== 'table' && viewType !== 'board' && viewType !== 'gallery') {
       // 'list' is in the model and has no renderer, so it is not offered.
       ctx.fail(422, 'unsupported_view_type');
       return;
@@ -787,7 +789,9 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       (doc) => {
         added = addView(doc, collectionId, {
           id: viewId,
-          name: (body.name ?? '').trim() || (viewType === 'board' ? 'Board' : 'Table'),
+          name:
+            (body.name ?? '').trim() ||
+            (viewType === 'board' ? 'Board' : viewType === 'gallery' ? 'Gallery' : 'Table'),
           viewType,
           ...(body.definition ? { definition: body.definition } : {}),
         });
