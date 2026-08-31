@@ -1866,6 +1866,25 @@ select {
 }
 .switcher-button:hover { background: var(--sone-bg-hover); }
 
+/* The label column: what this is, and — where the name alone does not identify
+   it — which one. Two lines rather than a second control: it is a fact, not a
+   choice, and choosing a different one is a different screen's job. */
+.switcher-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.switcher-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  font-weight: 400;
+}
+
 .switcher-caret {
   flex: none;
   inline-size: 0.8em;

@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The workspace settings say which workspace**, under the area name in the
+switcher. "This workspace" is true of all of them.
+
 **The settings screens have a switcher at the top of the column**, in the place
 the workspace switcher occupies in the application and looking exactly like it —
 holding the three areas rather than workspaces. Getting from the instance's

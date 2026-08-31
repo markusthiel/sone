@@ -62,9 +62,20 @@ export type AreaId = (typeof AREAS)[number]['id'];
 function AreaSwitcher({
   current,
   canAdminister,
+  subtitle,
 }: {
   current: AreaId;
   canAdminister: boolean;
+  /**
+   * What, specifically, is being configured — the workspace's own name.
+   *
+   * The area names the subject and this names the thing: "This workspace" is
+   * true of five workspaces, and somebody with five needs to see which one they
+   * are editing before they change its typography. A quieter second line rather
+   * than a second control, because it is a fact and not a choice — choosing a
+   * different one is what the administration list is for.
+   */
+  subtitle?: string | undefined;
 }): ReactElement {
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDivElement | null>(null);
@@ -107,7 +118,10 @@ function AreaSwitcher({
         onClick={() => setOpen((previous) => !previous)}
       >
         <here.Icon />
-        <span className="switcher-name">{here.label}</span>
+        <span className="switcher-label">
+          <span className="switcher-name">{here.label}</span>
+          {subtitle && <span className="switcher-sub">{subtitle}</span>}
+        </span>
         <ChevronRightIcon className="switcher-caret" />
       </button>
 
@@ -137,6 +151,8 @@ interface SettingsShellProps {
   area: string;
   /** Which of the three, for the switcher at the top of the column. */
   areaId: AreaId;
+  /** The thing being configured, where the area alone does not identify it. */
+  subtitle?: string | undefined;
   /** Whether the administration area is offered at all. */
   canAdminister: boolean;
   sections: readonly ShellSection[];
@@ -154,6 +170,7 @@ export function SettingsShell({
   area,
   areaId,
   canAdminister,
+  subtitle,
   sections,
   current,
   hrefFor,
@@ -170,7 +187,7 @@ export function SettingsShell({
             getting from the instance's administration to your own profile meant
             leaving the settings entirely and coming back in. */}
         <div className="settings-nav-head">
-          <AreaSwitcher current={areaId} canAdminister={canAdminister} />
+          <AreaSwitcher current={areaId} canAdminister={canAdminister} subtitle={subtitle} />
         </div>
 
         {/* The way back, first and plainly.
@@ -183,13 +200,14 @@ export function SettingsShell({
           ‹ Back to your notes
         </button>
 
-        {/* One heading, naming whose settings these are.
+        {/* No heading over the list any more.
           *
-          * It used to be three headings in one list, which is what this splits
-          * up: the group told you the subject and the list still asked you to
-          * find it among ten entries belonging to three different subjects. */}
+          * There was one, naming the area — which the switcher above it now says,
+          * and says as something you can act on. Two lines saying "This
+          * workspace" one under the other is the kind of duplication that makes a
+          * column feel like a form. `area` is still what the column is called to
+          * a screen reader and on the phone's button. */}
         <div className="settings-nav-group">
-          <p className="sidebar-label">{area}</p>
           {sections.map((entry) => (
             <a
               key={entry.id}
