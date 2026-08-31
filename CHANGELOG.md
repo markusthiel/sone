@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: empty lines appeared on a page every time it was opened.** A document is
+empty until the server's copy arrives, and the editor was writing an empty
+paragraph into that emptiness on every visit — one per open, appearing anywhere in
+the page depending on how the two edits merged. Existing stray lines are ordinary
+empty paragraphs and can be deleted; no new ones will appear.
+
 **Fixed: a table disappeared and a new one could not be added.** Introduced by
 yesterday's work on the same component and visible only once the page had loaded,
 which is why the tests did not see it.

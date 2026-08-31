@@ -242,15 +242,44 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
   const canEditRef = useRef(handle.canEdit);
   canEditRef.current = handle.canEdit;
 
+  /**
+   * Whether what the document contains is known yet.
+   *
+   * This is the fix for empty paragraphs breeding on every visit.
+   *
+   * A document starts empty locally and fills in when the server's state
+   * arrives. The editor used to mount immediately and seed an empty paragraph
+   * into that empty fragment — correct for a genuinely new page, and wrong for
+   * every existing one: the seed was a real CRDT insert, so when the server's
+   * content merged in a moment later the page had its blocks *and* a stray empty
+   * paragraph. One per visit, and where it landed depended on how the two
+   * inserts ordered, which is why they appeared in the middle as often as at the
+   * end.
+   *
+   * `synced` is the point at which the server has told us everything it has
+   * (ADR-0012), so it is the earliest moment an empty fragment can be believed.
+   * A fragment that already has content is also enough — that is a local copy
+   * offline, and refusing to mount then would mean an offline page could not be
+   * read.
+   */
+  const contentKnown =
+    handle.status === 'synced' || pageContent(handle.doc).length > 0;
+
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
+    // Nothing is mounted until the content is known, because mounting is what
+    // used to seed — see the note above.
+    if (!contentKnown) return;
 
     const fragment = pageContent(handle.doc);
 
     // A page created by the API has an empty body, and the schema requires at
     // least one block. Only an editor may seed it: a viewer doing so would
     // write to a document it has no right to change.
+    //
+    // Safe here and only here: the fragment being empty now means the page is
+    // empty, rather than meaning the content has not arrived.
     if (canEditRef.current) seedEmptyPage(fragment);
 
     const created = createEditor(mount, {
@@ -290,7 +319,7 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
     // Keyed on the document, not the handle: the handle object is recreated on
     // every notification, and rebuilding the editor for each of those would
     // make typing impossible.
-  }, [handle.doc, handle.awareness, uploader]);
+  }, [handle.doc, handle.awareness, uploader, contentKnown]);
 
   // Tell ProseMirror to re-evaluate `editable` when the role changes. Without
   // this the editor keeps its previous editability until the next transaction,
