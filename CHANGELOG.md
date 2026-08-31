@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A table in the text can be made wide or full page**, like an image, and scrolls
+sideways when it is wider than the room it has. **Its cells also read a step
+smaller** than the prose around them — at the body size a narrow column wrapped
+every second word.
+
 **Fixed: a full-width table looked a few pixels too wide.** It was not the block —
 the selection outline is drawn two pixels outside it, which is right inside the
 column and wrong for a block that already reaches both edges. It is drawn inside
