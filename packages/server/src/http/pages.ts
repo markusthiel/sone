@@ -1176,27 +1176,90 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     const limit = Math.min(50, Number(ctx.url.searchParams.get('limit') ?? '20') || 20);
     const i18n = await workspaceI18n(deps.pool, workspaceId);
 
-    // websearch_to_tsquery rather than to_tsquery: it accepts what a person
-    // types, including quotes and "or", instead of erroring on a bare space.
+    // How a match is marked inside a snippet (ADR-0033).
+    //
+    // Control characters, not `<mark>`. HTML delimiters would make this response
+    // markup, and rendering it means innerHTML on a string built from document
+    // content — a stored-XSS hole for the sake of two tags. The interface splits
+    // on these and builds real elements, so nothing is ever interpreted.
+    const headline =
+      'StartSel=\u0002, StopSel=\u0003, MaxWords=26, MinWords=10, ShortWord=2, MaxFragments=1';
+
+    // Two prefix queries, built from websearch_to_tsquery's own output.
+    //
+    // `websearch_to_tsquery` goes on parsing what a person types — quotes, "or",
+    // a leading minus — and its output is reparsed with `:*` appended, which
+    // makes the trailing lexeme a prefix and leaves every earlier one exact
+    // (ADR-0033). Building on the parsed output rather than on the raw string is
+    // the point: what is concatenated is already-validated lexemes, so nothing
+    // malformed can reach to_tsquery and nothing can be injected.
+    //
+    // Only the last term. The earlier ones are words somebody has finished
+    // typing, and making them prefixes too would answer "budget rep" with
+    // everything about budgeting.
+    //
+    // `nullif` makes an unparseable query yield no rows rather than an error: the
+    // concatenation is null-propagating and `tsv @@ NULL` matches nothing. The
+    // route already refuses fewer than two characters, so this is the boundary of
+    // a case that cannot arrive.
     const rows = await queryRows<{
       page_id: string;
       title: string;
+      kind: string;
       icon: unknown;
+      trail: unknown;
       ancestor_ids: string[];
+      title_match: boolean;
+      snippet: string | null;
+      block_id: string | null;
       rank: number;
     }>(
       deps.pool,
-      `SELECT ps.page_id, p.title, p.icon, p.ancestor_ids,
-              greatest(
-                ts_rank(ps.tsv, websearch_to_tsquery($3::regconfig, $2)),
-                ts_rank(ps.tsv, websearch_to_tsquery('simple', $2))
-              ) AS rank
-         FROM page_search ps
+      `WITH q AS (
+         SELECT to_tsquery(
+                  $3::regconfig,
+                  nullif(websearch_to_tsquery($3::regconfig, $2)::text, '') || ':*'
+                ) AS stemmed,
+                to_tsquery(
+                  'simple',
+                  nullif(websearch_to_tsquery('simple', $2)::text, '') || ':*'
+                ) AS simple
+       )
+       SELECT ps.page_id, p.title, p.kind, p.icon, p.ancestor_ids,
+              greatest(ts_rank(ps.tsv, q.stemmed), ts_rank(ps.tsv, q.simple)) AS rank,
+              -- Said rather than left to be inferred from a rank number, which
+              -- means nothing to a reader.
+              (setweight(to_tsvector($3::regconfig, p.title), 'A') @@ q.stemmed
+               OR setweight(to_tsvector('simple', p.title), 'A') @@ q.simple) AS title_match,
+              -- Where it lives. The ids alone were unrenderable, which is why the
+              -- interface never used them.
+              (SELECT jsonb_agg(jsonb_build_object('pageId', a.id, 'title', a.title)
+                                ORDER BY array_position(p.ancestor_ids, a.id))
+                 FROM pages a WHERE a.id = ANY(p.ancestor_ids)) AS trail,
+              hit.snippet,
+              hit.block_id
+         FROM q, page_search ps
          JOIN pages p ON p.id = ps.page_id
+         -- The best matching block, for a passage and a place to land.
+         --
+         -- Per block rather than over the page's text as one string: the snippet
+         -- is then a real passage instead of a window into a concatenation, and
+         -- the block's id comes with it. Nothing new is stored: plain_text is
+         -- written by the materialiser for exactly this.
+         LEFT JOIN LATERAL (
+           SELECT b.id AS block_id,
+                  ts_headline($3::regconfig, b.plain_text, q.stemmed, $7) AS snippet
+             FROM blocks b
+            WHERE b.page_id = p.id
+              AND b.plain_text <> ''
+              AND (to_tsvector($3::regconfig, b.plain_text) @@ q.stemmed
+                   OR to_tsvector('simple', b.plain_text) @@ q.simple)
+            ORDER BY ts_rank(to_tsvector($3::regconfig, b.plain_text), q.stemmed) DESC, b.idx
+            LIMIT 1
+         ) hit ON true
         WHERE ps.workspace_id = $1
           AND p.archived_at IS NULL
-          AND (ps.tsv @@ websearch_to_tsquery($3::regconfig, $2)
-               OR ps.tsv @@ websearch_to_tsquery('simple', $2))
+          AND (ps.tsv @@ q.stemmed OR ps.tsv @@ q.simple)
           -- The same condition the tree uses (ADR-0026).
           --
           -- Filtering after the query would still have been correct here, and
@@ -1217,9 +1280,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         limit,
         claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
         claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
+        headline,
       ],
     );
-
     const visible = rows.filter(
       (row) =>
         effectiveRole(claims, {
@@ -1237,8 +1300,21 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       results: visible.map((row) => ({
         pageId: row.page_id,
         title: row.title,
+        /** A folder is drawn as a folder (ADR-0019). */
+        kind: row.kind,
         icon: row.icon,
-        breadcrumb: row.ancestor_ids,
+        /** Outermost first, with titles, so the path can be shown. */
+        trail: Array.isArray(row.trail) ? row.trail : [],
+        titleMatch: row.title_match,
+        /**
+         * The matching passage, with the match between U+0002 and U+0003.
+         *
+         * Null when what matched was the title or a tag and no block did, which
+         * is an answer rather than a gap: there is no passage to show.
+         */
+        snippet: row.snippet,
+        /** The block the passage came from, so a result can land on it. */
+        blockId: row.block_id,
         rank: row.rank,
       })),
     });

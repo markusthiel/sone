@@ -12,7 +12,13 @@ import { test } from 'node:test';
 
 import { codeOf } from './helpers/source.ts';
 
-import { MOVED_SETTINGS, parseRoute, paths, slugify } from '../src/routes/paths.ts';
+import {
+  MOVED_SETTINGS,
+  blockFromHash,
+  parseRoute,
+  paths,
+  slugify,
+} from '../src/routes/paths.ts';
 
 const PAGE = '00000000-0000-4000-8000-000000000001';
 
@@ -219,4 +225,32 @@ test('an old settings URL is redirected, not answered', () => {
 
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
   assert.match(app, /navigate\(moved, \{ replace: true \}\)/, 'replaced, not pushed');
+});
+
+test('a page URL can name a block, as a fragment', () => {
+  // A position within a page rather than a different page, and a fragment never
+  // reaches the server — right for something only the interface acts on
+  // (ADR-0033).
+  const url = paths.page(PAGE, 'Heat pump costs', 'block-1');
+  assert.ok(url.startsWith(`/p/${PAGE}/heat-pump-costs#`));
+  assert.equal(blockFromHash(new URL(url, 'http://x').hash), 'block-1');
+
+  // Absent and null both mean "the page itself", so a result with no matching
+  // block does not produce a dangling fragment.
+  assert.equal(paths.page(PAGE, 'A').includes('#'), false);
+  assert.equal(paths.page(PAGE, 'A', null).includes('#'), false);
+  assert.equal(blockFromHash('#something-else'), null);
+  assert.equal(blockFromHash(''), null);
+});
+
+test('a search result lands on the block, and the page waits for it', () => {
+  // The block is not in the DOM when the page mounts: the document arrives over
+  // the sync connection a moment later. A link that works on a fast connection
+  // and silently does nothing on a slow one is worse than no link.
+  const search = codeOf(new URL('../src/components/Search.tsx', import.meta.url));
+  assert.match(search, /paths\.page\(result\.pageId, result\.title, result\.blockId\)/);
+
+  const page = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  assert.match(page, /blockFromHash\(window\.location\.hash\)/);
+  assert.match(page, /attempts > 20/, 'gives up rather than retrying forever');
 });

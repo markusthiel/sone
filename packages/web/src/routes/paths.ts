@@ -34,6 +34,15 @@ export function slugify(title: string): string {
     .slice(0, 60);
 }
 
+/** Marks a fragment as naming a block rather than a heading anchor. */
+export const BLOCK_FRAGMENT = 'b-';
+
+/** The block a fragment names, or null. */
+export function blockFromHash(hash: string): string | null {
+  const value = hash.startsWith('#') ? hash.slice(1) : hash;
+  return value.startsWith(BLOCK_FRAGMENT) ? value.slice(BLOCK_FRAGMENT.length) : null;
+}
+
 export const paths = {
   home: () => '/',
   login: () => '/login',
@@ -50,9 +59,18 @@ export const paths = {
   admin: (section = 'instance') => `/admin/${section}`,
   trash: () => '/trash',
 
-  page: (pageId: string, title?: string) => {
+  /**
+   * A page, optionally at one of its blocks.
+   *
+   * The block is a fragment rather than a path segment: it is a position within
+   * the page and not a different page, and a fragment never reaches the server —
+   * which is right for something only the interface acts on. Used by search, so
+   * a result can land on the sentence that matched (ADR-0033).
+   */
+  page: (pageId: string, title?: string, blockId?: string | null) => {
     const slug = title ? slugify(title) : '';
-    return slug ? `/p/${pageId}/${slug}` : `/p/${pageId}`;
+    const path = slug ? `/p/${pageId}/${slug}` : `/p/${pageId}`;
+    return blockId ? `${path}#${BLOCK_FRAGMENT}${blockId}` : path;
   },
 
   share: (token: string) => `/s/${token}`,

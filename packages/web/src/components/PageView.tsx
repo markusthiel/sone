@@ -16,6 +16,8 @@ import {
 } from '@sone/core';
 import { useEffect, useState , type ReactElement } from 'react';
 
+import { blockFromHash } from '../routes/paths.ts';
+import { scrollToBlock } from '../hooks/useOutline.ts';
 import { EditorSurface } from './EditorSurface.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
@@ -92,6 +94,40 @@ export function PageView({
     pageMap.observe(observer);
     return () => pageMap.unobserve(observer);
   }, [pageMap, onTitleChange]);
+
+  /**
+   * Land on the block a URL names (ADR-0033).
+   *
+   * A search result links to `#b-<id>`, and the block it names is not in the DOM
+   * when the page mounts: the document arrives over the sync connection a moment
+   * later. So this retries for a couple of seconds and then gives up quietly —
+   * the alternative is a link that works on a fast connection and silently does
+   * nothing on a slow one.
+   *
+   * Given up on rather than reported: the page is open and correct, and an error
+   * about a failed scroll would be about a convenience.
+   */
+  useEffect(() => {
+    const wanted = blockFromHash(window.location.hash);
+    if (!wanted) return;
+
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tryScroll = (): void => {
+      if (scrollToBlock(wanted)) return;
+      attempts += 1;
+      if (attempts > 20) return;
+      timer = setTimeout(tryScroll, 100);
+    };
+    tryScroll();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+    // Per page: following a second result from the same search has to scroll
+    // again, and the hash is what changed.
+  }, [pageId]);
 
   const commitTitle = (next: string): void => {
     setTitle(next);

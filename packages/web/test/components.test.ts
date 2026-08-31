@@ -148,3 +148,16 @@ test('the sidebar footer is laid out in one rule', () => {
   assert.equal(rules.length, 2, 'one for placement, one for layout');
   assert.doesNotMatch(css, /\.sidebar-footer \{[^}]*flex-direction: column/);
 });
+
+test('a matched passage is split, never put through innerHTML', () => {
+  // The passage comes out of somebody's document. Rendering it as markup to get
+  // two tags would be a stored-XSS hole, which is why the delimiters are control
+  // characters and not `<mark>` (ADR-0033).
+  const search = codeOf(new URL('../src/components/Search.tsx', import.meta.url));
+  assert.match(search, /text\.split\(MATCH_OPEN\)/);
+  assert.doesNotMatch(search, /dangerouslySetInnerHTML/);
+
+  const server = codeOf(new URL('../../server/src/http/pages.ts', import.meta.url));
+  assert.match(server, /StartSel=\\u0002, StopSel=\\u0003/);
+  assert.doesNotMatch(server, /StartSel=<mark>/);
+});
