@@ -159,6 +159,33 @@ export function WorkspaceMenu({
         <ChevronRightIcon className="workspace-caret" />
       </button>
 
+      {/* What is travelling, drawn under the pointer.
+        *
+        * The two lines say where a drop lands; they do not say that a whole
+        * workspace is what is moving — and in a panel four rows tall that is
+        * easy to lose. The same treatment the tree uses, from the same class.
+        *
+        * A sibling of the panel rather than a child: the panel scrolls, and a
+        * child of it would be clipped at its edge. */}
+      {drag.dragging && drag.pointer && (
+        <div
+          className="drag-preview"
+          style={{ left: drag.pointer.x, top: drag.pointer.y }}
+          aria-hidden="true"
+        >
+          {(() => {
+            const moving = workspaces?.find((entry) => entry.id === drag.dragging);
+            if (!moving) return null;
+            return (
+              <>
+                <WorkspaceMark name={moving.name} icon={moving.icon ?? null} />
+                {moving.name || 'Untitled'}
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       {open && (
         <div className="workspace-menu" ref={panelRef} role="menu">
           {workspaces === null && !error && <p className="muted small">Loading…</p>}
