@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The right panel lists the files, images and links in the page.** Files and
+links open from the list, with a control on each row that goes to where it sits in
+the page; images are thumbnails, and clicking one takes you to it. **The tabs are
+icons now** rather than words, so there is room for the three new ones — each
+still says its name when you hover it, and the chosen one is named above the
+panel.
+
 **Settings are three places instead of one list** ([ADR-0032](docs/adr/0032-three-settings-areas.md)):
 your own settings, this workspace, and — only if you administer the instance —
 the instance. The account menu had two entries that landed on the same page; it

@@ -2036,25 +2036,148 @@ select {
   border-block-end: 1px solid var(--sone-border);
 }
 
+/* An icon per tab.
+ *
+ * Seven words did not fit a 300px column and the strip will keep growing; seven
+ * icons do, and each carries its name as a title and an accessible label so
+ * nothing about it is only a symbol. The panel heading below the strip says the
+ * chosen one in words. */
 .right-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
   min-block-size: 32px;
-  padding: 4px 8px;
+  padding: 4px;
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
   color: var(--sone-text-muted);
-  font-size: 0.85rem;
   cursor: pointer;
 }
-.right-tab:hover { background: var(--sone-bg-hover); }
+.right-tab svg { inline-size: 17px; block-size: 17px; }
+.right-tab:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
 .right-tab[aria-selected='true'] {
   background: var(--sone-bg);
   color: var(--sone-text);
+}
+
+.right-panel-title {
+  flex: none;
+  margin: 0;
+  padding: 8px 10px 0;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .right-body { flex: 1; min-block-size: 0; overflow-y: auto; padding: 8px; }
+
+/* --- what a document refers to: its files, images and links ---
+ *
+ * One row shape for files and links: an icon, a name that may wrap to a second
+ * quiet line, and a control at the end that goes to where the thing sits in the
+ * page. The row itself opens the destination, because that is what somebody came
+ * to the list for; the place is the rarer want and gets the smaller control.
+ */
+.asset-list { list-style: none; margin: 0; padding: 0; }
+.asset-list li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.asset-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 34px;
+  padding: 6px 8px;
+  border-radius: var(--sone-radius);
+  color: var(--sone-text);
+  font-size: var(--sone-text-sm);
+}
+.asset-row:hover { background: var(--sone-bg-hover); text-decoration: none; }
+.asset-row svg { flex: none; inline-size: 15px; block-size: 15px; color: var(--sone-text-muted); }
+/* A file still uploading has nothing to open yet. */
+.asset-row[aria-disabled='true'] { color: var(--sone-text-muted); }
+
+.asset-name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-sub,
+.asset-meta {
+  display: block;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-meta { flex: none; }
+
+.asset-jump {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  min-block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+  /* De-emphasised, never hidden: a control revealed by hover does not exist on
+     a phone (ADR-0016). */
+  opacity: 0.45;
+}
+.asset-list li:hover .asset-jump,
+.asset-jump:hover,
+.asset-jump:focus-visible { opacity: 1; }
+.asset-jump:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.asset-jump svg { inline-size: 14px; block-size: 14px; }
+@media (hover: none) {
+  .asset-jump { opacity: 0.7; }
+}
+
+/* Images are recognised by looking at them, so they are thumbnails rather than
+   a list of filenames — the one presentation that would make an image harder to
+   find here than by scrolling the page. */
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 6px;
+}
+.asset-thumb {
+  display: block;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+  background: var(--sone-bg-subtle);
+  overflow: hidden;
+  cursor: pointer;
+}
+.asset-thumb:hover { border-color: var(--border-strong); }
+.asset-thumb img { inline-size: 100%; block-size: 100%; object-fit: cover; display: block; }
+.asset-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 100%;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
 
 .panel-empty { margin: 8px; font-size: 0.85rem; color: var(--sone-text-muted); }
 .panel-empty code {

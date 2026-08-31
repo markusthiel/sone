@@ -26,21 +26,58 @@ import { usePageTags } from '../hooks/usePageTags.ts';
 import { useTasks, type Task } from '../hooks/useTasks.ts';
 import { TagEditor } from './TagEditor.tsx';
 import { messageFor } from './Auth.tsx';
-import { ChevronRightIcon, PageIcon, TagIcon } from './icons.tsx';
+import {
+  CheckSquareIcon,
+  ChevronRightIcon,
+  ExternalIcon,
+  ImageIcon,
+  LinkIcon,
+  ListIcon,
+  PageIcon,
+  PaperclipIcon,
+  SlidersIcon,
+  TagIcon,
+  UsersIcon,
+  type IconProps,
+} from './icons.tsx';
+import { useDocAssets } from '../hooks/useDocAssets.ts';
 import { Contributors } from './Contributors.tsx';
 import { highlightAuthor } from './authorHighlightBridge.ts';
 
-export const RIGHT_TABS = ['outline', 'tasks', 'people', 'properties'] as const;
+export const RIGHT_TABS = [
+  'outline',
+  'tasks',
+  // What the document refers to: attached files, images, and links out.
+  // Between the structure of the page and the people on it, because these are
+  // still about the page's own content.
+  'files',
+  'images',
+  'links',
+  'people',
+  'properties',
+] as const;
 export type RightTab = (typeof RIGHT_TABS)[number];
 
-const TAB_LABELS: Record<RightTab, string> = {
-  outline: 'Outline',
-  tasks: 'Tasks',
+/**
+ * An icon and a name per tab.
+ *
+ * Icons rather than words on the strip, because seven words do not fit a 300px
+ * column and the strip will keep growing. The name is not lost: it is the
+ * accessible label and the title, so the tab still says what it is to a screen
+ * reader and to anybody who hovers — and the panel's own heading repeats it,
+ * which is where somebody who has already chosen a tab reads it.
+ */
+const TABS: Record<RightTab, { label: string; Icon: (props: IconProps) => ReactElement }> = {
+  outline: { label: 'Outline', Icon: ListIcon },
+  tasks: { label: 'Tasks', Icon: CheckSquareIcon },
+  files: { label: 'Files', Icon: PaperclipIcon },
+  images: { label: 'Images', Icon: ImageIcon },
+  links: { label: 'Links', Icon: LinkIcon },
   // "People" rather than "Contributors": shorter, and it does not imply a
   // ranking of who contributed most, which this list deliberately does not
   // measure.
-  people: 'People',
-  properties: 'Properties',
+  people: { label: 'People', Icon: UsersIcon },
+  properties: { label: 'Properties', Icon: SlidersIcon },
 };
 
 const OPEN_KEY = 'sone.rightPanel';
@@ -108,19 +145,31 @@ export function RightSidebar({
         {...(open ? {} : { 'aria-hidden': true })}
       >
         <div className="right-tabs" role="tablist" aria-label="Panel">
-          {RIGHT_TABS.map((name) => (
-            <button
-              key={name}
-              type="button"
-              role="tab"
-              aria-selected={tab === name}
-              className="right-tab"
-              onClick={() => setTab(name)}
-            >
-              {TAB_LABELS[name]}
-            </button>
-          ))}
+          {RIGHT_TABS.map((name) => {
+            const { label, Icon } = TABS[name];
+            return (
+              <button
+                key={name}
+                type="button"
+                role="tab"
+                aria-selected={tab === name}
+                className="right-tab"
+                // The name, for a screen reader and for a pointer. An icon-only
+                // control with neither is a symbol somebody has to learn by
+                // pressing it.
+                aria-label={label}
+                title={label}
+                onClick={() => setTab(name)}
+              >
+                <Icon />
+              </button>
+            );
+          })}
         </div>
+
+        {/* Which tab is open, in words. The strip says it in symbols; this is
+            where somebody reads it back. */}
+        <p className="right-panel-title">{TABS[tab].label}</p>
 
         <div className="right-body" role="tabpanel">
           {tab === 'outline' && <OutlinePanel handle={handle} />}
@@ -134,6 +183,9 @@ export function RightSidebar({
               onHighlight={highlightAuthor}
             />
           )}
+          {tab === 'files' && <FilesPanel handle={handle} />}
+          {tab === 'images' && <ImagesPanel handle={handle} />}
+          {tab === 'links' && <LinksPanel handle={handle} />}
           {tab === 'properties' && (
             <PropertiesPanel pageId={pageId} handle={handle} workspaceId={workspaceId} />
           )}
@@ -141,6 +193,170 @@ export function RightSidebar({
       </aside>
     </>
   );
+}
+
+/**
+ * The files attached in this document.
+ *
+ * The row opens the file, because that is what somebody came to this list for;
+ * the trailing control jumps to where the file sits in the page, which is the
+ * other thing they might want and a much rarer one.
+ *
+ * A file still uploading has no id yet. Listed anyway, without a link: a block
+ * that is visibly on the page and missing from the list reads as the list being
+ * wrong rather than as the upload being unfinished.
+ */
+function FilesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
+  const { files } = useDocAssets(handle?.doc ?? null);
+
+  if (!handle) return <p className="panel-empty">Open a page to see its files.</p>;
+  if (files.length === 0) {
+    return (
+      <p className="panel-empty">
+        No files yet. Drop one into the page, or type <code>/file</code>.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="asset-list">
+      {files.map((file) => (
+        <li key={file.blockId}>
+          {file.fileId ? (
+            <a className="asset-row" href={`/api/files/${file.fileId}`} target="_blank" rel="noreferrer">
+              <PaperclipIcon />
+              <span className="asset-name">{file.filename || 'Untitled file'}</span>
+              <span className="asset-meta">{describeFile(file.category, file.sizeBytes)}</span>
+            </a>
+          ) : (
+            <span className="asset-row" aria-disabled="true">
+              <PaperclipIcon />
+              <span className="asset-name">{file.filename || 'Untitled file'}</span>
+              <span className="asset-meta">uploading…</span>
+            </span>
+          )}
+          <button
+            type="button"
+            className="asset-jump"
+            title="Show where it sits in the page"
+            aria-label={`Show ${file.filename || 'this file'} in the page`}
+            onClick={() => scrollToBlock(file.blockId)}
+          >
+            <PageIcon />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** A category and a size, where there is one. */
+function describeFile(category: string, sizeBytes: number | null): string {
+  if (sizeBytes === null) return category;
+  const units = ['B', 'kB', 'MB', 'GB'];
+  let value = sizeBytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const rounded = value >= 10 || unit === 0 ? Math.round(value) : Math.round(value * 10) / 10;
+  return `${category} · ${rounded} ${units[unit]}`;
+}
+
+/**
+ * The images in this document, as thumbnails.
+ *
+ * Thumbnails rather than filenames: an image is recognised by looking at it, and
+ * a list of URLs would be the one presentation that makes an image harder to
+ * find than scrolling would.
+ *
+ * Clicking one goes to where it sits rather than opening the file — an image is
+ * already visible, so what somebody wants from this list is the place.
+ */
+function ImagesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
+  const { images } = useDocAssets(handle?.doc ?? null);
+
+  if (!handle) return <p className="panel-empty">Open a page to see its images.</p>;
+  if (images.length === 0) {
+    return <p className="panel-empty">No images yet. Drop one into the page.</p>;
+  }
+
+  return (
+    <div className="asset-grid">
+      {images.map((image) => (
+        <button
+          key={image.blockId}
+          type="button"
+          className="asset-thumb"
+          title={image.alt || 'Show in the page'}
+          aria-label={image.alt ? `Show ${image.alt} in the page` : 'Show this image in the page'}
+          onClick={() => scrollToBlock(image.blockId)}
+        >
+          {image.url ? (
+            <img src={image.url} alt="" loading="lazy" />
+          ) : (
+            <span className="asset-thumb-empty">uploading…</span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The links out of this document.
+ *
+ * The row opens the destination. The host is shown under the text because a link
+ * called "here" or "the report" says nothing about where it goes, and a list of
+ * those is a list of nothing.
+ */
+function LinksPanel({ handle }: { handle: PageHandle | null }): ReactElement {
+  const { links } = useDocAssets(handle?.doc ?? null);
+
+  if (!handle) return <p className="panel-empty">Open a page to see its links.</p>;
+  if (links.length === 0) {
+    return <p className="panel-empty">No links yet.</p>;
+  }
+
+  return (
+    <ul className="asset-list">
+      {links.map((link, at) => (
+        <li key={`${link.blockId}-${at}`}>
+          <a className="asset-row" href={link.href} target="_blank" rel="noreferrer">
+            <ExternalIcon />
+            <span className="asset-name">
+              {link.text.trim() || link.href}
+              <span className="asset-sub">{hostOf(link.href)}</span>
+            </span>
+          </a>
+          <button
+            type="button"
+            className="asset-jump"
+            title="Show where it sits in the page"
+            aria-label="Show this link in the page"
+            onClick={() => scrollToBlock(link.blockId)}
+          >
+            <PageIcon />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The host of a URL, or the URL itself.
+ *
+ * A relative link — one page of this instance pointing at another — has no host,
+ * and showing an empty line for it would be worse than showing the path.
+ */
+function hostOf(href: string): string {
+  try {
+    return new URL(href, window.location.origin).host;
+  } catch {
+    return href;
+  }
 }
 
 function OutlinePanel({ handle }: { handle: PageHandle | null }): ReactElement {
