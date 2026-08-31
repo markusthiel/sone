@@ -10,6 +10,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceIcon } from '../api/client.ts';
+import { titleColorStyle } from './EntryIconView.tsx';
 import { WorkspaceMark } from './WorkspaceMark.tsx';
 import { messageFor } from './Auth.tsx';
 
@@ -88,6 +89,7 @@ export function WorkspaceList({
                 <button
                   type="button"
                   className="link-button"
+                  style={titleColorStyle(row.icon ?? null)}
                   onClick={() => onOpen(row.id, row.name, row.icon ?? null)}
                 >
                   {row.name || 'Untitled'}

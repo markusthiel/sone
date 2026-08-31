@@ -18,6 +18,7 @@ import { messageFor } from './Auth.tsx';
 import { ChevronRightIcon, FolderPlusIcon, PlusIcon } from './icons.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
 import { WorkspaceMark } from './WorkspaceMark.tsx';
+import { titleColorStyle } from './EntryIconView.tsx';
 
 interface WorkspaceMenuProps {
   currentId: string;
@@ -115,7 +116,9 @@ export function WorkspaceMenu({
         title={currentName}
       >
         <WorkspaceMark name={currentName} icon={currentIcon} />
-        <span className="workspace-name">{currentName}</span>
+        <span className="workspace-name" style={titleColorStyle(currentIcon)}>
+          {currentName}
+        </span>
         <ChevronRightIcon className="workspace-caret" />
       </button>
 
@@ -145,7 +148,14 @@ export function WorkspaceMenu({
                 name={workspace.name}
                 icon={workspace.icon ?? null}
               />
-              <span className="workspace-item-name">{workspace.name || 'Untitled'}</span>
+              {/* The name colour, which was saved and never applied — the
+                  chooser offered it and nothing read it back. */}
+              <span
+                className="workspace-item-name"
+                style={titleColorStyle(workspace.icon ?? null)}
+              >
+                {workspace.name || 'Untitled'}
+              </span>
               {workspace.memberCount > 1 && (
                 <span className="workspace-item-meta">
                   {workspace.memberCount} people

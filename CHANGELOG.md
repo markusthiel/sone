@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a workspace's name colour was saved and never shown**, and a colour
+picked from the palette did nothing at all while a custom one worked.
+
 **Fixed: choosing a workspace icon reloaded the page and looked as if nothing had
 been saved.** It had been; the panel was thrown away and the list showed no
 marks. The panel stays now, and the list shows the mark.

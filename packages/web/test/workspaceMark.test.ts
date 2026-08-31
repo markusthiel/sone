@@ -21,7 +21,10 @@ test('a workspace with no icon shows its initial, not nothing', () => {
 test('the icon colour is separate from the text colour', () => {
   // The same split entries have, because somebody who has decorated a folder
   // already knows it.
-  assert.match(mark, /icon\?\.iconColor \? \{ color: icon\.iconColor \}/);
+  // Matched on the property rather than the expression: the expression gained a
+  // colour lookup when palette names turned out not to be CSS colours.
+  assert.match(mark, /iconColor/);
+  assert.match(mark, /titleColor|EntryIconView/);
 });
 
 test('the mark is the same size either way', () => {
@@ -122,4 +125,28 @@ test('the chooser is given what it last saved', () => {
 test('the list shows the mark it let somebody choose', () => {
   // Not seeing it where workspaces are compared is why this looked unsaved.
   assert.match(list, /<WorkspaceMark name=\{row\.name\} icon=\{row\.icon \?\? null\} \/>/);
+});
+
+test('a stored colour is resolved rather than used raw', () => {
+  // A stored colour is either a palette name or a hex value, and a palette name
+  // is not a CSS colour — it resolves to a custom property. Raw worked for the
+  // custom colours and silently did nothing for the eight in the palette, which
+  // are the ones people pick.
+  assert.match(mark, /colorValue\(icon\?\.iconColor\)/);
+  assert.doesNotMatch(mark, /\{ color: icon\.iconColor \}/);
+});
+
+test('the name colour is applied wherever a workspace is named', () => {
+  // It was saved and never read back: the chooser offered it and nothing used
+  // it, so the text stayed as it was and the setting looked broken.
+  assert.match(menu, /style=\{titleColorStyle\(workspace\.icon \?\? null\)\}/);
+  assert.match(menu, /style=\{titleColorStyle\(currentIcon\)\}/);
+  assert.match(list, /style=\{titleColorStyle\(row\.icon \?\? null\)\}/);
+});
+
+test('the name colour uses the helper entries use', () => {
+  // Not a second implementation of "which colour is this": the palette lookup
+  // has to give the same answer in both places or the same choice means two
+  // things.
+  assert.match(menu, /import \{ titleColorStyle \} from '\.\/EntryIconView\.tsx'/);
 });
