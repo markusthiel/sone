@@ -142,6 +142,70 @@ export function insertFileBlock(attrs: FileBlockAttrs): Command {
   };
 }
 
+/** How a video block is drawn (ADR-0037). */
+export type VideoDisplayMode = 'player' | 'card' | 'link';
+
+export interface VideoBlockAttrs {
+  source: 'file' | 'embed' | 'stream';
+  fileId?: string | null;
+  /** For an embed or a stream: the address, already normalised by the allowlist. */
+  url?: string;
+  title?: string;
+  display?: VideoDisplayMode;
+}
+
+/**
+ * Insert a video block.
+ *
+ * One command for all three sources, as there is one node: what differs between
+ * an upload, an embed and a stream is which attribute carries the address, not
+ * what kind of thing is being put in the page.
+ *
+ * The player is the default in every case, which is what was asked for and is
+ * also the only honest default — somebody inserting a video means to show a
+ * video, and a card is what they choose afterwards if the page is a list of
+ * links.
+ */
+export function insertVideoBlock(attrs: VideoBlockAttrs): Command {
+  return (state, dispatch) => {
+    const type = state.schema.nodes['video'];
+    if (!type) return false;
+    if (!dispatch) return true;
+
+    dispatch(
+      state.tr.replaceSelectionWith(
+        type.create({
+          source: attrs.source,
+          fileId: attrs.fileId ?? null,
+          url: attrs.url ?? '',
+          title: attrs.title ?? '',
+          display: attrs.display ?? 'player',
+        }),
+      ),
+    );
+    return true;
+  };
+}
+
+/**
+ * Change how the video block at `pos` is drawn.
+ *
+ * A stream refuses anything but the player, here rather than only in the menu:
+ * the menu is one caller, and a card for something that is interesting only
+ * while it is live is a dead link tomorrow whoever asked for it.
+ */
+export function setVideoDisplay(pos: number, display: VideoDisplayMode): Command {
+  return (state, dispatch) => {
+    const node = state.doc.nodeAt(pos);
+    if (!node || node.type.name !== 'video') return false;
+    if (node.attrs['source'] === 'stream' && display !== 'player') return false;
+    if (!dispatch) return true;
+
+    dispatch(state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, display }));
+    return true;
+  };
+}
+
 /** Change how the file block at `pos` is drawn. */
 export function setFileDisplay(pos: number, display: FileDisplay): Command {
   return (state, dispatch) => {

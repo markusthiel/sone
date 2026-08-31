@@ -27,6 +27,7 @@ import {
   detectType,
   isInlineImage,
   isInlineViewable,
+  isPlayableVideo,
 } from '../src/files/store.js';
 import { contentDisposition, parseRange } from '../src/files/routes.js';
 import { hashPassword } from '../src/auth/password.js';
@@ -996,8 +997,56 @@ test('what can be shown in place is decided by what a browser can draw', () => {
   assert.equal(isInlineImage('application/pdf'), false, 'a PDF is not an image');
 });
 
+test('video is recognised by its container, from a short list of brands', () => {
+  // Unrecognised bytes keep being refused, which is what stops this becoming the
+  // generic type everything unknown is stored as (ADR-0037).
+  const ftyp = (brand: string): Buffer =>
+    Buffer.concat([
+      Buffer.from([0, 0, 0, 0x18]),
+      Buffer.from('ftyp', 'ascii'),
+      Buffer.from(brand, 'ascii'),
+      Buffer.alloc(16),
+    ]);
+
+  assert.equal(detectType(ftyp('isom'))?.mime, 'video/mp4');
+  assert.equal(detectType(ftyp('mp42'))?.mime, 'video/mp4');
+  assert.equal(detectType(ftyp('M4V '))?.mime, 'video/mp4');
+  assert.equal(detectType(ftyp('qt  '))?.mime, 'video/quicktime');
+  // The image brands in the same container keep their meaning.
+  assert.equal(detectType(ftyp('avif'))?.mime, 'image/avif');
+  assert.equal(detectType(ftyp('heic'))?.mime, 'image/heic');
+  // And an unknown brand is still refused rather than guessed at.
+  assert.equal(detectType(ftyp('zzzz')), null);
+
+  // Matroska and WebM share a container and are told apart by the doctype.
+  const ebml = (doctype: string): Buffer =>
+    Buffer.concat([
+      Buffer.from([0x1a, 0x45, 0xdf, 0xa3]),
+      Buffer.alloc(8),
+      Buffer.from(doctype, 'ascii'),
+      Buffer.alloc(16),
+    ]);
+  assert.equal(detectType(ebml('webm'))?.mime, 'video/webm');
+  assert.equal(detectType(ebml('matroska'))?.mime, 'video/x-matroska');
+});
+
+test('a video is served in place, and matroska is not called playable', () => {
+  // It must not arrive as an attachment, or the browser offers to save it
+  // instead of handing it to the player. Matroska is stored and not promised:
+  // the container can hold anything and most browsers refuse it.
+  assert.equal(isPlayableVideo('video/mp4'), true);
+  assert.equal(isPlayableVideo('video/webm'), true);
+  assert.equal(isPlayableVideo('video/quicktime'), true);
+  assert.equal(isPlayableVideo('video/x-matroska'), false);
+  assert.equal(isInlineViewable('video/mp4'), true);
+  assert.equal(isInlineViewable('video/x-matroska'), false);
+});
+
 test('categories are coarse on purpose', () => {
   assert.equal(categoryOf('image/png'), 'image');
+  // Its own category: a video is watched, which means a player and a duration
+  // rather than a name and a size.
+  assert.equal(categoryOf('video/mp4'), 'video');
   assert.equal(categoryOf('application/pdf'), 'pdf');
   assert.equal(categoryOf('text/csv'), 'text');
   assert.equal(categoryOf('application/zip'), 'archive');

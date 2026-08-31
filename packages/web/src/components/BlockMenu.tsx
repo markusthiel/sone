@@ -31,6 +31,7 @@ import {
   currentBlockStyle,
   setBlockStyle,
   setFileDisplay,
+  setVideoDisplay,
   showImageAs,
 } from '@sone/editor';
 import { BLOCK_COLORS } from '@sone/core';
@@ -90,6 +91,11 @@ const APPEARANCE: Record<string, { width: boolean; color: boolean; align: boolea
   todoItem: { width: false, color: true, align: false },
   toggleItem: { width: false, color: true, align: false },
   image: { width: true, color: false, align: true },
+  // Width, which is content or full, and that is what was asked for. No colour —
+  // a video is not tinted — and no alignment: a player narrower than the column
+  // is not a thing anybody wants, and one aligned inside its own width is a
+  // control with nothing to do (ADR-0037).
+  video: { width: true, color: false, align: false },
   table: { width: true, color: false, align: false },
   collectionView: { width: true, color: false, align: false },
   divider: { width: true, color: true, align: false },
@@ -293,6 +299,86 @@ function FileActions({
               display === option.id ? 'block-menu-choice current' : 'block-menu-choice'
             }
             {...popupItem(() => run(setFileDisplay(at, option.id as 'card' | 'line' | 'full')))}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A video's own actions (ADR-0037).
+ *
+ * The file group's shape, because the questions are the same ones: how should
+ * this be drawn, and how do I get at the thing itself. What differs is that two
+ * of the three sources are somewhere else — so "Download" belongs to an upload
+ * and "Open" to a link, and neither is offered where it would lie.
+ */
+function VideoActions({
+  node,
+  at,
+  run,
+}: {
+  node: PMNodeLike;
+  at: number;
+  run: (command: Command) => void;
+}): ReactElement | null {
+  const source = String(node.attrs['source'] ?? 'file');
+  const fileId = String(node.attrs['fileId'] ?? '');
+  const url = String(node.attrs['url'] ?? '');
+  const display = String(node.attrs['display'] ?? 'player');
+  const name = String(node.attrs['title'] ?? 'video');
+
+  // A stream is offered only as a player: a card for something that is
+  // interesting only while it is live is a dead link tomorrow. The command
+  // refuses it too, so this is the menu agreeing rather than the menu deciding.
+  const options: Array<{ id: string; label: string }> =
+    source === 'stream'
+      ? [{ id: 'player', label: 'Player' }]
+      : [
+          { id: 'player', label: 'Player' },
+          { id: 'card', label: 'Card' },
+          { id: 'link', label: 'One line' },
+        ];
+
+  return (
+    <div className="block-menu-group">
+      <p className="block-menu-label">Video</p>
+
+      {source === 'file' && fileId !== '' && (
+        <a className="block-menu-item" role="menuitem" href={`/api/files/${fileId}`} download={name}>
+          {/* Not "Download the original": there is no second copy. An image has a
+              smaller version made for display, and a video is stored as it
+              arrived — nothing is transcoded (ADR-0037). */}
+          Download
+        </a>
+      )}
+
+      {source !== 'file' && url !== '' && (
+        <a
+          className="block-menu-item"
+          role="menuitem"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open where it lives
+        </a>
+      )}
+
+      <div className="block-menu-choices" role="group" aria-label="Show as">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={display === option.id}
+            className={display === option.id ? 'block-menu-choice current' : 'block-menu-choice'}
+            {...popupItem(() =>
+              run(setVideoDisplay(at, option.id as 'player' | 'card' | 'link')),
+            )}
           >
             {option.label}
           </button>
@@ -635,6 +721,10 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
             * They lived in a `···` button on the block itself, which was a
             * second place to ask the same kind of question — and the gutter is
             * where somebody already looks. */}
+          {range.node.type.name === 'video' && (
+            <VideoActions node={range.node} at={range.from} run={run} />
+          )}
+
           {range.node.type.name === 'file' && (
             <FileActions view={view} node={range.node} at={range.from} run={run} />
           )}

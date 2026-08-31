@@ -66,6 +66,8 @@ interface SlashMenuProps {
   /** Creates a collection and puts a block for it where the caret is. */
   onInsertCollection: () => void;
   onInsertProtectedSection: () => void;
+  /** Open the dialog that asks where the video comes from. */
+  onInsertVideo: () => void;
 }
 
 export function SlashMenu({
@@ -75,6 +77,7 @@ export function SlashMenu({
   onPickFile,
   onInsertCollection,
   onInsertProtectedSection,
+  onInsertVideo,
 }: SlashMenuProps): ReactElement | null {
   const menu = slashMenuState(view.state);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -211,6 +214,12 @@ export function SlashMenu({
       }
       if (item.id === 'file') {
         onPickFile();
+        return;
+      }
+      if (item.id === 'video') {
+        // A dialog rather than a picker: two of the three sources are addresses,
+        // and a file picker cannot ask for one (ADR-0037).
+        onInsertVideo();
         return;
       }
 

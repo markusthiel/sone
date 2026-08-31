@@ -83,3 +83,67 @@ test('the node is one type with three sources', () => {
   assert.match(schema, /display: \{ default: 'player' \}/);
   assert.doesNotMatch(schema, /videoEmbed:|videoStream:/);
 });
+
+// --- getting one into a page ------------------------------------------------
+
+const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+const dialog = codeOf(new URL('../src/components/VideoDialog.tsx', import.meta.url));
+const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+const slash = codeOf(new URL('../../editor/src/slashMenu.ts', import.meta.url));
+
+test('the slash menu offers it, and asks rather than opening a picker', () => {
+  // Two of the three sources are addresses, and a file picker cannot ask for one.
+  assert.match(slash, /id: 'video'/);
+  const slashMenu = codeOf(new URL('../src/components/SlashMenu.tsx', import.meta.url));
+  assert.match(slashMenu, /item\.id === 'video'/);
+  assert.match(slashMenu, /onInsertVideo\(\)/);
+});
+
+test('an address is read by the allowlist before a block exists', () => {
+  // A refusal at that moment is a correction; a refusal afterwards is a broken
+  // block. And it is the same function that draws it, which is what makes
+  // tightening the list reach documents already written.
+  assert.match(dialog, /readVideoLink\(trimmed\)/);
+  assert.match(dialog, /readStreamLink\(trimmed\)/);
+  assert.match(surface, /const embed = readVideoLink\(raw\)/);
+});
+
+test('the browser is asked whether it could play the file, before it is sent', () => {
+  // An iPhone .mov carrying HEVC is the ordinary case and most browsers draw a
+  // black rectangle for it. Nothing is transcoded (ADR-0037), so a sentence at
+  // the moment of choosing is the whole of the help available.
+  assert.match(surface, /probe\.canPlayType\(file\.type\)/);
+  assert.match(surface, /setNotice\(unplayableNotice\(file\)\)/);
+  // A warning and not a refusal: it may play for the person it is meant for.
+  assert.doesNotMatch(surface, /return;\s*\/\/ refuse the upload/);
+});
+
+test('a dropped video becomes a video, not an attachment named after one', () => {
+  assert.match(surface, /file\.type\.startsWith\('video\/'\)\) await attachVideo\(file\)/);
+});
+
+test('the handle offers width, and the three shapes', () => {
+  // Width is the shared block attribute; the shapes are the file block's. No
+  // colour, and no alignment — a player aligned inside its own width is a
+  // control with nothing to do.
+  assert.match(menu, /video: \{ width: true, color: false, align: false \}/);
+  assert.match(menu, /setVideoDisplay\(at, option\.id as 'player' \| 'card' \| 'link'\)/);
+  assert.match(menu, /\{ id: 'player', label: 'Player' \}/);
+});
+
+test('a stream is offered as a player and nothing else, in both places', () => {
+  // The menu agreeing with the command, rather than the menu deciding: a card for
+  // something interesting only while live is a dead link tomorrow, whoever asked.
+  assert.match(menu, /source === 'stream'\s*\?\s*\[\{ id: 'player', label: 'Player' \}\]/);
+  const commands = codeOf(new URL('../../editor/src/commands.ts', import.meta.url));
+  assert.match(commands, /source'\] === 'stream' && display !== 'player'\) return false/);
+});
+
+test('an upload offers Download, and not "the original"', () => {
+  // An image has a smaller copy made for display, so "the original" means
+  // something. A video is stored as it arrived; there is no second copy.
+  const actions = menu.slice(menu.indexOf('function VideoActions'));
+  const own = actions.slice(0, actions.indexOf('function ImageDisplay'));
+  assert.match(own, /download=\{name\}/, 'the upload can be downloaded');
+  assert.doesNotMatch(own, /original=true/, 'and there is no second copy to offer');
+});

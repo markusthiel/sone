@@ -13,6 +13,19 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Video** ([ADR-0037](docs/adr/0037-video.md)). Type `/` and choose Video: upload
+one, paste a link from YouTube, Vimeo or PeerTube, or point at a live HLS or DASH
+stream. Content width by default, and the ⋮⋮ menu offers full width, a card or a
+single line — a stream is a player only.
+
+**An embedded video loads nothing from its provider until you press play.**
+Opening a page that contains one tells YouTube nothing.
+
+Nothing is converted: a video is stored as you sent it, and the upload says at the
+moment you choose the file whether this browser could play it — an iPhone `.mov` is
+usually HEVC, which Safari plays and other browsers do not. A live stream plays in
+Safari and iOS; other browsers say so and offer the address.
+
 **Downloads are resumable, and no longer read into memory whole.** A file is
 streamed and byte ranges are answered, which is what makes seeking in a large file
 possible at all — the groundwork for video ([ADR-0037](docs/adr/0037-video.md)) and
