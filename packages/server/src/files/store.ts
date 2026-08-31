@@ -23,8 +23,10 @@
  */
 
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { Readable } from 'node:stream';
 
 /** What a caller needs to know about a stored file. */
 export interface StoredFile {
@@ -40,6 +42,21 @@ export interface FileStore {
   get(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
+  /** How many bytes are stored, without reading them (ADR-0037). */
+  size(key: string): Promise<number>;
+  /**
+   * Read part of a file, as a stream.
+   *
+   * `get` returns the whole thing in memory, which is what the download route
+   * did for every request — merely wasteful for a document and fatal for video:
+   * a browser seeks by asking for a byte range, Safari will not play a `<video>`
+   * at all without ranges advertised, and a 100 MB file watched by five people
+   * is half a gigabyte of resident memory.
+   *
+   * Inclusive bounds, as HTTP has them: `bytes=0-1023` is the first 1024 bytes,
+   * and that is the arithmetic the caller is already holding.
+   */
+  read(key: string, range?: { start: number; end: number }): Promise<Readable>;
 }
 
 export class StorageError extends Error {
@@ -199,6 +216,26 @@ export class LocalFileStore implements FileStore {
       if (err instanceof StorageError) throw err;
       throw new StorageError(`file not found: ${key}`, 'not_found');
     }
+  }
+
+  async size(key: string): Promise<number> {
+    try {
+      const info = await stat(this.resolve(key));
+      if (!info.isFile()) throw new StorageError(`not a file: ${key}`, 'not_found');
+      return info.size;
+    } catch (err) {
+      if (err instanceof StorageError) throw err;
+      throw new StorageError(`file not found: ${key}`, 'not_found');
+    }
+  }
+
+  async read(key: string, range?: { start: number; end: number }): Promise<Readable> {
+    // Resolved first, and separately, so an unsafe or missing key fails here
+    // rather than as an error event on a stream the route has already started
+    // writing headers for.
+    const path = this.resolve(key);
+    await this.size(key);
+    return createReadStream(path, range ? { start: range.start, end: range.end } : {});
   }
 
   async exists(key: string): Promise<boolean> {

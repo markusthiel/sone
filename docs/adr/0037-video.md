@@ -61,6 +61,43 @@ operator's decision rather than ours: `SONE_MAX_UPLOAD_MB` exists, and the
 documentation should say what a sensible number is once streaming makes a large
 one survivable.
 
+### Nothing is transcoded, and the reasons are the same ones ADR-0029 gave
+
+Asked directly: should an upload be converted or reduced so the format is always
+the right one? No, and the precedent is exact.
+
+ADR-0029 had this decision for images and answered it by resizing **in the
+browser** rather than adding a native image library to the server. The same
+argument is stronger for video:
+
+- **ffmpeg on the server** is a large dependency (ADR-0004) and a long CPU job. A
+  ten-minute recording is minutes of encoding on a machine whose job is serving
+  notes, which needs a queue, progress, retries and a failure state — a subsystem,
+  to avoid a problem nobody has reported.
+- **Encoding in the browser** is not the image trick again. `ffmpeg.wasm` is tens of
+  megabytes and slow; WebCodecs is not dependably available where this is actually
+  used. Resizing a photograph is a decode and a draw; re-encoding video is not.
+
+So an uploaded video is stored as it arrived. What is worth doing instead is
+cheap, and two of the three are the parts that would otherwise look broken:
+
+**Say at upload time whether the browser can play it.** `canPlayType` answers this
+before anything is sent. An iPhone `.mov` in HEVC is the ordinary case and most
+browsers show a black rectangle for it; a sentence at the moment of choosing the
+file — "most browsers cannot play this; MP4/H.264 can" — is worth more than any
+conversion we could honestly run.
+
+**Extract a poster frame in the browser.** Seek to the first frame, draw it to a
+canvas, upload it as a `poster` variant beside the file. That is a decode and a
+draw, exactly what ADR-0029 already does, and it is what makes the card form and
+the pre-play state look like something rather than a black box. No encoder
+involved.
+
+**And the download is the original, because there is no second copy.** An image has
+a web variant, so it needs "download the original" to mean something; a video has
+one file. The menu entry is simply "Download", and `?original=true` stays
+meaningful only where a variant exists.
+
 ### An embedded link is an allowlist, not an iframe
 
 A pasted URL becomes a player only for providers this application knows how to

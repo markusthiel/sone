@@ -28,7 +28,7 @@ import {
   isInlineImage,
   isInlineViewable,
 } from '../src/files/store.js';
-import { contentDisposition } from '../src/files/routes.js';
+import { contentDisposition, parseRange } from '../src/files/routes.js';
 import { hashPassword } from '../src/auth/password.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
 import { expectJson, expectStatus } from './support/http.js';
@@ -142,6 +142,106 @@ describe(
         headers: { cookie, 'content-type': 'application/octet-stream' },
         body: new Uint8Array(bytes),
       });
+
+    // --- byte ranges (ADR-0037) --------------------------------------------
+
+    test('a download says it accepts ranges', async () => {
+      // A client asks for a range because the first answer said it could. Video
+      // depends on it: a browser seeks by asking, and Safari will not play a
+      // <video> at all unless ranges are advertised.
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PNG),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/files/${created.id}`, {
+        headers: { cookie: session.cookie },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('accept-ranges'), 'bytes');
+      assert.equal(res.headers.get('content-length'), String(PNG.length));
+      assert.deepEqual(Buffer.from(await res.arrayBuffer()), PNG, 'the whole file');
+    });
+
+    test('a range comes back as 206, with only those bytes', async () => {
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PNG),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/files/${created.id}`, {
+        headers: { cookie: session.cookie, range: 'bytes=2-5' },
+      });
+      assert.equal(res.status, 206);
+      assert.equal(res.headers.get('content-range'), `bytes 2-5/${PNG.length}`);
+      assert.equal(res.headers.get('content-length'), '4');
+      assert.deepEqual(Buffer.from(await res.arrayBuffer()), PNG.subarray(2, 6));
+    });
+
+    test('an open-ended range runs to the last byte', async () => {
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PNG),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/files/${created.id}`, {
+        headers: { cookie: session.cookie, range: 'bytes=4-' },
+      });
+      assert.equal(res.status, 206);
+      assert.equal(res.headers.get('content-range'), `bytes 4-${PNG.length - 1}/${PNG.length}`);
+      assert.deepEqual(Buffer.from(await res.arrayBuffer()), PNG.subarray(4));
+    });
+
+    test('a range past the end is 416 and says how big the file is', async () => {
+      // Not 200 with the whole file: a client asking for byte 900 of a 100-byte
+      // file has the wrong idea about the size, and answering it hides that.
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PNG),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/files/${created.id}`, {
+        headers: { cookie: session.cookie, range: 'bytes=99999-' },
+      });
+      assert.equal(res.status, 416);
+      assert.equal(res.headers.get('content-range'), `bytes */${PNG.length}`);
+    });
+
+    test('a range still answers to the page permissions', async () => {
+      // The check must not be somewhere a `Range` header can skip.
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PNG),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/files/${created.id}`, {
+        headers: { range: 'bytes=0-1' },
+      });
+      assert.equal(res.status, 401);
+    });
+
+    test('the security headers are on a partial response too', async () => {
+      // Every one of them is load-bearing and documented as such; a 206 that
+      // dropped them would be the interesting way in.
+      const session = await setup();
+      const created = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PDF, 'notes.pdf'),
+        201,
+      );
+
+      const res = await fetch(`${base}/api/files/${created.id}`, {
+        headers: { cookie: session.cookie, range: 'bytes=0-3' },
+      });
+      assert.equal(res.status, 206);
+      assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+      assert.equal(res.headers.get('cross-origin-resource-policy'), 'same-origin');
+      assert.match(res.headers.get('content-security-policy') ?? '', /default-src 'none'/);
+    });
 
     // --- type detection ----------------------------------------------------
 
@@ -905,4 +1005,25 @@ test('categories are coarse on purpose', () => {
     categoryOf('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
     'document',
   );
+});
+
+test('the range parser answers three things, not two', () => {
+  // No range, one range, and unsatisfiable — and the third must not collapse
+  // into the first, or a client with the wrong idea of the size is told nothing.
+  assert.equal(parseRange(undefined, 100), null);
+  assert.equal(parseRange('bytes=0-1,4-5', 100), null, 'multipart is not answered');
+  assert.equal(parseRange('nonsense', 100), null);
+  assert.equal(parseRange('bytes=-', 100), null);
+
+  assert.deepEqual(parseRange('bytes=0-9', 100), { start: 0, end: 9 });
+  assert.deepEqual(parseRange('bytes=90-', 100), { start: 90, end: 99 });
+  // Clamped rather than refused: asking for more than there is is ordinary.
+  assert.deepEqual(parseRange('bytes=90-999', 100), { start: 90, end: 99 });
+  // A suffix range, and one longer than the file is the whole file.
+  assert.deepEqual(parseRange('bytes=-10', 100), { start: 90, end: 99 });
+  assert.deepEqual(parseRange('bytes=-500', 100), { start: 0, end: 99 });
+
+  assert.equal(parseRange('bytes=100-', 100), 'unsatisfiable');
+  assert.equal(parseRange('bytes=50-40', 100), 'unsatisfiable');
+  assert.equal(parseRange('bytes=-0', 100), 'unsatisfiable');
 });
