@@ -20,6 +20,19 @@ const workspace = codeOf(
 );
 const instance = codeOf(new URL('../src/components/AdminScreen.tsx', import.meta.url));
 
+test('every settings column carries the same account menu', () => {
+  // It was only in the sidebar, so from the administration area the way to your
+  // own profile — or to the trash, or out — was back through the notes. The
+  // switcher above only moves between areas.
+  assert.match(shell, /<AccountMenu/);
+  const account = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
+  assert.match(account, /className="sidebar-footer"/, 'the same footer, not a copy of it');
+  // One component, used from both places rather than reimplemented in the shell.
+  const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+  assert.match(sidebar, /<AccountMenu/);
+  assert.doesNotMatch(sidebar, /className="sidebar-account-menu"/);
+});
+
 test('the switcher at the top of the column is the same shape, holding areas', () => {
   // Where the workspace switcher sits in the application, so it is where
   // somebody has already learnt to look for "where am I, and what else is

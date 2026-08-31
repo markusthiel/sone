@@ -7,7 +7,10 @@ import { test } from 'node:test';
 
 import { codeOf, stylesOf } from './helpers/source.ts';
 
-const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+// The face and its menu live in AccountMenu now, so the settings columns can
+// carry the same one — it was only in the sidebar, which is why getting from the
+// administration area to your own profile meant going out through the notes.
+const sidebar = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
 const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 
 test('one mark opens a menu instead of four icons in a row', () => {
@@ -27,7 +30,11 @@ test('the three areas are three entries, and one of them is conditional', () => 
   assert.doesNotMatch(sidebar, /Edit your profile/);
   assert.match(sidebar, /href=\{paths\.settings\(\)\}/);
   assert.match(sidebar, /href=\{paths\.workspaceSettings\(\)\}/);
-  assert.match(sidebar, /\{\(isInstanceAdmin \|\| canManageWorkspaces\) && \(/);
+  // One flag now, decided by whoever renders the menu: the sidebar combines the
+  // two rights, and a settings column passes the one it already computed.
+  assert.match(sidebar, /\{canAdminister && \(/);
+  const sidebarFile = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+  assert.match(sidebarFile, /canAdminister=\{isInstanceAdmin \|\| canManageWorkspaces\}/);
 });
 
 test('signing out is last and set apart', () => {

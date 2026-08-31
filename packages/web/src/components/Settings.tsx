@@ -48,6 +48,8 @@ interface SettingsProps {
   workspaceId: string;
   /** Back to the notes. Settings is a screen of its own (ADR-0027). */
   onClose: () => void;
+  /** Signing out, which the account menu at the foot of the column offers. */
+  onLogout: () => void;
 }
 
 const SECTIONS: readonly ShellSection[] = [
@@ -63,6 +65,7 @@ export function Settings({
   session,
   workspaceId,
   onClose,
+  onLogout,
 }: SettingsProps): ReactElement {
   // Which of the two a phone is showing. Starts on the section, because
   // arriving at a list of settings when you asked for one setting is a step
@@ -84,6 +87,11 @@ export function Settings({
       hrefFor={(id) => paths.settings(id)}
       listOpen={listOpen}
       onListOpen={setListOpen}
+      account={{
+        displayName: session.user.displayName,
+        userId: session.user.id,
+        onLogout,
+      }}
       onClose={onClose}
     >
       {current === 'profile' && <Profile session={session} workspaceId={workspaceId} />}

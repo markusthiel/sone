@@ -41,6 +41,8 @@ interface WorkspaceSettingsProps {
   session: SessionInfo;
   workspaceId: string;
   onClose: () => void;
+  /** Signing out, which the account menu at the foot of the column offers. */
+  onLogout: () => void;
 }
 
 export function WorkspaceSettingsScreen({
@@ -48,6 +50,7 @@ export function WorkspaceSettingsScreen({
   session,
   workspaceId,
   onClose,
+  onLogout,
 }: WorkspaceSettingsProps): ReactElement {
   const [listOpen, setListOpen] = useState(false);
   const current = resolveSection(SECTIONS, section);
@@ -71,6 +74,11 @@ export function WorkspaceSettingsScreen({
       hrefFor={(id) => paths.workspaceSettings(id)}
       listOpen={listOpen}
       onListOpen={setListOpen}
+      account={{
+        displayName: session.user.displayName,
+        userId: session.user.id,
+        onLogout,
+      }}
       onClose={onClose}
     >
       {current === 'general' && (

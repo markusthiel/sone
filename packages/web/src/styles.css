@@ -3058,7 +3058,7 @@ select {
  * There were two rules here, and the later one set `display: flex` without a
  * direction — so this one's `column` stayed and the four marks stacked. A
  * property left unset is not a property left alone. */
-.sidebar-footer { margin-block-start: auto; position: relative; }
+/* Described in one rule, further down, where the account row is. */
 
 /* --- touch behaviour in popups ---
  *
@@ -4931,6 +4931,11 @@ body {
   gap: var(--sone-space-2);
   padding: var(--sone-space-4) var(--sone-space-3);
   border-block-start: 1px solid var(--border-subtle);
+  /* At the foot of whichever column it is in — the sidebar or a settings list —
+     rather than following the last entry up it. */
+  margin-block-start: auto;
+  /* The menu hangs from here. */
+  position: relative;
 }
 /* The account: a face and a name, which is one target rather than four. */
 .sidebar-account {

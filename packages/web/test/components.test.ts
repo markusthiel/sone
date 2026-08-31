@@ -175,10 +175,13 @@ test('the field rule cannot outweigh a class written for one field', () => {
 test('the sidebar footer is laid out in one rule', () => {
   // There were two, and the later one set `display: flex` without a direction —
   // so the earlier one's `column` stayed and the four marks stacked. A property
-  // left unset is not a property left alone.
+  // left unset is not a property left alone. They are one rule now, which is
+  // what the original note was asking for: the placement moved in beside the
+  // layout when the footer started appearing in a second column.
   const rules = css.match(/\.sidebar-footer \{/g) ?? [];
-  assert.equal(rules.length, 2, 'one for placement, one for layout');
+  assert.equal(rules.length, 1);
   assert.doesNotMatch(css, /\.sidebar-footer \{[^}]*flex-direction: column/);
+  assert.match(css, /\.sidebar-footer \{[^}]*margin-block-start: auto/);
 });
 
 test('a matched passage is split, never put through innerHTML', () => {

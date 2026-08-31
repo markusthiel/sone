@@ -7,7 +7,10 @@ import { test } from 'node:test';
 
 import { codeOf, stylesOf } from './helpers/source.ts';
 
-const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+// The face and its menu live in AccountMenu now, so the settings columns can
+// carry the same one — it was only in the sidebar, which is why getting from the
+// administration area to your own profile meant going out through the notes.
+const sidebar = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
 const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 
 test('the footer is one line, not a list of places to go', () => {

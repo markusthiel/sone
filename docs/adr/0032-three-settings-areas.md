@@ -123,6 +123,17 @@ fact on that screen and not a choice: choosing a different one is what the
 administration list is for, and two identical dropdowns stacked on one of three
 screens would be an exception to explain rather than a shape to learn.
 
+### The account menu is at the foot of every column, including these
+
+The face and the menu behind it were only in the sidebar, so from the
+administration area the way to your own profile — or to the trash, or out of the
+account — was back through the notes and in again. The switcher at the top only
+moves between areas.
+
+It is one component used from both places rather than two that look alike, and it
+gained something in being lifted out: the sidebar's copy never closed on a click
+outside itself, so it sat over the tree after a stray press.
+
 ### One shell, three areas
 
 The list-and-section layout — including the two-view arrangement a phone gets —
