@@ -1782,10 +1782,53 @@ select {
   cursor: pointer;
   color: var(--sone-text);
   font-size: 0.9rem;
+  /* For the drop line, which is drawn on the row it lands after. */
+  position: relative;
+  /* A press that becomes a drag must not select the name or, on iOS, raise the
+     long-press callout over the row being dragged. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .workspace-item:hover { background: var(--sone-bg-hover); text-decoration: none; }
 .workspace-item[aria-current='true'] { background: var(--sone-bg-hover); font-weight: 600; }
 .workspace-item svg { inline-size: 1em; block-size: 1em; vertical-align: -0.15em; }
+
+/* --- arranging the switcher (ADR-0031) ---
+ *
+ * The same two signals the tree uses, because it is the same gesture: the row
+ * being carried is lifted, and a line marks the gap it would land in. No
+ * travelling copy under the pointer here — the panel is four rows tall and a
+ * label following the finger would cover the gap being aimed at, which is the
+ * one thing that has to stay visible.
+ *
+ * No `touch-action`: it is read when the gesture starts, before anybody knows
+ * whether this is a drag or a scroll of a tall list. Scrolling is suppressed for
+ * the duration of a drag instead (hooks/usePointerDrag.ts).
+ */
+.workspace-item[data-dragging='true'] {
+  opacity: 0.5;
+  background: var(--sone-bg-hover);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+}
+/* A row being carried must not swallow the pointer events its own children would
+   receive, and must not be found by elementFromPoint before the row under it. */
+.workspace-item[data-dragging='true'] * { pointer-events: none; }
+
+.workspace-item[data-drop='before']::before,
+.workspace-item[data-drop='after']::after {
+  content: '';
+  position: absolute;
+  /* Past the row's own edges, so it reads as a line between two rows rather
+     than a border belonging to one of them. */
+  inset-inline: -2px;
+  block-size: 2px;
+  border-radius: 1px;
+  background: var(--sone-accent);
+  z-index: 2;
+}
+.workspace-item[data-drop='before']::before { inset-block-start: -2px; }
+.workspace-item[data-drop='after']::after { inset-block-end: -2px; }
 
 /* The name and the count are declared once, further down beside
    `.workspace-mark` — there used to be a pair here as well, and the two halves

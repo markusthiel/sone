@@ -389,6 +389,18 @@ export const api = {
 
   workspaces: () => request<{ workspaces: WorkspaceSummary[] }>('/api/workspaces'),
 
+  /**
+   * Place a workspace directly after another in the caller's own order.
+   *
+   * `afterWorkspaceId` null means first. Unlike `moveEntry` there is no "no
+   * opinion" form: a drag always landed somewhere (ADR-0031).
+   */
+  reorderWorkspace: (workspaceId: string, afterWorkspaceId: string | null) =>
+    post<{ workspaceId: string; idx: string }>('/api/workspaces/reorder', {
+      workspaceId,
+      afterWorkspaceId,
+    }),
+
   createWorkspace: (name: string) =>
     post<{ id: string; name: string; role: string; defaultFolderId: string | null }>(
       '/api/workspaces',

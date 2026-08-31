@@ -13,6 +13,24 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Drag your workspaces into the order you want.** The switcher was alphabetical,
+which is nobody's order; now you arrange it and it stays that way
+([ADR-0031](docs/adr/0031-workspace-order.md)). Press and hold a row on a touch
+device, or just drag it with a mouse. The order is yours alone — arranging your
+list does not change anybody else's — and the first workspace is the one a
+browser with nothing remembered opens, so dragging the one you live in to the top
+makes it the one you land in. No operator action: the migration runs on start,
+and a list nobody has arranged stays alphabetical until somebody does. Reordering
+is a drag only; there is no keyboard equivalent yet.
+
+**Fixed: a workspace marked for deletion still appeared in the switcher**, so it
+offered somewhere to write that the rest of the interface had already taken away.
+
+**Fixed: the switcher panel was wider than the sidebar** — it sat hard against
+the page on one side, kept a gap on the other, and its rows stepped to the right
+of the button that opened them. Both of its edges are now the sidebar's edges,
+and the marks stay on one line.
+
 **Fixed: a workspace's name colour was saved and never shown**, and a colour
 picked from the palette did nothing at all while a custom one worked.
 
