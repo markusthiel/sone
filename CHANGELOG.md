@@ -13,6 +13,21 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A table can be filled by pasting** ([ADR-0034](docs/adr/0034-collection-table-editing.md)).
+Copy a selection out of a spreadsheet, click an entry's name and paste: each line
+becomes an entry and each column fills the column you pasted into and the ones to
+its right. Up to fifty at a time — and a second paste is **added below** rather
+than replacing what is there, so more than fifty is two pastes. Add the columns
+first; a paste fills columns that exist and never invents one, because guessing a
+column's type from data is how a PIN loses its leading zero.
+
+**An entry's name is edited in the table**, with a small control at the end of the
+cell to open its page. Filling the first column no longer means leaving the table.
+
+**Undo and redo for a table**, and a button that moves every entry to the trash —
+where "to the trash" is literal: an entry is a page, so nothing is destroyed and
+everything can be restored.
+
 **Fixed: the menu for adding a column to a table was cut off.** It opened inside
 the table's own scroll area, which clips, so the column types below the fold could
 neither be read nor chosen.

@@ -978,5 +978,187 @@ describe(
         404,
       );
     });
+
+    // --- pasting a grid, and emptying the table (ADR-0034) -----------------
+
+    const bulk = (
+      session: Session,
+      collectionId: string,
+      rows: unknown[],
+    ): Promise<Response> =>
+      fetch(`${base}/api/collections/${collectionId}/rows/bulk`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ rows }),
+      });
+
+    test('a grid arrives as rows in the order it was pasted', async () => {
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const pin = await fieldOf(session, collection, { name: 'PIN', fieldType: 'text' });
+
+      await expectStatus(
+        await bulk(session, collection, [
+          { title: 'Barthel', values: { [pin]: { kind: 'text', value: '4516-0007' } } },
+          { title: 'Eck', values: { [pin]: { kind: 'text', value: '4084-0580' } } },
+        ]),
+        201,
+      );
+
+      const body = await read(session, collection);
+      assert.deepEqual(
+        body.rows.map((row) => row.title),
+        ['Barthel', 'Eck'],
+      );
+      assert.deepEqual(body.rows[0]!.values[pin], { kind: 'text', value: '4516-0007' });
+    });
+
+    test('a second paste is appended, not written over the first', async () => {
+      // The one thing asked for that Craft does not do: the cap is a limit on an
+      // operation, so pasting twice is how somebody gets past it.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+
+      await expectStatus(await bulk(session, collection, [{ title: 'one' }]), 201);
+      await expectStatus(
+        await bulk(session, collection, [{ title: 'two' }, { title: 'three' }]),
+        201,
+      );
+
+      assert.deepEqual(
+        (await read(session, collection)).rows.map((row) => row.title),
+        ['one', 'two', 'three'],
+      );
+    });
+
+    test('a row and its values are one write, so no row is briefly empty', async () => {
+      // Two writes would mean a row that exists and is blank for as long as the
+      // second takes — and if the second fails, permanently.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const pin = await fieldOf(session, collection, { name: 'PIN', fieldType: 'text' });
+
+      const created = await expectJson<{ created: string[] }>(
+        await bulk(session, collection, [
+          { title: 'Once', values: { [pin]: { kind: 'text', value: '1' } } },
+        ]),
+        201,
+      );
+
+      // Read from the documents rather than the projection: the projection could
+      // agree with a write that never reached the CRDT (ADR-0002).
+      const updates = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM doc_updates WHERE doc_id = $1`,
+        [created.created[0]],
+      );
+      assert.equal(updates.rows[0]?.n, 1, 'one update, not two');
+    });
+
+    test('more than fifty rows is refused rather than trimmed', async () => {
+      // The interface trims and says what it left. A route that silently dropped
+      // rows would be a much worse thing for anything else calling it.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+
+      const rows = Array.from({ length: 51 }, (_, at) => ({ title: `row ${at}` }));
+      const res = await bulk(session, collection, rows);
+      const body = await expectJson<{ error: string }>(res, 422);
+      assert.equal(body.error, 'too_many_rows');
+      assert.equal((await read(session, collection)).rows.length, 0, 'nothing was written');
+    });
+
+    test('a field from another collection is refused before anything is written', async () => {
+      // Finding that out after twenty rows exist is how a paste becomes a
+      // cleanup job.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const first = await collectionOn(session, page);
+      const second = await collectionOn(session, page);
+      const foreign = await fieldOf(session, second, { name: 'Elsewhere', fieldType: 'text' });
+
+      const res = await bulk(session, first, [
+        { title: 'a' },
+        { title: 'b', values: { [foreign]: { kind: 'text', value: 'x' } } },
+      ]);
+      await expectStatus(res, 404);
+      assert.equal((await read(session, first)).rows.length, 0, 'including the first row');
+    });
+
+    test('emptying the table archives its rows rather than deleting them', async () => {
+      // A row is a page, so this fills the trash — which is what makes it
+      // reversible.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      await expectStatus(
+        await bulk(session, collection, [{ title: 'one' }, { title: 'two' }]),
+        201,
+      );
+
+      const cleared = await expectJson<{ archived: string[] }>(
+        await fetch(`${base}/api/collections/${collection}/rows`, {
+          method: 'DELETE',
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+      assert.equal(cleared.archived.length, 2);
+      assert.equal((await read(session, collection)).rows.length, 0);
+
+      // Still there, archived, and restorable.
+      const rows = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pages
+          WHERE collection_id = $1 AND archived_at IS NOT NULL`,
+        [collection],
+      );
+      assert.equal(rows.rows[0]?.n, 2);
+
+      for (const rowId of cleared.archived) {
+        await expectStatus(
+          await fetch(`${base}/api/pages/${rowId}/restore`, {
+            method: 'POST',
+            headers: { cookie: session.cookie },
+          }),
+          200,
+        );
+      }
+      assert.equal((await read(session, collection)).rows.length, 2, 'undo puts them back');
+    });
+
+    test('somebody who may only read cannot paste or empty', async () => {
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+
+      const hash = await hashPassword(PASSWORD);
+      await db.query(
+        `INSERT INTO users (email, display_name, password_hash)
+         VALUES ('reader@example.org','R',$1)`,
+        [hash],
+      );
+      const login = await fetch(
+        `${base}/api/auth/login`,
+        json({ email: 'reader@example.org', password: PASSWORD }),
+      );
+      const outsider: Session = {
+        ...session,
+        cookie: cookieFrom(login),
+      };
+
+      assert.equal((await bulk(outsider, collection, [{ title: 'x' }])).status, 404);
+      assert.equal(
+        (
+          await fetch(`${base}/api/collections/${collection}/rows`, {
+            method: 'DELETE',
+            headers: { cookie: outsider.cookie },
+          })
+        ).status,
+        404,
+      );
+    });
   },
 );

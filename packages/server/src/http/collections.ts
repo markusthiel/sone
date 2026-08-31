@@ -151,6 +151,17 @@ async function collectionPage(
   return { collectionId, pageId: row.page_id, auth };
 }
 
+/**
+ * Most rows one paste may create (ADR-0034).
+ *
+ * Craft's number. Generous enough for the case this was built for — a few dozen
+ * lines out of a spreadsheet — and small enough that a mis-click on a copied
+ * ten-thousand-line file does not build a workspace nobody can clean up. The
+ * limit is on one operation and not on the table: pasting twice adds to what is
+ * there, because a paste appends.
+ */
+export const MAX_BULK_ROWS = 50;
+
 export function registerCollectionRoutes(router: Router, deps: CollectionDeps): void {
   /**
    * Add a collection to a page.
@@ -254,6 +265,184 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
 
     await rematerialize(deps.pool, rowId, auth.workspaceId, auth.actorId);
     ctx.send(201, { id: rowId, collectionId });
+  });
+
+  /**
+   * Add several rows at once, from a pasted grid (ADR-0034).
+   *
+   * The point of this route is that fifty rows are one request. Through the
+   * single-row and single-cell routes a three-column paste of fifty lines is two
+   * hundred round trips, a table that fills in visibly, and no way to end up with
+   * either all of it or none of it.
+   *
+   * **Appended, never overwriting.** A paste lands after whatever is already
+   * there, so pasting a second fifty adds to the first rather than replacing it —
+   * which is what makes the cap something somebody can work around by pasting
+   * twice, rather than a wall.
+   *
+   * Everything that can be checked is checked before anything is written: the
+   * permission, the cap, and that every field named belongs to this collection
+   * and can hold a value. What is left after that is one document write per row,
+   * and the ids of the rows actually created come back — so a caller interrupted
+   * half way knows exactly what exists, and since the rows are appended, what
+   * exists is a prefix of what was pasted rather than a scattering.
+   */
+  router.post('/api/collections/:collectionId/rows/bulk', async (ctx) => {
+    const collectionId = ctx.params['collectionId'] ?? '';
+    const collection = await queryOne<{ page_id: string }>(
+      deps.pool,
+      `SELECT page_id FROM collections WHERE id = $1`,
+      [collectionId],
+    );
+    if (!collection) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const auth = await authorise(deps.pool, ctx, collection.page_id, 'edit');
+    if (!auth) return;
+
+    let body: { rows?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    if (!Array.isArray(body.rows) || body.rows.length === 0) {
+      ctx.fail(422, 'missing_fields');
+      return;
+    }
+
+    // Over the cap is refused rather than trimmed here.
+    //
+    // The interface trims and says what it left, which is the right behaviour
+    // for somebody who pasted too much; a route that silently drops rows would
+    // be a different and much worse thing for anything else calling it.
+    if (body.rows.length > MAX_BULK_ROWS) {
+      ctx.fail(422, 'too_many_rows', { limit: MAX_BULK_ROWS });
+      return;
+    }
+
+    const incoming = body.rows.map((entry) => {
+      const row = (entry ?? {}) as { title?: unknown; values?: unknown };
+      const values =
+        row.values && typeof row.values === 'object' && !Array.isArray(row.values)
+          ? (row.values as Record<string, StoredValue | null>)
+          : {};
+      return {
+        title: typeof row.title === 'string' ? row.title.trim() : '',
+        values,
+      };
+    });
+
+    // Every field named, once, before anything is written.
+    //
+    // A field from another collection, or a derived one, is the caller asking
+    // for something that cannot hold — and finding that out after twenty rows
+    // exist is how a paste becomes a cleanup job.
+    const named = [...new Set(incoming.flatMap((row) => Object.keys(row.values)))];
+    const fields = new Map<string, FieldType>();
+    if (named.length > 0) {
+      const rows = await queryRows<{ id: string; field_type: string }>(
+        deps.pool,
+        `SELECT id, field_type FROM collection_fields
+          WHERE collection_id = $1 AND id = ANY($2::uuid[])`,
+        [collectionId, named],
+      );
+      for (const field of rows) fields.set(field.id, field.field_type as FieldType);
+    }
+    for (const id of named) {
+      if (!fields.has(id)) {
+        ctx.fail(404, 'field_not_found');
+        return;
+      }
+    }
+
+    const last = await queryRows<{ idx: string }>(
+      deps.pool,
+      `SELECT idx FROM pages
+        WHERE collection_id = $1 AND kind = 'row'
+        ORDER BY idx DESC, id DESC LIMIT 1`,
+      [collectionId],
+    );
+
+    const created: string[] = [];
+    // Carried forward rather than re-read: each key is generated after the last
+    // one written, so the rows arrive in the order they were pasted.
+    let previous: string | null = last[0]?.idx ?? null;
+
+    for (const row of incoming) {
+      const rowId = randomUUID();
+      previous = generateKeyBetween(previous, null);
+      const idx = previous;
+
+      // The row and its values in one document write. Two would mean a row that
+      // exists and is empty for as long as the second takes.
+      await applyToDocument(
+        deps.pool,
+        rowId,
+        (doc) => {
+          const page = doc.getMap(DOC_KEYS.page);
+          page.set(PAGE_KEYS.kind, 'row');
+          page.set(PAGE_KEYS.parentPageId, collection.page_id);
+          page.set(PAGE_KEYS.collectionId, collectionId);
+          page.set(PAGE_KEYS.title, row.title);
+          page.set(PAGE_KEYS.idx, idx);
+
+          for (const [fieldId, value] of Object.entries(row.values)) {
+            // A derived field refuses here, and is skipped rather than failing
+            // the row: the value it would hold is computed from its inputs, and
+            // the inputs are in this same paste.
+            setPropertyValue(doc, fieldId, fields.get(fieldId)!, value ?? null);
+          }
+        },
+        auth.actorId,
+      );
+
+      await rematerialize(deps.pool, rowId, auth.workspaceId, auth.actorId);
+      created.push(rowId);
+    }
+
+    ctx.send(201, { collectionId, created });
+  });
+
+  /**
+   * Empty a collection: archive every row it has.
+   *
+   * Archived, not deleted. A row is a page, so emptying a table is deleting
+   * pages — and the trash is where a deleted page goes everywhere else in this
+   * application. It is also what makes this undoable, which matters much more
+   * now that one paste can create fifty rows.
+   *
+   * The row ids come back so a caller can put them back one by one, which is
+   * what the table's undo does.
+   */
+  router.delete('/api/collections/:collectionId/rows', async (ctx) => {
+    const collectionId = ctx.params['collectionId'] ?? '';
+    const collection = await queryOne<{ page_id: string }>(
+      deps.pool,
+      `SELECT page_id FROM collections WHERE id = $1`,
+      [collectionId],
+    );
+    if (!collection) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const auth = await authorise(deps.pool, ctx, collection.page_id, 'edit');
+    if (!auth) return;
+
+    const rows = await queryRows<{ id: string }>(
+      deps.pool,
+      `UPDATE pages SET archived_at = now()
+        WHERE collection_id = $1 AND kind = 'row' AND archived_at IS NULL
+        RETURNING id`,
+      [collectionId],
+    );
+
+    ctx.send(200, { collectionId, archived: rows.map((row) => row.id) });
   });
 
   /**

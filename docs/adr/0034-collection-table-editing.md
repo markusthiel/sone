@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed.
+Accepted and implemented, with the amendments below.
 
 ## Context
 
@@ -57,6 +57,20 @@ Craft behaves.
 
 **Rows are created**, because that is the whole point.
 
+### A paste appends; it never overwrites
+
+Amended after review, and it is the point the request turned on: Craft's paste
+replaces from where it lands, so a second selection cannot be added to the first.
+Here a grid becomes new entries at the end of the table.
+
+The one exception is an *empty* anchor row — no name and no values — which is
+filled with the first line rather than left sitting above the result. That is the
+row somebody just made in order to paste into it, and an empty row has nothing to
+lose.
+
+This is what makes the cap workable rather than a wall: fifty at a time, pasted
+twice, is a hundred entries in the order they were copied.
+
 ### The cap is 50 rows in one paste, and it is a stated limit
 
 Craft's number, and a good one: it is generous enough for the case that prompted
@@ -69,15 +83,25 @@ Deliberately not "at least 100": the number is a safety limit on an operation
 whose result is pages, and it can be raised once anybody has actually hit it in
 anger.
 
-### One request, not fifty
+### One request, not fifty — and per-row writes inside it
 
 A new route takes the whole grid and applies it in one transaction: rows created,
 cells written, projection re-materialised once. Fifty rows through the existing
 one-row and one-cell routes is two hundred requests, a table that fills in
 visibly, and no way to end up with either all of it or none of it.
 
-All-or-nothing matters here: a paste that half-succeeds leaves somebody deciding
-which rows to delete by reading them against a spreadsheet.
+All-or-nothing was the intent, and it is only partly what was built.
+`applyToDocument` takes a pool rather than a transaction, so the rows are written
+one document at a time and a share transaction would have meant reworking the
+document plumbing. What is done instead: everything checkable is checked before
+anything is written — the permission, the cap, and that every field named belongs
+to this collection — and the ids created come back. Because the rows are appended,
+an interrupted paste leaves a prefix of the pasted data rather than a scattering,
+and undo covers exactly the rows that exist.
+
+A row and its values are one document write, which is the part that would actually
+hurt: two would leave a row existing and blank for as long as the second took, and
+permanently if it failed.
 
 ### Undo means undoing the last operation, not a general history
 
@@ -94,12 +118,16 @@ Bounded and local, and honest about it: it is emptied on reload, and it does not
 attempt to undo somebody else's edit. A shared undo history is a different feature
 and mostly a way to surprise two people at once.
 
-### Emptying the table deletes its rows, and says that
+### Emptying the table archives its rows, and says that
 
-A row is a page. "Clear the table" therefore deletes pages, and the control has to
-say so and ask for confirmation the way deleting a workspace does — not a dialog
-dismissed by reflex, but the count typed or a clearly-worded confirmation. It goes
-where destructive things go: last, and set apart.
+Amended: archived, not deleted. A row is a page, and a deleted page goes to the
+trash everywhere else in this application — so emptying a table fills the trash,
+every row can be restored from it, and the undo entry is exactly the inverse
+operation rather than a re-creation from remembered data.
+
+The control still has to say what it does, and asks in a sentence rather than a
+dialog dismissed by the same reflex that opened it. It goes where destructive
+things go: last, and set apart.
 
 It also becomes one entry on the undo stack, which is the cheapest safety net
 available and the reason to build the stack before the button.
