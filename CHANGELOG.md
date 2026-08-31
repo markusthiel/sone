@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Editing a title is a line under the words rather than a box around them.**
+Clicking a page or folder name turned it into a filled input the width of the
+page, which read as a dialog opening instead of a caret being placed. The line
+also appears faintly under the pointer, so a title says it can be edited before
+you click it.
+
 **Dragging a workspace now shows which workspace you are dragging**, the way the
 page tree does — the two lines said where it would land and nothing said what was
 moving.

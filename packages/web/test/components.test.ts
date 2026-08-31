@@ -79,6 +79,25 @@ test('the furniture is tinted and the writing is not', () => {
   }
 });
 
+test('editing a title is a line, not a box', () => {
+  // The field rule fills a focused input with a surface and draws a border
+  // round it, which is right for a form: clicking a heading turned it into a
+  // white bar across the page and read as a dialog having opened.
+  //
+  // The selector has to carry an element to outweigh that rule, which is the
+  // trap already recorded beside it.
+  assert.match(css, /input\.page-title:focus[^{]*\{[^}]*background: transparent/);
+  assert.match(
+    css,
+    /input\.page-title:focus[^{]*\{[^}]*border-block-end-color: var\(--border-default\)/,
+  );
+  // Declared transparent at rest, so showing it moves nothing.
+  assert.match(
+    css,
+    /\.page-title,\s*\n\.folder-title \{[^}]*border-block-end: 1px solid transparent/,
+  );
+});
+
 test('the writing has no surface of its own', () => {
   // A sheet under the text sounded right and looked wrong: on a wide screen the
   // column read as a lighter panel floating in a darker window — a distinction
