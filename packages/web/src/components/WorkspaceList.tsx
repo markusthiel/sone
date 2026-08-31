@@ -10,6 +10,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceIcon } from '../api/client.ts';
+import { WorkspaceMark } from './WorkspaceMark.tsx';
 import { messageFor } from './Auth.tsx';
 
 interface Row {
@@ -79,13 +80,19 @@ export function WorkspaceList({
                 * A row that only reports numbers makes somebody wonder where
                 * the editing is, and a separate "manage" column would be a
                 * second target for the thing the name already identifies. */}
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => onOpen(row.id, row.name, row.icon ?? null)}
-              >
-                {row.name || 'Untitled'}
-              </button>
+              <span className="workspace-row-name">
+                {/* The mark, here too: choosing one and then not seeing it in
+                    the list where workspaces are compared is why this looked
+                    unsaved. */}
+                <WorkspaceMark name={row.name} icon={row.icon ?? null} />
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => onOpen(row.id, row.name, row.icon ?? null)}
+                >
+                  {row.name || 'Untitled'}
+                </button>
+              </span>
               {row.id === currentWorkspaceId && (
                 <span className="muted"> · you are here</span>
               )}

@@ -4600,3 +4600,10 @@ body {
   font-weight: 600;
   color: var(--accent);
 }
+
+/* The name cell in the workspace list: a mark, then the name. */
+.workspace-row-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+}

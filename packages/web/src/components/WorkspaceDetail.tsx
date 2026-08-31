@@ -27,6 +27,7 @@ export function WorkspaceDetail({
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmName, setConfirmName] = useState('');
+  const [chosen, setChosen] = useState<WorkspaceIcon | null>(icon);
 
   const load = (): void => {
     void api
@@ -65,10 +66,18 @@ export function WorkspaceDetail({
         * somebody scanning a switcher of five workspaces uses (ADR-0030). */}
       <h3 className="settings-heading">Appearance</h3>
       <div className="settings-card">
+        {/* Kept here rather than reloading.
+          *
+          * Reloading threw the panel away: the open workspace is state and not
+          * a route, so the page came back at the list — which shows no marks,
+          * so the change looked as if it had not been saved. It had.
+          *
+          * The chooser is given what it last saved, so choosing a colour after
+          * an icon keeps the icon instead of sending a stale copy of it. */}
         <WorkspaceAppearance
           workspaceId={workspaceId}
-          icon={icon}
-          onChanged={() => window.location.reload()}
+          icon={chosen}
+          onChanged={setChosen}
         />
       </div>
 
