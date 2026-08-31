@@ -44,8 +44,10 @@ test('the switcher at the top of the column is the same shape, holding areas', (
   assert.match(shell, /className="switcher-item"/);
 
   // The three areas, named for the subject as the areas themselves are.
-  for (const label of ['Your settings', 'This workspace', 'Administration']) {
-    assert.match(shell, new RegExp(`label: '${label}'`));
+  // By key, since the switcher's labels are translated (ADR-0041) — and the keys
+  // name the same three subjects the record decided.
+  for (const key of ['area.you', 'area.workspace', 'area.instance']) {
+    assert.match(shell, new RegExp(`label: '${key}'`));
   }
 
   // Never in the workspace switcher's own menu: "which workspace" and "whose
@@ -96,8 +98,8 @@ test('the profile and signing in are two sections', () => {
   // done at different times: a name is changed once, a password when something
   // has happened — and offering a current-password field to somebody editing
   // their display name reads as being asked to authenticate for no reason.
-  assert.match(you, /id: 'profile', label: 'Profile'/);
-  assert.match(you, /id: 'sign-in', label: 'Signing in'/);
+  assert.match(you, /id: 'profile', label: 'you\.profile'/);
+  assert.match(you, /id: 'sign-in', label: 'you\.signIn'/);
   assert.match(you, /current === 'sign-in' && <SignIn \/>/);
 
   // Two components, so neither carries the other's state. The password form
@@ -189,7 +191,7 @@ test('each area is a screen of its own with a way out', () => {
       `${kind} returns early`,
     );
   }
-  assert.match(shell, /Back to your notes/);
+  assert.match(shell, /t\('settings\.back'\)/);
 });
 
 // --- granting the right, and the way in -------------------------------------

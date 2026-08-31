@@ -83,6 +83,62 @@ export const de: Record<keyof typeof en, string> = {
   'entry.deleteWithChildren':
     'In den Papierkorb, mit {count, plural, one {# Eintrag} other {# Einträgen}} darin',
 
+  // --- die Einstellungsbereiche und ihre Hülle ---------------------------
+  'area.you': '{address, select, formal {Ihre Einstellungen} other {Deine Einstellungen}}',
+  'area.workspace': 'Dieser Workspace',
+  'area.instance': 'Verwaltung',
+  'settings.navLabel': 'Einstellungen: {area}',
+  'settings.back': '‹ Zurück zu den Notizen',
+  'settings.sections': 'Abschnitte',
+
+  // --- die eigenen Einstellungen -----------------------------------------
+  'you.profile': 'Profil',
+  'you.profile.hint':
+    '{address, select, formal {Ihr Name, Ihre Adresse und Ihr Bild} ' +
+    'other {Dein Name, deine Adresse und dein Bild}}',
+  'you.signIn': 'Anmelden',
+  'you.signIn.hint': '{address, select, formal {Ihr Passwort} other {Dein Passwort}}',
+  'you.appearance': 'Aussehen',
+  'you.appearance.hint':
+    'Wie SONE {address, select, formal {für Sie} other {für dich}} aussieht',
+  'you.landing': '{address, select, formal {Wo Sie landen} other {Wo du landest}}',
+  'you.landing.hint': 'Die Seite, mit der jeder Workspace öffnet',
+  'you.about': 'Über',
+  'you.about.hint': 'Version und Lizenz',
+
+  'you.picture': 'Bild',
+  'you.picture.hint':
+    'Jede Größe — es wird hier verkleinert, bevor es gesendet wird, und klein gezeigt.',
+  'you.name': 'Name',
+  'you.name.hint':
+    'Was andere neben allem sehen, was {address, select, formal {Sie hier schreiben} ' +
+    'other {du hier schreibst}}.',
+  'you.email': 'E-Mail',
+  'you.workspace': 'Workspace',
+  'you.workspace.hint':
+    'Wo {address, select, formal {Sie gerade sind} other {du gerade bist}}.',
+  'you.saved': 'Gespeichert.',
+
+  'you.currentPassword': 'Aktuelles Passwort',
+  'you.newPassword': 'Neues Passwort',
+
+  'you.theme': 'Erscheinungsbild',
+  'you.theme.system': 'Wie das System',
+  'you.theme.light': 'Hell',
+  'you.theme.dark': 'Dunkel',
+  'you.interfaceSize': 'Schriftgröße der Oberfläche',
+  'you.interfaceSize.hint':
+    'Seitenleiste, Menüs und Einstellungen — alles außer dem Geschriebenen.',
+  'you.editorSize': 'Schriftgröße im Editor',
+  'you.editorSize.hint':
+    '{address, select, formal {Ihr Geschriebenes} other {Dein Geschriebenes}}, und sonst nichts.',
+  'you.thisBrowser': 'Dieser Browser',
+
+  'about.server': 'Server',
+  'about.documentFormat': 'Dokumentformat',
+  'about.syncProtocol': 'Sync-Protokoll',
+  'about.checking': 'wird geprüft…',
+
   // --- Symbol und Farbe wählen -------------------------------------------
   'icon.heading': 'Symbol',
   'icon.search': 'Symbole suchen',
