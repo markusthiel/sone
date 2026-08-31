@@ -934,8 +934,17 @@ export const api = {
   workspaceTags: (workspaceId: string) =>
     request<{ tags: WorkspaceTag[] }>(`/api/workspaces/${workspaceId}/tags`),
 
-  favourites: () =>
-    request<{ favourites: FavouriteEntry[] }>('/api/favourites'),
+  /**
+   * The caller's favourites in one workspace.
+   *
+   * The workspace is not optional in practice: a sidebar is a view of one, and
+   * an unscoped list put shortcuts to other workspaces' pages in it — which
+   * could not be opened, and said so in the wrong words.
+   */
+  favourites: (workspaceId: string) =>
+    request<{ favourites: FavouriteEntry[] }>(
+      `/api/favourites?workspace=${encodeURIComponent(workspaceId)}`,
+    ),
 
   setFavourite: (pageId: string, favourite: boolean) =>
     request<{ pageId: string; favourite: boolean }>(`/api/pages/${pageId}/favourite`, {

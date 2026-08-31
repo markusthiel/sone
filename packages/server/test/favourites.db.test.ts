@@ -128,8 +128,11 @@ describe(
         headers: { cookie },
       });
 
-    const list = async (cookie: string): Promise<string[]> => {
-      const res = await fetch(`${base}/api/favourites`, { headers: { cookie } });
+    const list = async (cookie: string, workspaceId?: string): Promise<string[]> => {
+      const res = await fetch(
+        `${base}/api/favourites${workspaceId ? `?workspace=${workspaceId}` : ''}`,
+        { headers: { cookie } },
+      );
       const body = await expectJson<{ favourites: Array<{ pageId: string }> }>(res);
       return body.favourites.map((entry) => entry.pageId);
     };
@@ -335,6 +338,51 @@ describe(
       await db.query(`DELETE FROM pages WHERE id = $1`, [pageId]);
       const rows = await db.query(`SELECT 1 FROM favourites WHERE page_id = $1`, [pageId]);
       assert.equal(rows.rowCount, 0);
+    });
+
+    test('a workspace asks only for its own favourites', async () => {
+      // The list is one person's and spans every workspace they belong to,
+      // which is right for the data and wrong for a sidebar: a sidebar is a view
+      // of one workspace, so a shortcut from another appeared in it and could
+      // not be opened — and the refusal read as "you no longer have access to
+      // this page", which is not what had happened.
+      const session = await setup();
+      const here = await createPage(session, 'Here');
+      await expectStatus(await favourite(session.cookie, here), 200);
+
+      // A second workspace of the same person, with its own favourited page.
+      // Made in SQL: this test's router carries auth, pages and favourites, and
+      // registering the workspace routes to create one would be a wider harness
+      // for one row.
+      const other = (
+        await db.query<{ id: string }>(
+          `INSERT INTO workspaces (name) VALUES ('Elsewhere') RETURNING id`,
+        )
+      ).rows[0]!.id;
+      await db.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role)
+         VALUES ($1, $2, 'owner')`,
+        [other, session.userId],
+      );
+      const otherFolder = (
+        await db.query<{ id: string }>(
+          `INSERT INTO pages (id, workspace_id, parent_page_id, idx, title, kind)
+           VALUES (gen_random_uuid(), $1, NULL, 'a0', 'Notes', 'folder') RETURNING id`,
+          [other],
+        )
+      ).rows[0]!.id;
+      const there = await createPage(
+        { cookie: session.cookie, workspaceId: other, folderId: otherFolder },
+        'There',
+      );
+      await expectStatus(await favourite(session.cookie, there), 200);
+
+      assert.deepEqual(await list(session.cookie, session.workspaceId), [here]);
+      assert.deepEqual(await list(session.cookie, other), [there]);
+
+      // Unscoped still answers with everything: the list itself is instance-wide
+      // and the caller says which it means.
+      assert.deepEqual((await list(session.cookie)).sort(), [here, there].sort());
     });
   },
 );

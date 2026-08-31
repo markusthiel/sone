@@ -200,7 +200,7 @@ function Workspace({
     favourites,
     ids: favouriteIds,
     toggle: toggleFavourite,
-  } = useFavourites(true);
+  } = useFavourites(workspaceId);
   const {
     visible: sidebarVisible,
     toggle: toggleSidebar,

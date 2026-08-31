@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: favourites from other workspaces appeared in the sidebar**, where they
+could not be opened — and the refusal said "you no longer have access to this
+page", which was not what had happened. The sidebar now asks for the favourites of
+the workspace you are in.
+
 **Fixed: a video block was deleted moments after being added — by another open
 tab** ([ADR-0039](docs/adr/0039-client-schema-refusal.md)). A page open in a
 browser that predates a block type does not ignore that block: it removes it from
