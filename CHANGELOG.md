@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The interface can speak German** ([ADR-0041](docs/adr/0041-interface-language.md)).
+The machinery is in place — a catalogue, plural rules per language, and a language
+chosen from your own setting, then the workspace's, then the browser's — and two
+screens use it so far. The rest of the interface is still English and will be
+translated a file at a time.
+
 **A browser running an older build than the server now says so**, in a strip under
 the topbar with a Reload button, instead of only in Settings → About.
 

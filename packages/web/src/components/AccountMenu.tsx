@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { WEB_VERSION } from '../buildInfo.ts';
+import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 
 interface AccountMenuProps {
@@ -32,6 +33,7 @@ export function AccountMenu({
   canAdminister,
   onLogout,
 }: AccountMenuProps): ReactElement {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   // Most accounts have no picture, so a failed request is the ordinary case
   // rather than an error worth reporting.
@@ -75,7 +77,7 @@ export function AccountMenu({
         className="sidebar-account"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`${displayName} — account and settings`}
+        aria-label={t('account.label', { name: displayName })}
         onClick={() => setOpen((previous) => !previous)}
       >
         <span className="sidebar-avatar" aria-hidden="true">
@@ -92,7 +94,11 @@ export function AccountMenu({
         <span className="sidebar-account-name">{displayName}</span>
       </button>
 
-      <a className="sidebar-version" href={paths.settings('about')} title="Version and licence">
+      <a
+        className="sidebar-version"
+        href={paths.settings('about')}
+        title={t('account.version')}
+      >
         {WEB_VERSION}
       </a>
 
@@ -102,26 +108,26 @@ export function AccountMenu({
               and "Settings" both landed on /settings/account, which is a choice
               that is not one (ADR-0032). */}
           <a role="menuitem" href={paths.settings()} onClick={() => setOpen(false)}>
-            Your settings
+            {t('account.yourSettings')}
           </a>
           <a role="menuitem" href={paths.workspaceSettings()} onClick={() => setOpen(false)}>
-            This workspace
+            {t('account.thisWorkspace')}
           </a>
           {/* Absent rather than present and refusing, for the reason ADR-0027
               gives: an entry that answers "not found" teaches people to distrust
               the menu. */}
           {canAdminister && (
             <a role="menuitem" href={paths.admin()} onClick={() => setOpen(false)}>
-              Administration
+              {t('account.administration')}
             </a>
           )}
           <a role="menuitem" href={paths.trash()} onClick={() => setOpen(false)}>
-            Trash
+            {t('account.trash')}
           </a>
           {/* Last and set apart: the one entry here somebody cannot undo by
               pressing it again. */}
           <button type="button" role="menuitem" onClick={onLogout}>
-            Sign out
+            {t('account.signOut')}
           </button>
         </div>
       )}

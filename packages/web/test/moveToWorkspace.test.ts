@@ -26,14 +26,16 @@ test('it asks what the move costs before doing it', () => {
   assert.match(dialog, /disabled=\{busy \|\| cost === null\}/);
 });
 
-test('the restriction line comes first among the losses', () => {
-  // It is the only consequence that changes who can read something.
+test('the restriction line comes first among the losses', async () => {
+  // It is the only consequence that changes who can read something. Read from
+  // the order of the keys now that the sentences live in the catalogue.
   const order = dialog.slice(dialog.indexOf('function consequences'));
   assert.ok(
-    order.indexOf('restriction they have now') < order.indexOf('share link'),
+    order.indexOf('move.workspace.restrictions') < order.indexOf('move.workspace.shareLinks'),
     'restrictions before share links',
   );
-  assert.match(order, /everyone in the new workspace will be able to read them/);
+  const { en } = await import('../src/i18n/messages.en.ts');
+  assert.match(en['move.workspace.restrictions'], /able to read/);
 });
 
 test('only workspaces the person administers are offered', () => {
@@ -41,7 +43,7 @@ test('only workspaces the person administers are offered', () => {
   // choice is never offered rather than offered and refused.
   assert.match(dialog, /workspace\.role === 'owner' \|\| workspace\.role === 'admin'/);
   assert.match(dialog, /workspace\.id !== currentWorkspaceId/);
-  assert.match(dialog, /There is nowhere to move this/);
+  assert.match(dialog, /t\('move\.workspace\.nowhere'\)/);
 });
 
 test('it is its own menu entry, not a destination in the ordinary move', () => {

@@ -17,6 +17,8 @@
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type SessionInfo } from '../api/client.ts';
+import type { MessageKey } from '../i18n/messages.en.ts';
+import { useT } from '../i18n/useT.tsx';
 import { messageFor } from './Auth.tsx';
 
 interface Cost {
@@ -38,39 +40,32 @@ interface Props {
   onCancel: () => void;
 }
 
-/** The lines the confirmation shows. Only the ones that are not zero. */
-function consequences(cost: Cost): string[] {
-  const lines: string[] = [];
-  const plural = (n: number, one: string, many: string): string =>
-    `${n} ${n === 1 ? one : many}`;
-
-  lines.push(`${plural(cost.pages, 'entry', 'entries')} will move.`);
-  if (cost.files > 0) {
-    lines.push(`${plural(cost.files, 'file', 'files')} will move with them.`);
-  }
-  if (cost.restrictions > 0) {
-    // First of the losses, because it is the one that changes who can read
-    // something. A restriction names members and groups of the workspace being
-    // left, and there is no honest translation.
-    lines.push(
-      `${plural(cost.restrictions, 'entry', 'entries')} will arrive without the ` +
-        `restriction they have now — everyone in the new workspace will be able to read them.`,
-    );
-  }
-  if (cost.shareLinks > 0) {
-    lines.push(`${plural(cost.shareLinks, 'share link', 'share links')} will stop working.`);
-  }
-  if (cost.references > 0) {
-    lines.push(
-      `${plural(cost.references, 'link', 'links')} between these entries and ones ` +
-        `staying behind will be severed.`,
-    );
-  }
-  if (cost.favourites > 0) {
-    lines.push(
-      `${plural(cost.favourites, 'favourite', 'favourites')} held by people who are ` +
-        `not in the new workspace will be dropped.`,
-    );
+/**
+ * The lines the confirmation shows. Only the ones that are not zero.
+ *
+ * Each line is one catalogue message with a `plural` branch (ADR-0041). It used
+ * to be `n === 1 ? 'entry' : 'entries'`, which is not a string with a variant —
+ * it is English grammar in code, and no translator can do anything with it. The
+ * German catalogue needs a different verb *and* a different pronoun in the
+ * restriction line, which that shape could not express at all.
+ *
+ * The restriction line comes first among the losses, because it is the only one
+ * that changes who can read something.
+ */
+function consequences(
+  cost: Cost,
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+): string[] {
+  const lines = [t('move.workspace.entries', { count: cost.pages })];
+  const maybe: Array<[number, MessageKey]> = [
+    [cost.files, 'move.workspace.files'],
+    [cost.restrictions, 'move.workspace.restrictions'],
+    [cost.shareLinks, 'move.workspace.shareLinks'],
+    [cost.references, 'move.workspace.references'],
+    [cost.favourites, 'move.workspace.favourites'],
+  ];
+  for (const [count, key] of maybe) {
+    if (count > 0) lines.push(t(key, { count }));
   }
   return lines;
 }
@@ -97,6 +92,7 @@ export function MoveToWorkspaceDialog({
       (workspace.role === 'owner' || workspace.role === 'admin'),
   );
 
+  const { t } = useT();
   const [target, setTarget] = useState<string | null>(null);
   const [cost, setCost] = useState<Cost | null>(null);
   const [busy, setBusy] = useState(false);
@@ -149,18 +145,15 @@ export function MoveToWorkspaceDialog({
         className="dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={`Move ${entry.title || 'this entry'} to another workspace`}
+        aria-label={t('move.workspace.label', { title: entry.title || 'this entry' })}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <h2 className="dialog-title">Move to another workspace</h2>
+        <h2 className="dialog-title">{t('move.workspace.title')}</h2>
 
         {error && <p className="error">{messageFor(error)}</p>}
 
         {destinations.length === 0 ? (
-          <p className="muted">
-            There is nowhere to move this. An entry can only go to a workspace you
-            own or administer.
-          </p>
+          <p className="muted">{t('move.workspace.nowhere')}</p>
         ) : (
           <div className="dialog-list">
             {destinations.map((workspace) => (
@@ -181,32 +174,36 @@ export function MoveToWorkspaceDialog({
           </div>
         )}
 
-        {busy && cost === null && <p className="muted">Working out what this moves…</p>}
+        {busy && cost === null && (
+          <p className="muted">{t('move.workspace.working')}</p>
+        )}
 
         {cost && chosen && (
           <div className="move-consequences">
+            {/* One message with both names in it rather than a sentence built
+                from pieces: word order differs by language, and concatenation
+                cannot express that (ADR-0011). */}
             <p>
-              Moving <strong>{entry.title || 'this entry'}</strong> to{' '}
-              <strong>{chosen.name}</strong>:
+              {t('move.workspace.intro', {
+                title: entry.title || 'this entry',
+                workspace: chosen.name,
+              })}
             </p>
             <ul>
-              {consequences(cost).map((line) => (
+              {consequences(cost, t).map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>
             {/* Said once, plainly, because it is the answer to "can I undo
                 this": no, and moving it back is a second move with its own
                 losses. */}
-            <p className="muted">
-              Moving it back later is another move, with the same kinds of
-              consequence.
-            </p>
+            <p className="muted">{t('move.workspace.again')}</p>
           </div>
         )}
 
         <div className="dialog-actions">
           <button type="button" className="btn" onClick={onCancel}>
-            Cancel
+            {t('action.cancel')}
           </button>
           <button
             type="button"
@@ -214,7 +211,7 @@ export function MoveToWorkspaceDialog({
             disabled={busy || cost === null}
             onClick={() => void move()}
           >
-            {busy && cost !== null ? 'Moving…' : 'Move'}
+            {busy && cost !== null ? t('action.moving') : t('action.move')}
           </button>
         </div>
       </div>

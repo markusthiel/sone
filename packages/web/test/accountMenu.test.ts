@@ -18,8 +18,10 @@ test('one mark opens a menu instead of four icons in a row', () => {
   // and the row grew every time the account gained a page. Behind the face
   // there is room for names, which is what these entries are told apart by.
   assert.match(sidebar, /aria-haspopup="menu"/);
-  for (const entry of ['Your settings', 'This workspace', 'Trash', 'Sign out']) {
-    assert.match(sidebar, new RegExp(entry));
+  // The entries by key rather than by sentence, since this menu is translated
+  // (ADR-0041). What is asserted is unchanged: one mark, four names behind it.
+  for (const key of ['yourSettings', 'thisWorkspace', 'trash', 'signOut']) {
+    assert.match(sidebar, new RegExp(`t\\('account\\.${key}'\\)`));
   }
 });
 
@@ -27,7 +29,10 @@ test('the three areas are three entries, and one of them is conditional', () => 
   // "Edit your profile" and "Settings" both landed on the same page — a choice
   // that is not one (ADR-0032). And administration is absent rather than
   // present and refusing.
+  // Translated now (ADR-0041), so the entries are keys rather than sentences.
   assert.doesNotMatch(sidebar, /Edit your profile/);
+  assert.match(sidebar, /t\('account\.yourSettings'\)/);
+  assert.match(sidebar, /t\('account\.thisWorkspace'\)/);
   assert.match(sidebar, /href=\{paths\.settings\(\)\}/);
   assert.match(sidebar, /href=\{paths\.workspaceSettings\(\)\}/);
   // One flag now, decided by whoever renders the menu: the sidebar combines the
@@ -39,8 +44,8 @@ test('the three areas are three entries, and one of them is conditional', () => 
 
 test('signing out is last and set apart', () => {
   // The one entry here that pressing again does not undo.
-  const out = sidebar.indexOf('Sign out');
-  const trash = sidebar.indexOf('>\n                Trash');
+  const out = sidebar.indexOf("t('account.signOut')");
+  const trash = sidebar.indexOf("t('account.trash')");
   assert.ok(out > trash);
   assert.match(css, /\.sidebar-account-menu button \{[^}]*border-block-start: 1px solid/);
 });

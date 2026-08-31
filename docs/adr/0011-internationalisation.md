@@ -106,7 +106,9 @@ Binding now, cheap now, expensive later:
   Mixed-direction content needs per-block direction, which means the block
   model must carry it.
 - ICU MessageFormat for plurals and gender. `Intl.PluralRules` is built into
-  the platform; the formatter is a thin layer over it.
+  the platform; the formatter is a thin layer over it. Built in ADR-0041, which
+  decides the catalogue's shape — this record named the constraint and left the
+  shape open, and in the meantime every string was written in English.
 - No string concatenation to build sentences. Word order differs by language
   and concatenation cannot express that.
 
