@@ -15,6 +15,8 @@
  */
 
 import { BLOCK_ATTRS } from '@sone/core';
+
+import { tableBlockAttrs } from './tableAttrs.js';
 import { Fragment, type Node as PMNode } from 'prosemirror-model';
 import type { Command } from 'prosemirror-state';
 import {
@@ -175,6 +177,9 @@ export function tablePlugins(): Plugin[] {
     columnResizing({}),
     tableEditing({ allowTableNodeSelection: true }),
     tableRepair(),
+    // The block attributes the resizing plugin's own node view leaves out — see
+    // tableAttrs.ts. Without it a table's width setting never reaches the page.
+    tableBlockAttrs(),
   ];
 }
 

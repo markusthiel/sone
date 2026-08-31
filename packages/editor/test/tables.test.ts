@@ -239,3 +239,57 @@ test('table actions refuse outside a table', () => {
     );
   }
 });
+
+test('a table carries its own block attributes through a decoration', async () => {
+  // The resizing plugin installs its own node view, which builds the wrapper in
+  // JavaScript and never reads the schema's toDOM — so `data-width` never
+  // reached the page and "Column / Wide / Full page" did nothing to a table.
+  // A node decoration is the way to add attributes to a node somebody else
+  // draws.
+  const { tableBlockAttrs } = await import('../src/tableAttrs.js');
+  const { EditorState } = await import('prosemirror-state');
+  const { schema } = await import('../src/schema.js');
+
+  const cell = schema.nodes['table_cell']!.create(null, schema.nodes['paragraph']!.create());
+  const row = schema.nodes['table_row']!.create(null, cell);
+  const table = schema.nodes['table']!.create({ width: 'full', id: 'b1' }, row);
+  const state = EditorState.create({
+    doc: schema.node('doc', null, [table]),
+    plugins: [tableBlockAttrs()],
+  });
+
+  const plugin = state.plugins[0]!;
+  const decorations = plugin.props.decorations!.call(plugin, state) as unknown as {
+    find: () => Array<{ type: { attrs: Record<string, string> } }>;
+  };
+  const found = decorations.find();
+  assert.equal(found.length, 1, 'one decoration, for the table');
+  assert.equal(found[0]!.type.attrs['data-width'], 'full');
+  assert.equal(found[0]!.type.attrs['data-block'], 'table');
+  assert.equal(found[0]!.type.attrs['data-block-id'], 'b1');
+});
+
+test('a table with no width setting carries no width attribute', async () => {
+  // Absent rather than "null": the stylesheet matches on the attribute's
+  // presence, so a value of the string "null" would style every table as though
+  // somebody had chosen something.
+  const { tableBlockAttrs } = await import('../src/tableAttrs.js');
+  const { EditorState } = await import('prosemirror-state');
+  const { schema } = await import('../src/schema.js');
+
+  const cell = schema.nodes['table_cell']!.create(null, schema.nodes['paragraph']!.create());
+  const row = schema.nodes['table_row']!.create(null, cell);
+  const table = schema.nodes['table']!.create(null, row);
+  const state = EditorState.create({
+    doc: schema.node('doc', null, [table]),
+    plugins: [tableBlockAttrs()],
+  });
+
+  const plugin = state.plugins[0]!;
+  const decorations = plugin.props.decorations!.call(plugin, state) as unknown as {
+    find: () => Array<{ type: { attrs: Record<string, string> } }>;
+  };
+  const attrs = decorations.find()[0]!.type.attrs;
+  assert.equal(attrs['data-width'], undefined);
+  assert.equal(attrs['data-block'], 'table');
+});

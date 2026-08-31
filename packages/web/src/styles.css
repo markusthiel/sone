@@ -2651,10 +2651,29 @@ select {
 
 .ProseMirror .tableWrapper {
   /* The node view's own wrapper. A wide table scrolls here rather than pushing
-     the page sideways. */
+     the page sideways.
+     *
+     * It also carries the block's width, alignment and colour now — see
+     * tableAttrs.ts: the resizing plugin builds this element itself and never
+     * reads the schema's toDOM, so the attributes are added as a decoration.
+     * That is what makes "Column / Wide / Full page" work on a table. */
   margin-block: 12px;
   overflow-x: auto;
+  /* Room for the scrollbar the overflow may produce, so it does not sit over the
+     last row's border. */
+  padding-block-end: 2px;
 }
+
+/* Wider than the column, so the scrollbar has something to scroll.
+ *
+ * At full width a fixed-layout table divides the page between its columns and
+ * never overflows — which is right up to a point and useless beyond it: eight
+ * columns on a page are eight columns of two words. Past six the table keeps a
+ * minimum per column and the wrapper scrolls, which is what a wide table is for.
+ */
+.ProseMirror .tableWrapper table { min-inline-size: 100%; }
+.ProseMirror [data-width='full'] table,
+.ProseMirror [data-width='wide'] table { min-inline-size: max(100%, 48rem); }
 
 .ProseMirror table {
   /* Fixed layout is required by the resizing plugin: with `auto`, setting a
@@ -2673,6 +2692,14 @@ select {
   padding: 6px 9px;
   border: 1px solid var(--sone-border);
   vertical-align: top;
+  /* A step smaller than the prose around it, and tighter.
+   *
+   * A table is scanned rather than read, and at the body size a cell of three
+   * columns wrapped every second word — which is what was reported. Relative to
+   * the editor's own size, so the workspace's typography still decides the
+   * scale. */
+  font-size: 0.94em;
+  line-height: 1.4;
 }
 
 .ProseMirror table th {
