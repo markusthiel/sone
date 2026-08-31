@@ -107,7 +107,7 @@ describe('reordering the switcher from the keyboard', () => {
       }),
     );
 
-    const button = container.querySelector<HTMLButtonElement>('.workspace-button');
+    const button = container.querySelector<HTMLButtonElement>('.switcher-button');
     assert.ok(button);
     await act(async () => {
       button.click();

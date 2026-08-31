@@ -95,6 +95,26 @@ contract (ADR-0016), so the old section ids map to their new homes for one
 release rather than becoming a not-found page. The map is one table, and it goes
 away in the release after.
 
+### The way between areas is a switcher, in the position that already means that
+
+Added after the areas were built and used. Getting from the instance's
+administration to your own profile meant leaving the settings and coming back in,
+which is a lot of clicks for something the three-area split makes a common move.
+
+The control is the one at the top of a column — the shape the workspace switcher
+is — and it holds the three areas. Same shape, same place, because that is where
+somebody has already learnt to look for "where am I, and what else is there";
+what differs is what the answer is about, and the button's own label says which.
+
+The two are never one menu. "Which workspace" and "whose settings" are different
+questions, and a menu holding both means two things — which is the mistake the
+switcher already made once, with a "Manage workspaces" entry that was a second
+place to do the same thing.
+
+The CSS is therefore named `switcher-*` rather than `workspace-*`: the shape
+belongs to the position, and naming it after one of the two things it holds would
+leave the other looking like a borrowed style.
+
 ### One shell, three areas
 
 The list-and-section layout — including the two-view arrangement a phone gets —

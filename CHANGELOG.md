@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The settings screens have a switcher at the top of the column**, in the place
+the workspace switcher occupies in the application and looking exactly like it —
+holding the three areas rather than workspaces. Getting from the instance's
+administration to your own profile no longer means leaving the settings and coming
+back in.
+
 **The settings screens look like the rest of the application**: the section is
 white paper, the list beside it carries the same faint tint the sidebar does, and
 the cards and framed tables are set off from the page again. They had kept the old

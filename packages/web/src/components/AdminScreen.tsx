@@ -103,6 +103,8 @@ export function AdminScreen({
   return (
     <SettingsShell
       area="The instance"
+      areaId="admin"
+      canAdminister
       sections={available}
       current={current}
       hrefFor={(id) => paths.admin(id)}
