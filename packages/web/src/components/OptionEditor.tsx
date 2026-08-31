@@ -24,6 +24,15 @@ export interface EditableOption {
 
 interface OptionEditorProps {
   options: EditableOption[];
+  /**
+   * Where to draw it, in viewport coordinates.
+   *
+   * Against the viewport rather than inside the column heading, because the
+   * table scrolls and a scroller with `overflow-x: auto` clips the other axis
+   * too — the panel was cut off at the edge of the table, which is what was
+   * reported. The caller measures the button it hangs from.
+   */
+  at: { x: number; y: number };
   onSave: (options: EditableOption[]) => void;
   onClose: () => void;
 }
@@ -35,6 +44,7 @@ const newId = (): string =>
 
 export function OptionEditor({
   options,
+  at,
   onSave,
   onClose,
 }: OptionEditorProps): ReactElement {
@@ -46,7 +56,17 @@ export function OptionEditor({
     );
 
   return (
-    <div className="option-editor" role="dialog" aria-label="Options">
+    <div
+      className="option-editor"
+      role="dialog"
+      aria-label="Options"
+      // Clamped so the panel cannot leave the window on the right, which is
+      // where a last column's heading is.
+      style={{
+        left: `min(${Math.round(at.x)}px, calc(100vw - 23rem))`,
+        top: `${Math.round(at.y)}px`,
+      }}
+    >
       <ul className="option-list">
         {draft.map((option) => (
           <li key={option.id}>

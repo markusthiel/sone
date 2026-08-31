@@ -960,7 +960,17 @@ function ColumnHeader({
   onSaveOptions: (options: EditableOption[]) => void;
 }): ReactElement {
   const [name, setName] = useState(field.name);
-  const [editingOptions, setEditingOptions] = useState(false);
+  /**
+   * Where the option editor sits, or null when it is closed.
+   *
+   * A point rather than a boolean, because the panel is drawn against the
+   * viewport: it was absolute inside the table's scroller, and a container with
+   * `overflow-x: auto` clips the other axis too — so the panel was cut off at the
+   * edge of the table and "Add option" was the last thing anybody could read.
+   * Exactly the report the column menu had, in the second panel that hangs off a
+   * column heading.
+   */
+  const [editingOptions, setEditingOptions] = useState<{ x: number; y: number } | null>(null);
   const hasOptions = field.fieldType === 'select' || field.fieldType === 'multiSelect';
 
   // Reset when the column changes underneath, which happens when somebody else
@@ -994,7 +1004,14 @@ function ColumnHeader({
           type="button"
           className="collection-column-options"
           aria-label={`Edit the options of ${field.name}`}
-          onClick={() => setEditingOptions((open) => !open)}
+          onClick={(event) => {
+            if (editingOptions) {
+              setEditingOptions(null);
+              return;
+            }
+            const box = event.currentTarget.getBoundingClientRect();
+            setEditingOptions({ x: box.left, y: box.bottom + 4 });
+          }}
         >
           <ListIcon />
         </button>
@@ -1011,9 +1028,10 @@ function ColumnHeader({
       {editingOptions && (
         <OptionEditor
           options={optionsOf(field)}
-          onClose={() => setEditingOptions(false)}
+          at={editingOptions}
+          onClose={() => setEditingOptions(null)}
           onSave={(options) => {
-            setEditingOptions(false);
+            setEditingOptions(null);
             onSaveOptions(options);
           }}
         />
