@@ -19,7 +19,7 @@ import { useEffect, useState, type ReactElement } from 'react';
 import { ApiError, api, type SessionInfo } from '../api/client.ts';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
-import { messageFor } from './Auth.tsx';
+import { useMessage } from './Auth.tsx';
 
 interface Cost {
   pages: number;
@@ -93,6 +93,7 @@ export function MoveToWorkspaceDialog({
   );
 
   const { t } = useT();
+  const message = useMessage();
   const [target, setTarget] = useState<string | null>(null);
   const [cost, setCost] = useState<Cost | null>(null);
   const [busy, setBusy] = useState(false);
@@ -150,7 +151,7 @@ export function MoveToWorkspaceDialog({
       >
         <h2 className="dialog-title">{t('move.workspace.title')}</h2>
 
-        {error && <p className="error">{messageFor(error)}</p>}
+        {error && <p className="error">{message(error)}</p>}
 
         {destinations.length === 0 ? (
           <p className="muted">{t('move.workspace.nowhere')}</p>
