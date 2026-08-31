@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An entry can be moved to another workspace** ([ADR-0038](docs/adr/0038-move-between-workspaces.md)),
+with everything under it. The server side is in place; the confirmation that shows
+what a move costs — revoked share links, dropped restrictions, severed relations —
+comes next, and nothing is reachable in the interface until it does.
+
 **The `/` menu has a mark beside every block**, and **fixed: its highlight
 sometimes ignored the mouse.** Moving the pointer inside a row now moves the
 highlight to it — before, only arriving in a row did, so pressing the arrow keys
