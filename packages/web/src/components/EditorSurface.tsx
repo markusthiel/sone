@@ -35,6 +35,8 @@ import { SelectionToolbar } from './SelectionToolbar.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
 import { TableToolbar } from './TableToolbar.tsx';
 import { VideoDialog } from './VideoDialog.tsx';
+import type { MessageKey } from '../i18n/messages.en.ts';
+import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { webVariant } from '../lib/imageVariant.ts';
 
@@ -59,6 +61,7 @@ function unplayableNotice(file: File): string {
 }
 
 export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElement {
+  const { t } = useT();
   // One uploader, shared by paste, drop and the Image slash item, so all three
   // report failures the same way.
   // The picker lives here, on a component that stays mounted.
@@ -405,6 +408,26 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
     const created = createEditor(mount, {
       fragment,
       awareness: handle.awareness,
+      // The `/` menu's items, in this interface's language (ADR-0041). Given to
+      // the plugin rather than applied when drawing, because the list is
+      // filtered by what somebody typed — a German reader typing "übersch" has
+      // to find "Überschrift 1".
+      //
+      // The English keywords stay and are matched as well: "h1" and "ul" are
+      // typed by people in every language.
+      localiseSlashItem: (item) => {
+        const key = `slash.${item.id}` as MessageKey;
+        const extra = t(`${key}.keywords` as MessageKey)
+          .split(',')
+          .map((word) => word.trim())
+          .filter((word) => word !== '');
+        return {
+          ...item,
+          title: t(key),
+          hint: t(`${key}.hint` as MessageKey),
+          keywords: [...item.keywords, ...extra],
+        };
+      },
       editable: () => canEditRef.current,
       onStateChange: () => setRevision((n) => n + 1),
       uploadImage: uploader,

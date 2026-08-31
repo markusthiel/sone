@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The `/` menu speaks German**, and searching it does too: typing "übersch" finds
+"Überschrift 1", while "h1" keeps working as it always did.
+
 **The panel beside a page and a view's filter and sort rules speak German.** Ten
 files are translated; the admin area, the editor's own menus and the collection
 table are still English.

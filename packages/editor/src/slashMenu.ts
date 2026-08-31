@@ -359,7 +359,26 @@ interface SlashMeta {
   setIndex?: number;
 }
 
-export function slashMenu(): Plugin<SlashMenuState | null> {
+/**
+ * How an item reads, in the language the interface is in (ADR-0041).
+ *
+ * A function passed in rather than a catalogue imported: `@sone/editor` has no
+ * business knowing how this application stores its translations, and the two
+ * packages would then have to agree on a message format as well as on a schema.
+ *
+ * It has to be applied *before* the filter, not after it, and that is the whole
+ * reason it exists as an option rather than as something the renderer does. The
+ * list is filtered by what somebody typed, matched against the title and the
+ * keywords — so a German interface must filter German titles and German
+ * keywords, or typing "übersch" finds nothing while the menu shows
+ * "Überschrift 1".
+ */
+export type LocaliseSlashItem = (item: SlashItem) => SlashItem;
+
+export function slashMenu(
+  localise: LocaliseSlashItem = (item) => item,
+): Plugin<SlashMenuState | null> {
+  const items = SLASH_ITEMS.map(localise);
   return new Plugin<SlashMenuState | null>({
     key: slashMenuPluginKey,
 
@@ -394,18 +413,22 @@ export function slashMenu(): Plugin<SlashMenuState | null> {
           // A newline means the block was split; the menu no longer applies.
           if (query.includes('\n')) return null;
 
-          const items = filterSlashItems(query);
+          // The localised list, filtered by what was typed. Named apart from
+          // `items` above, which is every item — the two were the same variable
+          // before there was a list to localise, and the checks below mean the
+          // *matching* ones.
+          const found = filterSlashItems(query, items);
 
           // A space with nothing matching closes it. Without this, ordinary
           // prose containing a slash leaves a dead menu capturing Enter.
-          if (items.length === 0 && /\s/.test(query)) return null;
+          if (found.length === 0 && /\s/.test(query)) return null;
           // A long run with no matches is not a query any more.
-          if (items.length === 0 && query.length > 12) return null;
+          if (found.length === 0 && query.length > 12) return null;
 
           return {
             from,
             query,
-            items,
+            items: found,
             // Clamped rather than reset: someone who has moved down two items
             // and types another character should stay near where they were.
             index: Math.min(previous.index, Math.max(0, items.length - 1)),
@@ -422,7 +445,7 @@ export function slashMenu(): Plugin<SlashMenuState | null> {
         if (newState.doc.textBetween(head - 1, head) !== '/') return null;
         if (!slashOpensMenu(newState, head - 1)) return null;
 
-        return { from: head - 1, query: '', index: 0, items: filterSlashItems('') };
+        return { from: head - 1, query: '', index: 0, items: filterSlashItems('', items) };
       },
     },
 
