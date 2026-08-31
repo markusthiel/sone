@@ -395,6 +395,72 @@ const nodes: Record<string, NodeSpec> = {
   },
 
   /**
+   * A video (ADR-0037).
+   *
+   * One node for three sources — an uploaded file, an embedded link, a live
+   * stream — rather than three node types. They are one thing in the document,
+   * "a video in this page", and three types would mean three node views, three
+   * menus and three sets of width handling to keep in step.
+   *
+   * **The embed address is not stored.** The block holds what somebody gave us,
+   * normalised, and the address that goes into a frame is derived from it at
+   * render time by the allowlist in `@sone/core`. So tightening that list — or
+   * dropping a provider — takes effect on documents already written, which is the
+   * opposite of what storing the frame's address would give us.
+   *
+   * `display` mirrors the file block's rather than inventing a scale: width says
+   * how much room a block takes, display says which of several quite different
+   * things to draw. A player, a card and a link are not points on one scale.
+   */
+  video: {
+    group: 'block',
+    attrs: {
+      ...blockAttrs,
+      /** 'file' | 'embed' | 'stream'. */
+      source: { default: 'file' },
+      /** For 'file': the upload. Null while one is in flight, or if it failed. */
+      fileId: { default: null },
+      /** For 'embed' and 'stream': the address, as this application normalised it. */
+      url: { default: '' },
+      /** What to call it, where the source cannot say for itself. */
+      title: { default: '' },
+      /** 'player' | 'card' | 'link'. Content width and a player, by default. */
+      display: { default: 'player' },
+    },
+    atom: true,
+    draggable: true,
+    parseDOM: [
+      {
+        tag: 'div[data-sone-video]',
+        getAttrs: (dom) => {
+          const element = dom as HTMLElement;
+          return {
+            source: element.getAttribute('data-sone-video') ?? 'file',
+            fileId: element.getAttribute('data-file') ?? null,
+            url: element.getAttribute('data-url') ?? '',
+            title: element.getAttribute('data-title') ?? '',
+            display: element.getAttribute('data-display') ?? 'player',
+          };
+        },
+      },
+    ],
+    toDOM: (node) => {
+      const attrs = blockDOMAttrs(node);
+      attrs['data-sone-video'] = String(node.attrs['source'] ?? 'file');
+      const fileId = node.attrs['fileId'];
+      if (typeof fileId === 'string' && fileId !== '') attrs['data-file'] = fileId;
+      attrs['data-url'] = String(node.attrs['url'] ?? '');
+      attrs['data-title'] = String(node.attrs['title'] ?? '');
+      attrs['data-display'] = String(node.attrs['display'] ?? 'player');
+
+      // Something legible without a node view, for the same reason the file
+      // block has one: a copy of this markup into another editor, or a document
+      // rendered by anything that is not this application, must not be a blank.
+      return ['div', attrs, ['span', String(node.attrs['title'] || 'Video')]];
+    },
+  },
+
+  /**
    * An embedded database view.
    *
    * An atom to ProseMirror, with its own renderer mounted by a node view
