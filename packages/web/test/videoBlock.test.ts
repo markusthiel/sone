@@ -115,6 +115,17 @@ test('a drawing failure keeps the block and says where the reason is', () => {
   assert.match(view, /The block is still here/);
 });
 
+test('a block disappearing says who removed it', () => {
+  // A block that vanishes has been deleted, and there are only three candidates:
+  // this browser's editor, y-prosemirror discarding an element it cannot turn
+  // into a node, or an update from the network — another client or another tab.
+  // A Yjs transaction distinguishes them and nothing was asking it.
+  assert.match(surface, /fragment\.observeDeep\(watchRemovals/);
+  assert.match(surface, /tx\.local \? 'by this browser' : 'from the network'/);
+  // And the observer is removed with the editor, or a remount leaves two.
+  assert.match(surface, /fragment\.unobserveDeep\(watchRemovals/);
+});
+
 test('the node is one type with three sources', () => {
   // Not three node types: they are one thing in the document, and three would be
   // three node views and three sets of width handling to keep in step.
