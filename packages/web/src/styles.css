@@ -505,6 +505,16 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   justify-content: space-between;
   gap: 8px;
   margin-block-end: 8px;
+  /* The positioning context for the workspace panel, which hangs from this row.
+     *
+     * It used to hang from the name button, which is only part of the row — the
+     * collapse control takes the rest. So the panel could not reach the
+     * sidebar's right edge from there, and a fixed width was used instead: it
+     * started at the button and ended wherever 250px happened to land, which
+     * was past the sidebar on a wide screen and flush against the content on a
+     * drawer. Anchored to the whole row, both its edges are the sidebar's own
+     * edges — the same column the search field and the tree already use. */
+  position: relative;
 }
 
 .workspace-name {
@@ -1685,7 +1695,10 @@ select {
 
 /* --- workspace switcher --- */
 
-.workspace-menu-wrap { position: relative; flex: 1; min-width: 0; }
+/* No positioning context here on purpose: the panel is anchored to
+   `.sidebar-head` so that it spans the sidebar's column and not just the part of
+   the row the name button occupies. */
+.workspace-menu-wrap { flex: 1; min-width: 0; }
 
 .workspace-button {
   display: flex;
@@ -1718,12 +1731,17 @@ select {
   position: absolute;
   z-index: 43;
   inset-block-start: 100%;
-  inset-inline-start: 0;
-  inline-size: 250px;
+  /* Both edges, not a width. A dropdown that is wider than what it drops out of
+     has to guess where to stop, and 250px guessed wrong in both directions: the
+     sidebar's column is 235px on a wide screen, where the panel was clipped by
+     the sidebar's own scroller, and 276px in the drawer, where it ran up to the
+     content with a 12px gap left over on the other side. Pinned to the column,
+     it lines up with the search field below and the tree under that. */
+  inset-inline: 0;
   max-block-size: 60vh;
   overflow-y: auto;
   margin-block-start: 2px;
-  padding: 4px;
+  padding: var(--sone-space-2);
   /* One treatment for everything that floats: the overlay surface, a subtle
      border, and a lift.
      *
@@ -1750,7 +1768,13 @@ select {
   /* Twice the height of its text, so it reads as a card to choose rather than a
      line in a list. */
   min-block-size: calc(var(--sone-control-lg) * 1.6);
-  padding: var(--sone-space-3) var(--sone-space-4);
+  /* 4px here on top of the panel's own 4px is the 8px the name button and the
+     search field use, so the marks stay on one vertical line when the menu
+     opens instead of stepping to the right. It was 8px, which also pushed the
+     people count out against the panel's border while leaving room on the mark
+     side — the inset was symmetrical, but a box on the left and a word on the
+     right do not read as equal at the same distance. */
+  padding: var(--sone-space-3) var(--sone-space-2);
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
@@ -1763,8 +1787,9 @@ select {
 .workspace-item[aria-current='true'] { background: var(--sone-bg-hover); font-weight: 600; }
 .workspace-item svg { inline-size: 1em; block-size: 1em; vertical-align: -0.15em; }
 
-.workspace-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.workspace-item-meta { font-size: 0.76rem; color: var(--sone-text-muted); }
+/* The name and the count are declared once, further down beside
+   `.workspace-mark` — there used to be a pair here as well, and the two halves
+   disagreed about how the row flexes. */
 
 .workspace-menu-footer {
   margin-block-start: 4px;
@@ -1776,7 +1801,10 @@ select {
 .workspace-create input { min-height: 34px; }
 .workspace-create button { min-height: 34px; padding-inline: 10px; white-space: nowrap; }
 
-.small { font-size: 0.85rem; padding-inline: 8px; }
+/* Loading and error lines in the workspace panel — the only place this is used.
+   The same inset as a row, so a message does not sit on a different rail from
+   the list it replaces. */
+.small { font-size: 0.85rem; padding-inline: var(--sone-space-2); }
 
 /* ---------------------------------------------------------------------------
  * Right panel
