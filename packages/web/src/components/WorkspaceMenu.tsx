@@ -14,7 +14,7 @@
  * different lists, so it lives on the membership row rather than in a document.
  */
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceSummary } from '../api/client.ts';
 import { useListDrag } from '../hooks/useListDrag.ts';
@@ -100,27 +100,64 @@ export function WorkspaceMenu({
    * the server, which is the only thing that knows the real order. Keeping a
    * local guess after the write failed would show an order that does not exist.
    */
+  const place = useCallback((movingId: string, afterId: string | null): void => {
+    setWorkspaces((previous) => {
+      if (previous === null) return previous;
+      const moving = previous.find((entry) => entry.id === movingId);
+      if (!moving) return previous;
+      const rest = previous.filter((entry) => entry.id !== movingId);
+      const at =
+        afterId === null ? 0 : rest.findIndex((entry) => entry.id === afterId) + 1;
+      return [...rest.slice(0, at), moving, ...rest.slice(at)];
+    });
+
+    void api.reorderWorkspace(movingId, afterId).catch((err: unknown) => {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+      setWorkspaces(null);
+    });
+  }, []);
+
   const drag = useListDrag({
     container: panelRef,
-    onDrop: (draggedId, position) => {
-      setWorkspaces((previous) => {
-        if (previous === null) return previous;
-        const moving = previous.find((entry) => entry.id === draggedId);
-        if (!moving) return previous;
-        const rest = previous.filter((entry) => entry.id !== draggedId);
-        const at =
-          position.afterId === null
-            ? 0
-            : rest.findIndex((entry) => entry.id === position.afterId) + 1;
-        return [...rest.slice(0, at), moving, ...rest.slice(at)];
-      });
-
-      void api.reorderWorkspace(draggedId, position.afterId).catch((err: unknown) => {
-        setError(err instanceof ApiError ? err.code : 'network_error');
-        setWorkspaces(null);
-      });
-    },
+    onDrop: (draggedId, position) => place(draggedId, position.afterId),
   });
+
+  /**
+   * Reordering without a pointer (ADR-0031 named this as a gap).
+   *
+   * `⌥↑` and `⌥↓` on the row that has focus. The modifier is what keeps the
+   * plain arrows doing what they do in every menu — moving between the entries —
+   * and it is the combination the tree's "move up" and "move down" would bind to
+   * if they had a shortcut.
+   *
+   * Expressed as "after which one", like every other placement here, rather than
+   * as an index: one row moving up is the same operation as a drop into the gap
+   * above it, and having two ways to say it is how they come to disagree.
+   */
+  const moveByKey = (event: React.KeyboardEvent, movingId: string): void => {
+    if (!event.altKey) return;
+    const up = event.key === 'ArrowUp';
+    const down = event.key === 'ArrowDown';
+    if (!up && !down) return;
+
+    const list = workspaces ?? [];
+    const at = list.findIndex((entry) => entry.id === movingId);
+    if (at === -1) return;
+    // Already at the end it is going towards. Refused quietly: a shortcut that
+    // wraps around would move a workspace from the top to the bottom on a
+    // keypress somebody meant as "no further".
+    if ((up && at === 0) || (down && at === list.length - 1)) return;
+
+    event.preventDefault();
+    // Up: after whatever precedes the row above, which is null at the top.
+    // Down: after the row below.
+    place(movingId, up ? (list[at - 2]?.id ?? null) : (list[at + 1]?.id ?? null));
+
+    // The row keeps focus, so a second press moves it again — which is the whole
+    // point of a keyboard gesture and something a re-render loses by default.
+    const element = event.currentTarget as HTMLElement;
+    requestAnimationFrame(() => element.focus());
+  };
 
   const create = async (): Promise<void> => {    const trimmed = name.trim();
     if (trimmed.length === 0) return;
@@ -205,6 +242,11 @@ export function WorkspaceMenu({
               // also switches workspace.
               data-list-row={workspace.id}
               onPointerDown={drag.onPointerDown}
+              onKeyDown={(event) => moveByKey(event, workspace.id)}
+              // Announced rather than printed. A hint beside every row would be
+              // five lines of instruction in a five-line menu, and a screen
+              // reader is where somebody who needs this is most likely to be.
+              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
               data-dragging={drag.dragging === workspace.id ? 'true' : undefined}
               // One gap, one owner: a landing place is named by the row above
               // it, and "first" is drawn on the row that is currently first.

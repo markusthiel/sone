@@ -118,12 +118,17 @@ it is the place to look when the same is wanted elsewhere — the favourites lis
 being the obvious next one, since it has had a `/reorder` endpoint since it was
 written and no way to reach it.
 
-Reordering is a drag and nothing else. The tree at least offers "move up" and
-"move down" in the entry menu, so somebody on a keyboard can reorder it; the
-switcher will have no equivalent. That is a real gap and it is being accepted for
-now rather than answered by putting a menu on each row of a panel that is already
-tight. If it is answered later, `⌥↑`/`⌥↓` while the panel is open is the shape to
-reach for, because it needs no space.
+Reordering was a drag and nothing else, which was accepted here as a real gap
+rather than answered by putting a menu on each row of a panel that is already
+tight. It has since been closed in the shape this record predicted: `⌥↑` and `⌥↓`
+on the row that has focus, announced through `aria-keyshortcuts` rather than
+printed, because a hint beside every row would be five lines of instruction in a
+five-line menu.
+
+The modifier is what keeps the plain arrows moving between entries, as they do in
+every menu. At either end the shortcut does nothing rather than wrapping around: a
+keypress meant as "no further" must not send a workspace from the top to the
+bottom.
 
 The order is per person and per instance — it is not in the CRDTs, so it does not
 travel with an export of a workspace, and restoring a workspace into a different

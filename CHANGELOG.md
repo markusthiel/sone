@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Workspaces can be reordered from the keyboard**: `⌥↑` and `⌥↓` on a row in the
+switcher. Dragging was the only way before, which left anybody not using a pointer
+with no way at all.
+
 **Pasting more than fifty entries says how many were left over**, and says it as a
 note rather than an error — fifty went in, and the rest is still on the clipboard.
 
