@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a table disappeared and a new one could not be added.** Introduced by
+yesterday's work on the same component and visible only once the page had loaded,
+which is why the tests did not see it.
+
 **A table column can hold files** ([ADR-0035](docs/adr/0035-files-column.md)) —
 one column type for every kind, not one for images and another for PDFs. An image
 shows as a thumbnail, anything else as its name; up to eight per cell, and each
