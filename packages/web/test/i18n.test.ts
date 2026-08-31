@@ -191,6 +191,8 @@ const MIGRATED = [
   'src/components/ViewRules.tsx',
   'src/components/AdminScreen.tsx',
   'src/components/Admin.tsx',
+  'src/components/CollectionTable.tsx',
+  'src/components/BlockMenu.tsx',
 ];
 
 test('every error code the client can show has a message', () => {
@@ -221,9 +223,11 @@ test('a migrated file has no English left in its markup', () => {
   for (const file of MIGRATED) {
     const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 
-    // Text between tags: `>Sign out<`. Anything with two letters in a row and no
-    // braces is a sentence somebody forgot.
-    const literals = [...source.matchAll(/>\s*([A-Za-z][A-Za-z ,.'’—-]{3,})\s*</g)].map(
+    // Text between tags: `>Sign out</span>`. The closing `</` is required, which
+    // is what tells JSX text apart from a generic type argument — `new
+    // Map<string, CollectionFile>(` matched the looser pattern and reported
+    // "new Map" as an untranslated sentence.
+    const literals = [...source.matchAll(/>\s*([A-Za-z][A-Za-z ,.'’—-]{3,})\s*<\//g)].map(
       ([, text]) => text.trim(),
     );
     assert.deepEqual(literals, [], `${file} still has literal text: ${literals.join(' | ')}`);

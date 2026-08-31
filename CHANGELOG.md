@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The table of entries and the block menu speak German.** Fourteen files are
+translated; only the sign-in and setup screens are still English, and they are
+waiting on a decision about where the language is resolved.
+
 **The administration area speaks German.** Twelve files are translated; what is
 left in English is the collection table, the block menus and the sign-in screens.
 

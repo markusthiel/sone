@@ -223,6 +223,59 @@ export const de: Record<keyof typeof en, string> = {
   'search.similar': 'Ähnliche Namen',
   'search.matchedTitle': 'Name',
 
+  // --- eine Tabelle mit Einträgen ----------------------------------------
+  'table.views': 'Ansichten',
+  'table.search': 'In dieser Sammlung suchen',
+  'table.searchPlaceholder': 'Diese Einträge durchsuchen',
+  'table.filterAndSort': 'Filtern und sortieren',
+  'table.filterAndSort.title': 'Diese Ansicht filtern und sortieren',
+  'table.rules': '{filters, plural, =0 {} one {# Filter} other {# Filter}}{sorted, select, yes {{filters, plural, =0 {sortiert} other {, sortiert}}} other {}}',
+  'table.empty': 'Leeren',
+  'table.addBoard': 'Board',
+  'table.addGallery': 'Galerie',
+  'table.addGallery.title': 'Diese Einträge als Karten zeigen',
+  'table.newEntry': 'Neuer Eintrag',
+  'table.noEntries': 'Noch keine Einträge.',
+  'table.loading': 'Wird geladen…',
+  'table.addColumn': 'Spalte hinzufügen',
+  'table.titleColumn': 'Jeder Eintrag hat einen Titel',
+  'table.name': 'Name',
+  'table.untitled': 'Ohne Titel',
+  'table.removedOption': 'Diese Option wurde entfernt',
+  'table.selected': '{count, plural, one {# ausgewählt} other {# ausgewählt}}',
+  'table.selectedLabel': 'Ausgewählte Einträge',
+  'table.copy': 'Kopieren',
+  'table.exportCsv': 'Als CSV exportieren',
+  'table.toTrash': 'In den Papierkorb',
+  'table.clearSelection': 'Aufheben',
+  'table.boardNeedsSelect':
+    'Ein Board braucht eine Auswahlspalte mit Optionen. Erst eine anlegen, dann noch einmal.',
+  // Steht neben der Titelspalte: sie ist immer da und lässt sich nicht entfernen.
+  'table.always': 'immer',
+  'table.emptyConfirm': 'Tabelle leeren',
+  'table.emptyKeep': 'Behalten',
+  'table.noOptions': 'Keine Optionen — in der Spaltenüberschrift welche anlegen',
+
+  // --- das Block-Menü ----------------------------------------------------
+  'block.insert': 'Block einfügen',
+  'block.nesting': 'Verschachtelung',
+  'block.appearance': 'Darstellung',
+  'block.width': 'Breite',
+  'block.alignment': 'Ausrichtung',
+  'block.colour': 'Farbe',
+  'block.defaultColour': 'Standardfarbe',
+  'block.showAs': 'Zeigen als',
+  'block.turnInto': 'Umwandeln in',
+  'block.file': 'Datei',
+  'block.table': 'Tabelle',
+  'block.video': 'Video',
+  'block.openInNewTab': 'In neuem Tab öffnen',
+  'block.download': 'Herunterladen',
+  // Bei einem Bild gibt es zwei Fassungen: die verkleinerte und die, die
+  // hochgeladen wurde (ADR-0029).
+  'block.downloadOriginal': 'Original herunterladen',
+  'block.openWhereItLives': 'Am Ursprungsort öffnen',
+
   // --- das /-Menü ---------------------------------------------------------
   //
   // `keywords` sind zusätzliche Suchwörter auf Deutsch; die englischen aus dem

@@ -34,6 +34,7 @@ import {
   setVideoDisplay,
   showImageAs,
 } from '@sone/editor';
+import { useT } from '../i18n/useT.tsx';
 import { BLOCK_COLORS } from '@sone/core';
 import type { Command } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
@@ -111,6 +112,7 @@ function BlockAppearance({
   node: PMNodeLike;
   run: (command: Command) => void;
 }): ReactElement | null {
+  const { t } = useT();
   const applies = APPEARANCE[node.type.name] ?? {
     // A block type nobody listed still gets alignment, which is meaningful for
     // anything: better a small default than a section that vanishes when
@@ -124,10 +126,10 @@ function BlockAppearance({
 
   return (
     <div className="block-menu-group">
-      <p className="block-menu-label">Appearance</p>
+      <p className="block-menu-label">{t('block.appearance')}</p>
 
       {applies.align && (
-        <div className="block-menu-choices" role="group" aria-label="Alignment">
+        <div className="block-menu-choices" role="group" aria-label={t('block.alignment')}>
           {[
             { id: null, label: 'Auto' },
             { id: 'start' as const, label: 'Left' },
@@ -151,7 +153,7 @@ function BlockAppearance({
       )}
 
       {applies.width && (
-        <div className="block-menu-choices" role="group" aria-label="Width">
+        <div className="block-menu-choices" role="group" aria-label={t('block.width')}>
           {[
             { id: null, label: 'Column' },
             // "Wide" is a step between the reading column and the page, and for
@@ -180,7 +182,7 @@ function BlockAppearance({
       )}
 
       {applies.color && (
-        <div className="block-menu-swatches" role="group" aria-label="Colour">
+        <div className="block-menu-swatches" role="group" aria-label={t('block.colour')}>
           {/* Null first, and shown as a slash rather than a colour: "no colour
               chosen" is a state, not a shade, and drawing it as one would make
               the default look like a decision. */}
@@ -188,7 +190,7 @@ function BlockAppearance({
             type="button"
             role="menuitemradio"
             aria-checked={current.color === null}
-            aria-label="Default colour"
+            aria-label={t('block.defaultColour')}
             className={
               current.color === null ? 'block-menu-swatch none current' : 'block-menu-swatch none'
             }
@@ -233,6 +235,7 @@ function FileActions({
   at: number;
   run: (command: Command) => void;
 }): ReactElement | null {
+  const { t } = useT();
   const fileId = String(node.attrs['fileId'] ?? '');
   if (fileId === '') return null;
 
@@ -252,7 +255,7 @@ function FileActions({
 
   return (
     <div className="block-menu-group">
-      <p className="block-menu-label">File</p>
+      <p className="block-menu-label">{t('block.file')}</p>
 
       {viewable && (
         <a
@@ -262,11 +265,11 @@ function FileActions({
           target="_blank"
           rel="noopener noreferrer"
         >
-          Open in a new tab
+          {t('block.openInNewTab')}
         </a>
       )}
       <a className="block-menu-item" role="menuitem" href={url} download={name}>
-        Download
+        {t('block.download')}
       </a>
 
       {/* The file as uploaded, for an image that has a smaller copy.
@@ -284,11 +287,11 @@ function FileActions({
           href={`${url}?original=true`}
           download={name}
         >
-          Download the original
+          {t('block.downloadOriginal')}
         </a>
       )}
 
-      <div className="block-menu-choices" role="group" aria-label="Show as">
+      <div className="block-menu-choices" role="group" aria-label={t('block.showAs')}>
         {options.map((option) => (
           <button
             key={option.id}
@@ -325,6 +328,7 @@ function VideoActions({
   at: number;
   run: (command: Command) => void;
 }): ReactElement | null {
+  const { t } = useT();
   const source = String(node.attrs['source'] ?? 'file');
   const fileId = String(node.attrs['fileId'] ?? '');
   const url = String(node.attrs['url'] ?? '');
@@ -345,14 +349,14 @@ function VideoActions({
 
   return (
     <div className="block-menu-group">
-      <p className="block-menu-label">Video</p>
+      <p className="block-menu-label">{t('block.video')}</p>
 
       {source === 'file' && fileId !== '' && (
         <a className="block-menu-item" role="menuitem" href={`/api/files/${fileId}`} download={name}>
           {/* Not "Download the original": there is no second copy. An image has a
               smaller version made for display, and a video is stored as it
               arrived — nothing is transcoded (ADR-0037). */}
-          Download
+          {t('block.download')}
         </a>
       )}
 
@@ -364,11 +368,11 @@ function VideoActions({
           target="_blank"
           rel="noopener noreferrer"
         >
-          Open where it lives
+          {t('block.openWhereItLives')}
         </a>
       )}
 
-      <div className="block-menu-choices" role="group" aria-label="Show as">
+      <div className="block-menu-choices" role="group" aria-label={t('block.showAs')}>
         {options.map((option) => (
           <button
             key={option.id}
@@ -404,12 +408,13 @@ function ImageDisplay({
   at: number;
   run: (command: Command) => void;
 }): ReactElement {
+  const { t } = useT();
   const current = node.type.name === 'image' ? 'image' : String(node.attrs['display'] ?? 'card');
 
   return (
     <div className="block-menu-group">
-      <p className="block-menu-label">Show as</p>
-      <div className="block-menu-choices" role="group" aria-label="Show as">
+      <p className="block-menu-label">{t('block.showAs')}</p>
+      <div className="block-menu-choices" role="group" aria-label={t('block.showAs')}>
         {[
           { id: 'image' as const, label: 'Image' },
           { id: 'card' as const, label: 'Card' },
@@ -440,6 +445,7 @@ interface PMNodeLike {
 }
 
 export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | null {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const [retryToken, setRetryToken] = useState(0);
@@ -614,7 +620,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
         <button
           type="button"
           className="block-insert"
-          aria-label="Insert a block"
+          aria-label={t('block.insert')}
           // Click, not pointerdown: on touch, pointerdown fires as the finger
           // lands, so the menu opened before anyone lifted. The mousedown
           // handler beside it is what preserves the editor's selection.
@@ -688,8 +694,8 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
             * indented under it, so without indenting a toggle can have a title
             * and nothing inside it, which is exactly what was reported. */}
           <div className="block-menu-group">
-            <p className="block-menu-label">Nesting</p>
-            <div className="block-menu-choices" role="group" aria-label="Nesting">
+            <p className="block-menu-label">{t('block.nesting')}</p>
+            <div className="block-menu-choices" role="group" aria-label={t('block.nesting')}>
               <button
                 type="button"
                 role="menuitem"
@@ -744,7 +750,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
               noise rather than information. */}
           {isInTable(view.state) && (
             <div className="block-menu-group">
-              <p className="block-menu-label">Table</p>
+              <p className="block-menu-label">{t('block.table')}</p>
               {TABLE_ACTIONS.map((action) => {
                 const possible = action.command(view.state, undefined);
                 return (
@@ -768,7 +774,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
           )}
 
           <div className="block-menu-group">
-            <p className="block-menu-label">Turn into</p>
+            <p className="block-menu-label">{t('block.turnInto')}</p>
             {BLOCK_TYPE_ORDER.map((name) => {
               const type = schema.nodes[name];
               if (!type) return null;
