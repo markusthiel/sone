@@ -40,6 +40,7 @@ import { applyToDocument, loadDoc } from '../doc/docStore.js';
 import { materializeYDoc } from '../materialize/materialize.js';
 import { createEntry } from '../pages/createEntry.js';
 import { rematerialize } from '../materialize/rematerialize.js';
+import { moveToWorkspace } from '../pages/moveWorkspace.js';
 import { normaliseTags, writeTags } from '@sone/core';
 import { requireSession, sessionTokenFrom } from './auth.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
@@ -1014,6 +1015,102 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
    * root (ADR-0019), so one whose folder is gone has nowhere to go and says so
    * instead of being restored somewhere arbitrary.
    */
+  /**
+   * Move an entry, and everything under it, to another workspace (ADR-0038).
+   *
+   * `?dryRun=true` counts what it would cost and changes nothing, which is what
+   * the confirmation shows. Counted from the subtree rather than estimated, and
+   * the real move counts again inside its own transaction — a number read
+   * separately can be wrong by the time somebody presses the button.
+   *
+   * The right is needed in *two* places: edit here, and owner or administrator
+   * there. Anything less would be a way to push content into a workspace where
+   * you have no standing, and its owners would find pages they did not put there.
+   */
+  router.post('/api/pages/:pageId/move-to-workspace', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const page = await loadPageLocation(deps.pool, pageId);
+    if (!page) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (!sessionTokenFrom(ctx)) {
+      ctx.fail(401, 'not_authenticated');
+      return;
+    }
+
+    // Here: the same right the ordinary move needs.
+    const claims = await claimsOrNull(deps.pool, ctx, page.workspaceId);
+    const role = claims ? effectiveRole(claims, page) : null;
+    if (role === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (role === 'viewer' || role === 'commenter') {
+      ctx.fail(403, 'not_authorized');
+      return;
+    }
+
+    const body = await readBody<{ workspaceId?: string }>(ctx);
+    if (!body) return;
+    const target = typeof body.workspaceId === 'string' ? body.workspaceId : '';
+    if (target === '') {
+      ctx.fail(422, 'workspace_required');
+      return;
+    }
+
+    // There: owner or administrator, and by membership rather than by an
+    // instance-wide right. Being able to administer every workspace is not the
+    // same as having somewhere to put this.
+    const actorId =
+      claims!.principal.kind === 'anonymous' ? null : claims!.principal.userId;
+    if (actorId === null) {
+      // A share-link guest has no membership anywhere, so there is nowhere this
+      // could go.
+      ctx.fail(403, 'not_authorized');
+      return;
+    }
+    const membership = await queryOne<{ role: string }>(
+      deps.pool,
+      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+      [target, actorId],
+    );
+    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
+      // The same answer as a workspace that does not exist: the difference would
+      // say whether one does.
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const dryRun = ctx.url.searchParams.get('dryRun') === 'true';
+    const result = await moveToWorkspace(deps.pool, {
+      pageId,
+      targetWorkspaceId: target,
+      dryRun,
+    });
+    if (!result.ok) {
+      ctx.fail(result.failure.status, result.failure.code);
+      return;
+    }
+
+    if (!dryRun) {
+      // The projection is rebuilt against the workspace it is in now. Without
+      // this the search row and the tree entry describe a page that has moved.
+      await rematerialize(deps.pool, pageId, target, actorId);
+    }
+
+    ctx.send(200, {
+      pageId,
+      workspaceId: target,
+      // Where it landed. A folder goes to the root; a page goes into the target's
+      // first folder, because a page at a workspace's root is not a shape this
+      // schema allows (ADR-0038).
+      parentPageId: result.parentPageId,
+      dryRun,
+      cost: result.cost,
+    });
+  });
+
   router.post('/api/pages/:pageId/restore', async (ctx) => {
     const pageId = ctx.params['pageId'] ?? '';
     const page = await loadPageLocation(deps.pool, pageId);
