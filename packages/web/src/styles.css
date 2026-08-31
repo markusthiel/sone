@@ -3484,6 +3484,25 @@ select {
    uploaded, it is in the page, and it may be perfect for the person it is for. */
 .editor-notice { margin-block: var(--sone-space-3); font-size: var(--sone-text-sm); }
 
+/* "This browser is running an older build."
+ *
+ * A strip under the topbar rather than a corner of Settings: three debugging
+ * rounds went into the question of which build was actually loaded, and each
+ * answer came from a screenshot of an asset hash instead of from the
+ * application. */
+.stale-bundle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sone-space-4);
+  margin: 0;
+  padding: var(--sone-space-3) var(--sone-space-5);
+  border-block-end: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--sone-warning, #b8860b) 12%, var(--surface-chrome));
+  font-size: var(--sone-text-sm);
+}
+.stale-bundle span { flex: 1 1 20rem; min-inline-size: 0; }
+
 /* --- a selection of rows (ADR-0040) --- */
 
 .collection-select-column {

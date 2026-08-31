@@ -20,6 +20,7 @@ import {
   readRightPanelOpen,
 } from './components/RightSidebar.tsx';
 import { SearchScreen } from './components/Search.tsx';
+import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
 import { WorkspaceSettingsScreen } from './components/WorkspaceSettingsScreen.tsx';
@@ -423,6 +424,10 @@ function Workspace({
             <RightPanelToggle open={rightOpen} onToggle={() => setRightOpen((v) => !v)} />
           </div>
         </div>
+
+        {/* Said where it cannot be missed rather than in Settings → About, which
+            is the last place anybody looks. */}
+        <StaleBundleNotice />
 
         {route.kind === 'page' && isFolder && selected && (
           <FolderView

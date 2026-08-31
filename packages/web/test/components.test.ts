@@ -213,3 +213,21 @@ test('a matched passage is split, never put through innerHTML', () => {
   assert.match(server, /StartSel=\\u0002, StopSel=\\u0003/);
   assert.doesNotMatch(server, /StartSel=<mark>/);
 });
+
+test('an older bundle says so where it cannot be missed', () => {
+  // The check existed and lived in Settings → About, which is the last place
+  // anybody looks. Three debugging rounds went into "is the browser running the
+  // code we are talking about", and each answer came from a screenshot of an
+  // asset hash rather than from the application.
+  const notice = codeOf(new URL('../src/components/StaleBundleNotice.tsx', import.meta.url));
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /<StaleBundleNotice \/>/);
+  assert.match(notice, /isStaleBundle\(info\.commit\)/);
+
+  // Not automatic: reloading somebody's page under them loses a half-typed
+  // paragraph, and an editor that reloads itself is worse than one running
+  // yesterday's code.
+  const effect = notice.slice(notice.indexOf('useEffect'), notice.indexOf('if (!stale'));
+  assert.doesNotMatch(effect, /location\.reload/);
+  assert.match(notice, /onClick=\{\(\) => window\.location\.reload\(\)\}/);
+});
