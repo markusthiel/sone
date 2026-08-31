@@ -10,6 +10,7 @@
 import type { ReactElement } from 'react';
 
 import type { WorkspaceIcon } from '../api/client.ts';
+import { colorValue } from '@sone/core';
 import { EntryIconView } from './EntryIconView.tsx';
 
 export function WorkspaceMark({
@@ -25,9 +26,14 @@ export function WorkspaceMark({
     <span
       className="workspace-mark"
       aria-hidden="true"
-      // The icon's colour, separately from the text's — the same split entries
-      // have, because somebody who has decorated a folder already knows it.
-      style={icon?.iconColor ? { color: icon.iconColor } : undefined}
+      // Through `colorValue`, not raw.
+      //
+      // A stored colour is either a palette name or a hex value, and a palette
+      // name is not a CSS colour — it resolves to a custom property. Setting it
+      // raw worked for the custom colours and silently did nothing for the
+      // eight in the palette, which is the worse half to get wrong: those are
+      // the ones people pick.
+      style={colorValue(icon?.iconColor) ? { color: colorValue(icon?.iconColor) } : undefined}
     >
       {chosen ? (
         <EntryIconView icon={chosen} kind="folder" />
