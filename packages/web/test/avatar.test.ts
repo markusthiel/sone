@@ -8,7 +8,8 @@ import { test } from 'node:test';
 import { codeOf, stylesOf } from './helpers/source.ts';
 
 const settings = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
-const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+// The face moved into AccountMenu, which every column with a footer now uses.
+const sidebar = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
 const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 
 test('a picture is shrunk before it is sent, and hard', () => {

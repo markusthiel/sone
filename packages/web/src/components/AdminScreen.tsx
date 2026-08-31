@@ -68,6 +68,8 @@ interface AdminScreenProps {
   session: SessionInfo;
   workspaceId: string;
   onClose: () => void;
+  /** Signing out, which the account menu at the foot of the column offers. */
+  onLogout: () => void;
 }
 
 export function AdminScreen({
@@ -75,6 +77,7 @@ export function AdminScreen({
   session,
   workspaceId,
   onClose,
+  onLogout,
 }: AdminScreenProps): ReactElement | null {
   const { isAdmin } = useIsInstanceAdmin();
   const [listOpen, setListOpen] = useState(false);
@@ -110,6 +113,11 @@ export function AdminScreen({
       hrefFor={(id) => paths.admin(id)}
       listOpen={listOpen}
       onListOpen={setListOpen}
+      account={{
+        displayName: session.user.displayName,
+        userId: session.user.id,
+        onLogout,
+      }}
       onClose={onClose}
     >
       {current === 'instance' && <InstancePanel />}

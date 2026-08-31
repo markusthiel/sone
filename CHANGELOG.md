@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The settings columns carry your account menu too**, so the trash, the other
+settings areas and signing out are one click away from anywhere rather than back
+through the notes. **Fixed on the way: that menu did not close when you clicked
+outside it.**
+
 **The workspace settings say which workspace**, under the area name in the
 switcher. "This workspace" is true of all of them.
 

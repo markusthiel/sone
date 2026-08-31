@@ -24,9 +24,9 @@ import {
   stepTarget,
 } from './moveRules.ts';
 import { useTreeDrag, type TreeDrag } from '../hooks/useTreeDrag.ts';
-import { WEB_VERSION } from '../buildInfo.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
+import { AccountMenu } from './AccountMenu.tsx';
 import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
@@ -130,10 +130,6 @@ export function Sidebar({
 }: SidebarProps): ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
   const [renaming, setRenaming] = useState<string | null>(null);
-  // Most accounts have no picture, so a failed request is the ordinary case
-  // rather than an error worth reporting.
-  const [avatarBroken, setAvatarBroken] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
   // One drag at a time, and every row has to know about it — so it belongs
   // here rather than in a row.
   const drag = useTreeDrag({
@@ -317,89 +313,17 @@ export function Sidebar({
           <FolderPlusIcon /> New folder
         </button>
 
-        {/* A row of marks, not a list of sentences.
+        {/* The face, and the menu behind it (AccountMenu).
           *
-          * Three lines of text at the foot of a sidebar read as three more
-          * places to go, competing with the pages above them — which are the
-          * reason somebody is looking at this column at all. As icons they are
-          * a row of tools: recognisable, out of the way, and taking one line
-          * instead of three.
-          *
-          * Each keeps a label for anybody who cannot see the icon or has not
-          * met it yet; it is on the control rather than beside it. */}
-        {/* One mark, and a menu behind it.
-          *
-          * Four icons in a row asked somebody to learn four symbols for things
-          * they use rarely — and the row still grows every time the account
-          * gains a page. Behind the face there is room for names, which are
-          * what these entries are actually distinguished by.
-          */}
-        <div className="sidebar-footer">
-          <button
-            type="button"
-            className="sidebar-account"
-            aria-haspopup="menu"
-            aria-expanded={accountOpen}
-            aria-label={`${displayName} — account and settings`}
-            onClick={() => setAccountOpen(!accountOpen)}
-          >
-            <span className="sidebar-avatar" aria-hidden="true">
-              {avatarBroken ? (
-                displayName.trim().charAt(0).toUpperCase() || '?'
-              ) : (
-                <img
-                  src={`/api/users/${userId}/avatar`}
-                  alt=""
-                  onError={() => setAvatarBroken(true)}
-                />
-              )}
-            </span>
-            <span className="sidebar-account-name">{displayName}</span>
-          </button>
-
-          <a
-            className="sidebar-version"
-            href={paths.settings('about')}
-            title="Version and licence"
-          >
-            {WEB_VERSION}
-          </a>
-
-          {accountOpen && (
-            <div className="sidebar-account-menu" role="menu">
-              {/* One entry, not two. "Edit your profile" and "Settings" both
-                  landed on the same page, which is a choice that is not one
-                  (ADR-0032). The three areas are three entries now, and each
-                  goes somewhere different. */}
-              <a role="menuitem" href={paths.settings()} onClick={() => setAccountOpen(false)}>
-                Your settings
-              </a>
-              <a
-                role="menuitem"
-                href={paths.workspaceSettings()}
-                onClick={() => setAccountOpen(false)}
-              >
-                This workspace
-              </a>
-              {/* Absent rather than present and refusing, for the reason
-                  ADR-0027 gives: an entry that answers "not found" teaches
-                  people to distrust the menu. */}
-              {(isInstanceAdmin || canManageWorkspaces) && (
-                <a role="menuitem" href={paths.admin()} onClick={() => setAccountOpen(false)}>
-                  Administration
-                </a>
-              )}
-              <a role="menuitem" href={paths.trash()} onClick={() => setAccountOpen(false)}>
-                Trash
-              </a>
-              {/* Last and set apart: the one entry here somebody cannot undo by
-                  pressing it again. */}
-              <button type="button" role="menuitem" onClick={onLogout}>
-                Sign out
-              </button>
-            </div>
-          )}
-        </div>
+          * Lifted out of this file so the settings columns can carry the same
+          * one: it was only here, so getting from the administration area to
+          * your own profile meant leaving the settings and coming back in. */}
+        <AccountMenu
+          displayName={displayName}
+          userId={userId}
+          canAdminister={isInstanceAdmin || canManageWorkspaces}
+          onLogout={onLogout}
+        />
       </nav>
 
       {/* The entry under the pointer.

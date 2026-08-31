@@ -310,6 +310,7 @@ function Workspace({
         session={session}
         workspaceId={workspaceId}
         onClose={() => navigate(paths.home())}
+        onLogout={onLogout}
       />
     );
   }
@@ -321,6 +322,7 @@ function Workspace({
         session={session}
         workspaceId={workspaceId}
         onClose={() => navigate(paths.home())}
+        onLogout={onLogout}
       />
     );
   }
@@ -332,6 +334,7 @@ function Workspace({
         session={session}
         workspaceId={workspaceId}
         onClose={() => navigate(paths.home())}
+        onLogout={onLogout}
       />
     );
   }

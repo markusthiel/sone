@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 
 import { paths } from '../routes/paths.ts';
+import { AccountMenu } from './AccountMenu.tsx';
 import {
   ChevronRightIcon,
   SettingsIcon,
@@ -153,6 +154,8 @@ interface SettingsShellProps {
   areaId: AreaId;
   /** The thing being configured, where the area alone does not identify it. */
   subtitle?: string | undefined;
+  /** Whose face sits at the foot of the column, and the menu behind it. */
+  account: { displayName: string; userId: string; onLogout: () => void };
   /** Whether the administration area is offered at all. */
   canAdminister: boolean;
   sections: readonly ShellSection[];
@@ -171,6 +174,7 @@ export function SettingsShell({
   areaId,
   canAdminister,
   subtitle,
+  account,
   sections,
   current,
   hrefFor,
@@ -224,6 +228,19 @@ export function SettingsShell({
             </a>
           ))}
         </div>
+
+        {/* The same face and the same menu the sidebar carries.
+          *
+          * Because the switcher above only moves between areas: from here the
+          * trash, and signing out, would otherwise mean going back to the notes
+          * first. A column that has one of these and not the other is a column
+          * somebody has to remember the rules for. */}
+        <AccountMenu
+          displayName={account.displayName}
+          userId={account.userId}
+          canAdminister={canAdminister}
+          onLogout={account.onLogout}
+        />
       </nav>
 
       <div className="settings-body">
