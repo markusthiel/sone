@@ -54,6 +54,8 @@ interface SidebarProps {
   onRename: (pageId: string, title: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
+  /** Moving out of this workspace entirely (ADR-0038). Its own dialog. */
+  onStartMoveToWorkspace: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
   /**
    * Moves an entry into a folder, or to the root when the target is null.
@@ -113,6 +115,7 @@ export function Sidebar({
   onRename,
   onDelete,
   onStartMove,
+  onStartMoveToWorkspace,
   onStartShare,
   onMove,
   favourites,
@@ -292,6 +295,7 @@ export function Sidebar({
             onStartRename={setRenaming}
             onDelete={onDelete}
             onStartMove={onStartMove}
+            onStartMoveToWorkspace={onStartMoveToWorkspace}
             onStartShare={onStartShare}
             favouriteIds={favouriteIds}
             onToggleFavourite={onToggleFavourite}
@@ -357,6 +361,7 @@ function TreeLevel({
   onStartRename,
   onDelete,
   onStartMove,
+  onStartMoveToWorkspace,
   onStartShare,
   favouriteIds,
   onToggleFavourite,
@@ -376,6 +381,8 @@ function TreeLevel({
   onStartRename: (pageId: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
+  /** Moving out of this workspace entirely (ADR-0038). Its own dialog. */
+  onStartMoveToWorkspace: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
@@ -489,6 +496,7 @@ function TreeLevel({
                     onDelete={onDelete}
                     onStartRename={onStartRename}
                     onStartMove={onStartMove}
+            onStartMoveToWorkspace={onStartMoveToWorkspace}
                     onStartShare={onStartShare}
                     onReorder={(id, direction) => {
                       const target = stepTarget(tree, id, direction);
@@ -522,6 +530,7 @@ function TreeLevel({
                   onStartRename={onStartRename}
                   onDelete={onDelete}
                   onStartMove={onStartMove}
+            onStartMoveToWorkspace={onStartMoveToWorkspace}
                   onStartShare={onStartShare}
                   favouriteIds={favouriteIds}
                   onToggleFavourite={onToggleFavourite}

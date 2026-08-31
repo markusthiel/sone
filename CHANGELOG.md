@@ -91,9 +91,11 @@ silence, which is indistinguishable from nothing happening. The picker also offe
 every format the server will actually store, rather than a shorter list.
 
 **An entry can be moved to another workspace** ([ADR-0038](docs/adr/0038-move-between-workspaces.md)),
-with everything under it. The server side is in place; the confirmation that shows
-what a move costs — revoked share links, dropped restrictions, severed relations —
-comes next, and nothing is reachable in the interface until it does.
+with everything under it: "Move to a workspace…" in an entry's menu. It offers the
+workspaces you own or administer, then says what the move will cost before it does
+anything — how many entries and files move, how many will arrive without the
+restriction they have now, how many share links stop working, how many links to
+entries left behind are severed.
 
 **The `/` menu has a mark beside every block**, and **fixed: its highlight
 sometimes ignored the mouse.** Moving the pointer inside a row now moves the

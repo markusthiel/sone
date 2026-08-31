@@ -3503,6 +3503,18 @@ select {
 }
 .stale-bundle span { flex: 1 1 20rem; min-inline-size: 0; }
 
+/* Moving to another workspace: the list, then what it costs (ADR-0038). */
+.move-consequences {
+  margin-block: var(--sone-space-4);
+  font-size: var(--sone-text-sm);
+}
+.move-consequences ul {
+  margin-block: var(--sone-space-2);
+  padding-inline-start: var(--sone-space-6);
+}
+.move-consequences li { margin-block: 2px; }
+.dialog-item.current { background: var(--sone-bg-hover); font-weight: 600; }
+
 /* --- a selection of rows (ADR-0040) --- */
 
 .collection-select-column {
