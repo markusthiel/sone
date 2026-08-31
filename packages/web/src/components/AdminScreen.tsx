@@ -29,6 +29,7 @@ import {
 } from './Admin.tsx';
 import { InvitePanel } from './InvitePanel.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
+import { useT } from '../i18n/useT.tsx';
 import { SettingsShell, resolveSection, type ShellSection } from './SettingsShell.tsx';
 import { WorkspaceDetail } from './WorkspaceDetail.tsx';
 import { WorkspaceList } from './WorkspaceList.tsx';
@@ -41,26 +42,26 @@ interface AdminSection extends ShellSection {
 }
 
 const SECTIONS: readonly AdminSection[] = [
-  { id: 'instance', label: 'This instance', hint: 'Name, sign-up and defaults', admin: true },
-  { id: 'accounts', label: 'Accounts', hint: 'Everybody with an account here', admin: true },
+  { id: 'instance', label: 'admin.instance', hint: 'admin.instance.hint', admin: true },
+  { id: 'accounts', label: 'admin.accounts', hint: 'admin.accounts.hint', admin: true },
   {
     id: 'invite',
-    label: 'Invitations',
+    label: 'admin.invitations',
     // Named against the other invitation rather than "Invite people", which is
     // also the name of inviting somebody to a workspace.
-    hint: 'An account and a workspace of their own — no team',
+    hint: 'admin.invitations.hint',
     admin: true,
   },
-  { id: 'sso', label: 'Single sign-on', hint: 'Sign in through an identity provider', admin: true },
+  { id: 'sso', label: 'admin.sso', hint: 'admin.sso.hint', admin: true },
   {
     id: 'workspaces',
-    label: 'All workspaces',
+    label: 'admin.workspaces',
     // Distinct from the workspace area: that one is the workspace you are in,
     // this is every workspace here including ones you are not a member of.
-    hint: 'Every workspace here, and who is in them',
+    hint: 'admin.workspaces.hint',
     manager: true,
   },
-  { id: 'maintenance', label: 'Maintenance', hint: 'Storage, jobs and health', admin: true },
+  { id: 'maintenance', label: 'admin.maintenance', hint: 'admin.maintenance.hint', admin: true },
 ];
 
 interface AdminScreenProps {
@@ -79,6 +80,7 @@ export function AdminScreen({
   onClose,
   onLogout,
 }: AdminScreenProps): ReactElement | null {
+  const { t } = useT();
   const { isAdmin } = useIsInstanceAdmin();
   const [listOpen, setListOpen] = useState(false);
   // Which workspace is open in the list, if any. State rather than a route,

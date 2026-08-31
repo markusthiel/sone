@@ -74,6 +74,47 @@ export const en = {
   'entry.deleteWithChildren':
     'Move to the trash, with {count, plural, one {# entry} other {# entries}} inside',
 
+  // --- the administration area -------------------------------------------
+  'admin.instance': 'This instance',
+  'admin.instance.hint': 'Name, sign-up and defaults',
+  'admin.accounts': 'Accounts',
+  'admin.accounts.hint': 'Everybody with an account here',
+  'admin.workspaces': 'All workspaces',
+  'admin.workspaces.hint': 'Every workspace here, and who is in them',
+  'admin.invitations': 'Invitations',
+  'admin.invitations.hint': 'An account and a workspace of their own — no team',
+  'admin.sso': 'Single sign-on',
+  'admin.sso.hint': 'Sign in through an identity provider',
+  'admin.maintenance': 'Maintenance',
+  'admin.maintenance.hint': 'Storage, jobs and health',
+
+  'admin.settings': 'Settings',
+  'admin.instanceName': 'Instance name',
+  'admin.signup': 'Who may create an account',
+  'admin.signup.open': 'Anyone with the address',
+  'admin.signup.invite': 'Only with an invitation',
+  'admin.signup.closed': 'Nobody — no new accounts',
+  'admin.mayCreateWorkspaces': 'Members may create workspaces',
+  'admin.addressForm': 'How the interface addresses people',
+  'admin.addressForm.hint':
+    'In German and other languages that distinguish it. English has one form and ' +
+    'is unaffected.',
+  'admin.addressForm.informal': 'Informally — “du”',
+  'admin.addressForm.formal': 'Formally — “Sie”',
+  'admin.version': 'Version',
+  'admin.content': 'Content',
+  'admin.files': 'Files',
+  'admin.waitingToProject': 'Waiting to project',
+  'admin.recentFailures': 'Recent failures',
+  'admin.nothingToReport': 'Nothing to report.',
+  'admin.uploadsUnwritable': 'Uploads cannot be written to disk',
+  'admin.loading': 'Loading…',
+  'admin.signup.note': 'Closing it does not affect anybody who already has one.',
+  'admin.instanceName.hint': 'On the sign-in page and in the title of every tab.',
+  'admin.settingSource.database': 'Set here, overriding the environment',
+  'admin.reloadNote': 'Then reload this page — no restart is needed.',
+  'action.retry': 'Retry',
+
   // --- the settings areas and their shell --------------------------------
   'area.you': 'Your settings',
   'area.workspace': 'This workspace',

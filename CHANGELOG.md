@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The administration area speaks German.** Twelve files are translated; what is
+left in English is the collection table, the block menus and the sign-in screens.
+
 **The `/` menu speaks German**, and searching it does too: typing "übersch" finds
 "Überschrift 1", while "h1" keeps working as it always did.
 
