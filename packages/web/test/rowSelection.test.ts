@@ -95,12 +95,13 @@ test('the file is named after the view, safely', () => {
   assert.equal(exportFilename('   '), 'table.csv');
 });
 
-test('deleting a selection is archiving, and says so', () => {
+test('deleting a selection is archiving, and says so', async () => {
   // A row is a page, so removing one is what removing a page is — and somebody
   // who reads "delete" and means it will look for the recovery the word denies.
   assert.match(table, /archiveCollectionRows\(collectionId, ids\)/);
-  assert.match(table, /moved to the trash, where they can be brought back/);
-  assert.match(table, /To the trash/);
+  assert.match(table, /t\('table\.toTrash'\)/);
+  const { en } = await import('../src/i18n/messages.en.ts');
+  assert.match(en['table.toTrash'], /trash/i);
   assert.doesNotMatch(table, /Delete permanently|hard delete/);
 });
 
@@ -118,7 +119,7 @@ test('the selection is always reachable, and a reader has it too', () => {
   assert.match(table, /collection-select-column/);
   assert.doesNotMatch(css, /\.collection-select-column[^}]*display: none/);
   // Only the destructive action asks whether they may edit.
-  assert.match(table, /\{data\.canEdit && \(\s*<button[\s\S]{0,200}To the trash/);
+  assert.match(table, /\{data\.canEdit && \(\s*<button[\s\S]{0,240}table\.toTrash/);
 });
 
 test('a selected row is tinted rather than outlined', () => {

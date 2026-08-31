@@ -204,6 +204,56 @@ export const en = {
   // Why a result matched: the name rather than something in the text.
   'search.matchedTitle': 'title',
 
+  // --- a table of entries ------------------------------------------------
+  'table.views': 'Views',
+  'table.search': 'Search this collection',
+  'table.searchPlaceholder': 'Search these entries',
+  'table.filterAndSort': 'Filter and sort',
+  'table.filterAndSort.title': 'Filter and sort this view',
+  'table.rules': '{filters, plural, =0 {} one {# filter} other {# filters}}{sorted, select, yes {{filters, plural, =0 {sorted} other {, sorted}}} other {}}',
+  'table.empty': 'Empty',
+  'table.addBoard': 'Board',
+  'table.addGallery': 'Gallery',
+  'table.addGallery.title': 'Show these entries as covers',
+  'table.newEntry': 'New entry',
+  'table.noEntries': 'No entries yet.',
+  'table.loading': 'Loading…',
+  'table.addColumn': 'Add a column',
+  'table.titleColumn': 'Every entry has a title',
+  'table.name': 'Name',
+  'table.untitled': 'Untitled',
+  'table.removedOption': 'This option was removed',
+  'table.selected': '{count, plural, one {# selected} other {# selected}}',
+  'table.selectedLabel': 'Selected entries',
+  'table.copy': 'Copy',
+  'table.exportCsv': 'Export CSV',
+  'table.toTrash': 'To the trash',
+  'table.clearSelection': 'Clear',
+  'table.boardNeedsSelect':
+    'A board needs a select column with options. Add one, then try again.',
+  'table.always': 'always',
+  'table.emptyConfirm': 'Empty the table',
+  'table.emptyKeep': 'Keep them',
+  'table.noOptions': 'No options — add some in the column heading',
+
+  // --- the block menu ----------------------------------------------------
+  'block.insert': 'Insert a block',
+  'block.nesting': 'Nesting',
+  'block.appearance': 'Appearance',
+  'block.width': 'Width',
+  'block.alignment': 'Alignment',
+  'block.colour': 'Colour',
+  'block.defaultColour': 'Default colour',
+  'block.showAs': 'Show as',
+  'block.turnInto': 'Turn into',
+  'block.file': 'File',
+  'block.table': 'Table',
+  'block.video': 'Video',
+  'block.openInNewTab': 'Open in a new tab',
+  'block.download': 'Download',
+  'block.downloadOriginal': 'Download the original',
+  'block.openWhereItLives': 'Open where it lives',
+
   // --- the / menu (ADR-0041) ---------------------------------------------
   //
   // The keys are the item ids, so the catalogue and the editor's list line up

@@ -62,6 +62,8 @@ import { MAX_PASTE_ROWS, looksLikeGrid, parsePastedGrid } from './pastedGrid.ts'
 import { useTableHistory } from '../hooks/useTableHistory.ts';
 import { CollectionGallery } from './CollectionGallery.tsx';
 import { exportFilename, rowsAsCsv, rowsAsTabbed } from './rowsAsText.ts';
+import type { MessageKey } from '../i18n/messages.en.ts';
+import { useT } from '../i18n/useT.tsx';
 import { readDensity, ViewRules } from './ViewRules.tsx';
 import { OptionEditor, type EditableOption } from './OptionEditor.tsx';
 
@@ -77,7 +79,17 @@ interface CollectionTableProps {
  * without until you open it, and a table showing fewer rows than somebody
  * expects is the kind of thing they blame on the software.
  */
-function ruleSummary(view: { definition: Record<string, unknown> }): string {
+/**
+ * "2 filters, sorted", or the plain label when a view has no rules.
+ *
+ * Takes the translator rather than reaching for it: this is a helper outside any
+ * component, and the count and the sort are two plural-and-select decisions the
+ * German has to make differently (ADR-0041).
+ */
+function ruleSummary(
+  view: { definition: Record<string, unknown> },
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+): string {
   const filters = Array.isArray(view.definition['filters'])
     ? (view.definition['filters'] as unknown[]).length
     : 0;
@@ -85,11 +97,8 @@ function ruleSummary(view: { definition: Record<string, unknown> }): string {
     ? (view.definition['sort'] as unknown[]).length > 0
     : false;
 
-  if (filters === 0 && !sorted) return 'Filter and sort';
-  const parts: string[] = [];
-  if (filters > 0) parts.push(filters === 1 ? '1 filter' : `${filters} filters`);
-  if (sorted) parts.push('sorted');
-  return parts.join(', ');
+  if (filters === 0 && !sorted) return t('table.filterAndSort');
+  return t('table.rules', { filters, sorted: sorted ? 'yes' : 'no' });
 }
 
 /**
@@ -126,6 +135,7 @@ const ADDABLE: ReadonlyArray<{
 const SAVE_DELAY_MS = 600;
 
 export function CollectionTable({ collectionId }: CollectionTableProps): ReactElement {
+  const { t } = useT();
   const [data, setData] = useState<CollectionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -487,7 +497,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   }, [collectionId, history, load]);
 
   if (error && !data) return <p className="error">{messageFor(error)}</p>;
-  if (!data) return <p className="muted">Loading…</p>;
+  if (!data) return <p className="muted">{t('table.loading')}</p>;
 
   const titleField = data.fields.find((field) => field.id === data.titleFieldId);
 
@@ -589,7 +599,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
           one table does not carry a tab bar with one tab in it. */}
       {/* Always shown now: it carries the search box, which every collection
           needs, not only one with a choice of views. */}
-      <div className="collection-views" role="tablist" aria-label="Views">
+      <div className="collection-views" role="tablist" aria-label={t('table.views')}>
           {data.views.map((entry) => (
             <button
               key={entry.id}
@@ -608,8 +618,8 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             className="collection-search"
             type="search"
             value={query}
-            placeholder="Search these entries"
-            aria-label="Search this collection"
+            placeholder={t('table.searchPlaceholder')}
+            aria-label={t('table.search')}
             onChange={(event) => setQuery(event.target.value)}
           />
 
@@ -618,9 +628,9 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               type="button"
               className="view-tab"
               onClick={() => setEditingRules((open) => !open)}
-              title="Filter and sort this view"
+              title={t('table.filterAndSort.title')}
             >
-              <FilterIcon /> {ruleSummary(view)}
+              <FilterIcon /> {ruleSummary(view, t)}
             </button>
           )}
 
@@ -664,7 +674,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                   title={`Move all ${data.rows.length} entries to the trash`}
                   onClick={() => setClearing(true)}
                 >
-                  <TrashIcon /> Empty
+                  <TrashIcon /> {t('table.empty')}
                 </button>
               )}
             </>
@@ -677,7 +687,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               onClick={() => void addBoard(selectColumns[0]!.id)}
               title={`Group by ${selectColumns[0]!.name}`}
             >
-              <PlusIcon /> Board
+              <PlusIcon /> {t('table.addBoard')}
             </button>
           )}
       </div>
@@ -692,9 +702,9 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             type="button"
             className="view-tab add"
             onClick={() => void addGallery()}
-            title="Show these entries as covers"
+            title={t('table.addGallery.title')}
           >
-            <PlusIcon /> Gallery
+            <PlusIcon /> {t('table.addGallery')}
           </button>
         )}
 
@@ -739,7 +749,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
 
       {view?.viewType === 'board' && !groupBy && (
         <p className="muted">
-          A board needs a select column with options. Add one, then try again.
+          {t('table.boardNeedsSelect')}
         </p>
       )}
 
@@ -750,15 +760,15 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         * something is selected, so the toolbar does not grow four buttons that
         * are usually disabled. */}
       {selected.size > 0 && (
-        <div className="collection-selection" role="group" aria-label="Selected entries">
+        <div className="collection-selection" role="group" aria-label={t('table.selectedLabel')}>
           <span className="collection-selection-count">
-            {selected.size} selected
+            {t('table.selected', { count: selected.size })}
           </span>
           <button type="button" className="btn subtle" onClick={() => void copySelection()}>
-            Copy
+            {t('table.copy')}
           </button>
           <button type="button" className="btn subtle" onClick={exportSelection}>
-            Export CSV
+            {t('table.exportCsv')}
           </button>
           {data.canEdit && (
             <button
@@ -766,7 +776,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               className="btn subtle destructive"
               onClick={() => void archiveSelection()}
             >
-              <TrashIcon /> To the trash
+              <TrashIcon /> {t('table.toTrash')}
             </button>
           )}
           <button
@@ -774,7 +784,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             className="btn subtle collection-selection-clear"
             onClick={() => setSelected(new Set())}
           >
-            Clear
+            {t('table.clearSelection')}
           </button>
         </div>
       )}
@@ -831,8 +841,8 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
 
               <th className="collection-title-column">
                 {titleField?.name ?? 'Name'}
-                <span className="collection-column-fixed" title="Every entry has a title">
-                  always
+                <span className="collection-column-fixed" title={t('table.titleColumn')}>
+                  {t('table.always')}
                 </span>
               </th>
               {columns.map((field) => (
@@ -851,7 +861,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                   <button
                     type="button"
                     className="collection-add"
-                    aria-label="Add a column"
+                    aria-label={t('table.addColumn')}
                     aria-expanded={addingColumn !== null}
                     onClick={(event) => {
                       if (addingColumn) {
@@ -960,7 +970,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             {data.rows.length === 0 && (
               <tr>
                 <td colSpan={columns.length + 3} className="muted">
-                  No entries yet.
+                  {t('table.noEntries')}
                 </td>
               </tr>
             )}
@@ -1021,10 +1031,10 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                 void clearRows();
               }}
             >
-              Empty the table
+              {t('table.emptyConfirm')}
             </button>
             <button type="button" className="btn" onClick={() => setClearing(false)}>
-              Keep them
+              {t('table.emptyKeep')}
             </button>
           </div>
         </div>
@@ -1046,7 +1056,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               );
           }}
         >
-          <PlusIcon /> New entry
+          <PlusIcon /> {t('table.newEntry')}
         </button>
       )}
     </div>
@@ -1074,13 +1084,14 @@ function TitleCell({
   canEdit: boolean;
   onChange: (title: string) => void;
 }): ReactElement {
+  const { t } = useT();
   return (
     <input
       className="collection-title-input"
       defaultValue={title}
       readOnly={!canEdit}
-      placeholder="Untitled"
-      aria-label="Name"
+      placeholder={t('table.untitled')}
+      aria-label={t('table.name')}
       onBlur={(event) => {
         const next = event.currentTarget.value.trim();
         if (next !== title) onChange(next);
@@ -1495,6 +1506,7 @@ function SelectCell({
   multiple: boolean;
   onChange: (value: StoredCellValue | null) => void;
 }): ReactElement {
+  const { t } = useT();
   const options = optionsOf(field);
   const known = new Set(options.map((option) => option.id));
 
@@ -1510,7 +1522,7 @@ function SelectCell({
   if (options.length === 0) {
     return (
       <span className="muted collection-no-options">
-        No options — add some in the column heading
+        {t('table.noOptions')}
       </span>
     );
   }
@@ -1542,7 +1554,7 @@ function SelectCell({
         ))}
       </select>
       {missing.length > 0 && (
-        <span className="collection-missing-option" title="This option was removed">
+        <span className="collection-missing-option" title={t('table.removedOption')}>
           {missing.length === 1 ? 'removed option' : `${missing.length} removed options`}
         </span>
       )}

@@ -158,8 +158,9 @@ test('the block has no menu of its own', () => {
 test('the gutter menu carries the file actions instead', () => {
   const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
   assert.match(menu, /range\.node\.type\.name === 'file'/);
-  assert.match(menu, /Open in a new tab/);
-  assert.match(menu, /Download/);
+  // By key: the menu is translated (ADR-0041).
+  assert.match(menu, /t\('block\.openInNewTab'\)/);
+  assert.match(menu, /t\('block\.download'\)/);
   assert.match(menu, /setFileDisplay\(at,/);
 });
 
