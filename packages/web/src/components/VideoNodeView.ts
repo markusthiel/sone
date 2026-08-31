@@ -108,7 +108,34 @@ class VideoNodeView implements NodeView {
     return true;
   }
 
+  /**
+   * Draw, and never throw while doing it.
+   *
+   * A node view that raises during a dispatch does not fail alone: the exception
+   * leaves the editor mid-transaction, React's boundary replaces the whole
+   * surface, and everything unmounted with it — including any dialog that was
+   * open — comes back empty. From the outside that is "the window closed and the
+   * block is gone", with nothing saying why.
+   *
+   * So a failure here becomes a visible block that says the drawing failed, and
+   * the reason goes to the console where somebody can read it. The document is
+   * untouched either way, which is the property that matters: whatever is wrong
+   * with drawing a video, the video must still be in the page.
+   */
   private render(): void {
+    try {
+      this.draw();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[sone] drawing a video block failed', err);
+      this.dom.replaceChildren();
+      this.renderBroken(
+        'This video could not be drawn. The block is still here; the reason is in the browser console.',
+      );
+    }
+  }
+
+  private draw(): void {
     const source = textOf(this.node, 'source');
     const display = textOf(this.node, 'display') || 'player';
     this.dom.dataset['source'] = source;
