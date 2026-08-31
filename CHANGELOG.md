@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A misspelled search offers names that are close** ([ADR-0036](docs/adr/0036-search-typo-tolerance.md)).
+"Testordnr" found nothing at all before. Suggestions appear under their own
+heading, only when the search itself found little, and only for names — a typo in
+the middle of a page's text still finds nothing. No operator action; one migration
+enables `pg_trgm` and indexes titles.
+
 **Your profile and your password are two settings sections** rather than one long
 one. Signing in is where single sign-on and a second factor will go.
 
