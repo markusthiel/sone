@@ -386,6 +386,18 @@ describe('editor surface', () => {
     });
 
     assert.match(container.innerHTML, /class="video-block/, 'the block arrived');
+
+    // And it is still there a moment later, in the document itself rather than
+    // only in the drawing: y-prosemirror deletes a Y element it cannot turn into
+    // a node, so a block that vanishes after a beat vanishes from the document.
+    const { pageContent } = await import('@sone/core');
+    await reactAct(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    const names = pageContent(handle.doc)
+      .toArray()
+      .map((child) => (child as { nodeName?: string }).nodeName ?? 'text');
+    console.log('AFTER 400ms:', names.join(','), '| html has video:', /video-block/.test(container.innerHTML));
     assert.doesNotMatch(container.innerHTML, /Uploading clip\.mp4/, 'and the progress went');
   });
 });
