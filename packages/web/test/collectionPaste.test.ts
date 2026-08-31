@@ -168,3 +168,31 @@ test('undo and redo are each other, not two implementations', () => {
   assert.match(history, /const stack = useRef<HistoryEntry\[\]>/);
   assert.match(history, /HISTORY_DEPTH/);
 });
+
+test('the column menu looks like every other menu, and names types by shape', () => {
+  // It had its own frame and its own type scale, and once it moved out of the
+  // table it inherited the page's font — so it read as belonging to a different
+  // application. Its items are the shared item now, which also picks up the
+  // touch rules that list is in.
+  assert.match(table, /className="entry-menu-item"/);
+  assert.match(table, /<entry\.Icon \/> \{entry\.label\}/);
+
+  const menu = css.slice(css.indexOf('.collection-type-menu {'));
+  const rule = menu.slice(0, menu.indexOf('}'));
+  assert.match(rule, /inline-size: 190px/, 'the same width as the entry menu');
+  assert.match(rule, /border-radius: var\(--sone-radius-lg\)/);
+  assert.match(rule, /font-size: 0\.88rem/);
+  // And no item rule of its own left behind to disagree with the shared one.
+  assert.doesNotMatch(css, /\.collection-type-menu button \{/);
+
+  // Every addable type has an icon, or the menu is a mix of shapes and gaps.
+  const entries = [...table.matchAll(/\{ type: '[a-zA-Z]+', label: '[^']+', Icon: (\w+) \}/g)];
+  assert.equal(entries.length, 9, 'nine types, nine icons');
+  for (const [, icon] of entries) {
+    assert.match(
+      codeOf(new URL('../src/components/icons.tsx', import.meta.url)),
+      new RegExp(`export function ${icon}\\(`),
+      `${icon} is drawn in the set`,
+    );
+  }
+});

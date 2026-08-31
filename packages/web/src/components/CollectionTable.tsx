@@ -36,15 +36,24 @@ import {
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import {
-  ColumnsIcon,
-  FilterIcon,
-  ListIcon,
   ArrowDownIcon,
   ArrowUpIcon,
+  CalendarIcon,
+  CheckSquareIcon,
   ChevronRightIcon,
+  ColumnsIcon,
+  FilterIcon,
+  HashIcon,
+  LinkIcon,
+  ListIcon,
+  MailIcon,
+  PhoneIcon,
   PlusIcon,
+  SelectIcon,
   TableIcon,
+  TextIcon,
   TrashIcon,
+  type IconProps,
 } from './icons.tsx';
 import { CollectionBoard } from './CollectionBoard.tsx';
 import { MAX_PASTE_ROWS, looksLikeGrid, parsePastedGrid } from './pastedGrid.ts';
@@ -79,19 +88,30 @@ function ruleSummary(view: { definition: Record<string, unknown> }): string {
   return parts.join(', ');
 }
 
-/** Column types this table can edit. See the note above. */
-const ADDABLE: ReadonlyArray<{ type: string; label: string }> = [
-  { type: 'text', label: 'Text' },
+/**
+ * Column types this table can edit, with an icon each. See the note above.
+ *
+ * A type is recognised faster as a shape than as a word, and this menu is nine
+ * of them. The icons are the interface's own set rather than the entry icons,
+ * which are chosen per entry and could be anything — these are fixed parts of
+ * the interface and must not change when somebody picks a new folder icon.
+ */
+const ADDABLE: ReadonlyArray<{
+  type: string;
+  label: string;
+  Icon: (props: IconProps) => ReactElement;
+}> = [
+  { type: 'text', label: 'Text', Icon: TextIcon },
   // Offered now that its options can be managed. It was held back precisely
   // because a column whose options nobody can edit is one nobody can fill.
-  { type: 'select', label: 'Select' },
-  { type: 'multiSelect', label: 'Multi-select' },
-  { type: 'number', label: 'Number' },
-  { type: 'date', label: 'Date' },
-  { type: 'checkbox', label: 'Checkbox' },
-  { type: 'url', label: 'Link' },
-  { type: 'email', label: 'Email' },
-  { type: 'phone', label: 'Phone' },
+  { type: 'select', label: 'Select', Icon: SelectIcon },
+  { type: 'multiSelect', label: 'Multi-select', Icon: ListIcon },
+  { type: 'number', label: 'Number', Icon: HashIcon },
+  { type: 'date', label: 'Date', Icon: CalendarIcon },
+  { type: 'checkbox', label: 'Checkbox', Icon: CheckSquareIcon },
+  { type: 'url', label: 'Link', Icon: LinkIcon },
+  { type: 'email', label: 'Email', Icon: MailIcon },
+  { type: 'phone', label: 'Phone', Icon: PhoneIcon },
 ];
 
 /** How long after the last keystroke a text cell is saved. */
@@ -714,9 +734,14 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               key={entry.type}
               type="button"
               role="menuitem"
+              // The same item treatment every other menu here uses, rather than
+              // one of its own: this menu had its own type scale and inherited
+              // the page's font once it moved out of the table, so it read as
+              // belonging to a different application.
+              className="entry-menu-item"
               onClick={() => void addColumn(entry.type)}
             >
-              {entry.label}
+              <entry.Icon /> {entry.label}
             </button>
           ))}
         </div>
