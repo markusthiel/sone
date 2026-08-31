@@ -42,7 +42,7 @@ import { imagePaste, type ImageUploader } from './imagePaste.js';
 import { markdownPaste } from './markdownPaste.js';
 import { authorHighlight } from './authorHighlight.js';
 import { schema } from './schema.js';
-import { slashMenu } from './slashMenu.js';
+import { slashMenu, type LocaliseSlashItem } from './slashMenu.js';
 import { tableKeymap, tablePlugins } from './tables.js';
 
 export interface EditorOptions {
@@ -63,6 +63,16 @@ export interface EditorOptions {
   generateId?: IdGenerator;
   /** Node views for atoms that mount their own renderer, e.g. collectionView. */
   nodeViews?: EditorView['props']['nodeViews'];
+  /**
+   * How a `/` menu item reads, in the interface's language (ADR-0041).
+   *
+   * Passed in rather than looked up: this package has no business knowing how
+   * the application stores its translations. It is applied before the list is
+   * filtered, because the filter matches the title and the keywords — so a
+   * German interface must filter German ones, or typing "übersch" finds nothing
+   * while the menu shows "Überschrift 1".
+   */
+  localiseSlashItem?: LocaliseSlashItem;
   /**
    * A change made *here*.
    *
@@ -203,7 +213,7 @@ export function createEditorState(opts: EditorOptions): EditorState {
     // first while it is open. ProseMirror asks plugins in order and stops at
     // the first that handles a key; the other way round, Enter would split the
     // block instead of picking an item.
-    slashMenu(),
+    slashMenu(opts.localiseSlashItem),
   );
 
   return EditorState.create({ schema, plugins });

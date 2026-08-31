@@ -110,6 +110,22 @@ The branch is named `other` rather than `informal`, so a message still renders
 when nothing is passed and a language without the distinction needs no branch at
 all.
 
+### A package that is not the interface takes its strings as an argument
+
+`@sone/editor` owns the `/` menu's list, and the list is filtered by what
+somebody typed — matched against each item's title and keywords. So translating
+the titles when they are *drawn* would leave the filter matching English: a German
+reader typing "übersch" would find nothing while the menu shows "Überschrift 1".
+
+The editor therefore takes a function that localises an item, and applies it
+before filtering. It never imports the catalogue: that package has no business
+knowing how this application stores its translations, and the two would otherwise
+have to agree on a message format as well as on a schema.
+
+The English keywords stay and are matched alongside the translated ones. "h1",
+"ul" and "todo" are typed by people in every language, and a German catalogue
+that replaced them would take away a shortcut somebody already has.
+
 ### A test makes the migration hold
 
 The extraction is a thousand strings across sixty components and cannot happen in
