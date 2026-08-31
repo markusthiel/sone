@@ -25,6 +25,8 @@ import { readStreamLink, readVideoLink } from '@sone/core';
 import { NodeSelection } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 
+import { applyBlockAttrs } from './blockAttrs.ts';
+
 /** The little of a ProseMirror node this needs; see CollectionNodeView. */
 interface PMNodeLike {
   type: { name: string };
@@ -157,6 +159,12 @@ class VideoNodeView implements NodeView {
   }
 
   private draw(): void {
+    // Width, alignment and colour, which the stylesheet reads from the element —
+    // and which a node view has to copy itself, since it does not use `toDOM`.
+    // This is why "Column / Wide / Full page" did nothing here while working for
+    // an image.
+    applyBlockAttrs(this.dom, this.node.attrs);
+
     const source = textOf(this.node, 'source');
     const display = textOf(this.node, 'display') || 'player';
     this.dom.dataset['source'] = source;

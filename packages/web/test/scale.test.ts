@@ -438,7 +438,11 @@ test('full width is a centring, corrected for the left-only padding', () => {
 test('nothing frames a block that runs to both edges', () => {
   // A rounded corner or a border tells you where a thing ends. A block reaching
   // both edges has no ends to mark, and the frame reads as a mistake.
-  assert.match(css, /\[data-width='full'\] img[\s\S]{0,160}border-radius: 0/);
+  // The list has grown — an image, a viewer, a player, an embedded frame, a
+  // table — so the span allows for it rather than assuming one selector.
+  assert.match(css, /\[data-width='full'\] img[\s\S]{0,700}border-radius: 0/);
+  assert.match(css, /\[data-width='full'\] \.video-player/);
+  assert.match(css, /\[data-width='full'\]\.collection-block/);
 });
 
 test('the icon picker scrolls in one direction only', () => {

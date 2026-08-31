@@ -223,3 +223,31 @@ test('an upload offers Download, and not "the original"', () => {
   assert.match(own, /download=\{name\}/, 'the upload can be downloaded');
   assert.doesNotMatch(own, /original=true/, 'and there is no second copy to offer');
 });
+
+test('a node view carries the block attributes itself, or width does nothing', () => {
+  // `toDOM` writes data-width, data-align and data-color, and a node view does
+  // not use `toDOM` — it draws its own element. So "Column / Wide / Full page"
+  // worked for an image, which toDOM draws, and did nothing at all for a video or
+  // a table, which draw themselves. Three views were each missing the same lines,
+  // so it is one helper now and this checks every one of them uses it.
+  const helper = codeOf(new URL('../src/components/blockAttrs.ts', import.meta.url));
+  assert.match(helper, /set\('data-width', attrs\['width'\]\)/);
+  assert.match(helper, /set\('data-align', attrs\['align'\]\)/);
+
+  for (const name of ['VideoNodeView.ts', 'FileNodeView.ts', 'CollectionNodeView.tsx']) {
+    const source = codeOf(new URL(`../src/components/${name}`, import.meta.url));
+    assert.match(source, /applyBlockAttrs\(this\.dom/, `${name} applies them`);
+  }
+});
+
+test('a full-width table applies the width without remounting the table', () => {
+  // The table is React's, and tearing it down for a width change would lose
+  // whatever somebody was typing in a cell.
+  const view = codeOf(new URL('../src/components/CollectionNodeView.tsx', import.meta.url));
+  const update = view.slice(view.indexOf('update(node'), view.indexOf('stopEvent'));
+  assert.match(update, /applyBlockAttrs\(this\.dom, node\.attrs\);/);
+  // The only redraw in there is the one for a changed collection id — a width
+  // change must not reach `render`, which remounts the React root.
+  const redraws = [...update.matchAll(/this\.render\(\)/g)];
+  assert.equal(redraws.length, 1, 'one redraw, and it is the id change');
+});
