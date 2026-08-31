@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: Column, Wide and Full page did nothing for a video, a table or a file.**
+The setting only ever reached an image. A player or an embedded frame now runs to
+the page's edges the way a picture does, capped so a wide video still fits on
+screen.
+
 **Fixed: changing a table's row height did nothing.** The height comes from the
 padding inside a cell's controls, not from their minimum height, so the setting had
 been adjusting a number that never decided anything.

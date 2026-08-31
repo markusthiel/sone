@@ -20,6 +20,8 @@
  */
 
 import { NodeSelection } from 'prosemirror-state';
+
+import { applyBlockAttrs } from './blockAttrs.ts';
 import type { EditorView, NodeView } from 'prosemirror-view';
 
 /** The little of a ProseMirror node this needs; see CollectionNodeView. */
@@ -102,6 +104,10 @@ class FileNodeView implements NodeView {
   }
 
   private render(): void {
+    // See blockAttrs.ts. A file block was drawing its own width for the viewer
+    // form only; the shared attributes now reach it like every other block.
+    applyBlockAttrs(this.dom, this.attrs);
+
     const { fileId, filename, mimeType, category, sizeBytes } = this.attrs;
     const display = String(this.attrs['display'] ?? 'card');
     this.dom.dataset['display'] = display;

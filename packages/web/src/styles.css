@@ -4403,9 +4403,22 @@ select {
  */
 .ProseMirror [data-width='full'] img,
 .ProseMirror [data-width='full'] .file-viewer,
-.ProseMirror [data-width='full'].file-block img {
+.ProseMirror [data-width='full'].file-block img,
+/* A player and an embedded frame run to the edges for the same reason, and a
+   table's own frame goes with them: a block with no ends has nothing to mark. */
+.ProseMirror [data-width='full'] .video-player,
+.ProseMirror [data-width='full'] .video-frame,
+.ProseMirror [data-width='full'] .video-consent,
+.ProseMirror [data-width='full'].collection-block {
   border-radius: 0;
-  border: 0;
+  border-inline: 0;
+}
+
+/* A wide or full player keeps its shape rather than growing to 16:9 of the whole
+   page, which on a wide screen is taller than the window — and a video nobody can
+   see the bottom of is not a wider video. */
+.ProseMirror :where([data-width='wide'], [data-width='full']) :where(.video-player, .video-frame, .video-consent) {
+  max-block-size: 80vh;
 }
 @media (max-width: 720px) {
   /* Nothing breaks out on a narrow screen: there is no margin to break into,

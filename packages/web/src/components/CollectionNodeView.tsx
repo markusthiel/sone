@@ -27,6 +27,7 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 
+import { applyBlockAttrs } from './blockAttrs.ts';
 import { CollectionTable } from './CollectionTable.tsx';
 import { fileNodeView } from './FileNodeView.ts';
 import { videoNodeView } from './VideoNodeView.ts';
@@ -49,6 +50,11 @@ class CollectionNodeView implements NodeView {
   readonly dom: HTMLElement;
   private root: Root | null = null;
   private collectionId: string | null;
+  private attrs: Record<string, unknown> = {};
+
+  private attrsOf(): Record<string, unknown> {
+    return this.attrs;
+  }
 
   constructor(
     node: PMNodeLike,
@@ -78,10 +84,15 @@ class CollectionNodeView implements NodeView {
     });
 
     this.collectionId = (node.attrs['collectionId'] as string | null) ?? null;
+    this.attrs = node.attrs;
     this.render();
   }
 
   private render(): void {
+    // See blockAttrs.ts: a node view carries these itself, or the block has no
+    // width as far as the stylesheet is concerned.
+    applyBlockAttrs(this.dom, this.attrsOf());
+
     if (!this.collectionId) {
       // A block whose collection is missing — an id that never resolved, or a
       // document from elsewhere. Said plainly rather than rendered as an empty
@@ -104,11 +115,18 @@ class CollectionNodeView implements NodeView {
   update(node: PMNodeLike): boolean {
     if (node.type.name !== 'collectionView') return false;
 
+    this.attrs = node.attrs;
     const next = (node.attrs['collectionId'] as string | null) ?? null;
     if (next !== this.collectionId) {
       this.collectionId = next;
       this.render();
+      return true;
     }
+
+    // The table itself is React's and must not be torn down for a width change —
+    // that would remount it and lose whatever somebody was typing in a cell. So
+    // the presentation attributes are applied without redrawing.
+    applyBlockAttrs(this.dom, node.attrs);
     return true;
   }
 
