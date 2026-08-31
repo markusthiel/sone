@@ -22,6 +22,7 @@
  */
 
 import { readStreamLink, readVideoLink } from '@sone/core';
+import { NodeSelection } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 
 /** The little of a ProseMirror node this needs; see CollectionNodeView. */
@@ -61,7 +62,10 @@ function providerName(provider: string): string {
 class VideoNodeView implements NodeView {
   readonly dom: HTMLElement;
 
-  constructor(private node: PMNodeLike) {
+  constructor(
+    private node: PMNodeLike,
+    private readonly select: () => void,
+  ) {
     this.dom = document.createElement('div');
     this.dom.className = 'video-block';
     // Not editable, and this is the line that was missing.
@@ -74,6 +78,23 @@ class VideoNodeView implements NodeView {
     // block uploaded, played, and vanished — and no test that does not run a real
     // editing engine can see it, which is why jsdom kept saying it was fine.
     this.dom.contentEditable = 'false';
+
+    // A click selects the block, and this is what was missing: the gutter
+    // appears for the *selected* block, and `stopEvent` below keeps every event
+    // from reaching ProseMirror — so clicking a video selected nothing and the
+    // ⋮⋮ handle never came. Which is the handle the width and the card/link
+    // forms live behind, so the whole of ADR-0037's "same handle every block
+    // has" was unreachable.
+    //
+    // Not from inside the player. Its controls are a click target of their own,
+    // and selecting the block as well would fight play, pause and the scrubber —
+    // so a click on the video plays it and a click anywhere around it selects.
+    this.dom.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('video, iframe, a, button')) return;
+      this.select();
+    });
+
     this.render();
   }
 
@@ -340,5 +361,9 @@ class VideoNodeView implements NodeView {
 
 export const videoNodeView =
   () =>
-  (node: unknown, _view: EditorView, _getPos: () => number | undefined): NodeView =>
-    new VideoNodeView(node as PMNodeLike);
+  (node: unknown, view: EditorView, getPos: () => number | undefined): NodeView =>
+    new VideoNodeView(node as PMNodeLike, () => {
+      const pos = typeof getPos === 'function' ? getPos() : undefined;
+      if (pos === undefined) return;
+      view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
+    });

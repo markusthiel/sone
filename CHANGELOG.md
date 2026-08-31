@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A video block can be reached by its handle.** Clicking beside the player selects
+it, which is what brings up the ⋮⋮ — and with it the width and the card and link
+forms. Clicking the player itself still plays it.
+
 **Fixed: favourites from other workspaces appeared in the sidebar**, where they
 could not be opened — and the refusal said "you no longer have access to this
 page", which was not what had happened. The sidebar now asks for the favourites of

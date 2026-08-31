@@ -76,6 +76,17 @@ test('a player reserves its shape before it knows it', () => {
   assert.match(css, /\.video-consent \{[^}]*aspect-ratio: 16 \/ 9/);
 });
 
+test('clicking beside the player selects the block, and the controls still work', () => {
+  // The gutter appears for the selected block and `stopEvent` keeps every event
+  // from ProseMirror, so without this a video selected nothing and the ⋮⋮ never
+  // came — which is where the width and the card/link forms live, so all of
+  // ADR-0037's handle was unreachable.
+  assert.match(view, /NodeSelection\.create\(view\.state\.doc, pos\)/);
+  // And a click inside the player is the player's: selecting as well would fight
+  // play, pause and the scrubber.
+  assert.match(view, /closest\('video, iframe, a, button'\)\) return;/);
+});
+
 test('every node view takes its contents out of the editable region', () => {
   // The video view did not, and that is what made an uploaded video vanish: the
   // contents of an atom sat inside the editor's editable region, so the browser

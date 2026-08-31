@@ -3409,7 +3409,18 @@ select {
  * are the file block's shapes, because a video referred to rather than watched is
  * the same thing as a document referred to rather than read.
  */
-.video-block { margin-block: var(--sone-space-5); }
+.video-block {
+  margin-block: var(--sone-space-5);
+  /* Room to click beside the player, so the block can be selected without
+     touching the controls — which is how its handle is reached. */
+  padding-block: 2px;
+}
+/* Selected, as every other block shows it. */
+.video-block.ProseMirror-selectednode {
+  outline: 2px solid var(--sone-accent);
+  outline-offset: 2px;
+  border-radius: var(--sone-radius);
+}
 
 .video-player {
   display: block;
