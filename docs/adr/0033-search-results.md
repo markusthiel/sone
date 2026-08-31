@@ -44,6 +44,10 @@ This is deliberately not fuzzy matching. A typo still finds nothing, and fixing
 that needs `pg_trgm`, a second index and a decision about how "similar" ranks
 against "contains" — a separate change, worth doing after this one has been used.
 
+It has since been made, in ADR-0036: similar names are a list of their own, never
+merged into these results, which is what makes the two measures safe to have at
+once.
+
 ### A result says what it is, where it is, and what matched
 
 The response gains four things:

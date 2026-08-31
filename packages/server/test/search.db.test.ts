@@ -26,6 +26,13 @@ const PASSWORD = 'correct-horse-battery-staple';
 const OPEN = '\u0002';
 const CLOSE = '\u0003';
 
+interface SimilarName {
+  pageId: string;
+  title: string;
+  kind: string;
+  trail: Array<{ pageId: string; title: string }>;
+}
+
 interface SearchResult {
   pageId: string;
   title: string;
@@ -163,6 +170,17 @@ describe(
       return rows[0]!.id;
     }
 
+    async function both(
+      session: Session,
+      query: string,
+    ): Promise<{ results: SearchResult[]; similar: SimilarName[] }> {
+      const res = await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/search?q=${encodeURIComponent(query)}`,
+        auth(session),
+      );
+      return expectJson<{ results: SearchResult[]; similar: SimilarName[] }>(res, 200);
+    }
+
     async function search(session: Session, query: string): Promise<SearchResult[]> {
       const res = await fetch(
         `${base}/api/workspaces/${session.workspaceId}/search?q=${encodeURIComponent(query)}`,
@@ -294,6 +312,84 @@ describe(
         );
         assert.equal(res.status, 200, `"${query}" is answered`);
       }
+    });
+
+    // --- a misspelling (ADR-0036) -----------------------------------------
+
+    test('a misspelled name comes back as a suggestion', async () => {
+      // "Testordnr" found nothing at all, and the person retyped it rather than
+      // learning that the search cannot spell.
+      const session = await setup();
+      await create(session, 'Testordner', 'folder', null);
+
+      const answer = await both(session, 'testordnr');
+      assert.deepEqual(answer.results, [], 'nothing matched, which is honest');
+      assert.deepEqual(
+        answer.similar.map((entry) => entry.title),
+        ['Testordner'],
+      );
+      assert.equal(answer.similar[0]?.kind, 'folder', 'and it says what it is');
+    });
+
+    test('a suggestion carries where it lives, like a result', async () => {
+      const session = await setup();
+      const outer = await create(session, 'Projects', 'folder', null);
+      await create(session, 'Wärmepumpe', 'folder', outer);
+
+      const answer = await both(session, 'warmepumpe');
+      assert.deepEqual(
+        answer.similar[0]?.trail.map((step) => step.title),
+        ['Projects'],
+      );
+    });
+
+    test('a search that worked is left alone', async () => {
+      // Five guesses under a good answer is a section people learn to skip,
+      // which is when they will not read it on the day it holds the answer.
+      const session = await setup();
+      const folder = await defaultFolder(session);
+      for (const title of ['Budget one', 'Budget two', 'Budget three', 'Budget four', 'Budget five']) {
+        await create(session, title, 'page', folder);
+      }
+
+      const answer = await both(session, 'budget');
+      assert.equal(answer.results.length, 5);
+      assert.deepEqual(answer.similar, [], 'no suggestions under a full page of results');
+    });
+
+    test('a suggestion is never something already found', async () => {
+      const session = await setup();
+      await create(session, 'Testordner', 'folder', null);
+
+      const answer = await both(session, 'testordner');
+      assert.equal(answer.results.length, 1, 'found properly');
+      assert.deepEqual(answer.similar, [], 'and not offered again below itself');
+    });
+
+    test('a different word is not a suggestion', async () => {
+      // The threshold has to refuse as well as admit, or every search ends in
+      // five unrelated names.
+      const session = await setup();
+      await create(session, 'Testordner', 'folder', null);
+
+      const answer = await both(session, 'rechnungen');
+      assert.deepEqual(answer.results, []);
+      assert.deepEqual(answer.similar, []);
+    });
+
+    test('a collection row is not offered as a name', async () => {
+      // A row is a page, and a table of two hundred people would otherwise fill
+      // every suggestion list in the workspace.
+      const session = await setup();
+      const folder = await defaultFolder(session);
+      const page = await create(session, 'People', 'page', folder);
+      await db.query(
+        `UPDATE pages SET kind = 'row', title = 'Testordnerr' WHERE id = $1`,
+        [page],
+      );
+
+      const answer = await both(session, 'testordner');
+      assert.deepEqual(answer.similar, []);
     });
   },
 );

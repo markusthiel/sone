@@ -23,6 +23,7 @@ import {
   MATCH_OPEN,
   api,
   type SearchResult,
+  type SimilarName,
 } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
@@ -37,6 +38,8 @@ export function SearchScreen({
 }): ReactElement {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
+  /** Names that are close, offered only when the search found little. */
+  const [similar, setSimilar] = useState<SimilarName[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const requestId = useRef(0);
@@ -44,6 +47,7 @@ export function SearchScreen({
   useEffect(() => {
     if (query.trim().length < 2) {
       setResults([]);
+      setSimilar([]);
       setSearching(false);
       return;
     }
@@ -57,6 +61,7 @@ export function SearchScreen({
           // Ignore a response that has been superseded.
           if (id !== requestId.current) return;
           setResults(response.results);
+          setSimilar(response.similar ?? []);
           setError(null);
         })
         .catch((err: unknown) => {
@@ -85,9 +90,11 @@ export function SearchScreen({
 
       {error && <p className="error">{messageFor(error)}</p>}
 
-      {query.trim().length >= 2 && !searching && results.length === 0 && !error && (
-        <p className="muted">Nothing matched.</p>
-      )}
+      {query.trim().length >= 2 &&
+        !searching &&
+        results.length === 0 &&
+        similar.length === 0 &&
+        !error && <p className="muted">Nothing matched.</p>}
 
       {/* Folders first, as in the sidebar and in a folder's own view. A filing
           system that orders one way in one place and another elsewhere makes
@@ -100,6 +107,41 @@ export function SearchScreen({
         label="Pages"
         results={results.filter((result) => result.kind !== 'folder')}
       />
+
+      {/* Names that are close, in a list of their own (ADR-0036).
+        *
+        * Never mixed into the groups above: those are ordered by how well they
+        * matched, these by how close the spelling is, and one list ordered by two
+        * measures cannot be reasoned about. The heading says which this is. */}
+      {similar.length > 0 && (
+        <section className="search-group">
+          <h2 className="sidebar-label">
+            {results.length === 0 ? 'Did you mean' : 'Similar names'}
+          </h2>
+          <ul className="search-results">
+            {similar.map((entry) => (
+              <li key={entry.pageId}>
+                <a className="search-hit" href={paths.page(entry.pageId, entry.title)}>
+                  <span className="search-hit-head">
+                    <EntryIconView
+                      icon={entry.icon}
+                      kind={entry.kind === 'folder' ? 'folder' : 'page'}
+                    />
+                    <span className="search-hit-title" style={titleColorStyle(entry.icon)}>
+                      {entry.title || 'Untitled'}
+                    </span>
+                  </span>
+                  {entry.trail.length > 0 && (
+                    <span className="search-hit-path">
+                      {entry.trail.map((step) => step.title || 'Untitled').join(' / ')}
+                    </span>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

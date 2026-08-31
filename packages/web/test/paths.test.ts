@@ -254,3 +254,14 @@ test('a search result lands on the block, and the page waits for it', () => {
   assert.match(page, /blockFromHash\(window\.location\.hash\)/);
   assert.match(page, /attempts > 20/, 'gives up rather than retrying forever');
 });
+
+test('a suggestion is drawn apart from the results it is not one of', () => {
+  // Two ranking systems in one ordered list cannot be reasoned about: a row is
+  // either above another because it matched better or because a different
+  // measure said so, and nobody can tell which by looking (ADR-0036).
+  const search = codeOf(new URL('../src/components/Search.tsx', import.meta.url));
+  assert.match(search, /results\.length === 0 \? 'Did you mean' : 'Similar names'/);
+  assert.match(search, /\{similar\.length > 0 && \(/);
+  // And it is not passed to the group component that draws ranked results.
+  assert.doesNotMatch(search, /<Group[^>]*results=\{similar/);
+});

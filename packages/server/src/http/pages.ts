@@ -261,6 +261,26 @@ async function moveEntry(pool: Pool, input: MoveInput): Promise<MoveResult> {
   return 'ok';
 }
 
+/**
+ * Below how many results a search offers similar names instead (ADR-0036).
+ *
+ * Five: enough that a search which worked is left alone, low enough that one
+ * which nearly failed gets help.
+ */
+const SIMILAR_THRESHOLD = 5;
+
+/** How many suggestions. A typo producing twenty has not produced an answer. */
+const SIMILAR_LIMIT = 5;
+
+/**
+ * How close a name has to be.
+ *
+ * 0.4 on `word_similarity` admits one or two wrong letters in a word and refuses
+ * a different word. Written as a literal in the query rather than a parameter so
+ * the planner can use it against the trigram index.
+ */
+const SIMILARITY_FLOOR = 0.4;
+
 export function registerPageRoutes(router: Router, deps: PageDeps): void {
   /**
    * The page tree for a workspace.
@@ -1295,6 +1315,55 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         }) !== null,
     );
 
+    // Names that are close, when the search itself did badly (ADR-0036).
+    //
+    // A separate list, never mixed into the ranked results: two ranking systems
+    // in one ordered list cannot be reasoned about — a row is either above
+    // another because it matched better or because a different measure said so,
+    // and nobody can tell which by looking.
+    //
+    // Only when there are fewer than five results, and only names. Somebody
+    // whose search worked does not need five guesses underneath it, and a
+    // section that is always there is a section people learn to skip — which is
+    // when they will not read it on the day it holds the answer.
+    const similar =
+      visible.length >= SIMILAR_THRESHOLD
+        ? []
+        : await queryRows<{
+            page_id: string;
+            title: string;
+            kind: string;
+            icon: unknown;
+            trail: unknown;
+            ancestor_ids: string[];
+          }>(
+            deps.pool,
+            `SELECT p.id AS page_id, p.title, p.kind, p.icon, p.ancestor_ids,
+                    (SELECT jsonb_agg(jsonb_build_object('pageId', a.id, 'title', a.title)
+                                      ORDER BY array_position(p.ancestor_ids, a.id))
+                       FROM pages a WHERE a.id = ANY(p.ancestor_ids)) AS trail
+               FROM pages p
+              WHERE p.workspace_id = $1
+                AND p.archived_at IS NULL
+                AND p.kind <> 'row'
+                AND p.title <> ''
+                AND NOT (p.id = ANY($2::uuid[]))
+                -- word_similarity rather than similarity: a title is often
+                -- longer than the query, and similarity() punishes it for the
+                -- part that is not being searched for.
+                AND word_similarity($3, p.title) >= ${SIMILARITY_FLOOR}
+                AND ${visiblePagesCondition('p', '$4', '$5')}
+              ORDER BY word_similarity($3, p.title) DESC, p.last_edited_at DESC
+              LIMIT ${SIMILAR_LIMIT}`,
+            [
+              workspaceId,
+              visible.map((row) => row.page_id),
+              raw,
+              claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
+              claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
+            ],
+          );
+
     ctx.send(200, {
       query: raw,
       results: visible.map((row) => ({
@@ -1316,6 +1385,20 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         /** The block the passage came from, so a result can land on it. */
         blockId: row.block_id,
         rank: row.rank,
+      })),
+      /**
+       * Names close enough to be worth offering, when the search found little.
+       *
+       * No snippet and no rank: there is nothing honest to say beyond the name
+       * being close, and a number would invite comparison with the results
+       * above, which were measured differently (ADR-0036).
+       */
+      similar: similar.map((row) => ({
+        pageId: row.page_id,
+        title: row.title,
+        kind: row.kind,
+        icon: row.icon,
+        trail: Array.isArray(row.trail) ? row.trail : [],
       })),
     });
   });

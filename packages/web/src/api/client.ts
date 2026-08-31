@@ -371,6 +371,21 @@ export interface SearchResult {
   rank: number;
 }
 
+/**
+ * A name close enough to be worth offering (ADR-0036).
+ *
+ * Deliberately less than a result: no snippet, no rank. There is nothing honest
+ * to say beyond the name being close, and a number would invite comparison with
+ * results that were measured differently.
+ */
+export interface SimilarName {
+  pageId: string;
+  title: string;
+  kind: string;
+  icon: { kind: string; value: string; color?: string; titleColor?: string } | null;
+  trail: Array<{ pageId: string; title: string }>;
+}
+
 /** The delimiters `ts_headline` marks a match with. */
 export const MATCH_OPEN = '\u0002';
 export const MATCH_CLOSE = '\u0003';
@@ -1031,8 +1046,9 @@ export const api = {
     return JSON.parse(text) as never;
   },
 
+  /** A name close enough to offer when a search found little (ADR-0036). */
   search: (workspaceId: string, query: string) =>
-    request<{ query: string; results: SearchResult[] }>(
+    request<{ query: string; results: SearchResult[]; similar?: SimilarName[] }>(
       `/api/workspaces/${workspaceId}/search?q=${encodeURIComponent(query)}`,
     ),
 
