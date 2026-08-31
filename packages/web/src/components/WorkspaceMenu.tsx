@@ -20,7 +20,7 @@ import { ApiError, api, type WorkspaceSummary } from '../api/client.ts';
 import { useListDrag } from '../hooks/useListDrag.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
-import { ChevronRightIcon, FolderPlusIcon, PlusIcon } from './icons.tsx';
+import { ChevronRightIcon, FolderPlusIcon, PlusIcon, SettingsIcon } from './icons.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
 import { WorkspaceMark } from './WorkspaceMark.tsx';
 import { titleColorStyle } from './EntryIconView.tsx';
@@ -295,13 +295,21 @@ export function WorkspaceMenu({
               * Absent for somebody who may not administer workspaces, rather
               * than present and refusing: a menu entry that answers "not found"
               * teaches people to distrust the menu. */}
+            {/* The settings of the workspace you are in — where somebody
+                already is when they think about it (ADR-0032). Offered to every
+                member; what they may not change is disabled rather than
+                hidden. */}
+            <a
+              className="workspace-item"
+              href={paths.workspaceSettings()}
+              role="menuitem"
+            >
+              <SettingsIcon /> Workspace settings
+            </a>
+
             {canManageWorkspaces && (
-              <a
-                className="workspace-item"
-                href={paths.settings('workspaces')}
-                role="menuitem"
-              >
-                <FolderPlusIcon /> Manage workspaces
+              <a className="workspace-item" href={paths.admin('workspaces')} role="menuitem">
+                <FolderPlusIcon /> All workspaces
               </a>
             )}
           </div>

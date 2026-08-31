@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Supersedes the single-screen arrangement in ADR-0027; that ADR's
+Accepted and implemented, with two deviations recorded below. Supersedes the single-screen arrangement in ADR-0027; that ADR's
 reasoning about *naming the subject* is kept and taken further.
 
 ## Context
@@ -100,6 +100,27 @@ away in the release after.
 The list-and-section layout — including the two-view arrangement a phone gets —
 is extracted once and used three times. Three areas must not mean three layouts
 that drift apart; that is the same mistake as three ways of ordering a list.
+
+### Deviations from this decision as first built
+
+Written down rather than quietly skipped, because the list above is what the next
+person will read as the plan.
+
+**Trash stays its own route.** It is listed above under the workspace, and it is
+a place you go rather than a setting you change — it already has `/trash` and an
+entry in the account menu, and moving it into a settings list would make it
+harder to reach for no gain.
+
+**Profile is one section, not two.** The account panel holds the picture, the
+name and the password together, and splitting it into "Profile" and "Password and
+sign-in" is a change to that panel rather than to the areas. It belongs to the
+detail work that follows.
+
+**Member roles are still administered from All workspaces.** The workspace area's
+people section offers inviting; changing somebody's role and removing somebody
+live in the administration list, as they did before. That is the same as today
+rather than a regression, and it is the obvious next step: a workspace owner
+should not need the instance-wide right to manage their own members.
 
 ## Consequences
 

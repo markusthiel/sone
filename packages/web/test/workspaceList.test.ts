@@ -39,7 +39,9 @@ test('the workspace you are in is one row, marked', () => {
 // --- administering one of them ----------------------------------------------
 
 const detail = codeOf(new URL('../src/components/WorkspaceDetail.tsx', import.meta.url));
-const settings = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
+// The list lives in the administration area now: it is about every workspace
+// here, including ones you are not in (ADR-0032).
+const settings = codeOf(new URL('../src/components/AdminScreen.tsx', import.meta.url));
 
 test('the name opens the workspace rather than a separate control', () => {
   // A row that only reports numbers makes somebody wonder where the editing is,
@@ -57,7 +59,7 @@ test('inviting uses the same panel a workspace owner uses', () => {
 });
 
 test('opening one is a step inside the section, not a place to link to', () => {
-  assert.match(settings, /useState<\{ id: string; name: string;/);
+  assert.match(settings, /useState<\{\s*\n?\s*id: string;/);
 });
 
 test('the list is read back rather than adjusted in place', () => {

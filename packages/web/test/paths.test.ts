@@ -12,7 +12,7 @@ import { test } from 'node:test';
 
 import { codeOf } from './helpers/source.ts';
 
-import { parseRoute, paths, slugify } from '../src/routes/paths.ts';
+import { MOVED_SETTINGS, parseRoute, paths, slugify } from '../src/routes/paths.ts';
 
 const PAGE = '00000000-0000-4000-8000-000000000001';
 
@@ -65,11 +65,23 @@ test('auth and utility routes parse', () => {
     kind: 'search',
     query: 'budget',
   });
-  assert.deepEqual(parseRoute('/settings'), { kind: 'settings', section: 'account' });
-  assert.deepEqual(parseRoute('/settings/workspace'), {
+  // Three areas, three spaces (ADR-0032). The default section is named here
+  // rather than derived, so a link to the area alone is a link to something.
+  assert.deepEqual(parseRoute('/settings'), { kind: 'settings', section: 'profile' });
+  assert.deepEqual(parseRoute('/settings/appearance'), {
     kind: 'settings',
-    section: 'workspace',
+    section: 'appearance',
   });
+  assert.deepEqual(parseRoute('/workspace'), {
+    kind: 'workspaceSettings',
+    section: 'general',
+  });
+  assert.deepEqual(parseRoute('/workspace/typography'), {
+    kind: 'workspaceSettings',
+    section: 'typography',
+  });
+  assert.deepEqual(parseRoute('/admin'), { kind: 'admin', section: 'instance' });
+  assert.deepEqual(parseRoute('/admin/sso'), { kind: 'admin', section: 'sso' });
   assert.deepEqual(parseRoute('/nonsense'), { kind: 'notFound' });
 });
 
@@ -181,4 +193,30 @@ test('a share visitor is not asked for their name on every reload', () => {
     /localStorage\.setItem\(nameKey/,
     'a name on a shared machine should not outlive the browser session',
   );
+});
+
+test('an old settings URL is redirected, not answered', () => {
+  // They are in the sidebar, in the switcher and in whatever anybody has
+  // bookmarked, and a URL is a public contract (ADR-0016). Landing on the first
+  // section of the wrong area would be worse than a not-found page, because it
+  // looks like it worked.
+  assert.equal(MOVED_SETTINGS['account'], '/settings/profile');
+  assert.equal(MOVED_SETTINGS['theme'], '/workspace/typography');
+  assert.equal(MOVED_SETTINGS['groups'], '/workspace/groups');
+  assert.equal(MOVED_SETTINGS['sso'], '/admin/sso');
+  assert.equal(MOVED_SETTINGS['workspaces'], '/admin/workspaces');
+
+  // Every target is a real route, or the redirect sends somebody nowhere.
+  for (const target of Object.values(MOVED_SETTINGS)) {
+    const route = parseRoute(target);
+    assert.notEqual(route.kind, 'notFound', `${target} is a route`);
+  }
+
+  // And nothing that still exists is redirected away from itself.
+  for (const kept of ['appearance', 'landing', 'about']) {
+    assert.equal(MOVED_SETTINGS[kept], undefined, `${kept} stays where it is`);
+  }
+
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /navigate\(moved, \{ replace: true \}\)/, 'replaced, not pushed');
 });

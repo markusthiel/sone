@@ -20,7 +20,9 @@ import {
   readRightPanelOpen,
 } from './components/RightSidebar.tsx';
 import { SearchScreen } from './components/Search.tsx';
+import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
+import { WorkspaceSettingsScreen } from './components/WorkspaceSettingsScreen.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
 import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
@@ -30,7 +32,7 @@ import { useFavourites } from './hooks/useFavourites.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
 import { api, type PageNode } from './api/client.ts';
-import { paths } from './routes/paths.ts';
+import { MOVED_SETTINGS, paths } from './routes/paths.ts';
 import { AcceptInvitation } from './components/AcceptInvitation.tsx';
 
 export function App(): ReactElement {
@@ -162,10 +164,13 @@ function Workspace({
   displayName: string;
   session: import('./api/client.ts').SessionInfo;
   route: ReturnType<typeof useRoute>['route'];
-  navigate: (to: string) => void;
+  /** With `replace`, for the redirect of an old settings URL (ADR-0032). */
+  navigate: (to: string, options?: { replace?: boolean }) => void;
   onSwitchWorkspace: (workspaceId: string) => void;
   onLogout: () => void;
-}): ReactElement {
+  /* Null while an old settings URL is being replaced: rendering the wrong area
+     for one frame would flash a heading nobody asked for. */
+}): ReactElement | null {
   // The workspace's own defaults, applied as custom properties on the document
   // root. Nothing else reads a theme: it changes what the existing variables
   // resolve to, and the stylesheet already falls back to its own answer where
@@ -290,8 +295,39 @@ function Workspace({
   // side by side, and neither of them the one somebody is using. This returns
   // early with a surface of its own and a way back (ADR-0027).
   if (route.kind === 'settings') {
+    // An old section id, from a bookmark or an older build of this interface.
+    // Redirected rather than answered with the first section of the wrong area
+    // (ADR-0032): URLs are a public contract, and a link that lands somewhere
+    // plausible but wrong is worse than one that lands somewhere right.
+    const moved = MOVED_SETTINGS[route.section];
+    if (moved) {
+      navigate(moved, { replace: true });
+      return null;
+    }
     return (
       <Settings
+        section={route.section}
+        session={session}
+        workspaceId={workspaceId}
+        onClose={() => navigate(paths.home())}
+      />
+    );
+  }
+
+  if (route.kind === 'workspaceSettings') {
+    return (
+      <WorkspaceSettingsScreen
+        section={route.section}
+        session={session}
+        workspaceId={workspaceId}
+        onClose={() => navigate(paths.home())}
+      />
+    );
+  }
+
+  if (route.kind === 'admin') {
+    return (
+      <AdminScreen
         section={route.section}
         session={session}
         workspaceId={workspaceId}
@@ -311,6 +347,7 @@ function Workspace({
     >
       <Sidebar
         canManageWorkspaces={session.user.canManageWorkspaces}
+        isInstanceAdmin={session.user.isInstanceAdmin}
         currentIcon={
           session.workspaces.find((w) => w.id === workspaceId)?.icon ?? null
         }

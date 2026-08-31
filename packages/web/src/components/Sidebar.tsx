@@ -76,6 +76,8 @@ interface SidebarProps {
   onReloadTree: () => void;
   /** Whether to offer the way into the workspace administration. */
   canManageWorkspaces: boolean;
+  /** Whether to offer the way into the instance administration (ADR-0032). */
+  isInstanceAdmin: boolean;
   /** The mark for the workspace you are in (ADR-0030). */
   currentIcon: WorkspaceIcon | null;
   onLogout: () => void;
@@ -120,6 +122,7 @@ export function Sidebar({
   onToggleFavourite,
   onReloadTree,
   canManageWorkspaces,
+  isInstanceAdmin,
   currentIcon,
   onLogout,
   displayName,
@@ -364,12 +367,28 @@ export function Sidebar({
 
           {accountOpen && (
             <div className="sidebar-account-menu" role="menu">
-              <a role="menuitem" href={paths.settings('account')} onClick={() => setAccountOpen(false)}>
-                Edit your profile
-              </a>
+              {/* One entry, not two. "Edit your profile" and "Settings" both
+                  landed on the same page, which is a choice that is not one
+                  (ADR-0032). The three areas are three entries now, and each
+                  goes somewhere different. */}
               <a role="menuitem" href={paths.settings()} onClick={() => setAccountOpen(false)}>
-                Settings
+                Your settings
               </a>
+              <a
+                role="menuitem"
+                href={paths.workspaceSettings()}
+                onClick={() => setAccountOpen(false)}
+              >
+                This workspace
+              </a>
+              {/* Absent rather than present and refusing, for the reason
+                  ADR-0027 gives: an entry that answers "not found" teaches
+                  people to distrust the menu. */}
+              {(isInstanceAdmin || canManageWorkspaces) && (
+                <a role="menuitem" href={paths.admin()} onClick={() => setAccountOpen(false)}>
+                  Administration
+                </a>
+              )}
               <a role="menuitem" href={paths.trash()} onClick={() => setAccountOpen(false)}>
                 Trash
               </a>

@@ -1,0 +1,164 @@
+/**
+ * SONE web — settings that belong to the workspace you are in (ADR-0032).
+ *
+ * One of three areas. The boundary is whose settings these are, not who may
+ * change them — so typography lives here although it is about appearance,
+ * because everybody reading this workspace sees it, while "where you land" lives
+ * in your own settings although it is about a workspace, because the value is
+ * one person's.
+ *
+ * Every member may open this. Where they may not write, the controls are
+ * disabled rather than the section being hidden: a form that lets somebody fill
+ * it in and then refuses is worse than one that says up front it is read-only.
+ * That is also why nothing here is gated on the administration right — this is
+ * not the administration area.
+ */
+
+import { useState, type ReactElement } from 'react';
+
+import { api, type SessionInfo, type WorkspaceIcon } from '../api/client.ts';
+import { paths } from '../routes/paths.ts';
+import { GroupsPanel } from './GroupsPanel.tsx';
+import { SettingsShell, resolveSection, type ShellSection } from './SettingsShell.tsx';
+import { ThemeSettings } from './ThemeSettings.tsx';
+import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
+import { WorkspaceInvite } from './WorkspaceInvite.tsx';
+
+const SECTIONS: readonly ShellSection[] = [
+  { id: 'general', label: 'Name and mark', hint: 'What this workspace is called and how it is recognised' },
+  // Unreachable until now. It was rendered by the old screen and had been
+  // removed from that screen's list, so the per-workspace heading sizes and text
+  // scale could not be opened at all (ADR-0032).
+  { id: 'typography', label: 'Typography', hint: 'How this workspace reads' },
+  { id: 'people', label: 'People', hint: 'Who is in this workspace, and inviting more' },
+  // Unreachable for the same reason.
+  { id: 'groups', label: 'Groups', hint: 'Named sets of people, for page permissions' },
+];
+
+interface WorkspaceSettingsProps {
+  section: string;
+  session: SessionInfo;
+  workspaceId: string;
+  onClose: () => void;
+}
+
+export function WorkspaceSettingsScreen({
+  section,
+  session,
+  workspaceId,
+  onClose,
+}: WorkspaceSettingsProps): ReactElement {
+  const [listOpen, setListOpen] = useState(false);
+  const current = resolveSection(SECTIONS, section);
+  const workspace = session.workspaces.find((entry) => entry.id === workspaceId);
+
+  // The same two roles the server enforces, stated here so the controls are
+  // disabled rather than failing on save.
+  const canEdit = workspace?.role === 'owner' || workspace?.role === 'admin';
+
+  return (
+    <SettingsShell
+      area={workspace?.name || 'This workspace'}
+      sections={SECTIONS}
+      current={current}
+      hrefFor={(id) => paths.workspaceSettings(id)}
+      listOpen={listOpen}
+      onListOpen={setListOpen}
+      onClose={onClose}
+    >
+      {current === 'general' && (
+        <General
+          workspaceId={workspaceId}
+          name={workspace?.name ?? ''}
+          icon={workspace?.icon ?? null}
+          role={workspace?.role ?? 'unknown'}
+          canEdit={canEdit}
+        />
+      )}
+      {current === 'typography' && (
+        <ThemeSettings workspaceId={workspaceId} canEdit={canEdit} />
+      )}
+      {current === 'people' && <WorkspaceInvite workspaceId={workspaceId} />}
+      {current === 'groups' && <GroupsPanel workspaceId={workspaceId} />}
+    </SettingsShell>
+  );
+}
+
+/**
+ * What the workspace is called, and how it is recognised.
+ *
+ * The name is saved on its own request from the mark, because the icon endpoint
+ * deliberately sends no name: setting an icon must not overwrite a rename
+ * somebody else made in between (ADR-0030).
+ */
+function General({
+  workspaceId,
+  name,
+  icon,
+  role,
+  canEdit,
+}: {
+  workspaceId: string;
+  name: string;
+  icon: WorkspaceIcon | null;
+  role: string;
+  canEdit: boolean;
+}): ReactElement {
+  const [draft, setDraft] = useState(name);
+  // Held here rather than reloaded: reloading threw the panel away and the list
+  // it came back to draws no marks, so a saved change looked unsaved (ADR-0030).
+  const [chosen, setChosen] = useState<WorkspaceIcon | null>(icon);
+  const [error, setError] = useState<string | null>(null);
+
+  const saveName = (): void => {
+    const next = draft.trim();
+    if (next.length === 0 || next === name) return;
+    setError(null);
+    void api
+      .renameWorkspace(workspaceId, next)
+      // Reloaded, because the name is in the switcher, the sidebar and the
+      // session — one copy updated here would leave the others saying the old
+      // one.
+      .then(() => window.location.reload())
+      .catch(() => setError('network_error'));
+  };
+
+  return (
+    <section className="settings-section">
+      {error && <p className="error">Could not save that. Try again.</p>}
+
+      <div className="settings-card">
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Name</b>
+            <span>What this workspace is called, everywhere it appears.</span>
+          </span>
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={saveName}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.currentTarget.blur();
+            }}
+            disabled={!canEdit}
+            aria-label="Workspace name"
+          />
+        </div>
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>Your role</b>
+            <span>What you may do here. Roles are set from the people section.</span>
+          </span>
+          <span>{role}</span>
+        </div>
+      </div>
+
+      {/* How it is recognised, which is what somebody scanning a switcher of
+        * five workspaces actually uses (ADR-0030). */}
+      <h3 className="settings-heading">Mark</h3>
+      <div className="settings-card">
+        <WorkspaceAppearance workspaceId={workspaceId} icon={chosen} onChanged={setChosen} />
+      </div>
+    </section>
+  );
+}

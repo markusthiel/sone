@@ -1,16 +1,23 @@
 /**
- * SONE web — settings.
+ * SONE web — your own settings (ADR-0032).
  *
- * Currently only the About section, which exists to answer one question that
- * came up on the first real deployment: which version is actually running?
+ * One of three areas, and the boundary between them is whose settings these are
+ * rather than who may change them. Here: your profile, your password, how SONE
+ * looks to you, and where your session opens.
  *
- * Two versions are shown, not one, and the distinction is the useful part. The
- * server's version comes over HTTP; the client's is baked into the bundle at
+ * "Where you land" is about a workspace and belongs here, because the value is
+ * one person's: two members of the same workspace have different answers, so it
+ * cannot be a property of the workspace.
+ *
+ * About is here too. The version and the licence are what somebody looks up
+ * before filing a report, and requiring an administration right to read a
+ * licence would be absurd.
+ *
+ * Two versions are shown on it, not one, and the distinction is the useful part.
+ * The server's version comes over HTTP; the client's is baked into the bundle at
  * build time. A browser holding a cached bundle from an earlier deployment
  * reports the server's version if only asked over HTTP — a reassuring answer
- * about code that is not the code executing. When they disagree, that is said
- * plainly, because a stale bundle is the cause of bug reports nobody can
- * reproduce.
+ * about code that is not the code executing.
  */
 
 import { useEffect, useState, type ReactElement } from 'react';
@@ -20,7 +27,6 @@ import {
   api,
   type SessionInfo,
   type VersionInfo,
-  type WorkspaceIcon,
 } from '../api/client.ts';
 import { WEB_COMMIT, WEB_VERSION, isStaleBundle } from '../buildInfo.ts';
 import {
@@ -31,22 +37,9 @@ import {
   type ThemePreference,
 } from '../hooks/useAppearance.ts';
 import { paths } from '../routes/paths.ts';
-import {
-  InstancePanel,
-  MaintenancePanel,
-  UsersPanel,
-  WorkspacesPanel,
-  useIsInstanceAdmin,
-} from './Admin.tsx';
 import { messageFor } from './Auth.tsx';
-import { GroupsPanel } from './GroupsPanel.tsx';
 import { LandingSettings } from './LandingSettings.tsx';
-import { WorkspaceDetail } from './WorkspaceDetail.tsx';
-import { WorkspaceList } from './WorkspaceList.tsx';
-import { InvitePanel } from './InvitePanel.tsx';
-import { WorkspaceInvite } from './WorkspaceInvite.tsx';
-import { OidcPanel } from './OidcPanel.tsx';
-import { ThemeSettings } from './ThemeSettings.tsx';
+import { SettingsShell, resolveSection, type ShellSection } from './SettingsShell.tsx';
 import { AVATAR_BOUND, webVariant } from '../lib/imageVariant.ts';
 
 interface SettingsProps {
@@ -57,76 +50,12 @@ interface SettingsProps {
   onClose: () => void;
 }
 
-/**
- * The sections, in the order they are offered.
- *
- * Instance sections are listed here and filtered at render, rather than being a
- * separate list: one place decides what exists, so an added section cannot be
- * missing from the navigation or reachable without appearing in it.
- */
-const SECTIONS = [
-  // Three groups, and the names say whose settings they are (ADR-0027).
-  //
-  // "You" and "Administration" left it unclear which of two "Invite people"
-  // entries meant what, because the group named who may change a thing and not
-  // what the thing belongs to. These name the subject: yourself, a workspace,
-  // or the instance everybody shares.
-  { id: 'account', label: 'Account', group: 'You', hint: 'Your name, address and password' },
-  { id: 'appearance', label: 'Appearance', group: 'You', hint: 'How SONE looks to you' },
-  {
-    id: 'landing',
-    label: 'Where you land',
-    group: 'You',
-    hint: 'The page each workspace opens on',
-  },
-
-  {
-    id: 'workspaces',
-    label: 'All workspaces',
-    group: 'Workspaces',
-    hint: 'Every workspace here, and who is in them',
-    manager: true,
-  },
-
-  {
-    id: 'instance',
-    label: 'This instance',
-    group: 'Instance',
-    hint: 'Name, sign-up and defaults',
-    admin: true,
-  },
-  {
-    id: 'accounts',
-    label: 'Accounts',
-    group: 'Instance',
-    hint: 'Everybody with an account here',
-    admin: true,
-  },
-  {
-    id: 'invite',
-    label: 'Invite to the instance',
-    group: 'Instance',
-    // Named against the other invitation rather than "Invite people", which was
-    // also the name of inviting somebody to a workspace.
-    hint: 'An account and a workspace of their own — no team',
-    admin: true,
-  },
-  {
-    id: 'sso',
-    label: 'Single sign-on',
-    group: 'Instance',
-    hint: 'Sign in through an identity provider',
-    admin: true,
-  },
-  {
-    id: 'maintenance',
-    label: 'Maintenance',
-    group: 'Instance',
-    hint: 'Storage, jobs and health',
-    admin: true,
-  },
-  { id: 'about', label: 'About', group: 'Instance', hint: 'Version and licence' },
-] as const;
+const SECTIONS: readonly ShellSection[] = [
+  { id: 'profile', label: 'Profile', hint: 'Your name, address, picture and password' },
+  { id: 'appearance', label: 'Appearance', hint: 'How SONE looks to you' },
+  { id: 'landing', label: 'Where you land', hint: 'The page each workspace opens on' },
+  { id: 'about', label: 'About', hint: 'Version and licence' },
+];
 
 export function Settings({
   section,
@@ -134,184 +63,27 @@ export function Settings({
   workspaceId,
   onClose,
 }: SettingsProps): ReactElement {
-  const { isAdmin } = useIsInstanceAdmin();
-
-  // Only sections this account can actually open. An administration section
-  // shown to someone who cannot use it would fail with an error that looks like
-  // a bug rather than like a decision.
-  // Two rights now, not one (ADR-0027). A section marked `manager` is for
-  // whoever may administer workspaces, which an instance administrator is
-  // implicitly and somebody granted the right is without being one.
-  // Which workspace is open in the list, if any. State rather than a route,
-  // because it is a step inside one section and not a place to link to.
-  const [openWorkspace, setOpenWorkspace] = useState<{ id: string; name: string; icon: WorkspaceIcon | null } | null>(
-    null,
-  );
-
   // Which of the two a phone is showing. Starts on the section, because
   // arriving at a list of settings when you asked for one setting is a step
   // nobody wanted.
   const [listOpen, setListOpen] = useState(false);
-
-  const canManageWorkspaces = isAdmin === true || session.user.canManageWorkspaces;
-  const available = SECTIONS.filter((entry) => {
-    if ('admin' in entry) return isAdmin === true;
-    if ('manager' in entry) return canManageWorkspaces;
-    return true;
-  });
-  const current = available.some((entry) => entry.id === section)
-    ? section
-    : available[0]!.id;
-
-  const groups = [...new Set(available.map((entry) => entry.group))];
+  const current = resolveSection(SECTIONS, section);
 
   return (
-    // On a narrow screen the list and the section are two views, not two
-    // columns. Ten entries above a section means the section scrolls in
-    // whatever is left, which was a box a few lines tall.
-    <div className="settings-screen" data-showing={listOpen ? 'list' : 'section'}>
-      <nav className="settings-nav" aria-label="Settings sections">
-        {/* The way back, first and plainly.
-          *
-          * A screen of its own needs a door out, and it belongs at the top of
-          * the navigation rather than in a corner: it is the entry somebody
-          * looks for when they have finished, and looking for it should not be
-          * part of finishing. */}
-        <button type="button" className="settings-back" onClick={onClose}>
-          ‹ Back to your notes
-        </button>
-
-        {groups.map((group) => (
-          <div className="settings-nav-group" key={group}>
-            <p className="sidebar-label">{group}</p>
-            {available
-              .filter((entry) => entry.group === group)
-              .map((entry) => (
-                <a
-                  key={entry.id}
-                  className="settings-nav-item"
-                  href={paths.settings(entry.id)}
-                  title={entry.hint}
-                  onClick={() => setListOpen(false)}
-                  {...(entry.id === current ? { 'aria-current': 'page' as const } : {})}
-                >
-                  {/* The name alone.
-                    *
-                    * A line of explanation under each entry made every one of
-                    * them three lines tall, and a navigation that has to be
-                    * read is not a navigation — it is a page about the
-                    * navigation. The explanation moved onto the entry as its
-                    * title, where it is available and not in the way. */}
-                  {entry.label}
-                </a>
-              ))}
-          </div>
-        ))}
-      </nav>
-
-      <div className="settings-body">
-        {/* Only on a phone, where the list is the other view rather than the
-          * column beside this one. */}
-        <button
-          type="button"
-          className="settings-menu-button"
-          onClick={() => setListOpen(true)}
-        >
-          ☰ All settings
-        </button>
-
-        <h1>{available.find((entry) => entry.id === current)?.label ?? 'Settings'}</h1>
-
-        {current === 'account' && <Account session={session} workspaceId={workspaceId} />}
-        {current === 'appearance' && <AppearanceSettings />}
-        {current === 'workspaces-legacy' && (
-          <>
-            <WorkspaceSettings session={session} workspaceId={workspaceId} />
-            {/* Inviting is a workspace matter, so it sits with the workspace's
-                own settings rather than in the administration area — which is
-                for the instance. */}
-            <WorkspaceInvite workspaceId={workspaceId} />
-          </>
-        )}
-        {current === 'theme' && (
-          <ThemeSettings
-            workspaceId={workspaceId}
-            canEdit={
-              // The same two roles the server enforces. Stated here so the
-              // controls are disabled rather than failing on save — a form that
-              // lets somebody fill it in and then refuses is worse than one
-              // that says up front it is read-only.
-              session.workspaces.find((entry) => entry.id === workspaceId)?.role === 'owner' ||
-              session.workspaces.find((entry) => entry.id === workspaceId)?.role === 'admin'
-            }
-          />
-        )}
-        {current === 'instance' && <InstancePanel />}
-        {current === 'groups' && <GroupsPanel workspaceId={workspaceId} />}
-        {current === 'invite' && <InvitePanel />}
-        {current === 'sso' && <OidcPanel />}
-        {current === 'accounts' && <UsersPanel />}
-        {current === 'landing' && <LandingSettings workspaceId={workspaceId} />}
-        {current === 'workspaces' &&
-          (openWorkspace ? (
-            <WorkspaceDetail
-              workspaceId={openWorkspace.id}
-              name={openWorkspace.name}
-              icon={openWorkspace.icon}
-              onBack={() => setOpenWorkspace(null)}
-            />
-          ) : (
-            <WorkspaceList
-              currentWorkspaceId={workspaceId}
-              onOpen={(id, chosenName, chosenIcon) =>
-                setOpenWorkspace({ id, name: chosenName, icon: chosenIcon })
-              }
-              onRestore={(id) => {
-                // Restoring is one click, unlike deleting: putting something
-                // back is not the action that needs slowing down.
-                void api
-                  .setWorkspaceDeletion(id, { restore: true })
-                  .then(() => window.location.reload());
-              }}
-            />
-          ))}
-        {current === 'workspaces-old' && <WorkspacesPanel />}
-        {current === 'maintenance' && <MaintenancePanel />}
-        {current === 'about' && <About />}
-      </div>
-    </div>
-  );
-}
-
-/**
- * The current workspace: who is in it, and what this account may do.
- *
- * Distinct from the instance sections above it. A workspace owner runs their
- * workspace; an instance administrator runs the server. Anyone may create a
- * workspace, so the two cannot be the same permission.
- */
-function WorkspaceSettings({
-  session,
-  workspaceId,
-}: {
-  session: SessionInfo;
-  workspaceId: string;
-}): ReactElement {
-  const workspace = session.workspaces.find((entry) => entry.id === workspaceId);
-
-  return (
-    <section className="settings-section">
-      <h2>{workspace?.name ?? 'This workspace'}</h2>
-      <dl className="settings-list">
-        <dt>Your role</dt>
-        <dd>{workspace?.role ?? 'unknown'}</dd>
-      </dl>
-      <p className="muted settings-note">
-        Members and invitations are managed from the workspace switcher. There
-        are no seat limits and no paid tiers — every feature is available to
-        every installation (ADR-0007).
-      </p>
-    </section>
+    <SettingsShell
+      area="You"
+      sections={SECTIONS}
+      current={current}
+      hrefFor={(id) => paths.settings(id)}
+      listOpen={listOpen}
+      onListOpen={setListOpen}
+      onClose={onClose}
+    >
+      {current === 'profile' && <Account session={session} workspaceId={workspaceId} />}
+      {current === 'appearance' && <AppearanceSettings />}
+      {current === 'landing' && <LandingSettings workspaceId={workspaceId} />}
+      {current === 'about' && <About />}
+    </SettingsShell>
   );
 }
 

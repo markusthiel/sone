@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Settings are three places instead of one list** ([ADR-0032](docs/adr/0032-three-settings-areas.md)):
+your own settings, this workspace, and — only if you administer the instance —
+the instance. The account menu had two entries that landed on the same page; it
+now has one per area. **Two sections come back with this: a workspace's
+typography and its groups had fallen out of the navigation and could not be
+opened at all**, which is where the per-workspace font sizes went. Old
+`/settings/…` links are redirected to wherever their section now lives. No
+operator action.
+
 **The icon sits in front of a page or folder name again**, not above it, and the
 heading no longer moves when you click it. A folder's name was a button that
 became an input, and the swap changed the heading's height enough to nudge

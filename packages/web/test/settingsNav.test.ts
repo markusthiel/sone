@@ -1,5 +1,11 @@
 /**
- * The settings navigation.
+ * The settings navigation (ADR-0032).
+ *
+ * Three areas, three lists, one frame. The tests worth having are about the
+ * boundary between them — whose settings these are — and about the two things
+ * that went wrong with one list of everything: two menu entries landing on the
+ * same page, and two sections falling out of the list while the code below it
+ * went on rendering them.
  */
 
 import assert from 'node:assert/strict';
@@ -7,48 +13,101 @@ import { test } from 'node:test';
 
 import { codeOf, stylesOf } from './helpers/source.ts';
 
-const settings = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
+const shell = codeOf(new URL('../src/components/SettingsShell.tsx', import.meta.url));
+const you = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
+const workspace = codeOf(
+  new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
+);
+const instance = codeOf(new URL('../src/components/AdminScreen.tsx', import.meta.url));
 
-test('the groups are named for whose settings they are', () => {
-  // "You" and "Administration" named who may change a thing rather than what
-  // the thing belongs to, which is why two entries called "Invite people" gave
-  // no clue which was which (ADR-0027).
-  for (const group of ["group: 'You'", "group: 'Workspaces'", "group: 'Instance'"]) {
-    assert.match(settings, new RegExp(group.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  }
-  assert.doesNotMatch(settings, /group: 'Administration'/);
+test('three areas, and each names whose settings it holds', () => {
+  assert.match(you, /area="You"/);
+  assert.match(workspace, /area=\{workspace\?\.name \|\| 'This workspace'\}/);
+  assert.match(instance, /area="The instance"/);
 });
 
-test('the two invitations are told apart by name', () => {
-  // Both were called "Invite people", in different groups, with nothing saying
-  // which placed somebody in a team.
-  assert.match(settings, /label: 'Invite to the instance'/);
-  assert.doesNotMatch(settings, /label: 'Invite people'/);
+test('the boundary is whose it is, not who may change it', () => {
+  // The two cases that look like exceptions. "Where you land" is about a
+  // workspace and belongs to you, because two members have different answers.
+  // Typography is about appearance and belongs to the workspace, because
+  // everybody reading it sees it.
+  assert.match(you, /id: 'landing'/);
+  assert.doesNotMatch(workspace, /id: 'landing'/);
+  assert.match(workspace, /id: 'typography'/);
+  assert.doesNotMatch(you, /id: 'typography'/);
+});
+
+test('the two sections that had fallen out of the list are reachable', () => {
+  // They were rendered by the old screen and removed from its list, so the
+  // per-workspace typography and the groups could not be opened at all. This is
+  // the test that would have caught it: a section that renders must be listed.
+  for (const id of ['typography', 'groups']) {
+    assert.match(workspace, new RegExp(`id: '${id}'`), `${id} is in the list`);
+    assert.match(workspace, new RegExp(`current === '${id}'`), `${id} renders`);
+  }
+});
+
+test('every section a screen renders is one the screen lists', () => {
+  // Generalised from the failure above, for all three areas.
+  for (const [name, source] of [
+    ['you', you],
+    ['this workspace', workspace],
+    ['the instance', instance],
+  ] as const) {
+    const listed = new Set([...source.matchAll(/id: '([a-z-]+)'/g)].map((m) => m[1]));
+    const rendered = [...source.matchAll(/current === '([a-z-]+)'/g)].map((m) => m[1]);
+    for (const id of rendered) {
+      assert.ok(listed.has(id), `${name}: '${id}' renders but is not listed`);
+    }
+  }
+});
+
+test('the administration area is filtered by two rights, not one', () => {
+  // Somebody granted the right to administer workspaces is not an instance
+  // administrator, and the point of the right is that they should not have to
+  // be (ADR-0027).
+  assert.match(instance, /if \(entry\.admin\) return isAdmin === true;/);
+  assert.match(instance, /if \(entry\.manager\) return canManageWorkspaces;/);
+  assert.match(instance, /session\.user\.canManageWorkspaces/);
+});
+
+test('an area with nothing in it renders nothing', () => {
+  // Rather than a heading over an empty list, which is what filtering every
+  // entry away would otherwise leave.
+  assert.match(instance, /if \(available\.length === 0\) return null;/);
+});
+
+test('the frame is written once', () => {
+  // Three areas must not mean three layouts: they drift, and the one used least
+  // is the one that rots.
+  for (const [name, source] of [
+    ['you', you],
+    ['this workspace', workspace],
+    ['the instance', instance],
+  ] as const) {
+    assert.match(source, /<SettingsShell/, `${name} uses the shell`);
+    assert.doesNotMatch(source, /settings-nav-item/, `${name} draws no navigation of its own`);
+  }
+  assert.match(shell, /className="settings-nav-item"/);
 });
 
 test('the navigation is names, not explanations', () => {
-  // A line of explanation under each entry made every one of them three lines
-  // tall, and a navigation that has to be read is not a navigation — it is a
-  // page about the navigation.
-  assert.doesNotMatch(settings, /<span className="settings-nav-hint">/);
-  // The explanation is still there, on the entry rather than beside it.
-  assert.match(settings, /title=\{entry\.hint\}/);
+  // A line of explanation under each entry made every one three lines tall, and
+  // a navigation that has to be read is a page about the navigation.
+  assert.doesNotMatch(shell, /<span className="settings-nav-hint">/);
+  assert.match(shell, /title=\{entry\.hint\}/);
 });
 
-test('settings is a screen of its own with a way out', () => {
-  // It rendered in the content column, which put a sidebar of pages beside a
-  // list of instance settings — two navigations for two unrelated things, and
-  // neither the one somebody was using (ADR-0027).
+test('each area is a screen of its own with a way out', () => {
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
-  assert.match(app, /if \(route\.kind === 'settings'\) \{[\s\S]{0,300}?return \(/);
-  assert.match(settings, /Back to your notes/);
-});
-
-test('the workspace section follows the right, not the admin flag', () => {
-  // Somebody granted the right is not an instance administrator, and the point
-  // of the right is that they should not have to be.
-  assert.match(settings, /if \('manager' in entry\) return canManageWorkspaces;/);
-  assert.match(settings, /session\.user\.canManageWorkspaces/);
+  for (const kind of ['settings', 'workspaceSettings', 'admin']) {
+    assert.match(
+      app,
+      new RegExp(`if \\(route\\.kind === '${kind}'\\) \\{`),
+      `${kind} returns early`,
+    );
+  }
+  assert.match(shell, /Back to your notes/);
 });
 
 // --- granting the right, and the way in -------------------------------------
@@ -71,16 +130,16 @@ test('it is shown as held, and locked, for an administrator', () => {
   assert.match(admin, /disabled=\{user\.isInstanceAdmin\}/);
 });
 
-test('the switcher offers the way in, and only to those who may', () => {
-  // A shortcut into the one list, not a second place to do the same thing. And
-  // absent rather than refusing: an entry that answers "not found" teaches
-  // people to distrust the menu.
+test('the switcher offers this workspace to everyone and the list to those who may', () => {
+  // Two different destinations, which is the point: one is the workspace you
+  // are in, the other is every workspace here.
+  assert.match(menu, /paths\.workspaceSettings\(\)/);
   assert.match(menu, /\{canManageWorkspaces && \(/);
-  assert.match(menu, /paths\.settings\('workspaces'\)/);
+  assert.match(menu, /paths\.admin\('workspaces'\)/);
 });
 
 test('a phone shows the list or the section, not both', () => {
-  // Stacking them put ten entries above the section, so the section scrolled in
+  // Stacking them put every entry above the section, so the section scrolled in
   // whatever was left — a box a few lines tall.
   const css = stylesOf(new URL('../src/styles.css', import.meta.url));
   assert.match(css, /\.settings-screen\[data-showing='section'\] \.settings-nav \{ display: none/);
@@ -90,11 +149,11 @@ test('a phone shows the list or the section, not both', () => {
 test('it starts on the section, not on the list', () => {
   // Arriving at a list of settings when you asked for one setting is a step
   // nobody wanted.
-  assert.match(settings, /useState\(false\);/);
-  assert.match(settings, /data-showing=\{listOpen \? 'list' : 'section'\}/);
+  assert.match(you, /useState\(false\);/);
+  assert.match(shell, /data-showing=\{listOpen \? 'list' : 'section'\}/);
 });
 
 test('choosing an entry returns to the section', () => {
   // Otherwise the list stays over the thing it was asked to show.
-  assert.match(settings, /onClick=\{\(\) => setListOpen\(false\)\}/);
+  assert.match(shell, /onClick=\{\(\) => onListOpen\(false\)\}/);
 });
