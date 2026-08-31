@@ -435,6 +435,61 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
    * The row ids come back so a caller can put them back one by one, which is
    * what the table's undo does.
    */
+  /**
+   * Archive named rows (ADR-0040).
+   *
+   * Separate from the route below, which takes no ids and empties the table. A
+   * selection of every row would do the same thing, and keeping the simpler
+   * route means the destructive-but-obvious path stays obvious rather than
+   * becoming a special case of a general one.
+   *
+   * Archiving rather than deleting, because a row is a page: it goes to the
+   * trash and can be brought back, which is what every other removal here does.
+   */
+  router.post('/api/collections/:collectionId/rows/archive', async (ctx) => {
+    const collectionId = ctx.params['collectionId'] ?? '';
+    const collection = await queryOne<{ page_id: string }>(
+      deps.pool,
+      `SELECT page_id FROM collections WHERE id = $1`,
+      [collectionId],
+    );
+    if (!collection) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const auth = await authorise(deps.pool, ctx, collection.page_id, 'edit');
+    if (!auth) return;
+
+    let body: { rowIds?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+    const ids = Array.isArray(body.rowIds)
+      ? body.rowIds.filter((id): id is string => typeof id === 'string')
+      : null;
+    if (ids === null || ids.length === 0) {
+      ctx.fail(422, 'rows_required');
+      return;
+    }
+
+    // Bounded to this collection in the statement rather than checked first: an
+    // id from another table, or from another workspace, simply matches nothing.
+    const rows = await queryRows<{ id: string }>(
+      deps.pool,
+      `UPDATE pages SET archived_at = now()
+        WHERE collection_id = $1 AND kind = 'row' AND archived_at IS NULL
+          AND id = ANY($2::uuid[])
+        RETURNING id`,
+      [collectionId, ids],
+    );
+
+    ctx.send(200, { collectionId, archived: rows.map((row) => row.id) });
+  });
+
   router.delete('/api/collections/:collectionId/rows', async (ctx) => {
     const collectionId = ctx.params['collectionId'] ?? '';
     const collection = await queryOne<{ page_id: string }>(
