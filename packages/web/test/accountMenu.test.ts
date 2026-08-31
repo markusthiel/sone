@@ -25,6 +25,29 @@ test('one mark opens a menu instead of four icons in a row', () => {
   }
 });
 
+test('every entry carries a mark, and the areas share theirs with the switcher', () => {
+  // Icons to break the wall of text up, and the same three symbols the settings
+  // switcher uses for the same three areas: one subject, one symbol, or somebody
+  // learns two of them for the same thing.
+  for (const icon of ['PersonIcon', 'SettingsIcon', 'SlidersIcon', 'TrashIcon', 'SignOutIcon']) {
+    assert.match(sidebar, new RegExp(`<${icon} />`), `${icon} is in the menu`);
+  }
+
+  const shell = codeOf(new URL('../src/components/SettingsShell.tsx', import.meta.url));
+  assert.match(shell, /Icon: PersonIcon/);
+  assert.match(shell, /Icon: SettingsIcon/);
+  assert.match(shell, /Icon: SlidersIcon/);
+
+  // A person, not people: "your settings" and "the people in this workspace" are
+  // different subjects.
+  const icons = codeOf(new URL('../src/components/icons.tsx', import.meta.url));
+  assert.match(icons, /export function PersonIcon/);
+  assert.notEqual(
+    icons.indexOf('export function PersonIcon'),
+    icons.indexOf('export function UsersIcon'),
+  );
+});
+
 test('the three areas are three entries, and one of them is conditional', () => {
   // "Edit your profile" and "Settings" both landed on the same page — a choice
   // that is not one (ADR-0032). And administration is absent rather than

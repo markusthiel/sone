@@ -515,6 +515,22 @@ export function ToggleIcon(props: IconProps): ReactElement {
   );
 }
 
+/**
+ * One person, for "you".
+ *
+ * Distinct from `UsersIcon`, which is several: "your settings" and "the people in
+ * this workspace" are different subjects, and one mark for both would be the
+ * interface saying they are the same.
+ */
+export function PersonIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="8" r="3.6" />
+      <path d="M4.8 20.2a7.2 7.2 0 0 1 14.4 0" />
+    </svg>
+  );
+}
+
 /** A video: a screen with a play mark in it. */
 export function VideoIcon(props: IconProps): ReactElement {
   return (

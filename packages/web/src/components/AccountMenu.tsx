@@ -17,6 +17,13 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { WEB_VERSION } from '../buildInfo.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
+import {
+  PersonIcon,
+  SettingsIcon,
+  SignOutIcon,
+  SlidersIcon,
+  TrashIcon,
+} from './icons.tsx';
 
 interface AccountMenuProps {
   displayName: string;
@@ -108,9 +115,11 @@ export function AccountMenu({
               and "Settings" both landed on /settings/account, which is a choice
               that is not one (ADR-0032). */}
           <a role="menuitem" href={paths.settings()} onClick={() => setOpen(false)}>
+            <PersonIcon />
             {t('account.yourSettings')}
           </a>
           <a role="menuitem" href={paths.workspaceSettings()} onClick={() => setOpen(false)}>
+            <SettingsIcon />
             {t('account.thisWorkspace')}
           </a>
           {/* Absent rather than present and refusing, for the reason ADR-0027
@@ -118,15 +127,18 @@ export function AccountMenu({
               the menu. */}
           {canAdminister && (
             <a role="menuitem" href={paths.admin()} onClick={() => setOpen(false)}>
+              <SlidersIcon />
               {t('account.administration')}
             </a>
           )}
           <a role="menuitem" href={paths.trash()} onClick={() => setOpen(false)}>
+            <TrashIcon />
             {t('account.trash')}
           </a>
           {/* Last and set apart: the one entry here somebody cannot undo by
               pressing it again. */}
           <button type="button" role="menuitem" onClick={onLogout}>
+            <SignOutIcon />
             {t('account.signOut')}
           </button>
         </div>
