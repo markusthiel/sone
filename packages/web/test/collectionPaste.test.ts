@@ -210,3 +210,31 @@ test('being over the cap says how many were left', () => {
   const auth = codeOf(new URL('../src/components/Auth.tsx', import.meta.url));
   assert.doesNotMatch(auth, /paste_capped/);
 });
+
+test('row height belongs to the view, and is read tolerantly', () => {
+  // The same entries can be a list in one view and an overview in another, so
+  // this is the view's property rather than the table's or the workspace's.
+  const rules = codeOf(new URL('../src/components/ViewRules.tsx', import.meta.url));
+  assert.match(rules, /export function readDensity/);
+  assert.match(rules, /raw === 'compact' \|\| raw === 'tall' \? raw : 'normal'/);
+  // Only written when it is not the default: a view that never had an opinion
+  // must not acquire one, or changing the default later cannot reach it.
+  assert.match(rules, /density === 'normal' \? \{\} : \{ density \}/);
+  // And kept when the panel saves something else, like a board's grouping.
+  assert.match(rules, /key !== 'filters' && key !== 'sort' && key !== 'density'/);
+
+  assert.match(table, /data-density=\{density\}/);
+});
+
+test('the height is the controls, not only the padding', () => {
+  // A row is as tall as what it contains — a title field built for a finger, a
+  // file chip, an add button — so a density that only changed the cell padding
+  // would change almost nothing.
+  assert.match(css, /\.collection-table \{ --row-pad:[^}]*--row-control/);
+  assert.match(css, /data-density='compact'/);
+  assert.match(css, /data-density='tall'/);
+  assert.match(css, /min-block-size: var\(--row-control\)/);
+  // Compact stops applying where a finger is the pointer: a tap target is a tap
+  // target whatever the density says.
+  assert.match(css, /@media \(pointer: coarse\)[^}]*\{[^}]*--row-control: var\(--sone-tap\)/s);
+});

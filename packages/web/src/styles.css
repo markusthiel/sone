@@ -3340,9 +3340,32 @@ select {
   font-size: var(--sone-text-sm);
 }
 
+/* Row height, by the view's own setting (three values, not a slider).
+ *
+ * The height was never the padding — it is what the cells contain: a title field
+ * built for a finger, a file chip, an add button. So a density that only changed
+ * the padding would change almost nothing, which is why each level sets the
+ * controls' minimum height too.
+ *
+ * Compact is for reading a list of a hundred; tall is for cells with more than a
+ * word in them. Normal is what it was, so nothing moves for anybody who does not
+ * ask. */
+.collection-table { --row-pad: var(--sone-space-2); --row-control: 32px; }
+.collection-table[data-density='compact'] { --row-pad: 2px; --row-control: 24px; }
+.collection-table[data-density='tall'] { --row-pad: var(--sone-space-4); --row-control: 40px; }
+
+.collection-table :where(.collection-title-input, .cell-files, input, select) {
+  min-block-size: var(--row-control);
+}
+/* A tap target is a tap target: on a touch device the smallest level still has
+   to be hittable, so compact stops applying where a finger is the pointer. */
+@media (pointer: coarse) {
+  .collection-table[data-density='compact'] { --row-control: var(--sone-tap); }
+}
+
 .collection-table th,
 .collection-table td {
-  padding: var(--sone-space-2) var(--sone-space-3);
+  padding: var(--row-pad) var(--sone-space-3);
   border-block-end: 1px solid var(--sone-border);
   border-inline-end: 1px solid var(--sone-border);
   text-align: start;
