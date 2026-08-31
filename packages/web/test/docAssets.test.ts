@@ -13,6 +13,7 @@ import { test } from 'node:test';
 import * as Y from 'yjs';
 
 import { readDocAssets } from '../src/hooks/useDocAssets.ts';
+import { en } from '../src/i18n/messages.en.ts';
 import { codeOf, stylesOf } from './helpers/source.ts';
 
 /** A block element with an id and whatever attributes it carries. */
@@ -191,15 +192,19 @@ test('every tab is listed and rendered', () => {
 test('a list says what to do when it is empty', () => {
   // An empty panel on a page that has files would look like a fault, and an
   // empty one on a page that has none should say how to add one.
-  for (const hint of [
-    /Open a page to see its files/,
-    /No files yet/,
-    /Open a page to see its images/,
-    /No images yet/,
-    /Open a page to see its links/,
-    /No links yet/,
+  // By key, since the panel is translated (ADR-0041) — and the English wording
+  // is asserted in the catalogue rather than in the component, which is where it
+  // now lives.
+  for (const key of [
+    'panel.openForFiles',
+    'panel.noFiles',
+    'panel.openForImages',
+    'panel.noImages',
+    'panel.openForLinks',
+    'panel.noLinks',
   ]) {
-    assert.match(panel, hint);
+    assert.match(panel, new RegExp(`t\\('${key.replace('.', '\\.')}'`));
+    assert.ok(key in en, `${key} has a message`);
   }
 });
 

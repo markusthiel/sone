@@ -24,6 +24,7 @@ import { ApiError, api, type PageDetail } from '../api/client.ts';
 import { useOutline, scrollToBlock } from '../hooks/useOutline.ts';
 import { usePageTags } from '../hooks/usePageTags.ts';
 import { useTasks, type Task } from '../hooks/useTasks.ts';
+import { useT } from '../i18n/useT.tsx';
 import { TagEditor } from './TagEditor.tsx';
 import { messageFor } from './Auth.tsx';
 import {
@@ -117,6 +118,7 @@ export function RightSidebar({
   open,
   onClose,
 }: RightSidebarProps): ReactElement {
+  const { t } = useT();
   const [tab, setTab] = useState<RightTab>(readTab);
 
   useEffect(() => {
@@ -133,18 +135,18 @@ export function RightSidebar({
         <button
           className="scrim scrim-right"
           type="button"
-          aria-label="Close panel"
+          aria-label={t('panel.close')}
           onClick={onClose}
         />
       )}
       <aside
         className={`right-panel${open ? ' open' : ''}`}
-        aria-label="Page panel"
+        aria-label={t('panel.label')}
         // Hidden from assistive technology when closed, or a screen reader
         // announces a panel that is not on screen.
         {...(open ? {} : { 'aria-hidden': true })}
       >
-        <div className="right-tabs" role="tablist" aria-label="Panel">
+        <div className="right-tabs" role="tablist" aria-label={t('panel.label')}>
           {RIGHT_TABS.map((name) => {
             const { label, Icon } = TABS[name];
             return (
@@ -207,13 +209,14 @@ export function RightSidebar({
  * wrong rather than as the upload being unfinished.
  */
 function FilesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
+  const { t } = useT();
   const { files } = useDocAssets(handle?.doc ?? null);
 
-  if (!handle) return <p className="panel-empty">Open a page to see its files.</p>;
+  if (!handle) return <p className="panel-empty">{t('panel.openForFiles')}</p>;
   if (files.length === 0) {
     return (
       <p className="panel-empty">
-        No files yet. Drop one into the page, or type <code>/file</code>.
+        {t('panel.noFiles', { shortcut: '/file' })}
       </p>
     );
   }
@@ -232,13 +235,13 @@ function FilesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
             <span className="asset-row" aria-disabled="true">
               <PaperclipIcon />
               <span className="asset-name">{file.filename || 'Untitled file'}</span>
-              <span className="asset-meta">uploading…</span>
+              <span className="asset-meta">{t('panel.uploading')}</span>
             </span>
           )}
           <button
             type="button"
             className="asset-jump"
-            title="Show where it sits in the page"
+            title={t('panel.showInPage')}
             aria-label={`Show ${file.filename || 'this file'} in the page`}
             onClick={() => scrollToBlock(file.blockId)}
           >
@@ -275,11 +278,12 @@ function describeFile(category: string, sizeBytes: number | null): string {
  * already visible, so what somebody wants from this list is the place.
  */
 function ImagesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
+  const { t } = useT();
   const { images } = useDocAssets(handle?.doc ?? null);
 
-  if (!handle) return <p className="panel-empty">Open a page to see its images.</p>;
+  if (!handle) return <p className="panel-empty">{t('panel.openForImages')}</p>;
   if (images.length === 0) {
-    return <p className="panel-empty">No images yet. Drop one into the page.</p>;
+    return <p className="panel-empty">{t('panel.noImages')}</p>;
   }
 
   return (
@@ -296,7 +300,7 @@ function ImagesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
           {image.url ? (
             <img src={image.url} alt="" loading="lazy" />
           ) : (
-            <span className="asset-thumb-empty">uploading…</span>
+            <span className="asset-thumb-empty">{t('panel.uploading')}</span>
           )}
         </button>
       ))}
@@ -312,11 +316,12 @@ function ImagesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
  * those is a list of nothing.
  */
 function LinksPanel({ handle }: { handle: PageHandle | null }): ReactElement {
+  const { t } = useT();
   const { links } = useDocAssets(handle?.doc ?? null);
 
-  if (!handle) return <p className="panel-empty">Open a page to see its links.</p>;
+  if (!handle) return <p className="panel-empty">{t('panel.openForLinks')}</p>;
   if (links.length === 0) {
-    return <p className="panel-empty">No links yet.</p>;
+    return <p className="panel-empty">{t('panel.noLinks')}</p>;
   }
 
   return (
@@ -333,8 +338,8 @@ function LinksPanel({ handle }: { handle: PageHandle | null }): ReactElement {
           <button
             type="button"
             className="asset-jump"
-            title="Show where it sits in the page"
-            aria-label="Show this link in the page"
+            title={t('panel.showInPage')}
+            aria-label={t('panel.showLinkInPage')}
             onClick={() => scrollToBlock(link.blockId)}
           >
             <PageIcon />
@@ -360,17 +365,18 @@ function hostOf(href: string): string {
 }
 
 function OutlinePanel({ handle }: { handle: PageHandle | null }): ReactElement {
+  const { t } = useT();
   const outline = useOutline(handle?.doc ?? null);
 
   if (!handle) {
-    return <p className="panel-empty">Open a page to see its outline.</p>;
+    return <p className="panel-empty">{t('panel.openForOutline')}</p>;
   }
   if (outline.length === 0) {
     // Says what to do rather than only that there is nothing, because an empty
     // outline on a page full of text looks like a fault.
     return (
       <p className="panel-empty">
-        No headings yet. Type <code># </code> at the start of a line to make one.
+        {t('panel.noHeadings', { shortcut: '# ' })}
       </p>
     );
   }
@@ -380,7 +386,7 @@ function OutlinePanel({ handle }: { handle: PageHandle | null }): ReactElement {
   const shallowest = Math.min(...outline.map((entry) => entry.level));
 
   return (
-    <nav className="outline" aria-label="Outline">
+    <nav className="outline" aria-label={t('panel.outline')}>
       {outline.map((entry) => (
         <button
           key={entry.id}
@@ -390,7 +396,7 @@ function OutlinePanel({ handle }: { handle: PageHandle | null }): ReactElement {
           data-level={entry.level}
           onClick={() => scrollToBlock(entry.id)}
         >
-          {entry.text || <span className="muted">Untitled heading</span>}
+          {entry.text || <span className="muted">{t('panel.untitledHeading')}</span>}
         </button>
       ))}
     </nav>
@@ -398,16 +404,17 @@ function OutlinePanel({ handle }: { handle: PageHandle | null }): ReactElement {
 }
 
 function TasksPanel({ handle }: { handle: PageHandle | null }): ReactElement {
+  const { t } = useT();
   const { tasks, toggle } = useTasks(handle?.doc ?? null);
   const canEdit = handle?.canEdit ?? false;
 
   if (!handle) {
-    return <p className="panel-empty">Open a page to see its tasks.</p>;
+    return <p className="panel-empty">{t('panel.openForTasks')}</p>;
   }
   if (tasks.length === 0) {
     return (
       <p className="panel-empty">
-        No tasks yet. Type <code>[] </code> at the start of a line to make one.
+        {t('panel.noTasks', { shortcut: '[] ' })}
       </p>
     );
   }
@@ -432,7 +439,7 @@ function TasksPanel({ handle }: { handle: PageHandle | null }): ReactElement {
           {/* Completed tasks are kept, below, rather than hidden. Hiding them
               loses the record of what was done, and a list that empties itself
               gives no sense of progress. */}
-          <p className="tasks-label">Done</p>
+          <p className="tasks-label">{t('panel.done')}</p>
           {done.map((task) => (
             <TaskRow key={task.id} task={task} canEdit={canEdit} onToggle={toggle} />
           ))}
@@ -451,6 +458,7 @@ function TaskRow({
   canEdit: boolean;
   onToggle: (taskId: string, done: boolean) => void;
 }): ReactElement {
+  const { t } = useT();
   return (
     <label
       className="task-row"
@@ -466,14 +474,14 @@ function TaskRow({
         onChange={(event) => onToggle(task.id, event.target.checked)}
       />
       <span className="task-text">
-        {task.text || <span className="muted">Untitled task</span>}
+        {task.text || <span className="muted">{t('panel.untitledTask')}</span>}
       </span>
       {/* Jumping to the block is what makes the panel a way of navigating rather
           than a second place to keep the same list. */}
       <button
         type="button"
         className="task-goto"
-        aria-label="Go to this task"
+        aria-label={t('panel.goToTask')}
         onClick={(event) => {
           event.preventDefault();
           scrollToBlock(task.id);
@@ -494,6 +502,7 @@ function PropertiesPanel({
   handle: PageHandle | null;
   workspaceId: string;
 }): ReactElement {
+  const { t } = useT();
   const { tags, known, setTags } = usePageTags(handle?.doc ?? null, pageId, workspaceId);
   const [detail, setDetail] = useState<PageDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -523,13 +532,13 @@ function PropertiesPanel({
   }, [pageId]);
 
   if (!pageId) {
-    return <p className="panel-empty">Open a page to see its properties.</p>;
+    return <p className="panel-empty">{t('panel.openForProperties')}</p>;
   }
   if (error) {
     return <p className="error panel-empty">{messageFor(error)}</p>;
   }
   if (!detail) {
-    return <p className="panel-empty muted">Loading…</p>;
+    return <p className="panel-empty muted">{t('panel.loading')}</p>;
   }
 
   const formatted = (value: string): string =>
@@ -541,28 +550,28 @@ function PropertiesPanel({
   return (
     <dl className="properties">
       <dt>
-        <PageIcon /> Kind
+        <PageIcon /> {t('panel.kind')}
       </dt>
       <dd>{detail.kind === 'folder' ? 'Folder' : 'Page'}</dd>
 
-      <dt>Created</dt>
+      <dt>{t('panel.created')}</dt>
       <dd>{formatted(detail.createdAt)}</dd>
 
-      <dt>Edited</dt>
+      <dt>{t('panel.edited')}</dt>
       <dd>{formatted(detail.lastEditedAt)}</dd>
 
-      <dt>Your access</dt>
+      <dt>{t('panel.yourAccess')}</dt>
       {/* From the page detail rather than from the handle: the handle's role is
           null while a document opens or reconnects, and reporting "none" for
           that moment is how the read-only notice came to lie to the owner of a
           workspace. */}
       <dd>{detail.role}</dd>
 
-      <dt>Sync</dt>
+      <dt>{t('panel.sync')}</dt>
       <dd>{handle ? describeStatus(handle) : 'not open'}</dd>
 
       <dt>
-        <TagIcon /> Tags
+        <TagIcon /> {t('panel.tags')}
       </dt>
       <dd>
         <TagEditor
@@ -599,6 +608,7 @@ export function RightPanelToggle({
   open: boolean;
   onToggle: () => void;
 }): ReactElement {
+  const { t } = useT();
   return (
     <button
       className="quiet panel-toggle"
