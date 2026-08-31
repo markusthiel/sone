@@ -15,12 +15,8 @@ import { useState, type ReactElement } from 'react';
 
 import { type PageNode } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
-import {
-  FolderIcon,
-  FolderPlusIcon,
-  PageIcon,
-  PlusIcon,
-} from './icons.tsx';
+import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
+import { FolderPlusIcon, PlusIcon } from './icons.tsx';
 
 interface FolderViewProps {
   folder: PageNode;
@@ -56,9 +52,18 @@ export function FolderView({
         </nav>
       )}
 
+      {/* The folder's own icon, above the name — the same shape a page has, and
+          the same icon and colours the sidebar shows for it (ADR-0030). It drew
+          the default folder icon before, so decorating a folder changed the tree
+          and left its own page looking undecorated. */}
+      <span className="entry-heading-icon">
+        <EntryIconView icon={folder.icon} kind="folder" />
+      </span>
+
       {renaming ? (
         <input
           className="page-title"
+          style={titleColorStyle(folder.icon)}
           defaultValue={folder.title}
           autoFocus
           onBlur={(event) => {
@@ -76,8 +81,13 @@ export function FolderView({
         // A button, not an input: a folder name is not edited by accident, and
         // a click here is far more often "I want to see inside" than "I want to
         // rename". Renaming is one deliberate click away.
-        <button className="folder-title" type="button" onClick={() => setRenaming(true)}>
-          <FolderIcon /> {folder.title || 'Untitled folder'}
+        <button
+          className="folder-title"
+          type="button"
+          style={titleColorStyle(folder.icon)}
+          onClick={() => setRenaming(true)}
+        >
+          {folder.title || 'Untitled folder'}
         </button>
       )}
 
@@ -112,8 +122,15 @@ export function FolderView({
                 {folders.map((child) => (
                   <li key={child.id}>
                     <a href={paths.page(child.id, child.title)}>
-                      <FolderIcon />
-                      <span className="folder-list-name">
+                      {/* The child's own icon and colour, for the same reason
+                          the heading has them: a folder decorated in the tree
+                          that is drawn plain in its parent's listing looks like
+                          the decoration only took in one place. */}
+                      <EntryIconView icon={child.icon} kind="folder" />
+                      <span
+                        className="folder-list-name"
+                        style={titleColorStyle(child.icon)}
+                      >
                         {child.title || 'Untitled folder'}
                       </span>
                       <span className="folder-list-meta">
@@ -133,8 +150,11 @@ export function FolderView({
                 {pages.map((child) => (
                   <li key={child.id}>
                     <a href={paths.page(child.id, child.title)}>
-                      <PageIcon />
-                      <span className="folder-list-name">
+                      <EntryIconView icon={child.icon} kind="page" />
+                      <span
+                        className="folder-list-name"
+                        style={titleColorStyle(child.icon)}
+                      >
                         {child.title || 'Untitled'}
                       </span>
                       <span className="folder-list-meta">
