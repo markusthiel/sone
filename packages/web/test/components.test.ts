@@ -109,6 +109,38 @@ test('editing a title is a line, not a box', () => {
   );
 });
 
+test('a settings screen uses the same two surfaces as everything else', () => {
+  // It kept the old arrangement after the rest of the interface was turned over:
+  // a tinted section with a white list beside it, which is the opposite of the
+  // application it belongs to.
+  assert.match(css, /\.settings-screen \{[^}]*background: var\(--surface-page\)/);
+  assert.match(css, /\.settings-nav \{[^}]*background: var\(--surface-chrome\)/);
+
+  // A card is set off from the paper, and not with the surface its own fields
+  // use — a field that matches its card is a field nobody can see.
+  for (const box of ['\\.settings-card', '\\.admin-table']) {
+    assert.match(
+      css,
+      new RegExp(`${box} \\{[^}]*background: var\\(--surface-chrome\\)`),
+      `${box} is set off`,
+    );
+    assert.doesNotMatch(
+      css,
+      new RegExp(`${box} \\{[^}]*background: var\\(--surface-sunken\\)`),
+      `${box} is not the field surface`,
+    );
+  }
+});
+
+test('the settings screen is described in one rule', () => {
+  // There were two: one capped it at 900px with a padding, the other made it a
+  // fixed layer at inset 0. Both applied, so it was a fixed layer 900 pixels
+  // wide with the page showing beside it — the fifth time in this file that two
+  // half-rules for one thing have cost an afternoon.
+  const rules = [...css.matchAll(/^\.settings-screen \{/gm)];
+  assert.equal(rules.length, 1);
+});
+
 test('the writing has no surface of its own', () => {
   // A sheet under the text sounded right and looked wrong: on a wide screen the
   // column read as a lighter panel floating in a darker window — a distinction
