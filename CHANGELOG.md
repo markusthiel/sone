@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A workspace's owners and administrators can manage their own members**, under
+This workspace → People: roles, removing somebody, and inviting. It needed the
+instance-wide right before — not because the server asked for it, but because the
+table only existed inside the administration screen. Every member sees the list;
+those who may not change it read it.
+
 **Search finds a part of a word, and a result says what it found**
 ([ADR-0033](docs/adr/0033-search-results.md)). Typing "testordn" now finds
 "Testordner"; the last word you type matches as a prefix while the earlier ones
