@@ -172,6 +172,23 @@ test('the field rule cannot outweigh a class written for one field', () => {
   assert.doesNotMatch(css, /input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\)/);
 });
 
+test('every icon in the set has a size of its own', () => {
+  // Two did not: a 16-unit box, a 1.3 stroke, and no width or height — so they
+  // filled whatever they were put in. A stylesheet happened to size them in the
+  // sidebar, and the moment one was used in the settings switcher, where no rule
+  // named it, it came out as a sun the width of the column.
+  //
+  // A member of a set drawn differently from the set is a trap for whoever uses
+  // it next, so this counts the ones that skip the shared construction.
+  const icons = codeOf(new URL('../src/components/icons.tsx', import.meta.url));
+  const drawn = [...icons.matchAll(/export function (\w+Icon)\(([^)]*)\)/g)];
+  assert.ok(drawn.length > 20, 'the set was found');
+  for (const [, name, params] of drawn) {
+    assert.match(params ?? '', /props: IconProps/, `${name} takes the shared props`);
+  }
+  assert.doesNotMatch(icons, /viewBox="0 0 16 16"/, 'and one box for the whole set');
+});
+
 test('the sidebar footer is laid out in one rule', () => {
   // There were two, and the later one set `display: flex` without a direction —
   // so the earlier one's `column` stayed and the four marks stacked. A property

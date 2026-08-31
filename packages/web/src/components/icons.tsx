@@ -429,26 +429,32 @@ export const isEntryIconName = (value: unknown): value is EntryIconName =>
   typeof value === 'string' && value in ENTRY_ICONS;
 
 /**
- * Settings and signing out, for the row of tools at the foot of the sidebar.
+ * Settings and signing out. Fixed parts of the interface, not entry icons —
+ * these must not change when somebody picks a new folder icon.
  *
- * Drawn here rather than pulled from the icon set the entries use: those are
- * chosen per entry and can be anything, while these three are fixed parts of the
- * interface and should not change when somebody picks a new folder icon.
+ * Drawn with `base()` like the rest of the set, which they were not: they had a
+ * 16-unit box, a 1.3 stroke, and — the part that mattered — **no width or
+ * height**, so they filled whatever they were put in. In the sidebar a stylesheet
+ * happened to size them; the moment one was used in the settings switcher, where
+ * no rule named it, it came out as a sun the width of the column.
+ *
+ * A member of a set drawn differently from the set is a trap for whoever uses it
+ * next, and this one was.
  */
-export function SettingsIcon(): ReactElement {
+export function SettingsIcon(props: IconProps): ReactElement {
   return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-      <circle cx="8" cy="8" r="2.2" />
-      <path d="M8 1.4v1.8M8 12.8v1.8M14.6 8h-1.8M3.2 8H1.4M12.7 3.3l-1.3 1.3M4.6 11.4l-1.3 1.3M12.7 12.7l-1.3-1.3M4.6 4.6L3.3 3.3" strokeLinecap="round" />
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 2.5v2.6M12 18.9v2.6M21.5 12h-2.6M5.1 12H2.5M18.7 5.3l-1.9 1.9M7.2 16.8l-1.9 1.9M18.7 18.7l-1.9-1.9M7.2 7.2 5.3 5.3" />
     </svg>
   );
 }
 
-export function SignOutIcon(): ReactElement {
+export function SignOutIcon(props: IconProps): ReactElement {
   return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-      <path d="M6.2 2.5H3.3A1.3 1.3 0 0 0 2 3.8v8.4a1.3 1.3 0 0 0 1.3 1.3h2.9" strokeLinecap="round" />
-      <path d="M10.6 5.2 13.4 8l-2.8 2.8M13.4 8H6.4" strokeLinecap="round" strokeLinejoin="round" />
+    <svg {...base(props)}>
+      <path d="M9.3 3.5H5A1.5 1.5 0 0 0 3.5 5v14A1.5 1.5 0 0 0 5 20.5h4.3" />
+      <path d="M15.9 7.8 20.1 12l-4.2 4.2M20.1 12H9.6" />
     </svg>
   );
 }

@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the mark on the settings switcher was drawn the width of the column.**
+Two icons in the set had no size of their own and filled whatever they were put
+in; a stylesheet happened to size them in the sidebar.
+
 **The settings columns carry your account menu too**, so the trash, the other
 settings areas and signing out are one click away from anywhere rather than back
 through the notes. **Fixed on the way: that menu did not close when you clicked
