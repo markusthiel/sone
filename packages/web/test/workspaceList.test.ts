@@ -45,7 +45,9 @@ test('the name opens the workspace rather than a separate control', () => {
   // A row that only reports numbers makes somebody wonder where the editing is,
   // and a "manage" column would be a second target for what the name already
   // identifies.
-  assert.match(list, /onClick=\{\(\) => onOpen\(row\.id, row\.name\)\}/);
+  // Loosely: the callback gained the icon when workspaces got one, and a test
+  // that names every argument fails on every argument added.
+  assert.match(list, /onClick=\{\(\) => onOpen\(row\.id, row\.name/);
 });
 
 test('inviting uses the same panel a workspace owner uses', () => {
@@ -55,7 +57,7 @@ test('inviting uses the same panel a workspace owner uses', () => {
 });
 
 test('opening one is a step inside the section, not a place to link to', () => {
-  assert.match(settings, /useState<\{ id: string; name: string \} \| null>/);
+  assert.match(settings, /useState<\{ id: string; name: string;/);
 });
 
 test('the list is read back rather than adjusted in place', () => {

@@ -9,7 +9,7 @@
 
 import { useEffect, useState, type ReactElement } from 'react';
 
-import { ApiError, api } from '../api/client.ts';
+import { ApiError, api, type WorkspaceIcon } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
 
 interface Row {
@@ -21,6 +21,7 @@ interface Row {
   personal: boolean;
   lastEditedAt: string | null;
   deletedAt: string | null;
+  icon: WorkspaceIcon | null;
 }
 
 const when = (value: string | null): string => {
@@ -39,7 +40,7 @@ export function WorkspaceList({
   onRestore,
 }: {
   currentWorkspaceId: string;
-  onOpen: (workspaceId: string, name: string) => void;
+  onOpen: (workspaceId: string, name: string, icon: WorkspaceIcon | null) => void;
   onRestore: (workspaceId: string) => void;
 }): ReactElement {
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -81,7 +82,7 @@ export function WorkspaceList({
               <button
                 type="button"
                 className="link-button"
-                onClick={() => onOpen(row.id, row.name)}
+                onClick={() => onOpen(row.id, row.name, row.icon ?? null)}
               >
                 {row.name || 'Untitled'}
               </button>

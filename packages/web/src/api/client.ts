@@ -184,6 +184,8 @@ export interface AdminWorkspace {
   personal: boolean;
   /** Marked for deletion, and still restorable (ADR-0027). */
   deletedAt: string | null;
+  /** How it is recognised in a list (ADR-0030). */
+  icon: WorkspaceIcon | null;
   lastEditedAt: string | null;
   id: string;
   name: string;
@@ -499,6 +501,13 @@ export const api = {
     request<{ workspaceId: string | null; alreadyMember: boolean }>(
       `/api/invitations/${encodeURIComponent(token)}/accept`,
       { method: 'POST' },
+    ),
+
+  /** The icon and colours only — never the name (ADR-0030). */
+  updateWorkspaceIcon: (workspaceId: string, icon: WorkspaceIcon | null) =>
+    request<{ id: string; name: string; icon: WorkspaceIcon | null }>(
+      `/api/workspaces/${workspaceId}`,
+      { method: 'PATCH', body: JSON.stringify({ icon }) },
     ),
 
   setMemberRole: (workspaceId: string, userId: string, role: string) =>

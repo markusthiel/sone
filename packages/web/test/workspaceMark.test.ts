@@ -42,3 +42,39 @@ test('the icon reuses the entry renderer rather than a second one', () => {
   // worse.
   assert.match(mark, /<EntryIconView icon=\{chosen\} kind="folder" \/>/);
 });
+
+// --- choosing one -----------------------------------------------------------
+
+const chooser = codeOf(new URL('../src/components/WorkspaceAppearance.tsx', import.meta.url));
+const detail = codeOf(new URL('../src/components/WorkspaceDetail.tsx', import.meta.url));
+
+test('the chooser reuses the entry controls rather than resembling them', () => {
+  // Two similar pickers would differ in some small way, and the difference is
+  // what makes them worse than one (ADR-0030).
+  assert.match(chooser, /import \{ ColourRow \} from '\.\/EntryMenu\.tsx'/);
+  assert.match(chooser, /ICON_NAMES/);
+});
+
+test('it sends the icon and never the name', () => {
+  // A picker sending a name it never asked anybody about is how a rename
+  // happens by accident.
+  assert.match(chooser, /api\s*\n?\s*\.updateWorkspaceIcon\(workspaceId, next\)/);
+});
+
+test('colours survive a change of shape', () => {
+  // Somebody who picked blue wants blue, not blue until they change their mind
+  // about the icon.
+  assert.match(chooser, /apply\(\{ \.\.\.icon, icon: name \}\)/);
+});
+
+test('"no colour" removes the property rather than setting undefined', () => {
+  // This project treats an absent property and one set to undefined as
+  // different things, and "no colour" means absent.
+  assert.match(chooser, /delete next\.iconColor/);
+  assert.match(chooser, /delete next\.titleColor/);
+});
+
+test('it is offered where a workspace is administered', () => {
+  // Naming and decorating are the same act, so they belong in the same place.
+  assert.match(detail, /<WorkspaceAppearance/);
+});

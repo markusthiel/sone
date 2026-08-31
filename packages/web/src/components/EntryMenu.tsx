@@ -167,8 +167,14 @@ function EntryAppearance({
   );
 }
 
-/** The palette, with "no colour" first and drawn as a state rather than a shade. */
-function ColourRow({
+/**
+ * The palette, with "no colour" first and drawn as a state rather than a shade.
+ *
+ * Exported because workspaces choose colours the same way (ADR-0030) — the same
+ * control rather than one that looks like it. Two similar pickers would differ
+ * in some small way, and the difference is what makes them worse than one.
+ */
+export function ColourRow({
   current,
   label,
   onChoose,
