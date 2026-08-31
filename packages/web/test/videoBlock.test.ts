@@ -113,7 +113,9 @@ test('the browser is asked whether it could play the file, before it is sent', (
   // black rectangle for it. Nothing is transcoded (ADR-0037), so a sentence at
   // the moment of choosing is the whole of the help available.
   assert.match(surface, /probe\.canPlayType\(file\.type\)/);
-  assert.match(surface, /setNotice\(unplayableNotice\(file\)\)/);
+  // The warning outlives the upload, which now has a progress line of its own —
+  // so the check is that the verdict decides what is left on screen afterwards.
+  assert.match(surface, /setNotice\(verdict === '' \? unplayableNotice\(file\) : null\)/);
   // A warning and not a refusal: it may play for the person it is meant for.
   assert.doesNotMatch(surface, /return;\s*\/\/ refuse the upload/);
 });

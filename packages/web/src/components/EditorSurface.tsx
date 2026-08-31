@@ -182,8 +182,19 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
 
       const probe = document.createElement('video');
       const verdict = file.type ? probe.canPlayType(file.type) : '';
-      if (verdict === '') setNotice(unplayableNotice(file));
-      else setNotice(null);
+
+      // Said while it happens, and this is the part that was missing.
+      //
+      // A video is the first thing this application sends whole: a photograph is
+      // shrunk in the browser first (ADR-0029) and a document is usually small,
+      // so until now an upload was over before anybody looked. Eight megabytes
+      // is seconds, and seconds with nothing on screen is indistinguishable from
+      // nothing happening — which is exactly how it was reported.
+      setNotice(
+        verdict === ''
+          ? `Uploading ${file.name}… ${unplayableNotice(file)}`
+          : `Uploading ${file.name}…`,
+      );
 
       try {
         const uploaded = await api.uploadFile(pageId, file);
@@ -194,7 +205,10 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
         })(editor.state, editor.dispatch);
         editor.focus();
         setError(null);
+        // The warning outlives the upload; the progress does not.
+        setNotice(verdict === '' ? unplayableNotice(file) : null);
       } catch (err) {
+        setNotice(null);
         setError(err instanceof ApiError ? err.code : 'network_error');
       }
     },
@@ -518,7 +532,10 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
       <input
         ref={videoInputRef}
         type="file"
-        accept="video/mp4,video/webm,video/quicktime,.mp4,.m4v,.webm,.mov"
+        // Everything the server will actually store (ADR-0037). A picker that
+        // hides a format the server accepts is a file somebody cannot choose and
+        // cannot be told why — which looks like the upload being broken.
+        accept="video/mp4,video/webm,video/quicktime,video/x-matroska,.mp4,.m4v,.webm,.mov,.mkv"
         hidden
         onChange={(event) => {
           const file = event.target.files?.[0];
