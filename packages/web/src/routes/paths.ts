@@ -42,7 +42,12 @@ export const paths = {
   setup: () => '/setup',
   search: (query?: string) =>
     query ? `/search?q=${encodeURIComponent(query)}` : '/search',
-  settings: (section = 'account') => `/settings/${section}`,
+  /** Your own settings (ADR-0032). */
+  settings: (section = 'profile') => `/settings/${section}`,
+  /** The workspace you are in. */
+  workspaceSettings: (section = 'general') => `/workspace/${section}`,
+  /** The instance everybody shares. Only offered with the right. */
+  admin: (section = 'instance') => `/admin/${section}`,
   trash: () => '/trash',
 
   page: (pageId: string, title?: string) => {
@@ -57,6 +62,34 @@ export const paths = {
   },
 };
 
+/**
+ * Where the one settings screen's sections went (ADR-0032).
+ *
+ * URLs are a public contract, and these are in the sidebar, in the workspace
+ * switcher and in whatever anybody has bookmarked — so an old one is redirected
+ * rather than answered with a not-found page.
+ *
+ * One table, and it is meant to be deleted: after a release the redirect is
+ * carrying links nobody holds any more. What it must not do is quietly become
+ * permanent, so it says so here.
+ */
+export const MOVED_SETTINGS: Record<string, string> = {
+  account: '/settings/profile',
+  theme: '/workspace/typography',
+  groups: '/workspace/groups',
+  // These two were never in the navigation and were reachable only by typing
+  // the URL. Redirected anyway: somebody following an old note is exactly who
+  // would have typed one.
+  'workspaces-legacy': '/workspace/general',
+  'workspaces-old': '/admin/workspaces',
+  workspaces: '/admin/workspaces',
+  instance: '/admin/instance',
+  accounts: '/admin/accounts',
+  invite: '/admin/invite',
+  sso: '/admin/sso',
+  maintenance: '/admin/maintenance',
+};
+
 export type Route =
   | { kind: 'home' }
   | { kind: 'login' }
@@ -64,6 +97,8 @@ export type Route =
   | { kind: 'setup' }
   | { kind: 'search'; query: string }
   | { kind: 'settings'; section: string }
+  | { kind: 'workspaceSettings'; section: string }
+  | { kind: 'admin'; section: string }
   | { kind: 'trash' }
   | { kind: 'page'; pageId: string }
   | { kind: 'share'; token: string; pageId: string | null }
@@ -93,7 +128,11 @@ export function parseRoute(pathname: string, search = ''): Route {
     case 'search':
       return { kind: 'search', query: params.get('q') ?? '' };
     case 'settings':
-      return { kind: 'settings', section: segments[1] ?? 'account' };
+      return { kind: 'settings', section: segments[1] ?? 'profile' };
+    case 'workspace':
+      return { kind: 'workspaceSettings', section: segments[1] ?? 'general' };
+    case 'admin':
+      return { kind: 'admin', section: segments[1] ?? 'instance' };
     case 'trash':
       return { kind: 'trash' };
 

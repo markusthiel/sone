@@ -15,9 +15,19 @@ test('one mark opens a menu instead of four icons in a row', () => {
   // and the row grew every time the account gained a page. Behind the face
   // there is room for names, which is what these entries are told apart by.
   assert.match(sidebar, /aria-haspopup="menu"/);
-  for (const entry of ['Edit your profile', 'Settings', 'Trash', 'Sign out']) {
+  for (const entry of ['Your settings', 'This workspace', 'Trash', 'Sign out']) {
     assert.match(sidebar, new RegExp(entry));
   }
+});
+
+test('the three areas are three entries, and one of them is conditional', () => {
+  // "Edit your profile" and "Settings" both landed on the same page — a choice
+  // that is not one (ADR-0032). And administration is absent rather than
+  // present and refusing.
+  assert.doesNotMatch(sidebar, /Edit your profile/);
+  assert.match(sidebar, /href=\{paths\.settings\(\)\}/);
+  assert.match(sidebar, /href=\{paths\.workspaceSettings\(\)\}/);
+  assert.match(sidebar, /\{\(isInstanceAdmin \|\| canManageWorkspaces\) && \(/);
 });
 
 test('signing out is last and set apart', () => {
