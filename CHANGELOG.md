@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The settings screens look like the rest of the application**: the section is
+white paper, the list beside it carries the same faint tint the sidebar does, and
+the cards and framed tables are set off from the page again. They had kept the old
+arrangement — tinted page, white list — after everything else was turned over.
+
 **A misspelled search offers names that are close** ([ADR-0036](docs/adr/0036-search-typo-tolerance.md)).
 "Testordnr" found nothing at all before. Suggestions appear under their own
 heading, only when the search itself found little, and only for names — a typo in

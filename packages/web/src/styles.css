@@ -1362,7 +1362,17 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   padding: var(--sone-space-6);
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-lg);
-  background: var(--surface-raised);
+  /* Set off from the paper it sits on, by the same step the furniture uses.
+   *
+   * It was `--surface-raised`, which is white in light — invisible now that the
+   * section is white too, so a card was a rectangle of border and nothing else.
+   * Chrome rather than a fourth role: a card of settings is furniture, and in
+   * dark it comes out a step *lighter* than the page, which is the right
+   * direction there without this rule knowing anything about themes.
+   *
+   * Still a hair lighter than `--surface-sunken`, which is what the fields
+   * inside it use — so a field does not disappear into its own card. */
+  background: var(--surface-chrome);
 }
 .settings-card > * + * { margin-block-start: var(--sone-space-5); }
 
@@ -2887,19 +2897,14 @@ select {
  * administrator sent a link to Maintenance should land on Maintenance.
  * ------------------------------------------------------------------------- */
 
-.settings-screen {
-  display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: var(--sone-space-7);
-  max-inline-size: 900px;
-  padding: var(--sone-space-6);
-}
-
-@media (max-width: 799px) {
-  .settings-screen { grid-template-columns: minmax(0, 1fr); gap: var(--sone-space-5); }
-}
-
-.settings-nav { display: flex; flex-direction: column; gap: var(--sone-space-5); }
+/* One rule for this screen, further down, where it became a fixed layer.
+ *
+ * There were two: this one set a 900px maximum and a padding, the later one set
+ * `position: fixed; inset: 0`. Both applied — so the settings screen was a fixed
+ * layer capped at 900 pixels with the page showing beside it, which is the fifth
+ * time in this file that two half-rules for one thing have cost an afternoon.
+ * The live parts moved into the other rule; this is deliberately empty.
+ */
 .settings-nav-group { display: flex; flex-direction: column; gap: 1px; }
 
 .settings-nav-item {
@@ -2918,7 +2923,6 @@ select {
   font-weight: 600;
 }
 
-.settings-body { min-inline-size: 0; }
 .settings-body h1 { margin-block-start: 0; }
 
 .settings-note { font-size: var(--sone-text-sm); line-height: 1.5; max-inline-size: 60ch; }
@@ -2931,6 +2935,10 @@ select {
   flex-direction: column;
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius);
+  /* A framed list is the same kind of box as a card, so it takes the same
+     surface. Two boxes on one screen that differ by a percent of grey is a
+     difference somebody notices without being able to name. */
+  background: var(--surface-chrome);
   overflow: hidden;
 }
 
@@ -4809,7 +4817,8 @@ body {
 .groups-table {
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-lg);
-  background: var(--surface-raised);
+  /* The card's surface, since it is the card's border and padding it takes. */
+  background: var(--surface-chrome);
   overflow: hidden;
 }
 .workspace-table th,
@@ -4987,11 +4996,22 @@ body {
   inset: 0;
   z-index: 50;
   display: grid;
-  grid-template-columns: 260px 1fr;
-  background: var(--surface-sunken);
+  grid-template-columns: 260px minmax(0, 1fr);
+  /* The same two surfaces the rest of the application uses: the section is the
+     paper and the list beside it is furniture. It was the other way round —
+     tinted page, white list — which is what the whole interface used to be, and
+     this screen kept it after the rest was turned over. */
+  background: var(--surface-page);
 }
+
 .settings-nav {
-  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-5);
+  min-inline-size: 0;
+  /* Furniture, like the sidebar it stands in for, down to the same faint line
+     against the section. */
+  background: var(--surface-chrome);
   border-inline-end: 1px solid var(--border-subtle);
   padding: var(--sone-space-4) var(--sone-space-3);
   overflow-y: auto;
@@ -5015,6 +5035,7 @@ body {
 .settings-back:hover { background: var(--surface-hover); color: var(--sone-text); }
 
 .settings-body {
+  min-inline-size: 0;
   padding: var(--sone-space-7) var(--sone-space-6);
   overflow-y: auto;
 }
