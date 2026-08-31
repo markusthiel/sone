@@ -7,10 +7,17 @@
  */
 
 import type { PageHandle } from '@sone/client';
-import { DOC_KEYS, PAGE_KEYS } from '@sone/core';
+import {
+  DOC_KEYS,
+  PAGE_KEYS,
+  readEntryIcon,
+  readTitleColor,
+  type EntryIcon,
+} from '@sone/core';
 import { useEffect, useState , type ReactElement } from 'react';
 
 import { EditorSurface } from './EditorSurface.tsx';
+import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
 
 interface PageViewProps {
@@ -28,6 +35,11 @@ interface PageViewProps {
   onTitleChange?: (title: string) => void;
 }
 
+/** An entry's icon and title colour out of whatever the document holds. */
+function readIcon(value: unknown): { icon: EntryIcon | null; titleColor: string | null } {
+  return { icon: readEntryIcon(value), titleColor: readTitleColor(value) };
+}
+
 export function PageView({
   handle,
   pageId,
@@ -39,12 +51,40 @@ export function PageView({
     () => (pageMap.get(PAGE_KEYS.title) as string | undefined) ?? '',
   );
 
+  /**
+   * The page's own icon and colours (ADR-0030), read from the document.
+   *
+   * From the document rather than passed in from the tree: this component is
+   * also what a share link renders, where there is no tree at all — and reading
+   * it here means a change made in another browser arrives the same way a
+   * rename does, through the observer below.
+   *
+   * The title colour is stored inside the same object, so both come from one
+   * read.
+   */
+  const [icon, setIcon] = useState<{
+    icon: EntryIcon | null;
+    titleColor: string | null;
+  }>(() => readIcon(pageMap.get(PAGE_KEYS.icon)));
+
   // Mirror remote title changes into local state. Guarded against writing back
   // what we just typed, which would fight the cursor.
   useEffect(() => {
     const observer = (): void => {
       const next = (pageMap.get(PAGE_KEYS.title) as string | undefined) ?? '';
       setTitle((current) => (current === next ? current : next));
+      // The same observer, because it fires for every key in the map and an
+      // icon chosen elsewhere has to arrive here too. Compared before storing,
+      // or every keystroke in the title would replace an equal object and
+      // re-render the heading.
+      setIcon((current) => {
+        const read = readIcon(pageMap.get(PAGE_KEYS.icon));
+        return current.icon?.value === read.icon?.value &&
+          current.icon?.color === read.icon?.color &&
+          current.titleColor === read.titleColor
+          ? current
+          : read;
+      });
       // Reported for remote changes too, so a rename from another client
       // reaches the sidebar without a refetch.
       onTitleChange?.(next);
@@ -65,8 +105,15 @@ export function PageView({
 
   return (
     <div className="page-body">
+      {/* Above the title, not in front of it: an icon in front pushes the name
+          off the column every block below it lines up on. */}
+      <span className="entry-heading-icon">
+        <EntryIconView icon={icon.icon} kind="page" />
+      </span>
+
       <input
         className="page-title"
+        style={titleColorStyle(icon.titleColor ? { titleColor: icon.titleColor } : null)}
         value={title}
         onChange={(e) => commitTitle(e.target.value)}
         placeholder="Untitled"

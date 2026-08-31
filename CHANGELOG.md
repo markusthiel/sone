@@ -13,6 +13,16 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A folder and a page are titled the same way**, and both show the icon and
+colours you chose for them. A folder's name was bold and smaller than a page's,
+and both drew the default icon for their kind — so decorating a folder changed
+the sidebar and left its own page looking undecorated. The icon sits above the
+name rather than in front of it, so the name stays on the column the text below
+it lines up on. The entries listed inside a folder show their own icons too.
+
+**Fixed: the ⋮ button on a sidebar row did not light up under the pointer**,
+while the + beside it did, which made it look like nothing would happen.
+
 **Drag your workspaces into the order you want.** The switcher was alphabetical,
 which is nobody's order; now you arrange it and it stays that way
 ([ADR-0031](docs/adr/0031-workspace-order.md)). Press and hold a row on a touch

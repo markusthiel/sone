@@ -129,7 +129,14 @@ test('the title and the body share one text indent', () => {
   // heading sat 24px to the left of its own body text — a misalignment people
   // see without being able to name.
   assert.match(css, /\.ProseMirror \{[^}]*padding-inline-start:\s*var\(--sone-text-indent\)/);
-  assert.match(css, /\.page-title \{[^}]*var\(--sone-text-indent\)/);
+  // The rule covers both kinds of heading now, so the selector is matched as
+  // written rather than as `.page-title {` alone.
+  assert.match(css, /\.page-title,\s*\n\.folder-title \{[^}]*var\(--sone-text-indent\)/);
+  // And the icon above them starts on the same column.
+  assert.match(
+    css,
+    /\.entry-heading-icon \{[^}]*padding-inline-start:\s*var\(--sone-text-indent\)/,
+  );
 });
 
 test('table styling does not depend on attributes the node view drops', () => {

@@ -13,7 +13,23 @@ test('headings are thin and set tight', () => {
   // Size carries the weight, not stroke width. A bold heading over a note
   // shouts at the thing it introduces.
   assert.match(css, /--sone-heading-weight: 300/);
-  assert.match(css, /\.page-title \{[^}]*font-weight: var\(--sone-heading-weight\)/);
+  assert.match(
+    css,
+    /\.page-title,\s*\n\.folder-title \{[^}]*font-weight: var\(--sone-heading-weight\)/,
+  );
+});
+
+test('a folder is titled exactly like a page', () => {
+  // They were 2rem bold and 2.5rem light, so moving between a folder and a page
+  // looked like moving between two applications. One rule for both, and nothing
+  // left behind in the folder's own rule that would override it.
+  assert.match(css, /\.page-title,\s*\n\.folder-title \{[^}]*font-size: 2\.5rem/);
+
+  // And its own rule — the one that is not the shared one — sets neither, or the
+  // shared size would be overridden a few hundred lines later.
+  const own = [...css.matchAll(/(?<!\.page-title,\n)^\.folder-title \{[^}]*\}/gm)];
+  assert.equal(own.length, 1, 'one rule of its own');
+  assert.doesNotMatch(own[0]![0], /font-size|font-weight/);
 });
 
 test('a heading size is written once', () => {

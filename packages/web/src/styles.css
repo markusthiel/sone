@@ -671,9 +671,39 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   .page-body { padding-inline-start: 36px; }
 }
 
-.page-title {
+/* An entry's own icon, above its name.
+ *
+ * Above rather than beside it, which is what the folder view did: an icon in
+ * front of the title pushes the title off the column every block below it lines
+ * up on, and the misalignment is more noticeable than the icon. Craft and Notion
+ * both put it above for the same reason.
+ *
+ * Drawn from the entry's own icon and colour (ADR-0030) rather than the default
+ * for its kind — decorating a folder in the sidebar and then finding the plain
+ * one on its own page is the report this answers.
+ */
+.entry-heading-icon {
+  display: block;
+  padding-inline-start: var(--sone-text-indent);
+  margin-block-end: 6px;
+  line-height: 1;
+  color: var(--sone-text-muted);
+}
+.entry-heading-icon svg {
+  /* Bigger than the 16px the component asks for, which is sized for a tree
+     row. */
+  inline-size: 30px;
+  block-size: 30px;
+}
+
+.page-title,
+.folder-title {
   /* The largest thing on the page, and the quietest of its size. It names what
-     is below rather than competing with it. */
+     is below rather than competing with it.
+     *
+     * One rule for both kinds. A folder's name was 2rem and bold while a page's
+     * was 2.5rem and light, so moving between the two looked like moving
+     * between two applications. */
   font-size: 2.5rem;
   font-weight: var(--sone-heading-weight);
   letter-spacing: var(--sone-heading-tracking);
@@ -1592,8 +1622,19 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   transition: opacity 120ms ease;
 }
 .tree-row:hover .entry-more,
+.entry-more:hover,
 .entry-more:focus-visible,
 .entry-more[aria-expanded='true'] { opacity: 1; }
+/* The same tint the + beside it has had all along.
+   *
+   * Opacity alone told you the row was under the pointer, not which of its two
+   * controls was — so one of them lit up under the cursor and the other did
+   * nothing, which reads as the second one being dead. */
+.entry-more:hover,
+.entry-more[aria-expanded='true'] {
+  background: var(--sone-bg-hover);
+  color: var(--sone-text);
+}
 .entry-more svg { inline-size: 1em; block-size: 1em; }
 
 /* No hover on touch, so nothing to de-emphasise for. */
@@ -2084,22 +2125,16 @@ select {
 .folder-view .breadcrumb a { color: var(--sone-text-muted); }
 .folder-view .breadcrumb a:hover { color: var(--sone-text); }
 
+/* The rest of what makes the folder's name a button rather than an input. Its
+   size, weight and indent come from the shared rule above, with `.page-title`. */
 .folder-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: block;
   inline-size: 100%;
-  padding: 0;
-  border: 0;
   background: transparent;
   color: inherit;
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1.2;
   text-align: start;
   cursor: text;
 }
-.folder-title svg { inline-size: 0.8em; block-size: 0.8em; color: var(--sone-text-muted); }
 
 .folder-actions { display: flex; gap: 8px; margin-block: 20px 8px; flex-wrap: wrap; }
 .folder-actions button { display: inline-flex; align-items: center; gap: 6px; }
