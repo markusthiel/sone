@@ -16,6 +16,16 @@ import * as encoding from 'lib0/encoding';
 
 export const PROTOCOL_VERSION = 1;
 
+/**
+ * The document format this client can read and write (ADR-0039).
+ *
+ * Sent at authentication and required to match the server's. A client whose
+ * schema predates a block type does not ignore that block — y-prosemirror deletes
+ * it from the shared document, for everyone — so being refused is the only safe
+ * outcome, and it is a separate contract from the wire format above (ADR-0013).
+ */
+export { SCHEMA_VERSION as DOCUMENT_SCHEMA_VERSION } from '@sone/core';
+
 export const ClientMessage = {
   Auth: 0,
   Open: 1,
@@ -40,6 +50,14 @@ export type Role = 'viewer' | 'commenter' | 'editor' | 'admin';
 
 export interface AuthPayload {
   protocolVersion: number;
+  /**
+   * The document format this client speaks (ADR-0039).
+   *
+   * Optional in the type only because an older client does not send it, and the
+   * server has to be able to describe that case. A current client always does,
+   * and a missing value is refused.
+   */
+  documentSchemaVersion?: number;
   workspaceId: string;
   /**
    * Omit both to authenticate with the session cookie.

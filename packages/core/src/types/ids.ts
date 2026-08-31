@@ -60,7 +60,7 @@ export const asTimestamp = (d: Date = new Date()) =>
  * an optional field does not require a bump. Renaming, removing or changing
  * the meaning of a field does.
  */
-export const SCHEMA_VERSION = 1 as const;
+export const SCHEMA_VERSION = 2 as const;
 export type SchemaVersion = number;
 
 export interface DocMeta {

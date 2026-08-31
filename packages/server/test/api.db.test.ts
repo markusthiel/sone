@@ -12,6 +12,8 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 
 import type { Pool } from 'pg';
 
+import { SCHEMA_VERSION } from '@sone/core';
+
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
 import { registerPageRoutes } from '../src/http/pages.js';
 import { Router } from '../src/http/router.js';
@@ -386,7 +388,10 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       [pageId],
     );
     assert.equal(row.rows[0]!.title, 'First page');
-    assert.equal(row.rows[0]!.schema_version, 1);
+    // Whatever this build of SONE writes, rather than a number spelt out here: a
+    // literal would have to be edited by every schema bump, and a test that has
+    // to be edited to keep passing stops being a check (ADR-0039 bumped it).
+    assert.equal(row.rows[0]!.schema_version, SCHEMA_VERSION);
   });
 
   test('sibling pages get increasing fractional indexes', async () => {

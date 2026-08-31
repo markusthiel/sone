@@ -23,6 +23,7 @@
 
 import {
   ClientProtocolError,
+  DOCUMENT_SCHEMA_VERSION,
   PROTOCOL_VERSION,
   ServerMessage,
   decodeServerFrame,
@@ -305,6 +306,9 @@ export class SyncConnection {
   private sendAuth(): void {
     const payload: AuthPayload = {
       protocolVersion: PROTOCOL_VERSION,
+      // What block types this client knows how to draw, in effect. A mismatch is
+      // refused, because a client that cannot draw a block deletes it (ADR-0039).
+      documentSchemaVersion: DOCUMENT_SCHEMA_VERSION,
       workspaceId: this.opts.credentials.workspaceId,
     };
     const c = this.opts.credentials;
