@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The `/` menu has a mark beside every block**, and **fixed: its highlight
+sometimes ignored the mouse.** Moving the pointer inside a row now moves the
+highlight to it — before, only arriving in a row did, so pressing the arrow keys
+or scrolling left the highlight elsewhere with the mouse sitting on an entry that
+would not light up.
+
 **Video** ([ADR-0037](docs/adr/0037-video.md)). Type `/` and choose Video: upload
 one, paste a link from YouTube, Vimeo or PeerTube, or point at a live HLS or DASH
 stream. Content width by default, and the ⋮⋮ menu offers full width, a card or a

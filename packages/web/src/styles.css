@@ -1252,11 +1252,15 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   color: var(--sone-text-muted);
 }
 
+/* A mark, then the name and what it is for.
+ *
+ * The row was a column of two lines; it is now a row of two things, the second
+ * of which is that column. */
 .slash-item {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sone-space-1);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sone-space-4);
   inline-size: 100%;
   /* Below the 44px tap target used elsewhere: this is a scrolling list where
      more visible options matter more, and it is reachable by keyboard. 40px is
@@ -1277,6 +1281,28 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   background: var(--sone-bg-hover);
 }
 .slash-item:hover { background: transparent; }
+
+.slash-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sone-space-1);
+  min-inline-size: 0;
+}
+
+/* The box is there whether or not the item has a mark, so every name starts in
+   the same column. A list where some rows are indented and others are not is
+   harder to scan than a list with no marks at all. */
+.slash-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 20px;
+  block-size: 20px;
+  color: var(--sone-text-muted);
+}
+.slash-mark svg { inline-size: 16px; block-size: 16px; }
+.slash-item[data-selected='true'] .slash-mark { color: var(--sone-text); }
 
 .slash-title {
   font-size: 0.92rem;

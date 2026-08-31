@@ -12,6 +12,23 @@
  * moment the document reflows.
  */
 
+import {
+  CalloutIcon,
+  CheckSquareIcon,
+  CodeIcon,
+  DividerIcon,
+  HashIcon,
+  ImageIcon,
+  ListIcon,
+  LockIcon,
+  OrderedListIcon,
+  PaperclipIcon,
+  QuoteIcon,
+  TableIcon,
+  TextIcon,
+  ToggleIcon,
+  VideoIcon,
+} from './icons.tsx';
 import { keepsEditorSelection, popupItem } from './popup.ts';
 import {
   closeSlashMenu,
@@ -269,10 +286,27 @@ export function SlashMenu({
                 // with it; the container's mousedown handler is what keeps the
                 // editor's selection. See popup.ts.
                 {...popupItem(() => choose(item))}
-                onPointerEnter={() => setSlashIndex(view, index)}
+                // On move, not only on enter.
+                //
+                // `pointerenter` fires once, when the pointer crosses into the
+                // row. Two ordinary things then leave the highlight somewhere
+                // else with the mouse sitting on this one, and no event to fix
+                // it: pressing the arrow keys moves the selection away, and
+                // scrolling the list slides a different row under a stationary
+                // pointer. Both look exactly like "the mouse is not over the
+                // entry" — which is what was reported.
+                //
+                // Guarded on `selected`, so an idle wobble does not dispatch a
+                // transaction per pixel.
+                onPointerMove={() => {
+                  if (!selected) setSlashIndex(view, index);
+                }}
               >
-                <span className="slash-title">{item.title}</span>
-                <span className="slash-hint">{item.hint}</span>
+                <Mark item={item} />
+                <span className="slash-text">
+                  <span className="slash-title">{item.title}</span>
+                  <span className="slash-hint">{item.hint}</span>
+                </span>
               </button>
             );
           })}
@@ -280,6 +314,48 @@ export function SlashMenu({
       ))}
     </div>
   );
+}
+
+/**
+ * The mark beside an item's name.
+ *
+ * Keyed on the item's id here rather than carried by the item itself: which
+ * icon a block gets is a drawing decision, and `@sone/editor` has no business
+ * importing a component to hold one. The headings share a mark and are told
+ * apart by their names, which are "Heading 1", "Heading 2", "Heading 3" — a
+ * different symbol for each level would be three symbols meaning the same
+ * thing at different sizes.
+ *
+ * An item with no entry here draws nothing and keeps its place, so adding a
+ * block cannot break the list — it just arrives unmarked.
+ */
+const MARKS: Record<string, (props: { size?: number }) => ReactElement> = {
+  paragraph: TextIcon,
+  'heading-1': HashIcon,
+  'heading-2': HashIcon,
+  'heading-3': HashIcon,
+  bulletList: ListIcon,
+  numberedList: OrderedListIcon,
+  todo: CheckSquareIcon,
+  toggle: ToggleIcon,
+  quote: QuoteIcon,
+  callout: CalloutIcon,
+  code: CodeIcon,
+  image: ImageIcon,
+  video: VideoIcon,
+  table: TableIcon,
+  file: PaperclipIcon,
+  protected: LockIcon,
+  collection: TableIcon,
+  divider: DividerIcon,
+};
+
+function Mark({ item }: { item: SlashItem }): ReactElement {
+  const Icon = MARKS[item.id];
+  // The box is kept whether or not there is an icon, so the names stay in one
+  // column: a list where some rows are indented and others are not is harder to
+  // scan than a list with no icons at all.
+  return <span className="slash-mark">{Icon ? <Icon /> : null}</span>;
 }
 
 const GROUP_LABELS: Record<SlashItem['group'], string> = {
