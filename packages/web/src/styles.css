@@ -3350,17 +3350,35 @@ select {
  * Compact is for reading a list of a hundred; tall is for cells with more than a
  * word in them. Normal is what it was, so nothing moves for anybody who does not
  * ask. */
-.collection-table { --row-pad: var(--sone-space-2); --row-control: 32px; }
-.collection-table[data-density='compact'] { --row-pad: 2px; --row-control: 24px; }
-.collection-table[data-density='tall'] { --row-pad: var(--sone-space-4); --row-control: 40px; }
+.collection-table { --row-pad: var(--sone-space-2); --row-control: 34px; --row-inset: 6px 10px; }
+.collection-table[data-density='compact'] { --row-pad: 1px; --row-control: 26px; --row-inset: 2px 8px; }
+.collection-table[data-density='tall'] { --row-pad: var(--sone-space-4); --row-control: 44px; --row-inset: 10px 12px; }
 
-.collection-table :where(.collection-title-input, .cell-files, input, select) {
+/* The height is the *padding* of the controls, not their minimum height — which
+ * is what the first attempt got wrong and why changing the setting did nothing.
+ *
+ * A field in this application is 44px tall and inset 8px/12px, from one base rule
+ * for every input on every screen. Lowering a minimum below the content plus that
+ * padding changes no pixels: 8 + 8 + a line of text is already 37. So each level
+ * sets both, and `min-height` is overridden by name because the base rule uses the
+ * physical property.
+ */
+.collection-table :where(input:not([type='checkbox']), select, textarea) {
+  min-height: var(--row-control);
+  min-block-size: var(--row-control);
+  padding: var(--row-inset);
+}
+.collection-table :where(.cell-files, .collection-open-row) {
   min-block-size: var(--row-control);
 }
+
 /* A tap target is a tap target: on a touch device the smallest level still has
-   to be hittable, so compact stops applying where a finger is the pointer. */
+   to be hittable, so compact stops shrinking where a finger is the pointer. */
 @media (pointer: coarse) {
-  .collection-table[data-density='compact'] { --row-control: var(--sone-tap); }
+  .collection-table[data-density='compact'] {
+    --row-control: var(--sone-tap);
+    --row-inset: 8px 12px;
+  }
 }
 
 .collection-table th,
@@ -3913,10 +3931,12 @@ select {
 .option-pink   { --option-color: #db2777; }
 
 .option-editor {
-  position: absolute;
-  z-index: 30;
-  inset-inline-start: 0;
-  inset-block-start: 100%;
+  /* Fixed, and placed from the button's rectangle by the component — the same
+     reason the column menu is: a container with `overflow-x: auto` clips the
+     other axis too, so an absolute panel inside the table's scroller was cut off
+     at its edge and "Add option" was the last line anybody could read. */
+  position: fixed;
+  z-index: 40;
   inline-size: 22rem;
   max-inline-size: calc(100vw - 2rem);
   padding: var(--sone-space-4);

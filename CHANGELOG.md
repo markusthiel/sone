@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: changing a table's row height did nothing.** The height comes from the
+padding inside a cell's controls, not from their minimum height, so the setting had
+been adjusting a number that never decided anything.
+
+**Fixed: a select column's option editor was cut off** at the edge of the table,
+the same way the column menu used to be — a scrolling container clips both axes.
+
 **A collection can be shown as a gallery** ([ADR-0039](docs/adr/0039-gallery-view.md)):
 cards with a cover, switched to like the board. The cover is the first image in a
 files column, and an entry without one gets a blank panel rather than a

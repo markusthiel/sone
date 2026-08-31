@@ -226,15 +226,30 @@ test('row height belongs to the view, and is read tolerantly', () => {
   assert.match(table, /data-density=\{density\}/);
 });
 
-test('the height is the controls, not only the padding', () => {
-  // A row is as tall as what it contains — a title field built for a finger, a
-  // file chip, an add button — so a density that only changed the cell padding
-  // would change almost nothing.
-  assert.match(css, /\.collection-table \{ --row-pad:[^}]*--row-control/);
-  assert.match(css, /data-density='compact'/);
-  assert.match(css, /data-density='tall'/);
-  assert.match(css, /min-block-size: var\(--row-control\)/);
-  // Compact stops applying where a finger is the pointer: a tap target is a tap
+test('the height is the controls\' padding, which is what actually sets it', () => {
+  // The first attempt set only a minimum height, and changing the setting did
+  // nothing: a field here is inset 8px/12px from one base rule, so 8 + 8 + a line
+  // of text is 37px whatever the minimum says. Each level sets both.
+  assert.match(css, /--row-inset/);
+  assert.match(css, /\.collection-table :where\(input[^}]*padding: var\(--row-inset\)/s);
+  // And `min-height` by name as well as the logical property, because the base
+  // rule for every field in the application uses the physical one.
+  assert.match(css, /\.collection-table :where\(input[^}]*min-height: var\(--row-control\)/s);
+  for (const level of ["compact", "tall"]) {
+    assert.match(css, new RegExp(`data-density='${level}'[^}]*--row-inset`));
+  }
+  // Compact stops shrinking where a finger is the pointer: a tap target is a tap
   // target whatever the density says.
   assert.match(css, /@media \(pointer: coarse\)[^}]*\{[^}]*--row-control: var\(--sone-tap\)/s);
+});
+
+test('a panel hanging off a column heading is drawn against the viewport', () => {
+  // Twice now: the column menu, and then the option editor in the same place. A
+  // container with `overflow-x: auto` clips the other axis too, so an absolute
+  // panel inside the table's scroller is cut off at the table's edge.
+  assert.match(css, /\.option-editor \{[^}]*position: fixed/s);
+  assert.match(css, /\.collection-type-menu \{[^}]*position: fixed/s);
+  const editor = codeOf(new URL('../src/components/OptionEditor.tsx', import.meta.url));
+  assert.match(editor, /calc\(100vw - 23rem\)/, 'and clamped inside the window');
+  assert.match(table, /setEditingOptions\(\{ x: box\.left, y: box\.bottom \+ 4 \}\)/);
 });
