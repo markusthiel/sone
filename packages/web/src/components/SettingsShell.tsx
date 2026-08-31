@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 
 import { paths } from '../routes/paths.ts';
+import { useT } from '../i18n/useT.tsx';
 import { AccountMenu } from './AccountMenu.tsx';
 import {
   ChevronRightIcon,
@@ -37,14 +38,16 @@ export interface ShellSection {
 const AREAS = [
   // The same marks the account menu uses for these three, deliberately: one
   // subject, one symbol, or somebody learns two of them for the same thing.
-  { id: 'settings', label: 'Your settings', href: () => paths.settings(), Icon: PersonIcon },
+  // The label is a key, not a sentence: the switcher renders it, so the switcher
+  // is what translates it (ADR-0041).
+  { id: 'settings', label: 'area.you', href: () => paths.settings(), Icon: PersonIcon },
   {
     id: 'workspace',
-    label: 'This workspace',
+    label: 'area.workspace',
     href: () => paths.workspaceSettings(),
     Icon: SettingsIcon,
   },
-  { id: 'admin', label: 'Administration', href: () => paths.admin(), Icon: SlidersIcon },
+  { id: 'admin', label: 'area.instance', href: () => paths.admin(), Icon: SlidersIcon },
 ] as const;
 
 export type AreaId = (typeof AREAS)[number]['id'];
@@ -80,6 +83,7 @@ function AreaSwitcher({
    */
   subtitle?: string | undefined;
 }): ReactElement {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDivElement | null>(null);
   const button = useRef<HTMLButtonElement | null>(null);
@@ -122,7 +126,7 @@ function AreaSwitcher({
       >
         <here.Icon />
         <span className="switcher-label">
-          <span className="switcher-name">{here.label}</span>
+          <span className="switcher-name">{t(here.label)}</span>
           {subtitle && <span className="switcher-sub">{subtitle}</span>}
         </span>
         <ChevronRightIcon className="switcher-caret" />
@@ -140,7 +144,7 @@ function AreaSwitcher({
               onClick={() => setOpen(false)}
             >
               <area.Icon />
-              <span className="switcher-item-name">{area.label}</span>
+              <span className="switcher-item-name">{t(area.label)}</span>
             </a>
           ))}
         </div>
@@ -185,9 +189,10 @@ export function SettingsShell({
   onClose,
   children,
 }: SettingsShellProps): ReactElement {
+  const { t } = useT();
   return (
     <div className="settings-screen" data-showing={listOpen ? 'list' : 'section'}>
-      <nav className="settings-nav" aria-label={`${area} settings`}>
+      <nav className="settings-nav" aria-label={t('settings.navLabel', { area })}>
         {/* Where the workspace switcher sits in the application: the same shape,
             in the same place, holding what this screen's context is. Before it,
             getting from the instance's administration to your own profile meant
@@ -203,7 +208,7 @@ export function SettingsShell({
           * looks for when they have finished, and looking for it should not be
           * part of finishing. */}
         <button type="button" className="settings-back" onClick={onClose}>
-          ‹ Back to your notes
+          {t('settings.back')}
         </button>
 
         {/* No heading over the list any more.

@@ -64,7 +64,11 @@ test('the last row of a card carries no rule', () => {
 test('the explanation sits under the name, not beside the control', () => {
   // A sentence next to a switch is a sentence people read as part of the
   // switch.
-  assert.match(settings, /<span className="settings-row-label">\s*\n\s*<b>Name<\/b>/);
+  // The name is a key now (ADR-0041); the shape being asserted is unchanged.
+  assert.match(
+    settings,
+    /<span className="settings-row-label">\s*\n\s*<b>\{t\('you\.name'\)\}<\/b>/,
+  );
 });
 
 test('there is one rule for the actions row', () => {

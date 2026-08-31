@@ -171,6 +171,7 @@ const MIGRATED = [
   'src/components/MoveToWorkspaceDialog.tsx',
   'src/components/EntryMenu.tsx',
   'src/components/Sidebar.tsx',
+  'src/components/SettingsShell.tsx',
 ];
 
 test('every error code the client can show has a message', () => {

@@ -36,6 +36,7 @@ import {
   type TextScale,
   type ThemePreference,
 } from '../hooks/useAppearance.ts';
+import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import { LandingSettings } from './LandingSettings.tsx';
@@ -52,13 +53,20 @@ interface SettingsProps {
   onLogout: () => void;
 }
 
-const SECTIONS: readonly ShellSection[] = [
-  { id: 'profile', label: 'Profile', hint: 'Your name, address and picture' },
-  { id: 'sign-in', label: 'Signing in', hint: 'Your password' },
-  { id: 'appearance', label: 'Appearance', hint: 'How SONE looks to you' },
-  { id: 'landing', label: 'Where you land', hint: 'The page each workspace opens on' },
-  { id: 'about', label: 'About', hint: 'Version and licence' },
-];
+/**
+ * The sections, by id and by the keys that name them.
+ *
+ * Keys rather than sentences, and translated where they are rendered: the list is
+ * module-level because `resolveSection` needs it before anything renders, and a
+ * module cannot call a hook (ADR-0041).
+ */
+const SECTIONS = [
+  { id: 'profile', label: 'you.profile', hint: 'you.profile.hint' },
+  { id: 'sign-in', label: 'you.signIn', hint: 'you.signIn.hint' },
+  { id: 'appearance', label: 'you.appearance', hint: 'you.appearance.hint' },
+  { id: 'landing', label: 'you.landing', hint: 'you.landing.hint' },
+  { id: 'about', label: 'you.about', hint: 'you.about.hint' },
+] as const;
 
 export function Settings({
   section,
@@ -67,6 +75,7 @@ export function Settings({
   onClose,
   onLogout,
 }: SettingsProps): ReactElement {
+  const { t } = useT();
   // Which of the two a phone is showing. Starts on the section, because
   // arriving at a list of settings when you asked for one setting is a step
   // nobody wanted.
@@ -82,7 +91,11 @@ export function Settings({
       area="You"
       areaId="settings"
       canAdminister={canAdminister}
-      sections={SECTIONS}
+      sections={SECTIONS.map((entry) => ({
+        id: entry.id,
+        label: t(entry.label),
+        hint: t(entry.hint),
+      }))}
       current={current}
       hrefFor={(id) => paths.settings(id)}
       listOpen={listOpen}
@@ -120,6 +133,7 @@ function Profile({
   workspaceId: string;
 }): ReactElement {
   const workspace = session.workspaces.find((w) => w.id === workspaceId);
+  const { t } = useT();
   const [name, setName] = useState(session.user.displayName);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,9 +179,9 @@ function Profile({
           * before they read anything. */}
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Picture</b>
+            <b>{t('you.picture')}</b>
             <span>
-              Any size — it is shrunk here before it is sent, and shown small.
+              {t('you.picture.hint')}
             </span>
           </span>
           <span className="avatar-choose">
@@ -196,8 +210,8 @@ function Profile({
 
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Name</b>
-            <span>What other people see beside anything you write here.</span>
+            <b>{t('you.name')}</b>
+            <span>{t('you.name.hint')}</span>
           </span>
           <input
             id="account-name"
@@ -212,7 +226,7 @@ function Profile({
 
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Email</b>
+            <b>{t('you.email')}</b>
             <span>
               Identifies your account when you sign in. Changing it needs a way
               to prove the new address is yours, which this instance cannot do
@@ -224,8 +238,8 @@ function Profile({
 
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Workspace</b>
-            <span>Where you are right now.</span>
+            <b>{t('you.workspace')}</b>
+            <span>{t('you.workspace.hint')}</span>
           </span>
           <span className="muted">
             {workspace?.name ?? '—'}
@@ -243,7 +257,7 @@ function Profile({
         >
           Save
         </button>
-        {saved && <span className="muted">Saved.</span>}
+        {saved && <span className="muted">{t('you.saved')}</span>}
       </div>
     </section>
   );
@@ -258,6 +272,7 @@ function Profile({
  * and a second factor would go.
  */
 function SignIn(): ReactElement {
+  const { t } = useT();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [passwordDone, setPasswordDone] = useState(false);
@@ -292,7 +307,7 @@ function SignIn(): ReactElement {
       <div className="settings-card">
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Current password</b>
+            <b>{t('you.currentPassword')}</b>
             <span>
               Asked for because a session left open on a shared machine is the
               ordinary way an account is taken.
@@ -313,7 +328,7 @@ function SignIn(): ReactElement {
 
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>New password</b>
+            <b>{t('you.newPassword')}</b>
             <span>
               At least twelve characters. Length is what makes a password hard
               to guess; a short one with symbols in it is not.
@@ -353,11 +368,12 @@ function SignIn(): ReactElement {
 }
 
 function AppearanceSettings(): ReactElement {
+  const { t } = useT();
   const { appearance, setTheme, setUiScale, setEditorScale } = useAppearance();
 
   return (
     <section className="settings-section">
-      <h2>Appearance</h2>
+      <h2>{t('you.appearance')}</h2>
       <p className="muted">
         Stored in this browser. A text size that suits a phone is wrong on a
         large monitor, so these do not follow your account between devices.
@@ -366,7 +382,7 @@ function AppearanceSettings(): ReactElement {
       <div className="settings-card">
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Theme</b>
+            <b>{t('you.theme')}</b>
             <span>
               Following the system is the default. Choose one to override it —
               somebody outside in the sun wants light whatever their laptop
@@ -379,9 +395,9 @@ function AppearanceSettings(): ReactElement {
             value={appearance.theme}
             onChange={(event) => setTheme(event.target.value as ThemePreference)}
           >
-            <option value="system">Match the system</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
+            <option value="system">{t('you.theme.system')}</option>
+            <option value="light">{t('you.theme.light')}</option>
+            <option value="dark">{t('you.theme.dark')}</option>
           </select>
         </div>
 
@@ -390,7 +406,7 @@ function AppearanceSettings(): ReactElement {
             want larger prose without a larger interface. */}
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Interface text size</b>
+            <b>{t('you.interfaceSize')}</b>
             <span>The sidebar, menus and settings — everything but your writing.</span>
           </span>
           <select
@@ -409,7 +425,7 @@ function AppearanceSettings(): ReactElement {
 
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Editor text size</b>
+            <b>{t('you.editorSize')}</b>
             <span>Your writing, and nothing else.</span>
           </span>
           <select
@@ -431,6 +447,7 @@ function AppearanceSettings(): ReactElement {
 }
 
 function About(): ReactElement {
+  const { t } = useT();
   const [server, setServer] = useState<VersionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -453,7 +470,7 @@ function About(): ReactElement {
 
   return (
     <section className="settings-section">
-      <h2>About</h2>
+      <h2>{t('you.about')}</h2>
 
       {stale && (
         <p className="settings-warning">
@@ -467,7 +484,7 @@ function About(): ReactElement {
       )}
 
       <dl className="settings-list">
-        <dt>Server</dt>
+        <dt>{t('about.server')}</dt>
         <dd>
           {server ? (
             <>
@@ -477,11 +494,11 @@ function About(): ReactElement {
           ) : error ? (
             <span className="error">{messageFor(error)}</span>
           ) : (
-            <span className="muted">checking…</span>
+            <span className="muted">{t('about.checking')}</span>
           )}
         </dd>
 
-        <dt>This browser</dt>
+        <dt>{t('you.thisBrowser')}</dt>
         <dd>
           {WEB_VERSION}
           <span className="muted"> · {WEB_COMMIT.slice(0, 8)}</span>
@@ -491,10 +508,10 @@ function About(): ReactElement {
             client can talk to a server and open a document. Shown because when
             an upgrade goes wrong these are the numbers that explain why
             (ADR-0013). */}
-        <dt>Document format</dt>
+        <dt>{t('about.documentFormat')}</dt>
         <dd>{server ? `v${server.documentSchema}` : <span className="muted">—</span>}</dd>
 
-        <dt>Sync protocol</dt>
+        <dt>{t('about.syncProtocol')}</dt>
         <dd>{server ? `v${server.syncProtocol}` : <span className="muted">—</span>}</dd>
       </dl>
 

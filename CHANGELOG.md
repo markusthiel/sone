@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The settings speak German**: the three areas and their switcher, the way back to
+your notes, and every section of your own settings — profile, signing in,
+appearance, where you land, about. Five files are translated now.
+
 **The sidebar and an entry's menu speak German too** — the tree, the favourites,
 search, and every entry in the ⋮ menu including the icon and colour picker. Four
 files are translated now; the rest of the interface is still English.

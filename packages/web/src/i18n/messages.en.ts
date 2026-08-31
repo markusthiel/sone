@@ -74,6 +74,53 @@ export const en = {
   'entry.deleteWithChildren':
     'Move to the trash, with {count, plural, one {# entry} other {# entries}} inside',
 
+  // --- the settings areas and their shell --------------------------------
+  'area.you': 'Your settings',
+  'area.workspace': 'This workspace',
+  'area.instance': 'Administration',
+  'settings.navLabel': '{area} settings',
+  'settings.back': '‹ Back to your notes',
+  'settings.sections': 'Sections',
+
+  // --- your own settings -------------------------------------------------
+  'you.profile': 'Profile',
+  'you.profile.hint': 'Your name, address and picture',
+  'you.signIn': 'Signing in',
+  'you.signIn.hint': 'Your password',
+  'you.appearance': 'Appearance',
+  'you.appearance.hint': 'How SONE looks to you',
+  'you.landing': 'Where you land',
+  'you.landing.hint': 'The page each workspace opens on',
+  'you.about': 'About',
+  'you.about.hint': 'Version and licence',
+
+  'you.picture': 'Picture',
+  'you.picture.hint': 'Any size — it is shrunk here before it is sent, and shown small.',
+  'you.name': 'Name',
+  'you.name.hint': 'What other people see beside anything you write here.',
+  'you.email': 'Email',
+  'you.workspace': 'Workspace',
+  'you.workspace.hint': 'Where you are right now.',
+  'you.saved': 'Saved.',
+
+  'you.currentPassword': 'Current password',
+  'you.newPassword': 'New password',
+
+  'you.theme': 'Theme',
+  'you.theme.system': 'Match the system',
+  'you.theme.light': 'Light',
+  'you.theme.dark': 'Dark',
+  'you.interfaceSize': 'Interface text size',
+  'you.interfaceSize.hint': 'The sidebar, menus and settings — everything but your writing.',
+  'you.editorSize': 'Editor text size',
+  'you.editorSize.hint': 'Your writing, and nothing else.',
+  'you.thisBrowser': 'This browser',
+
+  'about.server': 'Server',
+  'about.documentFormat': 'Document format',
+  'about.syncProtocol': 'Sync protocol',
+  'about.checking': 'checking…',
+
   // --- choosing an icon and a colour -------------------------------------
   'icon.heading': 'Icon',
   'icon.search': 'Search icons',
