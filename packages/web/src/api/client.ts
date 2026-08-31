@@ -800,6 +800,13 @@ export const api = {
     ),
 
   /** Archive every row: a row is a page, so emptying a table fills the trash. */
+  /** Move named rows to the trash (ADR-0040). Recoverable, like any page. */
+  archiveCollectionRows: (collectionId: string, rowIds: string[]) =>
+    request<{ collectionId: string; archived: string[] }>(
+      `/api/collections/${collectionId}/rows/archive`,
+      { method: 'POST', body: JSON.stringify({ rowIds }) },
+    ),
+
   clearCollectionRows: (collectionId: string) =>
     request<{ collectionId: string; archived: string[] }>(
       `/api/collections/${collectionId}/rows`,

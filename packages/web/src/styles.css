@@ -3484,6 +3484,38 @@ select {
    uploaded, it is in the page, and it may be perfect for the person it is for. */
 .editor-notice { margin-block: var(--sone-space-3); font-size: var(--sone-text-sm); }
 
+/* --- a selection of rows (ADR-0040) --- */
+
+.collection-select-column {
+  inline-size: 2.5rem;
+  text-align: center;
+}
+/* The header's own box has no label beside it, so it centres on the column
+   rather than sitting where a heading's text would start. */
+.collection-select-column input { margin: 0; }
+
+.collection-table tr[data-selected='true'] > td {
+  /* Tinted rather than outlined: an outline on a table row lands on the cell
+     borders and reads as a rendering fault. */
+  background: color-mix(in srgb, var(--sone-accent) 8%, transparent);
+}
+
+/* What can be done with what is selected. Above the table, not over it: a bar
+   covering a row hides the thing somebody is deciding about. */
+.collection-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sone-space-3);
+  margin-block: var(--sone-space-3);
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+  background: var(--surface-chrome);
+}
+.collection-selection-count { font-size: var(--sone-text-sm); font-weight: 600; }
+.collection-selection-clear { margin-inline-start: auto; }
+
 /* --- a collection drawn as covers (ADR-0039) ---
  *
  * The cover is cropped rather than fitted. A grid of mixed aspect ratios fitted

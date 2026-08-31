@@ -61,6 +61,7 @@ import { CollectionBoard } from './CollectionBoard.tsx';
 import { MAX_PASTE_ROWS, looksLikeGrid, parsePastedGrid } from './pastedGrid.ts';
 import { useTableHistory } from '../hooks/useTableHistory.ts';
 import { CollectionGallery } from './CollectionGallery.tsx';
+import { exportFilename, rowsAsCsv, rowsAsTabbed } from './rowsAsText.ts';
 import { readDensity, ViewRules } from './ViewRules.tsx';
 import { OptionEditor, type EditableOption } from './OptionEditor.tsx';
 
@@ -288,6 +289,16 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
    * data arrived there were five more than before.
    */
   /**
+   * Which rows are selected (ADR-0040).
+   *
+   * Local, like the undo stack: a selection is about what somebody is doing this
+   * minute, and persisting it would mean explaining a highlighted row to whoever
+   * opens the page next. Cleared whenever the rows change, because a selection of
+   * ids that are no longer there is a count that lies.
+   */
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  /**
    * The files any cell refers to, by id (ADR-0035).
    *
    * From the collection response, plus anything uploaded since the last reload —
@@ -481,6 +492,56 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   const titleField = data.fields.find((field) => field.id === data.titleFieldId);
 
   const view = data.views.find((entry) => entry.id === viewId) ?? data.views[0];
+
+  // --- acting on a selection (ADR-0040) ------------------------------------
+
+  const chosen = data.rows.filter((row) => selected.has(row.id));
+  const titleHeading = titleField?.name ?? 'Name';
+
+  const copySelection = async (): Promise<void> => {
+    const text = rowsAsTabbed(chosen, columns, fileIndex, titleHeading);
+    try {
+      await navigator.clipboard.writeText(text);
+      setNotice(
+        `${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'} copied. Paste appends them, here or anywhere else.`,
+      );
+    } catch {
+      // Refused, which happens without a secure context or a user gesture the
+      // browser recognises. Said rather than swallowed, because nothing else
+      // would have changed on screen.
+      setError('clipboard_refused');
+    }
+  };
+
+  const exportSelection = (): void => {
+    const csv = rowsAsCsv(chosen, columns, fileIndex, titleHeading);
+    // A blob and a link, so the file is named and lands in the downloads folder.
+    // No route: an export means "what is on screen", and a route would have to
+    // re-run the view's query to mean the same thing.
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    // Named after the view, which is what somebody sees above the table. The
+    // page's own title is not in this response, and asking for it to name a file
+    // would be a request for a file name.
+    link.download = exportFilename(view?.name ?? 'table');
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const archiveSelection = async (): Promise<void> => {
+    const ids = [...selected];
+    try {
+      await api.archiveCollectionRows(collectionId, ids);
+      setSelected(new Set());
+      setNotice(
+        `${ids.length} ${ids.length === 1 ? 'entry' : 'entries'} moved to the trash, where they can be brought back.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
   // How tall a row is, from the view being drawn rather than from the table: the
   // same entries can be a list in one view and an overview in another.
   const density = view ? readDensity(view) : 'normal';
@@ -682,6 +743,42 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         </p>
       )}
 
+      {/* What can be done with what is selected (ADR-0040).
+        *
+        * Above the table rather than floating over it: a bar that covers a row
+        * hides the thing somebody is deciding about. It appears only when
+        * something is selected, so the toolbar does not grow four buttons that
+        * are usually disabled. */}
+      {selected.size > 0 && (
+        <div className="collection-selection" role="group" aria-label="Selected entries">
+          <span className="collection-selection-count">
+            {selected.size} selected
+          </span>
+          <button type="button" className="btn subtle" onClick={() => void copySelection()}>
+            Copy
+          </button>
+          <button type="button" className="btn subtle" onClick={exportSelection}>
+            Export CSV
+          </button>
+          {data.canEdit && (
+            <button
+              type="button"
+              className="btn subtle destructive"
+              onClick={() => void archiveSelection()}
+            >
+              <TrashIcon /> To the trash
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn subtle collection-selection-clear"
+            onClick={() => setSelected(new Set())}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       <div
         className="collection-scroll"
         hidden={
@@ -701,6 +798,37 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                   as a bug — somebody looks for the control, does not find it,
                   and concludes the interface is inconsistent rather than that
                   the column is special. */}
+              {/* Selecting, always present rather than on hover: hover does not
+                  exist on a touch device, and reading a table is exactly when
+                  somebody wants a copy of it — so this is here for a reader
+                  too. */}
+              <th className="collection-select-column">
+                <input
+                  type="checkbox"
+                  aria-label={
+                    selected.size === data.rows.length && data.rows.length > 0
+                      ? 'Clear the selection'
+                      : 'Select every entry shown'
+                  }
+                  checked={selected.size > 0 && selected.size === data.rows.length}
+                  // Some but not all: the box shows neither state, because
+                  // neither is true.
+                  ref={(box) => {
+                    if (box) {
+                      box.indeterminate =
+                        selected.size > 0 && selected.size < data.rows.length;
+                    }
+                  }}
+                  onChange={(event) =>
+                    setSelected(
+                      event.target.checked
+                        ? new Set(data.rows.map((row) => row.id))
+                        : new Set(),
+                    )
+                  }
+                />
+              </th>
+
               <th className="collection-title-column">
                 {titleField?.name ?? 'Name'}
                 <span className="collection-column-fixed" title="Every entry has a title">
@@ -766,7 +894,30 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             }}
           >
             {data.rows.map((row) => (
-              <tr key={row.id} data-row={row.id}>
+              <tr
+                key={row.id}
+                data-row={row.id}
+                data-selected={selected.has(row.id) ? 'true' : undefined}
+              >
+                <td className="collection-select-column">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(row.id)}
+                    aria-label={`Select ${row.title || 'this entry'}`}
+                    onChange={(event) =>
+                      setSelected((current) => {
+                        // A new set each time rather than a mutation: React
+                        // compares by identity, and mutating this one would
+                        // change the count without redrawing the row.
+                        const next = new Set(current);
+                        if (event.target.checked) next.add(row.id);
+                        else next.delete(row.id);
+                        return next;
+                      })
+                    }
+                  />
+                </td>
+
                 <td className="collection-title-column" data-column="0">
                   {/* The name, edited here (ADR-0034).
                     *
@@ -808,7 +959,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
 
             {data.rows.length === 0 && (
               <tr>
-                <td colSpan={columns.length + 2} className="muted">
+                <td colSpan={columns.length + 3} className="muted">
                   No entries yet.
                 </td>
               </tr>

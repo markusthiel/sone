@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Entries in a table can be selected** ([ADR-0040](docs/adr/0040-row-selection.md)),
+with a checkbox per row and one in the heading for everything the view is showing.
+A selection can be **copied** — as the same tab-separated grid a paste reads, so
+copy-and-paste duplicates entries anywhere — **exported as a CSV file** of exactly
+the rows on screen, or **moved to the trash**, where they can be brought back.
+Selecting works without edit rights, since reading a table is when a copy is most
+wanted.
+
 **A table in the text can be made wide or full page**, like an image, and scrolls
 sideways when it is wider than the room it has. **Its cells also read a step
 smaller** than the prose around them — at the body size a narrow column wrapped

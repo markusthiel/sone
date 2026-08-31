@@ -34,6 +34,12 @@ const MESSAGES: Record<string, string> = {
   clipboard_unavailable:
     'Could not copy automatically. Select the link and copy it by hand.',
   file_too_large: 'That file is too large.',
+  // The browser refused the clipboard, which it does without a secure context or
+  // a gesture it recognises. Named, because nothing else on screen would have
+  // changed and silence would read as the copy having worked (ADR-0040).
+  clipboard_refused:
+    'This browser would not let the page write to the clipboard. Selecting the ' +
+    'rows and pressing copy does the same thing.',
   proxy_rejected_size:
     'The web server in front of SONE refused the file for being too large. ' +
     'Its upload limit is separate from SONE’s — with nginx it is ' +

@@ -1266,5 +1266,87 @@ describe(
       );
       assert.equal(body.error, 'too_many_files');
     });
+
+    // --- archiving a selection (ADR-0040) -----------------------------------
+
+    test('named rows go to the trash, and the rest stay', async () => {
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const keep = await addRow(session, collection, 'Keep');
+      const goA = await addRow(session, collection, 'Go A');
+      const goB = await addRow(session, collection, 'Go B');
+
+      const res = await fetch(`${base}/api/collections/${collection}/rows/archive`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ rowIds: [goA, goB] }),
+      });
+      const body = await expectJson<{ archived: string[] }>(res, 200);
+      assert.deepEqual(body.archived.sort(), [goA, goB].sort());
+
+      const left = await read(session, collection);
+      assert.deepEqual(
+        left.rows.map((row) => row.id),
+        [keep],
+      );
+
+      // Archived, not deleted: a row is a page, so it is in the trash.
+      const archived = await db.query<{ archived_at: string | null }>(
+        `SELECT archived_at FROM pages WHERE id = ANY($1::uuid[])`,
+        [[goA, goB]],
+      );
+      for (const row of archived.rows) assert.notEqual(row.archived_at, null);
+    });
+
+    test('an id from another table archives nothing', async () => {
+      // Bounded in the statement rather than checked first, so an id from
+      // elsewhere simply matches no row.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const mine = await addRow(session, collection, 'Mine');
+
+      const other = await create(session, 'Other', 'page', session.rootFolder);
+      const otherCollection = await collectionOn(session, other);
+      const theirs = await addRow(session, otherCollection, 'Theirs');
+
+      const body = await expectJson<{ archived: string[] }>(
+        await fetch(`${base}/api/collections/${collection}/rows/archive`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ rowIds: [theirs] }),
+        }),
+        200,
+      );
+      assert.deepEqual(body.archived, []);
+
+      const still = await read(session, otherCollection);
+      assert.deepEqual(
+        still.rows.map((row) => row.id),
+        [theirs],
+      );
+      assert.equal((await read(session, collection)).rows[0]?.id, mine);
+    });
+
+    test('an empty list is refused rather than treated as "all"', async () => {
+      // The route that empties a table takes no ids at all; this one must not
+      // become a second way to reach it by accident.
+      const session = await setup();
+      const page = await create(session, 'People', 'page', session.rootFolder);
+      const collection = await collectionOn(session, page);
+      const row = await addRow(session, collection, 'Still here');
+
+      const body = await expectJson<{ error: string }>(
+        await fetch(`${base}/api/collections/${collection}/rows/archive`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ rowIds: [] }),
+        }),
+        422,
+      );
+      assert.equal(body.error, 'rows_required');
+      assert.equal((await read(session, collection)).rows[0]?.id, row);
+    });
   },
 );
