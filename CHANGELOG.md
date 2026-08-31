@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the menu for adding a column to a table was cut off.** It opened inside
+the table's own scroll area, which clips, so the column types below the fold could
+neither be read nor chosen.
+
 **Invitations you have sent can be seen and withdrawn.** Both invitation forms
 produced a link and then forgot it, so one sent to the wrong address stayed valid
 until it expired and nothing said it existed. The list sits under the form it

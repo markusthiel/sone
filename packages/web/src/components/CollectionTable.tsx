@@ -89,7 +89,17 @@ const SAVE_DELAY_MS = 600;
 export function CollectionTable({ collectionId }: CollectionTableProps): ReactElement {
   const [data, setData] = useState<CollectionData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [addingColumn, setAddingColumn] = useState(false);
+  /**
+   * Where the column-type menu is, or null when it is closed.
+   *
+   * A position rather than a boolean, because the menu is positioned against the
+   * viewport: it used to be absolute inside the table's scroll container, which
+   * clips — `overflow-x: auto` clips both axes — so the list of column types was
+   * cut off at the edge of the table and the types below the fold could not be
+   * read or chosen. Anchored to the button's rectangle instead, and rendered
+   * outside the scroller.
+   */
+  const [addingColumn, setAddingColumn] = useState<{ x: number; y: number } | null>(null);
   // Which view is showing. Local rather than stored: which view somebody is
   // looking at is not a property of the collection, and persisting it would
   // change what a colleague sees.
@@ -176,7 +186,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   );
 
   const addColumn = async (fieldType: string): Promise<void> => {
-    setAddingColumn(false);
+    setAddingColumn(null);
     try {
       await api.addCollectionField(collectionId, { name: 'Untitled', fieldType });
       await load();
@@ -372,24 +382,21 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                     type="button"
                     className="collection-add"
                     aria-label="Add a column"
-                    onClick={() => setAddingColumn((open) => !open)}
+                    aria-expanded={addingColumn !== null}
+                    onClick={(event) => {
+                      if (addingColumn) {
+                        setAddingColumn(null);
+                        return;
+                      }
+                      // Measured from the button, because the menu is drawn
+                      // against the viewport rather than inside the scroller
+                      // that would clip it.
+                      const box = event.currentTarget.getBoundingClientRect();
+                      setAddingColumn({ x: box.left, y: box.bottom + 4 });
+                    }}
                   >
                     <PlusIcon />
                   </button>
-                  {addingColumn && (
-                    <div className="collection-type-menu" role="menu">
-                      {ADDABLE.map((entry) => (
-                        <button
-                          key={entry.type}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => void addColumn(entry.type)}
-                        >
-                          {entry.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </th>
               )}
             </tr>
@@ -428,6 +435,38 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
           </tbody>
         </table>
       </div>
+
+      {/* Outside the scroller, and positioned against the viewport.
+        *
+        * Inside it the menu was clipped: `overflow-x: auto` clips both axes, so
+        * the list of column types was cut off at the table's edge and the types
+        * below the fold could neither be read nor chosen. Its own place in the
+        * markup is therefore after the table rather than inside the header cell
+        * it belongs to.
+        *
+        * Clamped so it cannot open off the right edge of the window, which is
+        * the same failure in a different direction. */}
+      {addingColumn && (
+        <div
+          className="collection-type-menu"
+          role="menu"
+          style={{
+            left: Math.min(addingColumn.x, Math.max(8, window.innerWidth - 180)),
+            top: addingColumn.y,
+          }}
+        >
+          {ADDABLE.map((entry) => (
+            <button
+              key={entry.type}
+              type="button"
+              role="menuitem"
+              onClick={() => void addColumn(entry.type)}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {data.canEdit && (
         <button

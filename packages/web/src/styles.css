@@ -3345,15 +3345,18 @@ select {
 .collection-add-column { position: relative; inline-size: var(--sone-tap); }
 
 .collection-type-menu {
-  position: absolute;
-  z-index: 20;
-  /* Opens towards the empty space beside the table, not back across it.
+  /* Fixed, and placed from the button's rectangle by the component.
    *
-   * With `inset-inline-end: 0` it grew leftward over the rows — covering the
-   * data while you choose what kind of column to add to it. Rightward is where
-   * the new column is about to appear, so the menu points at its own result. */
-  inset-inline-start: 0;
-  inset-block-start: 100%;
+   * It was absolute inside the table's scroll container, which clips: a
+   * container with `overflow-x: auto` clips the other axis too, so the menu was
+   * cut off at the edge of the table and the column types below the fold could
+   * neither be read nor chosen. That is the report.
+   *
+   * The earlier note here — that it should open rightward, towards where the new
+   * column will appear, rather than back across the rows — still holds and is
+   * now the component's clamp: leftward only when the window has no room. */
+  position: fixed;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   padding: var(--sone-space-1);
@@ -3375,15 +3378,9 @@ select {
 }
 .collection-type-menu button:hover { background: var(--sone-bg-hover); }
 
-/* On a narrow screen there is no space to the right to open into, so it goes
-   back to hanging leftward — over the table, which is worse than off the edge
-   of the screen only when there is somewhere else to go. */
-@media (max-width: 720px) {
-  .collection-type-menu {
-    inset-inline-start: auto;
-    inset-inline-end: 0;
-  }
-}
+/* The narrow-screen rule that used to hang it leftward is gone: the position is
+   computed and clamped now, so there is no breakpoint at which the menu has to
+   choose between the table and the edge of the window. */
 
 .collection-add-row {
   align-self: flex-start;
