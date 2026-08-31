@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Your profile and your password are two settings sections** rather than one long
+one. Signing in is where single sign-on and a second factor will go.
+
 **Workspaces can be reordered from the keyboard**: `⌥↑` and `⌥↓` on a row in the
 switcher. Dragging was the only way before, which left anybody not using a pointer
 with no way at all.

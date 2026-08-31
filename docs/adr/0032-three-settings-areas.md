@@ -104,23 +104,25 @@ that drift apart; that is the same mistake as three ways of ordering a list.
 ### Deviations from this decision as first built
 
 Written down rather than quietly skipped, because the list above is what the next
-person will read as the plan.
+person will read as the plan. Two of the three have since been closed, and say so
+here rather than in a commit message nobody will look for.
 
 **Trash stays its own route.** It is listed above under the workspace, and it is
 a place you go rather than a setting you change — it already has `/trash` and an
 entry in the account menu, and moving it into a settings list would make it
 harder to reach for no gain.
 
-**Profile is one section, not two.** The account panel holds the picture, the
-name and the password together, and splitting it into "Profile" and "Password and
-sign-in" is a change to that panel rather than to the areas. It belongs to the
-detail work that follows.
+**Profile was one section, not two,** and is now two — "Profile" and "Signing
+in". The deviation was that splitting the account panel is a change to that panel
+rather than to the areas; it has since been made. Signing in is where single
+sign-on and a second factor would go, which is the argument for it having a place
+of its own rather than being the foot of somebody's name and picture.
 
-**Member roles are still administered from All workspaces.** The workspace area's
-people section offers inviting; changing somebody's role and removing somebody
-live in the administration list, as they did before. That is the same as today
-rather than a regression, and it is the obvious next step: a workspace owner
-should not need the instance-wide right to manage their own members.
+**Member roles were still administered from All workspaces,** and are not any
+more: the same table is used from both places, read-only for a member who may not
+change it. The server had always allowed a workspace's own owners and
+administrators — only the interface required the instance-wide right, because the
+table lived inside the administration screen.
 
 ## Consequences
 

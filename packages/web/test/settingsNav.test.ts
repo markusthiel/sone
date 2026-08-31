@@ -26,6 +26,23 @@ test('three areas, and each names whose settings it holds', () => {
   assert.match(instance, /area="The instance"/);
 });
 
+test('the profile and signing in are two sections', () => {
+  // They were one, which is the last deviation ADR-0032 recorded. Different jobs
+  // done at different times: a name is changed once, a password when something
+  // has happened — and offering a current-password field to somebody editing
+  // their display name reads as being asked to authenticate for no reason.
+  assert.match(you, /id: 'profile', label: 'Profile'/);
+  assert.match(you, /id: 'sign-in', label: 'Signing in'/);
+  assert.match(you, /current === 'sign-in' && <SignIn \/>/);
+
+  // Two components, so neither carries the other's state. The password form
+  // holding a display name in scope is how a rename ends up in a password
+  // request.
+  assert.match(you, /function Profile\(\{/);
+  assert.match(you, /function SignIn\(\): ReactElement \{/);
+  assert.doesNotMatch(you, /function Account\(\{/);
+});
+
 test('the boundary is whose it is, not who may change it', () => {
   // The two cases that look like exceptions. "Where you land" is about a
   // workspace and belongs to you, because two members have different answers.
