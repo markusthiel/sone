@@ -366,9 +366,21 @@ export async function revokeInvitation(
   );
 }
 
+/**
+ * Outstanding invitations, for one workspace or for the instance.
+ *
+ * A null workspace means the invitations that name no workspace — an account and
+ * a workspace of their own (ADR-0025). Same shape and one query, because two
+ * functions differing by one `IS NULL` is two places to forget the revoked and
+ * expired conditions.
+ *
+ * Revoked and expired ones are left out: this is a list of what somebody can
+ * still act on, and a withdrawn invitation shown greyed out is a row that invites
+ * the question of whether it still works.
+ */
 export async function listInvitations(
   db: Pool | PoolClient,
-  workspaceId: string,
+  workspaceId: string | null,
 ): Promise<Array<{ id: string; email: string | null; role: WorkspaceRole; uses: number; maxUses: number; expiresAt: Date }>> {
   const rows = await queryRows<{
     id: string;
@@ -381,7 +393,8 @@ export async function listInvitations(
     db,
     `SELECT id, email, role, uses, max_uses, expires_at
        FROM invitations
-      WHERE workspace_id = $1 AND revoked_at IS NULL AND expires_at > now()
+      WHERE workspace_id IS NOT DISTINCT FROM $1
+        AND revoked_at IS NULL AND expires_at > now()
       ORDER BY created_at DESC`,
     [workspaceId],
   );

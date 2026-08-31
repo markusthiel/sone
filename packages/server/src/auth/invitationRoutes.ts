@@ -157,6 +157,31 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
   });
 
   /**
+   * Outstanding invitations to the instance.
+   *
+   * The counterpart of the workspace listing above, and the reason it exists: an
+   * invitation that cannot be seen cannot be withdrawn, so a link sent to the
+   * wrong address stayed valid for as long as it lived and nobody could tell.
+   */
+  router.get('/api/admin/invitations', async (ctx) => {
+    const user = await requireSession(deps.pool, ctx);
+    if (!user) return;
+
+    const admin = await queryOne<{ is_instance_admin: boolean }>(
+      deps.pool,
+      `SELECT is_instance_admin FROM users WHERE id = $1`,
+      [user.userId],
+    );
+    if (admin?.is_instance_admin !== true) {
+      ctx.fail(403, 'forbidden');
+      return;
+    }
+
+    // Null: the invitations that name no workspace.
+    ctx.send(200, { invitations: await listInvitations(deps.pool, null) });
+  });
+
+  /**
    * Invite somebody to the instance and nowhere else.
    *
    * The thing that could not be expressed before: an account, and their own
