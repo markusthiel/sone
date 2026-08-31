@@ -213,6 +213,10 @@ async function main(): Promise<void> {
     instanceName: 'SONE',
     allowWorkspaceCreation: true,
     defaultLocale: 'en',
+    // "du" unless an instance says otherwise: it is what the interface said
+    // before the setting existed, and a running instance should not change its
+    // tone because it was upgraded.
+    addressForm: 'informal',
   });
 
   registerInvitationRoutes(router, { pool });
@@ -232,6 +236,7 @@ async function main(): Promise<void> {
     // Read per request, not captured at startup: an administrator who changes
     // this in the interface expects the next registration attempt to obey it.
     signupMode: () => settings.get('signupMode'),
+    addressForm: () => settings.get('addressForm'),
     // Secure cookies only over https, or the browser drops them on a plain
     // http development instance and login silently fails.
     secureCookies: config.publicUrl.startsWith('https://'),

@@ -5,16 +5,22 @@
  * a compile error. The comments in this file are German because whoever edits it
  * is translating; every other file in this codebase is commented in English.
  *
- * Anrede: „du". Eine selbst gehostete Anwendung für kleine Gruppen wird von
- * Leuten benutzt, die sich kennen — und „Sie" in einer Notizanwendung klingt wie
- * ein Amt.
+ * Anrede: „du" oder „Sie", eingestellt von dem, der die Instanz betreibt. Im
+ * Katalog ein `select` auf `address`, das jeder Meldung automatisch mitgegeben
+ * wird — also nur dort ein Zweig, wo die Anrede überhaupt vorkommt. Ein zweiter
+ * deutscher Katalog wäre jeder String doppelt, und zwei Kataloge driften.
+ *
+ * Wer hier übersetzt: die Zweige heißen `formal` und `other`. `other` ist das Du,
+ * weil es der Standard ist; eine Sprache ohne Anredeunterschied braucht gar
+ * keinen Zweig.
  */
 
 import type { en } from './messages.en.ts';
 
 export const de: Record<keyof typeof en, string> = {
   'account.label': '{name} — Konto und Einstellungen',
-  'account.yourSettings': 'Deine Einstellungen',
+  'account.yourSettings':
+    '{address, select, formal {Ihre Einstellungen} other {Deine Einstellungen}}',
   'account.thisWorkspace': 'Dieser Workspace',
   'account.administration': 'Verwaltung',
   'account.trash': 'Papierkorb',
@@ -24,8 +30,9 @@ export const de: Record<keyof typeof en, string> = {
   'move.workspace.title': 'In einen anderen Workspace verschieben',
   'move.workspace.label': '{title} in einen anderen Workspace verschieben',
   'move.workspace.nowhere':
-    'Es gibt keinen Ort dafür. Ein Eintrag kann nur in einen Workspace, den du besitzt ' +
-    'oder verwaltest.',
+    'Es gibt keinen Ort dafür. Ein Eintrag kann nur in einen Workspace, ' +
+    '{address, select, formal {den Sie besitzen oder verwalten} ' +
+    'other {den du besitzt oder verwaltest}}.',
   'move.workspace.working': 'Wird ermittelt, was dieser Umzug bewegt…',
   'move.workspace.intro': '{title} nach {workspace} verschieben:',
   'move.workspace.again':

@@ -136,6 +136,11 @@ export function App(): ReactElement {
         state.session.user.locale,
         state.session.workspaces.find((w) => w.id === state.workspaceId)?.default_locale,
       )}
+      // "du" or "Sie", chosen by whoever runs the instance rather than per
+      // person: it is the tone of their house, and two members of one workspace
+      // reading different forms of address in the same sentence would be
+      // stranger than either choice.
+      address={state.instance.addressForm ?? 'informal'}
     >
       <Workspace
         workspaceId={state.workspaceId}

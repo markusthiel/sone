@@ -101,6 +101,44 @@ test('a plural in English is a plural in German', () => {
   }
 });
 
+// --- the form of address (ADR-0041) --------------------------------------
+
+test('a German message branches on the form of address where it needs to', () => {
+  // "du" or "Sie", chosen by the instance. A `select` inside the message rather
+  // than a second German catalogue, which would be every string twice and would
+  // drift.
+  const settings = de['account.yourSettings'];
+  assert.equal(formatMessage(settings, { address: 'informal' }, 'de'), 'Deine Einstellungen');
+  assert.equal(formatMessage(settings, { address: 'formal' }, 'de'), 'Ihre Einstellungen');
+});
+
+test('no German message addresses somebody without a branch', () => {
+  // The failure this catches: a translator writes "du" into a new message, an
+  // instance is set to "Sie", and one sentence in five is suddenly familiar.
+  // Words are matched whole, so "Dateien" is not a "die"-form and "Sie" inside a
+  // formal branch is exactly where it belongs.
+  const familiar = /\b(du|dich|dir|dein|deine|deiner|deinen|deinem|deines)\b/i;
+  for (const [key, message] of Object.entries(de)) {
+    if (!familiar.test(message)) continue;
+    assert.match(
+      message,
+      /\{address, select,/,
+      `${key} uses a familiar form without branching on the form of address`,
+    );
+  }
+});
+
+test('the informal branch is the default one', () => {
+  // `other` rather than `informal`, so a language with no such distinction needs
+  // no branch at all and a message with a branch still renders when nothing is
+  // passed.
+  for (const message of Object.values(de)) {
+    if (!message.includes('{address, select,')) continue;
+    assert.match(message, /other \{/);
+    assert.notEqual(formatMessage(message, {}, 'de'), '');
+  }
+});
+
 // --- resolving the locale -------------------------------------------------
 
 test('the person comes before the workspace, and the browser last', () => {

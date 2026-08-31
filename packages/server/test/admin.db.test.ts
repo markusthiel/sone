@@ -43,6 +43,7 @@ describe(
         instanceName: 'SONE',
         allowWorkspaceCreation: true,
         defaultLocale: 'en',
+      addressForm: 'informal' as const,
       });
 
       const router = new Router();

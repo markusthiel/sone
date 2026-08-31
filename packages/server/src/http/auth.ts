@@ -48,6 +48,18 @@ export interface AuthDeps {
    * because it is believed.
    */
   signupMode: () => Promise<SignupMode>;
+  /**
+   * How the interface addresses somebody, where a language distinguishes it.
+   *
+   * A function for the same reason `signupMode` is: an administrator changing it
+   * must see it take effect without a redeploy, and a switch that does nothing is
+   * worse than no switch because it is believed.
+   *
+   * Optional so the test harnesses that build a router by hand need not know
+   * about it; absent means "du", which is what the interface said before the
+   * setting existed.
+   */
+  addressForm?: () => Promise<'informal' | 'formal'>;
   /** True when the public URL is https, so the cookie can be marked Secure. */
   secureCookies: boolean;
 }
@@ -248,6 +260,9 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       needsSetup: Number(row?.n ?? 0) === 0,
       signupMode: await deps.signupMode(),
       suggestedLocale: negotiateLocale(ctx.req.headers['accept-language']),
+      // Sent with the instance rather than with the session, because the sign-in
+      // screen is addressed too and there is nobody to ask yet.
+      addressForm: (await deps.addressForm?.()) ?? 'informal',
     });
   });
 

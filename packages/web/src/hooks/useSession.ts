@@ -16,7 +16,13 @@ export type SessionState =
   /** No instance yet; first-run setup is required. */
   | { status: 'needsSetup'; instance: InstanceInfo }
   | { status: 'anonymous'; instance: InstanceInfo }
-  | { status: 'authenticated'; session: SessionInfo; workspaceId: string }
+  | {
+      status: 'authenticated';
+      session: SessionInfo;
+      workspaceId: string;
+      /** The instance's own settings, which the interface is addressed by. */
+      instance: InstanceInfo;
+    }
   | { status: 'error'; code: string };
 
 const LAST_WORKSPACE_KEY = 'sone.lastWorkspace';
@@ -53,7 +59,7 @@ export function useSession(): {
           setState({ status: 'error', code: 'no_workspace' });
           return;
         }
-        setState({ status: 'authenticated', session, workspaceId });
+        setState({ status: 'authenticated', session, workspaceId, instance });
       } catch (err) {
         if (err instanceof ApiError && err.isAuthError) {
           setState({ status: 'anonymous', instance });

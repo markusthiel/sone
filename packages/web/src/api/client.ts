@@ -85,6 +85,8 @@ export interface InstanceInfo {
   needsSetup: boolean;
   signupMode: 'open' | 'invite' | 'closed';
   suggestedLocale: string;
+  /** "du" or "Sie", where a language distinguishes it (ADR-0041). */
+  addressForm?: 'informal' | 'formal';
 }
 
 /** How a workspace is recognised in a list (ADR-0030). */
@@ -163,6 +165,8 @@ export interface InstanceSettings {
   instanceName: string;
   allowWorkspaceCreation: boolean;
   defaultLocale: string;
+  /** "du" or "Sie", where a language distinguishes it (ADR-0041). */
+  addressForm: 'informal' | 'formal';
 }
 
 export interface AdminUser {
