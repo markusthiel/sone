@@ -257,6 +257,89 @@ export function TagIcon(props: IconProps): ReactElement {
   );
 }
 
+/* --- the right panel's tabs (ADR-0016: a control that matters is drawn, not
+   hidden behind hover) ---
+ *
+ * Seven tabs of text did not fit a 300px column; seven icons do, with the name
+ * on each as its title and its accessible label. Same construction as the rest —
+ * a 24×24 box, 1.5 stroke, no fills — because a set stops looking like a set the
+ * moment one member is drawn differently.
+ */
+
+/** A ticked box, for the tasks in a document. */
+export function CheckSquareIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="2.5" />
+      <path d="m8 12.2 2.8 2.8L16.5 9.3" />
+    </svg>
+  );
+}
+
+/** Two figures, for who has written here. */
+export function UsersIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19.5c0-3 2.5-4.8 5.5-4.8s5.5 1.8 5.5 4.8" />
+      <path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 15.2c2 .6 3 2.2 3 4.3" />
+    </svg>
+  );
+}
+
+/** Sliders, for a page's properties. */
+export function SlidersIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+      <circle cx="9" cy="7" r="1.8" />
+      <circle cx="15" cy="12" r="1.8" />
+      <circle cx="8" cy="17" r="1.8" />
+    </svg>
+  );
+}
+
+/** A paperclip, for the files attached in a document. */
+export function PaperclipIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M18.5 11.5 12 18a4 4 0 0 1-5.7-5.7l7.2-7.2a2.8 2.8 0 0 1 4 4l-7.2 7.2a1.6 1.6 0 0 1-2.2-2.2l6.4-6.4" />
+    </svg>
+  );
+}
+
+/** A framed picture, for the images in a document. */
+export function ImageIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <circle cx="9" cy="9.5" r="1.6" />
+      <path d="m4.5 17 4.2-4.2 3.3 3.3 2.6-2.6 4.9 4.4" />
+    </svg>
+  );
+}
+
+/** Two joined rings, for the links in a document. */
+export function LinkIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M10.5 13.5a3.5 3.5 0 0 1 0-5l2.5-2.5a3.5 3.5 0 0 1 5 5L16 13" />
+      <path d="M13.5 10.5a3.5 3.5 0 0 1 0 5L11 18a3.5 3.5 0 0 1-5-5L8 11" />
+    </svg>
+  );
+}
+
+/** An arrow out of a box, for a destination that is not in this document. */
+export function ExternalIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M14 4.5h5.5V10" />
+      <path d="M19.5 4.5 11 13" />
+      <path d="M18 14.5v4A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6h4" />
+    </svg>
+  );
+}
+
 /**
  * Icons an entry may be given.
  *
