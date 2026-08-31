@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The account menu has a mark beside every entry.** The three settings areas carry
+the same symbols there as in the switcher at the top of a settings column.
+
 **Whether the interface says "du" or "Sie" is an instance setting**, under
 Administration → Settings. It applies to German and any other language that
 distinguishes the two; English is unaffected. New instances say "du".

@@ -5391,6 +5391,9 @@ body {
 .sidebar-account-menu button {
   display: flex;
   align-items: center;
+  /* A mark, then the name. The gap is the same as the entry menu's, so the two
+     popups read as the same kind of thing. */
+  gap: var(--sone-space-4);
   inline-size: 100%;
   min-block-size: var(--sone-control-lg);
   padding-inline: var(--sone-space-4);
@@ -5403,6 +5406,17 @@ body {
   text-decoration: none;
   text-align: start;
 }
+.sidebar-account-menu svg {
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+  color: var(--sone-text-muted);
+}
+/* The mark takes the row's colour on hover, so the row reads as one thing
+   rather than as an icon beside a link. */
+.sidebar-account-menu a:hover svg,
+.sidebar-account-menu button:hover svg { color: var(--sone-text); }
+
 .sidebar-account-menu a:hover,
 .sidebar-account-menu button:hover { background: var(--surface-hover); }
 .sidebar-account-menu button {

@@ -16,9 +16,9 @@ import { paths } from '../routes/paths.ts';
 import { AccountMenu } from './AccountMenu.tsx';
 import {
   ChevronRightIcon,
+  PersonIcon,
   SettingsIcon,
   SlidersIcon,
-  UsersIcon,
 } from './icons.tsx';
 
 export interface ShellSection {
@@ -35,7 +35,9 @@ export interface ShellSection {
  * these are, not who may change them.
  */
 const AREAS = [
-  { id: 'settings', label: 'Your settings', href: () => paths.settings(), Icon: UsersIcon },
+  // The same marks the account menu uses for these three, deliberately: one
+  // subject, one symbol, or somebody learns two of them for the same thing.
+  { id: 'settings', label: 'Your settings', href: () => paths.settings(), Icon: PersonIcon },
   {
     id: 'workspace',
     label: 'This workspace',
