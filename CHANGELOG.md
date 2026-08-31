@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A workspace can have an icon and colours of its own**, in the same vocabulary
+as an entry ([ADR-0030](docs/adr/0030-workspace-appearance.md)). The switcher is
+one line per workspace: a mark, a name, and the number of people only where there
+is more than one.
+
 **Settings work on a phone.** The list and the section are two views rather than
 one stacked on the other, so a section gets the whole screen instead of scrolling
 in whatever the menu left over.

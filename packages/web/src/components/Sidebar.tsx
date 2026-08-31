@@ -29,6 +29,7 @@ import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
 import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
+import type { WorkspaceIcon } from '../api/client.ts';
 import {
   ChevronRightIcon,
   FolderIcon,
@@ -75,6 +76,8 @@ interface SidebarProps {
   onReloadTree: () => void;
   /** Whether to offer the way into the workspace administration. */
   canManageWorkspaces: boolean;
+  /** The mark for the workspace you are in (ADR-0030). */
+  currentIcon: WorkspaceIcon | null;
   onLogout: () => void;
   /** For the account entry at the foot of the sidebar. */
   displayName: string;
@@ -117,6 +120,7 @@ export function Sidebar({
   onToggleFavourite,
   onReloadTree,
   canManageWorkspaces,
+  currentIcon,
   onLogout,
   displayName,
   userId,
@@ -204,6 +208,7 @@ export function Sidebar({
         <div className="sidebar-head">
           <WorkspaceMenu
           canManageWorkspaces={canManageWorkspaces}
+          currentIcon={currentIcon}
             currentId={workspaceId}
             currentName={workspaceName}
             onSwitch={onSwitchWorkspace}

@@ -16,10 +16,14 @@ import { ApiError, api, type WorkspaceSummary } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import { ChevronRightIcon, FolderPlusIcon, PlusIcon } from './icons.tsx';
+import type { WorkspaceIcon } from '../api/client.ts';
+import { WorkspaceMark } from './WorkspaceMark.tsx';
 
 interface WorkspaceMenuProps {
   currentId: string;
   currentName: string;
+  /** The mark for the workspace you are in (ADR-0030). */
+  currentIcon: WorkspaceIcon | null;
   /** Whether to offer the way into the workspace administration (ADR-0027). */
   canManageWorkspaces: boolean;
   onSwitch: (workspaceId: string) => void;
@@ -29,6 +33,7 @@ interface WorkspaceMenuProps {
 export function WorkspaceMenu({
   currentId,
   currentName,
+  currentIcon,
   canManageWorkspaces,
   onSwitch,
   onCreated,
@@ -109,6 +114,7 @@ export function WorkspaceMenu({
         onClick={() => setOpen((previous) => !previous)}
         title={currentName}
       >
+        <WorkspaceMark name={currentName} icon={currentIcon} />
         <span className="workspace-name">{currentName}</span>
         <ChevronRightIcon className="workspace-caret" />
       </button>
@@ -130,13 +136,21 @@ export function WorkspaceMenu({
                 if (workspace.id !== currentId) onSwitch(workspace.id);
               }}
             >
-              <span className="workspace-item-name">{workspace.name}</span>
-              <span className="workspace-item-meta">
-                {/* Counts rather than a role badge: "how much is in here" is
-                    what tells two workspaces apart at a glance. */}
-                {workspace.pageCount} {workspace.pageCount === 1 ? 'item' : 'items'}
-                {workspace.memberCount > 1 ? ` · ${workspace.memberCount} people` : ''}
-              </span>
+              {/* A mark and a name, on one line.
+                *
+                * The count went: how many pages a workspace holds is not how
+                * anybody recognises it, and it was the reason every row needed
+                * two lines. What tells them apart is the mark (ADR-0030). */}
+              <WorkspaceMark
+                name={workspace.name}
+                icon={workspace.icon ?? null}
+              />
+              <span className="workspace-item-name">{workspace.name || 'Untitled'}</span>
+              {workspace.memberCount > 1 && (
+                <span className="workspace-item-meta">
+                  {workspace.memberCount} people
+                </span>
+              )}
             </button>
           ))}
 

@@ -87,6 +87,13 @@ export interface InstanceInfo {
   suggestedLocale: string;
 }
 
+/** How a workspace is recognised in a list (ADR-0030). */
+export interface WorkspaceIcon {
+  icon?: string;
+  iconColor?: string;
+  titleColor?: string;
+}
+
 export interface SessionInfo {
   user: {
     id: string;
@@ -104,6 +111,8 @@ export interface SessionInfo {
     name: string;
     role: string;
     default_locale: string;
+    /** Null until somebody chooses one (ADR-0030). */
+    icon: WorkspaceIcon | null;
   }>;
 }
 
@@ -305,6 +314,8 @@ export interface WorkspaceSummary {
   defaultLocale: string;
   pageCount: number;
   memberCount: number;
+  /** Null until somebody chooses one (ADR-0030). */
+  icon: WorkspaceIcon | null;
 }
 
 export interface WorkspaceMember {

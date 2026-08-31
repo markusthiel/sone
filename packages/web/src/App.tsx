@@ -311,6 +311,9 @@ function Workspace({
     >
       <Sidebar
         canManageWorkspaces={session.user.canManageWorkspaces}
+        currentIcon={
+          session.workspaces.find((w) => w.id === workspaceId)?.icon ?? null
+        }
         displayName={session.user.displayName}
         userId={session.user.id}
         workspaceId={workspaceId}
