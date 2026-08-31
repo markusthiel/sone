@@ -176,7 +176,18 @@ export function usePointerDrag<T>(options: PointerDragOptions<T>): PointerDrag<T
       const element = event.currentTarget as HTMLElement;
       const id = optionsRef.current.idFrom(element);
       if (id === null) return;
-      if ((event.target as HTMLElement).closest('button, input, select, textarea')) return;
+      // Controls *inside* a draggable element keep their own behaviour — the
+      // rename and menu buttons on a tree row must not start a drag.
+      //
+      // Compared against the element itself, because a draggable row may be a
+      // control: the workspace switcher's rows are buttons that switch
+      // workspaces (ADR-0031), and a blanket check declined every drag there
+      // while looking like the gesture was simply not working. The rule is
+      // "something else inside it", not "a button is involved".
+      const control = (event.target as HTMLElement).closest(
+        'button, input, select, textarea',
+      );
+      if (control !== null && control !== element) return;
 
       // Capture is taken when the drag *begins*, not here.
       //

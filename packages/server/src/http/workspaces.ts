@@ -16,6 +16,7 @@ import { sanitiseTheme } from '@sone/core';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { createDefaultFolder } from '../pages/createEntry.js';
 import { requireSession } from './auth.js';
+import { WORKSPACE_ORDER_SQL, placeWorkspace } from '../workspaces/order.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
 import { administratorRights } from '../admin/rights.js';
 
@@ -73,9 +74,15 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
          FROM workspace_members m
          JOIN workspaces w ON w.id = m.workspace_id
         WHERE m.user_id = $1
-        -- ICU collation for a user-visible sort: the database itself is C so
-        -- that fractional indices compare byte-wise (ADR-0011).
-        ORDER BY w.name COLLATE "und-x-icu"`,
+          -- The same exclusion the session endpoint has always made: a
+          -- workspace marked for deletion stops appearing to its members
+          -- (ADR-0027). It was missing here, so the switcher offered somewhere
+          -- to write that the rest of the interface had already taken away.
+          AND w.deleted_at IS NULL
+        -- The person's own order (ADR-0031), from the one clause both listings
+        -- read — this and /api/auth/session must agree, because the first entry
+        -- is where a browser with nothing remembered opens.
+        ${WORKSPACE_ORDER_SQL}`,
       [auth.userId],
     );
 
@@ -91,6 +98,48 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
         icon: row.icon ?? null,
       })),
     });
+  });
+
+  /**
+   * Reorder the caller's own switcher (ADR-0031).
+   *
+   * No permission check beyond having a session, and that is the point: this
+   * writes the caller's own membership rows and says nothing about the
+   * workspaces themselves. A viewer of a workspace may still arrange their own
+   * list, because the list is not part of any workspace.
+   *
+   * `afterWorkspaceId: null` means first. Absent is refused rather than read as
+   * "last": every caller is a drag that landed somewhere, so a missing field is
+   * a client bug, and answering it with a guess would hide it.
+   */
+  router.post('/api/workspaces/reorder', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    const body = await readBody<{
+      workspaceId?: string;
+      afterWorkspaceId?: string | null;
+    }>(ctx);
+    if (!body) return;
+
+    const workspaceId = body.workspaceId ?? '';
+    if (!workspaceId || !('afterWorkspaceId' in body)) {
+      ctx.fail(422, 'missing_fields');
+      return;
+    }
+
+    const result = await placeWorkspace(
+      deps.pool,
+      auth.userId,
+      workspaceId,
+      body.afterWorkspaceId ?? null,
+    );
+    if (!result.ok) {
+      ctx.fail(result.status, result.code);
+      return;
+    }
+
+    ctx.send(200, { workspaceId, idx: result.idx });
   });
 
   /**

@@ -29,6 +29,7 @@ import {
 import { queryOne, queryRows } from '../db/pool.js';
 import { createDefaultFolder } from '../pages/createEntry.js';
 import { negotiateLocale } from '../i18n/locale.js';
+import { WORKSPACE_ORDER_SQL } from '../workspaces/order.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
 
 export const SESSION_COOKIE = 'sone_session';
@@ -401,7 +402,11 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
           -- (ADR-0027). It is not gone, and somebody with the right can put it
           -- back; what it must not do is keep looking like somewhere to write.
           AND w.deleted_at IS NULL
-        ORDER BY w.name COLLATE "und-x-icu"`,
+        -- The person's own order (ADR-0031). The same clause /api/workspaces
+        -- uses, because the client opens the first entry when no workspace is
+        -- remembered: two sorts here would mean the switcher's first row and
+        -- the workspace you land in are different ones.
+        ${WORKSPACE_ORDER_SQL}`,
       [auth.userId],
     );
 

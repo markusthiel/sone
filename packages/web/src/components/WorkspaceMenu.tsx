@@ -8,11 +8,16 @@
  * connection and rebuilds it. That is handled by keying the client on the
  * workspace id rather than by anything here — this component only reports the
  * choice.
+ *
+ * The order of the list is the person's own and is dragged here (ADR-0031). It
+ * is not a property of any workspace: two members of the same workspace have
+ * different lists, so it lives on the membership row rather than in a document.
  */
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceSummary } from '../api/client.ts';
+import { useListDrag } from '../hooks/useListDrag.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import { ChevronRightIcon, FolderPlusIcon, PlusIcon } from './icons.tsx';
@@ -84,8 +89,40 @@ export function WorkspaceMenu({
     };
   }, [open]);
 
-  const create = async (): Promise<void> => {
-    const trimmed = name.trim();
+  /**
+   * Dragging a workspace into place.
+   *
+   * The list is reordered here first and the request follows, because a drop
+   * that waits for a round trip reads as not having worked — and this is a
+   * gesture somebody will repeat four times in a row.
+   *
+   * A failure puts the list back by discarding it: the next open reloads from
+   * the server, which is the only thing that knows the real order. Keeping a
+   * local guess after the write failed would show an order that does not exist.
+   */
+  const drag = useListDrag({
+    container: panelRef,
+    onDrop: (draggedId, position) => {
+      setWorkspaces((previous) => {
+        if (previous === null) return previous;
+        const moving = previous.find((entry) => entry.id === draggedId);
+        if (!moving) return previous;
+        const rest = previous.filter((entry) => entry.id !== draggedId);
+        const at =
+          position.afterId === null
+            ? 0
+            : rest.findIndex((entry) => entry.id === position.afterId) + 1;
+        return [...rest.slice(0, at), moving, ...rest.slice(at)];
+      });
+
+      void api.reorderWorkspace(draggedId, position.afterId).catch((err: unknown) => {
+        setError(err instanceof ApiError ? err.code : 'network_error');
+        setWorkspaces(null);
+      });
+    },
+  });
+
+  const create = async (): Promise<void> => {    const trimmed = name.trim();
     if (trimmed.length === 0) return;
     setBusy(true);
     setError(null);
@@ -127,13 +164,32 @@ export function WorkspaceMenu({
           {workspaces === null && !error && <p className="muted small">Loading…</p>}
           {error && <p className="error small">{messageFor(error)}</p>}
 
-          {workspaces?.map((workspace) => (
+          {workspaces?.map((workspace, at) => (
             <button
               key={workspace.id}
               className="workspace-item"
               type="button"
               role="menuitem"
               aria-current={workspace.id === currentId}
+              // The row is both the thing that switches and the thing that is
+              // dragged (ADR-0031). Held still for a moment on a touch device,
+              // moved straight away with a mouse; the click that follows a drag
+              // is swallowed by the gesture hook, so arranging the list never
+              // also switches workspace.
+              data-list-row={workspace.id}
+              onPointerDown={drag.onPointerDown}
+              data-dragging={drag.dragging === workspace.id ? 'true' : undefined}
+              // One gap, one owner: a landing place is named by the row above
+              // it, and "first" is drawn on the row that is currently first.
+              data-drop={
+                drag.target === null
+                  ? undefined
+                  : drag.target.afterId === workspace.id
+                    ? 'after'
+                    : drag.target.afterId === null && at === 0
+                      ? 'before'
+                      : undefined
+              }
               onClick={() => {
                 setOpen(false);
                 if (workspace.id !== currentId) onSwitch(workspace.id);
