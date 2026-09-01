@@ -833,3 +833,18 @@ test('the board can be dotted, squared, lined or plain', () => {
   // theme's own surface.
   assert.match(css, /\[data-ruling='plain'\] \{ background-image: none; \}/);
 });
+
+test('the first swatch is the mark the entry already wears', () => {
+  // The swatch that means "no icon of its own" has to show what that default
+  // *is*, and for a canvas that is the brush. It read `folder or else page`,
+  // which is the same narrowing the tree had — so the one swatch whose job is to
+  // show the default showed the wrong one.
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  assert.match(menu, /<EntryIconView icon=\{null\} kind=\{node\.kind\} \/>/);
+  assert.doesNotMatch(menu, /kind=\{node\.kind === 'folder' \? 'folder' : 'page'\}/);
+
+  // Both places that draw an entry's own mark now pass the kind through, which
+  // is the assertion that catches the next kind as well as this one.
+  const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+  assert.match(sidebar, /kind=\{node\.kind\}/);
+});

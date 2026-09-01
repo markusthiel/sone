@@ -128,7 +128,12 @@ function EntryAppearance({
           aria-label={t('icon.default')}
           onClick={() => chooseIcon(null)}
         >
-          <EntryIconView icon={null} kind={node.kind === 'folder' ? 'folder' : 'page'} />
+          {/* The entry's own kind, so the first swatch is the mark this entry
+              already wears — a sheet for a page, a folder for a folder, a brush
+              for a canvas. It was "folder or else page", which is the same
+              narrowing the tree had: a canvas could not reach it, so the one
+              swatch that means "the default" showed the wrong default. */}
+          <EntryIconView icon={null} kind={node.kind} />
         </button>
 
         {matches.map((name) => (
