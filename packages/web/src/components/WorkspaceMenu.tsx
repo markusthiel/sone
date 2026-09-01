@@ -14,6 +14,7 @@
  * different lists, so it lives on the membership row rather than in a document.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceSummary } from '../api/client.ts';
@@ -44,6 +45,7 @@ export function WorkspaceMenu({
   onSwitch,
   onCreated,
 }: WorkspaceMenuProps): ReactElement {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
   const [creating, setCreating] = useState(false);
@@ -295,7 +297,7 @@ export function WorkspaceMenu({
                 <input
                   value={name}
                   autoFocus
-                  placeholder="Workspace name"
+                  placeholder={t('workspaces.nameField')}
                   onChange={(event) => setName(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
@@ -306,7 +308,7 @@ export function WorkspaceMenu({
                       setCreating(false);
                     }
                   }}
-                  aria-label="Workspace name"
+                  aria-label={t('workspaces.nameField')}
                 />
                 <button
                   className="primary"
@@ -324,7 +326,7 @@ export function WorkspaceMenu({
                 role="menuitem"
                 onClick={() => setCreating(true)}
               >
-                <PlusIcon /> New workspace
+                <PlusIcon /> {t('workspaces.new')}
               </button>
             )}
 
@@ -346,12 +348,12 @@ export function WorkspaceMenu({
               href={paths.workspaceSettings()}
               role="menuitem"
             >
-              <SettingsIcon /> Workspace settings
+              <SettingsIcon /> {t('workspaces.settings')}
             </a>
 
             {canManageWorkspaces && (
               <a className="switcher-item" href={paths.admin('workspaces')} role="menuitem">
-                <FolderPlusIcon /> All workspaces
+                <FolderPlusIcon /> {t('workspaces.all')}
               </a>
             )}
           </div>

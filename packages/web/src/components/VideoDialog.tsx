@@ -13,6 +13,7 @@
  * about to paste is asking them to know something we can read.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { readStreamLink, readVideoLink } from '@sone/core';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
@@ -27,6 +28,7 @@ export function VideoDialog({
   onLink: (url: string) => boolean;
   onClose: () => void;
 }): ReactElement {
+  const { t } = useT();
   const [url, setUrl] = useState('');
   const [refused, setRefused] = useState(false);
   const field = useRef<HTMLInputElement | null>(null);
@@ -57,19 +59,19 @@ export function VideoDialog({
   };
 
   return (
-    <div className="video-dialog" role="dialog" aria-label="Add a video" aria-modal="true">
+    <div className="video-dialog" role="dialog" aria-label={t('video.add')} aria-modal="true">
       <button type="button" className="btn" onClick={onUpload}>
-        Upload a video
+        {t('video.upload')}
       </button>
 
-      <p className="video-dialog-or">or paste an address</p>
+      <p className="video-dialog-or">{t('video.orPaste')}</p>
 
       <input
         ref={field}
         type="url"
         className="video-dialog-url"
-        placeholder="https://…"
-        aria-label="Video address"
+        placeholder={t('video.addressPlaceholder')}
+        aria-label={t('video.address')}
         value={url}
         onChange={(event) => {
           setRefused(false);
@@ -106,7 +108,7 @@ export function VideoDialog({
 
       <div className="video-dialog-actions">
         <button type="button" className="btn" onClick={onClose}>
-          Cancel
+          {t('action.cancel')}
         </button>
         <button type="button" className="btn primary" disabled={!usable} onClick={submit}>
           Add

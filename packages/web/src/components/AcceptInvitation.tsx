@@ -7,6 +7,7 @@
  * anything. The invitation was not consumed and nothing said why.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactElement {
+  const { t } = useT();
   const [invitation, setInvitation] = useState<{
     workspaceName: string | null;
     instanceOnly: boolean;
@@ -79,7 +81,7 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
   return (
     <div className="centered">
       <div className="card">
-        <h1>Invitation</h1>
+        <h1>{t('invitation.title')}</h1>
 
         {error && <p className="error">{messageFor(error)}</p>}
 
@@ -93,16 +95,16 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
               your account is ready.
             </p>
             <button type="button" className="btn primary" onClick={() => navigate('/')}>
-              Continue
+              {t('action.continue')}
             </button>
           </>
         )}
 
         {invitation?.instanceOnly && (
           <>
-            <p>You already have an account here, so this invitation has nothing to add.</p>
+            <p>{t('invitation.alreadyMember')}</p>
             <button type="button" className="btn primary" onClick={() => navigate('/')}>
-              Continue
+              {t('action.continue')}
             </button>
           </>
         )}
@@ -125,7 +127,7 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
                 * invitation nobody accepts expires on its own, and a "declined"
                 * state would be a thing to store, show and explain. */}
               <button type="button" className="btn" onClick={() => navigate('/')}>
-                Not now
+                {t('action.notNow')}
               </button>
             </div>
           </>

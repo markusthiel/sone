@@ -61,13 +61,13 @@ test('an instance invitation somebody already satisfied says so', () => {
   // Nothing is wrong — it simply happened already, and refusing would read as
   // a broken link.
   assert.match(accept, /instanceOnly &&/);
-  assert.match(accept, /nothing to add/);
+  assert.match(accept, /t\('invitation\.alreadyMember'\)/);
 });
 
 test('declining is navigating away, not a state', () => {
   // An invitation nobody accepts expires on its own. A "declined" state would
   // be a thing to store, to show, and to explain.
-  assert.match(accept, /Not now/);
+  assert.match(accept, /t\('action\.notNow'\)/);
   assert.doesNotMatch(accept, /decline/i);
 });
 

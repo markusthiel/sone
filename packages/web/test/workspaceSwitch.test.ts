@@ -48,5 +48,5 @@ test('a page really out of reach still says so', () => {
   // The connection becomes ready and the denial stands. Suppressing it
   // altogether would trade one wrong message for a missing one.
   const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
-  assert.match(view, /You no longer have access to this page/);
+  assert.match(view, /t\('page\.noAccess'\)/);
 });

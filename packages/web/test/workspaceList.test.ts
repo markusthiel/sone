@@ -25,7 +25,7 @@ test('personal ones are folded away but still reachable', () => {
 
 test('the list says which workspaces are alive', () => {
   // Without a date, deciding anything means opening every one of them.
-  assert.match(list, /Last edited/);
+  assert.match(list, /t\('workspaces\.lastEdited'\)/);
   assert.match(list, /const when = /);
 });
 
@@ -109,7 +109,7 @@ test('deleting asks for the name rather than a confirmation', () => {
   // A dialog is dismissed by the same reflex that opened it, and this takes
   // everybody's pages with it. Typing the name is a moment of reading what you
   // are about to do (ADR-0027).
-  assert.match(detail, /Type the name to confirm/);
+  assert.match(detail, /t\('workspaces\.confirmName'\)/);
   assert.match(detail, /disabled=\{confirmName\.trim\(\) !== name\}/);
 });
 

@@ -29,6 +29,7 @@ import {
   ToggleIcon,
   VideoIcon,
 } from './icons.tsx';
+import { useT } from '../i18n/useT.tsx';
 import { keepsEditorSelection, popupItem } from './popup.ts';
 import {
   closeSlashMenu,
@@ -96,6 +97,7 @@ export function SlashMenu({
   onInsertProtectedSection,
   onInsertVideo,
 }: SlashMenuProps): ReactElement | null {
+  const { t } = useT();
   const menu = slashMenuState(view.state);
   const listRef = useRef<HTMLDivElement | null>(null);
   const [placement, setPlacement] = useState<{
@@ -191,7 +193,7 @@ export function SlashMenu({
         ref={listRef}
         style={placement ? { top: placement.top, left: placement.left } : FALLBACK_POSITION}
         role="listbox"
-        aria-label="Insert block"
+        aria-label={t('slash.insert')}
         {...keepsEditorSelection}
       >
         <p className="slash-empty">No blocks match “{menu.query}”</p>
@@ -261,7 +263,7 @@ export function SlashMenu({
       ref={listRef}
       style={placement ? { top: placement.top, left: placement.left } : FALLBACK_POSITION}
       role="listbox"
-      aria-label="Insert block"
+      aria-label={t('slash.insert')}
       aria-activedescendant={`slash-item-${menu.items[menu.index]?.id ?? ''}`}
       {...keepsEditorSelection}
     >
@@ -351,6 +353,7 @@ const MARKS: Record<string, (props: { size?: number }) => ReactElement> = {
 };
 
 function Mark({ item }: { item: SlashItem }): ReactElement {
+  const { t } = useT();
   const Icon = MARKS[item.id];
   // The box is kept whether or not there is an icon, so the names stay in one
   // column: a list where some rows are indented and others are not is harder to

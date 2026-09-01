@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The interface is translated.** Every screen, dialog, menu and panel — the page
+title, the formatting toolbar, the workspace switcher, the invitation screen, the
+admin lists. Switch the language under Appearance; whether it says "du" or "Sie" is
+the instance's setting.
+
 **Invitations, groups, page permissions, single sign-on and the member list speak
 German.** Thirty files are translated, and about eighteen lines of English are left
 across the smaller panels.

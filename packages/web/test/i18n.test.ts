@@ -209,7 +209,29 @@ const MIGRATED = [
   'src/components/OidcPanel.tsx',
   'src/components/WorkspaceMembers.tsx',
   'src/components/TagEditor.tsx',
+  'src/components/AcceptInvitation.tsx',
+  'src/components/CollectionBoard.tsx',
+  'src/components/CollectionGallery.tsx',
+  'src/components/OptionEditor.tsx',
+  'src/components/PageView.tsx',
+  'src/components/SelectionToolbar.tsx',
+  'src/components/SlashMenu.tsx',
+  'src/components/TableToolbar.tsx',
+  'src/components/VideoDialog.tsx',
+  'src/components/WorkspaceDetail.tsx',
+  'src/components/WorkspaceList.tsx',
+  'src/components/WorkspaceMenu.tsx',
 ];
+
+/**
+ * Not on the list, and not an oversight.
+ *
+ * `ErrorBoundary` is a class component — React hooks cannot be called from one,
+ * and this is the component that catches a render-time throw, so it must not
+ * depend on a context that might be the thing that failed. Its one visible
+ * string stays English.
+ */
+const NOT_TRANSLATABLE = ['src/components/ErrorBoundary.tsx'];
 
 test('every error code the client can show has a message', () => {
   // The table moved out of Auth.tsx into the catalogue, which is where a
@@ -248,6 +270,18 @@ test('the language is resolved above every screen, including sign-in', () => {
     app.indexOf('<LocaleProvider') < app.indexOf("state.status === 'loading'"),
     'the provider wraps the unauthenticated screens too',
   );
+});
+
+test('the untranslatable file is named, and it is only the one', () => {
+  // A file left out has to be left out on purpose, or "not on the list" becomes
+  // the place things hide.
+  assert.deepEqual(NOT_TRANSLATABLE, ['src/components/ErrorBoundary.tsx']);
+  const boundary = readFileSync(
+    new URL('../src/components/ErrorBoundary.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(boundary, /extends Component/, 'it is a class, so it has no hooks');
+  assert.doesNotMatch(boundary, /useT/);
 });
 
 test('a migrated file has no English left in its markup', () => {

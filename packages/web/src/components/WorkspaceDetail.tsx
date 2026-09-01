@@ -6,6 +6,7 @@
  * things to keep in step, and the one used less is the one that would rot.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceIcon } from '../api/client.ts';
@@ -25,6 +26,7 @@ export function WorkspaceDetail({
   icon: WorkspaceIcon | null;
   onBack: () => void;
 }): ReactElement {
+  const { t } = useT();
   const [error, setError] = useState<string | null>(null);
   const [confirmName, setConfirmName] = useState('');
   const [chosen, setChosen] = useState<WorkspaceIcon | null>(icon);
@@ -54,7 +56,7 @@ export function WorkspaceDetail({
 
       {/* How it is recognised, before who is in it: the mark is the thing
         * somebody scanning a switcher of five workspaces uses (ADR-0030). */}
-      <h3 className="settings-heading">Appearance</h3>
+      <h3 className="settings-heading">{t('workspaces.appearance')}</h3>
       <div className="settings-card">
         {/* Kept here rather than reloading.
           *
@@ -71,7 +73,7 @@ export function WorkspaceDetail({
         />
       </div>
 
-      <h3 className="settings-heading">People</h3>
+      <h3 className="settings-heading">{t('workspaces.people')}</h3>
       {/* The same table a workspace's own settings show (ADR-0032). It lived
         * here, which is why administering members required the instance-wide
         * right in the interface while the server had never asked for it. */}
@@ -90,13 +92,13 @@ export function WorkspaceDetail({
         * Nothing is removed when it is marked — it disappears for its members
         * and can be put back — and the panel says so, because "delete" that
         * means "delete later" is worse than either if nobody says which. */}
-      <h3 className="settings-heading">Delete this workspace</h3>
+      <h3 className="settings-heading">{t('workspaces.delete')}</h3>
       <p className="muted">
         It stops appearing to everybody in it. Nothing is removed yet, and
         somebody who manages workspaces can put it back.
       </p>
       <div className="field">
-        <label htmlFor="confirm-name">Type the name to confirm</label>
+        <label htmlFor="confirm-name">{t('workspaces.confirmName')}</label>
         <input
           id="confirm-name"
           value={confirmName}
@@ -114,7 +116,7 @@ export function WorkspaceDetail({
             onBack();
           }}
         >
-          Delete
+          {t('group.delete')}
         </button>
       </div>
     </section>

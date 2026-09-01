@@ -7,6 +7,7 @@
  * one that drifts.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceIcon } from '../api/client.ts';
@@ -45,6 +46,7 @@ export function WorkspaceList({
   onOpen: (workspaceId: string, name: string, icon: WorkspaceIcon | null) => void;
   onRestore: (workspaceId: string) => void;
 }): ReactElement {
+  const { t } = useT();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPersonal, setShowPersonal] = useState(false);
@@ -66,10 +68,10 @@ export function WorkspaceList({
     <table className="workspace-table">
       <thead>
         <tr>
-          <th>Name</th>
-          <th>People</th>
-          <th>Pages</th>
-          <th>Last edited</th>
+          <th>{t('workspaces.name')}</th>
+          <th>{t('workspaces.people')}</th>
+          <th>{t('workspaces.pages')}</th>
+          <th>{t('workspaces.lastEdited')}</th>
         </tr>
       </thead>
       <tbody>
@@ -107,7 +109,7 @@ export function WorkspaceList({
                     className="link-button"
                     onClick={() => onRestore(row.id)}
                   >
-                    Restore
+                    {t('trash.restore')}
                   </button>
                 </>
               )}
@@ -125,9 +127,9 @@ export function WorkspaceList({
 
   return (
     <section className="settings-section">
-      <h3 className="settings-heading">Shared workspaces</h3>
+      <h3 className="settings-heading">{t('workspaces.shared')}</h3>
       {shared.length === 0 ? (
-        <p className="muted">None yet — every workspace here belongs to one person.</p>
+        <p className="muted">{t('workspaces.nonePersonal')}</p>
       ) : (
         table(shared)
       )}
@@ -138,7 +140,7 @@ export function WorkspaceList({
         * are forty — and listed together with the teams they would drown them.
         * They are still here, because "who has an account and what is in it" is
         * a question this list should be able to answer. */}
-      <h3 className="settings-heading">Personal workspaces</h3>
+      <h3 className="settings-heading">{t('workspaces.personal')}</h3>
       <p className="muted">
         One for each account. {personal.length} in total.
       </p>

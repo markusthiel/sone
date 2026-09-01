@@ -27,6 +27,7 @@ import {
 } from '@sone/editor';
 import type { Command } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { useViewportChanges } from '../hooks/useViewportChanges.ts';
@@ -72,6 +73,7 @@ const ACTIONS: ReadonlyArray<{
 ];
 
 export function TableToolbar({ view, revision }: TableToolbarProps): ReactElement | null {
+  const { t } = useT();
   const [box, setBox] = useState<{ top: number; left: number } | null>(null);
   const [retryToken, setRetryToken] = useState(0);
 
@@ -117,7 +119,7 @@ export function TableToolbar({ view, revision }: TableToolbarProps): ReactElemen
       className="table-toolbar"
       style={{ top: box.top, left: box.left }}
       role="toolbar"
-      aria-label="Table"
+      aria-label={t('tableBlock.label')}
       {...keepsEditorSelection}
     >
       {ACTIONS.map((action) => {
