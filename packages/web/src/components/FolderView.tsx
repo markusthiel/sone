@@ -23,7 +23,7 @@ interface FolderViewProps {
   folder: PageNode;
   /** Ancestor folders, outermost first, for the breadcrumb. */
   trail: PageNode[];
-  onCreate: (parentPageId: string, kind: 'page' | 'folder') => void;
+  onCreate: (parentPageId: string, kind: 'page' | 'folder' | 'canvas') => void;
   onRename: (pageId: string, title: string) => void;
 }
 

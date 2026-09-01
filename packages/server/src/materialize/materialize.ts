@@ -521,6 +521,10 @@ export async function materializeDocument(
     [
       parsed.page.title,
       ...parsed.blocks.map((b) => b.plainText),
+      // A canvas's text items, in the reading order a canvas does not have
+      // (ADR-0043) — a snippet needs some order, and this is the fiction
+      // everybody already has.
+      parsed.canvasText,
       ...propertySearchText,
     ].join(' '),
   );

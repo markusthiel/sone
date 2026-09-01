@@ -56,6 +56,15 @@ export const DOC_KEYS = {
   content: 'content',
   properties: 'properties',
   collection: 'collection',
+  /**
+   * A canvas's items, by id (ADR-0043).
+   *
+   * A map rather than an array, and that is the whole difference between this
+   * and every other shape in the document: the things on a canvas have no order,
+   * they have positions. Moving one is setting two numbers on one key, so two
+   * people moving two things never touch the same data.
+   */
+  canvas: 'canvas',
 } as const;
 
 export const META_KEYS = {
@@ -112,7 +121,7 @@ export const BLOCK_COLORS = [
 ] as const;
 export type BlockColor = (typeof BLOCK_COLORS)[number];
 
-export const ENTRY_KINDS = ['page', 'folder', 'row', 'container'] as const;
+export const ENTRY_KINDS = ['page', 'folder', 'row', 'container', 'canvas'] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
 export const PAGE_KEYS = {

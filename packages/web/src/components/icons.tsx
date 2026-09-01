@@ -213,6 +213,16 @@ export function DuplicateIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A pen, for a canvas: a nib on a stroke. */
+export function PenIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M15.5 5.5l3 3L9 18l-4 1 1-4z" />
+      <path d="M14 7l3 3" />
+    </svg>
+  );
+}
+
 /** A drag grip: two columns of dots, the conventional handle affordance. */
 export function GripIcon(props: IconProps): ReactElement {
   return (

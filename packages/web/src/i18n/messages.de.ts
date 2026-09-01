@@ -753,6 +753,16 @@ export const de: Record<keyof typeof en, string> = {
     'Noch niemand verzeichnet. Geschriebenes wird von dem Moment an zugeordnet, in dem ' +
     'es geschrieben wird — was vor Beginn dieser Aufzeichnung getippt wurde, steht hier ' +
     'nicht.',
+  // --- eine Fläche (ADR-0043) ---------------------------------------------
+  'canvas.tools': 'Werkzeuge',
+  'canvas.tool.select': 'Auswählen',
+  'canvas.tool.pen': 'Stift',
+  'canvas.tool.text': 'Text',
+  'canvas.remove': 'Das hier entfernen',
+  'canvas.textItem': 'Text auf der Fläche',
+  'canvas.new': 'Neue Fläche',
+  'panel.kind.canvas': 'Fläche',
+
   'panel.width': 'Breite',
   'panel.width.column': 'Spalte',
   'panel.width.full': 'Ganze Seite',

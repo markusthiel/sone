@@ -119,7 +119,14 @@ export interface SessionInfo {
 }
 
 /** A folder organises; a page holds writing (ADR-0019). */
-export type EntryKind = 'page' | 'folder';
+/**
+ * What an entry is, as the tree needs to know it.
+ *
+ * A row is not here: a row is a page of a collection and never appears in the
+ * tree (ADR-0021). A canvas does (ADR-0043) — it is a page with a different
+ * body, so it is in the tree, the trash and the search like any other.
+ */
+export type EntryKind = 'page' | 'folder' | 'canvas';
 
 export interface PageSummary {
   id: string;

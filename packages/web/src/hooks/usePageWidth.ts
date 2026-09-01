@@ -38,3 +38,31 @@ export function usePageWidth(doc: Y.Doc | null): PageWidth {
 
   return width;
 }
+
+/**
+ * Which kind of entry this document is (ADR-0019, ADR-0043).
+ *
+ * From the document rather than from the tree, for the same reason the width is:
+ * the page view has it open, and the answer must not depend on a list that was
+ * fetched before the page was created.
+ */
+export function useEntryKind(doc: Y.Doc | null): string {
+  const [kind, setKind] = useState('page');
+
+  useEffect(() => {
+    if (!doc) {
+      setKind('page');
+      return;
+    }
+    const page = doc.getMap(DOC_KEYS.page);
+    const read = (): void => {
+      const value = page.get(PAGE_KEYS.kind);
+      setKind(typeof value === 'string' ? value : 'page');
+    };
+    read();
+    page.observe(read);
+    return () => page.unobserve(read);
+  }, [doc]);
+
+  return kind;
+}

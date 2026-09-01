@@ -372,7 +372,12 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         title: row.path_only ? null : row.title,
         pathOnly: row.path_only,
         icon: row.path_only ? null : row.icon,
-        kind: row.kind === 'folder' ? 'folder' : 'page',
+        // A canvas is drawn differently in the tree and opened differently, so
+        // the kind travels rather than being flattened to 'page'.
+        kind:
+          row.kind === 'folder' || row.kind === 'canvas'
+            ? (row.kind as 'folder' | 'canvas')
+            : 'page',
         archived: row.archived_at !== null,
         lastEditedAt: row.last_edited_at,
       })),
@@ -402,11 +407,19 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     const parentPageId = body.parentPageId ?? null;
 
     // Defaults to a page, so a client that predates folders keeps working.
-    const kind: EntryKind = body.kind === 'folder' ? 'folder' : 'page';
-    if (body.kind !== undefined && body.kind !== 'page' && body.kind !== 'folder') {
+    //
+    // A canvas is a third kind rather than a page with a different body
+    // (ADR-0043): it gets the tree, the trash, permissions, sharing and moving
+    // between workspaces by being a page, and none of those had to learn what a
+    // canvas is.
+    const CREATABLE: readonly string[] = ['page', 'folder', 'canvas'];
+    if (body.kind !== undefined && !CREATABLE.includes(body.kind)) {
       ctx.fail(422, 'invalid_kind');
       return;
     }
+    const kind: EntryKind = CREATABLE.includes(body.kind ?? '')
+      ? (body.kind as EntryKind)
+      : 'page';
 
     if (parentPageId) {
       const parent = await queryOne<{
@@ -1014,7 +1027,12 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       entries: visible.map((row) => ({
         id: row.id,
         title: row.title,
-        kind: row.kind === 'folder' ? 'folder' : 'page',
+        // A canvas is drawn differently in the tree and opened differently, so
+        // the kind travels rather than being flattened to 'page'.
+        kind:
+          row.kind === 'folder' || row.kind === 'canvas'
+            ? (row.kind as 'folder' | 'canvas')
+            : 'page',
         archivedAt: row.archived_at,
         descendants: Number(row.descendants),
         parentMissing: row.parent_missing,
