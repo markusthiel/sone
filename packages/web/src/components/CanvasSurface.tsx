@@ -27,7 +27,7 @@ import {
   addItem,
   bringToFront,
   canvasMap,
-  moveItem,
+  moveItems,
   readCanvas,
   removeItem,
   resizeItem,
@@ -135,9 +135,39 @@ export function CanvasSurface({
   const [chosen, setChosen] = useState<Set<string>>(new Set());
 
   const surface = useRef<HTMLDivElement | null>(null);
-  const dragging = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  /**
+   * What is being dragged.
+   *
+   * `last` rather than an offset, because a group moves by a delta: the offset
+   * belongs to the item under the finger, and the others have their own. Deltas
+   * are also what let two people drag two overlapping groups without arguing
+   * about where the shared item is.
+   */
+  const dragging = useRef<{ ids: string[]; last: { x: number; y: number } } | null>(null);
+  /** Panning: the scroller's position when the drag began. */
+  const panning = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   /** Resizing, which is dragging a corner rather than the item. */
   const sizing = useRef<{ id: string; x: number; y: number; w: number; h: number } | null>(null);
+
+  /** Whether space is held, which turns a drag into panning. */
+  const [space, setSpace] = useState(false);
+  useEffect(() => {
+    const down = (event: KeyboardEvent): void => {
+      // Not while typing in a note: space is a word separator first.
+      if (event.code !== 'Space' || event.target instanceof HTMLTextAreaElement) return;
+      event.preventDefault();
+      setSpace(true);
+    };
+    const up = (event: KeyboardEvent): void => {
+      if (event.code === 'Space') setSpace(false);
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, []);
 
   // Redraw on any change to the map. Deep, because an item's own keys are where
   // a move lands — observing only the map would miss everything except adding
@@ -167,6 +197,25 @@ export function CanvasSurface({
   );
 
   const onSurfaceDown = (event: PointerEvent<HTMLDivElement>): void => {
+    // Panning first, and before the edit check: moving the view is reading, not
+    // writing, so somebody with read-only access can still get around the board.
+    //
+    // The middle button or a held space, which are the two gestures every
+    // drawing tool has trained people to expect. Not a drag with the left
+    // button on empty space — that is the rubber band, and a canvas that pans
+    // when you meant to select is one you cannot select on.
+    if (event.button === 1 || space) {
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      panning.current = {
+        x: event.clientX,
+        y: event.clientY,
+        left: surface.current?.scrollLeft ?? 0,
+        top: surface.current?.scrollTop ?? 0,
+      };
+      return;
+    }
+
     if (!canEdit) return;
     const point = at(event);
 
@@ -197,6 +246,15 @@ export function CanvasSurface({
   };
 
   const onSurfaceMove = (event: PointerEvent<HTMLDivElement>): void => {
+    const pan = panning.current;
+    if (pan && surface.current) {
+      // In screen units, not canvas ones: the scroller is what moves, and it
+      // does not know about the zoom.
+      surface.current.scrollLeft = pan.left - (event.clientX - pan.x);
+      surface.current.scrollTop = pan.top - (event.clientY - pan.y);
+      return;
+    }
+
     const point = at(event);
 
     if (drawing) {
@@ -220,10 +278,14 @@ export function CanvasSurface({
       return;
     }
     const drag = dragging.current;
-    if (drag) moveItem(doc, drag.id, point.x - drag.dx, point.y - drag.dy);
+    if (drag) {
+      moveItems(doc, drag.ids, point.x - drag.last.x, point.y - drag.last.y);
+      drag.last = point;
+    }
   };
 
   const onSurfaceUp = (): void => {
+    panning.current = null;
     dragging.current = null;
     sizing.current = null;
 
@@ -397,7 +459,7 @@ export function CanvasSurface({
 
       <div
         className="canvas-surface"
-        data-tool={tool}
+        data-tool={space ? 'pan' : tool}
         ref={surface}
         onPointerDown={onSurfaceDown}
         onPointerMove={onSurfaceMove}
@@ -458,9 +520,15 @@ export function CanvasSurface({
                 // The item, not the plane behind it.
                 event.stopPropagation();
                 const point = at(event);
-                dragging.current = { id: item.id, dx: point.x - item.x, dy: point.y - item.y };
+                // The whole chosen set when this item is part of one, so a band
+                // followed by a drag moves everything it caught.
+                const ids = chosen.has(item.id) ? [...chosen] : [item.id];
+                dragging.current = { ids, last: point };
                 setSelected(item.id);
-                bringToFront(doc, item.id);
+                if (ids.length === 1) {
+                  setChosen(new Set());
+                  bringToFront(doc, item.id);
+                }
               }}
             >
               {item.kind === 'text' && (

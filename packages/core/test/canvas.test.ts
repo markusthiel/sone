@@ -156,3 +156,47 @@ test('the schema version moved with the canvas', async () => {
     [2, 3],
   ]);
 });
+
+test('a group moves as one transaction, by a delta', async () => {
+  const { moveItems } = await import('../src/doc/canvas.js');
+  const doc = docWith([
+    { id: 'a', kind: 'text', x: 0, y: 0 },
+    { id: 'b', kind: 'text', x: 100, y: 50 },
+    { id: 'c', kind: 'text', x: 300, y: 0 },
+  ]);
+
+  // One update on the wire, not three: five separate moves arrive one after
+  // another and a group crawls across somebody else's board instead of moving.
+  let updates = 0;
+  doc.on('update', () => (updates += 1));
+  moveItems(doc, ['a', 'b'], 10, -20);
+  assert.equal(updates, 1);
+
+  const items = Object.fromEntries(readCanvas(doc).map((item) => [item.id, item]));
+  assert.deepEqual([items['a']?.x, items['a']?.y], [10, -20]);
+  assert.deepEqual([items['b']?.x, items['b']?.y], [110, 30]);
+  // And nothing else moved.
+  assert.deepEqual([items['c']?.x, items['c']?.y], [300, 0]);
+});
+
+test('two people dragging two overlapping groups each move their own', async () => {
+  // A delta rather than a position is what makes this work: the two edits are
+  // about how far, not about where, so the shared item ends up moved by one of
+  // them rather than snapped to one of two places.
+  const { moveItems } = await import('../src/doc/canvas.js');
+  const a = docWith([
+    { id: 'one', kind: 'text', x: 0, y: 0 },
+    { id: 'two', kind: 'text', x: 0, y: 0 },
+  ]);
+  const b = new Y.Doc();
+  Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+
+  moveItems(a, ['one'], 100, 0);
+  moveItems(b, ['two'], 0, 100);
+  Y.applyUpdate(a, Y.encodeStateAsUpdate(b));
+  Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+
+  const items = Object.fromEntries(readCanvas(a).map((item) => [item.id, item]));
+  assert.deepEqual([items['one']?.x, items['one']?.y], [100, 0]);
+  assert.deepEqual([items['two']?.x, items['two']?.y], [0, 100]);
+});

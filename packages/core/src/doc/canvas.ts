@@ -189,6 +189,30 @@ export function moveItem(doc: Y.Doc, id: string, x: number, y: number): void {
   });
 }
 
+/**
+ * Move several things by the same amount, in one transaction.
+ *
+ * One transaction rather than a loop of `moveItem`, and the difference is
+ * visible on the other screen: five separate moves arrive as five updates and
+ * are drawn one after another, so a group crawls across somebody else's board
+ * instead of moving. It is also what makes undo treat the drag as one act.
+ *
+ * By a delta rather than by positions, because that is what a drag is — and
+ * because it means two people dragging two overlapping groups still each move
+ * their own by their own amount.
+ */
+export function moveItems(doc: Y.Doc, ids: readonly string[], dx: number, dy: number): void {
+  const map = canvasMap(doc);
+  doc.transact(() => {
+    for (const id of ids) {
+      const entry = map.get(id);
+      if (!(entry instanceof Y.Map)) continue;
+      entry.set(CANVAS_KEYS.x, asNumber(entry.get(CANVAS_KEYS.x)) + dx);
+      entry.set(CANVAS_KEYS.y, asNumber(entry.get(CANVAS_KEYS.y)) + dy);
+    }
+  });
+}
+
 /** Resize something. */
 export function resizeItem(doc: Y.Doc, id: string, w: number, h: number): void {
   const entry = canvasMap(doc).get(id);

@@ -665,3 +665,28 @@ test('a band catches what it touches, and the eraser takes the topmost', () => {
   // A stroke has no width and height of its own, so its box is measured.
   assert.match(canvas, /function boxOf\(/);
 });
+
+test('a caught group drags as one, by a delta', () => {
+  // The offset belongs to the item under the finger; the others have their own.
+  // A delta is also what lets two people drag two overlapping groups without
+  // arguing about where the shared item is.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /const ids = chosen\.has\(item\.id\) \? \[\.\.\.chosen\] : \[item\.id\]/);
+  assert.match(canvas, /moveItems\(doc, drag\.ids, point\.x - drag\.last\.x/);
+  const core = codeOf(new URL('../../core/src/doc/canvas.ts', import.meta.url));
+  assert.match(core, /export function moveItems/);
+  assert.match(core, /doc\.transact\(\(\) => \{[\s\S]{0,400}?CANVAS_KEYS\.y, asNumber/);
+});
+
+test('panning is reading, so it works without edit rights', () => {
+  // Moving the view is not writing, and a board somebody may only read is still
+  // a board they have to get around.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  const down = canvas.slice(canvas.indexOf('const onSurfaceDown'), canvas.indexOf('const onSurfaceMove'));
+  assert.ok(
+    down.indexOf('panning.current =') < down.indexOf('if (!canEdit) return;'),
+    'the pan is set up before the edit check',
+  );
+  // Space, but not while typing in a note: it is a word separator first.
+  assert.match(canvas, /event\.target instanceof HTMLTextAreaElement/);
+});
