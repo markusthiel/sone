@@ -145,7 +145,15 @@ export function CanvasSurface({
    * about where the shared item is.
    */
   const dragging = useRef<{ ids: string[]; last: { x: number; y: number } } | null>(null);
-  /** Panning: the scroller's position when the drag began. */
+  /**
+   * Where the plane sits, in screen pixels.
+   *
+   * An offset rather than a scroller, which is what makes the board endless: a
+   * scroller needs a size to scroll within, so it needs the plane to have ends —
+   * and 4000 pixels of ends is both a wall somebody eventually hits and two
+   * scrollbars saying how far along a nothing they are.
+   */
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const panning = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   /** Resizing, which is dragging a corner rather than the item. */
   const sizing = useRef<{ id: string; x: number; y: number; w: number; h: number } | null>(null);
@@ -205,12 +213,14 @@ export function CanvasSurface({
       // the pointer speaks screen ones. Getting this wrong is the classic
       // canvas bug: things land where you clicked at 100% and nowhere near it
       // at any other size.
+      // The pan first, then the zoom: the plane is translated and then scaled
+      // from its own origin, so undoing that is subtracting and then dividing.
       return {
-        x: (event.clientX - (box?.left ?? 0) + (surface.current?.scrollLeft ?? 0)) / zoom,
-        y: (event.clientY - (box?.top ?? 0) + (surface.current?.scrollTop ?? 0)) / zoom,
+        x: (event.clientX - (box?.left ?? 0) - pan.x) / zoom,
+        y: (event.clientY - (box?.top ?? 0) - pan.y) / zoom,
       };
     },
-    [zoom],
+    [zoom, pan],
   );
 
   const onSurfaceDown = (event: PointerEvent<HTMLDivElement>): void => {
@@ -224,12 +234,7 @@ export function CanvasSurface({
     if (event.button === 1 || space) {
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
-      panning.current = {
-        x: event.clientX,
-        y: event.clientY,
-        left: surface.current?.scrollLeft ?? 0,
-        top: surface.current?.scrollTop ?? 0,
-      };
+      panning.current = { x: event.clientX, y: event.clientY, left: pan.x, top: pan.y };
       return;
     }
 
@@ -263,12 +268,14 @@ export function CanvasSurface({
   };
 
   const onSurfaceMove = (event: PointerEvent<HTMLDivElement>): void => {
-    const pan = panning.current;
-    if (pan && surface.current) {
-      // In screen units, not canvas ones: the scroller is what moves, and it
-      // does not know about the zoom.
-      surface.current.scrollLeft = pan.left - (event.clientX - pan.x);
-      surface.current.scrollTop = pan.top - (event.clientY - pan.y);
+    const grab = panning.current;
+    if (grab) {
+      // In screen units, not canvas ones: the plane moves under the pointer by
+      // exactly as far as the pointer moved, whatever the zoom.
+      setPan({
+        x: grab.left + (event.clientX - grab.x),
+        y: grab.top + (event.clientY - grab.y),
+      });
       return;
     }
 
@@ -299,6 +306,32 @@ export function CanvasSurface({
       moveItems(doc, drag.ids, point.x - drag.last.x, point.y - drag.last.y);
       drag.last = point;
     }
+  };
+
+  /**
+   * The wheel moves the board; the wheel with a modifier changes how far in.
+   *
+   * Which is what every drawing tool does, and the reason there are no
+   * scrollbars to reach for. Zooming keeps the point under the pointer still:
+   * anchoring to the corner instead makes zooming feel like the board running
+   * away, since what somebody is looking at is never the corner.
+   */
+  const onWheel = (event: React.WheelEvent<HTMLDivElement>): void => {
+    if (event.ctrlKey || event.metaKey) {
+      const box = surface.current?.getBoundingClientRect();
+      const px = event.clientX - (box?.left ?? 0);
+      const py = event.clientY - (box?.top ?? 0);
+      const next = Math.min(3, Math.max(0.25, zoom * (event.deltaY < 0 ? 1.1 : 1 / 1.1)));
+      // Keep the canvas point under the pointer where it is: solve
+      // (px - pan) / zoom = (px - next_pan) / next.
+      setPan((current) => ({
+        x: px - ((px - current.x) / zoom) * next,
+        y: py - ((py - current.y) / zoom) * next,
+      }));
+      setZoom(next);
+      return;
+    }
+    setPan((current) => ({ x: current.x - event.deltaX, y: current.y - event.deltaY }));
   };
 
   const onSurfaceUp = (): void => {
@@ -349,8 +382,8 @@ export function CanvasSurface({
     if (!file) return;
 
     const box = surface.current?.getBoundingClientRect();
-    const x = event.clientX - (box?.left ?? 0) + (surface.current?.scrollLeft ?? 0);
-    const y = event.clientY - (box?.top ?? 0) + (surface.current?.scrollTop ?? 0);
+    const x = (event.clientX - (box?.left ?? 0) - pan.x) / zoom;
+    const y = (event.clientY - (box?.top ?? 0) - pan.y) / zoom;
 
     setBusy(true);
     try {
@@ -459,7 +492,13 @@ export function CanvasSurface({
             <button
               type="button"
               className="canvas-tool"
-              onClick={() => setZoom(1)}
+              onClick={() => {
+                // Back to actual size *and* to the origin. Without scrollbars
+                // there is nothing to say how far somebody has wandered, so the
+                // one control that resets has to reset both.
+                setZoom(1);
+                setPan({ x: 0, y: 0 });
+              }}
               title={t('canvas.zoomReset')}
             >
               {Math.round(zoom * 100)}%
@@ -503,6 +542,7 @@ export function CanvasSurface({
         onPointerMove={onSurfaceMove}
         onPointerUp={onSurfaceUp}
         onPointerCancel={onSurfaceUp}
+        onWheel={onWheel}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => void onDrop(event)}
         data-busy={busy ? 'true' : undefined}
@@ -512,7 +552,10 @@ export function CanvasSurface({
             what keeps the arithmetic in `at` to one division. */}
         <div
           className="canvas-plane"
-          style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: '0 0',
+          }}
         >
         {/* Every stroke in one SVG, under the items: ink is the background a
             note is stuck onto, which is what a whiteboard is. */}

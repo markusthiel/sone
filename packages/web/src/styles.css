@@ -741,6 +741,24 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
  * pictures. */
 .page-body[data-width='full'] { max-width: none; }
 
+/* A canvas fills what is left of the window.
+ *
+ * The reading column's bottom padding — 40vh, so a last paragraph can sit in
+ * the middle of the screen — is exactly wrong for a board: it is empty space
+ * under a surface that is supposed to be endless. */
+.page-body[data-kind='canvas'] {
+  display: flex;
+  flex-direction: column;
+  /* Grows into what the topbar leaves rather than claiming a height: `.main` is
+     a flex column, and `height: 100%` inside a scrolling one is the measurement
+     that works until somebody's window is short. */
+  flex: 1 1 auto;
+  min-block-size: 0;
+  padding-block-end: 0;
+}
+/* And the page it sits in does not scroll: the board is the thing that moves. */
+.main:has(> .page-body[data-kind='canvas']) { overflow-y: hidden; }
+
 /* The choices in the properties panel, small enough for a column of labels. */
 .panel-choices { display: inline-flex; gap: 2px; }
 .panel-choice {
@@ -1580,13 +1598,21 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 /* The plane. Scrolls in both directions, which is the one place in this
    application where sideways scrolling is the point rather than a fault. */
+/* The window onto the board, not a scroller.
+ *
+ * `hidden` rather than `auto`: a scroller needs the plane to have ends, and ends
+ * are both a wall somebody eventually hits and two bars reporting their position
+ * along a nothing. The board is endless in every direction and the wheel moves
+ * it, which is what every drawing tool does.
+ */
 .canvas-surface {
   position: relative;
   flex: 1 1 auto;
-  min-block-size: 60vh;
-  overflow: auto;
-  background:
-    radial-gradient(circle, var(--border-subtle) 1px, transparent 1px) 0 0 / 24px 24px;
+  min-block-size: 0;
+  overflow: hidden;
+  /* The grid moves with the board, so it is drawn on the plane rather than
+     here — a fixed grid under a moving board is a board that does not look like
+     it is moving. */
   touch-action: none;
 }
 .canvas-surface[data-tool='pen'] { cursor: crosshair; }
@@ -1596,8 +1622,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .canvas-ink {
   position: absolute;
   inset: 0;
-  inline-size: 4000px;
-  block-size: 4000px;
+  /* The same span as the plane, and negative coordinates are inside it because
+     the SVG's own box starts where the plane's content does. */
+  inline-size: 20000px;
+  block-size: 20000px;
   color: var(--sone-text);
   pointer-events: none;
 }
@@ -1672,8 +1700,15 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   position: absolute;
   inset-block-start: 0;
   inset-inline-start: 0;
-  inline-size: 4000px;
-  block-size: 4000px;
+  /* Large enough that the grid and the ink layer cover any screen at any
+     offset, and irrelevant to where anything can be put: items carry their own
+     coordinates and nothing clips them. */
+  inline-size: 20000px;
+  block-size: 20000px;
+  margin: -8000px 0 0 -8000px;
+  padding: 8000px 0 0 8000px;
+  background:
+    radial-gradient(circle, var(--border-subtle) 1px, transparent 1px) 0 0 / 24px 24px;
 }
 
 /* Redo is undo, the other way round. Which way an arrow points is presentation,

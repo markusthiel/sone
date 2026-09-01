@@ -119,8 +119,16 @@ persisted shape changed under an old client, but because the set of shapes did.
 
 ## What is deliberately not decided
 
-**Infinite scroll versus a fixed sheet.** Both are defensible and the choice
-changes little else; it can be made when there is something to look at.
+**~~Infinite scroll versus a fixed sheet.~~** Decided once there was something to
+look at, which is what this was waiting for: endless, with no scrollbars.
+
+A scroller needs the plane to have ends. Four thousand pixels of ends is both a
+wall somebody eventually hits and two bars reporting their position along a
+nothing — and the bars were the tell, because they were measuring a size chosen
+arbitrarily rather than anything in the drawing. So the plane is translated by an
+offset instead, the wheel moves it, the wheel with a modifier zooms about the
+pointer, and the percentage resets both the zoom and the position because without
+scrollbars nothing else says how far somebody has wandered.
 
 **Connectors between items.** The obvious next want, and the one that needs its
 own thinking: a line between two items is a relation, and relations are the thing

@@ -148,7 +148,7 @@ export function PageView({
   };
 
   return (
-    <div className="page-body" data-width={width}>
+    <div className="page-body" data-width={width} data-kind={isCanvas ? 'canvas' : undefined}>
       {/* The icon and the name on one line, the same shape a folder has. */}
       <div className="entry-heading">
         <span className="entry-heading-icon">

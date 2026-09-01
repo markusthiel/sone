@@ -648,9 +648,11 @@ test('the pointer is divided by the zoom, everywhere', () => {
   // scaled from its own origin and panning stays the scroller's job.
   const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
   const reader = canvas.slice(canvas.indexOf('const at = useCallback'), canvas.indexOf('const onSurfaceDown'));
-  assert.match(reader, /\) \/ zoom,/);
+  // The pan first, then the zoom — the plane is translated and then scaled from
+  // its own origin, so undoing it is subtracting and then dividing.
+  assert.match(reader, /- pan\.x\) \/ zoom,/);
   assert.equal([...reader.matchAll(/\/ zoom/g)].length, 2, 'both axes, and only there');
-  assert.match(canvas, /transform: `scale\(\$\{zoom\}\)`/);
+  assert.match(canvas, /translate\(\$\{pan\.x\}px, \$\{pan\.y\}px\) scale\(\$\{zoom\}\)/);
   assert.match(canvas, /transformOrigin: '0 0'/);
 });
 
@@ -736,4 +738,33 @@ test('the entry menu is a row of marks and a short list, not twelve rows', () =>
   // Wider, which is what makes five marks fit — and the width is bought back
   // several times over in height.
   assert.match(css, /\.entry-menu \{[\s\S]{0,600}?inline-size: 232px/);
+});
+
+test('the board is endless and has no scrollbars', () => {
+  // A scroller needs the plane to have ends, and ends are both a wall somebody
+  // eventually hits and two bars reporting a position along a nothing.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(css, /\.canvas-surface \{[^}]*overflow: hidden/s);
+  assert.doesNotMatch(canvas, /scrollLeft|scrollTop/, 'nothing reads a scroll position');
+
+  // The wheel moves it and the wheel with a modifier changes how far in, which
+  // is what every drawing tool does.
+  assert.match(canvas, /const onWheel =/);
+  assert.match(canvas, /setPan\(\(current\) => \(\{ x: current\.x - event\.deltaX/);
+  // Zooming keeps the point under the pointer still: anchoring to the corner
+  // makes zooming feel like the board running away.
+  assert.match(canvas, /px - \(\(px - current\.x\) \/ zoom\) \* next/);
+
+  // And the one control that resets, resets both — without scrollbars there is
+  // nothing else to say how far somebody has wandered.
+  assert.match(canvas, /setZoom\(1\);\s*\n\s*setPan\(\{ x: 0, y: 0 \}\)/);
+});
+
+test('a canvas page fills what the topbar leaves', () => {
+  // The reading column's 40vh of bottom padding is exactly wrong under a surface
+  // that is supposed to be endless.
+  assert.match(css, /\.page-body\[data-kind='canvas'\][^}]*padding-block-end: 0/s);
+  assert.match(css, /\.page-body\[data-kind='canvas'\][^}]*flex: 1 1 auto/s);
+  const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  assert.match(view, /data-kind=\{isCanvas \? 'canvas' : undefined\}/);
 });
