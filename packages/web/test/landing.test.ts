@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { en } from '../src/i18n/messages.en.ts';
 import { codeOf } from './helpers/source.ts';
 
 const app = codeOf(new URL('../src/App.tsx', import.meta.url));
@@ -50,6 +51,10 @@ test('the choice is a card of rows, like the account page', () => {
 test('each choice says what it does, not just what it is called', () => {
   // "The page you were on last" and "A particular page" are distinguishable by
   // name only once you already know the difference.
-  assert.match(panel, /Follows you: whatever you had open in this workspace/);
-  assert.match(panel, /Always the same one, whatever you were doing/);
+  // The sentences live in the catalogue now (ADR-0041); what this test means is
+  // that each choice has an explanation at all.
+  assert.match(panel, /t\('landing\.lastPage\.hint'\)/);
+  assert.match(panel, /t\('landing\.fixedPage\.hint'\)/);
+  assert.match(en['landing.lastPage.hint'], /Follows you/);
+  assert.match(en['landing.fixedPage.hint'], /whatever you were doing/);
 });

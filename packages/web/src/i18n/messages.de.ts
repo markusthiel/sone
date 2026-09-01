@@ -215,6 +215,69 @@ export const de: Record<keyof typeof en, string> = {
   'workspace.mark': 'Zeichen',
   'workspace.saveFailed': 'Das konnte nicht gespeichert werden. Bitte noch einmal.',
 
+  // --- eine Seite teilen -------------------------------------------------
+  'share.label': 'Teilen',
+  'share.anyoneWithLink': 'Jeder mit dem Link',
+  'share.notShared': 'Diese Seite ist nicht geteilt.',
+  'share.existing': 'Bestehende Links',
+  'share.new': 'Neuer Link',
+  'share.allows': 'Was er erlaubt',
+  'share.expires': 'Läuft ab',
+  'share.never': 'Nie',
+  'share.inADay': 'In einem Tag',
+  'share.inAWeek': 'In einer Woche',
+  'share.inAMonth': 'In einem Monat',
+  'share.inAYear': 'In einem Jahr',
+  'share.created':
+    'Der neue Link. {address, select, formal {Sie können ihn} other {Du kannst ihn}} ' +
+    'unten jederzeit wieder kopieren.',
+  'share.create': 'Link erstellen',
+  'share.revoke': 'Widerrufen',
+  'action.done': 'Fertig',
+
+  // --- die Typografie eines Workspace ------------------------------------
+  'type.element': 'Element',
+  'type.elements': 'Elemente',
+  'type.palette': 'Palette',
+  'type.size': 'Größe',
+  'type.colour': 'Farbe',
+  'type.spaceAbove': 'Abstand oben',
+  'type.spaceBelow': 'Abstand unten',
+  'type.asDesigned': 'Wie entworfen',
+
+  // --- womit ein Workspace öffnet ----------------------------------------
+  'landing.title': 'Wo {address, select, formal {Sie landen} other {du landest}}',
+  'landing.lastPage':
+    'Die Seite, auf der {address, select, formal {Sie zuletzt waren} other {du zuletzt warst}}',
+  'landing.lastPage.hint':
+    'Folgt {address, select, formal {Ihnen} other {dir}}: was in diesem Workspace zuletzt ' +
+    'offen war.',
+  'landing.fixedPage': 'Eine bestimmte Seite',
+  'landing.fixedPage.hint':
+    'Immer dieselbe, egal was {address, select, formal {Sie gerade taten} other {du gerade getan hast}}.',
+  'landing.page': 'Seite',
+  'landing.choose': 'Eine Seite wählen…',
+
+  // --- das Zeichen eines Workspace ---------------------------------------
+  'mark.icon': 'Symbol',
+  'mark.none': 'Kein Symbol',
+  'mark.iconColour': 'Symbolfarbe',
+  'mark.nameColour': 'Namensfarbe',
+
+  // --- ein Ordner --------------------------------------------------------
+  'folder.name': 'Name des Ordners',
+  'folder.untitled': 'Ordner ohne Namen',
+  'folder.location': 'Ort',
+  'folder.folders': 'Ordner',
+  'folder.pages': 'Seiten',
+
+  // --- innerhalb eines Workspace verschieben -----------------------------
+  'move.title': 'Verschieben nach',
+  'move.find': 'Ordner suchen',
+  'move.noMatch': 'Kein Ordner passt.',
+
+  'action.saved': 'Gespeichert.',
+
   // --- der Papierkorb ----------------------------------------------------
   'trash.title': 'Papierkorb',
   'trash.note':

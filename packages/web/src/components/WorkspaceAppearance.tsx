@@ -7,6 +7,7 @@
  * way — the difference being what makes two worse than one.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useMemo, useState, type ReactElement } from 'react';
 
 import { api, type WorkspaceIcon } from '../api/client.ts';
@@ -23,6 +24,7 @@ export function WorkspaceAppearance({
   /** Handed what was saved, so the caller does not have to guess it. */
   onChanged: (icon: WorkspaceIcon | null) => void;
 }): ReactElement {
+  const { t } = useT();
   const [query, setQuery] = useState('');
   const current = icon?.icon ?? null;
 
@@ -51,23 +53,23 @@ export function WorkspaceAppearance({
 
   return (
     <div className="entry-appearance">
-      <p className="entry-menu-label">Icon</p>
+      <p className="entry-menu-label">{t('mark.icon')}</p>
 
       <input
         className="entry-icon-search"
         type="search"
         value={query}
-        placeholder="Search icons"
-        aria-label="Search icons"
+        placeholder={t('icon.search')}
+        aria-label={t('icon.search')}
         onChange={(event) => setQuery(event.target.value)}
       />
 
-      <div className="entry-icon-grid" role="group" aria-label="Icon">
+      <div className="entry-icon-grid" role="group" aria-label={t('mark.icon')}>
         <button
           type="button"
           className={current === null ? 'entry-icon current' : 'entry-icon'}
           aria-pressed={current === null}
-          aria-label="No icon"
+          aria-label={t('mark.none')}
           onClick={() => apply(null)}
         >
           {/* The initial, which is what a workspace shows without an icon —
@@ -93,7 +95,7 @@ export function WorkspaceAppearance({
         ))}
       </div>
 
-      <p className="entry-menu-label">Icon colour</p>
+      <p className="entry-menu-label">{t('mark.iconColour')}</p>
       <ColourRow
         current={icon?.iconColor ?? null}
         label="Icon colour"
@@ -110,7 +112,7 @@ export function WorkspaceAppearance({
         }}
       />
 
-      <p className="entry-menu-label">Name colour</p>
+      <p className="entry-menu-label">{t('mark.nameColour')}</p>
       <ColourRow
         current={icon?.titleColor ?? null}
         label="Name colour"
