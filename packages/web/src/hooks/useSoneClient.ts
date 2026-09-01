@@ -99,6 +99,9 @@ export function useSoneClient(credentials: ClientCredentials | null): {
       ...(credentials.shareToken ? {} : { persist: persistLocally }),
       presence: {
         displayName: credentials.displayName ?? 'Someone',
+        // What they typed, or nothing. A read-only link never asks, and an
+        // unnamed visitor records nothing rather than "Someone".
+        guestName: credentials.displayName ?? null,
         color: pickColor(credentials.displayName ?? ''),
         // The person, so their edits can be attributed. This was hardcoded to
         // null, which switched attribution off everywhere: `recordAttribution`

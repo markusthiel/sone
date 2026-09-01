@@ -943,3 +943,15 @@ test('the + menu is the same panel as the ⋮ menu', () => {
   assert.doesNotMatch(css, /\.tree-add-menu \{[^}]*inline-size/s);
   assert.doesNotMatch(css, /\.tree-add-menu \{[^}]*inset-inline-start/s);
 });
+
+test('a read-only link does not ask for a name', () => {
+  // The name is asked for so other people can see who is editing, which makes it
+  // pointless on a link that only reads — and on a page shared with strangers it
+  // is a question somebody may not want to answer.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /info\.requiresPassword \|\| info\.role !== 'viewer'/);
+  assert.match(app, /if \(!joined && canWrite === true\)/);
+  // And the form is not shown before the answer is known: showing it and then
+  // removing it is worse than a moment's wait.
+  assert.match(app, /if \(canWrite === null && !joined\)/);
+});

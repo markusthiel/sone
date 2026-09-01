@@ -96,6 +96,15 @@ export function withEditorUser(presence: Partial<PresenceState>): Record<string,
 
 export interface PresenceState {
   displayName: string;
+  /**
+   * The name a guest actually typed, for attribution.
+   *
+   * Separate from `displayName`, which falls back to a label so a cursor has
+   * something to say. Attribution has no such fallback: a reader who was never
+   * asked for a name must not appear in the people panel as "Someone", having
+   * written nothing.
+   */
+  guestName?: string | null;
   color: string;
   userId: string | null;
   isAnonymous: boolean;
@@ -284,8 +293,16 @@ export class DocumentStore {
       userId: this.opts.presence?.userId ?? null,
       // A guest has no account and does have a name — the one every share link
       // asks for before letting anybody in. Recorded under that (ADR-0022).
+      // The name the visitor typed, not the label presence falls back to.
+      //
+      // Presence needs something to put on a cursor, so an unnamed session shows
+      // as "Someone" — but attribution must not: a reader who was never asked
+      // for a name would then appear in the people panel as "Someone", having
+      // written nothing. The mapping is written when the document opens rather
+      // than when somebody first types, so an empty name is the only thing that
+      // keeps a reader out of the list.
       guestName: this.opts.presence?.isAnonymous
-        ? (this.opts.presence?.displayName ?? null)
+        ? (this.opts.presence?.guestName ?? null)
         : null,
       enabled: this.opts.attribution !== false,
     });
