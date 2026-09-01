@@ -231,12 +231,20 @@ export function ArrowUturnIcon(props: IconProps): ReactElement {
   );
 }
 
-/** A pen, for a canvas: a nib on a stroke. */
-export function PenIcon(props: IconProps): ReactElement {
+/**
+ * A brush, for a canvas.
+ *
+ * Not the pen: the pen is the tool *on* a board, and the board itself wants a
+ * mark of its own — otherwise the thing and the instrument for using it are the
+ * same picture. A ferrule, a handle and a splayed tip, which reads as a brush
+ * at sixteen pixels where bristles do not.
+ */
+export function BrushIcon(props: IconProps): ReactElement {
   return (
     <svg {...base(props)}>
-      <path d="M15.5 5.5l3 3L9 18l-4 1 1-4z" />
-      <path d="M14 7l3 3" />
+      <path d="M14.5 3.5l6 6-7 7-6-6z" />
+      <path d="M7.5 10.5l-3 6 6-3" />
+      <path d="M4.5 16.5L3 21l4.5-1.5" />
     </svg>
   );
 }

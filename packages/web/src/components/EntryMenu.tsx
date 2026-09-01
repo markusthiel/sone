@@ -27,7 +27,9 @@ import { ICON_NAMES } from './EntryIconView.tsx';
 import { api, type PageNode } from '../api/client.ts';
 import { EntryIconView } from './EntryIconView.tsx';
 import {
-  PenIcon,
+  PageIcon,
+  FolderIcon,
+  BrushIcon,
   ArrowDownIcon,
   ArrowUpIcon,
   FolderPlusIcon,
@@ -489,9 +491,13 @@ export function EntryMenu({
               <div className="entry-menu-actions">
                 {(
                   [
-                    ['page', 'entry.newPage', PlusIcon],
-                    ['canvas', 'canvas.new', PenIcon],
-                    ['folder', 'entry.newFolder', FolderPlusIcon],
+                    // The same three marks the tree draws these with. A `+` and
+                    // a folder-with-a-plus were the marks for *adding*, which is
+                    // what the row already says — so they were saying it twice
+                    // and saying nothing about what is being added.
+                    ['page', 'entry.newPage', PageIcon],
+                    ['canvas', 'canvas.new', BrushIcon],
+                    ['folder', 'entry.newFolder', FolderIcon],
                   ] as const
                 ).map(([kind, key, Mark]) => (
                   <button
