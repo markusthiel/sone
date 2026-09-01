@@ -1642,10 +1642,12 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .canvas-surface[data-tool='text'] { cursor: text; }
 
 /* The ink, under everything: a whiteboard is a surface things are stuck onto. */
-/* The ink layer needs a box, since an SVG cannot be a point.
+/* What is being drawn right now.
  *
- * Centred on the origin and given a viewBox to match, so a stroke's coordinates
- * are the canvas's own — including the negative ones, which are half the board.
+ * Centred on the origin with a viewBox to match, so the coordinates are the
+ * canvas's own — including the negative ones, which are half the board. Above
+ * everything, because it is the thing the hand is doing: hiding it behind a note
+ * would be the fault this layer was split up to fix.
  */
 .canvas-ink {
   position: absolute;
@@ -1653,9 +1655,23 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   inset-inline-start: -10000px;
   inline-size: 20000px;
   block-size: 20000px;
+  z-index: 4;
   color: var(--sone-text);
   pointer-events: none;
 }
+
+/* A drawn thing: its own small SVG at its own box, so the whole board is one
+   stack in one order rather than ink under everything (ADR-0043). */
+.canvas-drawn {
+  position: absolute;
+  overflow: visible;
+  color: var(--sone-text);
+  pointer-events: none;
+}
+
+/* While a drawing tool is in hand, the board catches every press — otherwise a
+   stroke begun over a note goes to the note. */
+.canvas-plane[data-drawing='true'] .canvas-item { pointer-events: none; }
 
 .canvas-item {
   position: absolute;

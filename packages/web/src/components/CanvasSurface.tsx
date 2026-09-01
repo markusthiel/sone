@@ -89,7 +89,10 @@ function boxOf(item: CanvasItem): { x: number; y: number; w: number; h: number }
     maxX = Math.max(maxX, x);
     maxY = Math.max(maxY, y);
   }
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  // Plus wherever the stroke has been moved to. The points are where the pen
+  // went; the item's position is where that drawing now sits, and a hit test
+  // that forgot the second missed every stroke anybody had dragged.
+  return { x: minX + item.x, y: minY + item.y, w: maxX - minX, h: maxY - minY };
 }
 
 function within(item: CanvasItem, point: { x: number; y: number }): boolean {
@@ -756,140 +759,97 @@ export function CanvasSurface({
             what keeps the arithmetic in `at` to one division. */}
         <div
           className="canvas-plane"
+          // With a drawing tool in hand, nothing on the board catches the
+          // press: a stroke started over a note went to the note instead of the
+          // surface, so you could not draw across your own board.
+          data-drawing={tool !== 'select' ? 'true' : undefined}
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: '0 0',
           }}
         >
-        {/* Every stroke in one SVG, under the items: ink is the background a
-            note is stuck onto, which is what a whiteboard is. */}
-        {/* Centred on the origin, with a viewBox to match, so a stroke's
-            coordinates are the canvas's own — including the negative ones,
-            which are half the board. */}
-        <svg className="canvas-ink" viewBox="-10000 -10000 20000 20000" aria-hidden="true">
-          {items
-            .filter((item) => item.kind === 'path' && item.points)
-            .map((item) => (
-              <path
+        {/* Everything in one stack, in the order the document gives.
+          *
+          * It was two layers — every stroke in one SVG underneath, every note
+          * and picture above it — which meant ink could never be in front of a
+          * note however anybody ordered it, and "bring to front" moved an item
+          * within a layer it could not leave. A stroke drawn over a picture
+          * disappeared behind it.
+          *
+          * So each drawn item gets its own small SVG at its own box, and the
+          * whole list is rendered in `z` order like any other stack. The cost is
+          * one element per stroke instead of one for all of them, which is the
+          * right trade: a board has tens of strokes, not thousands, and the
+          * alternative is an ordering that only half works.
+          */}
+        {items.map((item) => {
+          const box = boxOf(item);
+          const pad = (item.width ?? 2) + 4;
+
+          if (item.kind === 'path' || item.kind === 'rect' || item.kind === 'ellipse' || item.kind === 'line') {
+            return (
+              <svg
                 key={item.id}
-                // Translated by the item rather than by rewriting its points: a
-                // stroke's points are where the pen went, and moving something
-                // should not rewrite the record of how it was drawn. Existing
-                // strokes sit at 0,0, so this changes nothing for them.
-                transform={`translate(${item.x} ${item.y})`}
-                d={pathFrom(item.points ?? [])}
-                stroke={item.colour ?? 'currentColor'}
-                strokeWidth={item.width ?? 2}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            ))}
-          {items
-            .filter((item) => item.kind === 'rect' || item.kind === 'ellipse' || item.kind === 'line')
-            .map((item) =>
-              item.kind === 'line' ? (
-                <line
-                  key={item.id}
-                  x1={item.x}
-                  y1={item.y}
-                  x2={item.x + item.w}
-                  y2={item.y + item.h}
-                  stroke={item.colour ?? 'currentColor'}
-                  strokeWidth={item.width ?? 2}
-                  strokeLinecap="round"
-                />
-              ) : item.kind === 'ellipse' ? (
-                <ellipse
-                  key={item.id}
-                  cx={item.x + item.w / 2}
-                  cy={item.y + item.h / 2}
-                  rx={Math.abs(item.w / 2)}
-                  ry={Math.abs(item.h / 2)}
-                  stroke={item.colour ?? 'currentColor'}
-                  strokeWidth={item.width ?? 2}
-                  fill={item.fill ?? 'none'}
-                />
-              ) : (
-                <rect
-                  key={item.id}
-                  x={item.x}
-                  y={item.y}
-                  width={Math.abs(item.w)}
-                  height={Math.abs(item.h)}
-                  rx={4}
-                  stroke={item.colour ?? 'currentColor'}
-                  strokeWidth={item.width ?? 2}
-                  fill={item.fill ?? 'none'}
-                />
-              ),
-            )}
+                className="canvas-drawn"
+                style={{
+                  left: box.x - pad,
+                  top: box.y - pad,
+                  width: box.w + pad * 2,
+                  height: box.h + pad * 2,
+                }}
+                viewBox={`${box.x - pad} ${box.y - pad} ${box.w + pad * 2} ${box.h + pad * 2}`}
+                aria-hidden="true"
+              >
+                {item.kind === 'path' && (
+                  <path
+                    transform={`translate(${item.x} ${item.y})`}
+                    d={pathFrom(item.points ?? [])}
+                    stroke={item.colour ?? 'currentColor'}
+                    strokeWidth={item.width ?? 2}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+                {item.kind === 'line' && (
+                  <line
+                    x1={item.x}
+                    y1={item.y}
+                    x2={item.x + item.w}
+                    y2={item.y + item.h}
+                    stroke={item.colour ?? 'currentColor'}
+                    strokeWidth={item.width ?? 2}
+                    strokeLinecap="round"
+                  />
+                )}
+                {item.kind === 'ellipse' && (
+                  <ellipse
+                    cx={item.x + item.w / 2}
+                    cy={item.y + item.h / 2}
+                    rx={Math.abs(item.w / 2)}
+                    ry={Math.abs(item.h / 2)}
+                    stroke={item.colour ?? 'currentColor'}
+                    strokeWidth={item.width ?? 2}
+                    fill={item.fill ?? 'none'}
+                  />
+                )}
+                {item.kind === 'rect' && (
+                  <rect
+                    x={item.x}
+                    y={item.y}
+                    width={Math.abs(item.w)}
+                    height={Math.abs(item.h)}
+                    rx={4}
+                    stroke={item.colour ?? 'currentColor'}
+                    strokeWidth={item.width ?? 2}
+                    fill={item.fill ?? 'none'}
+                  />
+                )}
+              </svg>
+            );
+          }
 
-          {/* What is being dragged out, drawn the way it will be drawn.
-            *
-            * A line had no preview at all — the box preview was suppressed for
-            * it and nothing took its place, so a line appeared only once the
-            * pointer was released. Drawing something you cannot see until you
-            * commit to it is drawing blind. */}
-          {shape && shaping.current && tool === 'line' && (
-            <line
-              x1={shaping.current.from.x}
-              y1={shaping.current.from.y}
-              x2={shaping.current.to.x}
-              y2={shaping.current.to.y}
-              stroke={ink.colour}
-              strokeWidth={ink.width}
-              strokeLinecap="round"
-              opacity={0.6}
-            />
-          )}
-          {shape && tool === 'ellipse' && (
-            <ellipse
-              cx={shape.x + shape.w / 2}
-              cy={shape.y + shape.h / 2}
-              rx={shape.w / 2}
-              ry={shape.h / 2}
-              stroke={ink.colour}
-              strokeWidth={ink.width}
-              fill="none"
-              opacity={0.6}
-            />
-          )}
-          {shape && tool === 'rect' && (
-            <rect
-              x={shape.x}
-              y={shape.y}
-              width={shape.w}
-              height={shape.h}
-              rx={4}
-              stroke={ink.colour}
-              strokeWidth={ink.width}
-              fill="none"
-              opacity={0.6}
-            />
-          )}
-
-          {drawing && (
-            <path
-              d={pathFrom(drawing)}
-              stroke="currentColor"
-              strokeWidth={2}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )}
-        </svg>
-
-        {items
-          .filter(
-            (item) =>
-              item.kind !== 'path' &&
-              item.kind !== 'rect' &&
-              item.kind !== 'ellipse' &&
-              item.kind !== 'line',
-          )
-          .map((item) => (
+          return (
             <div
               key={item.id}
               className={
@@ -932,20 +892,20 @@ export function CanvasSurface({
                   defaultValue={item.text ?? ''}
                   readOnly={!canEdit}
                   aria-label={t('canvas.textItem')}
-                  // Typed straight into the shared text, so two people in one
-                  // box merge rather than overwrite (ADR-0043).
                   onChange={(event) => {
                     const entry = canvasMap(doc).get(item.id);
                     const text = entry?.get('text');
                     if (!text || typeof text !== 'object' || !('delete' in text)) return;
-                    const shared = text as { delete: (a: number, b: number) => void; insert: (a: number, s: string) => void; length: number };
+                    const shared = text as {
+                      delete: (a: number, b: number) => void;
+                      insert: (a: number, s: string) => void;
+                      length: number;
+                    };
                     doc.transact(() => {
                       shared.delete(0, shared.length);
                       shared.insert(0, event.target.value);
                     });
                   }}
-                  // The surface must not start a drag or a stroke when somebody
-                  // is aiming at the words.
                   onPointerDown={(event) => event.stopPropagation()}
                 />
               )}
@@ -955,16 +915,11 @@ export function CanvasSurface({
                   className="canvas-image"
                   src={`/api/files/${item.fileId}`}
                   alt=""
-                  // The browser drags a picture by default, which turned every
-                  // attempt to move one into a copy: its own drag started before
-                  // the pointer handler could claim the gesture.
                   draggable={false}
                   onDragStart={(event) => event.preventDefault()}
                 />
               )}
 
-              {/* The corner, only on what is selected: a handle on everything
-                  is eight more things to hit by accident. */}
               {canEdit && selected === item.id && (
                 <span
                   className="canvas-size"
@@ -984,7 +939,61 @@ export function CanvasSurface({
                 />
               )}
             </div>
-          ))}
+          );
+        })}
+
+        {/* What is being drawn right now, above everything: it is the thing the
+            hand is doing, and hiding it behind a note would be the same fault
+            this render fixed. */}
+        <svg className="canvas-ink" viewBox="-10000 -10000 20000 20000" aria-hidden="true">
+          {shape && shaping.current && tool === 'line' && (
+            <line
+              x1={shaping.current.from.x}
+              y1={shaping.current.from.y}
+              x2={shaping.current.to.x}
+              y2={shaping.current.to.y}
+              stroke={ink.colour}
+              strokeWidth={ink.width}
+              strokeLinecap="round"
+              opacity={0.6}
+            />
+          )}
+          {shape && tool === 'ellipse' && (
+            <ellipse
+              cx={shape.x + shape.w / 2}
+              cy={shape.y + shape.h / 2}
+              rx={shape.w / 2}
+              ry={shape.h / 2}
+              stroke={ink.colour}
+              strokeWidth={ink.width}
+              fill="none"
+              opacity={0.6}
+            />
+          )}
+          {shape && tool === 'rect' && (
+            <rect
+              x={shape.x}
+              y={shape.y}
+              width={shape.w}
+              height={shape.h}
+              rx={4}
+              stroke={ink.colour}
+              strokeWidth={ink.width}
+              fill="none"
+              opacity={0.6}
+            />
+          )}
+          {drawing && (
+            <path
+              d={pathFrom(drawing)}
+              stroke={ink.colour}
+              strokeWidth={ink.width}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+        </svg>
 
         {/* The handle for whatever is selected, wherever it is.
           *

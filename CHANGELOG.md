@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: drawing over a note or a picture put the stroke behind it**, and "bring
+to front" could not help — the board was two layers with all the ink underneath.
+It is one stack now, in one order, and a drawing tool reaches the board through
+whatever is on it.
+
 **Fixed: the buttons on a canvas item's handle did nothing.** The press reached
 the board underneath, which cleared the selection before the click arrived.
 

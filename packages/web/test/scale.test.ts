@@ -815,9 +815,11 @@ test('a shape is dragged out, and a tap makes nothing', () => {
   // A line keeps the corners it was drawn between rather than a box, so dragging
   // up-left draws up-left instead of flipping.
   assert.match(canvas, /tool === 'line'\s*\n\s*\? \{ x: drawn\.from\.x, y: drawn\.from\.y/);
-  // Shapes are drawn in the ink layer, not as DOM items: they are drawing, and
-  // an SVG is what draws.
-  assert.match(canvas, /item\.kind !== 'rect' &&/);
+  // A drawn thing gets its own SVG at its own box, so the whole board is one
+  // stack in one order — ink under everything meant "bring to front" could not
+  // cross the layer boundary.
+  assert.match(canvas, /className="canvas-drawn"/);
+  assert.match(css, /\.canvas-drawn \{[^}]*position: absolute/s);
 });
 
 test('a picture can be inserted from a button, not only dropped', () => {
@@ -978,4 +980,28 @@ test('both row menus hang off the row, not off their own buttons', () => {
   assert.match(css, /\.tree-add-wrap \{ display: inline-flex; \}/);
   // And the row declares that once: the drop indicator used to set it too.
   assert.doesNotMatch(css, /\.tree-row\[data-drop='before'\],\s*\n\.tree-row\[data-drop='after'\] \{\s*\n\s*position: relative/);
+});
+
+test('the board is one stack, so bringing to front works for anything', () => {
+  // It was two layers — every stroke in one SVG underneath, every note and
+  // picture above — so ink could never be in front of a note however anybody
+  // ordered it, and "bring to front" moved an item within a layer it could not
+  // leave.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  // One map over every item, not one per kind.
+  assert.match(canvas, /\{items\.map\(\(item\) => \{/);
+  assert.doesNotMatch(canvas, /items\s*\n?\s*\.filter\(\(item\) => item\.kind === 'path'/);
+
+  // And with a drawing tool in hand nothing on the board catches the press: a
+  // stroke begun over a note went to the note instead of the surface.
+  assert.match(canvas, /data-drawing=\{tool !== 'select' \? 'true' : undefined\}/);
+  assert.match(css, /\.canvas-plane\[data-drawing='true'\] \.canvas-item \{ pointer-events: none; \}/);
+});
+
+test('a stroke that has been moved is where it looks', () => {
+  // `boxOf` measured the points and forgot the item's position, so a hit test
+  // missed every stroke anybody had dragged — and the handle hung where the
+  // stroke used to be.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /x: minX \+ item\.x, y: minY \+ item\.y/);
 });
