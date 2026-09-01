@@ -303,8 +303,12 @@ test('indenting is reachable without a keyboard', () => {
     path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/components/BlockMenu.tsx'),
     'utf8',
   );
-  assert.match(menu, /run\(indentBlockSubtree\)/);
-  assert.match(menu, /run\(outdentBlockSubtree\)/);
+  // In the row of six at the top of the menu now, rather than in a "Nesting"
+  // section of its own: the same two commands were offered twice under two
+  // names, which is the menu disagreeing with itself.
+  assert.match(menu, /command: indentBlockSubtree/);
+  assert.match(menu, /command: outdentBlockSubtree/);
+  assert.match(menu, /aria-label=\{t\(action\.label\)\}/, 'and each says what it does');
 });
 
 test('no rule targets a class the editor never emits', () => {
@@ -545,4 +549,26 @@ test('alignment is four icons, and a row of choices wraps', () => {
   // guess.
   assert.match(menu, /aria-label=\{t\(choice\.label\)\}/);
   assert.match(css, /\.block-menu-choices \{[^}]*flex-wrap: wrap/s);
+});
+
+test('the six block actions are one row, and each keeps its name', () => {
+  // Six full-width rows of text were most of the menu's height before anything
+  // about the block appeared. Folding them costs nothing only if the word
+  // survives where a person can still reach it.
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(menu, /className="block-menu-actions"/);
+  assert.match(menu, /title=\{t\(action\.label\)\}/);
+  assert.match(menu, /aria-label=\{t\(action\.label\)\}/);
+  assert.match(css, /\.block-menu-actions \{[^}]*display: flex/s);
+
+  // And the duplicate "Nesting" section is gone.
+  assert.doesNotMatch(menu, /← Out/);
+});
+
+test('one rule per class in the block menu', () => {
+  // There were two `.block-menu-item` rules three and a half thousand lines
+  // apart with different padding — the seventh time this week. This is the
+  // assertion that keeps catching it.
+  assert.equal([...css.matchAll(/^\.block-menu-item \{/gm)].length, 1);
+  assert.equal([...css.matchAll(/^\.block-menu-actions \{/gm)].length, 1);
 });

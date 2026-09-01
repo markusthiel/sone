@@ -177,6 +177,42 @@ export function AlignRightIcon(props: IconProps): ReactElement {
   );
 }
 
+/**
+ * Out of a level, and into one.
+ *
+ * An arrow at a wall: the bar is the level's edge and the arrow is the block
+ * crossing it. Distinct from the alignment marks above, which are lines of text
+ * rather than an arrow — two families of icon in one menu need to be told apart
+ * at a glance.
+ */
+export function OutdentIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M20 5.5H10M20 12H13M20 18.5H10" />
+      <path d="M7 9l-3 3 3 3" />
+    </svg>
+  );
+}
+
+export function IndentIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M20 5.5H10M20 12H13M20 18.5H10" />
+      <path d="M4 9l3 3-3 3" />
+    </svg>
+  );
+}
+
+/** Two of the same thing, one behind the other. */
+export function DuplicateIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2" />
+      <path d="M15.5 4.5h-9a2 2 0 0 0-2 2v9" />
+    </svg>
+  );
+}
+
 /** A drag grip: two columns of dots, the conventional handle affordance. */
 export function GripIcon(props: IconProps): ReactElement {
   return (

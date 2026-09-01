@@ -659,6 +659,7 @@ export const de: Record<keyof typeof en, string> = {
   'block.display.player': 'Player',
   'block.display.image': 'Bild',
   'block.display.link': 'Link',
+  'block.actions': 'Was mit diesem Block geschehen soll',
   'block.moveUp': 'Nach oben',
   'block.moveDown': 'Nach unten',
   'block.outdent': 'Ausrücken',
