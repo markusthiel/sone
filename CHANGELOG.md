@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Six more areas speak German**: sharing a page, a workspace's typography and its
+mark, where a workspace opens, a folder's own view, and moving an entry inside a
+workspace. Twenty-two files are translated; what is left is mostly the panels for
+invitations, groups, page permissions and single sign-on.
+
 **The language can be chosen**, under Appearance: match the browser, English or
 Deutsch. It applies at once, without a reload, and it follows your account rather
 than the browser — unlike the text sizes beside it, which stay per device.

@@ -195,6 +195,12 @@ const MIGRATED = [
   'src/components/CollectionTable.tsx',
   'src/components/BlockMenu.tsx',
   'src/components/Auth.tsx',
+  'src/components/ShareDialog.tsx',
+  'src/components/ThemeSettings.tsx',
+  'src/components/LandingSettings.tsx',
+  'src/components/WorkspaceAppearance.tsx',
+  'src/components/FolderView.tsx',
+  'src/components/MoveDialog.tsx',
 ];
 
 test('every error code the client can show has a message', () => {

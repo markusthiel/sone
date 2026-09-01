@@ -5,12 +5,14 @@
  * and two people in the same one work on different things.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type PageSummary } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
 
 export function LandingSettings({ workspaceId }: { workspaceId: string }): ReactElement {
+  const { t } = useT();
   // Fetched here rather than passed in: settings is not otherwise given the
   // tree, and threading it through for one dropdown would make every other
   // section carry a list it does not use.
@@ -50,7 +52,7 @@ export function LandingSettings({ workspaceId }: { workspaceId: string }): React
 
   return (
     <section className="settings-section">
-      <h3 className="settings-heading">Where you land</h3>
+      <h3 className="settings-heading">{t('landing.title')}</h3>
       <p className="muted">
         When you sign in, switch to this workspace, or open SONE without a
         particular page in mind.
@@ -61,8 +63,8 @@ export function LandingSettings({ workspaceId }: { workspaceId: string }): React
       <div className="settings-card">
         <label className="settings-row">
           <span className="settings-row-label">
-            <b>The page you were on last</b>
-            <span>Follows you: whatever you had open in this workspace.</span>
+            <b>{t('landing.lastPage')}</b>
+            <span>{t('landing.lastPage.hint')}</span>
           </span>
           <input
             type="radio"
@@ -74,8 +76,8 @@ export function LandingSettings({ workspaceId }: { workspaceId: string }): React
 
         <label className="settings-row">
           <span className="settings-row-label">
-            <b>A particular page</b>
-            <span>Always the same one, whatever you were doing.</span>
+            <b>{t('landing.fixedPage')}</b>
+            <span>{t('landing.fixedPage.hint')}</span>
           </span>
           <input
             type="radio"
@@ -90,7 +92,7 @@ export function LandingSettings({ workspaceId }: { workspaceId: string }): React
         <div className="settings-card">
           <div className="settings-row">
             <span className="settings-row-label">
-              <b>Page</b>
+              <b>{t('landing.page')}</b>
               <span>
                 If it is ever deleted or closed to you, SONE opens the first one
                 instead rather than refusing.
@@ -101,11 +103,11 @@ export function LandingSettings({ workspaceId }: { workspaceId: string }): React
               * it is the one page somebody cannot avoid. */}
             <select
               id="landing-page"
-              aria-label="Page"
+              aria-label={t('landing.page')}
               value={pageId ?? ''}
               onChange={(event) => save({ mode: 'fixed', pageId: event.target.value || null })}
             >
-              <option value="">Choose a page…</option>
+              <option value="">{t('landing.choose')}</option>
               {pages
                 .filter((page) => page.kind !== 'folder')
                 .map((page) => (
@@ -118,7 +120,7 @@ export function LandingSettings({ workspaceId }: { workspaceId: string }): React
         </div>
       )}
 
-      {saved && <p className="muted">Saved.</p>}
+      {saved && <p className="muted">{t('action.saved')}</p>}
     </section>
   );
 }

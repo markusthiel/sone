@@ -13,6 +13,7 @@
  * it, whether it covers subpages, and how many people are using it right now.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type CreatedShareLink, type ShareLink } from '../api/client.ts';
@@ -42,6 +43,7 @@ export function ShareDialog({
   workspaceId,
   onClose,
 }: ShareDialogProps): ReactElement {
+  const { t } = useT();
   const [links, setLinks] = useState<ShareLink[] | null>(null);
   const [created, setCreated] = useState<CreatedShareLink | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +168,7 @@ export function ShareDialog({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="dialog share-dialog" role="dialog" aria-modal="true" aria-label="Share">
+      <div className="dialog share-dialog" role="dialog" aria-modal="true" aria-label={t('share.label')}>
         <h2 className="dialog-title">Share “{pageTitle || 'Untitled'}”</h2>
 
         {error && <p className="error">{messageFor(error)}</p>}
@@ -178,13 +180,13 @@ export function ShareDialog({
           * the other. The common case is also the first one. */}
         <PagePermissions pageId={pageId} workspaceId={workspaceId} />
 
-        <h3 className="settings-heading">Anyone with a link</h3>
+        <h3 className="settings-heading">{t('share.anyoneWithLink')}</h3>
 
         {/* The new link, shown once. */}
         {created && (
           <div className="share-created">
             <p className="share-created-label">
-              Your new link. You can copy it again below at any time.
+              {t('share.created')}
             </p>
             <div className="share-created-row">
               <input readOnly value={created.url} onFocus={(e) => e.target.select()} />
@@ -196,10 +198,10 @@ export function ShareDialog({
         )}
 
         <section className="share-new">
-          <h3 className="admin-subheading">New link</h3>
+          <h3 className="admin-subheading">{t('share.new')}</h3>
 
           <div className="field">
-            <label htmlFor="share-role">What it allows</label>
+            <label htmlFor="share-role">{t('share.allows')}</label>
             <select
               id="share-role"
               value={role}
@@ -232,17 +234,17 @@ export function ShareDialog({
           </div>
 
           <div className="field">
-            <label htmlFor="share-expiry">Expires</label>
+            <label htmlFor="share-expiry">{t('share.expires')}</label>
             <select
               id="share-expiry"
               value={expiry}
               onChange={(event) => setExpiry(event.target.value)}
             >
-              <option value="never">Never</option>
-              <option value="1">In a day</option>
-              <option value="7">In a week</option>
-              <option value="30">In a month</option>
-              <option value="365">In a year</option>
+              <option value="never">{t('share.never')}</option>
+              <option value="1">{t('share.inADay')}</option>
+              <option value="7">{t('share.inAWeek')}</option>
+              <option value="30">{t('share.inAMonth')}</option>
+              <option value="365">{t('share.inAYear')}</option>
             </select>
           </div>
 
@@ -269,15 +271,15 @@ export function ShareDialog({
             disabled={busy || passwordTooShort}
             onClick={() => void createLink()}
           >
-            Create link
+            {t('share.create')}
           </button>
         </section>
 
         <section className="share-existing">
-          <h3 className="admin-subheading">Existing links</h3>
+          <h3 className="admin-subheading">{t('share.existing')}</h3>
 
-          {!links && <p className="muted">Loading…</p>}
-          {links?.length === 0 && <p className="muted">This page is not shared.</p>}
+          {!links && <p className="muted">{t('trash.loading')}</p>}
+          {links?.length === 0 && <p className="muted">{t('share.notShared')}</p>}
 
           {links?.map((link) => (
             <div className="admin-row" key={link.id}>
@@ -309,7 +311,7 @@ export function ShareDialog({
                   className="btn destructive"
                   onClick={() => void revoke(link.id)}
                 >
-                  Revoke
+                  {t('share.revoke')}
                 </button>
               </div>
 
@@ -357,7 +359,7 @@ export function ShareDialog({
 
         <div className="dialog-actions">
           <button type="button" className="btn" onClick={onClose}>
-            Done
+            {t('action.done')}
           </button>
         </div>
       </div>

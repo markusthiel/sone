@@ -13,6 +13,7 @@
 
 import type { ReactElement } from 'react';
 
+import { useT } from '../i18n/useT.tsx';
 import { type PageNode } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
@@ -32,6 +33,7 @@ export function FolderView({
   onCreate,
   onRename,
 }: FolderViewProps): ReactElement {
+  const { t } = useT();
   const folders = folder.children.filter((child) => child.kind === 'folder');
   const pages = folder.children.filter((child) => child.kind === 'page');
 
@@ -39,7 +41,7 @@ export function FolderView({
   return (
     <div className="page-body folder-view">
       {trail.length > 0 && (
-        <nav className="breadcrumb" aria-label="Location">
+        <nav className="breadcrumb" aria-label={t('folder.location')}>
           {trail.map((ancestor) => (
             <span key={ancestor.id}>
               <a href={paths.page(ancestor.id, ancestor.title)}>
@@ -87,17 +89,17 @@ export function FolderView({
               event.currentTarget.blur();
             }
           }}
-          placeholder="Untitled folder"
-          aria-label="Folder name"
+          placeholder={t('folder.untitled')}
+          aria-label={t('folder.name')}
         />
       </div>
 
       <div className="folder-actions">
         <button type="button" className="btn" onClick={() => onCreate(folder.id, 'page')}>
-          <PlusIcon /> New page
+          <PlusIcon /> {t('entry.newPage')}
         </button>
         <button type="button" className="btn" onClick={() => onCreate(folder.id, 'folder')}>
-          <FolderPlusIcon /> New folder
+          <FolderPlusIcon /> {t('entry.newFolder')}
         </button>
       </div>
 
@@ -118,7 +120,7 @@ export function FolderView({
               hunt. */}
           {folders.length > 0 && (
             <section>
-              <h2 className="folder-section">Folders</h2>
+              <h2 className="folder-section">{t('folder.folders')}</h2>
               <ul className="folder-list">
                 {folders.map((child) => (
                   <li key={child.id}>
@@ -146,7 +148,7 @@ export function FolderView({
 
           {pages.length > 0 && (
             <section>
-              <h2 className="folder-section">Pages</h2>
+              <h2 className="folder-section">{t('folder.pages')}</h2>
               <ul className="folder-list">
                 {pages.map((child) => (
                   <li key={child.id}>

@@ -10,6 +10,7 @@
  * Dragging can be added on top later; the operation underneath is the same.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useMemo, useState, type ReactElement } from 'react';
 
 import type { PageNode } from '../api/client.ts';
@@ -86,6 +87,7 @@ export function MoveDialog({
   onMove,
   onCancel,
 }: MoveDialogProps): ReactElement {
+  const { t } = useT();
   const [filter, setFilter] = useState('');
   const all = useMemo(() => destinations(tree, entry), [tree, entry]);
 
@@ -109,7 +111,7 @@ export function MoveDialog({
         if (event.target === event.currentTarget) onCancel();
       }}
     >
-      <div className="dialog" role="dialog" aria-modal="true" aria-label="Move to">
+      <div className="dialog" role="dialog" aria-modal="true" aria-label={t('move.title')}>
         <h2 className="dialog-title">
           Move “{entry.title || (entry.kind === 'folder' ? 'Untitled folder' : 'Untitled')}”
         </h2>
@@ -118,8 +120,8 @@ export function MoveDialog({
           className="dialog-filter"
           value={filter}
           autoFocus
-          placeholder="Find a folder"
-          aria-label="Find a folder"
+          placeholder={t('move.find')}
+          aria-label={t('move.find')}
           onChange={(event) => setFilter(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Escape') onCancel();
@@ -127,7 +129,7 @@ export function MoveDialog({
         />
 
         <div className="dialog-list">
-          {shown.length === 0 && <p className="panel-empty">No folder matches.</p>}
+          {shown.length === 0 && <p className="panel-empty">{t('move.noMatch')}</p>}
           {shown.map((destination) => (
             <button
               key={destination.id ?? 'root'}
@@ -152,7 +154,7 @@ export function MoveDialog({
 
         <div className="dialog-actions">
           <button type="button" className="btn" onClick={onCancel}>
-            Cancel
+            {t('action.cancel')}
           </button>
         </div>
       </div>

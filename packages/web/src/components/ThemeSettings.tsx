@@ -23,6 +23,7 @@ import {
   type ThemedElement,
   type WorkspaceTheme,
 } from '@sone/core';
+import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
@@ -76,6 +77,7 @@ interface ThemeSettingsProps {
 }
 
 export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): ReactElement {
+  const { t } = useT();
   const [theme, setTheme] = useState<WorkspaceTheme>({});
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -151,7 +153,7 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
         * It is the setting the others are expressed in: an element's colour is
         * one of these names, so deciding what the names look like comes before
         * deciding which to use. */}
-      <h3 className="settings-heading">Palette</h3>
+      <h3 className="settings-heading">{t('type.palette')}</h3>
       <p className="muted">
         What each colour name looks like here. Everything that uses a name —
         tags, columns, blocks, folder icons — follows.
@@ -181,7 +183,7 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
                   type="button"
                   className="theme-palette-reset"
                   aria-label={`Reset ${name}`}
-                  title="As designed"
+                  title={t('type.asDesigned')}
                   onClick={() => {
                     setSaved(false);
                     setTheme((current) => {
@@ -210,16 +212,16 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
         })}
       </div>
 
-      <h3 className="settings-heading">Elements</h3>
+      <h3 className="settings-heading">{t('type.elements')}</h3>
 
       <table className="theme-table">
         <thead>
           <tr>
-            <th>Element</th>
-            <th>Size</th>
-            <th>Colour</th>
-            <th>Space above</th>
-            <th>Space below</th>
+            <th>{t('type.element')}</th>
+            <th>{t('type.size')}</th>
+            <th>{t('type.colour')}</th>
+            <th>{t('type.spaceAbove')}</th>
+            <th>{t('type.spaceBelow')}</th>
           </tr>
         </thead>
         <tbody>
@@ -242,7 +244,7 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
                       )
                     }
                   >
-                    <option value="">As designed</option>
+                    <option value="">{t('type.asDesigned')}</option>
                     {SIZE_STEPS.filter((step) => step !== 0).map((step) => (
                       <option key={step} value={step}>
                         {SIZE_LABELS[step] ?? step}
@@ -264,7 +266,7 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
                       )
                     }
                   >
-                    <option value="">As designed</option>
+                    <option value="">{t('type.asDesigned')}</option>
                     {THEME_COLORS.map((color) => (
                       <option key={color} value={color}>
                         {color}
@@ -287,7 +289,7 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
                         )
                       }
                     >
-                      <option value="">As designed</option>
+                      <option value="">{t('type.asDesigned')}</option>
                       {SPACE_STEPS.filter((step) => step !== 0).map((step) => (
                         <option key={step} value={step}>
                           {'+'.repeat(step)}
@@ -307,7 +309,7 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
           <button type="button" className="btn primary" disabled={busy} onClick={save}>
             {busy ? 'Saving…' : 'Save'}
           </button>
-          {saved && <span className="muted">Saved.</span>}
+          {saved && <span className="muted">{t('action.saved')}</span>}
         </div>
       )}
     </section>

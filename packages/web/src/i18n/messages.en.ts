@@ -190,6 +190,63 @@ export const en = {
   'workspace.mark': 'Mark',
   'workspace.saveFailed': 'Could not save that. Try again.',
 
+  // --- sharing a page ----------------------------------------------------
+  'share.label': 'Share',
+  'share.anyoneWithLink': 'Anyone with a link',
+  'share.notShared': 'This page is not shared.',
+  'share.existing': 'Existing links',
+  'share.new': 'New link',
+  'share.allows': 'What it allows',
+  'share.expires': 'Expires',
+  'share.never': 'Never',
+  'share.inADay': 'In a day',
+  'share.inAWeek': 'In a week',
+  'share.inAMonth': 'In a month',
+  'share.inAYear': 'In a year',
+  'share.created': 'Your new link. You can copy it again below at any time.',
+  'share.create': 'Create link',
+  'share.revoke': 'Revoke',
+  'action.done': 'Done',
+
+  // --- a workspace's typography ------------------------------------------
+  'type.element': 'Element',
+  'type.elements': 'Elements',
+  'type.palette': 'Palette',
+  'type.size': 'Size',
+  'type.colour': 'Colour',
+  'type.spaceAbove': 'Space above',
+  'type.spaceBelow': 'Space below',
+  'type.asDesigned': 'As designed',
+
+  // --- where a workspace opens -------------------------------------------
+  'landing.title': 'Where you land',
+  'landing.lastPage': 'The page you were on last',
+  'landing.lastPage.hint': 'Follows you: whatever you had open in this workspace.',
+  'landing.fixedPage': 'A particular page',
+  'landing.fixedPage.hint': 'Always the same one, whatever you were doing.',
+  'landing.page': 'Page',
+  'landing.choose': 'Choose a page…',
+
+  // --- a workspace's own mark --------------------------------------------
+  'mark.icon': 'Icon',
+  'mark.none': 'No icon',
+  'mark.iconColour': 'Icon colour',
+  'mark.nameColour': 'Name colour',
+
+  // --- a folder ----------------------------------------------------------
+  'folder.name': 'Folder name',
+  'folder.untitled': 'Untitled folder',
+  'folder.location': 'Location',
+  'folder.folders': 'Folders',
+  'folder.pages': 'Pages',
+
+  // --- moving inside a workspace -----------------------------------------
+  'move.title': 'Move to',
+  'move.find': 'Find a folder',
+  'move.noMatch': 'No folder matches.',
+
+  'action.saved': 'Saved.',
+
   // --- the trash ---------------------------------------------------------
   'trash.title': 'Trash',
   'trash.note':
