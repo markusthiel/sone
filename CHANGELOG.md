@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a canvas showed a sheet on its own heading**, and did not appear in its
+folder's list at all. Both were the same line of code written out in five places;
+it is one function now.
+
 **A picture placed on a canvas now appears in the page's Pictures panel.** It has
 no block to scroll to, so pressing it opens the file.
 

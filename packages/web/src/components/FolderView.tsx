@@ -16,7 +16,7 @@ import type { ReactElement } from 'react';
 import { useT } from '../i18n/useT.tsx';
 import { type PageNode } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
-import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
+import { EntryIconView, entryKind, titleColorStyle } from './EntryIconView.tsx';
 import {
   BrushIcon, FolderPlusIcon, PlusIcon } from './icons.tsx';
 
@@ -36,7 +36,12 @@ export function FolderView({
 }: FolderViewProps): ReactElement {
   const { t } = useT();
   const folders = folder.children.filter((child) => child.kind === 'folder');
-  const pages = folder.children.filter((child) => child.kind === 'page');
+  // Everything that is not a folder, rather than everything that says 'page'.
+  //
+  // A canvas is neither, so it appeared in neither list — a folder holding one
+  // showed it as missing rather than as something. The next kind should turn up
+  // here without being invited too.
+  const pages = folder.children.filter((child) => child.kind !== 'folder');
 
 
   return (
@@ -160,7 +165,7 @@ export function FolderView({
                 {pages.map((child) => (
                   <li key={child.id}>
                     <a href={paths.page(child.id, child.title)}>
-                      <EntryIconView icon={child.icon} kind="page" />
+                      <EntryIconView icon={child.icon} kind={entryKind(child.kind)} />
                       <span
                         className="folder-list-name"
                         style={titleColorStyle(child.icon)}

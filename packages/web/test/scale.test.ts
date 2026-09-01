@@ -1020,3 +1020,30 @@ test('a picture on a board is in the page’s own list of pictures', () => {
   const panel = codeOf(new URL('../src/components/RightSidebar.tsx', import.meta.url));
   assert.match(panel, /if \(image\.onCanvas\) \{\s*\n\s*window\.open/);
 });
+
+test('an entry’s kind is narrowed in one place, not at five call sites', () => {
+  // `kind === 'folder' ? 'folder' : 'page'` was written out at each call site,
+  // which is how a canvas came to be drawn as a document in the tree, then in
+  // the icon picker, then on its own heading — three reports for one line of
+  // code repeated.
+  const icon = codeOf(new URL('../src/components/EntryIconView.tsx', import.meta.url));
+  assert.match(icon, /export function entryKind\(/);
+
+  for (const file of ['Search.tsx', 'FolderView.tsx', 'PageView.tsx']) {
+    const source = codeOf(new URL(`../src/components/${file}`, import.meta.url));
+    assert.doesNotMatch(
+      source,
+      /kind === 'folder' \? 'folder' : 'page'/,
+      `${file} no longer guesses`,
+    );
+  }
+  const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  assert.match(view, /kind=\{isCanvas \? 'canvas' : 'page'\}/);
+});
+
+test('a folder shows everything in it, not everything named page', () => {
+  // A canvas is neither a folder nor a 'page', so it appeared in neither list —
+  // a folder holding one showed it as missing.
+  const folder = codeOf(new URL('../src/components/FolderView.tsx', import.meta.url));
+  assert.match(folder, /children\.filter\(\(child\) => child\.kind !== 'folder'\)/);
+});

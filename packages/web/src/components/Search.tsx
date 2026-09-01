@@ -28,7 +28,7 @@ import {
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
-import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
+import { EntryIconView, entryKind, titleColorStyle } from './EntryIconView.tsx';
 
 export function SearchScreen({
   workspaceId,
@@ -127,7 +127,7 @@ export function SearchScreen({
                   <span className="search-hit-head">
                     <EntryIconView
                       icon={entry.icon}
-                      kind={entry.kind === 'folder' ? 'folder' : 'page'}
+                      kind={entryKind(entry.kind)}
                     />
                     <span className="search-hit-title" style={titleColorStyle(entry.icon)}>
                       {entry.title || 'Untitled'}
@@ -175,7 +175,7 @@ function Group({
               <span className="search-hit-head">
                 <EntryIconView
                   icon={result.icon}
-                  kind={result.kind === 'folder' ? 'folder' : 'page'}
+                  kind={entryKind(result.kind)}
                 />
                 <span className="search-hit-title" style={titleColorStyle(result.icon)}>
                   {result.title || 'Untitled'}

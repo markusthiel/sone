@@ -72,6 +72,19 @@ interface EntryIconProps {
   kind: 'page' | 'folder' | 'row' | 'canvas';
 }
 
+/**
+ * An entry's kind, narrowed to the ones this draws.
+ *
+ * Written out at each call site five times as `kind === 'folder' ? 'folder' :
+ * 'page'`, which is how a canvas came to be drawn as a document in the tree,
+ * then in the icon picker, then on its own heading — three separate reports for
+ * one line of code repeated. One place to add the next kind to.
+ */
+export function entryKind(kind: string | undefined): 'page' | 'folder' | 'row' | 'canvas' {
+  if (kind === 'folder' || kind === 'row' || kind === 'canvas') return kind;
+  return 'page';
+}
+
 export function EntryIconView({ icon, kind }: EntryIconProps): ReactElement {
   const Chosen = icon && icon.kind === 'icon' ? componentFor(icon.value) : null;
 

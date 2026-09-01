@@ -152,7 +152,10 @@ export function PageView({
       {/* The icon and the name on one line, the same shape a folder has. */}
       <div className="entry-heading">
         <span className="entry-heading-icon">
-          <EntryIconView icon={icon.icon} kind="page" />
+          {/* The page's own kind, not "page" written into the markup. This is
+              the fourth place that hardcoded it, and the reason a canvas showed
+              a sheet on its own heading while showing a brush everywhere else. */}
+          <EntryIconView icon={icon.icon} kind={isCanvas ? 'canvas' : 'page'} />
         </span>
         <input
           className="page-title"
