@@ -232,6 +232,55 @@ export function ArrowUturnIcon(props: IconProps): ReactElement {
 }
 
 /**
+ * The tools on a board.
+ *
+ * Each is the thing it makes, not a metaphor for it: a rectangle is a
+ * rectangle, a line is a line. The only two that cannot be are the pointer and
+ * the eraser, which are instruments rather than marks — so those are drawn as
+ * the instruments everybody already knows.
+ */
+export function CursorIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M5.5 3.5l13 7-5.5 1.5-2 5.5z" />
+    </svg>
+  );
+}
+
+export function RectangleIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+    </svg>
+  );
+}
+
+export function EllipseIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <ellipse cx="12" cy="12" rx="8.5" ry="6.5" />
+    </svg>
+  );
+}
+
+export function LineIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 19L20 5" />
+    </svg>
+  );
+}
+
+export function EraserIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M8 20H4l-1.5-4 10-10 6 6-8 8z" />
+      <path d="M8 20h12" />
+    </svg>
+  );
+}
+
+/**
  * A brush, for a canvas.
  *
  * Not the pen: the pen is the tool *on* a board, and the board itself wants a
