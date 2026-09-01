@@ -137,3 +137,22 @@ test('removing something removes it', () => {
   removeItem(doc, 'one');
   assert.deepEqual(readCanvas(doc), []);
 });
+
+test('the schema version moved with the canvas', async () => {
+  // The prerequisite ADR-0043 named, and the reason it is not optional: the
+  // release before this one also called itself version 2. "Same version,
+  // different format" is the one thing the handshake cannot catch, so the only
+  // fix is to stop being the same version — a client from yesterday is refused
+  // at the handshake rather than shown a blank sheet where a drawing is.
+  const { SCHEMA_VERSION } = await import('../src/types/ids.js');
+  const { DOCUMENT_MIGRATIONS } = await import('../src/doc/migrations.js');
+  assert.equal(SCHEMA_VERSION, 3);
+
+  // The chain has no gaps: `migrateDocument` refuses one, so a version bumped
+  // without a step would take every document down rather than one client.
+  const steps = DOCUMENT_MIGRATIONS.map((step) => [step.from, step.to]);
+  assert.deepEqual(steps, [
+    [1, 2],
+    [2, 3],
+  ]);
+});

@@ -578,7 +578,13 @@ function PropertiesPanel({
       <dt>
         <PageIcon /> {t('panel.kind')}
       </dt>
-      <dd>{detail.kind === 'folder' ? t('panel.kind.folder') : t('panel.kind.page')}</dd>
+      <dd>
+        {detail.kind === 'folder'
+          ? t('panel.kind.folder')
+          : detail.kind === 'canvas'
+            ? t('panel.kind.canvas')
+            : t('panel.kind.page')}
+      </dd>
 
       {/* How wide this page is drawn.
         *
