@@ -930,3 +930,16 @@ test('a guest appears by name, marked as a guest', () => {
   assert.match(people, /name: guestName\(userId\), known: true, guest: true/);
   assert.match(people, /person\.guest && <span className="contributor-guest">/);
 });
+
+test('the + menu is the same panel as the ⋮ menu', () => {
+  // It opened rightward, out of the sidebar and under the content area — which
+  // is a stacking context, so it painted over the menu. The ⋮ menu never had
+  // that problem because it opens leftward and stays over the sidebar. Two
+  // popups a row apart should not differ in width, alignment or direction.
+  const add = codeOf(new URL('../src/components/AddEntryMenu.tsx', import.meta.url));
+  assert.match(add, /className="entry-menu tree-add-menu"/);
+  // Which means it inherits the width and the leftward alignment rather than
+  // declaring its own.
+  assert.doesNotMatch(css, /\.tree-add-menu \{[^}]*inline-size/s);
+  assert.doesNotMatch(css, /\.tree-add-menu \{[^}]*inset-inline-start/s);
+});
