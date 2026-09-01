@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the buttons on a canvas item's handle did nothing.** The press reached
+the board underneath, which cleared the selection before the click arrived.
+
 **Fixed: the + menu in the tree was cut off** by the content area. It is the same
 panel as the ⋮ menu now — same width, same alignment, opening the same way.
 

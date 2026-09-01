@@ -1012,6 +1012,13 @@ export function CanvasSurface({
             }}
             role="toolbar"
             aria-label={t('canvas.handle')}
+            // The press must not reach the surface underneath.
+            //
+            // It did, and the surface clears the selection on a press against
+            // the empty plane — so the handle unmounted between `pointerdown`
+            // and `click`, and the click landed on nothing. The buttons looked
+            // dead; they were never reached.
+            onPointerDown={(event) => event.stopPropagation()}
           >
             <button
               type="button"
