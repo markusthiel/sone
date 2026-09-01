@@ -22,7 +22,7 @@
 
 import type { PageHandle } from '@sone/client';
 import { useT } from '../i18n/useT.tsx';
-import { attributionUsers } from '@sone/client';
+import { attributionUsers, hasUnattributedWriting } from '@sone/client';
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 
 import { api, type WorkspaceMember } from '../api/client.ts';
@@ -62,6 +62,16 @@ export function Contributors({
     () => (handle ? attributionUsers(handle.doc) : new Map()),
   );
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
+  /**
+   * Whether somebody the document cannot name has written here.
+   *
+   * A share-link guest is deliberately not recorded (ADR-0022) — they have no
+   * user id, and one contributor that is really several people is worse than
+   * saying nothing. But saying *nothing* was the mistake: a page a guest had
+   * visibly written on looked like a page nobody had written on, which reads as
+   * a broken panel rather than as a deliberate silence.
+   */
+  const [guests, setGuests] = useState(false);
 
   // From the document, and again whenever it changes: somebody joining and
   // typing should appear without a reload.
@@ -82,6 +92,7 @@ export function Contributors({
       const users = attributionUsers(doc);
       setUserIds([...users.keys()]);
       setClientsByUser(users);
+      setGuests(hasUnattributedWriting(doc));
     };
     read();
     doc.on('update', read);
@@ -123,15 +134,16 @@ export function Contributors({
   if (people.length === 0) {
     return (
       <div className="panel-section">
-        <p className="muted">
-          {t('panel.noPeople')}
-        </p>
+        <p className="muted">{t('panel.noPeople')}</p>
+        {guests && <p className="muted">{t('panel.guestWriting')}</p>}
       </div>
     );
   }
 
   return (
     <div className="panel-section">
+      {guests && <p className="muted contributor-note">{t('panel.guestWriting')}</p>}
+
       <ul className="contributor-list">
         {people.map((person) => {
           const chosen = selected === person.userId;
