@@ -27,6 +27,7 @@ import { useTreeDrag, type TreeDrag } from '../hooks/useTreeDrag.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
+import { AddEntryMenu } from './AddEntryMenu.tsx';
 import { AccountMenu } from './AccountMenu.tsx';
 import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
@@ -311,26 +312,18 @@ export function Sidebar({
 
         {/* At the bottom of the tree, where the thing it adds to ends.
           *
-          * Both kinds of container, side by side. A canvas was reachable only
-          * through a folder's ⋮ menu, so somebody with no folders — or somebody
-          * looking at a page — could not find one at all. A thing you can create
-          * has to be offered where creating happens, and this is where. */}
-        <div className="tree-new">
-          <button
-            className="tree-new-folder"
-            type="button"
-            onClick={() => onCreatePage(null, 'folder')}
-          >
-            <FolderPlusIcon /> {t('sidebar.newFolder')}
-          </button>
-          <button
-            className="tree-new-folder"
-            type="button"
-            onClick={() => onCreatePage(null, 'canvas')}
-          >
-            <PenIcon /> {t('canvas.new')}
-          </button>
-        </div>
+          * A folder and nothing else, because the root holds only folders
+          * (ADR-0019). I briefly put a canvas here too, and the server refused
+          * it — the rule that made pages need a folder applies to a canvas for
+          * the same reason, and offering something that cannot work is worse
+          * than not offering it. */}
+        <button
+          className="tree-new-folder"
+          type="button"
+          onClick={() => onCreatePage(null, 'folder')}
+        >
+          <FolderPlusIcon /> {t('sidebar.newFolder')}
+        </button>
 
         {/* The face, and the menu behind it (AccountMenu).
           *
@@ -496,15 +489,10 @@ function TreeLevel({
                       nothing (ADR-0019), so offering it there would produce a
                       refusal the person could not have predicted. */}
                   {isFolder && (
-                    <button
-                      className="tree-add"
-                      type="button"
-                      onClick={() => onCreatePage(node.id, 'page')}
-                      title={t('sidebar.newPageIn', { title })}
-                      aria-label={t('sidebar.newPageIn', { title })}
-                    >
-                      <PlusIcon />
-                    </button>
+                    <AddEntryMenu
+                      title={title}
+                      onCreate={(kind) => onCreatePage(node.id, kind)}
+                    />
                   )}
                   <EntryMenu
                     node={node}

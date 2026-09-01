@@ -639,6 +639,22 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 }
 .tree-add:hover { background: var(--sone-bg-hover); }
 
+/* The `+` and the small menu behind it. Anchored to the button rather than the
+   row, so it opens beside what was pressed however deep the branch is. */
+.tree-add-wrap { position: relative; display: inline-flex; }
+.tree-add-menu {
+  position: absolute;
+  inset-block-start: calc(100% + 4px);
+  inset-inline-start: 0;
+  z-index: 50;
+  min-inline-size: 12rem;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+}
+
 .main {
   display: flex;
   flex-direction: column;
@@ -2871,11 +2887,6 @@ select {
 .tree-link[aria-current='page'] svg { opacity: 1; }
 
 .tree-link[aria-current='page'] { font-weight: 600; }
-
-/* The two containers a person can start, side by side at the foot of the tree.
-   Stacked rather than in a row: the sidebar is narrow, and two half-width
-   buttons with wrapping labels are worse than two full-width ones. */
-.tree-new { display: flex; flex-direction: column; }
 
 .tree-new-folder {
   display: flex;

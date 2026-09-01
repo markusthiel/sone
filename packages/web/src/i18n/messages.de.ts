@@ -64,6 +64,7 @@ export const de: Record<keyof typeof en, string> = {
   'sidebar.empty': 'Noch keine Seiten.',
   'sidebar.rename': 'Umbenennen',
   'sidebar.newPageIn': 'Neue Seite in {title}',
+  'sidebar.addIn': 'Etwas in {title} anlegen',
   'sidebar.removeFavourite': '{title} entfernen',
 
   // --- das Menü eines Eintrags -------------------------------------------

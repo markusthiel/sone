@@ -16,8 +16,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 **The document format is version 3.** A browser holding an older build is asked to
 reload rather than being shown a canvas it cannot draw.
 
-**A page can be a canvas** ([ADR-0043](docs/adr/0043-canvas.md)): "New canvas" at
-the foot of the sidebar, in a folder's own view and in an entry's ⋮ menu, a pen in five colours and any thickness, text notes you can place
+**A page can be a canvas** ([ADR-0043](docs/adr/0043-canvas.md)). The `+` beside a
+folder now asks what to add — a page, a canvas or a folder — and a canvas is
+offered in a folder's own view and its ⋮ menu as well. a pen in five colours and any thickness, text notes you can place
 and drag anywhere, pictures dropped straight onto the board, and a corner to
 resize what is selected. It zooms from a quarter to three times, drags a band across the
 board to catch several things and move them together, pans with the middle button
