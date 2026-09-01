@@ -1,0 +1,151 @@
+# ADR-0043: A canvas is a second kind of document
+
+## Status
+
+Accepted. Not built — this decides the shape before anybody writes it, which is
+the point of writing it now.
+
+## Context
+
+Asked for: a whiteboard. A page you draw on freely, and place text, images and
+other things anywhere on.
+
+Everything in this application so far is a *sequence*: a document is a list of
+blocks, a collection is a list of rows, a page is a list of pages. A canvas is
+not. Two things on a canvas have no order at all — they have positions — and that
+difference goes all the way down: to the schema, to how two people editing at once
+merge, to what a search index can say about it, and to what "the same page on a
+phone" even means.
+
+So the question is not "can we build it" — yes — but what it *is*, because the
+wrong answer here is expensive in a way a wrong button is not.
+
+## Decisions
+
+### A canvas is a page kind, not a block
+
+`kind = 'canvas'`, beside `page`, `folder` and `row` (ADR-0019). Not a block
+inside a document.
+
+A canvas inside a document would inherit the column's width, the document's
+scrolling, and a height somebody has to choose in advance — and a whiteboard whose
+size is decided before anything is on it is a drawing surface with the one
+property whiteboards do not have. It also puts an infinite plane inside a list,
+which is the containment the rest of this record is trying to avoid.
+
+The tree, the trash, permissions, sharing, moving between workspaces and search
+all work on pages, so a canvas gets every one of them for free by being one.
+
+### It is a Y.Map of items keyed by id, not a Y.Array
+
+The document holds `canvas: Y.Map<Y.Map>`, each entry one item with its own
+position, size and content.
+
+A `Y.Array` is what a document uses, because a document has an order and two
+inserts at the same point must both survive in some sequence. A canvas has no
+order, and using an array for it would mean every move rewrites an element's
+position in a list that means nothing — and two people dragging two different
+things would produce a merge conflict about a sequence neither of them can see.
+
+A map keyed by id makes the natural operations natural: moving is setting `x` and
+`y` on one entry, and two people moving two items touch two keys and never meet.
+Two people moving *the same* item is last-writer-wins on that key, which is the
+honest outcome — there is no merge of "here" and "there" that is not simply one
+of them.
+
+### Z-order is a fractional index, like everything else here
+
+Not an integer, and not array position. A fractional index (ADR-0006 already uses
+them for siblings) lets "bring to front" be one key written on one item, with no
+renumbering and no conflict with somebody else reordering elsewhere.
+
+### A stroke is a finished thing, not a live one
+
+Drawing produces a `path` item holding its points, written **once, when the stroke
+ends**. Not point-by-point as the pen moves.
+
+Sixty updates a second per stroke, multiplied by everyone drawing, is a CRDT log
+that grows without bound and a sync channel that never quiets — and the document
+would then carry the *history of the wrist*, which nobody wants and which cannot
+be pruned without breaking the log. The stroke in progress is drawn locally and
+sent through awareness (ADR-0022), which is ephemeral by design: other people see
+it being drawn, and nothing is written until it is done.
+
+### Text on a canvas is a text item, not a nested document
+
+A canvas item holding text holds a `Y.Text` — the same collaborative text as a
+paragraph, so two people typing in one box merge properly. But it is one text
+field, not a document: no blocks, no nesting, no slash menu.
+
+A whiteboard note is a label. Making it a document inside a document doubles the
+schema, the migration story and the editor, to serve the case that is better
+answered by linking to a real page — which a canvas item can do.
+
+### Images are the same files as everywhere else
+
+An image item carries a `fileId` (ADR-0029, ADR-0035). Not a data URL, not a
+second upload path. The file is the workspace's, the byte-range serving already
+works, and a picture on a whiteboard is the same picture as one in a page.
+
+### Search sees a canvas as its text, in reading order that does not exist
+
+The materialiser projects a canvas's text items into the search index, ordered
+top-to-bottom then left-to-right. That order is a fiction — a canvas has none —
+but a search result needs *some* order to show a snippet in, and reading order is
+the fiction everybody already has.
+
+Strokes are not indexed. A drawing is not text and pretending otherwise produces a
+search result that cannot be explained.
+
+### The schema version moves, and old clients are told
+
+Adding a node type to a document is already known to be a format change that
+older clients silently destroy — the video block proved it (ADR-0037), and the
+lesson was recorded rather than acted on. A whole second document shape is the
+point at which that debt has to be paid: `SCHEMA_VERSION` goes to 2, and
+`isClientSchemaCompatible` is finally called during sync, so a client that does
+not know what a canvas is refuses to open it instead of emptying it.
+
+That check is a prerequisite of this feature, not a follow-up.
+
+## What is deliberately not decided
+
+**Infinite scroll versus a fixed sheet.** Both are defensible and the choice
+changes little else; it can be made when there is something to look at.
+
+**Connectors between items.** The obvious next want, and the one that needs its
+own thinking: a line between two items is a relation, and relations are the thing
+this application has been careful not to invent casually.
+
+**Handwriting recognition, shape straightening, templates.** All plausible, none
+architectural.
+
+## Consequences
+
+The first slice is: the page kind, the map, drag-to-move, a text item, an image
+item, and a pen that writes a stroke on release. That is a working whiteboard and
+it is several sessions of work, not one.
+
+Every list in the application has to learn that a page might be a canvas — the
+tree icon, the search result, the trash entry. That is cheap but broad, and it is
+where a half-finished version shows.
+
+A canvas page cannot be opened by an older client at all, by design. That is the
+price of not letting one delete a drawing it cannot read.
+
+## Alternatives considered
+
+**A canvas block inside an ordinary page.** Rejected above: it needs a height
+decided in advance, and it puts a plane inside a list.
+
+**Excalidraw, tldraw or another embedded editor.** Genuinely tempting: both are
+good, and tldraw has a collaboration story. Rejected for this application on the
+same grounds as ADR-0004's dependency rule — they bring their own document format
+and their own persistence, and the whole point of this codebase is that one
+document format is synced one way and can be reasoned about. A second engine
+would mean a page whose contents SONE cannot search, cannot materialise, cannot
+move between workspaces and cannot restore from its own log.
+
+**SVG as the storage format.** Rejected: SVG is a rendering, not a data model.
+Two people editing the same SVG string merge as text, which for a drawing means
+neither of them gets what they drew.

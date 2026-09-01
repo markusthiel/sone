@@ -710,6 +710,9 @@ export const en = {
   'panel.noPeople':
     'Nobody is recorded yet. Writing is attributed from the moment it is written, so ' +
     'anything typed before this page started keeping track is not listed here.',
+  'panel.width': 'Width',
+  'panel.width.column': 'Column',
+  'panel.width.full': 'Full page',
   'panel.kind.page': 'Page',
   'panel.kind.folder': 'Folder',
   'panel.sync.upToDate': 'up to date',

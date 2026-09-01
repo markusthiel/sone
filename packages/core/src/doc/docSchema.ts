@@ -129,6 +129,15 @@ export const PAGE_KEYS = {
    */
   tags: 'tags',
   icon: 'icon',
+  /**
+   * How wide this page's writing is: 'column' or 'full'. Absent means the
+   * reader's default, which is the column (ADR-0028).
+   *
+   * In the document rather than only in the database, like the icon: it is a
+   * property of the page and it travels with it — a page moved to another
+   * workspace or restored from a backup keeps the shape its author gave it.
+   */
+  width: 'width',
   coverUrl: 'coverUrl',
   parentPageId: 'parentPageId',
   /** Fractional index among sibling pages, not among blocks. */

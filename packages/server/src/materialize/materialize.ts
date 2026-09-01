@@ -208,8 +208,8 @@ export async function materializeDocument(
     `INSERT INTO pages (
        id, workspace_id, parent_page_id, collection_id, idx, title, icon,
        cover_url, schema_version, archived_at, last_edited_at, last_edited_by,
-       ancestor_ids, kind
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), $11, $12, $13)
+       ancestor_ids, kind, width
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), $11, $12, $13, $14)
      ON CONFLICT (id) DO UPDATE SET
        parent_page_id = EXCLUDED.parent_page_id,
        collection_id  = EXCLUDED.collection_id,
@@ -224,7 +224,8 @@ export async function materializeDocument(
        ancestor_ids   = EXCLUDED.ancestor_ids,
        -- Projected from the document, so a folder renamed or moved on another
        -- client lands here like any other edit (ADR-0019).
-       kind           = EXCLUDED.kind`,
+       kind           = EXCLUDED.kind,
+       width          = EXCLUDED.width`,
     [
       pageId,
       opts.workspaceId,
@@ -244,6 +245,9 @@ export async function materializeDocument(
       opts.actorId ?? null,
       ancestors,
       parsed.page.kind,
+      // A row is drawn inside a table, so its own width would mean nothing —
+      // stored as absent rather than as a value that never applies.
+      parsed.page.kind === 'row' ? null : parsed.page.width,
     ],
   );
 

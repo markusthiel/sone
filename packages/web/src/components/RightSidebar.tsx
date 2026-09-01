@@ -516,6 +516,23 @@ function PropertiesPanel({
   const [detail, setDetail] = useState<PageDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Change how wide the page is drawn.
+   *
+   * The panel's own copy is updated first and the request follows, so the page
+   * reflows as the button is pressed rather than after a round trip — and the
+   * page itself reads the width from the same detail, so both change together.
+   */
+  const onWidth = async (width: 'column' | 'full'): Promise<void> => {
+    if (!pageId) return;
+    setDetail((current) => (current ? { ...current, width } : current));
+    try {
+      await api.setPageWidth(pageId, width);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
+
   // Fetched when the tab is shown rather than with the page: most of what is
   // here does not change while reading, and a request nobody looked at is
   // waste.
@@ -562,6 +579,42 @@ function PropertiesPanel({
         <PageIcon /> {t('panel.kind')}
       </dt>
       <dd>{detail.kind === 'folder' ? t('panel.kind.folder') : t('panel.kind.page')}</dd>
+
+      {/* How wide this page is drawn.
+        *
+        * Here rather than in the ⋮ menu because it is a property of the page
+        * being read, and this is the panel of properties — and because the ⋮
+        * menu is the tree's, which is the wrong place to decide how something
+        * looks when you are inside it. */}
+      {detail.kind !== 'folder' && (
+        <>
+          <dt>{t('panel.width')}</dt>
+          <dd>
+            <div className="panel-choices" role="group" aria-label={t('panel.width')}>
+              {(
+                [
+                  ['column', 'panel.width.column'],
+                  ['full', 'panel.width.full'],
+                ] as const
+              ).map(([value, key]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={
+                    (detail.width ?? 'column') === value
+                      ? 'panel-choice current'
+                      : 'panel-choice'
+                  }
+                  aria-pressed={(detail.width ?? 'column') === value}
+                  onClick={() => void onWidth(value)}
+                >
+                  {t(key)}
+                </button>
+              ))}
+            </div>
+          </dd>
+        </>
+      )}
 
       <dt>{t('panel.created')}</dt>
       <dd>{formatted(detail.createdAt)}</dd>

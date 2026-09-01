@@ -137,6 +137,8 @@ export interface PageDetail extends Omit<PageSummary, 'archived' | 'idx'> {
   /* kind is inherited from PageSummary. */
   workspaceId: string;
   coverUrl: string | null;
+  /** 'column' or 'full'; null follows the reader's default. */
+  width?: 'column' | 'full' | null;
   archived: boolean;
   createdAt: string;
   breadcrumb: string[];
@@ -1006,6 +1008,13 @@ export const api = {
         parentPageId,
         ...(afterPageId === undefined ? {} : { afterPageId }),
       }),
+    }),
+
+  /** How wide this page's writing is. `null` follows the reader's default. */
+  setPageWidth: (pageId: string, width: 'column' | 'full' | null) =>
+    request<void>(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ width }),
     }),
 
   renameEntry: (pageId: string, title: string) =>

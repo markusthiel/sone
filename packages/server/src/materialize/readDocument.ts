@@ -52,6 +52,8 @@ export interface ReadPage {
   title: string;
   icon: unknown | null;
   coverUrl: string | null;
+  /** 'column' or 'full'; null means the reader's default. */
+  width: 'column' | 'full' | null;
   parentPageId: string | null;
   collectionId: string | null;
   idx: string;
@@ -142,6 +144,13 @@ function readPageMeta(doc: Y.Doc, warnings: string[]): ReadPage {
     title: normaliseText(asString(map.get(PAGE_KEYS.title)) ?? ''),
     icon: map.get(PAGE_KEYS.icon) ?? null,
     coverUrl: asString(map.get(PAGE_KEYS.coverUrl)),
+    // Only the two values, and anything else is treated as absent: a document is
+    // written by clients and a width the stylesheet does not know would be a
+    // page nobody can read.
+    width: (() => {
+      const value = asString(map.get(PAGE_KEYS.width));
+      return value === 'column' || value === 'full' ? value : null;
+    })(),
     parentPageId: asString(map.get(PAGE_KEYS.parentPageId)),
     collectionId: asString(map.get(PAGE_KEYS.collectionId)),
     idx: idx ?? 'a0',
