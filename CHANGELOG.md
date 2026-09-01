@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A canvas has no scrollbars and no edges.** It fills the window below the
+heading, the wheel moves the board, ⌘ or Ctrl with the wheel zooms about the
+pointer, and the percentage takes you back to where you started.
+
 **An entry's ⋮ menu is shorter and wider.** Rename, favourite, share and the two
 reorderings are one row of marks; what can be added inside a folder is another,
 under "New". Everything still says what it is when you rest on it.
