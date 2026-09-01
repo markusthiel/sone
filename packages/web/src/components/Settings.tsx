@@ -215,7 +215,7 @@ function Profile({
           </span>
           <input
             id="account-name"
-            aria-label="Name"
+            aria-label={t('you.name')}
             value={name}
             onChange={(event) => {
               setSaved(false);
@@ -255,7 +255,7 @@ function Profile({
           disabled={name.trim() === '' || name === session.user.displayName}
           onClick={saveName}
         >
-          Save
+          {t('you.save')}
         </button>
         {saved && <span className="muted">{t('you.saved')}</span>}
       </div>
@@ -315,7 +315,7 @@ function SignIn(): ReactElement {
           </span>
           <input
             id="account-current"
-            aria-label="Current password"
+            aria-label={t('you.currentPassword')}
             type="password"
             autoComplete="current-password"
             value={current}
@@ -336,7 +336,7 @@ function SignIn(): ReactElement {
           </span>
           <input
             id="account-next"
-            aria-label="New password"
+            aria-label={t('you.newPassword')}
             type="password"
             autoComplete="new-password"
             value={next}
@@ -359,7 +359,7 @@ function SignIn(): ReactElement {
         </button>
         {passwordDone && (
           <span className="muted">
-            Changed. Your other sessions stay signed in.
+            {t('you.passwordChanged')}
           </span>
         )}
       </div>
@@ -391,7 +391,7 @@ function AppearanceSettings(): ReactElement {
           </span>
           <select
             id="theme"
-            aria-label="Theme"
+            aria-label={t('you.theme')}
             value={appearance.theme}
             onChange={(event) => setTheme(event.target.value as ThemePreference)}
           >
@@ -407,11 +407,11 @@ function AppearanceSettings(): ReactElement {
         <div className="settings-row">
           <span className="settings-row-label">
             <b>{t('you.interfaceSize')}</b>
-            <span>The sidebar, menus and settings — everything but your writing.</span>
+            <span>{t('you.interfaceSize.hint')}</span>
           </span>
           <select
             id="ui-scale"
-            aria-label="Interface text size"
+            aria-label={t('you.interfaceSize')}
             value={appearance.uiScale}
             onChange={(event) => setUiScale(event.target.value as TextScale)}
           >
@@ -426,11 +426,11 @@ function AppearanceSettings(): ReactElement {
         <div className="settings-row">
           <span className="settings-row-label">
             <b>{t('you.editorSize')}</b>
-            <span>Your writing, and nothing else.</span>
+            <span>{t('you.editorSize.hint')}</span>
           </span>
           <select
             id="editor-scale"
-            aria-label="Editor text size"
+            aria-label={t('you.editorSize')}
             value={appearance.editorScale}
             onChange={(event) => setEditorScale(event.target.value as TextScale)}
           >
@@ -478,7 +478,7 @@ function About(): ReactElement {
           up the current version — until then, what you see may not match what
           the server does.{' '}
           <button type="button" className="btn" onClick={() => window.location.reload()}>
-            Reload
+            {t('action.reload')}
           </button>
         </p>
       )}

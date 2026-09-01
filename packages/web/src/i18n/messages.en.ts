@@ -143,6 +143,9 @@ export const en = {
   'you.workspace': 'Workspace',
   'you.workspace.hint': 'Where you are right now.',
   'you.saved': 'Saved.',
+  'you.save': 'Save',
+  'you.passwordChanged': 'Changed. Your other sessions stay signed in.',
+  'action.reload': 'Reload',
 
   'you.currentPassword': 'Current password',
   'you.newPassword': 'New password',

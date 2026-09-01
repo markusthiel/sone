@@ -184,6 +184,7 @@ const MIGRATED = [
   'src/components/EntryMenu.tsx',
   'src/components/Sidebar.tsx',
   'src/components/SettingsShell.tsx',
+  'src/components/Settings.tsx',
   'src/components/WorkspaceSettingsScreen.tsx',
   'src/components/Trash.tsx',
   'src/components/Search.tsx',
