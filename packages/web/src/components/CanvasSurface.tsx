@@ -24,6 +24,8 @@ import React, {
 
 import type { PageHandle } from '@sone/client';
 import {
+  THEME_COLORS,
+  colorValue,
   CANVAS_BACKGROUNDS,
   readBackground,
   setBackground,
@@ -599,19 +601,42 @@ export function CanvasSurface({
 
           {(tool === 'pen' || tool === 'rect' || tool === 'ellipse' || tool === 'line') && (
             <>
-              {/* The colours the workspace already knows, so ink matches
-                  everything else that is coloured here (ADR-0030). */}
-              {['currentColor', '#c0392b', '#2d7a4f', '#2a6f97', '#b8860b'].map((colour) => (
-                <button
-                  key={colour}
-                  type="button"
-                  className={ink.colour === colour ? 'canvas-ink-choice current' : 'canvas-ink-choice'}
-                  style={{ color: colour }}
-                  aria-label={t('canvas.colour')}
-                  aria-pressed={ink.colour === colour}
-                  onClick={() => setInk((current) => ({ ...current, colour }))}
-                />
-              ))}
+              {/* The workspace's own palette, not five colours invented here.
+                *
+                * They were five hex values that matched nothing: a board drawn
+                * in them sat inside a workspace whose tags, columns and folder
+                * icons used a palette somebody had chosen (ADR-0030). The
+                * default is the text colour, so a stroke follows the theme
+                * light or dark rather than being black on both. */}
+              {['currentColor', ...THEME_COLORS].map((name) => {
+                const value = name === 'currentColor' ? 'currentColor' : colorValue(name);
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    className={
+                      ink.colour === value ? 'canvas-ink-choice current' : 'canvas-ink-choice'
+                    }
+                    style={{ color: value }}
+                    title={name === 'currentColor' ? t('canvas.colour.default') : name}
+                    aria-label={name === 'currentColor' ? t('canvas.colour.default') : name}
+                    aria-pressed={ink.colour === value}
+                    onClick={() => setInk((current) => ({ ...current, colour: value ?? 'currentColor' }))}
+                  />
+                );
+              })}
+
+              {/* And any colour at all, for the one somebody has in mind that a
+                  palette of eight does not contain. */}
+              <input
+                type="color"
+                className="canvas-ink-custom"
+                aria-label={t('canvas.colour.own')}
+                title={t('canvas.colour.own')}
+                onChange={(event) =>
+                  setInk((current) => ({ ...current, colour: event.target.value }))
+                }
+              />
               <label className="canvas-ink-width">
                 {t('canvas.thickness')}
                 <input

@@ -710,10 +710,10 @@ export const en = {
   'panel.people': 'People',
   'panel.properties': 'Properties',
   'panel.tasksOpen': '{open} of {total} open',
+  'panel.guest': 'guest',
   'panel.guestWriting':
-    'Some of this was written through a share link. Those visitors are not ' +
-    'recorded: they have no account here, and listing them all as “a guest” ' +
-    'would be one name for several people.',
+    'Some of this was written before the page began keeping track, or by ' +
+    'somebody who gave no name at all.',
   'panel.noPeople':
     'Nobody is recorded yet. Writing is attributed from the moment it is written, so ' +
     'anything typed before this page started keeping track is not listed here.',
@@ -731,6 +731,8 @@ export const en = {
   'canvas.textItem': 'Text on the canvas',
   'canvas.resize': 'Resize this',
   'canvas.colour': 'Ink colour',
+  'canvas.colour.default': 'The theme\u2019s own',
+  'canvas.colour.own': 'A colour of your own',
   'canvas.thickness': 'Thickness',
   'canvas.tool.erase': 'Eraser',
   'canvas.tool.rect': 'Rectangle',

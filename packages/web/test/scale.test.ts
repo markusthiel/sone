@@ -909,3 +909,24 @@ test('the handle carries the four things done to a thing that exists', () => {
   // unusable at the size somebody zooms out to in order to see all of it.
   assert.match(canvas, /transform: `scale\(\$\{1 \/ zoom\}\)`/);
 });
+
+test('the pen draws in the workspace palette, and in anything else', () => {
+  // Five hex values invented here matched nothing: a board sat inside a
+  // workspace whose tags, columns and folder icons used a palette somebody had
+  // chosen (ADR-0030).
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /\['currentColor', \.\.\.THEME_COLORS\]/);
+  assert.match(canvas, /colorValue\(name\)/);
+  assert.doesNotMatch(canvas, /'#c0392b'/, 'no colours invented here');
+  // And any colour at all, for the one a palette of eight does not contain.
+  assert.match(canvas, /type="color"/);
+});
+
+test('a guest appears by name, marked as a guest', () => {
+  // The name is what they chose to be called; "guest" is what the page can vouch
+  // for, so both are shown rather than one standing in for the other.
+  const people = codeOf(new URL('../src/components/Contributors.tsx', import.meta.url));
+  assert.match(people, /isGuestKey\(userId\)/);
+  assert.match(people, /name: guestName\(userId\), known: true, guest: true/);
+  assert.match(people, /person\.guest && <span className="contributor-guest">/);
+});
