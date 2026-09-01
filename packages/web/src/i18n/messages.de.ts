@@ -98,6 +98,24 @@ export const de: Record<keyof typeof en, string> = {
   'admin.maintenance.hint': 'Speicher, Aufgaben und Gesundheit',
 
   'admin.settings': 'Einstellungen',
+  'admin.settings.note':
+    'Diese liegen in der Datenbank und wirken sofort. Alles, was vor dem Öffnen der ' +
+    'Datenbank gebraucht wird — deren Adresse, der geheime Schlüssel, der Port — bleibt ' +
+    'in der Umgebung: ein Server, der nicht starten kann, lässt sich nicht über einen ' +
+    'Bildschirm konfigurieren, den er nie zeigt.',
+  'admin.mayCreateWorkspaces.hint':
+    'Aus heißt: nur Administratoren legen welche an. Seinen persönlichen behält so oder ' +
+    'so jeder — der ist kein Team.',
+  'admin.sizesOnly':
+    'Nur Größen. Die Instanz zu verwalten heißt nicht, lesen zu dürfen, was in einem ' +
+    'Workspace steht — dafür braucht es eine Mitgliedschaft, und die ist eine ' +
+    'Entscheidung von jemandem, kein Knopf hier.',
+  'admin.maintenance.run': 'Wartung jetzt ausführen',
+  'admin.maintenance.running': 'Läuft…',
+  'admin.maintenance.note':
+    'Dieser Durchgang läuft von selbst alle paar Minuten. Der Knopf ist für den Fall, ' +
+    'dass Warten nicht in Frage kommt — meist, nachdem behoben wurde, woran eine ' +
+    'Projektion gescheitert ist.',
   'admin.instanceName': 'Name der Instanz',
   'admin.signup': 'Wer ein Konto anlegen darf',
   'admin.signup.open': 'Jeder, der die Adresse hat',
@@ -155,6 +173,9 @@ export const de: Record<keyof typeof en, string> = {
     'Was andere neben allem sehen, was {address, select, formal {Sie hier schreiben} ' +
     'other {du hier schreibst}}.',
   'you.email': 'E-Mail',
+  'you.email.hint':
+    'Identifiziert das Konto beim Anmelden. Sie zu ändern braucht einen Weg, die neue ' +
+    'Adresse als eigene zu belegen — den hat diese Instanz noch nicht.',
   'you.workspace': 'Workspace',
   'you.workspace.hint':
     'Wo {address, select, formal {Sie gerade sind} other {du gerade bist}}.',
@@ -166,6 +187,9 @@ export const de: Record<keyof typeof en, string> = {
   'action.reload': 'Neu laden',
 
   'you.currentPassword': 'Aktuelles Passwort',
+  'you.currentPassword.hint':
+    'Wird verlangt, weil eine offen gelassene Sitzung an einem gemeinsam benutzten ' +
+    'Rechner der übliche Weg ist, auf dem ein Konto abhandenkommt.',
   'you.newPassword': 'Neues Passwort',
 
   'you.language': 'Sprache',
@@ -180,6 +204,9 @@ export const de: Record<keyof typeof en, string> = {
     'ist auf einem großen Bildschirm falsch — deshalb folgen diese nicht dem Konto ' +
     'von Gerät zu Gerät.',
   'you.theme': 'Erscheinungsbild',
+  'you.theme.hint':
+    'Dem System zu folgen ist die Vorgabe. Eines wählen überschreibt das — wer draußen ' +
+    'in der Sonne sitzt, will hell, was das Gerät auch denkt.',
   'you.theme.system': 'Wie das System',
   'you.theme.light': 'Hell',
   'you.theme.dark': 'Dunkel',
@@ -266,6 +293,64 @@ export const de: Record<keyof typeof en, string> = {
   'workspaces.settings': 'Workspace-Einstellungen',
   'workspaces.all': 'Alle Workspaces',
 
+  // --- die längeren Erklärungen ------------------------------------------
+  'landing.note':
+    'Beim Anmelden, beim Wechsel in diesen Workspace, oder wenn SONE ohne eine bestimmte ' +
+    'Seite im Sinn geöffnet wird.',
+  'landing.gone':
+    'Wird sie einmal gelöscht oder ist sie nicht mehr zugänglich, öffnet SONE die erste ' +
+    'statt sich zu weigern.',
+  'folder.empty':
+    'Dieser Ordner ist leer. Eine Seite hinzufügen, um zu schreiben — oder einen Ordner, ' +
+    'um weiter zu sortieren.',
+  'invite.instance.note':
+    'Jemanden auf diese Instanz einladen. Er bekommt ein Konto und einen eigenen ' +
+    'Workspace — sonst nichts. Ihn in ein Team aufzunehmen ist ein eigener Schritt, den ' +
+    'macht, wer dieses Team führt.',
+  'invite.address.note':
+    'Optional. Mit Adresse gilt die Einladung für diese Person und lässt sich einmal ' +
+    'benutzen. Ohne Adresse ist sie ein Link, den jeder benutzen darf, der ihn hat — so ' +
+    'lädt man eine Gruppe ein, ohne jede Adresse zu tippen.',
+  'invite.workspace.note':
+    'Funktioniert, ob die Person schon ein Konto hat oder nicht. Mit Konto fragt der Link ' +
+    'nach dem Beitritt und ihr eigener Workspace bleibt unberührt. Ohne Konto registriert ' +
+    'sie sich zuerst und landet in beiden.',
+  'invite.workspace.address':
+    'Mit einer Adresse gilt die Einladung für diese Person und lässt sich einmal ' +
+    'benutzen — und nur sie kann sie annehmen, selbst wenn jemand anderes den Link öffnet.',
+  'group.note':
+    'Eine Gruppe ist eine Liste von Leuten. Gib einer Gruppe einmal Zugriff auf eine ' +
+    'Seite, und jeder darin hat ihn — auch wer später dazukommt. Das ist es, was das ' +
+    'Pflegen dieser Listen lohnend macht.',
+  'group.name.note':
+    'Ein Name für eine Gruppe von Leuten. Wer später beitritt, bekommt alles, was der ' +
+    'Gruppe gegeben wurde, ohne dass jemand die Seiten noch einmal anfassen muss.',
+  'oidc.note':
+    'Anmeldung über einen Identitätsanbieter. Jeder Anbieter, der OpenID Connect ' +
+    'spricht, funktioniert — Keycloak, Authentik, Zitadel, Entra, Google und andere. Das ' +
+    'ist also eine Konfiguration und keine Wahl der Anbindung.',
+  'oidc.buttonLabel.hint':
+    'Was auf der Anmeldeseite steht. Leute erkennen ihren eigenen Login am Namen, nicht ' +
+    'am Protokoll dahinter.',
+  'oidc.allowSignup.hint':
+    'Standardmäßig aus. Einem Anbieter zu glauben, wer jemand ist, verpflichtet nicht ' +
+    'dazu, jeden von dort hereinzulassen.',
+  'invitation.used':
+    'Diese Einladung wurde schon benutzt. Wenn das gerade {address, select, formal ' +
+    '{Sie waren, ist Ihr Konto} other {du warst, ist dein Konto}} fertig.',
+  'invitation.keepsYours':
+    'Der eigene Workspace bleibt, wo er ist. Ein Beitritt stellt diesen daneben.',
+  'option.rename.note':
+    'Eine Option lässt sich frei umbenennen — die Einträge behalten sie. Eine zu ' +
+    'entfernen verbirgt sie in den Einträgen, die sie benutzen, und eine neue Option mit ' +
+    'demselben Namen bringt sie nicht zurück.',
+  'video.providers':
+    'Diese Instanz bettet YouTube, Vimeo und PeerTube ein und spielt HLS- oder ' +
+    'DASH-Streams. Andere Adressen können als gewöhnlicher Link in die Seite.',
+  'workspaces.delete.note':
+    'Er verschwindet für alle, die darin sind. Noch wird nichts entfernt, und wer ' +
+    'Workspaces verwaltet, kann ihn zurückholen.',
+
   // --- Einladungen -------------------------------------------------------
   'invite.email': 'E-Mail-Adresse',
   'invite.emailPlaceholder': 'jemand@example.org',
@@ -340,9 +425,26 @@ export const de: Record<keyof typeof en, string> = {
     'unten jederzeit wieder kopieren.',
   'share.create': 'Link erstellen',
   'share.revoke': 'Widerrufen',
+  'share.subpages.hint':
+    'Standardmäßig an: ein Link, der aufhört zu funktionieren, sobald jemand eine ' +
+    'Unterseite anlegt, ist schlechter als einer, der etwas mehr abdeckt als erwartet.',
+  'share.tooOld':
+    'Dieser Link entstand, bevor Links wieder angezeigt werden konnten — er lässt sich ' +
+    'nicht kopieren. Widerrufen und einen neuen erstellen.',
+  'share.revoke.hint':
+    'Ein Widerruf wirkt sofort, auch für jemanden, der in diesem Moment über den Link ' +
+    'liest. Kopieren kann einen Link jeder, der diese Seite verwaltet — dasselbe Recht, ' +
+    'das es zum Erstellen braucht, es wird also nichts Neues offengelegt. Gespeichert ' +
+    'wird er verschlüsselt, und der Schlüssel steht nicht in der Datenbank.',
   'action.done': 'Fertig',
 
   // --- die Typografie eines Workspace ------------------------------------
+  'type.note':
+    'Vorgaben für diesen Workspace. Ein Block, der eine eigene Größe oder Farbe trägt, ' +
+    'behält sie — diese gelten, wo niemand gewählt hat.',
+  'type.palette.note':
+    'Wie jeder Farbname hier aussieht. Alles, was einen Namen benutzt — Schlagwörter, ' +
+    'Spalten, Blöcke, Ordnersymbole — folgt dem.',
   'type.element': 'Element',
   'type.elements': 'Elemente',
   'type.palette': 'Palette',

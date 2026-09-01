@@ -94,8 +94,7 @@ export function WorkspaceDetail({
         * means "delete later" is worse than either if nobody says which. */}
       <h3 className="settings-heading">{t('workspaces.delete')}</h3>
       <p className="muted">
-        It stops appearing to everybody in it. Nothing is removed yet, and
-        somebody who manages workspaces can put it back.
+        {t('workspaces.delete.note')}
       </p>
       <div className="field">
         <label htmlFor="confirm-name">{t('workspaces.confirmName')}</label>

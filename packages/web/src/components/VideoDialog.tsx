@@ -101,8 +101,7 @@ export function VideoDialog({
       )}
       {refused && !usable && (
         <p className="error video-dialog-verdict">
-          This instance embeds YouTube, Vimeo and PeerTube, and plays HLS or DASH
-          streams. Other addresses can go in the page as an ordinary link.
+          {t('video.providers')}
         </p>
       )}
 

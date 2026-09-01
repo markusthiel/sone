@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { en } from '../src/i18n/messages.en.ts';
 import { codeOf } from './helpers/source.ts';
 
 const panel = codeOf(new URL('../src/components/PagePermissions.tsx', import.meta.url));
@@ -73,5 +74,8 @@ test('deleting a group with grants asks, with the number', () => {
 test('the panel says why keeping a group up to date matters', () => {
   // Somebody who joins later gets the access too, which is the whole reason to
   // grant a group rather than four people.
-  assert.match(groupsPanel, /including whoever joins later/);
+  // The sentence is in the catalogue now (ADR-0041); what this test means is that
+  // the panel explains why a group is worth keeping up to date.
+  assert.match(groupsPanel, /t\('group\.note'\)/);
+  assert.match(en['group.note'], /including whoever joins later/);
 });

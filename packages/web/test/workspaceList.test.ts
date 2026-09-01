@@ -116,7 +116,7 @@ test('deleting asks for the name rather than a confirmation', () => {
 test('the panel says nothing is removed yet', () => {
   // "Delete" that means "delete later" is worse than either if nobody says
   // which.
-  assert.match(detail, /Nothing is removed yet/);
+  assert.match(detail, /t\('workspaces\.delete\.note'\)/);
 });
 
 test('restoring is one click', () => {

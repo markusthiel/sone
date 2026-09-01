@@ -54,8 +54,7 @@ export function LandingSettings({ workspaceId }: { workspaceId: string }): React
     <section className="settings-section">
       <h3 className="settings-heading">{t('landing.title')}</h3>
       <p className="muted">
-        When you sign in, switch to this workspace, or open SONE without a
-        particular page in mind.
+        {t('landing.note')}
       </p>
 
       {error && <p className="error">{messageFor(error)}</p>}
@@ -94,8 +93,7 @@ export function LandingSettings({ workspaceId }: { workspaceId: string }): React
             <span className="settings-row-label">
               <b>{t('landing.page')}</b>
               <span>
-                If it is ever deleted or closed to you, SONE opens the first one
-                instead rather than refusing.
+                {t('landing.gone')}
               </span>
             </span>
             {/* The fallback is said rather than left to be discovered: a

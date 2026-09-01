@@ -110,8 +110,7 @@ export function FolderView({
         * things, and put every row in the sidebar. */}
       {folder.children.length === 0 ? (
         <p className="muted folder-empty">
-          This folder is empty. Add a page to start writing, or a folder to keep
-          organising.
+          {t('folder.empty')}
         </p>
       ) : (
         <>

@@ -157,10 +157,7 @@ export function InstancePanel(): ReactElement {
       <section className="settings-section">
         <h2>{t('admin.settings')}</h2>
         <p className="muted settings-note">
-          These are stored in the database and take effect immediately. Anything
-          needed before the database opens — the database URL, the secret key,
-          the port — stays in the environment, because a server that cannot
-          start cannot be configured from a screen it never shows.
+        {t('admin.settings.note')}
         </p>
 
         <div className="settings-card">
@@ -243,8 +240,7 @@ export function InstancePanel(): ReactElement {
             <span className="settings-row-label">
               <b>{t('admin.mayCreateWorkspaces')}</b>
               <span>
-                Off means only administrators make them. Everybody keeps their
-                own personal one either way — it is not a team.
+                {t('admin.mayCreateWorkspaces.hint')}
               </span>
             </span>
             <input
@@ -440,9 +436,7 @@ export function WorkspacesPanel(): ReactElement {
       </div>
 
       <p className="muted settings-note">
-        Sizes only. Administering the instance does not include reading what is
-        in a workspace — that needs membership, which is a decision somebody
-        takes rather than a button here.
+        {t('admin.sizesOnly')}
       </p>
     </section>
   );
@@ -529,14 +523,12 @@ export function MaintenancePanel(): ReactElement {
 
       <div className="admin-row-actions maintenance-actions">
         <button type="button" className="btn" disabled={running} onClick={() => void runNow()}>
-          {running ? 'Running…' : 'Run maintenance now'}
+          {running ? t('admin.maintenance.running') : t('admin.maintenance.run')}
         </button>
         {lastRun && <span className="muted">{lastRun}</span>}
       </div>
       <p className="muted settings-note">
-        This pass runs on its own every few minutes. Pressing it is for when
-        waiting is not acceptable — after fixing whatever made a projection
-        fail, typically.
+        {t('admin.maintenance.note')}
       </p>
 
       {/* First, and loud. Everything else in this report may be transient; an

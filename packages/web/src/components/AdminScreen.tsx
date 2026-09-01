@@ -29,12 +29,23 @@ import {
 } from './Admin.tsx';
 import { InvitePanel } from './InvitePanel.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
+import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { SettingsShell, resolveSection, type ShellSection } from './SettingsShell.tsx';
 import { WorkspaceDetail } from './WorkspaceDetail.tsx';
 import { WorkspaceList } from './WorkspaceList.tsx';
 
-interface AdminSection extends ShellSection {
+/**
+ * A section, before it is translated.
+ *
+ * `label` and `hint` are message keys rather than sentences, so they are typed as
+ * such: the list is module-level — the rights filter needs it before anything
+ * renders — and the component translates them where it hands them over
+ * (ADR-0041).
+ */
+interface AdminSection extends Omit<ShellSection, 'label' | 'hint'> {
+  label: MessageKey;
+  hint: MessageKey;
   /** Instance administration. Absent without it. */
   admin?: true;
   /** The narrower right to administer every workspace (ADR-0027). */
@@ -107,10 +118,19 @@ export function AdminScreen({
 
   return (
     <SettingsShell
-      area="The instance"
+      area={t('area.instance')}
       areaId="admin"
       canAdminister
-      sections={available}
+      // Translated here, where they are handed over: the list is module-level
+      // because the filter above needs it before anything renders, so the labels
+      // in it are keys (ADR-0041). My earlier edit translated `SECTIONS` and this
+      // renders `available`, which is the filtered copy — so every heading in the
+      // administration area read `admin.instance` back at you.
+      sections={available.map((entry) => ({
+        id: entry.id,
+        label: t(entry.label),
+        hint: t(entry.hint),
+      }))}
       current={current}
       hrefFor={(id) => paths.admin(id)}
       listOpen={listOpen}

@@ -227,9 +227,7 @@ export function ShareDialog({
               Include subpages
             </label>
             <span className="muted settings-note">
-              On by default, because a link that stops working the moment
-              somebody adds a subpage is worse than one that covers slightly
-              more than expected.
+              {t('share.subpages.hint')}
             </span>
           </div>
 
@@ -343,17 +341,12 @@ export function ShareDialog({
 
           {unrecoverable && (
             <p className="muted settings-note">
-              That link was created before links could be shown again, so it
-              cannot be copied. Revoke it and create a new one.
+            {t('share.tooOld')}
             </p>
           )}
 
           <p className="muted settings-note">
-            Revoking takes effect at once, including for anyone reading through
-            the link at that moment. A link can be copied again by anyone who
-            administers this page — which is the same right needed to create one,
-            so nothing new is exposed. It is stored encrypted, and the key is not
-            in the database.
+            {t('share.revoke.hint')}
           </p>
         </section>
 

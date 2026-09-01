@@ -151,9 +151,7 @@ export function OptionEditor({
        * saying otherwise would invite somebody to remove a column's options
        * expecting an undo that does not exist. */}
       <p className="muted option-note">
-        Rename an option freely — entries keep it. Removing one hides it from the
-        entries that use it, and adding a new option with the same name does not
-        bring them back.
+        {t('option.rename.note')}
       </p>
     </div>
   );

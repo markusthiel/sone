@@ -79,7 +79,7 @@ test('the administration area is absent from the switcher without the right', ()
 test('three areas, and each names whose settings it holds', () => {
   assert.match(you, /area="You"/);
   assert.match(workspace, /area="This workspace"/);
-  assert.match(instance, /area="The instance"/);
+  assert.match(instance, /area=\{t\('area\.instance'\)\}/);
 });
 
 test('the workspace area says which workspace, under the area name', () => {

@@ -49,9 +49,7 @@ export function InvitePanel(): ReactElement {
   return (
     <section className="settings-section">
       <p className="muted">
-        Invite somebody to this instance. They get an account and a workspace of
-        their own — nothing else. Adding them to a team is a separate step, made
-        by whoever runs that team.
+        {t('invite.instance.note')}
       </p>
 
       {error && <p className="error">{messageFor(error)}</p>}
@@ -61,9 +59,7 @@ export function InvitePanel(): ReactElement {
           <span className="settings-row-label">
             <b>{t('invite.email')}</b>
             <span>
-              Optional. With one, the invitation is for that person and can be
-              used once. Without one it is a link anybody holding it may use —
-              which is how you invite a group without typing every address.
+              {t('invite.address.note')}
             </span>
           </span>
           <input
