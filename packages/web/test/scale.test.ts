@@ -511,3 +511,12 @@ test('both panel toggles are the same shape, mirrored', () => {
   const panel = codeOf(new URL('../src/components/RightSidebar.tsx', import.meta.url));
   assert.match(panel, /<PanelRightIcon \/>\s*<\/button>/);
 });
+
+test('both toggles are rounded like every other button', () => {
+  // They set their own size and padding and so did not inherit `.btn`'s radius —
+  // which made the two most-hovered controls in the header the only square ones.
+  assert.match(css, /\.sidebar-toggle,\s*\n\.panel-toggle \{[^}]*border-radius: var\(--sone-radius\)/s);
+  // And the chevron's rotation went with the chevron: a panel icon has a side
+  // already, so turning it would say the panel had moved.
+  assert.doesNotMatch(css, /\.panel-toggle\[aria-expanded='true'\] svg \{ transform: rotate/);
+});

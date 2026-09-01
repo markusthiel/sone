@@ -23,7 +23,16 @@
 
 import { useEffect, useState } from 'react';
 
-export function useViewportChanges(active: boolean): number {
+/**
+ * @param watch An element whose own box should also be watched.
+ *
+ * The window is not the only thing that moves the text. Opening the page panel
+ * or hiding the sidebar changes the editor's width without any window event at
+ * all — and an overlay placed from the text's old position then sits wherever
+ * the text used to be. That is how the block controls ended up inside the first
+ * line, and it is not what I said it was when I first "fixed" it.
+ */
+export function useViewportChanges(active: boolean, watch?: HTMLElement | null): number {
   const [token, setToken] = useState(0);
 
   useEffect(() => {
@@ -51,14 +60,24 @@ export function useViewportChanges(active: boolean): number {
     visual?.addEventListener('resize', bump);
     visual?.addEventListener('scroll', bump);
 
+    // And the element itself, for every reason the window knows nothing about.
+    //
+    // Guarded on the constructor rather than assumed: jsdom does not implement
+    // it, and a test environment missing an observer should lose the extra
+    // re-measure rather than take the component down with a ReferenceError.
+    const observer =
+      watch && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(bump) : null;
+    observer?.observe(watch as Element);
+
     return () => {
       if (frame !== null) cancelAnimationFrame(frame);
       window.removeEventListener('scroll', bump, { capture: true });
       window.removeEventListener('resize', bump);
       visual?.removeEventListener('resize', bump);
       visual?.removeEventListener('scroll', bump);
+      observer?.disconnect();
     };
-  }, [active]);
+  }, [active, watch]);
 
   return token;
 }

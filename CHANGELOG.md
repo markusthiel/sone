@@ -20,9 +20,12 @@ fades its body. All of it is off for anybody who has asked for less motion.
 **The bar at the top is no longer a tinted band** — it sits on the same surface as
 the page, and a line appears under it only once something has scrolled behind it.
 **Both panel toggles are the same shape now**, mirrored, instead of a sidebar icon
-on one side and an arrow on the other.
+on one side and an arrow on the other — and both are rounded like every other
+button.
 
-**Fixed: the block controls could sit in the middle of a line of text.**
+**Fixed: the block controls could sit where the text used to be** — after opening
+or closing the page panel, which changes the editor's width without the window
+noticing.
 
 **Fixed: the panel beside a page had English headings**, and so did a good deal
 else that a screenshot does not show — the filter conditions, the column types,

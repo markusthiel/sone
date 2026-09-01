@@ -482,13 +482,22 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 /* The sidebar toggle is present at every width. Hiding it above the breakpoint
    left no way to reclaim the space and no way to undo a collapse — which is how
    a hidden sidebar came back on its own after a rotation. */
-.sidebar-toggle {
+/* Both toggles, one rule.
+ *
+ * They were a square hover patch: `.btn` gives a radius, and these two set their
+ * own size and padding without one — so the one control in the header that gets
+ * hovered most was the one with corners. Same shape, same radius, and the same
+ * rule for both of them, since they are the same control on opposite sides
+ * (ADR-0042). */
+.sidebar-toggle,
+.panel-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 34px;
   min-height: 34px;
   padding: 0;
+  border-radius: var(--sone-radius);
 }
 .sidebar-toggle svg { inline-size: 1.05em; block-size: 1.05em; }
 
@@ -2554,12 +2563,10 @@ select {
 
 .topbar-end { margin-inline-start: auto; display: flex; gap: 4px; }
 
-.panel-toggle svg {
-  inline-size: 1em;
-  block-size: 1em;
-  transition: transform 140ms ease;
-}
-.panel-toggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+.panel-toggle svg { inline-size: 1.05em; block-size: 1.05em; }
+/* The rotation went with the chevron: an arrow turning around said which way it
+   would go, and a panel icon has a side already — turning it would say the panel
+   had moved. */
 
 /* ---------------------------------------------------------------------------
  * The page tree
