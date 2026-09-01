@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Invitations, groups, page permissions, single sign-on and the member list speak
+German.** Thirty files are translated, and about eighteen lines of English are left
+across the smaller panels.
+
 **Six more areas speak German**: sharing a page, a workspace's typography and its
 mark, where a workspace opens, a folder's own view, and moving an entry inside a
 workspace. Twenty-two files are translated; what is left is mostly the panels for

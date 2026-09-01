@@ -10,6 +10,7 @@
  * is no list to create a tag in, and none to clean up (ADR-0020).
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useState, type ReactElement } from 'react';
 
 import type { WorkspaceTag } from '../api/client.ts';
@@ -34,6 +35,7 @@ export function TagEditor({
   canEdit,
   onChange,
 }: TagEditorProps): ReactElement {
+  const { t } = useT();
   const [draft, setDraft] = useState('');
 
   const add = (raw: string): void => {
@@ -81,7 +83,7 @@ export function TagEditor({
   return (
     <div className="tag-editor">
       <div className="tag-chips">
-        {tags.length === 0 && !canEdit && <span className="muted">None</span>}
+        {tags.length === 0 && !canEdit && <span className="muted">{t('tag.none')}</span>}
         {tags.map((tag) => (
           <span
             className={`tag-chip tag-${colorFor(tag)}`}
@@ -107,8 +109,8 @@ export function TagEditor({
           <input
             className="tag-input"
             value={draft}
-            placeholder="Add a tag"
-            aria-label="Add a tag"
+            placeholder={t('tag.add')}
+            aria-label={t('tag.add')}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ',') {

@@ -7,6 +7,7 @@
  * page (ADR-0026).
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceMember } from '../api/client.ts';
@@ -19,6 +20,7 @@ interface Group {
 }
 
 export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElement {
+  const { t } = useT();
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [open, setOpen] = useState<string | null>(null);
@@ -110,7 +112,7 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
               {group.members} {group.members === 1 ? 'person' : 'people'}
             </span>
             <button type="button" className="btn" onClick={() => remove(group)}>
-              Delete
+              {t('group.delete')}
             </button>
           </li>
         ))}
@@ -127,15 +129,15 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
                   className="btn"
                   onClick={() => act(api.removeFromGroup(open, person.userId))}
                 >
-                  Remove
+                  {t('group.remove')}
                 </button>
               </li>
             ))}
-            {openMembers.length === 0 && <li className="muted">Nobody yet.</li>}
+            {openMembers.length === 0 && <li className="muted">{t('group.nobody')}</li>}
           </ul>
 
           <div className="field">
-            <label htmlFor="group-add">Add somebody</label>
+            <label htmlFor="group-add">{t('group.addSomebody')}</label>
             <select
               id="group-add"
               value=""
@@ -143,7 +145,7 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
                 if (event.target.value) act(api.addToGroup(open, event.target.value));
               }}
             >
-              <option value="">Choose a person…</option>
+              <option value="">{t('group.choosePerson')}</option>
               {members
                 .filter((m) => !inGroup.has(m.userId))
                 .map((member) => (
@@ -159,7 +161,7 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
       <div className="settings-card">
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>New group</b>
+            <b>{t('group.new')}</b>
             <span>
               A name for a set of people. Whoever joins it later gets whatever
               the group has been given, without anybody revisiting the pages.
@@ -167,9 +169,9 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
           </span>
           <input
             id="group-name"
-            aria-label="New group"
+            aria-label={t('group.new')}
             value={name}
-            placeholder="Editors"
+            placeholder={t('group.namePlaceholder')}
             onChange={(event) => setName(event.target.value)}
           />
         </div>
@@ -184,7 +186,7 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
             setName('');
           }}
         >
-          Create
+          {t('group.create')}
         </button>
       </div>
     </section>

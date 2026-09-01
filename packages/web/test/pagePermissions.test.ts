@@ -49,8 +49,9 @@ test('groups are listed above people in the sharing panel', () => {
   // Granting a group is the thing that scales, and listing it second would make
   // the page-by-page, person-by-person habit the obvious one — which is exactly
   // what groups exist to replace.
-  const groupsAt = panel.indexOf('Groups</h3>');
-  const peopleAt = panel.indexOf('People</h3>');
+  // The headings are keys now (ADR-0041); the order is what this test is about.
+  const groupsAt = panel.indexOf("t('perm.groups')");
+  const peopleAt = panel.indexOf("t('perm.people')");
   assert.ok(groupsAt > 0 && groupsAt < peopleAt);
 });
 

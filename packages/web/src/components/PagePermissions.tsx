@@ -7,6 +7,7 @@
  * believes they have set the other.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceMember } from '../api/client.ts';
@@ -39,6 +40,7 @@ export function PagePermissions({
   pageId: string;
   workspaceId: string;
 }): ReactElement {
+  const { t } = useT();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [restricted, setRestricted] = useState(false);
   const [grants, setGrants] = useState<Grant[]>([]);
@@ -104,11 +106,11 @@ export function PagePermissions({
   const grantedGroups = new Set(groupGrants.map((g) => g.groupId));
   const addableGroups = groups.filter((g) => !grantedGroups.has(g.id));
 
-  if (!loaded) return <p className="muted">Checking…</p>;
+  if (!loaded) return <p className="muted">{t('perm.checking')}</p>;
 
   return (
     <section className="page-permissions">
-      <h3 className="settings-heading">People in this workspace</h3>
+      <h3 className="settings-heading">{t('perm.peopleHere')}</h3>
 
       {error && <p className="error">{messageFor(error)}</p>}
 
@@ -118,7 +120,7 @@ export function PagePermissions({
           checked={restricted}
           onChange={(event) => act(api.setPageRestricted(pageId, event.target.checked))}
         />
-        Only people added below
+        {t('perm.onlyAdded')}
       </label>
       <p className="muted">
         {restricted
@@ -159,7 +161,7 @@ export function PagePermissions({
                   className="btn"
                   onClick={() => act(api.revokePageAccess(pageId, grant.userId))}
                 >
-                  Remove
+                  {t('perm.remove')}
                 </button>
               </>
             )}
@@ -174,7 +176,7 @@ export function PagePermissions({
         * is exactly what groups exist to replace. */}
       {(groupGrants.length > 0 || groups.length > 0) && (
         <>
-          <h3 className="settings-heading">Groups</h3>
+          <h3 className="settings-heading">{t('perm.groups')}</h3>
           <ul className="permission-list">
             {groupGrants.map((grant) => (
               <li key={grant.groupId}>
@@ -206,7 +208,7 @@ export function PagePermissions({
                       className="btn"
                       onClick={() => act(api.revokePageAccessFromGroup(pageId, grant.groupId))}
                     >
-                      Remove
+                      {t('perm.remove')}
                     </button>
                   </>
                 )}
@@ -216,7 +218,7 @@ export function PagePermissions({
 
           {addableGroups.length > 0 && (
             <div className="field">
-              <label htmlFor="grant-group">Add a group</label>
+              <label htmlFor="grant-group">{t('perm.addGroup')}</label>
               <select
                 id="grant-group"
                 value=""
@@ -226,7 +228,7 @@ export function PagePermissions({
                   }
                 }}
               >
-                <option value="">Choose a group…</option>
+                <option value="">{t('perm.chooseGroup')}</option>
                 {addableGroups.map((group) => (
                   <option key={group.id} value={group.id}>
                     {group.name}
@@ -236,13 +238,13 @@ export function PagePermissions({
             </div>
           )}
 
-          <h3 className="settings-heading">People</h3>
+          <h3 className="settings-heading">{t('perm.people')}</h3>
         </>
       )}
 
       {addable.length > 0 && (
         <div className="field">
-          <label htmlFor="grant-person">Add somebody</label>
+          <label htmlFor="grant-person">{t('group.addSomebody')}</label>
           <select
             id="grant-person"
             value=""
@@ -252,7 +254,7 @@ export function PagePermissions({
               }
             }}
           >
-            <option value="">Choose a person…</option>
+            <option value="">{t('group.choosePerson')}</option>
             {addable.map((member) => (
               <option key={member.userId} value={member.userId}>
                 {member.displayName}
