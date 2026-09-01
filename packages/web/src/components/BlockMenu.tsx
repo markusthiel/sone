@@ -46,6 +46,12 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { useViewportChanges } from '../hooks/useViewportChanges.ts';
 
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  DuplicateIcon,
+  IndentIcon,
+  OutdentIcon,
+  TrashIcon,
   AlignAutoIcon,
   AlignCentreIcon,
   AlignLeftIcon,
@@ -62,6 +68,8 @@ interface Action {
   id: string;
   /** A message key: the menu translates it where it draws it (ADR-0041). */
   label: MessageKey;
+  /** The picture on the button. The label becomes its tooltip. */
+  Mark: (props: { size?: number }) => ReactElement;
   hint?: string;
   command: Command;
   destructive?: boolean;
@@ -587,35 +595,34 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
     setOpen(false);
   };
 
+  /**
+   * What can be done to the block, as one row of six.
+   *
+   * Six full-width rows of text was most of the menu's height before anything
+   * about the block itself appeared — and two of them, indent and outdent, were
+   * offered a second time in a "Nesting" section below. That section is gone:
+   * the same two commands with two names in one menu is the menu disagreeing
+   * with itself.
+   *
+   * Every one of these is a verb with an obvious picture, which is the condition
+   * for dropping the word. The word stays as the tooltip and the accessible
+   * label — nothing is hidden, only folded.
+   */
   const actions: Action[] = [
-    {
-      id: 'move-up',
-      label: 'block.moveUp',
-      command: moveBlockUp,
-    },
-    {
-      id: 'move-down',
-      label: 'block.moveDown',
-      command: moveBlockDown,
-    },
-    {
-      id: 'outdent',
-      label: 'block.outdent',
-      command: outdentBlockSubtree,
-    },
-    {
-      id: 'indent',
-      label: 'block.indent',
-      command: indentBlockSubtree,
-    },
+    { id: 'move-up', label: 'block.moveUp', Mark: ArrowUpIcon, command: moveBlockUp },
+    { id: 'move-down', label: 'block.moveDown', Mark: ArrowDownIcon, command: moveBlockDown },
+    { id: 'outdent', label: 'block.outdent', Mark: OutdentIcon, command: outdentBlockSubtree },
+    { id: 'indent', label: 'block.indent', Mark: IndentIcon, command: indentBlockSubtree },
     {
       id: 'duplicate',
       label: 'block.duplicate',
+      Mark: DuplicateIcon,
       command: duplicateBlockSubtree,
     },
     {
       id: 'delete',
       label: 'block.delete',
+      Mark: TrashIcon,
       command: deleteBlockSubtree,
       destructive: true,
     },
@@ -688,51 +695,28 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
             </p>
           )}
 
-          {actions.map((action) => {
-            // Disabled when the command refuses, so the menu never offers
-            // something that silently does nothing.
-            const possible = action.command(view.state, undefined);
-            return (
-              <button
-                key={action.id}
-                type="button"
-                role="menuitem"
-                className={action.destructive ? 'block-menu-item destructive' : 'block-menu-item'}
-                disabled={!possible}
-                {...popupItem(() => run(action.command))}
-              >
-                {t(action.label)}
-              </button>
-            );
-          })}
-
-          {/* Moving a block in and out.
-            *
-            * Only Tab did this, and a phone keyboard has no Tab key — so on a
-            * touch device there was no way to indent anything at all. That is
-            * what made a toggle unusable there: its content *is* the blocks
-            * indented under it, so without indenting a toggle can have a title
-            * and nothing inside it, which is exactly what was reported. */}
-          <div className="block-menu-group">
-            <p className="block-menu-label">{t('block.nesting')}</p>
-            <div className="block-menu-choices" role="group" aria-label={t('block.nesting')}>
-              <button
-                type="button"
-                role="menuitem"
-                className="block-menu-choice"
-                {...popupItem(() => run(outdentBlockSubtree))}
-              >
-                ← Out
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="block-menu-choice"
-                {...popupItem(() => run(indentBlockSubtree))}
-              >
-                → In
-              </button>
-            </div>
+          <div className="block-menu-actions" role="group" aria-label={t('block.actions')}>
+            {actions.map((action) => {
+              // Disabled when the command refuses, so the menu never offers
+              // something that silently does nothing.
+              const possible = action.command(view.state, undefined);
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  role="menuitem"
+                  className={
+                    action.destructive ? 'block-menu-action destructive' : 'block-menu-action'
+                  }
+                  disabled={!possible}
+                  title={t(action.label)}
+                  aria-label={t(action.label)}
+                  {...popupItem(() => run(action.command))}
+                >
+                  <action.Mark />
+                </button>
+              );
+            })}
           </div>
 
           {/* How this block looks.

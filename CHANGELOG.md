@@ -13,7 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**The block menu has marks too**, the same ones the `/` menu uses, and alignment is
+**The block menu's six actions are one row of icons** — move up and down, out and
+in, duplicate, delete — instead of six rows of text, and the duplicate "Nesting"
+section is gone. **The block menu has marks too**, the same ones the `/` menu uses, and alignment is
 four icons instead of four words. **Fixed: the block menu could scroll sideways** —
 a row of choices that did not fit made the whole menu overflow.
 

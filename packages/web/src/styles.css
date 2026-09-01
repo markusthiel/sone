@@ -1822,11 +1822,59 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   color: var(--sone-text-muted);
 }
 
+/* The six things you can do to a block, in one row.
+ *
+ * Six full-width rows of text were most of the menu's height before anything
+ * about the block itself appeared. Each is a verb with an obvious picture, which
+ * is the condition for dropping the word — and the word is still the tooltip and
+ * the accessible label.
+ */
+.block-menu-actions {
+  display: flex;
+  gap: 2px;
+  padding: var(--sone-space-1);
+  border-block-end: 1px solid var(--border-subtle);
+}
+.block-menu-action {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--sone-control-lg);
+  padding: 0;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+}
+.block-menu-action svg { inline-size: 17px; block-size: 17px; }
+.block-menu-action:hover:not(:disabled) {
+  background: var(--sone-bg-hover);
+  color: var(--sone-text);
+}
+.block-menu-action:disabled { opacity: 0.35; cursor: default; }
+/* The one that cannot be undone by pressing it again keeps its colour, so a row
+   of identical grey glyphs still has one that is not. */
+.block-menu-action.destructive:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sone-danger) 12%, transparent);
+  color: var(--sone-danger);
+}
+
+/* One rule, after two.
+ *
+ * There were two `.block-menu-item` rules three and a half thousand lines apart,
+ * setting overlapping properties with different padding — the seventh time this
+ * week a class has been styled in two places, and the reason the row's padding
+ * depended on which rule the browser saw last. Merged, with the second's
+ * `color: inherit` kept because the destructive variant below relies on it.
+ */
 .block-menu-item {
   /* A mark, then the name — the same shape the / menu's rows have. */
   display: flex;
   align-items: center;
   gap: var(--sone-space-3);
+  color: inherit;
   inline-size: 100%;
   min-block-size: var(--sone-control-lg);
   padding: var(--sone-space-3) var(--sone-space-4);
@@ -5215,15 +5263,6 @@ body {
 .file-card-head .file-name { flex: 1 1 auto; min-inline-size: 0; }
 
 /* A link that sits in the gutter menu like the buttons around it. */
-.block-menu-item {
-  display: flex;
-  align-items: center;
-  min-block-size: var(--sone-control-lg);
-  padding-inline: var(--sone-space-3);
-  color: inherit;
-  font-size: var(--sone-text-sm);
-}
-.block-menu-item:hover { background: var(--sone-bg-hover); }
 
 /* Filtering the icons.
  *

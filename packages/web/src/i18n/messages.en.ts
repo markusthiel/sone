@@ -618,6 +618,7 @@ export const en = {
   'block.display.player': 'Player',
   'block.display.image': 'Image',
   'block.display.link': 'Link',
+  'block.actions': 'What to do with this block',
   'block.moveUp': 'Move up',
   'block.moveDown': 'Move down',
   'block.outdent': 'Outdent',
