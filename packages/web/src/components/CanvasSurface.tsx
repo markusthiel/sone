@@ -24,6 +24,10 @@ import React, {
 
 import type { PageHandle } from '@sone/client';
 import {
+  CANVAS_BACKGROUNDS,
+  readBackground,
+  setBackground,
+  type CanvasBackground,
   addItem,
   bringToFront,
   canvasMap,
@@ -40,7 +44,7 @@ import { useCanvasHistory } from '../hooks/useCanvasHistory.ts';
 import { useT } from '../i18n/useT.tsx';
 import { ArrowUturnIcon, TrashIcon } from './icons.tsx';
 
-type Tool = 'select' | 'pen' | 'text' | 'erase';
+type Tool = 'select' | 'pen' | 'text' | 'rect' | 'ellipse' | 'line' | 'erase';
 
 /** A stroke's points as an SVG path. Straight segments; a canvas is not calligraphy. */
 function pathFrom(points: number[]): string {
@@ -135,6 +139,11 @@ export function CanvasSurface({
   /** A rubber band, while one is being dragged. In canvas coordinates. */
   const [band, setBand] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const bandFrom = useRef<{ x: number; y: number } | null>(null);
+  /** The shape being dragged out, if any. */
+  const shaping = useRef<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(
+    null,
+  );
+  const [shape, setShape] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
 
   const surface = useRef<HTMLDivElement | null>(null);
@@ -163,6 +172,7 @@ export function CanvasSurface({
   // Undo, which on a shared board takes back what *you* did and never reaches
   // across to somebody else's stroke.
   const history = useCanvasHistory(doc);
+  const [background, setBackgroundState] = useState<CanvasBackground>('dots');
 
   /** Whether space is held, which turns a drag into panning. */
   const [space, setSpace] = useState(false);
@@ -201,7 +211,10 @@ export function CanvasSurface({
   // and removing.
   useEffect(() => {
     const map = canvasMap(doc);
-    const read = (): void => setItems(readCanvas(doc));
+    const read = (): void => {
+      setItems(readCanvas(doc));
+      setBackgroundState(readBackground(doc));
+    };
     read();
     map.observeDeep(read);
     return () => map.unobserveDeep(read);
@@ -255,6 +268,14 @@ export function CanvasSurface({
       if (hit) removeItem(doc, hit.id);
       return;
     }
+    // A shape is drawn by dragging its box, which is the same gesture as the
+    // band and needs no second idea.
+    if (tool === 'rect' || tool === 'ellipse' || tool === 'line') {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      shaping.current = { from: point, to: point };
+      setShape({ x: point.x, y: point.y, w: 0, h: 0 });
+      return;
+    }
     if (tool === 'text') {
       const id = newId();
       addItem(doc, { id, kind: 'text', x: point.x, y: point.y, text: '' });
@@ -293,6 +314,18 @@ export function CanvasSurface({
       setDrawing((current) => (current ? [...current, point.x, point.y] : current));
       return;
     }
+    const shaping_ = shaping.current;
+    if (shaping_) {
+      shaping_.to = point;
+      setShape({
+        x: Math.min(shaping_.from.x, point.x),
+        y: Math.min(shaping_.from.y, point.y),
+        w: Math.abs(point.x - shaping_.from.x),
+        h: Math.abs(point.y - shaping_.from.y),
+      });
+      return;
+    }
+
     const from = bandFrom.current;
     if (from) {
       setBand({
@@ -346,6 +379,34 @@ export function CanvasSurface({
     dragging.current = null;
     sizing.current = null;
 
+    const drawn = shaping.current;
+    if (drawn) {
+      shaping.current = null;
+      const box = {
+        x: Math.min(drawn.from.x, drawn.to.x),
+        y: Math.min(drawn.from.y, drawn.to.y),
+        w: Math.abs(drawn.to.x - drawn.from.x),
+        h: Math.abs(drawn.to.y - drawn.from.y),
+      };
+      // A tap rather than a drag makes nothing: a shape with no size is a shape
+      // nobody can grab to give one.
+      if (box.w > 4 || box.h > 4) {
+        addItem(doc, {
+          id: newId(),
+          kind: tool === 'ellipse' ? 'ellipse' : tool === 'line' ? 'line' : 'rect',
+          // A line keeps the corners it was drawn between rather than a box, so
+          // dragging up-left draws up-left instead of flipping.
+          ...(tool === 'line'
+            ? { x: drawn.from.x, y: drawn.from.y, w: drawn.to.x - drawn.from.x, h: drawn.to.y - drawn.from.y }
+            : box),
+          colour: ink.colour,
+          width: ink.width,
+        });
+      }
+      setShape(null);
+      return;
+    }
+
     if (bandFrom.current) {
       bandFrom.current = null;
       if (band && band.w > 4 && band.h > 4) {
@@ -392,14 +453,25 @@ export function CanvasSurface({
     const x = (event.clientX - (box?.left ?? 0) - pan.x) / zoom;
     const y = (event.clientY - (box?.top ?? 0) - pan.y) / zoom;
 
+    await place(file, { x, y });
+  };
+
+  /**
+   * Upload a file and put it on the board.
+   *
+   * Shared by the drop target and the button, because "insert a picture" should
+   * mean one thing however somebody arrived at it — and because the drop was the
+   * only way in, which is a way nobody finds who has not been told.
+   */
+  const place = async (file: File, at_: { x: number; y: number }): Promise<void> => {
     setBusy(true);
     try {
       const uploaded = await api.uploadFile(pageId, file);
       addItem(doc, {
         id: newId(),
         kind: uploaded.category === 'image' ? 'image' : 'text',
-        x,
-        y,
+        x: at_.x,
+        y: at_.y,
         w: 320,
         h: 240,
         ...(uploaded.category === 'image'
@@ -417,11 +489,23 @@ export function CanvasSurface({
     }
   };
 
+  /** A picture chosen from a button rather than dropped. */
+  const pickImage = (): void => {
+    const field = document.createElement('input');
+    field.type = 'file';
+    field.accept = 'image/*';
+    field.addEventListener('change', () => {
+      const file = field.files?.[0];
+      if (file) void place(file, { x: -pan.x / zoom + 80, y: -pan.y / zoom + 80 });
+    });
+    field.click();
+  };
+
   return (
     <div className="canvas-page">
       {canEdit && (
         <div className="canvas-tools" role="toolbar" aria-label={t('canvas.tools')}>
-          {(['select', 'pen', 'text', 'erase'] as const).map((id) => (
+          {(['select', 'pen', 'text', 'rect', 'ellipse', 'line', 'erase'] as const).map((id) => (
             <button
               key={id}
               type="button"
@@ -433,7 +517,32 @@ export function CanvasSurface({
             </button>
           ))}
 
-          {tool === 'pen' && (
+          <button
+            type="button"
+            className="canvas-tool"
+            onClick={pickImage}
+            title={t('canvas.image')}
+          >
+            {t('canvas.image')}
+          </button>
+
+          {/* How the board is ruled. Beside the tools rather than in a settings
+              panel: it is a property of this board that somebody changes while
+              looking at it. */}
+          <select
+            className="canvas-ruling"
+            aria-label={t('canvas.background')}
+            value={background}
+            onChange={(event) => setBackground(doc, event.target.value as CanvasBackground)}
+          >
+            {CANVAS_BACKGROUNDS.map((id) => (
+              <option key={id} value={id}>
+                {t(`canvas.background.${id}` as 'canvas.background.dots')}
+              </option>
+            ))}
+          </select>
+
+          {(tool === 'pen' || tool === 'rect' || tool === 'ellipse' || tool === 'line') && (
             <>
               {/* The colours the workspace already knows, so ink matches
                   everything else that is coloured here (ADR-0030). */}
@@ -553,6 +662,7 @@ export function CanvasSurface({
         // The grid, moved with the board and spaced by the zoom — the plane has
         // no size to paint it on, and a grid that stays put makes a moving board
         // look still.
+        data-ruling={background}
         style={{
           backgroundPosition: `${pan.x}px ${pan.y}px`,
           backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
@@ -590,6 +700,62 @@ export function CanvasSurface({
                 strokeLinejoin="round"
               />
             ))}
+          {items
+            .filter((item) => item.kind === 'rect' || item.kind === 'ellipse' || item.kind === 'line')
+            .map((item) =>
+              item.kind === 'line' ? (
+                <line
+                  key={item.id}
+                  x1={item.x}
+                  y1={item.y}
+                  x2={item.x + item.w}
+                  y2={item.y + item.h}
+                  stroke={item.colour ?? 'currentColor'}
+                  strokeWidth={item.width ?? 2}
+                  strokeLinecap="round"
+                />
+              ) : item.kind === 'ellipse' ? (
+                <ellipse
+                  key={item.id}
+                  cx={item.x + item.w / 2}
+                  cy={item.y + item.h / 2}
+                  rx={Math.abs(item.w / 2)}
+                  ry={Math.abs(item.h / 2)}
+                  stroke={item.colour ?? 'currentColor'}
+                  strokeWidth={item.width ?? 2}
+                  fill={item.fill ?? 'none'}
+                />
+              ) : (
+                <rect
+                  key={item.id}
+                  x={item.x}
+                  y={item.y}
+                  width={Math.abs(item.w)}
+                  height={Math.abs(item.h)}
+                  rx={4}
+                  stroke={item.colour ?? 'currentColor'}
+                  strokeWidth={item.width ?? 2}
+                  fill={item.fill ?? 'none'}
+                />
+              ),
+            )}
+
+          {/* What is being dragged out, drawn the same way so the result is not
+              a surprise. */}
+          {shape && tool !== 'line' && (
+            <rect
+              x={shape.x}
+              y={shape.y}
+              width={shape.w}
+              height={shape.h}
+              rx={tool === 'ellipse' ? Math.min(shape.w, shape.h) / 2 : 4}
+              stroke="currentColor"
+              strokeWidth={ink.width}
+              fill="none"
+              opacity={0.5}
+            />
+          )}
+
           {drawing && (
             <path
               d={pathFrom(drawing)}
@@ -603,7 +769,13 @@ export function CanvasSurface({
         </svg>
 
         {items
-          .filter((item) => item.kind !== 'path')
+          .filter(
+            (item) =>
+              item.kind !== 'path' &&
+              item.kind !== 'rect' &&
+              item.kind !== 'ellipse' &&
+              item.kind !== 'line',
+          )
           .map((item) => (
             <div
               key={item.id}

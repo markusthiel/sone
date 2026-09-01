@@ -200,3 +200,35 @@ test('two people dragging two overlapping groups each move their own', async () 
   assert.deepEqual([items['one']?.x, items['one']?.y], [100, 0]);
   assert.deepEqual([items['two']?.x, items['two']?.y], [0, 100]);
 });
+
+test('the ruling is a key beside the items, and an item is never mistaken for it', async () => {
+  // A map with one entry is a map somebody has to remember exists, so the board's
+  // own setting sits on the canvas map as a plain string. `readCanvas` already
+  // skipped anything that is not a Y.Map, which is the check that makes this
+  // safe rather than a coincidence.
+  const { readBackground, setBackground } = await import('../src/doc/canvas.js');
+  const doc = docWith([{ id: 'one', kind: 'text', x: 0, y: 0, text: 'Hello' }]);
+
+  assert.equal(readBackground(doc), 'dots', 'dots until somebody says otherwise');
+  setBackground(doc, 'squares');
+  assert.equal(readBackground(doc), 'squares');
+  assert.equal(readCanvas(doc).length, 1, 'and it is not on the board');
+});
+
+test('styling one item touches one key each', async () => {
+  const { styleItem } = await import('../src/doc/canvas.js');
+  const doc = docWith([{ id: 'box', kind: 'rect', x: 0, y: 0, w: 100, h: 60 }]);
+
+  styleItem(doc, 'box', { colour: '#c0392b', fill: '#eee' });
+  let box = readCanvas(doc)[0];
+  assert.equal(box?.colour, '#c0392b');
+  assert.equal(box?.fill, '#eee');
+
+  // Null clears, which is how a filled shape becomes an outline again — the
+  // same distinction a block's attributes make between "not set" and "set to
+  // nothing".
+  styleItem(doc, 'box', { fill: null });
+  box = readCanvas(doc)[0];
+  assert.equal(box?.fill, undefined);
+  assert.equal(box?.colour, '#c0392b', 'and nothing else moved');
+});

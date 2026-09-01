@@ -137,6 +137,27 @@ this application has been careful not to invent casually.
 **Handwriting recognition, shape straightening, templates.** All plausible, none
 architectural.
 
+**Rich text in a note, and the page's own blocks placed freely.** Asked for, and
+the reason it is not built rather than not wanted:
+
+A note holds a `Y.Text` — one text field, no blocks. Making it hold a document
+would mean a second ProseMirror instance per note, its own schema version, its own
+migrations and its own undo, all inside an item that a person is dragging around.
+The honest middle is *item-level* style: a note's own size and colour, set from
+the toolbar, which is a property of the note rather than of a run of characters
+inside it. That is what `size` and `colour` on an item are for, and it covers
+what a whiteboard note is actually for — a label, at the size it needs to be.
+
+Placing the page's own blocks — a table, a video, a collection — on a board is a
+different request wearing the same clothes. Those are node views inside a
+ProseMirror document, and a canvas is not one. Making them work in both places
+means either a second implementation of each or a document that is a canvas *and*
+a body. The way this application already answers "I want that thing here" is a
+link, and a canvas item that links to a page is one item and no new format.
+
+Neither is closed. Both are large, and neither should be started because it
+sounded small.
+
 ## Consequences
 
 The first slice is: the page kind, the map, drag-to-move, a text item, an image

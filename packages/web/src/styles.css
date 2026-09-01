@@ -1614,6 +1614,8 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
      size to paint on. A fixed grid under a moving board is a board that does not
      look like it is moving, so its position follows the pan and its spacing the
      zoom. */
+  /* Dotted by default; the other three are the same idea with different
+     strokes, and plain is no image at all rather than a white one. */
   background-image:
     radial-gradient(circle, var(--border-subtle) 1px, transparent 1px);
   touch-action: none;
@@ -1700,6 +1702,22 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    button goes down rather than after. */
 .canvas-surface[data-tool='pan'] { cursor: grab; }
 .canvas-surface[data-tool='pan']:active { cursor: grabbing; }
+
+.canvas-surface[data-ruling='squares'] {
+  background-image:
+    linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
+}
+.canvas-surface[data-ruling='lines'] {
+  background-image: linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
+}
+.canvas-surface[data-ruling='plain'] { background-image: none; }
+
+.canvas-ruling {
+  min-block-size: var(--sone-control);
+  padding-inline: var(--sone-space-2);
+  font-size: var(--sone-text-sm);
+}
 
 /* The plane inside the scroller. Everything on the canvas is in here, so zooming
    is one transform and nothing else has to know about it. */

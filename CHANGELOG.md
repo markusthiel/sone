@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A canvas has shapes, pictures and a ruling.** Rectangles, ellipses and lines are
+dragged out like a selection; a picture can be inserted from the toolbar as well as
+dropped; and the board can be dotted, squared, lined or plain.
+
 **Fixed: nothing could be drawn on a canvas** after the last release — everything
 was being placed thousands of pixels off screen. A note placed with the text tool
 also has the caret straight away now.

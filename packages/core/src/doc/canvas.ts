@@ -18,7 +18,18 @@ import { DOC_KEYS } from './docSchema.js';
 import { generateKeyBetween } from '../order/fractionalIndex.js';
 
 /** What an item is. Its other keys depend on which. */
-export const CANVAS_ITEM_KINDS = ['text', 'image', 'path'] as const;
+export const CANVAS_ITEM_KINDS = [
+  'text',
+  'image',
+  'path',
+  // Shapes. Three rather than a library of them: a rectangle, an ellipse and a
+  // line are what people actually draw on a board, and every further shape is a
+  // picture somebody could have drawn with the pen in less time than finding it
+  // in a menu.
+  'rect',
+  'ellipse',
+  'line',
+] as const;
 export type CanvasItemKind = (typeof CANVAS_ITEM_KINDS)[number];
 
 export const CANVAS_KEYS = {
@@ -42,10 +53,20 @@ export const CANVAS_KEYS = {
   fileId: 'fileId',
   /** A path item's points, as a flat [x, y, x, y, …] array. */
   points: 'points',
-  /** A path's colour and thickness. */
+  /** A path's or a shape's colour and thickness. */
   colour: 'colour',
   width: 'width',
+  /** A shape's fill, or absent for an outline. */
+  fill: 'fill',
+  /** A text item's own size, in canvas units. Absent means the default. */
+  size: 'size',
+  /** How the board is ruled: 'dots', 'squares', 'lines' or 'plain'. */
+  background: 'background',
 } as const;
+
+/** What a board can be ruled with. */
+export const CANVAS_BACKGROUNDS = ['dots', 'squares', 'lines', 'plain'] as const;
+export type CanvasBackground = (typeof CANVAS_BACKGROUNDS)[number];
 
 export interface CanvasItem {
   id: string;
@@ -60,6 +81,8 @@ export interface CanvasItem {
   points?: number[];
   colour?: string;
   width?: number;
+  fill?: string;
+  size?: number;
 }
 
 /** How large a canvas may get, so one page cannot become the whole database. */
@@ -107,6 +130,12 @@ export function readItem(id: string, map: Y.Map<unknown>): CanvasItem | null {
     ...(typeof map.get(CANVAS_KEYS.width) === 'number'
       ? { width: map.get(CANVAS_KEYS.width) as number }
       : {}),
+    ...(typeof map.get(CANVAS_KEYS.fill) === 'string'
+      ? { fill: map.get(CANVAS_KEYS.fill) as string }
+      : {}),
+    ...(typeof map.get(CANVAS_KEYS.size) === 'number'
+      ? { size: map.get(CANVAS_KEYS.size) as number }
+      : {}),
   };
 }
 
@@ -142,6 +171,8 @@ export interface NewItem {
   points?: number[];
   colour?: string;
   width?: number;
+  fill?: string;
+  size?: number;
 }
 
 /**
@@ -174,6 +205,8 @@ export function addItem(doc: Y.Doc, item: NewItem): void {
     }
     if (item.colour) entry.set(CANVAS_KEYS.colour, item.colour);
     if (item.width !== undefined) entry.set(CANVAS_KEYS.width, item.width);
+    if (item.fill) entry.set(CANVAS_KEYS.fill, item.fill);
+    if (item.size !== undefined) entry.set(CANVAS_KEYS.size, item.size);
 
     map.set(item.id, entry);
   });
@@ -233,6 +266,58 @@ export function bringToFront(doc: Y.Doc, id: string): void {
 
 export function removeItem(doc: Y.Doc, id: string): void {
   doc.transact(() => canvasMap(doc).delete(id));
+}
+
+/**
+ * Change one thing about one item.
+ *
+ * A single setter rather than one function per property: colour, thickness, fill
+ * and text size are all "this item, this key, this value", and eight
+ * near-identical functions would be eight places to forget a transaction.
+ * Bounded to the keys that are safe to set this way — an item's kind and its
+ * position have their own functions, and its id is not a property at all.
+ */
+export function styleItem(
+  doc: Y.Doc,
+  id: string,
+  changes: Partial<{ colour: string; width: number; fill: string | null; size: number }>,
+): void {
+  const entry = canvasMap(doc).get(id);
+  if (!(entry instanceof Y.Map)) return;
+  doc.transact(() => {
+    if (changes.colour !== undefined) entry.set(CANVAS_KEYS.colour, changes.colour);
+    if (changes.width !== undefined) entry.set(CANVAS_KEYS.width, changes.width);
+    if (changes.size !== undefined) entry.set(CANVAS_KEYS.size, changes.size);
+    // Null clears, which is how a filled shape becomes an outline again — the
+    // same distinction a block's attributes make between "not set" and "set to
+    // nothing".
+    if (changes.fill === null) entry.delete(CANVAS_KEYS.fill);
+    else if (changes.fill !== undefined) entry.set(CANVAS_KEYS.fill, changes.fill);
+  });
+}
+
+/**
+ * How the board is ruled.
+ *
+ * On the canvas map rather than in each item, obviously — but as a key beside
+ * the items rather than in a settings map of its own, because a map with one
+ * entry is a map somebody has to remember exists.
+ */
+export function readBackground(doc: Y.Doc): CanvasBackground {
+  // Typed as a map of items, and this one key is not one — read through
+  // `unknown` rather than widening the map's type, which would make every other
+  // reader check for a string.
+  const value: unknown = canvasMap(doc).get(CANVAS_KEYS.background);
+  return (CANVAS_BACKGROUNDS as readonly unknown[]).includes(value)
+    ? (value as CanvasBackground)
+    : 'dots';
+}
+
+export function setBackground(doc: Y.Doc, background: CanvasBackground): void {
+  // Set as a plain string on the same map the items live in. `readCanvas` skips
+  // it because it is not a Y.Map, which is the check that was already there for
+  // anything unexpected.
+  doc.transact(() => canvasMap(doc).set(CANVAS_KEYS.background, background as never));
 }
 
 /** The text on a canvas, for the search index — see ADR-0043 on the order. */

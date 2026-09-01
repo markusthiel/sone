@@ -600,10 +600,10 @@ test('a canvas writes a stroke once, when the pen lifts', () => {
   assert.doesNotMatch(move, /addItem/, 'nothing is written while drawing');
   assert.match(move, /setDrawing/);
 
+  // The stroke's own write, past the shape's — both live in the pointer-up
+  // handler now, and only one of them is the pen's.
   const up = canvas.slice(canvas.indexOf('const onSurfaceUp'));
-  // The write is now multi-line because the stroke carries the chosen ink, so
-  // this reads the call across lines rather than as one.
-  assert.match(up.slice(0, 800), /addItem\(doc, \{[\s\S]{0,120}kind: 'path'/);
+  assert.match(up, /addItem\(doc, \{[\s\S]{0,200}kind: 'path'/);
 });
 
 test('a canvas is a page, not a screen of its own', () => {
@@ -801,4 +801,35 @@ test('a note placed with the text tool is ready to type in', () => {
   const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
   assert.match(canvas, /setTyping\(id\)/);
   assert.match(canvas, /if \(field && typing === item\.id\) \{\s*\n\s*field\.focus\(\)/);
+});
+
+test('a shape is dragged out, and a tap makes nothing', () => {
+  // The same gesture as the band, which needs no second idea. A shape with no
+  // size is one nobody can grab to give it one.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /if \(box\.w > 4 \|\| box\.h > 4\)/);
+  // A line keeps the corners it was drawn between rather than a box, so dragging
+  // up-left draws up-left instead of flipping.
+  assert.match(canvas, /tool === 'line'\s*\n\s*\? \{ x: drawn\.from\.x, y: drawn\.from\.y/);
+  // Shapes are drawn in the ink layer, not as DOM items: they are drawing, and
+  // an SVG is what draws.
+  assert.match(canvas, /item\.kind !== 'rect' &&/);
+});
+
+test('a picture can be inserted from a button, not only dropped', () => {
+  // The drop was the only way in, which is a way nobody finds who has not been
+  // told — and both paths share one upload, so "insert a picture" means one
+  // thing however somebody arrived at it.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /const pickImage = \(\): void =>/);
+  assert.match(canvas, /const place = async \(file: File/);
+  assert.equal([...canvas.matchAll(/api\.uploadFile\(/g)].length, 1, 'one upload, two ways to it');
+});
+
+test('the board can be dotted, squared, lined or plain', () => {
+  assert.match(css, /\[data-ruling='squares'\][^}]*linear-gradient\(to right/s);
+  assert.match(css, /\[data-ruling='lines'\][^}]*linear-gradient\(to bottom/s);
+  // Plain is no image at all rather than a white one, which would hide the
+  // theme's own surface.
+  assert.match(css, /\[data-ruling='plain'\] \{ background-image: none; \}/);
 });
