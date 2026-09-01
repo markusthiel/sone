@@ -968,3 +968,14 @@ test('the handle keeps its press to itself', () => {
     /onPointerDown=\{\(event\) => event\.stopPropagation\(\)\}/,
   );
 });
+
+test('both row menus hang off the row, not off their own buttons', () => {
+  // The ⋮ sits at the row's right end, so anchoring to it and anchoring to the
+  // row are the same thing. The `+` sits further left, and the same rule sent
+  // its menu off the sidebar's other edge — "the same as the ⋮ menu" meant the
+  // row all along.
+  assert.match(css, /\.tree-row \{[^}]*position: relative/s);
+  assert.match(css, /\.tree-add-wrap \{ display: inline-flex; \}/);
+  // And the row declares that once: the drop indicator used to set it too.
+  assert.doesNotMatch(css, /\.tree-row\[data-drop='before'\],\s*\n\.tree-row\[data-drop='after'\] \{\s*\n\s*position: relative/);
+});

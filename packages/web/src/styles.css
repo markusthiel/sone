@@ -588,6 +588,14 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   align-items: center;
   gap: 2px;
   min-height: 34px;
+  /* The frame both of the row's menus hang off.
+   *
+   * The ⋮ menu was anchored to the ⋮ button, which sits at the row's right end,
+   * so aligning its right edge to that button and to the row is the same thing.
+   * The `+` sits further left, so the same rule sent its menu off the left of
+   * the sidebar. Both are anchored to the row now, which is what "the same as
+   * the ⋮ menu" actually meant. */
+  position: relative;
 }
 
 /* Disclosure triangle. Always present in the layout — as a transparent
@@ -645,9 +653,13 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
  * and opens the same way as the ⋮ menu one button along — two popups a row apart
  * that differ in any of those read as two different kinds of thing.
  *
- * Anchored to the button rather than the row, so it opens beside what was
- * pressed however deep the branch is. */
-.tree-add-wrap { position: relative; display: inline-flex; }
+ * Anchored to the row rather than to the button: the ⋮ sits at the row's right
+ * end, so "aligned to the ⋮ menu" and "aligned to the row" are the same thing —
+ * and anchoring to the `+`, which sits further left, sent the menu off the
+ * sidebar's other edge. */
+/* Not a positioning frame: the menu inside it is placed against the row, so it
+   lands where the ⋮ menu does rather than under the button that opened it. */
+.tree-add-wrap { display: inline-flex; }
 .tree-add-menu { inset-block-start: calc(100% + 4px); }
 
 .main {
@@ -3905,10 +3917,8 @@ select {
 /* Dropping between rows reorders; dropping in the middle of a folder puts the
    entry inside it. A line means "between", a filled row means "inside" — the
    two have to look different or a drop is a guess. */
-.tree-row[data-drop='before'],
-.tree-row[data-drop='after'] {
-  position: relative;
-}
+/* The row is positioned above, for the menus; the drop line needed that too and
+   used to declare it here. One declaration, so the two cannot disagree. */
 .tree-row[data-drop='before']::before,
 .tree-row[data-drop='after']::after {
   content: '';
