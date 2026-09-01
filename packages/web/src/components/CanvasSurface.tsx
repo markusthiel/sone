@@ -39,7 +39,7 @@ import { api } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 import { TrashIcon } from './icons.tsx';
 
-type Tool = 'select' | 'pen' | 'text';
+type Tool = 'select' | 'pen' | 'text' | 'erase';
 
 /** A stroke's points as an SVG path. Straight segments; a canvas is not calligraphy. */
 function pathFrom(points: number[]): string {
@@ -47,6 +47,48 @@ function pathFrom(points: number[]): string {
   let d = `M ${points[0]} ${points[1]}`;
   for (let at = 2; at < points.length; at += 2) d += ` L ${points[at]} ${points[at + 1]}`;
   return d;
+}
+
+/** A path's own box, since a stroke has no width and height of its own. */
+function boxOf(item: CanvasItem): { x: number; y: number; w: number; h: number } {
+  if (item.kind !== 'path' || !item.points?.length) {
+    return { x: item.x, y: item.y, w: item.w, h: item.h };
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let at = 0; at < item.points.length; at += 2) {
+    const x = item.points[at] ?? 0;
+    const y = item.points[at + 1] ?? 0;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+function within(item: CanvasItem, point: { x: number; y: number }): boolean {
+  const box = boxOf(item);
+  // A stroke is a line rather than a rectangle, so its box is generous — but an
+  // eraser that only works on the exact pixel is an eraser nobody can use.
+  return (
+    point.x >= box.x - 4 &&
+    point.x <= box.x + box.w + 4 &&
+    point.y >= box.y - 4 &&
+    point.y <= box.y + box.h + 4
+  );
+}
+
+function overlaps(item: CanvasItem, band: { x: number; y: number; w: number; h: number }): boolean {
+  const box = boxOf(item);
+  return (
+    box.x < band.x + band.w &&
+    box.x + box.w > band.x &&
+    box.y < band.y + band.h &&
+    box.y + box.h > band.y
+  );
 }
 
 const newId = (): string =>
@@ -80,6 +122,17 @@ export function CanvasSurface({
     width: 2,
   });
   const [busy, setBusy] = useState(false);
+  /**
+   * How far in. One number, not a matrix: the plane is scaled from its own
+   * origin and panning is the scroller's job, so there is no second coordinate
+   * system to keep in step — which is where a hand-rolled viewport usually goes
+   * wrong.
+   */
+  const [zoom, setZoom] = useState(1);
+  /** A rubber band, while one is being dragged. In canvas coordinates. */
+  const [band, setBand] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const bandFrom = useRef<{ x: number; y: number } | null>(null);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
 
   const surface = useRef<HTMLDivElement | null>(null);
   const dragging = useRef<{ id: string; dx: number; dy: number } | null>(null);
@@ -98,13 +151,20 @@ export function CanvasSurface({
   }, [doc]);
 
   /** Where a pointer is, in canvas coordinates. */
-  const at = useCallback((event: PointerEvent): { x: number; y: number } => {
-    const box = surface.current?.getBoundingClientRect();
-    return {
-      x: event.clientX - (box?.left ?? 0) + (surface.current?.scrollLeft ?? 0),
-      y: event.clientY - (box?.top ?? 0) + (surface.current?.scrollTop ?? 0),
-    };
-  }, []);
+  const at = useCallback(
+    (event: { clientX: number; clientY: number }): { x: number; y: number } => {
+      const box = surface.current?.getBoundingClientRect();
+      // Divided by the zoom, because everything stored is in canvas units and
+      // the pointer speaks screen ones. Getting this wrong is the classic
+      // canvas bug: things land where you clicked at 100% and nowhere near it
+      // at any other size.
+      return {
+        x: (event.clientX - (box?.left ?? 0) + (surface.current?.scrollLeft ?? 0)) / zoom,
+        y: (event.clientY - (box?.top ?? 0) + (surface.current?.scrollTop ?? 0)) / zoom,
+      };
+    },
+    [zoom],
+  );
 
   const onSurfaceDown = (event: PointerEvent<HTMLDivElement>): void => {
     if (!canEdit) return;
@@ -115,6 +175,13 @@ export function CanvasSurface({
       setDrawing([point.x, point.y]);
       return;
     }
+    if (tool === 'erase') {
+      // Whatever is under the pointer, topmost first — the same order the eye
+      // uses, since the topmost is what somebody sees themselves rubbing out.
+      const hit = [...items].reverse().find((item) => within(item, point));
+      if (hit) removeItem(doc, hit.id);
+      return;
+    }
     if (tool === 'text') {
       const id = newId();
       addItem(doc, { id, kind: 'text', x: point.x, y: point.y, text: '' });
@@ -122,9 +189,11 @@ export function CanvasSurface({
       setTool('select');
       return;
     }
-    // Clicking the empty plane clears the selection, which is the only way to
-    // deselect without a keyboard.
+    // Clicking the empty plane clears the selection and starts a rubber band.
     setSelected(null);
+    setChosen(new Set());
+    bandFrom.current = point;
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const onSurfaceMove = (event: PointerEvent<HTMLDivElement>): void => {
@@ -133,6 +202,16 @@ export function CanvasSurface({
     if (drawing) {
       // Every point while the pen is down, in local state only.
       setDrawing((current) => (current ? [...current, point.x, point.y] : current));
+      return;
+    }
+    const from = bandFrom.current;
+    if (from) {
+      setBand({
+        x: Math.min(from.x, point.x),
+        y: Math.min(from.y, point.y),
+        w: Math.abs(point.x - from.x),
+        h: Math.abs(point.y - from.y),
+      });
       return;
     }
     const size = sizing.current;
@@ -147,6 +226,17 @@ export function CanvasSurface({
   const onSurfaceUp = (): void => {
     dragging.current = null;
     sizing.current = null;
+
+    if (bandFrom.current) {
+      bandFrom.current = null;
+      if (band && band.w > 4 && band.h > 4) {
+        // Everything the band touches, not only what it encloses: a stroke that
+        // starts outside the band is still one somebody meant to catch.
+        setChosen(new Set(items.filter((item) => overlaps(item, band)).map((item) => item.id)));
+      }
+      setBand(null);
+      return;
+    }
     if (!drawing) return;
 
     // One write, at the end. The points are stored relative to nothing — the
@@ -212,7 +302,7 @@ export function CanvasSurface({
     <div className="canvas-page">
       {canEdit && (
         <div className="canvas-tools" role="toolbar" aria-label={t('canvas.tools')}>
-          {(['select', 'pen', 'text'] as const).map((id) => (
+          {(['select', 'pen', 'text', 'erase'] as const).map((id) => (
             <button
               key={id}
               type="button"
@@ -254,15 +344,49 @@ export function CanvasSurface({
             </>
           )}
 
-          {selected && (
+          {/* How far in. Buttons rather than a pinch alone: a mouse has no
+              pinch, and a percentage nobody can read back is a viewport people
+              get lost in. */}
+          <div className="canvas-zoom">
+            <button
+              type="button"
+              className="canvas-tool"
+              aria-label={t('canvas.zoomOut')}
+              onClick={() => setZoom((z) => Math.max(0.25, Math.round((z - 0.25) * 100) / 100))}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="canvas-tool"
+              onClick={() => setZoom(1)}
+              title={t('canvas.zoomReset')}
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              className="canvas-tool"
+              aria-label={t('canvas.zoomIn')}
+              onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
+            >
+              +
+            </button>
+          </div>
+
+          {(selected || chosen.size > 0) && (
             <button
               type="button"
               className="canvas-tool destructive"
               aria-label={t('canvas.remove')}
               title={t('canvas.remove')}
               onClick={() => {
-                removeItem(doc, selected);
+                // Everything chosen, or the one thing selected. One transaction
+                // either way, so it arrives elsewhere as one removal.
+                const ids = chosen.size > 0 ? [...chosen] : selected ? [selected] : [];
+                doc.transact(() => ids.forEach((id) => removeItem(doc, id)));
                 setSelected(null);
+                setChosen(new Set());
               }}
             >
               <TrashIcon />
@@ -283,6 +407,13 @@ export function CanvasSurface({
         onDrop={(event) => void onDrop(event)}
         data-busy={busy ? 'true' : undefined}
       >
+        {/* One scaled plane, so zooming is a single transform and nothing else
+            in here has to know about it. Scaled from its own origin, which is
+            what keeps the arithmetic in `at` to one division. */}
+        <div
+          className="canvas-plane"
+          style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}
+        >
         {/* Every stroke in one SVG, under the items: ink is the background a
             note is stuck onto, which is what a whiteboard is. */}
         <svg className="canvas-ink" aria-hidden="true">
@@ -316,7 +447,11 @@ export function CanvasSurface({
           .map((item) => (
             <div
               key={item.id}
-              className={selected === item.id ? 'canvas-item selected' : 'canvas-item'}
+              className={
+                selected === item.id || chosen.has(item.id)
+                  ? 'canvas-item selected'
+                  : 'canvas-item'
+              }
               style={{ left: item.x, top: item.y, width: item.w, height: item.h }}
               onPointerDown={(event) => {
                 if (!canEdit || tool !== 'select') return;
@@ -378,6 +513,16 @@ export function CanvasSurface({
               )}
             </div>
           ))}
+
+        {/* The band, drawn in the plane so it scales with everything else. */}
+        {band && (
+          <div
+            className="canvas-band"
+            style={{ left: band.x, top: band.y, width: band.w, height: band.h }}
+            aria-hidden="true"
+          />
+        )}
+        </div>
       </div>
     </div>
   );

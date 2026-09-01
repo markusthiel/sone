@@ -1644,6 +1644,28 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 /* While a picture is going up. Not a spinner over the plane: the drop landed
    somewhere specific and the rest of the board stays usable. */
 .canvas-surface[data-busy='true'] { cursor: progress; }
+.canvas-surface[data-tool='erase'] { cursor: cell; }
+
+/* The plane inside the scroller. Everything on the canvas is in here, so zooming
+   is one transform and nothing else has to know about it. */
+.canvas-plane {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: 4000px;
+  block-size: 4000px;
+}
+
+.canvas-zoom { display: inline-flex; align-items: center; gap: 2px; margin-inline-start: auto; }
+.canvas-zoom + .canvas-tool.destructive { margin-inline-start: var(--sone-space-3); }
+
+/* What a drag across the empty plane is catching. */
+.canvas-band {
+  position: absolute;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  pointer-events: none;
+}
 
 /* --- motion (ADR-0042) ---
  *

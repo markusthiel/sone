@@ -763,6 +763,10 @@ export const de: Record<keyof typeof en, string> = {
   'canvas.resize': 'Größe ändern',
   'canvas.colour': 'Farbe des Stifts',
   'canvas.thickness': 'Stärke',
+  'canvas.tool.erase': 'Radierer',
+  'canvas.zoomIn': 'Näher heran',
+  'canvas.zoomOut': 'Weiter weg',
+  'canvas.zoomReset': 'Zurück auf Originalgröße',
   'canvas.new': 'Neue Fläche',
   'panel.kind.canvas': 'Fläche',
 

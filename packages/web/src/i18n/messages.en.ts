@@ -720,6 +720,10 @@ export const en = {
   'canvas.resize': 'Resize this',
   'canvas.colour': 'Ink colour',
   'canvas.thickness': 'Thickness',
+  'canvas.tool.erase': 'Eraser',
+  'canvas.zoomIn': 'Closer',
+  'canvas.zoomOut': 'Further away',
+  'canvas.zoomReset': 'Back to actual size',
   'canvas.new': 'New canvas',
   'panel.kind.canvas': 'Canvas',
 
