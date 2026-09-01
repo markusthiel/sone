@@ -51,6 +51,15 @@ export const CANVAS_KEYS = {
   text: 'text',
   /** An image item's file (ADR-0029). The workspace's file, not a copy. */
   fileId: 'fileId',
+  /**
+   * What the file was called and how large it is.
+   *
+   * Carried on the item rather than looked up, the same way a file block carries
+   * them: the files panel names and measures what a page holds without a request
+   * per file, and a board's pictures are things the page holds.
+   */
+  filename: 'filename',
+  sizeBytes: 'sizeBytes',
   /** A path item's points, as a flat [x, y, x, y, …] array. */
   points: 'points',
   /** A path's or a shape's colour and thickness. */
@@ -92,6 +101,8 @@ export interface CanvasItem {
   fill?: string;
   size?: number;
   locked?: boolean;
+  filename?: string;
+  sizeBytes?: number;
 }
 
 /** How large a canvas may get, so one page cannot become the whole database. */
@@ -146,6 +157,12 @@ export function readItem(id: string, map: Y.Map<unknown>): CanvasItem | null {
       ? { size: map.get(CANVAS_KEYS.size) as number }
       : {}),
     ...(map.get(CANVAS_KEYS.locked) === true ? { locked: true } : {}),
+    ...(typeof map.get(CANVAS_KEYS.filename) === 'string'
+      ? { filename: map.get(CANVAS_KEYS.filename) as string }
+      : {}),
+    ...(typeof map.get(CANVAS_KEYS.sizeBytes) === 'number'
+      ? { sizeBytes: map.get(CANVAS_KEYS.sizeBytes) as number }
+      : {}),
   };
 }
 
@@ -183,6 +200,8 @@ export interface NewItem {
   width?: number;
   fill?: string;
   size?: number;
+  filename?: string;
+  sizeBytes?: number;
 }
 
 /**
@@ -217,6 +236,8 @@ export function addItem(doc: Y.Doc, item: NewItem): void {
     if (item.width !== undefined) entry.set(CANVAS_KEYS.width, item.width);
     if (item.fill) entry.set(CANVAS_KEYS.fill, item.fill);
     if (item.size !== undefined) entry.set(CANVAS_KEYS.size, item.size);
+    if (item.filename) entry.set(CANVAS_KEYS.filename, item.filename);
+    if (item.sizeBytes !== undefined) entry.set(CANVAS_KEYS.sizeBytes, item.sizeBytes);
 
     map.set(item.id, entry);
   });
@@ -349,6 +370,8 @@ export function duplicateItem(doc: Y.Doc, id: string, newId: string): void {
     ...(item.width !== undefined ? { width: item.width } : {}),
     ...(item.fill !== undefined ? { fill: item.fill } : {}),
     ...(item.size !== undefined ? { size: item.size } : {}),
+    ...(item.filename !== undefined ? { filename: item.filename } : {}),
+    ...(item.sizeBytes !== undefined ? { sizeBytes: item.sizeBytes } : {}),
   });
 }
 

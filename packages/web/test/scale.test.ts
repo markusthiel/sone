@@ -1005,3 +1005,18 @@ test('a stroke that has been moved is where it looks', () => {
   const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
   assert.match(canvas, /x: minX \+ item\.x, y: minY \+ item\.y/);
 });
+
+test('a picture on a board is in the page’s own list of pictures', () => {
+  // The panel walked the block tree and a canvas has no blocks — so a picture
+  // placed on a board was uploaded to the page, counted against the page's
+  // storage, and then missing from the page's own list of what it holds.
+  const assets = codeOf(new URL('../src/hooks/useDocAssets.ts', import.meta.url));
+  assert.match(assets, /for \(const item of readCanvas\(doc\)\)/);
+  assert.match(assets, /item\.kind !== 'image' \|\| !item\.fileId/);
+  assert.match(assets, /onCanvas: true/);
+
+  // It has no block to scroll to, so pressing it opens the file rather than
+  // pretending to find it on the page.
+  const panel = codeOf(new URL('../src/components/RightSidebar.tsx', import.meta.url));
+  assert.match(panel, /if \(image\.onCanvas\) \{\s*\n\s*window\.open/);
+});

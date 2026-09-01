@@ -808,6 +808,7 @@ export const de: Record<keyof typeof en, string> = {
   'panel.untitledHeading': 'Überschrift ohne Text',
   'panel.untitledTask': 'Aufgabe ohne Text',
   'panel.goToTask': 'Zu dieser Aufgabe',
+  'panel.openImage': 'Dieses Bild öffnen',
   'panel.showInPage': 'Zeigen, wo es in der Seite steht',
   'panel.showLinkInPage': 'Diesen Link in der Seite zeigen',
   'panel.done': 'Erledigt',

@@ -302,9 +302,19 @@ function ImagesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
           key={image.blockId}
           type="button"
           className="asset-thumb"
-          title={image.alt || 'Show in the page'}
-          aria-label={image.alt ? `Show ${image.alt} in the page` : 'Show this image in the page'}
-          onClick={() => scrollToBlock(image.blockId)}
+          // A picture on a board has no block to scroll to, so pressing it opens
+          // the file rather than pretending to find it on the page. Saying
+          // "show in the page" and doing nothing is worse than doing something
+          // else and saying so.
+          title={image.alt || t(image.onCanvas ? 'panel.openImage' : 'panel.showInPage')}
+          aria-label={image.alt || t(image.onCanvas ? 'panel.openImage' : 'panel.showInPage')}
+          onClick={() => {
+            if (image.onCanvas) {
+              window.open(image.url, '_blank', 'noopener');
+              return;
+            }
+            scrollToBlock(image.blockId);
+          }}
         >
           {image.url ? (
             <img src={image.url} alt="" loading="lazy" />
