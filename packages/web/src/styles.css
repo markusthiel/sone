@@ -665,14 +665,26 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   flex-wrap: nowrap;
   gap: 8px;
   padding: 8px 12px;
-  border-block-end: 1px solid var(--sone-border);
   position: sticky;
   inset-block-start: 0;
   /* Furniture, with the sidebar and the right panel. It is sticky, so the text
      scrolls under it — and text passing behind a bar the same colour as itself
      is how a heading ends up looking cut in half. */
-  background: var(--surface-chrome);
+  background: var(--surface-page);
   z-index: 5;
+  /* No line and no fill of its own until the page is scrolled (ADR-0042).
+   *
+   * A tinted band across the top is a second surface, and ADR-0028 already
+   * argued against those: on a wide screen it reads as furniture bolted to the
+   * writing. The line has exactly one job — saying that something is above —
+   * and it does it only when that is true. */
+  border-block-end: 1px solid transparent;
+  transition: border-color var(--motion-state) linear, background var(--motion-state) linear;
+}
+.main[data-scrolled='true'] .topbar {
+  border-block-end-color: var(--border-subtle);
+  /* Opaque only now, because now there is text passing behind it. */
+  background: var(--surface-page);
 }
 
 .page-body {
@@ -1468,6 +1480,61 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   }
   .settings-row > :not(.settings-row-label) { text-align: start; }
   .settings-row input, .settings-row select { inline-size: 100%; }
+}
+
+/* --- motion (ADR-0042) ---
+ *
+ * Three durations and two properties. `transform` and `opacity` are the only
+ * things a browser animates without laying the page out again — the compositor
+ * moves a layer it has already painted — so everything here uses one of them and
+ * nothing here animates a height.
+ */
+:root {
+  --motion-press: 90ms;
+  --motion-state: 140ms;
+  --motion-enter: 200ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+/* A press is felt rather than watched: it confirms the press before the result
+   arrives, which matters most when the result is slow. */
+button:not(:disabled), .btn:not(:disabled), a.btn {
+  transition: transform var(--motion-press) var(--motion-ease),
+    background var(--motion-state) linear, border-color var(--motion-state) linear;
+}
+button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97); }
+
+/* A branch's children fade up; they do not grow.
+ *
+ * They are in layout at once — animating the height would mean measuring it
+ * every frame, and a guessed max-height clips the long branch, which is the one
+ * somebody actually has. */
+.tree-children {
+  animation: sone-rise var(--motion-state) var(--motion-ease);
+}
+@keyframes sone-rise {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Switching a panel fades its body. The strip of tabs does not move at all: a
+   row of controls that animates when you use it feels unreliable, and the tab is
+   where somebody's finger just was. */
+/* Keyed on the tab, so the fade runs on every switch rather than once: React
+   keeps the same element otherwise and an animation does not restart. */
+.right-body {
+  animation: sone-fade var(--motion-enter) var(--motion-ease);
+}
+@keyframes sone-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Off, not shortened, for somebody who asked for less motion. None of this
+   carries information — which is the test of whether motion is decoration. */
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active, .btn:not(:disabled):active { transform: none; }
+  .tree-children, .right-body { animation: none; }
 }
 
 /* A checkbox and what it says.

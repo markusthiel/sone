@@ -738,6 +738,8 @@ export const de: Record<keyof typeof en, string> = {
   // --- die Leiste neben einer Seite --------------------------------------
   'panel.label': 'Seitenleiste rechts',
   'panel.close': 'Leiste schließen',
+  'panel.hide': 'Seitenleiste ausblenden',
+  'panel.show': 'Seitenleiste einblenden',
   'panel.outline': 'Gliederung',
   'panel.tasks': 'Aufgaben',
   'panel.files': 'Dateien',

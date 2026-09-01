@@ -70,7 +70,11 @@ test('the furniture is tinted and the writing is not', () => {
   // sidebar sat on white above it. Wrong way for a writing tool — paper is the
   // brightest thing on a desk.
   assert.match(css, /body \{[^}]*background: var\(--surface-page\)/);
-  for (const area of ['\\.sidebar', '\\.topbar', '\\.right-panel']) {
+  // The topbar left this list (ADR-0042): it is not furniture beside the writing,
+  // it is a strip *above* it on the same surface, and its only mark is a line
+  // that appears once something has scrolled behind it.
+  assert.match(css, /\.topbar \{[^}]*background: var\(--surface-page\)/s);
+  for (const area of ['\\.sidebar', '\\.right-panel']) {
     assert.match(
       css,
       new RegExp(`${area} \\{[^}]*background: var\\(--surface-chrome\\)`),

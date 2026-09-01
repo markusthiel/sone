@@ -696,6 +696,8 @@ export const en = {
   // --- the panel beside a page -------------------------------------------
   'panel.label': 'Page panel',
   'panel.close': 'Close panel',
+  'panel.hide': 'Hide the page panel',
+  'panel.show': 'Show the page panel',
   'panel.outline': 'Outline',
   'panel.tasks': 'Tasks',
   'panel.files': 'Files',

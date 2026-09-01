@@ -31,6 +31,7 @@ import { messageFor } from './Auth.tsx';
 import {
   CheckSquareIcon,
   ChevronRightIcon,
+  PanelRightIcon,
   ExternalIcon,
   ImageIcon,
   LinkIcon,
@@ -178,7 +179,10 @@ export function RightSidebar({
             where somebody reads it back. */}
         <p className="right-panel-title">{t(TABS[tab].label)}</p>
 
-        <div className="right-body" role="tabpanel">
+        {/* Keyed on the tab so the fade runs on every switch: without a key
+            React reuses the element and a CSS animation does not restart
+            (ADR-0042). */}
+        <div className="right-body" role="tabpanel" key={tab}>
           {tab === 'outline' && <OutlinePanel handle={handle} />}
           {tab === 'tasks' && <TasksPanel handle={handle} />}
           {/* Who has written here — not who is here now, which the circles at
@@ -632,11 +636,11 @@ export function RightPanelToggle({
     <button
       className="quiet panel-toggle"
       type="button"
-      aria-label={open ? 'Hide the page panel' : 'Show the page panel'}
+      aria-label={open ? t('panel.hide') : t('panel.show')}
       aria-expanded={open}
       onClick={onToggle}
     >
-      <ChevronRightIcon />
+      <PanelRightIcon />
     </button>
   );
 }

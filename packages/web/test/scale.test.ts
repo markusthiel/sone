@@ -479,3 +479,35 @@ test('a full-width block draws its selection inside itself', () => {
   // The table's scroller loses its side borders too, for the same two pixels.
   assert.match(css, /\[data-width='full'\] \.collection-scroll/);
 });
+
+test('motion is transform and opacity, and nothing that lays the page out', () => {
+  // Those two are the only properties a browser animates without recomputing
+  // layout (ADR-0042). A height animation on a tree branch is where a stutter
+  // would come from, so the branch fades and rises instead.
+  assert.match(css, /--motion-press: 90ms/);
+  assert.match(css, /@keyframes sone-rise \{[^@]*transform: translateY\(-2px\)/s);
+  assert.doesNotMatch(css, /@keyframes sone-rise \{[^@]*height/s);
+  // A press is felt: scale while held, and nothing else.
+  assert.match(css, /:active \{ transform: scale\(0\.97\); \}/);
+  // Off, not shortened, for somebody who asked for less.
+  assert.match(
+    css,
+    /prefers-reduced-motion: reduce\)[^}]*\{[\s\S]{0,300}?transform: none[\s\S]{0,200}?animation: none/,
+  );
+});
+
+test('the bar at the top has no line until there is something above', () => {
+  assert.match(css, /\.topbar \{[^}]*border-block-end: 1px solid transparent/s);
+  assert.match(css, /\.main\[data-scrolled='true'\] \.topbar/);
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /data-scrolled=\{scrolled \? 'true' : undefined\}/);
+});
+
+test('both panel toggles are the same shape, mirrored', () => {
+  // A chevron means "go", and that one was the only chevron in the interface
+  // that did not.
+  const icons = codeOf(new URL('../src/components/icons.tsx', import.meta.url));
+  assert.match(icons, /export function PanelRightIcon/);
+  const panel = codeOf(new URL('../src/components/RightSidebar.tsx', import.meta.url));
+  assert.match(panel, /<PanelRightIcon \/>\s*<\/button>/);
+});

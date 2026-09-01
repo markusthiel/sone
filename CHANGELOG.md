@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The interface moves a little** ([ADR-0042](docs/adr/0042-motion.md)): a button
+gives under a press, a tree branch fades its children in, and switching a panel
+fades its body. All of it is off for anybody who has asked for less motion.
+
+**The bar at the top is no longer a tinted band** — it sits on the same surface as
+the page, and a line appears under it only once something has scrolled behind it.
+**Both panel toggles are the same shape now**, mirrored, instead of a sidebar icon
+on one side and an arrow on the other.
+
+**Fixed: the block controls could sit in the middle of a line of text.**
+
 **Fixed: the panel beside a page had English headings**, and so did a good deal
 else that a screenshot does not show — the filter conditions, the column types,
 the whole block menu, the table toolbar, the undo tooltips, the roles and access
