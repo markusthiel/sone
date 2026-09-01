@@ -1579,6 +1579,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .canvas-tools {
   display: flex;
   align-items: center;
+  /* Wraps on a narrow screen rather than squeezing its contents. A row that
+     cannot fit and will not wrap deforms whatever is most compressible, which
+     here was the round things. */
+  flex-wrap: wrap;
   gap: var(--sone-space-2);
   padding: var(--sone-space-2) var(--sone-space-4);
   border-block-end: 1px solid var(--border-subtle);
@@ -1608,6 +1612,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 /* A tool that is its own mark: square, so seven of them read as one row of
    instruments rather than seven buttons of different widths. */
 .canvas-tool.mark {
+  flex: none;
   inline-size: var(--sone-control);
   padding-inline: 0;
   justify-content: center;
@@ -1710,6 +1715,13 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 
 .canvas-ink-choice {
+  /* Never squashed.
+   *
+   * A flex child shrinks before the row wraps, and on a phone the toolbar is
+   * narrower than its contents — so the colours became ovals. `flex: none` and
+   * an aspect ratio say what a swatch is rather than what is left over. */
+  flex: none;
+  aspect-ratio: 1;
   inline-size: 18px;
   block-size: 18px;
   padding: 0;
@@ -1722,6 +1734,8 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 /* Any colour at all, for the one a palette of eight does not contain. Small and
    square, so it reads as one more swatch rather than as a form field. */
 .canvas-ink-custom {
+  flex: none;
+  aspect-ratio: 1;
   inline-size: 22px;
   block-size: 22px;
   min-block-size: 0;

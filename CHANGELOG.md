@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A canvas has a hand tool**, so the board can be moved on a phone or tablet.
+**Fixed: the ink colours were squashed into ovals** on a narrow screen.
+
 **Fixed: a canvas showed a sheet on its own heading**, and did not appear in its
 folder's list at all. Both were the same line of code written out in five places;
 it is one function now.

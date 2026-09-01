@@ -239,6 +239,16 @@ export function ArrowUturnIcon(props: IconProps): ReactElement {
  * the eraser, which are instruments rather than marks — so those are drawn as
  * the instruments everybody already knows.
  */
+export function HandIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M12 11V4.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M15 11.5V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-3l-2.5-4a1.5 1.5 0 0 1 2.4-1.8L9 14" />
+    </svg>
+  );
+}
+
 export function CursorIcon(props: IconProps): ReactElement {
   return (
     <svg {...base(props)}>

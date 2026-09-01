@@ -763,6 +763,7 @@ export const de: Record<keyof typeof en, string> = {
   // --- eine Fläche (ADR-0043) ---------------------------------------------
   'canvas.tools': 'Werkzeuge',
   'canvas.tool.select': 'Auswählen',
+  'canvas.tool.hand': 'Blatt verschieben',
   'canvas.tool.pen': 'Stift',
   'canvas.tool.text': 'Text',
   'canvas.remove': 'Das hier entfernen',
