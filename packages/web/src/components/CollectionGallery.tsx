@@ -12,6 +12,7 @@
  */
 
 import type { CollectionField, CollectionFile, CollectionRow } from '../api/client.ts';
+import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 
 interface GalleryProps {
@@ -97,10 +98,11 @@ export function CollectionGallery({
   coverFieldId,
   files,
 }: GalleryProps): React.ReactElement {
+  const { t } = useT();
   const cover = coverField(fields, coverFieldId);
 
   if (rows.length === 0) {
-    return <p className="muted">Nothing here yet.</p>;
+    return <p className="muted">{t('gallery.empty')}</p>;
   }
 
   return (

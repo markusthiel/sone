@@ -10,6 +10,7 @@
  * existing ones keep theirs, including through a rename and a colour change.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useState, type ReactElement } from 'react';
 
 import { OPTION_COLORS } from '@sone/core';
@@ -48,6 +49,7 @@ export function OptionEditor({
   onSave,
   onClose,
 }: OptionEditorProps): ReactElement {
+  const { t } = useT();
   const [draft, setDraft] = useState<EditableOption[]>(options);
 
   const update = (id: string, changes: Partial<EditableOption>): void =>
@@ -59,7 +61,7 @@ export function OptionEditor({
     <div
       className="option-editor"
       role="dialog"
-      aria-label="Options"
+      aria-label={t('option.options')}
       // Clamped so the panel cannot leave the window on the right, which is
       // where a last column's heading is.
       style={{
@@ -74,7 +76,7 @@ export function OptionEditor({
             <input
               className="option-name"
               value={option.name}
-              aria-label="Option name"
+              aria-label={t('option.name')}
               onChange={(event) => update(option.id, { name: event.target.value })}
             />
             <select
@@ -105,7 +107,7 @@ export function OptionEditor({
 
       {draft.length === 0 && (
         <p className="muted option-empty">
-          No options yet. Add one, then pick it in a cell.
+          {t('option.none')}
         </p>
       )}
 
@@ -122,11 +124,11 @@ export function OptionEditor({
             ])
           }
         >
-          <PlusIcon /> Add option
+          <PlusIcon /> {t('option.add')}
         </button>
         <span className="option-editor-spacer" />
         <button type="button" className="btn" onClick={onClose}>
-          Cancel
+          {t('action.cancel')}
         </button>
         <button
           type="button"
@@ -137,7 +139,7 @@ export function OptionEditor({
             onSave(draft.filter((option) => option.name.trim() !== ''))
           }
         >
-          Save
+          {t('you.save')}
         </button>
       </div>
 

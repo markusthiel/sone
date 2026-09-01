@@ -23,6 +23,7 @@ import {
   schema,
   setLink,
 } from '@sone/editor';
+import { useT } from '../i18n/useT.tsx';
 import { toggleMark } from 'prosemirror-commands';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
@@ -40,6 +41,7 @@ const GAP = 8;
 const MARGIN = 8;
 
 export function SelectionToolbar({ view, revision }: SelectionToolbarProps): ReactElement | null {
+  const { t } = useT();
   const [box, setBox] = useState<{ top: number; left: number; above: boolean } | null>(null);
   const [editingLink, setEditingLink] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
@@ -149,7 +151,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
       ref={barRef}
       style={box ? { top: box.top, left: box.left } : { visibility: 'hidden' }}
       role="toolbar"
-      aria-label="Formatting"
+      aria-label={t('format.label')}
       // The editor loses focus on mousedown, which would collapse the selection
       // before any command could act on it.
       // mousedown, not pointerdown: preventing pointerdown on a touch
@@ -161,8 +163,8 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
           <input
             value={href}
             autoFocus
-            placeholder="example.org"
-            aria-label="Link address"
+            placeholder={t('format.linkPlaceholder')}
+            aria-label={t('format.linkAddress')}
             onChange={(event) => setHref(event.target.value)}
             onKeyDown={(event) => {
               if (event.key !== 'Enter') return;
@@ -183,7 +185,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
               setEditingLink(false);
             }}
           >
-            Apply
+            {t('action.apply')}
           </button>
           {existingLink && (
             <button
@@ -194,7 +196,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
                 setEditingLink(false);
               }}
             >
-              Remove
+              {t('format.removeLink')}
             </button>
           )}
         </div>
@@ -223,7 +225,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
 
           <button
             type="button"
-            title="Link (Mod-K)"
+            title={t('format.link')}
             className="toolbar-button"
             disabled={!canLink(state)}
             aria-pressed={existingLink !== null}
@@ -232,7 +234,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
               setEditingLink(true);
             }}
           >
-            Link
+            {t('format.linkWord')}
           </button>
 
           {/* Only when the selection is in code, block or inline.
@@ -244,7 +246,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
           {codeText !== null && (
             <button
               type="button"
-              title="Copy the code"
+              title={t('format.copyCode')}
               className="toolbar-button"
               onClick={() => void copyCode()}
             >

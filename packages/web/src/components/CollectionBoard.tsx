@@ -19,6 +19,7 @@
  * and the entries most likely to need attention are exactly the unsorted ones.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useMemo, type ReactElement } from 'react';
 
 import type {
@@ -47,6 +48,7 @@ export function CollectionBoard({
   canEdit,
   onSetValue,
 }: BoardProps): ReactElement {
+  const { t } = useT();
   const options = useMemo(() => optionsOf(groupBy), [groupBy]);
 
   /**
@@ -136,7 +138,7 @@ export function CollectionBoard({
                   {/* A card is a page, so its title opens it — the same as the
                       first column of the table. */}
                   <a href={paths.page(row.id, row.title)}>
-                    {row.title || <span className="muted">Untitled</span>}
+                    {row.title || <span className="muted">{t('page.untitled')}</span>}
                   </a>
                 </li>
               ))}

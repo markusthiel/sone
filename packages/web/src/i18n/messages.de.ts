@@ -215,6 +215,57 @@ export const de: Record<keyof typeof en, string> = {
   'workspace.mark': 'Zeichen',
   'workspace.saveFailed': 'Das konnte nicht gespeichert werden. Bitte noch einmal.',
 
+  // --- der Rest der Oberfläche -------------------------------------------
+  'invitation.title': 'Einladung',
+  'action.continue': 'Weiter',
+  'action.notNow': 'Jetzt nicht',
+  'invitation.alreadyMember':
+    '{address, select, formal {Sie haben} other {Du hast}} hier schon ein Konto — diese ' +
+    'Einladung fügt nichts hinzu.',
+  'page.title': 'Seitentitel',
+  'page.untitled': 'Ohne Titel',
+  'page.readOnly':
+    '{address, select, formal {Sie können} other {Du kannst}} diese Seite nur lesen.',
+  'page.noAccess':
+    '{address, select, formal {Sie haben} other {Du hast}} keinen Zugriff mehr auf diese Seite.',
+  'error.technicalDetail': 'Technische Details',
+  'option.name': 'Name der Option',
+  'option.options': 'Optionen',
+  'option.none': 'Noch keine Optionen. Eine anlegen, dann in einer Zelle wählen.',
+  'option.add': 'Option hinzufügen',
+  'format.label': 'Formatierung',
+  // Die Tastenkürzel-Schreibweise bleibt: „Mod" ist Strg oder Cmd, je nach
+  // Gerät, und dafür gibt es kein deutsches Wort, das kürzer wäre.
+  'format.link': 'Link (Mod-K)',
+  'format.linkAddress': 'Adresse des Links',
+  'format.linkPlaceholder': 'example.org',
+  'format.copyCode': 'Code kopieren',
+  'format.linkWord': 'Link',
+  'format.removeLink': 'Entfernen',
+  'slash.insert': 'Block einfügen',
+  'tableBlock.label': 'Tabelle',
+  'video.add': 'Video hinzufügen',
+  'video.address': 'Adresse des Videos',
+  'video.addressPlaceholder': 'https://…',
+  'video.orPaste': 'oder eine Adresse einfügen',
+  'video.upload': 'Video hochladen',
+  'gallery.empty': 'Noch nichts hier.',
+  'workspaces.shared': 'Geteilte Workspaces',
+  'workspaces.personal': 'Persönliche Workspaces',
+  'workspaces.nonePersonal':
+    'Noch keine — jeder Workspace hier gehört einer Person.',
+  'workspaces.name': 'Name',
+  'workspaces.people': 'Leute',
+  'workspaces.pages': 'Seiten',
+  'workspaces.lastEdited': 'Zuletzt bearbeitet',
+  'workspaces.appearance': 'Aussehen',
+  'workspaces.delete': 'Diesen Workspace löschen',
+  'workspaces.confirmName': 'Zum Bestätigen den Namen eintippen',
+  'workspaces.nameField': 'Name des Workspace',
+  'workspaces.new': 'Neuer Workspace',
+  'workspaces.settings': 'Workspace-Einstellungen',
+  'workspaces.all': 'Alle Workspaces',
+
   // --- Einladungen -------------------------------------------------------
   'invite.email': 'E-Mail-Adresse',
   'invite.emailPlaceholder': 'jemand@example.org',

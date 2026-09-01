@@ -14,6 +14,7 @@ import {
   readTitleColor,
   type EntryIcon,
 } from '@sone/core';
+import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState , type ReactElement } from 'react';
 
 import { blockFromHash } from '../routes/paths.ts';
@@ -48,6 +49,7 @@ export function PageView({
   connectionState,
   onTitleChange,
 }: PageViewProps): ReactElement {
+  const { t } = useT();
   const pageMap = handle.doc.getMap(DOC_KEYS.page);
   const [title, setTitle] = useState<string>(
     () => (pageMap.get(PAGE_KEYS.title) as string | undefined) ?? '',
@@ -151,9 +153,9 @@ export function PageView({
           style={titleColorStyle(icon.titleColor ? { titleColor: icon.titleColor } : null)}
           value={title}
           onChange={(e) => commitTitle(e.target.value)}
-          placeholder="Untitled"
+          placeholder={t('page.untitled')}
           readOnly={!handle.canEdit}
-          aria-label="Page title"
+          aria-label={t('page.title')}
         />
       </div>
 
@@ -179,13 +181,13 @@ export function PageView({
         * A page that is really out of reach still says so: the connection
         * becomes ready and the denial stands. */}
       {handle.status === 'denied' && connectionState === 'ready' && (
-        <p className="error">You no longer have access to this page.</p>
+        <p className="error">{t('page.noAccess')}</p>
       )}
       {(handle.role === null || (handle.status === 'denied' && connectionState !== 'ready')) && (
         <p className="muted">Opening…</p>
       )}
       {handle.status !== 'denied' && handle.role !== null && !handle.canEdit && (
-        <p className="muted">You have read-only access to this page.</p>
+        <p className="muted">{t('page.readOnly')}</p>
       )}
 
       {/* A second boundary around the editor specifically, so a crash there
@@ -213,6 +215,7 @@ export function PageStatus({ handle, connectionState, failure }: {
   connectionState: string;
   failure?: { kind: string; attempts: number } | null;
 }): ReactElement {
+  const { t } = useT();
   const peers = handle?.peers() ?? [];
 
   // 'ready' plus a synced document is the only fully-good state; anything else
