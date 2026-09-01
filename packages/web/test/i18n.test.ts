@@ -221,6 +221,7 @@ const MIGRATED = [
   'src/components/WorkspaceDetail.tsx',
   'src/components/WorkspaceList.tsx',
   'src/components/WorkspaceMenu.tsx',
+  'src/components/CanvasSurface.tsx',
 ];
 
 /**
