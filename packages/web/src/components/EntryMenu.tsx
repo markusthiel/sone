@@ -351,17 +351,94 @@ export function EntryMenu({
 
       {open && (
         <div className="entry-menu" ref={panelRef} role="menu">
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onStartRename(node.id);
-            }}
-          >
-            <PencilIcon /> {t('entry.rename')}
-          </button>
+          {/* The five things done most, as one row.
+            *
+            * Rename, favourite, share, and the two reorderings were five
+            * full-width rows of text, which was most of the menu's height
+            * before anything about *this* entry appeared. Each is a verb with
+            * an obvious picture, which is the condition for dropping the word —
+            * and the word stays as the tooltip and the accessible label, the
+            * same trade the block menu made (ADR-0042).
+            */}
+          <div className="entry-menu-actions" role="group" aria-label={t('entry.actions')}>
+            <button
+              type="button"
+              role="menuitem"
+              className="entry-menu-action"
+              title={t('entry.rename')}
+              aria-label={t('entry.rename')}
+              onClick={() => {
+                setOpen(false);
+                onStartRename(node.id);
+              }}
+            >
+              <PencilIcon />
+            </button>
+
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={isFavourite}
+              className={isFavourite ? 'entry-menu-action current' : 'entry-menu-action'}
+              title={isFavourite ? t('entry.unfavourite') : t('entry.favourite')}
+              aria-label={isFavourite ? t('entry.unfavourite') : t('entry.favourite')}
+              onClick={() => {
+                setOpen(false);
+                onToggleFavourite(node.id, !isFavourite);
+              }}
+            >
+              <StarIcon data-filled={isFavourite ? 'true' : 'false'} />
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              className="entry-menu-action"
+              title={t('entry.share')}
+              aria-label={t('entry.share')}
+              onClick={() => {
+                setOpen(false);
+                onStartShare(node.id);
+              }}
+            >
+              <ShareIcon />
+            </button>
+
+            {/* Reordering without dragging.
+             *
+             * Dragging is a pointer-device feature — iOS never fires those
+             * events — so on a tablet these two are the only way to reorder at
+             * all. They also work with a keyboard, which dragging does not. */}
+            <button
+              type="button"
+              role="menuitem"
+              className="entry-menu-action"
+              disabled={!canMoveUp}
+              title={t('entry.moveUp')}
+              aria-label={t('entry.moveUp')}
+              onClick={() => {
+                setOpen(false);
+                onReorder(node.id, 'up');
+              }}
+            >
+              <ArrowUpIcon />
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              className="entry-menu-action"
+              disabled={!canMoveDown}
+              title={t('entry.moveDown')}
+              aria-label={t('entry.moveDown')}
+              onClick={() => {
+                setOpen(false);
+                onReorder(node.id, 'down');
+              }}
+            >
+              <ArrowDownIcon />
+            </button>
+          </div>
 
           {/* Icon and the two colours.
             *
@@ -370,66 +447,6 @@ export function EntryMenu({
             * it turns a moment into a task. The menu stays open while choosing,
             * because people try several before settling. */}
           <EntryAppearance node={node} onChanged={onChanged} />
-
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onToggleFavourite(node.id, !isFavourite);
-            }}
-          >
-            <StarIcon data-filled={isFavourite ? 'true' : 'false'} />{' '}
-            {isFavourite ? t('entry.unfavourite') : t('entry.favourite')}
-          </button>
-
-          {/* Reordering without dragging.
-           *
-           * Dragging is a pointer-device feature — iOS never fires those
-           * events — so on a tablet these two entries are the only way to
-           * reorder at all. Shipping the drag without them left the most
-           * common device with no way to do it, which is not a degradation but
-           * a missing feature.
-           *
-           * They also work with a keyboard, which dragging does not. */}
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitem"
-            disabled={!canMoveUp}
-            onClick={() => {
-              setOpen(false);
-              onReorder(node.id, 'up');
-            }}
-          >
-            <ArrowUpIcon /> {t('entry.moveUp')}
-          </button>
-
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitem"
-            disabled={!canMoveDown}
-            onClick={() => {
-              setOpen(false);
-              onReorder(node.id, 'down');
-            }}
-          >
-            <ArrowDownIcon /> {t('entry.moveDown')}
-          </button>
-
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onStartShare(node.id);
-            }}
-          >
-            <ShareIcon /> {t('entry.share')}
-          </button>
 
           <button
             className="entry-menu-item"
@@ -448,8 +465,7 @@ export function EntryMenu({
             * Its own entry rather than a destination in the list above, because
             * it is a different decision: a move within a workspace loses
             * nothing, and this one revokes share links, drops restrictions and
-            * severs links to what stays behind. The dialog says which before it
-            * does any of it. */}
+            * severs links to what stays behind. */}
           <button
             className="entry-menu-item"
             type="button"
@@ -462,44 +478,39 @@ export function EntryMenu({
             <MoveIcon /> {t('entry.moveToWorkspace')}
           </button>
 
+          {/* What can be put inside, as three marks under one word.
+            *
+            * The same three the `+` offers and in the same order (page, canvas,
+            * folder) — two menus offering the same things in two orders is two
+            * things to learn. */}
           {isFolder && (
-            <>
-              <button
-                className="entry-menu-item"
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onCreate(node.id, 'page');
-                }}
-              >
-                <PlusIcon /> {t('entry.newPage')}
-              </button>
-              {/* The third kind of entry, beside the other two rather than
-                  behind a menu of its own (ADR-0043). */}
-              <button
-                className="entry-menu-item"
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onCreate(node.id, 'canvas');
-                }}
-              >
-                <PenIcon /> {t('canvas.new')}
-              </button>
-              <button
-                className="entry-menu-item"
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onCreate(node.id, 'folder');
-                }}
-              >
-                <FolderPlusIcon /> {t('entry.newFolder')}
-              </button>
-            </>
+            <div className="entry-menu-new">
+              <span className="entry-menu-label">{t('entry.new')}</span>
+              <div className="entry-menu-actions">
+                {(
+                  [
+                    ['page', 'entry.newPage', PlusIcon],
+                    ['canvas', 'canvas.new', PenIcon],
+                    ['folder', 'entry.newFolder', FolderPlusIcon],
+                  ] as const
+                ).map(([kind, key, Mark]) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    role="menuitem"
+                    className="entry-menu-action"
+                    title={t(key)}
+                    aria-label={t(key)}
+                    onClick={() => {
+                      setOpen(false);
+                      onCreate(node.id, kind);
+                    }}
+                  >
+                    <Mark />
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           <button

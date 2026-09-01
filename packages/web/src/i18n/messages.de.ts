@@ -76,6 +76,8 @@ export const de: Record<keyof typeof en, string> = {
   'entry.share': 'Teilen…',
   'entry.move': 'Verschieben nach…',
   'entry.moveToWorkspace': 'In einen Workspace verschieben…',
+  'entry.actions': 'Was mit diesem Eintrag geschehen soll',
+  'entry.new': 'Neu',
   'entry.newPage': 'Neue Seite',
   'entry.newFolder': 'Neuer Ordner',
   'entry.moveUp': 'Nach oben',
