@@ -380,6 +380,29 @@ export const en = {
   'icon.nameColour': 'Name colour',
   'icon.ownColour': 'A colour of your own',
 
+  // --- signing in, signing up, first-run setup ---------------------------
+  'auth.setup': 'Set up SONE',
+  'auth.setup.note': 'This creates the first workspace and its owner. It can only be done once.',
+  'auth.workspaceName': 'Workspace name',
+  'auth.yourName': 'Your name',
+  'auth.email': 'Email',
+  'auth.password': 'Password',
+  'auth.passwordHint': 'At least 12 characters. Length beats complexity.',
+  'auth.createWorkspace': 'Create workspace',
+  'auth.creatingWorkspace': 'Setting up…',
+  'auth.signIn': 'Sign in',
+  'auth.signingIn': 'Signing in…',
+  'auth.createAccount': 'Create an account',
+  'auth.createAccountAction': 'Create account',
+  'auth.creatingAccount': 'Creating…',
+  'auth.or': 'or',
+  'auth.noAccount': 'No account?',
+  'auth.createOne': 'Create one',
+  'auth.haveAccount': 'Already have an account?',
+  'auth.cannotStart': 'Cannot start',
+  'auth.tryAgain': 'Try again',
+  'auth.loading': 'Loading…',
+
   // --- what went wrong ---------------------------------------------------
   //
   // The server sends a code and the client owns the wording (ADR-0011). This is

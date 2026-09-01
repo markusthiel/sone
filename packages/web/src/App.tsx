@@ -7,7 +7,7 @@
 
 import { useEffect, useState , type ReactElement } from 'react';
 
-import { LoginScreen, SetupScreen, SignupScreen, messageFor } from './components/Auth.tsx';
+import { LoginScreen, SetupScreen, SignupScreen, useMessage } from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
 import { MoveDialog } from './components/MoveDialog.tsx';
 import { MoveToWorkspaceDialog } from './components/MoveToWorkspaceDialog.tsx';
@@ -21,7 +21,7 @@ import {
   readRightPanelOpen,
 } from './components/RightSidebar.tsx';
 import { SearchScreen } from './components/Search.tsx';
-import { LocaleProvider, resolveLocale } from './i18n/useT.tsx';
+import { LocaleProvider, resolveLocale, useT } from './i18n/useT.tsx';
 import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
@@ -35,7 +35,7 @@ import { useFavourites } from './hooks/useFavourites.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
 import { api, type PageNode } from './api/client.ts';
-import { MOVED_SETTINGS, paths } from './routes/paths.ts';
+import { MOVED_SETTINGS, paths, type Route } from './routes/paths.ts';
 import { AcceptInvitation } from './components/AcceptInvitation.tsx';
 
 export function App(): ReactElement {
@@ -43,20 +43,93 @@ export function App(): ReactElement {
   useLinkInterception(navigate);
   const { state, reload, logout, selectWorkspace } = useSession();
 
+  /**
+   * The language, for every screen including the ones with nobody signed in
+   * (ADR-0041).
+   *
+   * Resolved here, above the branches, so the sign-in and setup screens are
+   * translated too. They have no session to ask, so what they get is the
+   * instance's own negotiation of `Accept-Language` — which the server has been
+   * doing all along and nothing was using.
+   *
+   * Signed in, the person's own setting wins over the workspace's, and both win
+   * over the browser's.
+   */
+  const session = state.status === 'authenticated' ? state.session : null;
+  const instance = 'instance' in state ? state.instance : null;
+  const workspace =
+    state.status === 'authenticated'
+      ? state.session.workspaces.find((w) => w.id === state.workspaceId)
+      : undefined;
+
+  return (
+    <LocaleProvider
+      initial={resolveLocale(
+        session?.user.locale,
+        workspace?.default_locale ?? instance?.suggestedLocale,
+      )}
+      // The tone of the house, chosen by whoever runs the instance. Delivered
+      // with `/api/instance` rather than with the session precisely so that the
+      // sign-in screen is addressed the same way as everything behind it.
+      address={
+        (state.status === 'authenticated' ? state.instance : instance)?.addressForm ??
+        'informal'
+      }
+    >
+      <Routes
+        state={state}
+        route={route}
+        navigate={navigate}
+        reload={reload}
+        logout={logout}
+        selectWorkspace={selectWorkspace}
+      />
+    </LocaleProvider>
+  );
+}
+
+/**
+ * Every screen, once the language is known.
+ *
+ * Split from `App` only so the provider can wrap all of it: the branches below
+ * return early, and a provider cannot wrap an early return from outside it.
+ */
+function Routes({
+  state,
+  route,
+  navigate,
+  reload,
+  logout,
+  selectWorkspace,
+}: {
+  state: ReturnType<typeof useSession>['state'];
+  route: Route;
+  navigate: (to: string, options?: { replace?: boolean }) => void;
+  reload: () => Promise<void> | void;
+  logout: () => Promise<void> | void;
+  selectWorkspace: (id: string) => void;
+}): ReactElement {
+  const { t } = useT();
+  const message = useMessage();
+
   // --- unauthenticated routes ---------------------------------------------
 
   if (state.status === 'loading') {
-    return <div className="centered"><p className="muted">Loading…</p></div>;
+    return (
+      <div className="centered">
+        <p className="muted">{t('auth.loading')}</p>
+      </div>
+    );
   }
 
   if (state.status === 'error') {
     return (
       <div className="centered">
         <div className="card">
-          <h1>Cannot start</h1>
-          <p className="error">{messageFor(state.code)}</p>
+          <h1>{t('auth.cannotStart')}</h1>
+          <p className="error">{message(state.code)}</p>
           <button type="button" className="btn" onClick={() => void reload()}>
-            Try again
+            {t('auth.tryAgain')}
           </button>
         </div>
       </div>
@@ -127,44 +200,28 @@ export function App(): ReactElement {
   // --- authenticated ------------------------------------------------------
 
   return (
-    /* The language, resolved from the person, then the workspace, then the
-     * browser (ADR-0041). Here rather than in main.tsx, because the first two of
-     * those come from the session — and an unauthenticated screen has nothing to
-     * resolve from, so it stays English until there is somebody to ask. */
-    <LocaleProvider
-      initial={resolveLocale(
-        state.session.user.locale,
-        state.session.workspaces.find((w) => w.id === state.workspaceId)?.default_locale,
-      )}
-      // "du" or "Sie", chosen by whoever runs the instance rather than per
-      // person: it is the tone of their house, and two members of one workspace
-      // reading different forms of address in the same sentence would be
-      // stranger than either choice.
-      address={state.instance.addressForm ?? 'informal'}
-    >
-      <Workspace
-        workspaceId={state.workspaceId}
-        workspaceName={
-          state.session.workspaces.find((w) => w.id === state.workspaceId)?.name ??
-          'Workspace'
-        }
-        displayName={state.session.user.displayName}
-        session={state.session}
-        route={route}
-        navigate={navigate}
-        onSwitchWorkspace={(id) => {
-          selectWorkspace(id);
-          // Back to the root: a page id from the previous workspace is not
-          // reachable in the new one, and leaving it in the URL would show a
-          // not-found for a page that exists.
-          navigate(paths.home());
-          // The session response carries the workspace list, so a freshly created
-          // workspace has to be picked up before it can be selected.
-          void reload();
-        }}
-        onLogout={() => void logout()}
-      />
-    </LocaleProvider>
+    <Workspace
+      workspaceId={state.workspaceId}
+      workspaceName={
+        state.session.workspaces.find((w) => w.id === state.workspaceId)?.name ??
+        'Workspace'
+      }
+      displayName={state.session.user.displayName}
+      session={state.session}
+      route={route}
+      navigate={navigate}
+      onSwitchWorkspace={(id) => {
+        selectWorkspace(id);
+        // Back to the root: a page id from the previous workspace is not
+        // reachable in the new one, and leaving it in the URL would show a
+        // not-found for a page that exists.
+        navigate(paths.home());
+        // The session response carries the workspace list, so a freshly created
+        // workspace has to be picked up before it can be selected.
+        void reload();
+      }}
+      onLogout={() => void logout()}
+    />
   );
 }
 
@@ -196,6 +253,7 @@ function Workspace({
   // one is absent (ADR-0023).
   useWorkspaceTheme(workspaceId);
 
+  const message = useMessage();
   const { client, state: connectionState, failure } = useSoneClient({
     workspaceId,
     displayName,
@@ -418,7 +476,7 @@ function Workspace({
           information, not a decision. */}
       {pagesError && (
         <div className="app-error" role="status">
-          {messageFor(pagesError)}
+          {message(pagesError)}
         </div>
       )}
 

@@ -57,6 +57,8 @@ interface AuthFormProps {
 }
 
 export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
+  const { t } = useT();
+  const message = useMessage();
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
@@ -81,13 +83,13 @@ export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
   return (
     <div className="centered">
       <form className="card" onSubmit={submit}>
-        <h1>Set up SONE</h1>
+        <h1>{t('auth.setup')}</h1>
         <p className="muted">
-          This creates the first workspace and its owner. It can only be done once.
+          {t('auth.setup.note')}
         </p>
 
         <div className="field">
-          <label htmlFor="ws">Workspace name</label>
+          <label htmlFor="ws">{t('auth.workspaceName')}</label>
           <input
             id="ws"
             value={workspaceName}
@@ -97,7 +99,7 @@ export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
           />
         </div>
         <div className="field">
-          <label htmlFor="name">Your name</label>
+          <label htmlFor="name">{t('auth.yourName')}</label>
           <input
             id="name"
             value={displayName}
@@ -106,7 +108,7 @@ export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
           />
         </div>
         <div className="field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">{t('auth.email')}</label>
           <input
             id="email"
             type="email"
@@ -117,7 +119,7 @@ export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
           />
         </div>
         <div className="field">
-          <label htmlFor="pw">Password</label>
+          <label htmlFor="pw">{t('auth.password')}</label>
           <input
             id="pw"
             type="password"
@@ -128,13 +130,13 @@ export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
             autoComplete="new-password"
           />
           <span className="muted" style={{ fontSize: '0.85rem' }}>
-            At least 12 characters. Length beats complexity.
+            {t('auth.passwordHint')}
           </span>
         </div>
 
-        {error && <p className="error">{messageFor(error)}</p>}
+        {error && <p className="error">{message(error)}</p>}
         <button className="primary" type="submit" disabled={busy}>
-          {busy ? 'Setting up…' : 'Create workspace'}
+          {busy ? t('auth.creatingWorkspace') : t('auth.createWorkspace')}
         </button>
       </form>
     </div>
@@ -145,6 +147,8 @@ export function LoginScreen({
   onDone,
   instance,
 }: AuthFormProps & { instance: InstanceInfo }): ReactElement {
+  const { t } = useT();
+  const message = useMessage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -195,9 +199,9 @@ export function LoginScreen({
   return (
     <div className="centered">
       <form className="card" onSubmit={submit}>
-        <h1>Sign in</h1>
+        <h1>{t('auth.signIn')}</h1>
         <div className="field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">{t('auth.email')}</label>
           <input
             id="email"
             type="email"
@@ -209,7 +213,7 @@ export function LoginScreen({
           />
         </div>
         <div className="field">
-          <label htmlFor="pw">Password</label>
+          <label htmlFor="pw">{t('auth.password')}</label>
           <input
             id="pw"
             type="password"
@@ -219,9 +223,9 @@ export function LoginScreen({
             autoComplete="current-password"
           />
         </div>
-        {error && <p className="error">{messageFor(error)}</p>}
+        {error && <p className="error">{message(error)}</p>}
         <button className="primary" type="submit" disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
+          {busy ? t('auth.signingIn') : t('auth.signIn')}
         </button>
 
         {/* The provider, when there is one.
@@ -235,7 +239,7 @@ export function LoginScreen({
           * browser should treat it as one. */}
         {sso.enabled && (
           <>
-            <p className="auth-or muted">or</p>
+            <p className="auth-or muted">{t('auth.or')}</p>
             <a className="btn sso" href="/api/auth/oidc/start">
               {sso.buttonLabel ?? 'Single sign-on'}
             </a>
@@ -244,7 +248,7 @@ export function LoginScreen({
 
         {instance.signupMode === 'open' && (
           <p className="muted">
-            No account? <a href={paths.signup()}>Create one</a>.
+            {t('auth.noAccount')} <a href={paths.signup()}>{t('auth.createOne')}</a>.
           </p>
         )}
       </form>
@@ -256,6 +260,8 @@ export function SignupScreen({
   onDone,
   invitationToken,
 }: AuthFormProps & { invitationToken: string | null }): ReactElement {
+  const { t } = useT();
+  const message = useMessage();
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
@@ -286,13 +292,13 @@ export function SignupScreen({
   return (
     <div className="centered">
       <form className="card" onSubmit={submit}>
-        <h1>Create an account</h1>
+        <h1>{t('auth.createAccount')}</h1>
         <div className="field">
-          <label htmlFor="name">Your name</label>
+          <label htmlFor="name">{t('auth.yourName')}</label>
           <input id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} autoComplete="name" />
         </div>
         <div className="field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">{t('auth.email')}</label>
           <input
             id="email"
             type="email"
@@ -303,7 +309,7 @@ export function SignupScreen({
           />
         </div>
         <div className="field">
-          <label htmlFor="pw">Password</label>
+          <label htmlFor="pw">{t('auth.password')}</label>
           <input
             id="pw"
             type="password"
@@ -314,12 +320,12 @@ export function SignupScreen({
             autoComplete="new-password"
           />
         </div>
-        {error && <p className="error">{messageFor(error)}</p>}
+        {error && <p className="error">{message(error)}</p>}
         <button className="primary" type="submit" disabled={busy}>
-          {busy ? 'Creating…' : 'Create account'}
+          {busy ? t('auth.creatingAccount') : t('auth.createAccountAction')}
         </button>
         <p className="muted">
-          Already have an account? <a href={paths.login()}>Sign in</a>.
+          {t('auth.haveAccount')} <a href={paths.login()}>{t('auth.signIn')}</a>.
         </p>
       </form>
     </div>

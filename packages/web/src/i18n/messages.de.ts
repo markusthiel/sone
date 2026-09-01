@@ -399,6 +399,31 @@ export const de: Record<keyof typeof en, string> = {
   'icon.nameColour': 'Namensfarbe',
   'icon.ownColour': 'Eine eigene Farbe',
 
+  // --- Anmelden, Registrieren, Ersteinrichtung ---------------------------
+  'auth.setup': 'SONE einrichten',
+  'auth.setup.note':
+    'Das legt den ersten Workspace und seinen Besitzer an. Es geht nur ein Mal.',
+  'auth.workspaceName': 'Name des Workspace',
+  'auth.yourName': '{address, select, formal {Ihr Name} other {Dein Name}}',
+  'auth.email': 'E-Mail',
+  'auth.password': 'Passwort',
+  'auth.passwordHint': 'Mindestens 12 Zeichen. Länge schlägt Komplexität.',
+  'auth.createWorkspace': 'Workspace anlegen',
+  'auth.creatingWorkspace': 'Wird eingerichtet…',
+  'auth.signIn': 'Anmelden',
+  'auth.signingIn': 'Wird angemeldet…',
+  'auth.createAccount': 'Konto anlegen',
+  'auth.createAccountAction': 'Konto anlegen',
+  'auth.creatingAccount': 'Wird angelegt…',
+  'auth.or': 'oder',
+  'auth.noAccount': 'Noch kein Konto?',
+  'auth.createOne': 'Eines anlegen',
+  'auth.haveAccount':
+    '{address, select, formal {Sie haben schon ein Konto?} other {Du hast schon ein Konto?}}',
+  'auth.cannotStart': 'Start nicht möglich',
+  'auth.tryAgain': 'Noch einmal versuchen',
+  'auth.loading': 'Wird geladen…',
+
   // --- was schiefgegangen ist --------------------------------------------
   'error.invalid_credentials': 'Diese E-Mail-Adresse und dieses Passwort passen nicht zusammen.',
   'error.rate_limited': 'Zu viele Versuche. Bitte ein paar Minuten warten.',
