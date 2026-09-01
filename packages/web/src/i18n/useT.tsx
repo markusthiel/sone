@@ -29,6 +29,19 @@ import { en, type MessageKey } from './messages.en.ts';
 
 /** Locales with a catalogue. The server's list is the same one (ADR-0011). */
 export const LOCALES = ['en', 'de'] as const;
+
+/**
+ * What each language calls itself.
+ *
+ * Endonyms, not translations: somebody looking for German is looking for
+ * "Deutsch", not for "German" written in a language they are trying to leave.
+ * So this is not in the catalogue — it reads the same whichever language the
+ * interface is currently in.
+ */
+export const LANGUAGE_NAMES: Record<(typeof LOCALES)[number], string> = {
+  en: 'English',
+  de: 'Deutsch',
+};
 export type Locale = (typeof LOCALES)[number];
 export const FALLBACK: Locale = 'en';
 

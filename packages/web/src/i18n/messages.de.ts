@@ -168,6 +168,17 @@ export const de: Record<keyof typeof en, string> = {
   'you.currentPassword': 'Aktuelles Passwort',
   'you.newPassword': 'Neues Passwort',
 
+  'you.language': 'Sprache',
+  'you.language.hint':
+    'Anders als die Größen darunter folgt das {address, select, formal {Ihrem Konto} ' +
+    'other {deinem Konto}} und nicht diesem Browser — es ist {address, select, ' +
+    'formal {Ihre Sprache} other {deine Sprache}}, wo immer {address, select, ' +
+    'formal {Sie sich anmelden} other {du dich anmeldest}}.',
+  'you.language.system': 'Wie der Browser',
+  'you.appearance.note':
+    'In diesem Browser gespeichert. Eine Schriftgröße, die auf einem Telefon passt, ' +
+    'ist auf einem großen Bildschirm falsch — deshalb folgen diese nicht dem Konto ' +
+    'von Gerät zu Gerät.',
   'you.theme': 'Erscheinungsbild',
   'you.theme.system': 'Wie das System',
   'you.theme.light': 'Hell',
