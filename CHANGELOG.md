@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A picture placed on a canvas now appears in the page's Pictures panel.** It has
+no block to scroll to, so pressing it opens the file.
+
 **Fixed: drawing over a note or a picture put the stroke behind it**, and "bring
 to front" could not help — the board was two layers with all the ink underneath.
 It is one stack now, in one order, and a drawing tool reaches the board through

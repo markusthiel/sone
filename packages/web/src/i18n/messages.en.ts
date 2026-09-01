@@ -765,6 +765,7 @@ export const en = {
   'panel.untitledHeading': 'Untitled heading',
   'panel.untitledTask': 'Untitled task',
   'panel.goToTask': 'Go to this task',
+  'panel.openImage': 'Open this picture',
   'panel.showInPage': 'Show where it sits in the page',
   'panel.showLinkInPage': 'Show this link in the page',
   'panel.done': 'Done',

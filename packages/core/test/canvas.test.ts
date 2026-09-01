@@ -270,3 +270,23 @@ test('a duplicate is a copy, offset so it can be seen', async () => {
   // next drag moves whichever the hit test finds first.
   assert.deepEqual([copy?.x, copy?.y], [26, 26]);
 });
+
+test('a picture on a board carries what names it', async () => {
+  // Carried on the item rather than looked up, the same way a file block carries
+  // them: the files panel names and measures what a page holds without a request
+  // per file.
+  const doc = docWith([
+    {
+      id: 'pic',
+      kind: 'image',
+      x: 0,
+      y: 0,
+      fileId: 'f-1',
+      filename: 'plan.png',
+      sizeBytes: 4096,
+    },
+  ]);
+  const item = readCanvas(doc)[0];
+  assert.equal(item?.filename, 'plan.png');
+  assert.equal(item?.sizeBytes, 4096);
+});

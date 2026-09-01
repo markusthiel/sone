@@ -21,7 +21,7 @@
  * this hook touches Yjs directly.
  */
 
-import { DOC_KEYS, readBlockTree } from '@sone/core';
+import { DOC_KEYS, readBlockTree, readCanvas } from '@sone/core';
 import { useEffect, useState } from 'react';
 import * as Y from 'yjs';
 
@@ -40,6 +40,13 @@ export interface DocImage {
   blockId: string;
   url: string;
   alt: string;
+  /**
+   * True for a picture placed on a canvas.
+   *
+   * It has no block, so there is nowhere to scroll to — the panel offers no
+   * "show me where" for these rather than pretending a scroll would find it.
+   */
+  onCanvas?: boolean;
 }
 
 export interface DocLink {
@@ -130,6 +137,29 @@ export function readDocAssets(doc: Y.Doc): DocAssets {
 
   const files: DocFile[] = [];
   const images: DocImage[] = [];
+
+  /*
+   * A board's pictures.
+   *
+   * This walked the block tree, and a canvas has no blocks — so a picture placed
+   * on a board was uploaded to the page, counted against the page's storage, and
+   * then missing from the page's own list of what it holds. A panel that omits
+   * something the page is carrying reads as a broken panel.
+   *
+   * They carry no block id, because there is no block: the panel offers no "show
+   * me where" for them rather than pretending a scroll would find it.
+   */
+  for (const item of readCanvas(doc)) {
+    if (item.kind !== 'image' || !item.fileId) continue;
+    images.push({
+      blockId: item.id,
+      onCanvas: true,
+      url: `/api/files/${item.fileId}`,
+      // The name it was uploaded with, which is the only description a picture
+      // dropped on a board has — nobody types alt text into a whiteboard.
+      alt: item.filename ?? '',
+    });
+  }
 
   for (const block of blocks) {
     if (block.type === 'file') {

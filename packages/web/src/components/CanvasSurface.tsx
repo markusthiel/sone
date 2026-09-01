@@ -517,6 +517,10 @@ export function CanvasSurface({
         y: at_.y,
         w: 320,
         h: 240,
+        // Named and measured, so the files panel can list a board's pictures
+        // beside a page's without a request per file.
+        filename: uploaded.filename,
+        sizeBytes: uploaded.sizeBytes,
         ...(uploaded.category === 'image'
           ? { fileId: uploaded.id }
           : // Anything that is not a picture becomes a note naming it, rather
