@@ -55,6 +55,7 @@ export const en = {
   'sidebar.empty': 'No pages yet.',
   'sidebar.rename': 'Rename',
   'sidebar.newPageIn': 'New page inside {title}',
+  'sidebar.addIn': 'Add something inside {title}',
   'sidebar.removeFavourite': 'Remove {title}',
 
   // --- an entry's own menu -----------------------------------------------

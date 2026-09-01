@@ -145,6 +145,29 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     return row.rows[0]!.id;
   }
 
+  test('a canvas can be created, and comes back as one', async () => {
+    // It could not: the database's own check constraint listed the kinds and a
+    // canvas was not among them, so every attempt failed with "something went
+    // wrong" — the interface offering something the schema refuses.
+    const session = await setup();
+    // Inside a folder, because a canvas is a page-like thing and the root holds
+    // only folders (ADR-0019) — the same rule, and the reason the button at the
+    // foot of the sidebar was wrong as well as unwanted.
+    const folder = await createFolder(session, 'Boards');
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Board', kind: 'canvas', parentPageId: folder })),
+    );
+    const created = await expectJson<{ id: string }>(res, 201);
+
+    const tree = await expectJson<{ pages: Array<{ id: string; kind: string }> }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/pages`, auth(session)),
+      200,
+    );
+    const found = tree.pages.find((page) => page.id === created.id);
+    assert.equal(found?.kind, 'canvas', 'the tree says what it is');
+  });
+
   async function createFolder(
     session: Session,
     title: string,

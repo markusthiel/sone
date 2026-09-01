@@ -699,7 +699,18 @@ test('a canvas can be started where anything else can', () => {
   const folder = codeOf(new URL('../src/components/FolderView.tsx', import.meta.url));
   const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
 
-  assert.match(sidebar, /onCreatePage\(null, 'canvas'\)/, 'at the root, in the sidebar');
+  // Not at the root: the root holds only folders (ADR-0019), and the server
+  // refuses a canvas there — offering something that cannot work is worse than
+  // not offering it.
+  assert.doesNotMatch(sidebar, /onCreatePage\(null, 'canvas'\)/);
+  assert.match(sidebar, /<AddEntryMenu/, 'behind the + on a folder');
   assert.match(folder, /onCreate\(folder\.id, 'canvas'\)/, 'inside a folder being looked at');
   assert.match(menu, /onCreate\(node\.id, 'canvas'\)/, 'and in the ⋮ menu');
+
+  // The order is how often each is wanted, in both menus: page, canvas, folder.
+  const add = codeOf(new URL('../src/components/AddEntryMenu.tsx', import.meta.url));
+  assert.ok(add.indexOf("'page'") < add.indexOf("'canvas'"));
+  assert.ok(add.indexOf("'canvas'") < add.indexOf("'folder'"));
+  assert.ok(menu.indexOf("t('entry.newPage')") < menu.indexOf("t('canvas.new')"));
+  assert.ok(menu.indexOf("t('canvas.new')") < menu.indexOf("t('entry.newFolder')"));
 });
