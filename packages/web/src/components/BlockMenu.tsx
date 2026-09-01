@@ -35,6 +35,7 @@ import {
   showImageAs,
 } from '@sone/editor';
 import { en, type MessageKey } from '../i18n/messages.en.ts';
+import { BLOCK_MARKS } from './blockMarks.ts';
 import { useT } from '../i18n/useT.tsx';
 import { BLOCK_COLORS } from '@sone/core';
 import type { Command } from 'prosemirror-state';
@@ -44,7 +45,11 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { useViewportChanges } from '../hooks/useViewportChanges.ts';
 
-import { GripIcon, PlusIcon } from './icons.tsx';
+import {
+  AlignAutoIcon,
+  AlignCentreIcon,
+  AlignLeftIcon,
+  AlignRightIcon, GripIcon, PlusIcon } from './icons.tsx';
 import { keepsEditorSelection, popupItem } from './popup.ts';
 
 interface BlockMenuProps {
@@ -132,11 +137,19 @@ function BlockAppearance({
 
       {applies.align && (
         <div className="block-menu-choices" role="group" aria-label={t('block.alignment')}>
+          {/* Symbols, not words. Four German labels in a row overflowed the menu
+              and gave it a scrollbar — and alignment is one of the few settings
+              a picture states better than a word, because the icon is the
+              result. The name is still the title and the accessible label. */}
           {[
-            { id: null, label: 'block.align.auto' as MessageKey },
-            { id: 'start' as const, label: 'block.align.left' as MessageKey },
-            { id: 'center' as const, label: 'block.align.centre' as MessageKey },
-            { id: 'end' as const, label: 'block.align.right' as MessageKey },
+            { id: null, label: 'block.align.auto' as MessageKey, Mark: AlignAutoIcon },
+            { id: 'start' as const, label: 'block.align.left' as MessageKey, Mark: AlignLeftIcon },
+            {
+              id: 'center' as const,
+              label: 'block.align.centre' as MessageKey,
+              Mark: AlignCentreIcon,
+            },
+            { id: 'end' as const, label: 'block.align.right' as MessageKey, Mark: AlignRightIcon },
           ].map((choice) => (
             <button
               key={t(choice.label)}
@@ -146,9 +159,11 @@ function BlockAppearance({
               className={
                 current.align === choice.id ? 'block-menu-choice current' : 'block-menu-choice'
               }
+              title={t(choice.label)}
+              aria-label={t(choice.label)}
               {...popupItem(() => run(setBlockStyle({ align: choice.id })))}
             >
-              {t(choice.label)}
+              <choice.Mark />
             </button>
           ))}
         </div>
@@ -804,9 +819,15 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
                     run(toggleBlockType(type));
                   })}
                 >
+                  {/* The same mark the / menu gives this block: one subject, one
+                      symbol, or the two lists teach two things for one. */}
+                  {(() => {
+                    const Mark = BLOCK_MARKS[name];
+                    return Mark ? <Mark /> : null;
+                  })()}
                   {/* A name the list does not know is shown as it is — that is a
                       block type, not a sentence. */}
-                  {LABELS[name] ? t(LABELS[name]) : name}
+                  <span>{LABELS[name] ? t(LABELS[name]) : name}</span>
                   {active ? ' ·' : ''}
                 </button>
               );

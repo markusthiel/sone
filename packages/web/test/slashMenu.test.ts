@@ -27,22 +27,27 @@ test('the highlight follows the mouse while it is moving, not only on entry', ()
 test('every item can be marked, and one without a mark keeps its place', () => {
   // A list where some names are indented and others are not is harder to scan
   // than a list with no marks at all.
-  assert.match(menu, /const MARKS: Record<string,/);
+  assert.match(menu, /const MARKS = BLOCK_MARKS;/);
   assert.match(menu, /<span className="slash-mark">\{Icon \? <Icon \/> : null\}<\/span>/);
 
   // Every item the editor offers has one, checked against the editor's own list
-  // rather than a copy of it — so adding a block shows up here.
+  // rather than a copy of it — so adding a block shows up here. The table is
+  // shared with the gutter's "Turn into" list now, so this reads that file.
+  const marks = codeOf(new URL('../src/components/blockMarks.ts', import.meta.url));
   const items = codeOf(new URL('../../editor/src/slashMenu.ts', import.meta.url));
   const ids = [...items.matchAll(/^\s*id: '([\w-]+)'/gm)].map(([, id]) => id);
   assert.ok(ids.length >= 14, 'the item list was found');
   for (const id of ids) {
-    assert.match(menu, new RegExp(`\\b${id.replace('-', '-')}: \\w+Icon`), `${id} has a mark`);
+    assert.match(marks, new RegExp(`\\b'?${id}'?: \\w+Icon`), `${id} has a mark`);
   }
 });
 
 test('the headings share one mark', () => {
   // Three symbols meaning the same thing at different sizes would be three
   // symbols to learn for one idea; the names already say which level.
-  const marks = menu.slice(menu.indexOf('const MARKS'), menu.indexOf('function Mark'));
-  assert.equal([...marks.matchAll(/HashIcon/g)].length, 3);
+  const marks = codeOf(new URL('../src/components/blockMarks.ts', import.meta.url));
+  const table = marks.slice(marks.indexOf('export const BLOCK_MARKS'));
+  // Four now, not three: the gutter offers a heading at any level, so the table
+  // carries the bare `heading` beside the menu's three.
+  assert.equal([...table.matchAll(/HashIcon/g)].length, 4);
 });

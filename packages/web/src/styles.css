@@ -1823,7 +1823,10 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 }
 
 .block-menu-item {
-  display: block;
+  /* A mark, then the name — the same shape the / menu's rows have. */
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
   inline-size: 100%;
   min-block-size: var(--sone-control-lg);
   padding: var(--sone-space-3) var(--sone-space-4);
@@ -4719,9 +4722,25 @@ select {
  */
 .block-menu-choices {
   display: flex;
+  /* Wraps rather than overflowing. A row of choices that does not fit made the
+     whole menu scroll sideways, which is how "Ganze Seite" put a scrollbar under
+     everything — including the list of block types, which fitted perfectly. */
+  flex-wrap: wrap;
   gap: var(--sone-space-1);
   padding: var(--sone-space-1) var(--sone-space-2);
 }
+.block-menu-item svg {
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+  color: var(--sone-text-muted);
+}
+.block-menu-item:hover svg,
+.block-menu-item[aria-current='true'] svg { color: var(--sone-text); }
+
+/* An alignment choice is its own icon, so it needs no room for words. */
+.block-menu-choice svg { inline-size: 16px; block-size: 16px; }
+
 .block-menu-choice {
   flex: 1 1 auto;
   min-block-size: var(--sone-control);
