@@ -721,6 +721,8 @@ export const en = {
   'canvas.colour': 'Ink colour',
   'canvas.thickness': 'Thickness',
   'canvas.tool.erase': 'Eraser',
+  'canvas.undo': 'Undo',
+  'canvas.redo': 'Redo',
   'canvas.zoomIn': 'Closer',
   'canvas.zoomOut': 'Further away',
   'canvas.zoomReset': 'Back to actual size',

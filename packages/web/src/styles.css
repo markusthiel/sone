@@ -1660,6 +1660,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   block-size: 4000px;
 }
 
+/* Redo is undo, the other way round. Which way an arrow points is presentation,
+   so it is mirrored here rather than by a prop on the icon. */
+.canvas-tool.redo svg { transform: scaleX(-1); }
+
 .canvas-zoom { display: inline-flex; align-items: center; gap: 2px; margin-inline-start: auto; }
 .canvas-zoom + .canvas-tool.destructive { margin-inline-start: var(--sone-space-3); }
 

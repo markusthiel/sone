@@ -36,8 +36,9 @@ import {
 
 import { api } from '../api/client.ts';
 
+import { useCanvasHistory } from '../hooks/useCanvasHistory.ts';
 import { useT } from '../i18n/useT.tsx';
-import { TrashIcon } from './icons.tsx';
+import { ArrowUturnIcon, TrashIcon } from './icons.tsx';
 
 type Tool = 'select' | 'pen' | 'text' | 'erase';
 
@@ -149,12 +150,28 @@ export function CanvasSurface({
   /** Resizing, which is dragging a corner rather than the item. */
   const sizing = useRef<{ id: string; x: number; y: number; w: number; h: number } | null>(null);
 
+  // Undo, which on a shared board takes back what *you* did and never reaches
+  // across to somebody else's stroke.
+  const history = useCanvasHistory(doc);
+
   /** Whether space is held, which turns a drag into panning. */
   const [space, setSpace] = useState(false);
   useEffect(() => {
     const down = (event: KeyboardEvent): void => {
+      const typing = event.target instanceof HTMLTextAreaElement;
+
+      // Undo and redo, the shortcuts everything else in this application uses.
+      // Not while typing: a note's own text has the browser's undo, and taking
+      // that over would make one keystroke mean two things.
+      if (!typing && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) history.redo();
+        else history.undo();
+        return;
+      }
+
       // Not while typing in a note: space is a word separator first.
-      if (event.code !== 'Space' || event.target instanceof HTMLTextAreaElement) return;
+      if (event.code !== 'Space' || typing) return;
       event.preventDefault();
       setSpace(true);
     };
@@ -167,7 +184,7 @@ export function CanvasSurface({
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
-  }, []);
+  }, [history]);
 
   // Redraw on any change to the map. Deep, because an item's own keys are where
   // a move lands — observing only the map would miss everything except adding
@@ -405,6 +422,27 @@ export function CanvasSurface({
               </label>
             </>
           )}
+
+          <button
+            type="button"
+            className="canvas-tool"
+            disabled={!history.canUndo}
+            aria-label={t('canvas.undo')}
+            title={t('canvas.undo')}
+            onClick={history.undo}
+          >
+            <ArrowUturnIcon />
+          </button>
+          <button
+            type="button"
+            className="canvas-tool redo"
+            disabled={!history.canRedo}
+            aria-label={t('canvas.redo')}
+            title={t('canvas.redo')}
+            onClick={history.redo}
+          >
+            <ArrowUturnIcon />
+          </button>
 
           {/* How far in. Buttons rather than a pinch alone: a mouse has no
               pinch, and a percentage nobody can read back is a viewport people

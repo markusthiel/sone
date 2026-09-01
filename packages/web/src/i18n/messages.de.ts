@@ -764,6 +764,8 @@ export const de: Record<keyof typeof en, string> = {
   'canvas.colour': 'Farbe des Stifts',
   'canvas.thickness': 'Stärke',
   'canvas.tool.erase': 'Radierer',
+  'canvas.undo': 'Rückgängig',
+  'canvas.redo': 'Wiederholen',
   'canvas.zoomIn': 'Näher heran',
   'canvas.zoomOut': 'Weiter weg',
   'canvas.zoomReset': 'Zurück auf Originalgröße',
