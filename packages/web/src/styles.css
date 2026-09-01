@@ -2872,6 +2872,11 @@ select {
 
 .tree-link[aria-current='page'] { font-weight: 600; }
 
+/* The two containers a person can start, side by side at the foot of the tree.
+   Stacked rather than in a row: the sidebar is narrow, and two half-width
+   buttons with wrapping labels are worse than two full-width ones. */
+.tree-new { display: flex; flex-direction: column; }
+
 .tree-new-folder {
   display: flex;
   align-items: center;

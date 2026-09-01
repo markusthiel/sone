@@ -486,6 +486,19 @@ export function EntryMenu({
               >
                 <FolderPlusIcon /> {t('entry.newFolder')}
               </button>
+              {/* The third kind of entry, beside the other two rather than
+                  behind a menu of its own (ADR-0043). */}
+              <button
+                className="entry-menu-item"
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onCreate(node.id, 'canvas');
+                }}
+              >
+                <PenIcon /> {t('canvas.new')}
+              </button>
             </>
           )}
 

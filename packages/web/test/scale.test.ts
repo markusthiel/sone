@@ -690,3 +690,16 @@ test('panning is reading, so it works without edit rights', () => {
   // Space, but not while typing in a note: it is a word separator first.
   assert.match(canvas, /event\.target instanceof HTMLTextAreaElement/);
 });
+
+test('a canvas can be started where anything else can', () => {
+  // It was reachable only through a *folder's* ⋮ menu, so somebody with no
+  // folders — or somebody looking at a page — could not find one at all. A thing
+  // you can create has to be offered where creating happens.
+  const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+  const folder = codeOf(new URL('../src/components/FolderView.tsx', import.meta.url));
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+
+  assert.match(sidebar, /onCreatePage\(null, 'canvas'\)/, 'at the root, in the sidebar');
+  assert.match(folder, /onCreate\(folder\.id, 'canvas'\)/, 'inside a folder being looked at');
+  assert.match(menu, /onCreate\(node\.id, 'canvas'\)/, 'and in the ⋮ menu');
+});
