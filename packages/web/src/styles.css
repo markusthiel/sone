@@ -1761,6 +1761,50 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .canvas-zoom { display: inline-flex; align-items: center; gap: 2px; margin-inline-start: auto; }
 .canvas-zoom + .canvas-tool.destructive { margin-inline-start: var(--sone-space-3); }
 
+/* The controls that hang off whatever is selected. Drawn at their own size
+   whatever the zoom, because a control that shrinks with the board is unusable
+   at the size somebody zooms out to in order to see all of it. */
+.canvas-handle {
+  position: absolute;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+  background: var(--surface-overlay);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 14%);
+  z-index: 5;
+}
+.canvas-handle-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+}
+.canvas-handle-action svg { inline-size: 15px; block-size: 15px; }
+.canvas-handle-action:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.canvas-handle-action.current { color: var(--accent); }
+.canvas-handle-action.destructive:hover {
+  background: color-mix(in srgb, var(--sone-danger) 12%, transparent);
+  color: var(--sone-danger);
+}
+
+/* A stroke or a shape has no element of its own to carry a selection, so the
+   outline is drawn around its measured box. */
+.canvas-outline {
+  position: absolute;
+  border: 1px solid var(--accent);
+  border-radius: var(--sone-radius-sm);
+  pointer-events: none;
+}
+
 /* What a drag across the empty plane is catching. */
 .canvas-band {
   position: absolute;
