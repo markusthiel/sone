@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The whole interface speaks German** — the sign-in and setup screens included,
+which now take their language from the same `Accept-Language` negotiation the
+server has always done. Fifteen files, and the guard's list is the record of them.
+
 **The table of entries and the block menu speak German.** Fourteen files are
 translated; only the sign-in and setup screens are still English, and they are
 waiting on a decision about where the language is resolved.

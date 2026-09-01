@@ -193,6 +193,7 @@ const MIGRATED = [
   'src/components/Admin.tsx',
   'src/components/CollectionTable.tsx',
   'src/components/BlockMenu.tsx',
+  'src/components/Auth.tsx',
 ];
 
 test('every error code the client can show has a message', () => {
@@ -217,6 +218,21 @@ test('every error code the client can show has a message', () => {
     if (code === 'unexpected_response') continue;
     assert.ok(`error.${code}` in en, `error.${code} is missing`);
   }
+});
+
+test('the language is resolved above every screen, including sign-in', () => {
+  // The sign-in and setup screens have no session to ask, so they take the
+  // instance's own negotiation of Accept-Language — which the server had been
+  // doing all along and nothing was using. Before this they were outside the
+  // provider entirely and could not be translated at all.
+  const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /instance\?\.suggestedLocale/);
+  // One provider, above the branches rather than inside the authenticated one.
+  assert.equal([...app.matchAll(/<LocaleProvider/g)].length, 1);
+  assert.ok(
+    app.indexOf('<LocaleProvider') < app.indexOf("state.status === 'loading'"),
+    'the provider wraps the unauthenticated screens too',
+  );
 });
 
 test('a migrated file has no English left in its markup', () => {
