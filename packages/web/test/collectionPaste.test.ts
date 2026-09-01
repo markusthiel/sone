@@ -175,7 +175,7 @@ test('the column menu looks like every other menu, and names types by shape', ()
   // application. Its items are the shared item now, which also picks up the
   // touch rules that list is in.
   assert.match(table, /className="entry-menu-item"/);
-  assert.match(table, /<entry\.Icon \/> \{entry\.label\}/);
+  assert.match(table, /<entry\.Icon \/> \{t\(entry\.label\)\}/);
 
   const menu = css.slice(css.indexOf('.collection-type-menu {'));
   const rule = menu.slice(0, menu.indexOf('}'));

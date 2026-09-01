@@ -24,7 +24,16 @@ import { useCallback, useRef, useState } from 'react';
 
 export interface HistoryEntry {
   /** Named for a person: "paste 12 entries", "empty the table". */
+  /**
+   * What this step was, for the undo button's tooltip.
+   *
+   * A message key and its values rather than a sentence (ADR-0041): the hook
+   * cannot translate — it is used by a component that can — and "paste 3
+   * entries" is a plural, which no concatenation here could express in every
+   * language.
+   */
   label: string;
+  labelValues?: Record<string, string | number>;
   /** Do it again. */
   forward: () => Promise<void>;
   /** Put it back. */
@@ -47,7 +56,9 @@ export interface History {
   redo: () => Promise<void>;
   /** What undo would reverse, for the button's title. */
   undoLabel: string | null;
+  undoValues?: Record<string, string | number>;
   redoLabel: string | null;
+  redoValues?: Record<string, string | number>;
   busy: boolean;
 }
 
@@ -59,19 +70,18 @@ export function useTableHistory(onError: (code: string) => void): History {
   // the same mistake the drag hook records.
   const stack = useRef<HistoryEntry[]>([]);
   const cursor = useRef(0);
-  const [labels, setLabels] = useState<{ undo: string | null; redo: string | null }>({
-    undo: null,
-    redo: null,
-  });
+  const [labels, setLabels] = useState<{
+    undo: HistoryEntry | null;
+    redo: HistoryEntry | null;
+  }>({ undo: null, redo: null });
   const [busy, setBusy] = useState(false);
 
   const publish = useCallback(() => {
+    // The entries themselves rather than their labels, because a label now
+    // travels with the values its plural needs.
     setLabels({
-      undo: cursor.current > 0 ? (stack.current[cursor.current - 1]?.label ?? null) : null,
-      redo:
-        cursor.current < stack.current.length
-          ? (stack.current[cursor.current]?.label ?? null)
-          : null,
+      undo: cursor.current > 0 ? (stack.current[cursor.current - 1] ?? null) : null,
+      redo: cursor.current < stack.current.length ? (stack.current[cursor.current] ?? null) : null,
     });
   }, []);
 
@@ -113,8 +123,10 @@ export function useTableHistory(onError: (code: string) => void): History {
     push,
     undo: useCallback(() => step('undo'), [step]),
     redo: useCallback(() => step('redo'), [step]),
-    undoLabel: labels.undo,
-    redoLabel: labels.redo,
+    undoLabel: labels.undo?.label ?? null,
+    ...(labels.undo?.labelValues ? { undoValues: labels.undo.labelValues } : {}),
+    redoLabel: labels.redo?.label ?? null,
+    ...(labels.redo?.labelValues ? { redoValues: labels.redo.labelValues } : {}),
     busy,
   };
 }

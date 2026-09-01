@@ -13,6 +13,7 @@
  * it here would produce a control that appears to do nothing.
  */
 
+import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { useState, type ReactElement } from 'react';
 
@@ -37,52 +38,58 @@ interface ViewRulesProps {
   onClose: () => void;
 }
 
-/** What can be asked of each type. Mirrors what the server will honour. */
-function operatorsFor(fieldType: string): Array<{ id: string; label: string }> {
-  const always = [
-    { id: 'isEmpty', label: 'is empty' },
-    { id: 'isNotEmpty', label: 'is not empty' },
+/**
+ * What can be asked of each type. Mirrors what the server will honour.
+ *
+ * The label is a message key derived from the id (ADR-0041), so a translator
+ * changes the words and nothing about the query — and this stays a pure function
+ * that a test can call.
+ */
+function operatorsFor(fieldType: string): Array<{ id: string; label: MessageKey }> {
+  const always: Array<{ id: string; label: MessageKey }> = [
+    { id: 'isEmpty', label: 'op.isEmpty' },
+    { id: 'isNotEmpty', label: 'op.isNotEmpty' },
   ];
 
   switch (fieldType) {
     case 'number':
       return [
-        { id: 'is', label: 'is' },
-        { id: 'isNot', label: 'is not' },
-        { id: 'gt', label: 'greater than' },
-        { id: 'gte', label: 'at least' },
-        { id: 'lt', label: 'less than' },
-        { id: 'lte', label: 'at most' },
+        { id: 'is', label: 'op.is' },
+        { id: 'isNot', label: 'op.isNot' },
+        { id: 'gt', label: 'op.gt' },
+        { id: 'gte', label: 'op.gte' },
+        { id: 'lt', label: 'op.lt' },
+        { id: 'lte', label: 'op.lte' },
         ...always,
       ];
     case 'date':
       return [
-        { id: 'before', label: 'before' },
-        { id: 'after', label: 'after' },
+        { id: 'before', label: 'op.before' },
+        { id: 'after', label: 'op.after' },
         ...always,
       ];
     case 'checkbox':
-      return [{ id: 'is', label: 'is' }, ...always];
+      return [{ id: 'is', label: 'op.is' }, ...always];
     case 'select':
       return [
-        { id: 'is', label: 'is' },
-        { id: 'isNot', label: 'is not' },
+        { id: 'is', label: 'op.is' },
+        { id: 'isNot', label: 'op.isNot' },
         ...always,
       ];
     case 'multiSelect':
       // No "is": the stored value is the whole set, so equality would compare
       // all of somebody's choices at once. "Contains" is what people mean.
       return [
-        { id: 'contains', label: 'contains' },
-        { id: 'notContains', label: 'does not contain' },
+        { id: 'contains', label: 'op.contains' },
+        { id: 'notContains', label: 'op.notContains' },
         ...always,
       ];
     default:
       return [
-        { id: 'is', label: 'is' },
-        { id: 'isNot', label: 'is not' },
-        { id: 'contains', label: 'contains' },
-        { id: 'notContains', label: 'does not contain' },
+        { id: 'is', label: 'op.is' },
+        { id: 'isNot', label: 'op.isNot' },
+        { id: 'contains', label: 'op.contains' },
+        { id: 'notContains', label: 'op.notContains' },
         ...always,
       ];
   }
@@ -282,7 +289,7 @@ export function ViewRules({
             >
               {operators.map((operator) => (
                 <option key={operator.id} value={operator.id}>
-                  {operator.label}
+                  {t(operator.label)}
                 </option>
               ))}
             </select>

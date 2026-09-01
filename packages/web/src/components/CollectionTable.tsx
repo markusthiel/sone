@@ -111,24 +111,25 @@ function ruleSummary(
  */
 const ADDABLE: ReadonlyArray<{
   type: string;
-  label: string;
+  /** A message key, keyed by the type — the menu translates it (ADR-0041). */
+  label: MessageKey;
   Icon: (props: IconProps) => ReactElement;
 }> = [
-  { type: 'text', label: 'Text', Icon: TextIcon },
+  { type: 'text', label: 'field.text', Icon: TextIcon },
   // Offered now that its options can be managed. It was held back precisely
   // because a column whose options nobody can edit is one nobody can fill.
-  { type: 'select', label: 'Select', Icon: SelectIcon },
-  { type: 'multiSelect', label: 'Multi-select', Icon: ListIcon },
-  { type: 'number', label: 'Number', Icon: HashIcon },
-  { type: 'date', label: 'Date', Icon: CalendarIcon },
-  { type: 'checkbox', label: 'Checkbox', Icon: CheckSquareIcon },
-  { type: 'url', label: 'Link', Icon: LinkIcon },
-  { type: 'email', label: 'Email', Icon: MailIcon },
-  { type: 'phone', label: 'Phone', Icon: PhoneIcon },
+  { type: 'select', label: 'field.select', Icon: SelectIcon },
+  { type: 'multiSelect', label: 'field.multiSelect', Icon: ListIcon },
+  { type: 'number', label: 'field.number', Icon: HashIcon },
+  { type: 'date', label: 'field.date', Icon: CalendarIcon },
+  { type: 'checkbox', label: 'field.checkbox', Icon: CheckSquareIcon },
+  { type: 'url', label: 'field.url', Icon: LinkIcon },
+  { type: 'email', label: 'field.email', Icon: MailIcon },
+  { type: 'phone', label: 'field.phone', Icon: PhoneIcon },
   // One type for every kind of file (ADR-0035): an image, a PDF and a
   // spreadsheet are the same decision — attach a thing — and differ in how they
   // are drawn, not in what column they belong in.
-  { type: 'files', label: 'Files', Icon: PaperclipIcon },
+  { type: 'files', label: 'field.files', Icon: PaperclipIcon },
 ];
 
 /** How long after the last keystroke a text cell is saved. */
@@ -355,7 +356,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         return;
       }
       history.push({
-        label: 'rename an entry',
+        label: 'undo.rename',
         forward: () => api.renameEntry(rowId, title).then(() => load()),
         backward: () => api.renameEntry(rowId, previous).then(() => load()),
       });
@@ -439,10 +440,8 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       // One entry on the stack for the whole paste, including the anchor row it
       // filled: undoing half a paste would be worse than not offering it.
       history.push({
-        label:
-          created.length + (filledAnchor ? 1 : 0) === 1
-            ? 'paste an entry'
-            : `paste ${created.length + (filledAnchor ? 1 : 0)} entries`,
+        label: 'undo.paste',
+        labelValues: { count: created.length + (filledAnchor ? 1 : 0) },
         forward: async () => {
           for (const rowId of created) await api.restoreEntry(rowId);
           if (filledAnchor) await api.renameEntry(filledAnchor.rowId, filledAnchor.title);
@@ -481,7 +480,8 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       const result = await api.clearCollectionRows(collectionId);
       await load();
       history.push({
-        label: `empty the table (${result.archived.length})`,
+        label: 'undo.empty',
+        labelValues: { count: result.archived.length },
         forward: async () => {
           for (const rowId of result.archived) await api.archivePage(rowId);
           await load();
@@ -504,6 +504,22 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   const view = data.views.find((entry) => entry.id === viewId) ?? data.views[0];
 
   // --- acting on a selection (ADR-0040) ------------------------------------
+
+  // "Undo: paste 3 entries", or what to say when there is nothing to undo. Built
+  // here because the label is a key and its plural needs the count with it
+  // (ADR-0041).
+  const undoTitle =
+    history.undoLabel === null
+      ? t('table.nothingToUndo')
+      : t('table.undo', {
+          action: t(history.undoLabel as MessageKey, history.undoValues),
+        });
+  const redoTitle =
+    history.redoLabel === null
+      ? t('table.nothingToRedo')
+      : t('table.redo', {
+          action: t(history.redoLabel as MessageKey, history.redoValues),
+        });
 
   const chosen = data.rows.filter((row) => selected.has(row.id));
   const titleHeading = titleField?.name ?? 'Name';
@@ -644,8 +660,8 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                 type="button"
                 className="view-tab"
                 disabled={history.undoLabel === null || history.busy}
-                title={history.undoLabel ? `Undo: ${history.undoLabel}` : 'Nothing to undo'}
-                aria-label={history.undoLabel ? `Undo: ${history.undoLabel}` : 'Nothing to undo'}
+                title={undoTitle}
+                aria-label={undoTitle}
                 onClick={() => void history.undo()}
               >
                 <ArrowUpIcon />
@@ -654,8 +670,8 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                 type="button"
                 className="view-tab"
                 disabled={history.redoLabel === null || history.busy}
-                title={history.redoLabel ? `Redo: ${history.redoLabel}` : 'Nothing to redo'}
-                aria-label={history.redoLabel ? `Redo: ${history.redoLabel}` : 'Nothing to redo'}
+                title={redoTitle}
+                aria-label={redoTitle}
                 onClick={() => void history.redo()}
               >
                 <ArrowDownIcon />
@@ -1009,7 +1025,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               className="entry-menu-item"
               onClick={() => void addColumn(entry.type)}
             >
-              <entry.Icon /> {entry.label}
+              <entry.Icon /> {t(entry.label)}
             </button>
           ))}
         </div>

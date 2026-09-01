@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the panel beside a page had English headings**, and so did a good deal
+else that a screenshot does not show — the filter conditions, the column types,
+the whole block menu, the table toolbar, the undo tooltips, the roles and access
+levels. A label held in a table of options is not markup, and the check for
+untranslated text had only ever looked at markup.
+
 **Fixed: notes ran into the tables and buttons above them** in the accounts and
 maintenance panels. **A checkbox now has space between its box and its words**, and
 the explanation under it lines up with the label. **The maintenance report is

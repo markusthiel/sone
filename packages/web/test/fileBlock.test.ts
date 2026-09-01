@@ -184,7 +184,7 @@ test('an image is offered the file layouts, by becoming a file', () => {
   // is the duplication the `···` menu was removed to undo.
   const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
   assert.match(menu, /showImageAs\(at, choice\.id\)/);
-  assert.match(menu, /\{ id: 'image' as const, label: 'Image' \}/);
+  assert.match(menu, /label: 'block\.display\.image'/);
 });
 
 test('an image is never offered a viewer frame', () => {

@@ -163,9 +163,9 @@ test('the tabs are icons, and every one still says its name', () => {
   // Seven words do not fit a 300px column. An icon-only control with no label is
   // a symbol somebody has to learn by pressing it, so the name is the accessible
   // label and the title, and the heading under the strip repeats it.
-  assert.match(panel, /aria-label=\{label\}/);
-  assert.match(panel, /title=\{label\}/);
-  assert.match(panel, /className="right-panel-title">\{TABS\[tab\]\.label\}/);
+  assert.match(panel, /aria-label=\{t\(label\)\}/);
+  assert.match(panel, /title=\{t\(label\)\}/);
+  assert.match(panel, /className="right-panel-title">\{t\(TABS\[tab\]\.label\)\}/);
   assert.match(css, /\.right-tab svg \{/);
 });
 

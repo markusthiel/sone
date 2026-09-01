@@ -27,6 +27,7 @@ import {
 } from '@sone/editor';
 import type { Command } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
@@ -48,25 +49,36 @@ interface TableToolbarProps {
  */
 const ACTIONS: ReadonlyArray<{
   id: string;
-  label: string;
-  title: string;
+  /** Message keys: the toolbar translates them where it draws them (ADR-0041). */
+  label: MessageKey;
+  title: MessageKey;
   command: Command;
   destructive?: boolean;
 }> = [
-  { id: 'row', label: '+ Row', title: 'Insert a row below', command: addRowAfter },
-  { id: 'col', label: '+ Column', title: 'Insert a column to the right', command: addColumnAfter },
-  { id: 'header', label: 'Header', title: 'Toggle the header row', command: toggleHeaderRow },
+  { id: 'row', label: 'tableBlock.addRow', title: 'tableBlock.addRow.title', command: addRowAfter },
+  {
+    id: 'col',
+    label: 'tableBlock.addColumn',
+    title: 'tableBlock.addColumn.title',
+    command: addColumnAfter,
+  },
+  {
+    id: 'header',
+    label: 'tableBlock.header',
+    title: 'tableBlock.header.title',
+    command: toggleHeaderRow,
+  },
   {
     id: 'del-row',
-    label: '− Row',
-    title: 'Delete this row',
+    label: 'tableBlock.removeRow',
+    title: 'tableBlock.removeRow.title',
     command: deleteRow,
     destructive: true,
   },
   {
     id: 'del-col',
-    label: '− Column',
-    title: 'Delete this column',
+    label: 'tableBlock.removeColumn',
+    title: 'tableBlock.removeColumn.title',
     command: deleteColumn,
     destructive: true,
   },
@@ -130,14 +142,14 @@ export function TableToolbar({ view, revision }: TableToolbarProps): ReactElemen
           <button
             key={action.id}
             type="button"
-            title={action.title}
+            title={t(action.title)}
             disabled={!possible}
             className={
               action.destructive ? 'table-toolbar-button destructive' : 'table-toolbar-button'
             }
             {...popupItem(() => run(action.command))}
           >
-            {action.label}
+            {t(action.label)}
           </button>
         );
       })}
