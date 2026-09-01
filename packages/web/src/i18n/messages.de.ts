@@ -752,6 +752,10 @@ export const de: Record<keyof typeof en, string> = {
   'panel.people': 'Leute',
   'panel.properties': 'Eigenschaften',
   'panel.tasksOpen': '{open} von {total} offen',
+  'panel.guestWriting':
+    'Ein Teil davon wurde über einen Freigabe-Link geschrieben. Diese Besucher ' +
+    'werden nicht verzeichnet: sie haben hier kein Konto, und sie alle als ' +
+    '„Gast" zu führen wäre ein Name für mehrere Leute.',
   'panel.noPeople':
     'Noch niemand verzeichnet. Geschriebenes wird von dem Moment an zugeordnet, in dem ' +
     'es geschrieben wird — was vor Beginn dieser Aufzeichnung getippt wurde, steht hier ' +

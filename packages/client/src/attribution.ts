@@ -28,6 +28,8 @@
 
 import * as Y from 'yjs';
 
+import { liveClientIds } from '@sone/core';
+
 // From core, where the pruning that also needs it lives (ADR-0022). Two
 // spellings of one key is one typo away from a mapping nobody can find.
 import { USERS_KEY } from '@sone/core';
@@ -71,6 +73,29 @@ export function recordAttribution(
     data.setUserMapping(doc, doc.clientID, options.userId);
   }
   return data;
+}
+
+/**
+ * Whether anything here was written by somebody the document cannot name.
+ *
+ * A share-link guest is deliberately not recorded (above), and until now that
+ * was a silence: the panel listed whoever it could and said nothing about the
+ * rest, so a page a guest had visibly written on looked like a page nobody had
+ * written on. A reader cannot tell "nobody has written here" from "the person
+ * who wrote here cannot be named", and the second is a fact worth stating.
+ *
+ * Live content only, and by the same pruning rule: a guest whose writing has all
+ * been deleted is not a guest this page needs to mention.
+ */
+export function hasUnattributedWriting(doc: Y.Doc): boolean {
+  const mapped = new Set<number>();
+  for (const ids of attributionUsers(doc).values()) {
+    for (const id of ids) mapped.add(id);
+  }
+  for (const client of liveClientIds(doc)) {
+    if (!mapped.has(client)) return true;
+  }
+  return false;
 }
 
 /** Read the mapping without creating one. */

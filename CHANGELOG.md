@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The People panel says when somebody it cannot name has written.** A visitor
+using a share link has no account to record against, so their writing is not
+attributed — the panel now states that instead of leaving a page they clearly
+wrote on looking like a page nobody wrote on.
+
 **Fixed: the People panel was always empty.** Attribution was switched off by a
 single hardcoded `null` — nobody's edits were ever recorded, on any page, since
 the panel was built. Writing done from now on is attributed; anything typed before

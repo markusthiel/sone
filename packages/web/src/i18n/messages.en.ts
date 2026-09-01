@@ -710,6 +710,10 @@ export const en = {
   'panel.people': 'People',
   'panel.properties': 'Properties',
   'panel.tasksOpen': '{open} of {total} open',
+  'panel.guestWriting':
+    'Some of this was written through a share link. Those visitors are not ' +
+    'recorded: they have no account here, and listing them all as “a guest” ' +
+    'would be one name for several people.',
   'panel.noPeople':
     'Nobody is recorded yet. Writing is attributed from the moment it is written, so ' +
     'anything typed before this page started keeping track is not listed here.',

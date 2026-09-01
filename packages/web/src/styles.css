@@ -5343,6 +5343,14 @@ select {
  * Somebody who wrote half the page last week and is not connected today belongs
  * in this list and not in those.
  */
+/* Said above the list, or on its own when the list is empty: a fact about this
+   page rather than a person in it. */
+.contributor-note {
+  margin-block-end: var(--sone-space-4);
+  font-size: var(--sone-text-sm);
+  line-height: 1.5;
+}
+
 .contributor-list { display: flex; flex-direction: column; gap: var(--sone-space-2); margin: 0; padding: 0; list-style: none; }
 .contributor { display: flex; align-items: center; gap: var(--sone-space-3); }
 .contributor-initial {

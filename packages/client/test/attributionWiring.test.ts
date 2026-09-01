@@ -46,3 +46,24 @@ test('the web client passes a real user id, not null', () => {
   // else would keep attributing to the first.
   assert.match(hook, /credentials\.userId \?\? ''/);
 });
+
+test('writing nobody can be named is reported rather than left silent', async () => {
+  // A share-link guest is deliberately not recorded, and until now that was a
+  // silence: a page a guest had visibly written on looked like a page nobody had
+  // written on, which reads as a broken panel rather than a deliberate choice.
+  const { hasUnattributedWriting } = await import('../src/attribution.js');
+
+  const doc = new Y.Doc();
+  recordAttribution(doc, { userId: 'u-1', enabled: true });
+  doc.getText('body').insert(0, 'Mine');
+  assert.equal(hasUnattributedWriting(doc), false, 'everything here has a name');
+
+  // A second session with no user id — a guest — writing into the same document.
+  const guest = new Y.Doc();
+  Y.applyUpdate(guest, Y.encodeStateAsUpdate(doc));
+  recordAttribution(guest, { userId: null, enabled: true });
+  guest.getText('body').insert(0, 'Theirs. ');
+  Y.applyUpdate(doc, Y.encodeStateAsUpdate(guest));
+
+  assert.equal(hasUnattributedWriting(doc), true);
+});
