@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { formatMessage } from '../src/i18n/format.ts';
-import { resolveLocale } from '../src/i18n/useT.tsx';
+import { LANGUAGE_NAMES, LOCALES, resolveLocale } from '../src/i18n/useT.tsx';
 import { en } from '../src/i18n/messages.en.ts';
 import { de } from '../src/i18n/messages.de.ts';
 
@@ -258,5 +258,39 @@ test('a migrated file has no English left in its markup', () => {
       ...source.matchAll(/(?<![\w-])(?:title|aria-label|placeholder)="([^"]{4,})"/g),
     ].map(([, text]) => text);
     assert.deepEqual(attributes, [], `${file} has literal attributes: ${attributes.join(' | ')}`);
+  }
+});
+
+test('the language can be changed, and changing it does not reload', () => {
+  // The catalogue, the resolution and the storage all existed and nothing could
+  // reach them: the locale was settable only through the API.
+  const settings = readFileSync(new URL('../src/components/Settings.tsx', import.meta.url), 'utf8');
+  assert.match(settings, /aria-label=\{t\('you\.language'\)\}/);
+  assert.match(settings, /api\.updateProfile\(\{ locale: value === '' \? null : value \}\)/);
+
+  // Applied before it is saved, so the interface answers immediately — and a
+  // failed save leaves it in the language that was asked for rather than
+  // snapping back mid-sentence.
+  const chooser = settings.slice(settings.indexOf('const chooseLanguage'));
+  assert.ok(
+    chooser.indexOf('setLocale') < chooser.indexOf('updateProfile'),
+    'applied, then saved',
+  );
+  assert.doesNotMatch(chooser.slice(0, chooser.indexOf('};')), /location\.reload/);
+
+  // "Match the browser" is the absence of a setting, not a language: somebody
+  // moving between a German and an English machine keeps getting each one's own.
+  assert.match(settings, /session\.user\.locale \?\? ''/);
+  assert.match(settings, /value=""/);
+});
+
+test('a language names itself, in its own language', () => {
+  // Somebody looking for German is looking for "Deutsch", not for "German"
+  // written in a language they are trying to leave — so these are not in the
+  // catalogue.
+  assert.equal(LANGUAGE_NAMES.de, 'Deutsch');
+  assert.equal(LANGUAGE_NAMES.en, 'English');
+  for (const code of LOCALES) {
+    assert.ok(LANGUAGE_NAMES[code], `${code} names itself`);
   }
 });

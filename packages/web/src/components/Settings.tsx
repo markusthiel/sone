@@ -36,7 +36,7 @@ import {
   type TextScale,
   type ThemePreference,
 } from '../hooks/useAppearance.ts';
-import { useT } from '../i18n/useT.tsx';
+import { LANGUAGE_NAMES, LOCALES, useT, type Locale } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import { LandingSettings } from './LandingSettings.tsx';
@@ -109,7 +109,7 @@ export function Settings({
     >
       {current === 'profile' && <Profile session={session} workspaceId={workspaceId} />}
       {current === 'sign-in' && <SignIn />}
-      {current === 'appearance' && <AppearanceSettings />}
+      {current === 'appearance' && <AppearanceSettings session={session} />}
       {current === 'landing' && <LandingSettings workspaceId={workspaceId} />}
       {current === 'about' && <About />}
     </SettingsShell>
@@ -367,17 +367,61 @@ function SignIn(): ReactElement {
   );
 }
 
-function AppearanceSettings(): ReactElement {
-  const { t } = useT();
+function AppearanceSettings({ session }: { session: SessionInfo }): ReactElement {
+  const { t, locale, setLocale } = useT();
   const { appearance, setTheme, setUiScale, setEditorScale } = useAppearance();
+
+  /**
+   * The language, saved to the account rather than to this browser.
+   *
+   * Deliberately different from the sizes below it, and the hint says so: a text
+   * size that suits a phone is wrong on a monitor, while somebody's language is
+   * theirs wherever they sign in.
+   *
+   * `null` means "match the browser" — the setting is *absent* rather than set
+   * to a language, so somebody travelling between a German and an English
+   * machine keeps getting each one's own (ADR-0041).
+   */
+  const chosen = session.user.locale ?? '';
+  const chooseLanguage = (value: string): void => {
+    // Applied first, saved second. The provider re-renders without a reload,
+    // which is the decision ADR-0041 made — reloading throws away a half-typed
+    // paragraph — and a failed save leaves the interface in the language that
+    // was asked for rather than snapping back mid-sentence.
+    if (value !== '') setLocale(value as Locale);
+    void api.updateProfile({ locale: value === '' ? null : value });
+  };
 
   return (
     <section className="settings-section">
       <h2>{t('you.appearance')}</h2>
-      <p className="muted">
-        Stored in this browser. A text size that suits a phone is wrong on a
-        large monitor, so these do not follow your account between devices.
-      </p>
+
+      <div className="settings-card">
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>{t('you.language')}</b>
+            <span>{t('you.language.hint')}</span>
+          </span>
+          <select
+            id="locale"
+            aria-label={t('you.language')}
+            value={chosen}
+            onChange={(event) => chooseLanguage(event.target.value)}
+          >
+            <option value="">{t('you.language.system')}</option>
+            {LOCALES.map((code) => (
+              <option key={code} value={code}>
+                {/* Each language names itself: somebody looking for German is
+                    looking for "Deutsch", not for "German" in a language they
+                    are trying to leave. */}
+                {LANGUAGE_NAMES[code]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <p className="muted">{t('you.appearance.note')}</p>
 
       <div className="settings-card">
         <div className="settings-row">

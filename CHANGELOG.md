@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The language can be chosen**, under Appearance: match the browser, English or
+Deutsch. It applies at once, without a reload, and it follows your account rather
+than the browser — unlike the text sizes beside it, which stay per device.
+
 **The whole interface speaks German** — the sign-in and setup screens included,
 which now take their language from the same `Accept-Language` negotiation the
 server has always done. Fifteen files, and the guard's list is the record of them.

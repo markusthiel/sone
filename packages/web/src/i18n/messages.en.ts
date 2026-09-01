@@ -150,6 +150,14 @@ export const en = {
   'you.currentPassword': 'Current password',
   'you.newPassword': 'New password',
 
+  'you.language': 'Language',
+  'you.language.hint':
+    'Unlike the sizes below, this follows your account rather than this browser — ' +
+    'it is your language wherever you sign in.',
+  'you.language.system': 'Match the browser',
+  'you.appearance.note':
+    'Stored in this browser. A text size that suits a phone is wrong on a large ' +
+    'monitor, so these do not follow your account between devices.',
   'you.theme': 'Theme',
   'you.theme.system': 'Match the system',
   'you.theme.light': 'Light',
