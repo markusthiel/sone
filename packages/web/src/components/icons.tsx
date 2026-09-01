@@ -136,6 +136,47 @@ export function PanelRightIcon(props: IconProps): ReactElement {
   );
 }
 
+/*
+ * Alignment, as three arrangements of lines.
+ *
+ * Words for these were four German labels in a row — "Automatisch", "Links",
+ * "Mittig", "Rechts" — which overflowed the menu and gave it a horizontal
+ * scrollbar. The shapes say the same thing in a quarter of the width, and
+ * alignment is one of the few settings a picture genuinely states better than a
+ * word: the icon *is* the result.
+ */
+export function AlignAutoIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
+export function AlignLeftIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 7h16M4 12h9M4 17h13" />
+    </svg>
+  );
+}
+
+export function AlignCentreIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 7h16M7.5 12h9M5.5 17h13" />
+    </svg>
+  );
+}
+
+export function AlignRightIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 7h16M11 12h9M7 17h13" />
+    </svg>
+  );
+}
+
 /** A drag grip: two columns of dots, the conventional handle affordance. */
 export function GripIcon(props: IconProps): ReactElement {
   return (

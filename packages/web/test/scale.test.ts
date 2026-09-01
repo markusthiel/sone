@@ -520,3 +520,29 @@ test('both toggles are rounded like every other button', () => {
   // already, so turning it would say the panel had moved.
   assert.doesNotMatch(css, /\.panel-toggle\[aria-expanded='true'\] svg \{ transform: rotate/);
 });
+
+test('a block wears the same mark in both menus', () => {
+  // The / menu had a table of marks and the gutter's "Turn into" list had none,
+  // so the same ten blocks were pictures in one place and a wall of words in the
+  // other. One table now, shared.
+  const marks = codeOf(new URL('../src/components/blockMarks.ts', import.meta.url));
+  const slash = codeOf(new URL('../src/components/SlashMenu.tsx', import.meta.url));
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(slash, /const MARKS = BLOCK_MARKS;/);
+  assert.match(menu, /BLOCK_MARKS\[name\]/);
+  // The gutter offers a heading at any level, which the / menu's three ids do
+  // not cover — so the shared table carries the bare name too.
+  assert.match(marks, /^ {2}heading: HashIcon,/m);
+});
+
+test('alignment is four icons, and a row of choices wraps', () => {
+  // Four German words in a row overflowed the menu and gave the whole thing a
+  // horizontal scrollbar — including the list of block types, which fitted.
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(menu, /Mark: AlignAutoIcon/);
+  assert.match(menu, /<choice\.Mark \/>/);
+  // The name survives as the title and the label: an icon nobody has met is a
+  // guess.
+  assert.match(menu, /aria-label=\{t\(choice\.label\)\}/);
+  assert.match(css, /\.block-menu-choices \{[^}]*flex-wrap: wrap/s);
+});

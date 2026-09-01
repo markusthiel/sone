@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The block menu has marks too**, the same ones the `/` menu uses, and alignment is
+four icons instead of four words. **Fixed: the block menu could scroll sideways** —
+a row of choices that did not fit made the whole menu overflow.
+
 **The interface moves a little** ([ADR-0042](docs/adr/0042-motion.md)): a button
 gives under a press, a tree branch fades its children in, and switching a panel
 fades its body. All of it is off for anybody who has asked for less motion.

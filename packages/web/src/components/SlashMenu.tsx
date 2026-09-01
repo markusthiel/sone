@@ -29,6 +29,7 @@ import {
   ToggleIcon,
   VideoIcon,
 } from './icons.tsx';
+import { BLOCK_MARKS } from './blockMarks.ts';
 import { useT } from '../i18n/useT.tsx';
 import { keepsEditorSelection, popupItem } from './popup.ts';
 import {
@@ -331,26 +332,9 @@ export function SlashMenu({
  * An item with no entry here draws nothing and keeps its place, so adding a
  * block cannot break the list — it just arrives unmarked.
  */
-const MARKS: Record<string, (props: { size?: number }) => ReactElement> = {
-  paragraph: TextIcon,
-  'heading-1': HashIcon,
-  'heading-2': HashIcon,
-  'heading-3': HashIcon,
-  bulletList: ListIcon,
-  numberedList: OrderedListIcon,
-  todo: CheckSquareIcon,
-  toggle: ToggleIcon,
-  quote: QuoteIcon,
-  callout: CalloutIcon,
-  code: CodeIcon,
-  image: ImageIcon,
-  video: VideoIcon,
-  table: TableIcon,
-  file: PaperclipIcon,
-  protected: LockIcon,
-  collection: TableIcon,
-  divider: DividerIcon,
-};
+// The marks live in blockMarks.ts, shared with the gutter's "Turn into" list:
+// one subject, one symbol.
+const MARKS = BLOCK_MARKS;
 
 function Mark({ item }: { item: SlashItem }): ReactElement {
   const { t } = useT();
