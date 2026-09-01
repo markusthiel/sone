@@ -261,6 +261,7 @@ function Workspace({
   const { client, state: connectionState, failure } = useSoneClient({
     workspaceId,
     displayName,
+    userId: session.user.id,
   });
   const {
     tree,
