@@ -7,6 +7,7 @@
  * land in both their own workspace and this one.
  */
 
+import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { useState, type ReactElement } from 'react';
 
@@ -15,10 +16,12 @@ import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import { PendingInvitations } from './PendingInvitations.tsx';
 
-const ROLES: Array<{ id: string; label: string; hint: string }> = [
-  { id: 'member', label: 'Member', hint: 'Can read and write everything not restricted' },
-  { id: 'admin', label: 'Admin', hint: 'Can also manage people and permissions' },
-  { id: 'guest', label: 'Guest', hint: 'Sees only what they are given access to' },
+const ROLES: Array<{ id: string; label: MessageKey; hint: MessageKey }> = [
+  // Keyed by the role the server stores, so a translation cannot change what
+  // somebody is allowed to do (ADR-0041).
+  { id: 'member', label: 'role.member', hint: 'role.member.hint' },
+  { id: 'admin', label: 'role.admin', hint: 'role.admin.hint' },
+  { id: 'guest', label: 'role.guest', hint: 'role.guest.hint' },
 ];
 
 export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): ReactElement {
@@ -88,11 +91,11 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
         >
           {ROLES.map((option) => (
             <option key={option.id} value={option.id}>
-              {option.label}
+              {t(option.label)}
             </option>
           ))}
         </select>
-        <p className="muted">{ROLES.find((r) => r.id === role)?.hint}</p>
+        <p className="muted">{(() => { const found = ROLES.find((r) => r.id === role); return found ? t(found.hint) : null; })()}</p>
       </div>
 
       <div className="settings-actions">

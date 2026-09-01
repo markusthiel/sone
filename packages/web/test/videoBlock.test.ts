@@ -204,13 +204,13 @@ test('the handle offers width, and the three shapes', () => {
   // control with nothing to do.
   assert.match(menu, /video: \{ width: true, color: false, align: false \}/);
   assert.match(menu, /setVideoDisplay\(at, option\.id as 'player' \| 'card' \| 'link'\)/);
-  assert.match(menu, /\{ id: 'player', label: 'Player' \}/);
+  assert.match(menu, /label: 'block\.display\.player'/);
 });
 
 test('a stream is offered as a player and nothing else, in both places', () => {
   // The menu agreeing with the command, rather than the menu deciding: a card for
   // something interesting only while live is a dead link tomorrow, whoever asked.
-  assert.match(menu, /source === 'stream'\s*\?\s*\[\{ id: 'player', label: 'Player' \}\]/);
+  assert.match(menu, /source === 'stream'[\s\S]{0,60}block\.display\.player/);
   const commands = codeOf(new URL('../../editor/src/commands.ts', import.meta.url));
   assert.match(commands, /source'\] === 'stream' && display !== 'player'\) return false/);
 });

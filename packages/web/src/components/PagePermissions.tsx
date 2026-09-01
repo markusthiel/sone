@@ -7,6 +7,7 @@
  * believes they have set the other.
  */
 
+import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
@@ -27,11 +28,24 @@ interface GroupGrant {
   inheritedFrom: string | null;
 }
 
-const LEVELS: Array<{ id: string; label: string }> = [
-  { id: 'viewer', label: 'Can view' },
-  { id: 'editor', label: 'Can edit' },
-  { id: 'admin', label: 'Can manage' },
+/**
+ * What a grant allows. Keyed by the level the server stores, so a translation
+ * cannot change who may do what (ADR-0041).
+ */
+const LEVELS: Array<{ id: string; label: MessageKey }> = [
+  { id: 'viewer', label: 'access.viewer' },
+  { id: 'editor', label: 'access.editor' },
+  { id: 'admin', label: 'access.admin' },
 ];
+
+/** The level's own words, or the raw value if the server sent a new one. */
+function levelLabel(
+  access: string,
+  t: (key: MessageKey) => string,
+): string {
+  const found = LEVELS.find((level) => level.id === access);
+  return found ? t(found.label) : access;
+}
 
 export function PagePermissions({
   pageId,
@@ -138,7 +152,7 @@ export function PagePermissions({
               * under that ancestor. */}
             {grant.inheritedFrom ? (
               <span className="muted">
-                {LEVELS.find((l) => l.id === grant.access)?.label ?? grant.access} · from{' '}
+                {levelLabel(grant.access, t)} · from{' '}
                 {grant.inheritedFrom}
               </span>
             ) : (
@@ -152,7 +166,7 @@ export function PagePermissions({
                 >
                   {LEVELS.map((level) => (
                     <option key={level.id} value={level.id}>
-                      {level.label}
+                      {t(level.label)}
                     </option>
                   ))}
                 </select>
@@ -183,7 +197,7 @@ export function PagePermissions({
                 <span>{grant.name}</span>
                 {grant.inheritedFrom ? (
                   <span className="muted">
-                    {LEVELS.find((l) => l.id === grant.access)?.label ?? grant.access} · from{' '}
+                    {levelLabel(grant.access, t)} · from{' '}
                     {grant.inheritedFrom}
                   </span>
                 ) : (
@@ -199,7 +213,7 @@ export function PagePermissions({
                     >
                       {LEVELS.map((level) => (
                         <option key={level.id} value={level.id}>
-                          {level.label}
+                          {t(level.label)}
                         </option>
                       ))}
                     </select>

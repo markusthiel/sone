@@ -303,6 +303,19 @@ test('a migrated file has no English left in its markup', () => {
       .filter((text) => text.includes(' '));
     assert.deepEqual(literals, [], `${file} still has literal text: ${literals.join(' | ')}`);
 
+    // Labels held in a data structure rather than in markup: `label: 'Outline'`
+    // in a table of tabs is a heading somebody reads, and the panel's seven were
+    // English for a week because this guard only looked at JSX. A key is
+    // dotted and lower-case, so a capital letter or a space is the tell.
+    const inData = [
+      ...source.matchAll(/\b(?:label|hint|title|heading|placeholder):\s*'([^']{4,})'/g),
+    ]
+      .map(([, text]) => text)
+      // A key is dotted and has no spaces — `you.signIn` is a key, `Sign in` is
+      // a sentence. Capitals are no help: the keys are camel-cased.
+      .filter((text) => /\s/.test(text) || !text.includes('.'));
+    assert.deepEqual(inData, [], `${file} has literal labels: ${inData.join(' | ')}`);
+
     // And the attributes people read: a title or an aria-label in English is
     // invisible to a screenshot and perfectly visible to a screen reader.
     // The attribute name has to stand alone: `data-placeholder="true"` is not a

@@ -21,6 +21,7 @@
  */
 
 import type { PageHandle } from '@sone/client';
+import { useT } from '../i18n/useT.tsx';
 import { attributionUsers } from '@sone/client';
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 
@@ -51,6 +52,7 @@ export function Contributors({
   workspaceId,
   onHighlight,
 }: ContributorsProps): ReactElement {
+  const { t } = useT();
   const [selected, setSelected] = useState<string | null>(null);
   const [userIds, setUserIds] = useState<string[]>(() =>
     handle ? [...attributionUsers(handle.doc).keys()] : [],
@@ -122,9 +124,7 @@ export function Contributors({
     return (
       <div className="panel-section">
         <p className="muted">
-          Nobody is recorded yet. Writing is attributed from the moment it is
-          written, so anything typed before this page started keeping track is
-          not listed here.
+          {t('panel.noPeople')}
         </p>
       </div>
     );

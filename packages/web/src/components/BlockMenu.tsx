@@ -34,6 +34,7 @@ import {
   setVideoDisplay,
   showImageAs,
 } from '@sone/editor';
+import { en, type MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { BLOCK_COLORS } from '@sone/core';
 import type { Command } from 'prosemirror-state';
@@ -54,7 +55,8 @@ interface BlockMenuProps {
 
 interface Action {
   id: string;
-  label: string;
+  /** A message key: the menu translates it where it draws it (ADR-0041). */
+  label: MessageKey;
   hint?: string;
   command: Command;
   destructive?: boolean;
@@ -131,13 +133,13 @@ function BlockAppearance({
       {applies.align && (
         <div className="block-menu-choices" role="group" aria-label={t('block.alignment')}>
           {[
-            { id: null, label: 'Auto' },
-            { id: 'start' as const, label: 'Left' },
-            { id: 'center' as const, label: 'Centre' },
-            { id: 'end' as const, label: 'Right' },
+            { id: null, label: 'block.align.auto' as MessageKey },
+            { id: 'start' as const, label: 'block.align.left' as MessageKey },
+            { id: 'center' as const, label: 'block.align.centre' as MessageKey },
+            { id: 'end' as const, label: 'block.align.right' as MessageKey },
           ].map((choice) => (
             <button
-              key={choice.label}
+              key={t(choice.label)}
               type="button"
               role="menuitemradio"
               aria-checked={current.align === choice.id}
@@ -146,7 +148,7 @@ function BlockAppearance({
               }
               {...popupItem(() => run(setBlockStyle({ align: choice.id })))}
             >
-              {choice.label}
+              {t(choice.label)}
             </button>
           ))}
         </div>
@@ -155,18 +157,18 @@ function BlockAppearance({
       {applies.width && (
         <div className="block-menu-choices" role="group" aria-label={t('block.width')}>
           {[
-            { id: null, label: 'Column' },
+            { id: null, label: 'block.width.column' as MessageKey },
             // "Wide" is a step between the reading column and the page, and for
             // an image it is a distinction without a difference: all three read
             // as "the width of the text, or a bit more". An image is either in
             // the column with the writing or across the page.
             ...(node.type.name === 'image'
               ? []
-              : [{ id: 'wide' as const, label: 'Wide' }]),
-            { id: 'full' as const, label: 'Full page' },
+              : [{ id: 'wide' as const, label: 'block.width.wide' as MessageKey }]),
+            { id: 'full' as const, label: 'block.width.full' as MessageKey },
           ].map((choice) => (
             <button
-              key={choice.label}
+              key={t(choice.label)}
               type="button"
               role="menuitemradio"
               aria-checked={current.width === choice.id}
@@ -175,7 +177,7 @@ function BlockAppearance({
               }
               {...popupItem(() => run(setBlockStyle({ width: choice.id })))}
             >
-              {choice.label}
+              {t(choice.label)}
             </button>
           ))}
         </div>
@@ -245,13 +247,13 @@ function FileActions({
   const display = String(node.attrs['display'] ?? 'card');
   const viewable = category === 'pdf' || category === 'text' || category === 'image';
 
-  const options: Array<{ id: string; label: string }> = [
-    { id: 'card', label: 'Card' },
-    { id: 'line', label: 'One line' },
+  const options: Array<{ id: string; label: MessageKey }> = [
+    { id: 'card', label: 'block.display.card' },
+    { id: 'line', label: 'block.display.line' },
   ];
   // An image has "Image" in the section below instead: a picture in a viewer
   // frame is a picture behind a scrollbar, which is worse than the picture.
-  if (viewable && category !== 'image') options.push({ id: 'full', label: 'Viewer' });
+  if (viewable && category !== 'image') options.push({ id: 'full', label: 'block.display.viewer' });
 
   return (
     <div className="block-menu-group">
@@ -303,7 +305,7 @@ function FileActions({
             }
             {...popupItem(() => run(setFileDisplay(at, option.id as 'card' | 'line' | 'full')))}
           >
-            {option.label}
+            {t(option.label)}
           </button>
         ))}
       </div>
@@ -338,13 +340,13 @@ function VideoActions({
   // A stream is offered only as a player: a card for something that is
   // interesting only while it is live is a dead link tomorrow. The command
   // refuses it too, so this is the menu agreeing rather than the menu deciding.
-  const options: Array<{ id: string; label: string }> =
+  const options: Array<{ id: string; label: MessageKey }> =
     source === 'stream'
-      ? [{ id: 'player', label: 'Player' }]
+      ? [{ id: 'player', label: 'block.display.player' }]
       : [
-          { id: 'player', label: 'Player' },
-          { id: 'card', label: 'Card' },
-          { id: 'link', label: 'One line' },
+          { id: 'player', label: 'block.display.player' },
+          { id: 'card', label: 'block.display.card' },
+          { id: 'link', label: 'block.display.line' },
         ];
 
   return (
@@ -384,7 +386,7 @@ function VideoActions({
               run(setVideoDisplay(at, option.id as 'player' | 'card' | 'link')),
             )}
           >
-            {option.label}
+            {t(option.label)}
           </button>
         ))}
       </div>
@@ -416,9 +418,9 @@ function ImageDisplay({
       <p className="block-menu-label">{t('block.showAs')}</p>
       <div className="block-menu-choices" role="group" aria-label={t('block.showAs')}>
         {[
-          { id: 'image' as const, label: 'Image' },
-          { id: 'card' as const, label: 'Card' },
-          { id: 'line' as const, label: 'Link' },
+          { id: 'image' as const, label: 'block.display.image' as MessageKey },
+          { id: 'card' as const, label: 'block.display.card' as MessageKey },
+          { id: 'line' as const, label: 'block.display.link' as MessageKey },
         ].map((choice) => (
           <button
             key={choice.id}
@@ -430,7 +432,7 @@ function ImageDisplay({
             }
             {...popupItem(() => run(showImageAs(at, choice.id)))}
           >
-            {choice.label}
+            {t(choice.label)}
           </button>
         ))}
       </div>
@@ -570,32 +572,32 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
   const actions: Action[] = [
     {
       id: 'move-up',
-      label: 'Move up',
+      label: 'block.moveUp',
       command: moveBlockUp,
     },
     {
       id: 'move-down',
-      label: 'Move down',
+      label: 'block.moveDown',
       command: moveBlockDown,
     },
     {
       id: 'outdent',
-      label: 'Outdent',
+      label: 'block.outdent',
       command: outdentBlockSubtree,
     },
     {
       id: 'indent',
-      label: 'Indent',
+      label: 'block.indent',
       command: indentBlockSubtree,
     },
     {
       id: 'duplicate',
-      label: 'Duplicate',
+      label: 'block.duplicate',
       command: duplicateBlockSubtree,
     },
     {
       id: 'delete',
-      label: 'Delete',
+      label: 'block.delete',
       command: deleteBlockSubtree,
       destructive: true,
     },
@@ -681,7 +683,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
                 disabled={!possible}
                 {...popupItem(() => run(action.command))}
               >
-                {action.label}
+                {t(action.label)}
               </button>
             );
           })}
@@ -766,7 +768,12 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
                     disabled={!possible}
                     {...popupItem(() => run(action.command))}
                   >
-                    {action.label}
+                    {/* By id, not by the label the editor package carries: that
+                        package has no catalogue and should not gain one
+                        (ADR-0041). Its label is the fallback. */}
+                    {`tableAction.${action.id}` in en
+                      ? t(`tableAction.${action.id}` as MessageKey)
+                      : action.label}
                   </button>
                 );
               })}
@@ -794,7 +801,9 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
                     run(toggleBlockType(type));
                   })}
                 >
-                  {LABELS[name] ?? name}
+                  {/* A name the list does not know is shown as it is — that is a
+                      block type, not a sentence. */}
+                  {LABELS[name] ? t(LABELS[name]) : name}
                   {active ? ' ·' : ''}
                 </button>
               );
@@ -806,15 +815,23 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
   );
 }
 
-const LABELS: Record<string, string> = {
-  paragraph: 'Text',
-  heading: 'Heading',
-  bulletList: 'Bulleted list',
-  numberedList: 'Numbered list',
-  todo: 'To-do',
-  toggle: 'Toggle',
-  quote: 'Quote',
-  callout: 'Callout',
-  code: 'Code',
-  divider: 'Divider',
+/**
+ * What each block is called under "Turn into".
+ *
+ * The same names the `/` menu uses, and the same keys — one word for one thing,
+ * or the two menus would drift apart in a translation (ADR-0041). "Heading" is
+ * the exception: this list offers it at any level, so it is not one of the
+ * menu's three.
+ */
+const LABELS: Record<string, MessageKey> = {
+  paragraph: 'slash.paragraph',
+  heading: 'block.heading',
+  bulletList: 'slash.bulletList',
+  numberedList: 'slash.numberedList',
+  todo: 'slash.todo',
+  toggle: 'slash.toggle',
+  quote: 'slash.quote',
+  callout: 'slash.callout',
+  code: 'slash.code',
+  divider: 'slash.divider',
 };

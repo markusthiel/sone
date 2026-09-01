@@ -54,7 +54,7 @@ function destinations(tree: PageNode[], entry: PageNode): Destination[] {
   const rootRefusal = refusalFor(null);
   out.push({
     id: null,
-    label: 'Workspace root',
+    label: 'move.root',
     path: '',
     depth: 0,
     ...(rootRefusal ? { disabled: rootRefusal } : {}),
@@ -141,7 +141,11 @@ export function MoveDialog({
               onClick={() => onMove(destination.id)}
             >
               <FolderIcon />
-              <span className="dialog-item-label">{destination.label}</span>
+              <span className="dialog-item-label">
+                {/* The root's name is ours and translated; every other entry is
+                    an entry's own title. */}
+                {destination.label === 'move.root' ? t('move.root') : destination.label}
+              </span>
               {destination.path && (
                 <span className="dialog-item-path">{destination.path}</span>
               )}

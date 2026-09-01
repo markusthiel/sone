@@ -24,6 +24,7 @@ import { ApiError, api, type PageDetail } from '../api/client.ts';
 import { useOutline, scrollToBlock } from '../hooks/useOutline.ts';
 import { usePageTags } from '../hooks/usePageTags.ts';
 import { useTasks, type Task } from '../hooks/useTasks.ts';
+import { en, type MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { TagEditor } from './TagEditor.tsx';
 import { messageFor } from './Auth.tsx';
@@ -68,17 +69,21 @@ export type RightTab = (typeof RIGHT_TABS)[number];
  * reader and to anybody who hovers — and the panel's own heading repeats it,
  * which is where somebody who has already chosen a tab reads it.
  */
-const TABS: Record<RightTab, { label: string; Icon: (props: IconProps) => ReactElement }> = {
-  outline: { label: 'Outline', Icon: ListIcon },
-  tasks: { label: 'Tasks', Icon: CheckSquareIcon },
-  files: { label: 'Files', Icon: PaperclipIcon },
-  images: { label: 'Images', Icon: ImageIcon },
-  links: { label: 'Links', Icon: LinkIcon },
+const TABS: Record<RightTab, { label: MessageKey; Icon: (props: IconProps) => ReactElement }> = {
+  // Keys, not names: this table is module-level and the strip translates them
+  // where it draws them (ADR-0041). Typed as keys so handing a sentence to it is
+  // a type error — which is what caught the same mistake in the administration
+  // area, after it had shipped.
+  outline: { label: 'panel.outline', Icon: ListIcon },
+  tasks: { label: 'panel.tasks', Icon: CheckSquareIcon },
+  files: { label: 'panel.files', Icon: PaperclipIcon },
+  images: { label: 'panel.images', Icon: ImageIcon },
+  links: { label: 'panel.links', Icon: LinkIcon },
   // "People" rather than "Contributors": shorter, and it does not imply a
   // ranking of who contributed most, which this list deliberately does not
   // measure.
-  people: { label: 'People', Icon: UsersIcon },
-  properties: { label: 'Properties', Icon: SlidersIcon },
+  people: { label: 'panel.people', Icon: UsersIcon },
+  properties: { label: 'panel.properties', Icon: SlidersIcon },
 };
 
 const OPEN_KEY = 'sone.rightPanel';
@@ -159,8 +164,8 @@ export function RightSidebar({
                 // The name, for a screen reader and for a pointer. An icon-only
                 // control with neither is a symbol somebody has to learn by
                 // pressing it.
-                aria-label={label}
-                title={label}
+                aria-label={t(label)}
+                title={t(label)}
                 onClick={() => setTab(name)}
               >
                 <Icon />
@@ -171,7 +176,7 @@ export function RightSidebar({
 
         {/* Which tab is open, in words. The strip says it in symbols; this is
             where somebody reads it back. */}
-        <p className="right-panel-title">{TABS[tab].label}</p>
+        <p className="right-panel-title">{t(TABS[tab].label)}</p>
 
         <div className="right-body" role="tabpanel">
           {tab === 'outline' && <OutlinePanel handle={handle} />}
@@ -427,7 +432,7 @@ function TasksPanel({ handle }: { handle: PageHandle | null }): ReactElement {
       {/* A count, because the useful question about a task list is how much is
           left rather than what is in it. */}
       <p className="tasks-summary">
-        {open.length} of {tasks.length} open
+        {t('panel.tasksOpen', { open: open.length, total: tasks.length })}
       </p>
 
       {open.map((task) => (
@@ -552,7 +557,7 @@ function PropertiesPanel({
       <dt>
         <PageIcon /> {t('panel.kind')}
       </dt>
-      <dd>{detail.kind === 'folder' ? 'Folder' : 'Page'}</dd>
+      <dd>{detail.kind === 'folder' ? t('panel.kind.folder') : t('panel.kind.page')}</dd>
 
       <dt>{t('panel.created')}</dt>
       <dd>{formatted(detail.createdAt)}</dd>
@@ -568,7 +573,14 @@ function PropertiesPanel({
       <dd>{detail.role}</dd>
 
       <dt>{t('panel.sync')}</dt>
-      <dd>{handle ? describeStatus(handle) : 'not open'}</dd>
+      <dd>
+        {/* A status the catalogue knows is translated; anything else is a word
+            from the sync client and is shown as it is. */}
+        {(() => {
+          const key = handle ? describeStatus(handle) : 'panel.sync.notOpen';
+          return key in en ? t(key as MessageKey) : key;
+        })()}
+      </dd>
 
       <dt>
         <TagIcon /> {t('panel.tags')}
@@ -585,16 +597,23 @@ function PropertiesPanel({
   );
 }
 
-function describeStatus(handle: PageHandle): string {
+/**
+ * Which message describes the sync state.
+ *
+ * A key rather than a sentence, because this is a helper outside any component
+ * and cannot call a hook. An unknown status falls back to the status itself,
+ * which is a word from the client rather than something to translate.
+ */
+function describeStatus(handle: PageHandle): MessageKey | string {
   switch (handle.status) {
     case 'synced':
-      return 'up to date';
+      return 'panel.sync.upToDate';
     case 'syncing':
-      return 'syncing';
+      return 'panel.sync.syncing';
     case 'offline':
-      return 'offline — edits are kept locally';
+      return 'panel.sync.offline';
     case 'denied':
-      return 'no access';
+      return 'panel.sync.denied';
     default:
       return handle.status;
   }

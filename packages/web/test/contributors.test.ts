@@ -34,11 +34,13 @@ test('somebody who has left is still listed', () => {
   assert.match(source, /Somebody who has left/);
 });
 
-test('an empty list explains itself', () => {
+test('an empty list explains itself', async () => {
   // Attribution is not retroactive, so a document full of writing can list
   // nobody. Left bare, that reads as a bug.
-  assert.match(source, /Nobody is recorded yet/);
-  assert.match(source, /not listed here/);
+  assert.match(source, /t\('panel\.noPeople'\)/);
+  // The sentence is in the catalogue now (ADR-0041).
+  const { en } = await import('../src/i18n/messages.en.ts');
+  assert.match(en['panel.noPeople'], /not listed here/);
 });
 
 test('it says it is not the presence list', () => {

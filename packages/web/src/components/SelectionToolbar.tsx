@@ -129,18 +129,20 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
   };
 
   const marks = [
-    { name: 'strong', label: 'B', title: 'Bold (Mod-B)', style: { fontWeight: 700 } },
-    { name: 'em', label: 'I', title: 'Italic (Mod-I)', style: { fontStyle: 'italic' } },
+    // The letter stays as it is — B, I and S are shapes people recognise, not
+    // words to translate. The tooltip that says what the button does is a key.
+    { name: 'strong', label: 'B', title: 'format.bold', style: { fontWeight: 700 } },
+    { name: 'em', label: 'I', title: 'format.italic', style: { fontStyle: 'italic' } },
     {
       name: 'strikethrough',
       label: 'S',
-      title: 'Strikethrough',
+      title: 'format.strikethrough',
       style: { textDecoration: 'line-through' },
     },
     {
       name: 'inlineCode',
       label: '‹›',
-      title: 'Code (Mod-E)',
+      title: 'format.code',
       style: { fontFamily: 'ui-monospace, Menlo, monospace' },
     },
   ] as const;
@@ -210,7 +212,7 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
               <button
                 key={mark.name}
                 type="button"
-                title={mark.title}
+                title={t(mark.title)}
                 aria-pressed={active}
                 className="toolbar-button"
                 style={mark.style}
