@@ -779,3 +779,26 @@ test('a canvas page fills what the topbar leaves', () => {
   const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
   assert.match(view, /data-kind=\{isCanvas \? 'canvas' : undefined\}/);
 });
+
+test('the plane is a point, so nothing lands off the board', () => {
+  // It briefly had a size, which needs a middle — so I shifted it with a
+  // negative margin, and an absolutely positioned child is placed against *that*
+  // edge. Everything landed eight thousand pixels away: nothing could be drawn
+  // and nothing appeared. With no size there is no middle to get wrong.
+  assert.match(css, /\.canvas-plane \{[^}]*inline-size: 0;[^}]*block-size: 0;/s);
+  assert.doesNotMatch(css, /\.canvas-plane \{[^}]*margin: -/s);
+
+  // The ink layer needs a box, since an SVG cannot be a point — centred on the
+  // origin with a viewBox to match, so negative coordinates are on the board.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /viewBox="-10000 -10000 20000 20000"/);
+  assert.match(css, /\.canvas-ink \{[^}]*inset-inline-start: -10000px/s);
+});
+
+test('a note placed with the text tool is ready to type in', () => {
+  // Clicking it afterwards is two actions for one intention, and the second is
+  // not obvious.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /setTyping\(id\)/);
+  assert.match(canvas, /if \(field && typing === item\.id\) \{\s*\n\s*field\.focus\(\)/);
+});

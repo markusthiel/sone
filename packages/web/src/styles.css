@@ -1610,20 +1610,27 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   flex: 1 1 auto;
   min-block-size: 0;
   overflow: hidden;
-  /* The grid moves with the board, so it is drawn on the plane rather than
-     here — a fixed grid under a moving board is a board that does not look like
-     it is moving. */
+  /* The grid is drawn here and moved by the component, because the plane has no
+     size to paint on. A fixed grid under a moving board is a board that does not
+     look like it is moving, so its position follows the pan and its spacing the
+     zoom. */
+  background-image:
+    radial-gradient(circle, var(--border-subtle) 1px, transparent 1px);
   touch-action: none;
 }
 .canvas-surface[data-tool='pen'] { cursor: crosshair; }
 .canvas-surface[data-tool='text'] { cursor: text; }
 
 /* The ink, under everything: a whiteboard is a surface things are stuck onto. */
+/* The ink layer needs a box, since an SVG cannot be a point.
+ *
+ * Centred on the origin and given a viewBox to match, so a stroke's coordinates
+ * are the canvas's own — including the negative ones, which are half the board.
+ */
 .canvas-ink {
   position: absolute;
-  inset: 0;
-  /* The same span as the plane, and negative coordinates are inside it because
-     the SVG's own box starts where the plane's content does. */
+  inset-block-start: -10000px;
+  inset-inline-start: -10000px;
   inline-size: 20000px;
   block-size: 20000px;
   color: var(--sone-text);
@@ -1696,19 +1703,26 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 /* The plane inside the scroller. Everything on the canvas is in here, so zooming
    is one transform and nothing else has to know about it. */
+/* The plane is a point, not a sheet.
+ *
+ * It has no size at all: it is the origin that everything on the board is
+ * positioned from, and it is what the transform moves. Giving it a size was the
+ * mistake — a size needs a middle, so I shifted it with a negative margin, and an
+ * absolutely positioned child is placed against *that* edge. Everything landed
+ * eight thousand pixels off screen: nothing could be drawn, nothing appeared,
+ * and the board looked empty because it was pointing at a corner of it nobody
+ * was near.
+ *
+ * With no size there is no middle to get wrong, negative coordinates are simply
+ * to the left of the origin, and nothing clips because nothing has edges.
+ */
 .canvas-plane {
   position: absolute;
   inset-block-start: 0;
   inset-inline-start: 0;
-  /* Large enough that the grid and the ink layer cover any screen at any
-     offset, and irrelevant to where anything can be put: items carry their own
-     coordinates and nothing clips them. */
-  inline-size: 20000px;
-  block-size: 20000px;
-  margin: -8000px 0 0 -8000px;
-  padding: 8000px 0 0 8000px;
-  background:
-    radial-gradient(circle, var(--border-subtle) 1px, transparent 1px) 0 0 / 24px 24px;
+  inline-size: 0;
+  block-size: 0;
+  overflow: visible;
 }
 
 /* Redo is undo, the other way round. Which way an arrow points is presentation,
