@@ -90,9 +90,7 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
   return (
     <section className="settings-section">
       <p className="muted">
-        A group is a list of people. Give a group access to a page once, and
-        everybody in it has it — including whoever joins later, which is what
-        makes this worth keeping up to date.
+        {t('group.note')}
       </p>
 
       {error && <p className="error">{messageFor(error)}</p>}
@@ -163,8 +161,7 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
           <span className="settings-row-label">
             <b>{t('group.new')}</b>
             <span>
-              A name for a set of people. Whoever joins it later gets whatever
-              the group has been given, without anybody revisiting the pages.
+              {t('group.name.note')}
             </span>
           </span>
           <input

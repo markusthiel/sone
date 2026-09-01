@@ -32,7 +32,7 @@ test('where somebody is is recorded on the page, not on leaving it', () => {
 
 test('a chosen page that goes out of reach falls back rather than refusing', () => {
   // The one page somebody cannot avoid, so it must not be the one that fails.
-  assert.match(panel, /opens the first one\s*\n?\s*instead rather than refusing/);
+  assert.match(panel, /t\('landing\.gone'\)/);
 });
 
 test('the fixed page is chosen per workspace', () => {

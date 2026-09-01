@@ -33,7 +33,7 @@ test('the minimum matches the one the server enforces', () => {
 test('what cannot be changed says why', () => {
   // An address that is simply displayed reads as an oversight; one that
   // explains itself reads as a decision.
-  assert.match(settings, /prove the new address is yours/);
+  assert.match(settings, /t\('you\.email\.hint'\)/);
 });
 
 // --- structure --------------------------------------------------------------

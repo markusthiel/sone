@@ -54,7 +54,7 @@ test('a signed-in visitor following an invitation is not ignored', () => {
 test('joining says what it will and will not change', () => {
   // Somebody being invited to a team reasonably wonders whether their own
   // workspace is about to be replaced by it.
-  assert.match(accept, /Your own workspace stays where it is/);
+  assert.match(accept, /t\('invitation\.keepsYours'\)/);
 });
 
 test('an instance invitation somebody already satisfied says so', () => {
@@ -83,7 +83,7 @@ test('a spent invitation says so rather than failing', () => {
   // message. "Something went wrong" after everything went right is worse than
   // saying nothing at all.
   assert.match(accept, /setSpent\(true\)/);
-  assert.match(accept, /already been used/);
+  assert.match(accept, /t\('invitation\.used'\)/);
 });
 
 test('signing up through an invitation lands in the invited workspace', () => {
@@ -117,13 +117,13 @@ test('a workspace invitation names a role', () => {
 test('it says it works with or without an account', () => {
   // The question somebody actually has when they already invited a person to
   // the instance and now wants them in a team.
-  assert.match(wsInvite, /whether or not they already have an account/);
+  assert.match(wsInvite, /t\('invite\.workspace\.note'\)/);
 });
 
 test('an address-bound invitation says only that person can accept it', () => {
   // The server enforces it; saying so is what stops somebody forwarding the
   // link and wondering why it failed.
-  assert.match(wsInvite, /only they can accept it/);
+  assert.match(wsInvite, /t\('invite\.workspace\.address'\)/);
 });
 
 // --- seeing and withdrawing what was sent (ADR-0025) -------------------------

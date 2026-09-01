@@ -54,9 +54,7 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
     <section className="settings-section">
       <h3 className="settings-heading">{t('invite.here')}</h3>
       <p className="muted">
-        Works whether or not they already have an account. With one, the link
-        asks them to join and their own workspace is untouched. Without one,
-        they register first and end up in both.
+        {t('invite.workspace.note')}
       </p>
 
       {error && <p className="error">{messageFor(error)}</p>}
@@ -74,8 +72,7 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
           }}
         />
         <p className="muted">
-          With an address the invitation is for that person and can be used once
-          — and only they can accept it, even if somebody else opens the link.
+          {t('invite.workspace.address')}
         </p>
       </div>
 

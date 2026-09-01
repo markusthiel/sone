@@ -292,9 +292,15 @@ test('a migrated file has no English left in its markup', () => {
     // is what tells JSX text apart from a generic type argument — `new
     // Map<string, CollectionFile>(` matched the looser pattern and reported
     // "new Map" as an untranslated sentence.
-    const literals = [...source.matchAll(/>\s*([A-Za-z][A-Za-z ,.'’—-]{3,})\s*<\//g)].map(
-      ([, text]) => text.trim(),
-    );
+    // Newlines are part of the text, which they were not before — and that was
+    // the hole. A paragraph written across three lines never matched, so every
+    // long explanation in the administration area sat in English with the guard
+    // reporting the file clean. The short labels were all it had ever seen.
+    const literals = [...source.matchAll(/>\s*([A-Za-z][A-Za-z ,.'’—\-\n]{3,}?)\s*<\//g)]
+      .map(([, text]) => text.replace(/\s+/g, ' ').trim())
+      // A single word between tags is usually a fragment of prose split by a
+      // `<code>` or an `<a>`, and those are reported by the surrounding text.
+      .filter((text) => text.includes(' '));
     assert.deepEqual(literals, [], `${file} still has literal text: ${literals.join(' | ')}`);
 
     // And the attributes people read: a title or an aria-label in English is

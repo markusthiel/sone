@@ -27,7 +27,7 @@ import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
-import { messageFor } from './Auth.tsx';
+import { useMessage } from './Auth.tsx';
 
 /**
  * What the stylesheet makes of each name, shown when a workspace has not
@@ -78,6 +78,7 @@ interface ThemeSettingsProps {
 
 export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): ReactElement {
   const { t } = useT();
+  const message = useMessage();
   const [theme, setTheme] = useState<WorkspaceTheme>({});
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -142,11 +143,10 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
   return (
     <section className="settings-section">
       <p className="muted">
-        Defaults for this workspace. A block that carries its own size or colour
-        keeps it — these apply where nobody has chosen.
+        {t('type.note')}
       </p>
 
-      {error && <p className="error">{messageFor(error)}</p>}
+      {error && <p className="error">{message(error)}</p>}
 
       {/* The palette first.
         *
@@ -155,8 +155,7 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
         * deciding which to use. */}
       <h3 className="settings-heading">{t('type.palette')}</h3>
       <p className="muted">
-        What each colour name looks like here. Everything that uses a name —
-        tags, columns, blocks, folder icons — follows.
+        {t('type.palette.note')}
       </p>
 
       <div className="theme-palette">

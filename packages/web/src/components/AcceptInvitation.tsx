@@ -91,8 +91,7 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
         {spent && (
           <>
             <p>
-              This invitation has already been used. If that was you just now,
-              your account is ready.
+              {t('invitation.used')}
             </p>
             <button type="button" className="btn primary" onClick={() => navigate('/')}>
               {t('action.continue')}
@@ -116,8 +115,7 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
               <strong>{invitation.workspaceName ?? 'a workspace'}</strong>.
             </p>
             <p className="muted">
-              Your own workspace stays where it is. Joining adds this one beside
-              it.
+              {t('invitation.keepsYours')}
             </p>
             <div className="settings-actions">
               <button type="button" className="btn primary" disabled={busy} onClick={accept}>

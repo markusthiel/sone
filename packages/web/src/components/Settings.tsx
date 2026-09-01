@@ -228,9 +228,7 @@ function Profile({
           <span className="settings-row-label">
             <b>{t('you.email')}</b>
             <span>
-              Identifies your account when you sign in. Changing it needs a way
-              to prove the new address is yours, which this instance cannot do
-              yet.
+              {t('you.email.hint')}
             </span>
           </span>
           <span className="muted">{session.user.email ?? '—'}</span>
@@ -309,8 +307,7 @@ function SignIn(): ReactElement {
           <span className="settings-row-label">
             <b>{t('you.currentPassword')}</b>
             <span>
-              Asked for because a session left open on a shared machine is the
-              ordinary way an account is taken.
+              {t('you.currentPassword.hint')}
             </span>
           </span>
           <input
@@ -428,9 +425,7 @@ function AppearanceSettings({ session }: { session: SessionInfo }): ReactElement
           <span className="settings-row-label">
             <b>{t('you.theme')}</b>
             <span>
-              Following the system is the default. Choose one to override it —
-              somebody outside in the sun wants light whatever their laptop
-              thinks.
+              {t('you.theme.hint')}
             </span>
           </span>
           <select

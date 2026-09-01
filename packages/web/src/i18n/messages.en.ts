@@ -89,6 +89,23 @@ export const en = {
   'admin.maintenance.hint': 'Storage, jobs and health',
 
   'admin.settings': 'Settings',
+  'admin.settings.note':
+    'These are stored in the database and take effect immediately. Anything needed ' +
+    'before the database opens — the database URL, the secret key, the port — stays in ' +
+    'the environment, because a server that cannot start cannot be configured from a ' +
+    'screen it never shows.',
+  'admin.mayCreateWorkspaces.hint':
+    'Off means only administrators make them. Everybody keeps their own personal one ' +
+    'either way — it is not a team.',
+  'admin.sizesOnly':
+    'Sizes only. Administering the instance does not include reading what is in a ' +
+    'workspace — that needs membership, which is a decision somebody takes rather than ' +
+    'a button here.',
+  'admin.maintenance.run': 'Run maintenance now',
+  'admin.maintenance.running': 'Running…',
+  'admin.maintenance.note':
+    'This pass runs on its own every few minutes. Pressing it is for when waiting is ' +
+    'not acceptable — after fixing whatever made a projection fail, typically.',
   'admin.instanceName': 'Instance name',
   'admin.signup': 'Who may create an account',
   'admin.signup.open': 'Anyone with the address',
@@ -140,6 +157,9 @@ export const en = {
   'you.name': 'Name',
   'you.name.hint': 'What other people see beside anything you write here.',
   'you.email': 'Email',
+  'you.email.hint':
+    'Identifies your account when you sign in. Changing it needs a way to prove the ' +
+    'new address is yours, which this instance cannot do yet.',
   'you.workspace': 'Workspace',
   'you.workspace.hint': 'Where you are right now.',
   'you.saved': 'Saved.',
@@ -148,6 +168,9 @@ export const en = {
   'action.reload': 'Reload',
 
   'you.currentPassword': 'Current password',
+  'you.currentPassword.hint':
+    'Asked for because a session left open on a shared machine is the ordinary way an ' +
+    'account is taken.',
   'you.newPassword': 'New password',
 
   'you.language': 'Language',
@@ -159,6 +182,9 @@ export const en = {
     'Stored in this browser. A text size that suits a phone is wrong on a large ' +
     'monitor, so these do not follow your account between devices.',
   'you.theme': 'Theme',
+  'you.theme.hint':
+    'Following the system is the default. Choose one to override it — somebody outside ' +
+    'in the sun wants light whatever their laptop thinks.',
   'you.theme.system': 'Match the system',
   'you.theme.light': 'Light',
   'you.theme.dark': 'Dark',
@@ -234,6 +260,61 @@ export const en = {
   'workspaces.settings': 'Workspace settings',
   'workspaces.all': 'All workspaces',
 
+  // --- the longer explanations ------------------------------------------
+  'landing.note':
+    'When you sign in, switch to this workspace, or open SONE without a particular ' +
+    'page in mind.',
+  'landing.gone':
+    'If it is ever deleted or closed to you, SONE opens the first one instead rather ' +
+    'than refusing.',
+  'folder.empty':
+    'This folder is empty. Add a page to start writing, or a folder to keep organising.',
+  'invite.instance.note':
+    'Invite somebody to this instance. They get an account and a workspace of their ' +
+    'own — nothing else. Adding them to a team is a separate step, made by whoever runs ' +
+    'that team.',
+  'invite.address.note':
+    'Optional. With one, the invitation is for that person and can be used once. ' +
+    'Without one it is a link anybody holding it may use — which is how you invite a ' +
+    'group without typing every address.',
+  'invite.workspace.note':
+    'Works whether or not they already have an account. With one, the link asks them to ' +
+    'join and their own workspace is untouched. Without one, they register first and end ' +
+    'up in both.',
+  'invite.workspace.address':
+    'With an address the invitation is for that person and can be used once — and only ' +
+    'they can accept it, even if somebody else opens the link.',
+  'group.note':
+    'A group is a list of people. Give a group access to a page once, and everybody in ' +
+    'it has it — including whoever joins later, which is what makes this worth keeping ' +
+    'up to date.',
+  'group.name.note':
+    'A name for a set of people. Whoever joins it later gets whatever the group has been ' +
+    'given, without anybody revisiting the pages.',
+  'oidc.note':
+    'Sign in through an identity provider. Any provider that speaks OpenID Connect ' +
+    'works — Keycloak, Authentik, Zitadel, Entra, Google and others — so this is a ' +
+    'configuration rather than a choice of integration.',
+  'oidc.buttonLabel.hint':
+    'What the sign-in page says. People recognise their own login by name, not by the ' +
+    'protocol behind it.',
+  'oidc.allowSignup.hint':
+    'Off by default. Trusting a provider to say who somebody is does not oblige you to ' +
+    'let everybody there in.',
+  'invitation.used':
+    'This invitation has already been used. If that was you just now, your account is ' +
+    'ready.',
+  'invitation.keepsYours': 'Your own workspace stays where it is. Joining adds this one beside it.',
+  'option.rename.note':
+    'Rename an option freely — entries keep it. Removing one hides it from the entries ' +
+    'that use it, and adding a new option with the same name does not bring them back.',
+  'video.providers':
+    'This instance embeds YouTube, Vimeo and PeerTube, and plays HLS or DASH streams. ' +
+    'Other addresses can go in the page as an ordinary link.',
+  'workspaces.delete.note':
+    'It stops appearing to everybody in it. Nothing is removed yet, and somebody who ' +
+    'manages workspaces can put it back.',
+
   // --- invitations -------------------------------------------------------
   'invite.email': 'Email address',
   'invite.emailPlaceholder': 'someone@example.org',
@@ -300,9 +381,26 @@ export const en = {
   'share.created': 'Your new link. You can copy it again below at any time.',
   'share.create': 'Create link',
   'share.revoke': 'Revoke',
+  'share.subpages.hint':
+    'On by default, because a link that stops working the moment somebody adds a ' +
+    'subpage is worse than one that covers slightly more than expected.',
+  'share.tooOld':
+    'That link was created before links could be shown again, so it cannot be copied. ' +
+    'Revoke it and make a new one.',
+  'share.revoke.hint':
+    'Revoking takes effect at once, including for anyone reading through the link at ' +
+    'that moment. A link can be copied again by anyone who administers this page — ' +
+    'which is the same right needed to create one, so nothing new is exposed. It is ' +
+    'stored encrypted, and the key is not in the database.',
   'action.done': 'Done',
 
   // --- a workspace's typography ------------------------------------------
+  'type.note':
+    'Defaults for this workspace. A block that carries its own size or colour keeps ' +
+    'it — these apply where nobody has chosen.',
+  'type.palette.note':
+    'What each colour name looks like here. Everything that uses a name — tags, ' +
+    'columns, blocks, folder icons — follows.',
   'type.element': 'Element',
   'type.elements': 'Elements',
   'type.palette': 'Palette',

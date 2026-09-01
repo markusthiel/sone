@@ -72,9 +72,7 @@ export function OidcPanel(): ReactElement {
   return (
     <section className="settings-section">
       <p className="muted">
-        Sign in through an identity provider. Any provider that speaks OpenID
-        Connect works — Keycloak, Authentik, Zitadel, Entra, Google and others —
-        so this is a configuration rather than a choice of integration.
+        {t('oidc.note')}
       </p>
 
       {/* The secret's absence is the first thing to say.
@@ -129,8 +127,7 @@ export function OidcPanel(): ReactElement {
           <span className="settings-row-label">
             <b>{t('oidc.buttonLabel')}</b>
             <span>
-              What the sign-in page says. People recognise their own login by
-              name, not by the protocol behind it.
+              {t('oidc.buttonLabel.hint')}
             </span>
           </span>
           <input
@@ -151,8 +148,7 @@ export function OidcPanel(): ReactElement {
         {t('oidc.allowSignup')}
       </label>
       <p className="muted">
-        Off by default. Trusting a provider to say who somebody is does not
-        oblige you to let everybody there in.
+        {t('oidc.allowSignup.hint')}
       </p>
 
       <label className="checkbox">

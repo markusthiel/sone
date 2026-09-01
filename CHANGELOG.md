@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the administration area showed key names instead of its headings**, and
+**every longer explanation is translated too.** The guard that was supposed to
+catch untranslated text could not see a sentence written across more than one
+line, which is what all the long explanations are — so it had been reporting those
+files clean.
+
 **The interface is translated.** Every screen, dialog, menu and panel — the page
 title, the formatting toolbar, the workspace switcher, the invitation screen, the
 admin lists. Switch the language under Appearance; whether it says "du" or "Sie" is
