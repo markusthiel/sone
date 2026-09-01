@@ -670,7 +670,11 @@ test('a band catches what it touches, and the eraser takes the topmost', () => {
   assert.match(canvas, /function overlaps\(/);
   assert.match(canvas, /items\.filter\(\(item\) => overlaps\(item, band\)\)/);
   // Topmost first, which is the order the eye uses.
-  assert.match(canvas, /\[\.\.\.items\]\.reverse\(\)\.find\(\(item\) => within\(item, point\)\)/);
+  // Topmost first, and never something somebody has pinned down.
+  assert.match(
+    canvas,
+    /\[\.\.\.items\]\.reverse\(\)\.find\(\(item\) => within\(item, point\) && !item\.locked\)/,
+  );
   // A stroke has no width and height of its own, so its box is measured.
   assert.match(canvas, /function boxOf\(/);
 });
@@ -871,4 +875,37 @@ test('a line is visible while it is being drawn', () => {
   // is not a surprise.
   assert.match(canvas, /shape && tool === 'ellipse'/);
   assert.match(canvas, /shape && tool === 'rect'/);
+});
+
+test('a picture can be dragged rather than copied', () => {
+  // The browser drags a picture by default, and its own drag started before the
+  // pointer handler could claim the gesture — so every attempt to move one
+  // turned into a copy.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /draggable=\{false\}/);
+  assert.match(canvas, /onDragStart=\{\(event\) => event\.preventDefault\(\)\}/);
+});
+
+test('a stroke or a shape can be picked up, and moves without being rewritten', () => {
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  // They are drawn in the ink layer, so nothing catches the press for them —
+  // the surface hit-tests instead, topmost first.
+  assert.match(canvas, /item\.kind !== 'text' && item\.kind !== 'image' && within\(item, point\)/);
+  // And a stroke is translated by its item rather than having its points
+  // rewritten: the points are where the pen went, and moving something should
+  // not rewrite the record of how it was drawn.
+  assert.match(canvas, /transform=\{`translate\(\$\{item\.x\} \$\{item\.y\}\)`\}/);
+});
+
+test('the handle carries the four things done to a thing that exists', () => {
+  // Copy it, pin it down, put it in front, remove it. Moving is not among them
+  // because moving is dragging — a button that says "move" and then waits for a
+  // drag explains a gesture instead of being one.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /duplicateItem\(doc, selectedItem\.id, newId\(\)\)/);
+  assert.match(canvas, /lockItem\(doc, selectedItem\.id, !selectedItem\.locked\)/);
+  assert.match(canvas, /bringToFront\(doc, selectedItem\.id\)/);
+  // At its own size whatever the zoom: a control that shrinks with the board is
+  // unusable at the size somebody zooms out to in order to see all of it.
+  assert.match(canvas, /transform: `scale\(\$\{1 \/ zoom\}\)`/);
 });

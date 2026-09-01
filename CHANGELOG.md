@@ -21,6 +21,10 @@ this cannot be, because the information was never captured.
 **The canvas tools are icons**, and a line is now visible while it is being
 drawn.
 
+**Anything on a canvas can be picked up** — strokes and shapes included — and
+whatever is selected carries a small handle: duplicate, lock in place, bring to
+front, remove. **Fixed: a picture could not be dragged**, only copied.
+
 **A canvas has shapes, pictures and a ruling.** Rectangles, ellipses and lines are
 dragged out like a selection; a picture can be inserted from the toolbar as well as
 dropped; and the board can be dotted, squared, lined or plain.

@@ -31,6 +31,8 @@ import {
   addItem,
   bringToFront,
   canvasMap,
+  duplicateItem,
+  lockItem,
   moveItems,
   readCanvas,
   removeItem,
@@ -43,7 +45,10 @@ import { api } from '../api/client.ts';
 import { useCanvasHistory } from '../hooks/useCanvasHistory.ts';
 import { useT } from '../i18n/useT.tsx';
 import {
+  ArrowUpIcon,
   ArrowUturnIcon,
+  DuplicateIcon,
+  LockIcon,
   CursorIcon,
   EllipseIcon,
   EraserIcon,
@@ -129,6 +134,10 @@ export function CanvasSurface({
   const [selected, setSelected] = useState<string | null>(null);
   /** The stroke being drawn, if any. Local until the pen lifts. */
   const [drawing, setDrawing] = useState<number[] | null>(null);
+  /** What the handle belongs to, and the box it hangs off. */
+  const selectedItem = items.find((item) => item.id === selected) ?? null;
+  const handleBox = selectedItem ? boxOf(selectedItem) : { x: 0, y: 0, w: 0, h: 0 };
+
   /** A note just placed, which should have the caret. */
   const [typing, setTyping] = useState<string | null>(null);
 
@@ -275,7 +284,7 @@ export function CanvasSurface({
     if (tool === 'erase') {
       // Whatever is under the pointer, topmost first — the same order the eye
       // uses, since the topmost is what somebody sees themselves rubbing out.
-      const hit = [...items].reverse().find((item) => within(item, point));
+      const hit = [...items].reverse().find((item) => within(item, point) && !item.locked);
       if (hit) removeItem(doc, hit.id);
       return;
     }
@@ -299,6 +308,24 @@ export function CanvasSurface({
       setTool('select');
       return;
     }
+    // A stroke or a shape under the pointer: those are drawn in the ink layer
+    // rather than as elements, so nothing catches the press for them. Topmost
+    // first, the order the eye uses.
+    if (tool === 'select') {
+      const hit = [...items]
+        .reverse()
+        .find((item) => item.kind !== 'text' && item.kind !== 'image' && within(item, point));
+      if (hit) {
+        setSelected(hit.id);
+        setChosen(new Set());
+        if (!hit.locked) {
+          dragging.current = { ids: [hit.id], last: point };
+          bringToFront(doc, hit.id);
+        }
+        return;
+      }
+    }
+
     // Clicking the empty plane clears the selection and starts a rubber band.
     setSelected(null);
     setChosen(new Set());
@@ -720,6 +747,11 @@ export function CanvasSurface({
             .map((item) => (
               <path
                 key={item.id}
+                // Translated by the item rather than by rewriting its points: a
+                // stroke's points are where the pen went, and moving something
+                // should not rewrite the record of how it was drawn. Existing
+                // strokes sit at 0,0, so this changes nothing for them.
+                transform={`translate(${item.x} ${item.y})`}
                 d={pathFrom(item.points ?? [])}
                 stroke={item.colour ?? 'currentColor'}
                 strokeWidth={item.width ?? 2}
@@ -843,6 +875,12 @@ export function CanvasSurface({
               style={{ left: item.x, top: item.y, width: item.w, height: item.h }}
               onPointerDown={(event) => {
                 if (!canEdit || tool !== 'select') return;
+                if (item.locked) {
+                  // Selectable, so it can be unlocked; not draggable.
+                  event.stopPropagation();
+                  setSelected(item.id);
+                  return;
+                }
                 // The item, not the plane behind it.
                 event.stopPropagation();
                 const point = at(event);
@@ -888,7 +926,16 @@ export function CanvasSurface({
               )}
 
               {item.kind === 'image' && item.fileId && (
-                <img className="canvas-image" src={`/api/files/${item.fileId}`} alt="" />
+                <img
+                  className="canvas-image"
+                  src={`/api/files/${item.fileId}`}
+                  alt=""
+                  // The browser drags a picture by default, which turned every
+                  // attempt to move one into a copy: its own drag started before
+                  // the pointer handler could claim the gesture.
+                  draggable={false}
+                  onDragStart={(event) => event.preventDefault()}
+                />
               )}
 
               {/* The corner, only on what is selected: a handle on everything
@@ -913,6 +960,94 @@ export function CanvasSurface({
               )}
             </div>
           ))}
+
+        {/* The handle for whatever is selected, wherever it is.
+          *
+          * In the plane, so it sits on the thing rather than near where the
+          * thing used to be — and it is the only way to reach a stroke or a
+          * shape, which have no element of their own to put controls on.
+          *
+          * The four are what somebody does to a thing once it exists rather than
+          * while making it: copy it, pin it down, put it in front, remove it.
+          * Moving is not among them because moving is dragging — a button that
+          * says "move" and then waits for a drag is a button that explains a
+          * gesture instead of being one.
+          */}
+        {canEdit && selectedItem && (
+          <div
+            className="canvas-handle"
+            style={{
+              left: handleBox.x,
+              top: handleBox.y - 40 / zoom,
+              // Drawn at its own size whatever the zoom: a control that shrinks
+              // with the board becomes unusable at the size somebody zooms out
+              // to in order to see the whole board.
+              transform: `scale(${1 / zoom})`,
+              transformOrigin: '0 100%',
+            }}
+            role="toolbar"
+            aria-label={t('canvas.handle')}
+          >
+            <button
+              type="button"
+              className="canvas-handle-action"
+              title={t('canvas.duplicate')}
+              aria-label={t('canvas.duplicate')}
+              onClick={() => duplicateItem(doc, selectedItem.id, newId())}
+            >
+              <DuplicateIcon />
+            </button>
+            <button
+              type="button"
+              className={
+                selectedItem.locked ? 'canvas-handle-action current' : 'canvas-handle-action'
+              }
+              aria-pressed={selectedItem.locked === true}
+              title={selectedItem.locked ? t('canvas.unlock') : t('canvas.lock')}
+              aria-label={selectedItem.locked ? t('canvas.unlock') : t('canvas.lock')}
+              onClick={() => lockItem(doc, selectedItem.id, !selectedItem.locked)}
+            >
+              <LockIcon />
+            </button>
+            <button
+              type="button"
+              className="canvas-handle-action"
+              title={t('canvas.toFront')}
+              aria-label={t('canvas.toFront')}
+              onClick={() => bringToFront(doc, selectedItem.id)}
+            >
+              <ArrowUpIcon />
+            </button>
+            <button
+              type="button"
+              className="canvas-handle-action destructive"
+              title={t('canvas.remove')}
+              aria-label={t('canvas.remove')}
+              onClick={() => {
+                removeItem(doc, selectedItem.id);
+                setSelected(null);
+              }}
+            >
+              <TrashIcon />
+            </button>
+          </div>
+        )}
+
+        {/* An outline around a selected stroke or shape, which have no element
+            of their own to carry one. */}
+        {selectedItem && (selectedItem.kind === 'path' || selectedItem.kind === 'rect' ||
+          selectedItem.kind === 'ellipse' || selectedItem.kind === 'line') && (
+          <div
+            className="canvas-outline"
+            style={{
+              left: handleBox.x,
+              top: handleBox.y,
+              width: handleBox.w,
+              height: handleBox.h,
+            }}
+            aria-hidden="true"
+          />
+        )}
 
         {/* The band, drawn in the plane so it scales with everything else. */}
         {band && (

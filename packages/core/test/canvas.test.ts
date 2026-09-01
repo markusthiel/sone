@@ -232,3 +232,41 @@ test('styling one item touches one key each', async () => {
   assert.equal(box?.fill, undefined);
   assert.equal(box?.colour, '#c0392b', 'and nothing else moved');
 });
+
+test('a locked item stays where it is, and a group moves around it', async () => {
+  // Locked for everybody rather than for one person: "locked for me only" is a
+  // note to self that the next person cannot see and will move anyway.
+  const { lockItem, moveItems } = await import('../src/doc/canvas.js');
+  const doc = docWith([
+    { id: 'pinned', kind: 'text', x: 0, y: 0 },
+    { id: 'loose', kind: 'text', x: 100, y: 0 },
+  ]);
+  lockItem(doc, 'pinned', true);
+
+  // Skipped rather than the whole move refused: dragging a group that happens to
+  // contain a locked thing should move the rest.
+  moveItems(doc, ['pinned', 'loose'], 50, 50);
+  const items = Object.fromEntries(readCanvas(doc).map((item) => [item.id, item]));
+  assert.deepEqual([items['pinned']?.x, items['pinned']?.y], [0, 0]);
+  assert.deepEqual([items['loose']?.x, items['loose']?.y], [150, 50]);
+
+  lockItem(doc, 'pinned', false);
+  moveItems(doc, ['pinned'], 5, 5);
+  assert.equal(readCanvas(doc).find((i) => i.id === 'pinned')?.x, 5);
+});
+
+test('a duplicate is a copy, offset so it can be seen', async () => {
+  const { duplicateItem } = await import('../src/doc/canvas.js');
+  const doc = docWith([
+    { id: 'ink', kind: 'path', x: 10, y: 10, points: [0, 0, 5, 5], colour: '#c0392b', width: 3 },
+  ]);
+  duplicateItem(doc, 'ink', 'copy');
+
+  const copy = readCanvas(doc).find((item) => item.id === 'copy');
+  assert.equal(copy?.kind, 'path');
+  assert.deepEqual(copy?.points, [0, 0, 5, 5], 'the same stroke');
+  assert.equal(copy?.colour, '#c0392b');
+  // A copy exactly on top of its original looks like nothing happened, and the
+  // next drag moves whichever the hit test finds first.
+  assert.deepEqual([copy?.x, copy?.y], [26, 26]);
+});

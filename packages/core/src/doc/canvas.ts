@@ -60,6 +60,14 @@ export const CANVAS_KEYS = {
   fill: 'fill',
   /** A text item's own size, in canvas units. Absent means the default. */
   size: 'size',
+  /**
+   * Whether this item can be moved, resized or rubbed out.
+   *
+   * A property of the item rather than of the person looking at it: a locked
+   * thing is locked for everybody, because "locked for me only" is a note to
+   * self that the next person cannot see and will move anyway.
+   */
+  locked: 'locked',
   /** How the board is ruled: 'dots', 'squares', 'lines' or 'plain'. */
   background: 'background',
 } as const;
@@ -83,6 +91,7 @@ export interface CanvasItem {
   width?: number;
   fill?: string;
   size?: number;
+  locked?: boolean;
 }
 
 /** How large a canvas may get, so one page cannot become the whole database. */
@@ -136,6 +145,7 @@ export function readItem(id: string, map: Y.Map<unknown>): CanvasItem | null {
     ...(typeof map.get(CANVAS_KEYS.size) === 'number'
       ? { size: map.get(CANVAS_KEYS.size) as number }
       : {}),
+    ...(map.get(CANVAS_KEYS.locked) === true ? { locked: true } : {}),
   };
 }
 
@@ -240,6 +250,9 @@ export function moveItems(doc: Y.Doc, ids: readonly string[], dx: number, dy: nu
     for (const id of ids) {
       const entry = map.get(id);
       if (!(entry instanceof Y.Map)) continue;
+      // A locked item is skipped rather than the whole move refused: dragging a
+      // group that happens to contain one should move the rest.
+      if (entry.get(CANVAS_KEYS.locked) === true) continue;
       entry.set(CANVAS_KEYS.x, asNumber(entry.get(CANVAS_KEYS.x)) + dx);
       entry.set(CANVAS_KEYS.y, asNumber(entry.get(CANVAS_KEYS.y)) + dy);
     }
@@ -250,6 +263,7 @@ export function moveItems(doc: Y.Doc, ids: readonly string[], dx: number, dy: nu
 export function resizeItem(doc: Y.Doc, id: string, w: number, h: number): void {
   const entry = canvasMap(doc).get(id);
   if (!(entry instanceof Y.Map)) return;
+  if (entry.get(CANVAS_KEYS.locked) === true) return;
   doc.transact(() => {
     entry.set(CANVAS_KEYS.w, Math.max(24, w));
     entry.set(CANVAS_KEYS.h, Math.max(24, h));
@@ -293,6 +307,48 @@ export function styleItem(
     // nothing".
     if (changes.fill === null) entry.delete(CANVAS_KEYS.fill);
     else if (changes.fill !== undefined) entry.set(CANVAS_KEYS.fill, changes.fill);
+  });
+}
+
+/** Lock something, or let it go again. */
+export function lockItem(doc: Y.Doc, id: string, locked: boolean): void {
+  const entry = canvasMap(doc).get(id);
+  if (!(entry instanceof Y.Map)) return;
+  doc.transact(() => {
+    // Deleted rather than set to false: an item nobody has locked should carry
+    // nothing, the same distinction every optional attribute here makes.
+    if (locked) entry.set(CANVAS_KEYS.locked, true);
+    else entry.delete(CANVAS_KEYS.locked);
+  });
+}
+
+/**
+ * Copy something, a little down and to the right.
+ *
+ * The offset is what makes a duplicate visible: a copy exactly on top of its
+ * original looks like nothing happened, and the next drag moves whichever of
+ * the two the hit test finds first.
+ */
+export function duplicateItem(doc: Y.Doc, id: string, newId: string): void {
+  const source = canvasMap(doc).get(id);
+  if (!(source instanceof Y.Map)) return;
+  const item = readItem(id, source);
+  if (!item) return;
+
+  addItem(doc, {
+    id: newId,
+    kind: item.kind,
+    x: item.x + 16,
+    y: item.y + 16,
+    w: item.w,
+    h: item.h,
+    ...(item.text !== undefined ? { text: item.text } : {}),
+    ...(item.fileId !== undefined ? { fileId: item.fileId } : {}),
+    ...(item.points !== undefined ? { points: item.points } : {}),
+    ...(item.colour !== undefined ? { colour: item.colour } : {}),
+    ...(item.width !== undefined ? { width: item.width } : {}),
+    ...(item.fill !== undefined ? { fill: item.fill } : {}),
+    ...(item.size !== undefined ? { size: item.size } : {}),
   });
 }
 
