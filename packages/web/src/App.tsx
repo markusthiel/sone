@@ -32,6 +32,7 @@ import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
 import { useWorkspaceTheme } from './hooks/useWorkspaceTheme.ts';
 import { useFavourites } from './hooks/useFavourites.ts';
+import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
 import { api, type PageNode } from './api/client.ts';
@@ -254,6 +255,9 @@ function Workspace({
   useWorkspaceTheme(workspaceId);
 
   const message = useMessage();
+  // Whether there is anything above the fold, for the line under the bar at the
+  // top (ADR-0042).
+  const { scrolled, ref: mainRef } = useScrolled();
   const { client, state: connectionState, failure } = useSoneClient({
     workspaceId,
     displayName,
@@ -480,7 +484,7 @@ function Workspace({
         </div>
       )}
 
-      <div className="main">
+      <div className="main" ref={mainRef} data-scrolled={scrolled ? 'true' : undefined}>
         <div className="topbar">
           {/* Always present, at every width. It used to be hidden above 800px
               on the theory that a permanent column needs no toggle — which left
@@ -809,6 +813,8 @@ function ShareSession({
 
   return (
     <div className="app">
+      {/* The shared-link view: no toggles and nothing to scroll past, so it
+          keeps the plain bar. */}
       <div className="main">
         <div className="topbar">
           <PageStatus handle={handle} connectionState={state} />

@@ -42,3 +42,19 @@ test('a counted thing with a paragraph is stacked, not columned', () => {
   const admin = codeOf(new URL('../src/components/Admin.tsx', import.meta.url));
   assert.match(admin, /className="settings-list explained"/);
 });
+
+test('the gutter is placed against the frame that actually contains it', () => {
+  // `.main` carries `container-type: inline-size`, which applies layout
+  // containment — and that makes it the containing block for `position: fixed`
+  // descendants. Window coordinates applied there land a sidebar's width to the
+  // right, which is how the controls ended up in the middle of a line of text.
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(menu, /view\.dom\.closest\('\.main'\)\?\.getBoundingClientRect\(\)/);
+  assert.match(menu, /top: box\.top - originY/);
+  assert.match(menu, /- originX/);
+
+  // And the reason it is a containing block is still in the stylesheet, so the
+  // two stay connected: removing the container type would make this correction
+  // wrong.
+  assert.match(css, /\.main \{[^}]*container-type: inline-size/s);
+});

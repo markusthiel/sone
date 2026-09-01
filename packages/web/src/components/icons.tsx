@@ -120,6 +120,22 @@ export function SidebarIcon(props: IconProps): ReactElement {
   );
 }
 
+/**
+ * The same panel, on the other side.
+ *
+ * The right toggle was a chevron, which means "go" — and it was the only chevron
+ * in this interface that did not go anywhere (ADR-0042). Two toggles that do the
+ * same thing should be the same shape, mirrored, so the pair reads as one idea.
+ */
+export function PanelRightIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M14.5 4.5v15" />
+    </svg>
+  );
+}
+
 /** A drag grip: two columns of dots, the conventional handle affordance. */
 export function GripIcon(props: IconProps): ReactElement {
   return (

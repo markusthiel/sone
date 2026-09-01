@@ -513,12 +513,34 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
       const gutterWidth = gutterRef.current?.offsetWidth || GUTTER_WIDTH;
       const textStart = editorBox.left + (Number.isFinite(padding) ? padding : 0);
 
+      /*
+       * `position: fixed` does not mean "against the window" here.
+       *
+       * `.main` carries `container-type: inline-size` — added so `100cqw` means
+       * the page area rather than the window for a full-width block — and a
+       * container query type applies layout containment, which makes the element
+       * a containing block for fixed-position descendants. So these coordinates,
+       * which come from `getBoundingClientRect` and are the window's, were being
+       * applied inside `.main` and landed a sidebar's width to the right: the
+       * controls sat in the middle of the first line of text.
+       *
+       * Two ways to be wrong at once, each correct on its own, and the second
+       * one silently changed the meaning of the first.
+       *
+       * So the offset is subtracted. Measured rather than assumed, and absent on
+       * the shared-link view, which has no `.main` and where fixed does mean the
+       * window.
+       */
+      const frame = view.dom.closest('.main')?.getBoundingClientRect();
+      const originX = frame?.left ?? 0;
+      const originY = frame?.top ?? 0;
+
       setAnchor({
-        top: box.top,
-        // Clamped to the viewport: on a narrow screen there may genuinely be no
-        // room beside the text, and a control pushed off the left edge is worse
-        // than one that overlaps slightly.
-        left: Math.max(2, textStart - gutterWidth - GUTTER_GAP),
+        top: box.top - originY,
+        // Clamped to the frame's left edge: on a narrow screen there may
+        // genuinely be no room beside the text, and a control pushed off the
+        // edge is worse than one that overlaps slightly.
+        left: Math.max(2, textStart - gutterWidth - GUTTER_GAP - originX),
       });
     } catch {
       // A stale position for a frame after a document change. Retried on the
