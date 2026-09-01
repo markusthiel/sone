@@ -717,6 +717,9 @@ export const en = {
   'canvas.tool.text': 'Text',
   'canvas.remove': 'Remove this',
   'canvas.textItem': 'Text on the canvas',
+  'canvas.resize': 'Resize this',
+  'canvas.colour': 'Ink colour',
+  'canvas.thickness': 'Thickness',
   'canvas.new': 'New canvas',
   'panel.kind.canvas': 'Canvas',
 

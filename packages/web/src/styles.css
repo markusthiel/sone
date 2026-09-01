@@ -1608,6 +1608,43 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .canvas-image { inline-size: 100%; block-size: 100%; object-fit: contain; }
 
+/* The corner, on what is selected only: a handle on everything is eight more
+   things to hit by accident. */
+.canvas-size {
+  position: absolute;
+  inset-block-end: -5px;
+  inset-inline-end: -5px;
+  inline-size: 12px;
+  block-size: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--surface-page);
+  cursor: nwse-resize;
+}
+
+.canvas-ink-choice {
+  inline-size: 18px;
+  block-size: 18px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  background: currentColor;
+  cursor: pointer;
+}
+.canvas-ink-choice.current { box-shadow: 0 0 0 2px var(--surface-chrome), 0 0 0 3px var(--accent); }
+.canvas-ink-width {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+.canvas-ink-width input { inline-size: 80px; min-block-size: 0; padding: 0; }
+
+/* While a picture is going up. Not a spinner over the plane: the drop landed
+   somewhere specific and the rest of the board stays usable. */
+.canvas-surface[data-busy='true'] { cursor: progress; }
+
 /* --- motion (ADR-0042) ---
  *
  * Three durations and two properties. `transform` and `opacity` are the only

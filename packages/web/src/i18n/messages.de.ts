@@ -760,6 +760,9 @@ export const de: Record<keyof typeof en, string> = {
   'canvas.tool.text': 'Text',
   'canvas.remove': 'Das hier entfernen',
   'canvas.textItem': 'Text auf der Fläche',
+  'canvas.resize': 'Größe ändern',
+  'canvas.colour': 'Farbe des Stifts',
+  'canvas.thickness': 'Stärke',
   'canvas.new': 'Neue Fläche',
   'panel.kind.canvas': 'Fläche',
 

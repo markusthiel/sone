@@ -204,7 +204,7 @@ export function PageView({
           (ADR-0043). Only what is under the heading changes. */}
       <ErrorBoundary where="The editor">
         {isCanvas ? (
-          <CanvasSurface handle={handle} canEdit={handle.canEdit !== false} />
+          <CanvasSurface handle={handle} pageId={pageId} canEdit={handle.canEdit !== false} />
         ) : (
           <EditorSurface handle={handle} pageId={pageId} />
         )}

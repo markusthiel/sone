@@ -601,7 +601,9 @@ test('a canvas writes a stroke once, when the pen lifts', () => {
   assert.match(move, /setDrawing/);
 
   const up = canvas.slice(canvas.indexOf('const onSurfaceUp'));
-  assert.match(up.slice(0, 600), /addItem\(doc, \{ id: newId\(\), kind: 'path'/);
+  // The write is now multi-line because the stroke carries the chosen ink, so
+  // this reads the call across lines rather than as one.
+  assert.match(up.slice(0, 800), /addItem\(doc, \{[\s\S]{0,120}kind: 'path'/);
 });
 
 test('a canvas is a page, not a screen of its own', () => {
@@ -618,4 +620,24 @@ test('a canvas is told apart in the tree, not only on opening it', () => {
   const icon = codeOf(new URL('../src/components/EntryIconView.tsx', import.meta.url));
   assert.match(icon, /kind === 'canvas'\) return <PenIcon \/>/);
   assert.match(icon, /'page' \| 'folder' \| 'row' \| 'canvas'/);
+});
+
+test('a picture on a canvas is the workspace\u2019s file, not a copy', () => {
+  // The same upload every other file uses, served by the same route and counted
+  // in the same storage (ADR-0029). A canvas with its own picture store would be
+  // a second place for a backup to miss.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /api\.uploadFile\(pageId, file\)/);
+  assert.match(canvas, /kind: uploaded\.category === 'image' \? 'image' : 'text'/);
+  assert.match(canvas, /src=\{`\/api\/files\/\$\{item\.fileId\}`\}/);
+});
+
+test('resizing is a corner on the selected item, and it is one write', () => {
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /selected === item\.id && \(\s*<span\s*className="canvas-size"/s);
+  assert.match(canvas, /resizeItem\(doc, size\.id/);
+  // The ink is the person's, not the document's: the colour somebody draws in is
+  // theirs, and the stroke keeps it once drawn.
+  assert.match(canvas, /const \[ink, setInk\]/);
+  assert.match(canvas, /colour: ink\.colour,\s*\n\s*width: ink\.width,/);
 });
