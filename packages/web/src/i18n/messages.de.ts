@@ -88,6 +88,10 @@ export const de: Record<keyof typeof en, string> = {
   'admin.instance.hint': 'Name, Registrierung und Vorgaben',
   'admin.accounts': 'Konten',
   'admin.accounts.hint': 'Alle, die hier ein Konto haben',
+  'admin.accounts.note':
+    'Deaktivieren behält das Konto und seine Arbeit und meldet es sofort ab. Konten ' +
+    'werden hier nie gelöscht: eines zu entfernen nähme jede Seite mit, die es angelegt ' +
+    'hat — und „diese Person ist gegangen" ist nicht „ihre Arbeit hat nie stattgefunden".',
   'admin.workspaces': 'Alle Workspaces',
   'admin.workspaces.hint': 'Jeder Workspace hier, und wer darin ist',
   'admin.invitations': 'Einladungen',
@@ -134,7 +138,30 @@ export const de: Record<keyof typeof en, string> = {
   'admin.waitingToProject': 'Wartet auf Projektion',
   'admin.recentFailures': 'Letzte Fehler',
   'admin.nothingToReport': 'Nichts zu melden.',
+  'admin.anomaly.orphaned': 'Einträge ohne Eltern',
+  'admin.anomaly.orphaned.explain':
+    'Ein Elternteil, das noch nicht angekommen ist. Während des Abgleichs vorübergehend; ' +
+    'ein bleibender Zähler heißt: eine Seite, deren Ordner nie angelegt wurde.',
+  'admin.anomaly.nested': 'Einträge in Seiten',
+  'admin.anomaly.nested.explain':
+    'Nur Ordner dürfen Kinder halten. Die API weigert sich, solche anzulegen — ein ' +
+    'Zähler hier heißt, ein Client hat direkt geschrieben.',
+  'admin.anomaly.staleSearch': 'Veraltete Suchzeilen',
+  'admin.anomaly.staleSearch.explain':
+    'Mit einer älteren Textkonfiguration indexiert. Die betroffenen Workspaces neu ' +
+    'materialisieren.',
+  'admin.anomaly.failed': 'Gescheiterte Projektionen',
+  'admin.anomaly.failed.explain':
+    'Ein Dokument, das die Projektion nicht lesen konnte. Die Seite existiert weiter und ' +
+    'gleicht ab; sie fehlt in der Suche und im Baum.',
   'admin.uploadsUnwritable': 'Uploads können nicht auf die Platte geschrieben werden',
+  'admin.storage.fix':
+    'Der Container läuft als uid 10001 und kann das nicht selbst ändern. Vom Host aus, ' +
+    'als root im laufenden Container:',
+  'admin.storage.volumeWarning':
+    'Den Container ansprechen, nicht das Volume. Ein falsch geratener Volume-Name wird ' +
+    'leer angelegt statt als fehlend gemeldet — der Befehl sieht also aus, als hätte er ' +
+    'funktioniert, und nichts ändert sich.',
   'admin.loading': 'Wird geladen…',
   'admin.signup.note': 'Wer schon eines hat, ist davon nicht betroffen.',
   'admin.instanceName.hint': 'Auf der Anmeldeseite und im Titel jedes Tabs.',

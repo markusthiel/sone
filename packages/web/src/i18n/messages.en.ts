@@ -79,6 +79,10 @@ export const en = {
   'admin.instance.hint': 'Name, sign-up and defaults',
   'admin.accounts': 'Accounts',
   'admin.accounts.hint': 'Everybody with an account here',
+  'admin.accounts.note':
+    'Deactivating keeps the account and its work, and signs it out immediately. ' +
+    'Accounts are never deleted from here: removing one would take every page it ' +
+    'created with it, and “this person has left” is not “their work never happened”.',
   'admin.workspaces': 'All workspaces',
   'admin.workspaces.hint': 'Every workspace here, and who is in them',
   'admin.invitations': 'Invitations',
@@ -124,7 +128,29 @@ export const en = {
   'admin.waitingToProject': 'Waiting to project',
   'admin.recentFailures': 'Recent failures',
   'admin.nothingToReport': 'Nothing to report.',
+  'admin.anomaly.orphaned': 'Orphaned entries',
+  'admin.anomaly.orphaned.explain':
+    'A parent that has not arrived yet. Transient during sync; a persistent count means ' +
+    'a page whose folder was never created.',
+  'admin.anomaly.nested': 'Entries inside pages',
+  'admin.anomaly.nested.explain':
+    'Only folders may hold children. The API refuses to create these, so a count here ' +
+    'means a client wrote one directly.',
+  'admin.anomaly.staleSearch': 'Stale search rows',
+  'admin.anomaly.staleSearch.explain':
+    'Indexed with an older text configuration. Re-materialise the affected workspaces.',
+  'admin.anomaly.failed': 'Failed projections',
+  'admin.anomaly.failed.explain':
+    'A document the projection could not read. The page still exists and syncs; it is ' +
+    'missing from search and from the tree.',
   'admin.uploadsUnwritable': 'Uploads cannot be written to disk',
+  'admin.storage.fix':
+    'The container runs as uid 10001 and cannot change this itself. From the host, as ' +
+    'root inside the running container:',
+  'admin.storage.volumeWarning':
+    'Address the container rather than the volume. A volume name guessed wrongly is ' +
+    'created empty rather than reported missing, so the command appears to succeed and ' +
+    'nothing changes.',
   'admin.loading': 'Loading…',
   'admin.signup.note': 'Closing it does not affect anybody who already has one.',
   'admin.instanceName.hint': 'On the sign-in page and in the title of every tab.',

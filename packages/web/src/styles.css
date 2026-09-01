@@ -1470,13 +1470,66 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   .settings-row input, .settings-row select { inline-size: 100%; }
 }
 
-/* A note under a card rather than inside it: something true about the topic
-   that is not a control. */
-.settings-note {
-  margin-block: calc(var(--sone-space-5) * -1) var(--sone-space-6);
+/* A checkbox and what it says.
+ *
+ * This class was used in three places and had no rule at all, so the label sat
+ * against the box with whatever space the browser's default gave it — which is
+ * none worth having. Aligned to the top rather than centred, because a label that
+ * wraps to two lines should start level with its box and not float beside the
+ * middle of them.
+ */
+.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sone-space-3);
+  /* Room for a finger: the box itself is small, and the whole row is the target. */
+  min-block-size: var(--sone-tap);
+  padding-block: var(--sone-space-2);
+  font-size: var(--sone-text-sm);
+  line-height: 1.45;
+  cursor: pointer;
+}
+.checkbox input { flex: none; margin-block-start: 0.15em; }
+
+/* The sentence that explains a checkbox belongs to it, so it lines up under the
+   label's text rather than under the box. */
+.checkbox + p {
+  margin-block: 0 var(--sone-space-5);
+  padding-inline-start: calc(var(--sone-marker) + var(--sone-space-3));
   color: var(--sone-text-muted);
   font-size: var(--sone-text-sm);
+  line-height: 1.5;
+  max-inline-size: 68ch;
 }
+
+/* A note under a card rather than inside it: something true about the topic
+ * that is not a control.
+ *
+ * The negative top margin this had was written for the one case where a note
+ * follows a card, to close the gap the card's own margin leaves. It applied
+ * everywhere, so a note after a *table* or a *button* was pulled twenty pixels
+ * up into it — which is the overlap in the accounts and maintenance panels.
+ *
+ * The pull is now asked for by the thing in front of it rather than carried by
+ * the note, and the second half of this class — which set the size and the
+ * measure and lived four hundred lines away — is folded in. Two rules for one
+ * class is how this went wrong: whoever wrote the second could not see the
+ * margin in the first.
+ */
+.settings-note {
+  margin-block: 0 var(--sone-space-6);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+  line-height: 1.5;
+  /* A measure, because these are sentences and a note the width of a monitor is
+     not read. */
+  max-inline-size: 68ch;
+}
+/* Directly after a card, where the card's bottom margin already left the gap. */
+.settings-card + .settings-note { margin-block-start: calc(var(--sone-space-5) * -1); }
+/* After anything else — a table, a button, a list — it keeps its own distance. */
+.admin-table + .settings-note,
+.settings-actions + .settings-note { margin-block-start: var(--sone-space-4); }
 
 
 
@@ -1490,6 +1543,31 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .settings-list dt { color: var(--sone-text-muted); font-size: 0.9rem; }
 .settings-list dd { margin: 0; font-size: 0.9rem; }
+
+/* A list of counted things, each with a sentence under it.
+ *
+ * The two-column grid above is for short pairs — "Server" and a version. The
+ * maintenance report is four labels with a paragraph each, and in two columns
+ * those paragraphs are a narrow ribbon beside a number. So this variant stacks:
+ * the label and its count on one line, the explanation under both. */
+.settings-list.explained {
+  display: block;
+}
+.settings-list.explained dt {
+  margin-block-start: var(--sone-space-4);
+  color: var(--sone-text);
+  font-weight: 600;
+}
+.settings-list.explained dt:first-child { margin-block-start: 0; }
+.settings-list.explained dd {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-block-start: 2px;
+  padding-block-end: var(--sone-space-3);
+  border-block-end: 1px solid var(--border-subtle);
+}
+.settings-list.explained dd:last-child { border-block-end: 0; padding-block-end: 0; }
 
 .settings-warning {
   padding: 10px 12px;
@@ -3049,7 +3127,6 @@ select {
 
 .settings-body h1 { margin-block-start: 0; }
 
-.settings-note { font-size: var(--sone-text-sm); line-height: 1.5; max-inline-size: 60ch; }
 .setting-source { display: block; margin-block-start: var(--sone-space-1); font-size: var(--sone-text-xs); }
 
 /* --- admin tables --- */
@@ -3125,12 +3202,21 @@ select {
   font-size: var(--sone-text-xs);
 }
 
+/* The button and, beside it, when it last ran.
+ *
+ * `margin-block-end: 2px` was fine while the note below carried a negative top
+ * margin of its own; with both, the note sat on top of the button. The gap
+ * belongs to one of them, and it belongs here — this is the element that knows
+ * something follows it. */
 .maintenance-actions {
   display: flex;
   align-items: center;
   gap: var(--sone-space-4);
-  margin-block-end: var(--sone-space-2);
+  flex-wrap: wrap;
+  margin-block-end: var(--sone-space-4);
 }
+/* The note under it keeps its distance rather than being pulled up. */
+.maintenance-actions + .settings-note { margin-block-start: 0; }
 
 /* The row of tools; the rule that lays it out is further down.
  *

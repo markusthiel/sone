@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: notes ran into the tables and buttons above them** in the accounts and
+maintenance panels. **A checkbox now has space between its box and its words**, and
+the explanation under it lines up with the label. **The maintenance report is
+stacked** rather than squeezed into two columns. The remaining English in the
+administration area is translated: the accounts note, the storage advice and the
+four counters.
+
 **Fixed: the administration area showed key names instead of its headings**, and
 **every longer explanation is translated too.** The guard that was supposed to
 catch untranslated text could not see a sentence written across more than one
