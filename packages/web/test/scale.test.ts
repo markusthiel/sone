@@ -434,7 +434,10 @@ test('full width is a centring, corrected for the left-only padding', () => {
   // centring too. Replacing that with a fixed offset forgot the centring and
   // pushed the block to the right — and the half-indent is the gap that was
   // left on one side and not the other, since the editor pads only the left.
-  const rule = css.slice(css.indexOf("[data-width='full'] {"));
+  // The *block's* rule specifically: a page can carry `data-width` now too, and
+  // the two mean different things — a block breaking out of the column, and a
+  // page having no column to break out of.
+  const rule = css.slice(css.indexOf(".ProseMirror [data-width='full'] {"));
   assert.match(rule.slice(0, 400), /50% - 50cqw - var\(--sone-text-indent\) \/ 2/);
   assert.match(rule.slice(0, 400), /50% - 50cqw \+ var\(--sone-text-indent\) \/ 2/);
 });
@@ -571,4 +574,19 @@ test('one rule per class in the block menu', () => {
   // assertion that keeps catching it.
   assert.equal([...css.matchAll(/^\.block-menu-item \{/gm)].length, 1);
   assert.equal([...css.matchAll(/^\.block-menu-actions \{/gm)].length, 1);
+});
+
+test('a page can ask for the whole width, and says so in its document', () => {
+  // The measure stays the default — eighty characters is where reading gets
+  // hard — and this is for the pages that are not prose.
+  assert.match(css, /\.page-body\[data-width='full'\] \{ max-width: none; \}/);
+  const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  assert.match(view, /data-width=\{width\}/);
+  // Read from the document, so it arrives like any other edit rather than by a
+  // refetch: widening it on a laptop widens it on the tablet beside it.
+  const hook = codeOf(new URL('../src/hooks/usePageWidth.ts', import.meta.url));
+  assert.match(hook, /page\.observe\(read\)/);
+  assert.match(hook, /page\.unobserve\(read\)/);
+  // Anything the stylesheet does not know is the default rather than an error.
+  assert.match(hook, /value === 'full' \? 'full' : 'column'/);
 });

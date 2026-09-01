@@ -495,10 +495,11 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       last_edited_at: Date;
       ancestor_ids: string[];
       path_only: boolean;
+      width: 'column' | 'full' | null;
     }>(
       deps.pool,
       `SELECT id, workspace_id, parent_page_id, collection_id, title, icon, kind,
-              cover_url, archived_at, created_at, last_edited_at, ancestor_ids
+              cover_url, width, archived_at, created_at, last_edited_at, ancestor_ids
          FROM pages WHERE id = $1`,
       [pageId],
     );
@@ -542,6 +543,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       icon: page.icon,
       kind: page.kind === 'folder' ? 'folder' : 'page',
       coverUrl: page.cover_url,
+      width: page.width,
       archived: page.archived_at !== null,
       createdAt: page.created_at,
       lastEditedAt: page.last_edited_at,
@@ -588,6 +590,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       /** Only meaningful alongside parentPageId. */
       afterPageId?: string | null;
       tags?: string[];
+      icon?: unknown;
+      titleColor?: unknown;
+      /** 'column', 'full', or null to follow the reader's default. */
+      width?: unknown;
     }>(ctx);
     if (!body) return;
 
@@ -645,8 +651,17 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     // a lost rename for a change that had nothing to do with the name.
     const wantsIcon = 'icon' in body;
     const wantsTitleColor = 'titleColor' in body;
+    // How wide the page is drawn (ADR-0028's measure, per page). Null clears it
+    // back to the reader's default, the same distinction the icon makes.
+    const wantsWidth = 'width' in body;
+    const width =
+      body.width === 'column' || body.width === 'full' ? body.width : null;
+    if (wantsWidth && body.width !== null && width === null) {
+      ctx.fail(422, 'invalid_width');
+      return;
+    }
 
-    if (typeof body.title !== 'string' && !wantsIcon && !wantsTitleColor) {
+    if (typeof body.title !== 'string' && !wantsIcon && !wantsTitleColor && !wantsWidth) {
       ctx.fail(422, 'missing_fields');
       return;
     }
@@ -671,6 +686,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       (doc) => {
         const page = doc.getMap(DOC_KEYS.page);
         if (title !== null) page.set(PAGE_KEYS.title, title);
+        if (wantsWidth) {
+          if (width) page.set(PAGE_KEYS.width, width);
+          else page.delete(PAGE_KEYS.width);
+        }
 
         if (wantsIcon || wantsTitleColor) {
           const existing = page.get(PAGE_KEYS.icon);

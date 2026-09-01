@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A page can be set to the full width of the window**, under Width in the panel
+beside it. The reading column stays the default; this is for the pages that are
+not prose — a wide table, a board, a page of pictures. The setting travels with
+the page, so it looks the same on every device and for everybody.
+
 **The block menu's six actions are one row of icons** — move up and down, out and
 in, duplicate, delete — instead of six rows of text, and the duplicate "Nesting"
 section is gone. **The block menu has marks too**, the same ones the `/` menu uses, and alignment is

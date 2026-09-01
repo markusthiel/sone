@@ -711,6 +711,41 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   padding: 24px 20px 40vh;
 }
 
+/* A page that asked for the whole width (ADR-0028's measure, per page).
+ *
+ * The same attribute name a *block* uses, deliberately and with a difference
+ * worth knowing: on a block it means "break out of the column", on the page it
+ * means "there is no column to break out of". A full-width block inside a
+ * full-width page is therefore already as wide as it can be, and the block's own
+ * breakout resolves to nothing rather than to something wrong.
+ *
+ * The measure exists because a line of eighty characters is where reading gets
+ * hard, and that is still true — so this is a setting rather than a default. It
+ * is for the pages that are not prose: a table, a board, a page that is mostly
+ * pictures. */
+.page-body[data-width='full'] { max-width: none; }
+
+/* The choices in the properties panel, small enough for a column of labels. */
+.panel-choices { display: inline-flex; gap: 2px; }
+.panel-choice {
+  min-block-size: var(--sone-control);
+  padding-inline: var(--sone-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font: inherit;
+  font-size: var(--sone-text-xs);
+  cursor: pointer;
+}
+.panel-choice:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.panel-choice.current {
+  border-color: var(--border-default);
+  background: var(--surface-page);
+  color: var(--sone-text);
+  font-weight: 600;
+}
+
 /* Reserve room for the gutter controls where the screen is too narrow to have
    it for free.
  *

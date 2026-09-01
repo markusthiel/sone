@@ -14,6 +14,7 @@ import {
   readTitleColor,
   type EntryIcon,
 } from '@sone/core';
+import { usePageWidth } from '../hooks/usePageWidth.ts';
 import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState , type ReactElement } from 'react';
 
@@ -49,6 +50,8 @@ export function PageView({
   connectionState,
   onTitleChange,
 }: PageViewProps): ReactElement {
+  // From the document, so it arrives like any other edit (ADR-0028).
+  const width = usePageWidth(handle?.doc ?? null);
   const { t } = useT();
   const pageMap = handle.doc.getMap(DOC_KEYS.page);
   const [title, setTitle] = useState<string>(
@@ -142,7 +145,7 @@ export function PageView({
   };
 
   return (
-    <div className="page-body">
+    <div className="page-body" data-width={width}>
       {/* The icon and the name on one line, the same shape a folder has. */}
       <div className="entry-heading">
         <span className="entry-heading-icon">

@@ -753,6 +753,9 @@ export const de: Record<keyof typeof en, string> = {
     'Noch niemand verzeichnet. Geschriebenes wird von dem Moment an zugeordnet, in dem ' +
     'es geschrieben wird — was vor Beginn dieser Aufzeichnung getippt wurde, steht hier ' +
     'nicht.',
+  'panel.width': 'Breite',
+  'panel.width.column': 'Spalte',
+  'panel.width.full': 'Ganze Seite',
   'panel.kind.page': 'Seite',
   'panel.kind.folder': 'Ordner',
   'panel.sync.upToDate': 'aktuell',
