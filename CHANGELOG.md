@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: nothing could be drawn on a canvas** after the last release — everything
+was being placed thousands of pixels off screen. A note placed with the text tool
+also has the caret straight away now.
+
 **Fixed: a canvas was drawn as a document in the tree.** It has a brush of its
 own now, and the three things you can add are shown with the marks the tree draws
 them with.

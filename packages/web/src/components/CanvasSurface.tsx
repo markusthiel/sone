@@ -114,6 +114,8 @@ export function CanvasSurface({
   const [selected, setSelected] = useState<string | null>(null);
   /** The stroke being drawn, if any. Local until the pen lifts. */
   const [drawing, setDrawing] = useState<number[] | null>(null);
+  /** A note just placed, which should have the caret. */
+  const [typing, setTyping] = useState<string | null>(null);
 
   /** What the pen writes with. Per person and per session, not in the document:
    *  the colour somebody draws in is theirs, and the stroke keeps it once
@@ -257,6 +259,11 @@ export function CanvasSurface({
       const id = newId();
       addItem(doc, { id, kind: 'text', x: point.x, y: point.y, text: '' });
       setSelected(id);
+      // Ready to type. A note that has to be clicked after being placed is two
+      // actions for one intention, and the second one is not obvious.
+      setTyping(id);
+      // Back to selecting, so the next click moves the note rather than
+      // stacking another one behind it.
       setTool('select');
       return;
     }
@@ -543,6 +550,13 @@ export function CanvasSurface({
         onPointerUp={onSurfaceUp}
         onPointerCancel={onSurfaceUp}
         onWheel={onWheel}
+        // The grid, moved with the board and spaced by the zoom — the plane has
+        // no size to paint it on, and a grid that stays put makes a moving board
+        // look still.
+        style={{
+          backgroundPosition: `${pan.x}px ${pan.y}px`,
+          backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
+        }}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => void onDrop(event)}
         data-busy={busy ? 'true' : undefined}
@@ -559,7 +573,10 @@ export function CanvasSurface({
         >
         {/* Every stroke in one SVG, under the items: ink is the background a
             note is stuck onto, which is what a whiteboard is. */}
-        <svg className="canvas-ink" aria-hidden="true">
+        {/* Centred on the origin, with a viewBox to match, so a stroke's
+            coordinates are the canvas's own — including the negative ones,
+            which are half the board. */}
+        <svg className="canvas-ink" viewBox="-10000 -10000 20000 20000" aria-hidden="true">
           {items
             .filter((item) => item.kind === 'path' && item.points)
             .map((item) => (
@@ -615,6 +632,12 @@ export function CanvasSurface({
               {item.kind === 'text' && (
                 <textarea
                   className="canvas-text"
+                  ref={(field) => {
+                    if (field && typing === item.id) {
+                      field.focus();
+                      setTyping(null);
+                    }
+                  }}
                   defaultValue={item.text ?? ''}
                   readOnly={!canEdit}
                   aria-label={t('canvas.textItem')}
