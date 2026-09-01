@@ -42,7 +42,18 @@ import { api } from '../api/client.ts';
 
 import { useCanvasHistory } from '../hooks/useCanvasHistory.ts';
 import { useT } from '../i18n/useT.tsx';
-import { ArrowUturnIcon, TrashIcon } from './icons.tsx';
+import {
+  ArrowUturnIcon,
+  CursorIcon,
+  EllipseIcon,
+  EraserIcon,
+  ImageIcon,
+  LineIcon,
+  PencilIcon,
+  RectangleIcon,
+  TextIcon,
+  TrashIcon,
+} from './icons.tsx';
 
 type Tool = 'select' | 'pen' | 'text' | 'rect' | 'ellipse' | 'line' | 'erase';
 
@@ -505,25 +516,42 @@ export function CanvasSurface({
     <div className="canvas-page">
       {canEdit && (
         <div className="canvas-tools" role="toolbar" aria-label={t('canvas.tools')}>
-          {(['select', 'pen', 'text', 'rect', 'ellipse', 'line', 'erase'] as const).map((id) => (
+          {/* Marks rather than words. Seven labels in a row is most of the bar,
+              and each of these is the thing it makes — a rectangle is a
+              rectangle — which is the condition for dropping the word. The word
+              stays as the tooltip and the accessible label (ADR-0042). */}
+          {(
+            [
+              ['select', CursorIcon],
+              ['pen', PencilIcon],
+              ['text', TextIcon],
+              ['rect', RectangleIcon],
+              ['ellipse', EllipseIcon],
+              ['line', LineIcon],
+              ['erase', EraserIcon],
+            ] as const
+          ).map(([id, Mark]) => (
             <button
               key={id}
               type="button"
-              className={tool === id ? 'canvas-tool current' : 'canvas-tool'}
+              className={tool === id ? 'canvas-tool mark current' : 'canvas-tool mark'}
               aria-pressed={tool === id}
+              title={t(`canvas.tool.${id}` as 'canvas.tool.select')}
+              aria-label={t(`canvas.tool.${id}` as 'canvas.tool.select')}
               onClick={() => setTool(id)}
             >
-              {t(`canvas.tool.${id}` as 'canvas.tool.select')}
+              <Mark />
             </button>
           ))}
 
           <button
             type="button"
-            className="canvas-tool"
+            className="canvas-tool mark"
             onClick={pickImage}
             title={t('canvas.image')}
+            aria-label={t('canvas.image')}
           >
-            {t('canvas.image')}
+            <ImageIcon />
           </button>
 
           {/* How the board is ruled. Beside the tools rather than in a settings
@@ -740,19 +768,47 @@ export function CanvasSurface({
               ),
             )}
 
-          {/* What is being dragged out, drawn the same way so the result is not
-              a surprise. */}
-          {shape && tool !== 'line' && (
+          {/* What is being dragged out, drawn the way it will be drawn.
+            *
+            * A line had no preview at all — the box preview was suppressed for
+            * it and nothing took its place, so a line appeared only once the
+            * pointer was released. Drawing something you cannot see until you
+            * commit to it is drawing blind. */}
+          {shape && shaping.current && tool === 'line' && (
+            <line
+              x1={shaping.current.from.x}
+              y1={shaping.current.from.y}
+              x2={shaping.current.to.x}
+              y2={shaping.current.to.y}
+              stroke={ink.colour}
+              strokeWidth={ink.width}
+              strokeLinecap="round"
+              opacity={0.6}
+            />
+          )}
+          {shape && tool === 'ellipse' && (
+            <ellipse
+              cx={shape.x + shape.w / 2}
+              cy={shape.y + shape.h / 2}
+              rx={shape.w / 2}
+              ry={shape.h / 2}
+              stroke={ink.colour}
+              strokeWidth={ink.width}
+              fill="none"
+              opacity={0.6}
+            />
+          )}
+          {shape && tool === 'rect' && (
             <rect
               x={shape.x}
               y={shape.y}
               width={shape.w}
               height={shape.h}
-              rx={tool === 'ellipse' ? Math.min(shape.w, shape.h) / 2 : 4}
-              stroke="currentColor"
+              rx={4}
+              stroke={ink.colour}
               strokeWidth={ink.width}
               fill="none"
-              opacity={0.5}
+              opacity={0.6}
             />
           )}
 

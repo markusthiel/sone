@@ -18,6 +18,9 @@ single hardcoded `null` — nobody's edits were ever recorded, on any page, sinc
 the panel was built. Writing done from now on is attributed; anything typed before
 this cannot be, because the information was never captured.
 
+**The canvas tools are icons**, and a line is now visible while it is being
+drawn.
+
 **A canvas has shapes, pictures and a ruling.** Rectangles, ellipses and lines are
 dragged out like a selection; a picture can be inserted from the toolbar as well as
 dropped; and the board can be dotted, squared, lined or plain.

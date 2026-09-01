@@ -1577,6 +1577,8 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   border-block-end: 1px solid var(--border-subtle);
 }
 .canvas-tool {
+  display: inline-flex;
+  align-items: center;
   min-block-size: var(--sone-control);
   padding-inline: var(--sone-space-3);
   border: 1px solid transparent;
@@ -1595,6 +1597,15 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   font-weight: 600;
 }
 .canvas-tool.destructive { margin-inline-start: auto; color: var(--sone-danger); }
+
+/* A tool that is its own mark: square, so seven of them read as one row of
+   instruments rather than seven buttons of different widths. */
+.canvas-tool.mark {
+  inline-size: var(--sone-control);
+  padding-inline: 0;
+  justify-content: center;
+}
+.canvas-tool.mark svg { inline-size: 17px; block-size: 17px; }
 
 /* The plane. Scrolls in both directions, which is the one place in this
    application where sideways scrolling is the point rather than a fault. */

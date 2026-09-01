@@ -848,3 +848,27 @@ test('the first swatch is the mark the entry already wears', () => {
   const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
   assert.match(sidebar, /kind=\{node\.kind\}/);
 });
+
+test('the canvas tools are marks, and each still says what it is', () => {
+  // Seven labels in a row is most of the bar, and each of these is the thing it
+  // makes — a rectangle is a rectangle — which is the condition for dropping the
+  // word.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /\['rect', RectangleIcon\]/);
+  assert.match(canvas, /\['erase', EraserIcon\]/);
+  assert.match(canvas, /title=\{t\(`canvas\.tool\.\$\{id\}`/);
+  assert.match(canvas, /aria-label=\{t\(`canvas\.tool\.\$\{id\}`/);
+});
+
+test('a line is visible while it is being drawn', () => {
+  // It had no preview at all: the box preview was suppressed for a line and
+  // nothing took its place, so it appeared only once the pointer was released.
+  // Drawing something you cannot see until you commit to it is drawing blind.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /shape && shaping\.current && tool === 'line'/);
+  assert.doesNotMatch(canvas, /shape && tool !== 'line'/);
+  // And each preview is drawn the way the finished thing will be, so the result
+  // is not a surprise.
+  assert.match(canvas, /shape && tool === 'ellipse'/);
+  assert.match(canvas, /shape && tool === 'rect'/);
+});
