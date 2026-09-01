@@ -22,6 +22,14 @@ export interface ClientCredentials {
   sessionToken?: string;
   shareToken?: string;
   displayName?: string;
+  /**
+   * Who is editing, for attribution (ADR-0022).
+   *
+   * Absent for a share-link guest, who has no user id to record *against* —
+   * attributing to "a guest" would produce one contributor that is really
+   * several people, which is worse than saying nothing.
+   */
+  userId?: string;
 }
 
 /**
@@ -55,7 +63,7 @@ export function useSoneClient(credentials: ClientCredentials | null): {
   // Serialised so the effect re-runs on a real change rather than on every
   // render, without asking callers to memoise the object themselves.
   const key = credentials
-    ? `${credentials.workspaceId}|${credentials.shareToken ?? ''}|${credentials.displayName ?? ''}`
+    ? `${credentials.workspaceId}|${credentials.shareToken ?? ''}|${credentials.displayName ?? ''}|${credentials.userId ?? ''}`
     : null;
 
   const client = useMemo(() => {
@@ -92,7 +100,12 @@ export function useSoneClient(credentials: ClientCredentials | null): {
       presence: {
         displayName: credentials.displayName ?? 'Someone',
         color: pickColor(credentials.displayName ?? ''),
-        userId: null,
+        // The person, so their edits can be attributed. This was hardcoded to
+        // null, which switched attribution off everywhere: `recordAttribution`
+        // returns early without a user id, so no mapping was ever written and
+        // the people panel had nothing to list — on every page, since the day it
+        // was built.
+        userId: credentials.userId ?? null,
         isAnonymous: Boolean(credentials.shareToken),
       },
       onStateChange: (next) => {
