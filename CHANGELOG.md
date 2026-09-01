@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a canvas was drawn as a document in the tree.** It has a brush of its
+own now, and the three things you can add are shown with the marks the tree draws
+them with.
+
 **A canvas has no scrollbars and no edges.** It fills the window below the
 heading, the wheel moves the board, ⌘ or Ctrl with the wheel zooms about the
 pointer, and the percentage takes you back to where you started.

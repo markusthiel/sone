@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { useT } from '../i18n/useT.tsx';
-import { FolderPlusIcon, PenIcon, PlusIcon } from './icons.tsx';
+import { BrushIcon, FolderIcon, PageIcon, PlusIcon } from './icons.tsx';
 
 export function AddEntryMenu({
   title,
@@ -65,9 +65,11 @@ export function AddEntryMenu({
         <div className="tree-add-menu" role="menu">
           {(
             [
-              ['page', 'entry.newPage', PlusIcon],
-              ['canvas', 'canvas.new', PenIcon],
-              ['folder', 'entry.newFolder', FolderPlusIcon],
+              // The marks the tree draws these with, so the menu says what each
+              // one *is* rather than saying "add" three times.
+              ['page', 'entry.newPage', PageIcon],
+              ['canvas', 'canvas.new', BrushIcon],
+              ['folder', 'entry.newFolder', FolderIcon],
             ] as const
           ).map(([kind, key, Mark]) => (
             <button

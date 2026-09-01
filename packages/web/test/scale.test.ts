@@ -618,7 +618,14 @@ test('a canvas is told apart in the tree, not only on opening it', () => {
   // A list where a drawing and a document look the same is a list you have to
   // click to read.
   const icon = codeOf(new URL('../src/components/EntryIconView.tsx', import.meta.url));
-  assert.match(icon, /kind === 'canvas'\) return <PenIcon \/>/);
+  // A brush, not the pen: the pen is the tool *on* a board, and the board wants
+  // a mark of its own — otherwise the thing and the instrument for using it are
+  // the same picture.
+  assert.match(icon, /kind === 'canvas'\) return <BrushIcon \/>/);
+  // And the tree passes the entry's own kind rather than "folder or else page",
+  // which is why every board was drawn as a document.
+  const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+  assert.match(sidebar, /<EntryIconView icon=\{node\.icon\} kind=\{node\.kind\}/);
   assert.match(icon, /'page' \| 'folder' \| 'row' \| 'canvas'/);
 });
 
@@ -710,7 +717,11 @@ test('a canvas can be started where anything else can', () => {
   // In the ⋮ menu the kind comes from the list rather than being written three
   // times, so this reads the list.
   assert.match(menu, /onCreate\(node\.id, kind\)/, 'and in the ⋮ menu');
-  assert.match(menu, /\['canvas', 'canvas\.new', PenIcon\]/);
+  assert.match(menu, /\['canvas', 'canvas\.new', BrushIcon\]/);
+  // The three marks are the ones the tree draws these with: a `+` and a
+  // folder-with-a-plus were marks for *adding*, which the row already says.
+  assert.match(menu, /\['page', 'entry\.newPage', PageIcon\]/);
+  assert.match(menu, /\['folder', 'entry\.newFolder', FolderIcon\]/);
 
   // The order is how often each is wanted, in both menus: page, canvas, folder.
   const add = codeOf(new URL('../src/components/AddEntryMenu.tsx', import.meta.url));

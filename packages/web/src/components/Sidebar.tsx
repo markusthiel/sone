@@ -33,7 +33,6 @@ import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
 import {
-  PenIcon,
   ChevronRightIcon,
   FolderIcon,
   FolderPlusIcon,
@@ -478,7 +477,10 @@ function TreeLevel({
                   href={paths.page(node.id, node.title)}
                   {...(node.id === currentPageId ? { 'aria-current': 'page' as const } : {})}
                 >
-                  <EntryIconView icon={node.icon} kind={isFolder ? 'folder' : 'page'} />{' '}
+                  {/* The entry's own kind, not "folder or else page". A canvas
+                      could not reach the icon at all through that, so every
+                      board in the tree was drawn as a document. */}
+                  <EntryIconView icon={node.icon} kind={node.kind} />{' '}
                   <span style={titleColorStyle(node.icon)}>{title}</span>
                 </a>
               )}
