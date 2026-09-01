@@ -21,6 +21,10 @@ dropped; and the board can be dotted, squared, lined or plain.
 was being placed thousands of pixels off screen. A note placed with the text tool
 also has the caret straight away now.
 
+**Fixed: the icon picker offered a sheet as a canvas's default.** The first
+swatch — the one that means "no icon of its own" — now shows the brush, and is
+selected until another is chosen.
+
 **Fixed: a canvas was drawn as a document in the tree.** It has a brush of its
 own now, and the three things you can add are shown with the marks the tree draws
 them with.
