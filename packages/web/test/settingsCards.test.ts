@@ -43,18 +43,20 @@ test('a counted thing with a paragraph is stacked, not columned', () => {
   assert.match(admin, /className="settings-list explained"/);
 });
 
-test('the gutter is placed against the frame that actually contains it', () => {
-  // `.main` carries `container-type: inline-size`, which applies layout
-  // containment — and that makes it the containing block for `position: fixed`
-  // descendants. Window coordinates applied there land a sidebar's width to the
-  // right, which is how the controls ended up in the middle of a line of text.
+test('the gutter re-measures when the text moves, not only when the window does', () => {
+  // I got this wrong once and the test froze the mistake: I decided the cause
+  // was `.main`'s container type making it the containing block for
+  // `position: fixed`, subtracted its offset, and asserted the subtraction. The
+  // controls then sat in the sidebar — fixed does mean the window here.
+  //
+  // The actual cause is a stale anchor: opening the page panel narrows the
+  // editor without any window event, so the position was the text's old one. So
+  // what is asserted now is the re-measure, and that the subtraction is gone.
   const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
-  assert.match(menu, /view\.dom\.closest\('\.main'\)\?\.getBoundingClientRect\(\)/);
-  assert.match(menu, /top: box\.top - originY/);
-  assert.match(menu, /- originX/);
+  assert.doesNotMatch(menu, /originX|closest\('\.main'\)/);
+  assert.match(menu, /useViewportChanges\(from !== null, view\.dom as HTMLElement\)/);
 
-  // And the reason it is a containing block is still in the stylesheet, so the
-  // two stay connected: removing the container type would make this correction
-  // wrong.
-  assert.match(css, /\.main \{[^}]*container-type: inline-size/s);
+  const hook = codeOf(new URL('../src/hooks/useViewportChanges.ts', import.meta.url));
+  assert.match(hook, /new ResizeObserver\(bump\)/);
+  assert.match(hook, /observer\?\.disconnect\(\)/, 'and disconnected');
 });

@@ -79,9 +79,14 @@ it has a surface. A line under it appears only once the page is scrolled, becaus
 that is the only moment it has a job: saying that something is above.
 
 Floating buttons over the content were rejected for a reason already visible in
-this application: the gutter controls float over the text and collide with the
-placeholder. A control with nothing behind it is a control that will one day sit
-on top of a word.
+this application: the gutter controls float over the text, and they were found
+sitting on top of the placeholder. A control with nothing behind it is a control
+that will one day sit on top of a word.
+
+(The cause of that particular collision was a stale position, not the floating
+itself — the editor's width changes when the page panel opens, with no window
+event to notice. It is fixed by watching the editor's own box. The argument
+against floating chrome stands on its own.)
 
 ### The two toggles are the same kind of thing, and now look it
 
@@ -96,6 +101,28 @@ to the same place is a second thing to learn. What is genuinely missing when the
 sidebar is hidden is not a home button but the page's *trail* — which folder this
 page is in — and that is a feature rather than a button. Written down here so the
 next person knows the button was considered and declined.
+
+## An animation library
+
+Asked: would one make this feel more polished?
+
+**No, and the reason is not the bundle.** The constraint that makes motion cheap
+is *what* is animated, not what animates it — `transform` and `opacity`, and
+never a height. A library does not lift that constraint; the popular ones
+actively encourage crossing it, because animating layout is what their layout
+animations are for.
+
+What a library buys is spring physics, gesture-driven motion and orchestrated
+sequences. This application has none of those problems: every piece of motion
+here is one property changing once when a state changes, which is a CSS
+transition — three lines, no dependency, and it runs on the compositor whether or
+not JavaScript is busy. On a page holding a synced editor, "whether or not
+JavaScript is busy" is the whole argument.
+
+Two things would change this. A drag that follows a finger with momentum, or a
+shared element that has to travel between two layouts. If either arrives, the
+platform's own View Transitions API is the first thing to try, and a library the
+second.
 
 ## Consequences
 
