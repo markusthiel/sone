@@ -159,6 +159,11 @@ export const de: Record<keyof typeof en, string> = {
   'you.workspace.hint':
     'Wo {address, select, formal {Sie gerade sind} other {du gerade bist}}.',
   'you.saved': 'Gespeichert.',
+  'you.save': 'Speichern',
+  'you.passwordChanged':
+    'Geändert. {address, select, formal {Ihre anderen Sitzungen bleiben angemeldet.} ' +
+    'other {Deine anderen Sitzungen bleiben angemeldet.}}',
+  'action.reload': 'Neu laden',
 
   'you.currentPassword': 'Aktuelles Passwort',
   'you.newPassword': 'Neues Passwort',
