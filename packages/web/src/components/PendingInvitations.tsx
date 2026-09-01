@@ -18,6 +18,7 @@
  * be done here is see that it exists and withdraw it.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type PendingInvitation } from '../api/client.ts';
@@ -37,6 +38,7 @@ interface Props {
 }
 
 export function PendingInvitations({ workspaceId, reloadToken }: Props): ReactElement | null {
+  const { t } = useT();
   const [invitations, setInvitations] = useState<PendingInvitation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,12 +65,12 @@ export function PendingInvitations({ workspaceId, reloadToken }: Props): ReactEl
 
   return (
     <section className="settings-section">
-      <h3 className="settings-heading">Outstanding invitations</h3>
+      <h3 className="settings-heading">{t('invite.outstanding')}</h3>
 
       {error && <p className="error">{messageFor(error)}</p>}
 
       {invitations === null ? (
-        !error && <p className="muted">Loading…</p>
+        !error && <p className="muted">{t('trash.loading')}</p>
       ) : (
         <table className="workspace-table">
           <thead>
@@ -76,9 +78,9 @@ export function PendingInvitations({ workspaceId, reloadToken }: Props): ReactEl
               <th>For</th>
               {/* A role only where there is one: an invitation to the instance
                   names no workspace, so it names no role in one either. */}
-              {workspaceId !== null && <th>Role</th>}
-              <th>Used</th>
-              <th>Expires</th>
+              {workspaceId !== null && <th>{t('invite.role')}</th>}
+              <th>{t('invite.used')}</th>
+              <th>{t('invite.expires')}</th>
               <th />
             </tr>
           </thead>
@@ -87,7 +89,7 @@ export function PendingInvitations({ workspaceId, reloadToken }: Props): ReactEl
               <tr key={invitation.id}>
                 <td>
                   {invitation.email ?? (
-                    <span className="muted">Anybody with the link</span>
+                    <span className="muted">{t('invite.anybodyWithLink')}</span>
                   )}
                 </td>
                 {workspaceId !== null && <td>{invitation.role}</td>}
@@ -118,7 +120,7 @@ export function PendingInvitations({ workspaceId, reloadToken }: Props): ReactEl
                         );
                     }}
                   >
-                    Withdraw
+                    {t('invite.withdraw')}
                   </button>
                 </td>
               </tr>

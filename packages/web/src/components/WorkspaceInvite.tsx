@@ -7,6 +7,7 @@
  * land in both their own workspace and this one.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useState, type ReactElement } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
@@ -21,6 +22,7 @@ const ROLES: Array<{ id: string; label: string; hint: string }> = [
 ];
 
 export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): ReactElement {
+  const { t } = useT();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('member');
   const [link, setLink] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
 
   return (
     <section className="settings-section">
-      <h3 className="settings-heading">Invite somebody here</h3>
+      <h3 className="settings-heading">{t('invite.here')}</h3>
       <p className="muted">
         Works whether or not they already have an account. With one, the link
         asks them to join and their own workspace is untouched. Without one,
@@ -65,7 +67,7 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
           id="ws-invite-email"
           type="email"
           value={email}
-          placeholder="someone@example.org"
+          placeholder={t('invite.emailPlaceholder')}
           onChange={(event) => {
             setLink(null);
             setEmail(event.target.value);
@@ -78,7 +80,7 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
       </div>
 
       <div className="field">
-        <label htmlFor="ws-invite-role">They join as</label>
+        <label htmlFor="ws-invite-role">{t('invite.joinAs')}</label>
         <select
           id="ws-invite-role"
           value={role}
@@ -104,7 +106,7 @@ export function WorkspaceInvite({ workspaceId }: { workspaceId: string }): React
 
       {link && (
         <div className="field">
-          <label htmlFor="ws-invite-link">Invitation link</label>
+          <label htmlFor="ws-invite-link">{t('invite.link')}</label>
           <input
             id="ws-invite-link"
             readOnly

@@ -16,6 +16,7 @@
  * makes people ask whether they are in the right place.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceMember } from '../api/client.ts';
@@ -31,6 +32,7 @@ export function WorkspaceMembers({
   /** Whether to offer the controls. The server decides; this only draws. */
   canAdminister: boolean;
 }): ReactElement {
+  const { t } = useT();
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,7 +63,7 @@ export function WorkspaceMembers({
     return (
       <>
         {error && <p className="error">{messageFor(error)}</p>}
-        {!error && <p className="muted">Loading…</p>}
+        {!error && <p className="muted">{t('trash.loading')}</p>}
       </>
     );
   }
@@ -72,9 +74,9 @@ export function WorkspaceMembers({
       <table className="workspace-table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Role</th>
-            <th>Since</th>
+            <th>{t('member.name')}</th>
+            <th>{t('member.role')}</th>
+            <th>{t('member.since')}</th>
             {canAdminister && <th />}
           </tr>
         </thead>
@@ -109,7 +111,7 @@ export function WorkspaceMembers({
                     className="btn"
                     onClick={() => act(api.removeMember(workspaceId, member.userId))}
                   >
-                    Remove
+                    {t('member.remove')}
                   </button>
                 </td>
               )}

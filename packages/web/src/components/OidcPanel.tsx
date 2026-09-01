@@ -7,6 +7,7 @@
  * is off — not the credential itself.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
@@ -29,6 +30,7 @@ const EMPTY: Settings = {
 };
 
 export function OidcPanel(): ReactElement {
+  const { t } = useT();
   const [settings, setSettings] = useState<Settings>(EMPTY);
   const [hasSecret, setHasSecret] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +96,7 @@ export function OidcPanel(): ReactElement {
       <div className="settings-card">
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Issuer</b>
+            <b>{t('oidc.issuer')}</b>
             <span>
               The provider&rsquo;s base URL. Everything else is read from its
               discovery document, so nothing here needs to know which provider
@@ -103,21 +105,21 @@ export function OidcPanel(): ReactElement {
           </span>
           <input
             id="oidc-issuer"
-            aria-label="Issuer"
+            aria-label={t('oidc.issuer')}
             value={settings.issuer}
-            placeholder="https://login.example.org/realms/main"
+            placeholder={t('oidc.issuerPlaceholder')}
             onChange={(event) => change('issuer', event.target.value)}
           />
         </div>
 
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Client ID</b>
-            <span>As registered with the provider.</span>
+            <b>{t('oidc.clientId')}</b>
+            <span>{t('oidc.asRegistered')}</span>
           </span>
           <input
             id="oidc-client"
-            aria-label="Client ID"
+            aria-label={t('oidc.clientId')}
             value={settings.clientId}
             onChange={(event) => change('clientId', event.target.value)}
           />
@@ -125,7 +127,7 @@ export function OidcPanel(): ReactElement {
 
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Button label</b>
+            <b>{t('oidc.buttonLabel')}</b>
             <span>
               What the sign-in page says. People recognise their own login by
               name, not by the protocol behind it.
@@ -133,7 +135,7 @@ export function OidcPanel(): ReactElement {
           </span>
           <input
             id="oidc-label"
-            aria-label="Button label"
+            aria-label={t('oidc.buttonLabel')}
             value={settings.buttonLabel}
             onChange={(event) => change('buttonLabel', event.target.value)}
           />
@@ -146,7 +148,7 @@ export function OidcPanel(): ReactElement {
           checked={settings.allowSignup}
           onChange={(event) => change('allowSignup', event.target.checked)}
         />
-        Let people without an account here sign up through the provider
+        {t('oidc.allowSignup')}
       </label>
       <p className="muted">
         Off by default. Trusting a provider to say who somebody is does not
@@ -160,7 +162,7 @@ export function OidcPanel(): ReactElement {
           disabled={!hasSecret}
           onChange={(event) => change('enabled', event.target.checked)}
         />
-        Show the button on the sign-in page
+        {t('oidc.showButton')}
       </label>
 
       <p className="muted">
@@ -172,7 +174,7 @@ export function OidcPanel(): ReactElement {
         <button type="button" className="btn primary" disabled={busy} onClick={save}>
           {busy ? 'Saving…' : 'Save'}
         </button>
-        {saved && <span className="muted">Saved.</span>}
+        {saved && <span className="muted">{t('action.saved')}</span>}
       </div>
     </section>
   );

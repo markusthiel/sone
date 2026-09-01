@@ -190,6 +190,56 @@ export const en = {
   'workspace.mark': 'Mark',
   'workspace.saveFailed': 'Could not save that. Try again.',
 
+  // --- invitations -------------------------------------------------------
+  'invite.email': 'Email address',
+  'invite.emailPlaceholder': 'someone@example.org',
+  'invite.link': 'Invitation link',
+  'invite.here': 'Invite somebody here',
+  'invite.joinAs': 'They join as',
+  'invite.outstanding': 'Outstanding invitations',
+  'invite.anybodyWithLink': 'Anybody with the link',
+  'invite.role': 'Role',
+  'invite.expires': 'Expires',
+  'invite.used': 'Used',
+  'invite.withdraw': 'Withdraw',
+
+  // --- groups and page permissions ---------------------------------------
+  'group.new': 'New group',
+  'group.namePlaceholder': 'Editors',
+  'group.addSomebody': 'Add somebody',
+  'group.choosePerson': 'Choose a person…',
+  'group.nobody': 'Nobody yet.',
+  'group.create': 'Create',
+  'group.delete': 'Delete',
+  'group.remove': 'Remove',
+  'perm.people': 'People',
+  'perm.peopleHere': 'People in this workspace',
+  'perm.groups': 'Groups',
+  'perm.addGroup': 'Add a group',
+  'perm.chooseGroup': 'Choose a group…',
+  'perm.checking': 'Checking…',
+  'perm.onlyAdded': 'Only people added below',
+  'perm.remove': 'Remove',
+
+  // --- single sign-on ----------------------------------------------------
+  'oidc.issuer': 'Issuer',
+  'oidc.issuerPlaceholder': 'https://login.example.org/realms/main',
+  'oidc.clientId': 'Client ID',
+  'oidc.buttonLabel': 'Button label',
+  'oidc.asRegistered': 'As registered with the provider.',
+  'oidc.showButton': 'Show the button on the sign-in page',
+  'oidc.allowSignup': 'Let people without an account here sign up through the provider',
+
+  // --- who is in a workspace ---------------------------------------------
+  'member.name': 'Name',
+  'member.role': 'Role',
+  'member.since': 'Since',
+  'member.remove': 'Remove',
+
+  // --- tags --------------------------------------------------------------
+  'tag.add': 'Add a tag',
+  'tag.none': 'None',
+
   // --- sharing a page ----------------------------------------------------
   'share.label': 'Share',
   'share.anyoneWithLink': 'Anyone with a link',

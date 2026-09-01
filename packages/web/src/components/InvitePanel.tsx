@@ -7,6 +7,7 @@
  * meant placing them.
  */
 
+import { useT } from '../i18n/useT.tsx';
 import { useState, type ReactElement } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
@@ -15,6 +16,7 @@ import { messageFor } from './Auth.tsx';
 import { PendingInvitations } from './PendingInvitations.tsx';
 
 export function InvitePanel(): ReactElement {
+  const { t } = useT();
   const [email, setEmail] = useState('');
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export function InvitePanel(): ReactElement {
       <div className="settings-card">
         <div className="settings-row">
           <span className="settings-row-label">
-            <b>Email address</b>
+            <b>{t('invite.email')}</b>
             <span>
               Optional. With one, the invitation is for that person and can be
               used once. Without one it is a link anybody holding it may use —
@@ -66,10 +68,10 @@ export function InvitePanel(): ReactElement {
           </span>
           <input
             id="invite-email"
-            aria-label="Email address"
+            aria-label={t('invite.email')}
             type="email"
             value={email}
-            placeholder="someone@example.org"
+            placeholder={t('invite.emailPlaceholder')}
             onChange={(event) => {
               setLink(null);
               setEmail(event.target.value);
@@ -93,7 +95,7 @@ export function InvitePanel(): ReactElement {
         <div className="settings-card">
           <div className="settings-row">
             <span className="settings-row-label">
-              <b>Invitation link</b>
+              <b>{t('invite.link')}</b>
               <span>
                 Copy it now — it is not stored anywhere it can be read again.
                 Send it to the person yourself; this instance does not send mail.
@@ -101,7 +103,7 @@ export function InvitePanel(): ReactElement {
             </span>
             <input
               id="invite-link"
-              aria-label="Invitation link"
+              aria-label={t('invite.link')}
               readOnly
               value={link}
               onFocus={(e) => e.target.select()}

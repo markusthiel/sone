@@ -215,6 +215,62 @@ export const de: Record<keyof typeof en, string> = {
   'workspace.mark': 'Zeichen',
   'workspace.saveFailed': 'Das konnte nicht gespeichert werden. Bitte noch einmal.',
 
+  // --- Einladungen -------------------------------------------------------
+  'invite.email': 'E-Mail-Adresse',
+  'invite.emailPlaceholder': 'jemand@example.org',
+  'invite.link': 'Einladungslink',
+  'invite.here': 'Jemanden hierher einladen',
+  'invite.joinAs': 'Tritt bei als',
+  'invite.outstanding': 'Offene Einladungen',
+  'invite.anybodyWithLink': 'Jeder mit dem Link',
+  'invite.role': 'Rolle',
+  'invite.expires': 'Läuft ab',
+  'invite.used': 'Benutzt',
+  'invite.withdraw': 'Zurückziehen',
+
+  // --- Gruppen und Seitenrechte ------------------------------------------
+  'group.new': 'Neue Gruppe',
+  // Ein Beispielname, kein Wort zum Übersetzen — und im Deutschen heißt die
+  // Rolle „Bearbeiter", also steht das hier auch.
+  'group.namePlaceholder': 'Bearbeiter',
+  'group.addSomebody': 'Jemanden hinzufügen',
+  'group.choosePerson': 'Eine Person wählen…',
+  'group.nobody': 'Noch niemand.',
+  'group.create': 'Anlegen',
+  'group.delete': 'Löschen',
+  'group.remove': 'Entfernen',
+  'perm.people': 'Leute',
+  'perm.peopleHere': 'Leute in diesem Workspace',
+  'perm.groups': 'Gruppen',
+  'perm.addGroup': 'Gruppe hinzufügen',
+  'perm.chooseGroup': 'Eine Gruppe wählen…',
+  'perm.checking': 'Wird geprüft…',
+  'perm.onlyAdded': 'Nur die unten hinzugefügten Leute',
+  'perm.remove': 'Entfernen',
+
+  // --- Single Sign-on ----------------------------------------------------
+  // Die Feldnamen bleiben, wie der Anbieter sie nennt: „Issuer" und „Client ID"
+  // stehen so in jeder Konfigurationsoberfläche, und übersetzt findet sie
+  // niemand wieder.
+  'oidc.issuer': 'Issuer',
+  'oidc.issuerPlaceholder': 'https://login.example.org/realms/main',
+  'oidc.clientId': 'Client ID',
+  'oidc.buttonLabel': 'Text auf dem Knopf',
+  'oidc.asRegistered': 'So, wie beim Anbieter eingetragen.',
+  'oidc.showButton': 'Den Knopf auf der Anmeldeseite zeigen',
+  'oidc.allowSignup':
+    'Leute ohne Konto hier dürfen sich über den Anbieter registrieren',
+
+  // --- wer in einem Workspace ist ----------------------------------------
+  'member.name': 'Name',
+  'member.role': 'Rolle',
+  'member.since': 'Seit',
+  'member.remove': 'Entfernen',
+
+  // --- Schlagwörter ------------------------------------------------------
+  'tag.add': 'Schlagwort hinzufügen',
+  'tag.none': 'Keine',
+
   // --- eine Seite teilen -------------------------------------------------
   'share.label': 'Teilen',
   'share.anyoneWithLink': 'Jeder mit dem Link',
