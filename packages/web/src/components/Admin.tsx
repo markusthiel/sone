@@ -388,10 +388,7 @@ export function UsersPanel(): ReactElement {
       </div>
 
       <p className="muted settings-note">
-        Deactivating keeps the account and its work, and signs it out
-        immediately. Accounts are never deleted from here: removing one would
-        take every page it created with it, and “this person has left” is not
-        “their work never happened”.
+        {t('admin.accounts.note')}
       </p>
     </section>
   );
@@ -539,8 +536,7 @@ export function MaintenancePanel(): ReactElement {
           <p className="admin-alert-title">{t('admin.uploadsUnwritable')}</p>
           <p className="admin-alert-detail">{report.storage.problem}</p>
           <p className="admin-alert-detail muted">
-            The container runs as uid 10001 and cannot change this itself. From
-            the host, as root inside the running container:
+            {t('admin.storage.fix')}
             <code>docker exec -u 0 &lt;container&gt; chown -R 10001:10001 /var/lib/sone</code>
             {t('admin.reloadNote')}
           </p>
@@ -549,9 +545,7 @@ export function MaintenancePanel(): ReactElement {
                 looks like it worked: Compose prefixes volume names with the
                 project name, and `docker run -v` given a name that does not
                 exist creates an empty volume and changes that instead. */}
-            Address the container rather than the volume. A volume name guessed
-            wrongly is created empty rather than reported missing, so the command
-            appears to succeed and nothing changes.
+            {t('admin.storage.volumeWarning')}
           </p>
         </div>
       )}
@@ -560,26 +554,29 @@ export function MaintenancePanel(): ReactElement {
         <p className="muted">{t('admin.nothingToReport')}</p>
       )}
 
-      <dl className="settings-list">
+      {/* Stacked rather than two columns: each of these is a label, a count and a
+          paragraph, and a paragraph in the right-hand column of a two-column
+          grid is a ribbon beside a number. */}
+      <dl className="settings-list explained">
         <Anomaly
-          label="Orphaned entries"
+          label={t('admin.anomaly.orphaned')}
           count={counts.orphanedPages}
-          explain="A parent that has not arrived yet. Transient during sync; a persistent count means a page whose folder was never created."
+          explain={t('admin.anomaly.orphaned.explain')}
         />
         <Anomaly
-          label="Entries inside pages"
+          label={t('admin.anomaly.nested')}
           count={counts.entriesInsidePages}
-          explain="Only folders may hold children. The API refuses to create these, so a count here means a client wrote one directly."
+          explain={t('admin.anomaly.nested.explain')}
         />
         <Anomaly
-          label="Stale search rows"
+          label={t('admin.anomaly.staleSearch')}
           count={counts.staleSearchRows}
-          explain="Indexed with an older text configuration. Re-materialise the affected workspaces."
+          explain={t('admin.anomaly.staleSearch.explain')}
         />
         <Anomaly
-          label="Failed projections"
+          label={t('admin.anomaly.failed')}
           count={counts.failedMaterialisations}
-          explain="A document the projection could not read. The page still exists and syncs; it is missing from search and from the tree."
+          explain={t('admin.anomaly.failed.explain')}
         />
         <dt>{t('admin.waitingToProject')}</dt>
         <dd>
