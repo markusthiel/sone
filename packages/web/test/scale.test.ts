@@ -641,3 +641,27 @@ test('resizing is a corner on the selected item, and it is one write', () => {
   assert.match(canvas, /const \[ink, setInk\]/);
   assert.match(canvas, /colour: ink\.colour,\s*\n\s*width: ink\.width,/);
 });
+
+test('the pointer is divided by the zoom, everywhere', () => {
+  // The classic canvas bug: things land where you clicked at 100% and nowhere
+  // near it at any other size. One division, in one place, because the plane is
+  // scaled from its own origin and panning stays the scroller's job.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  const reader = canvas.slice(canvas.indexOf('const at = useCallback'), canvas.indexOf('const onSurfaceDown'));
+  assert.match(reader, /\) \/ zoom,/);
+  assert.equal([...reader.matchAll(/\/ zoom/g)].length, 2, 'both axes, and only there');
+  assert.match(canvas, /transform: `scale\(\$\{zoom\}\)`/);
+  assert.match(canvas, /transformOrigin: '0 0'/);
+});
+
+test('a band catches what it touches, and the eraser takes the topmost', () => {
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  // Touching rather than enclosing: a stroke that starts outside the band is
+  // still one somebody meant to catch.
+  assert.match(canvas, /function overlaps\(/);
+  assert.match(canvas, /items\.filter\(\(item\) => overlaps\(item, band\)\)/);
+  // Topmost first, which is the order the eye uses.
+  assert.match(canvas, /\[\.\.\.items\]\.reverse\(\)\.find\(\(item\) => within\(item, point\)\)/);
+  // A stroke has no width and height of its own, so its box is measured.
+  assert.match(canvas, /function boxOf\(/);
+});
