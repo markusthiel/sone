@@ -21,7 +21,8 @@ an entry's menu, a pen in five colours and any thickness, text notes you can pla
 and drag anywhere, pictures dropped straight onto the board, and a corner to
 resize what is selected. It zooms from a quarter to three times, drags a band across the
 board to catch several things and move them together, pans with the middle button
-or a held space, and has an eraser. Everything on it merges
+or a held space, has an eraser, and undoes with ⌘Z — your own changes only, never
+somebody else's. Everything on it merges
 properly when two people work at once. Connectors between items are not built.
 
 **A page can be set to the full width of the window**, under Width in the panel

@@ -213,6 +213,24 @@ export function DuplicateIcon(props: IconProps): ReactElement {
   );
 }
 
+/**
+ * Undo, and the same arrow mirrored for redo.
+ *
+ * One shape for both, because they are one idea in two directions — and two
+ * unrelated glyphs beside each other is two things to learn for a pair everybody
+ * already knows. Redo mirrors it in CSS: which way an arrow points is
+ * presentation, and an icon that takes a prop for it is an icon that no longer
+ * takes only the shared ones.
+ */
+export function ArrowUturnIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 7H15a4.5 4.5 0 0 1 0 9h-3" />
+      <path d="M11.5 4.5L9 7l2.5 2.5" />
+    </svg>
+  );
+}
+
 /** A pen, for a canvas: a nib on a stroke. */
 export function PenIcon(props: IconProps): ReactElement {
   return (
