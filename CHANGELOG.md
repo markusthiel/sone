@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The document format is version 3.** A browser holding an older build is asked to
+reload rather than being shown a canvas it cannot draw.
+
 **A page can be a canvas** ([ADR-0043](docs/adr/0043-canvas.md)) — the first slice:
 "New canvas" in an entry's menu, a pen that draws, text notes you can place and
 drag anywhere, and everything on it merging properly when two people work at once.

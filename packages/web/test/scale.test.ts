@@ -611,3 +611,11 @@ test('a canvas is a page, not a screen of its own', () => {
   assert.match(view, /isCanvas \? \(\s*<CanvasSurface/);
   assert.match(view, /useEntryKind\(handle\?\.doc \?\? null\) === 'canvas'/);
 });
+
+test('a canvas is told apart in the tree, not only on opening it', () => {
+  // A list where a drawing and a document look the same is a list you have to
+  // click to read.
+  const icon = codeOf(new URL('../src/components/EntryIconView.tsx', import.meta.url));
+  assert.match(icon, /kind === 'canvas'\) return <PenIcon \/>/);
+  assert.match(icon, /'page' \| 'folder' \| 'row' \| 'canvas'/);
+});

@@ -108,6 +108,15 @@ not know what a canvas is refuses to open it instead of emptying it.
 
 That check is a prerequisite of this feature, not a follow-up.
 
+**Written before the code and corrected after it:** the check was already
+enforced — a previous release bumped the version to 2 and calls
+`isClientSchemaCompatible` in the handshake. What that did *not* cover is the
+case this feature creates: the release before this one also called itself
+version 2, so a browser holding yesterday's bundle passes the handshake and then
+finds a page shape it has never met. "Same version, different format" is the one
+mismatch a handshake cannot catch, so the version moves to 3 — not because the
+persisted shape changed under an old client, but because the set of shapes did.
+
 ## What is deliberately not decided
 
 **Infinite scroll versus a fixed sheet.** Both are defensible and the choice

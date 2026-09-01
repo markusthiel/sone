@@ -11,7 +11,7 @@ import { colorValue } from '@sone/core';
 import * as lucide from 'lucide-react';
 import type { ReactElement } from 'react';
 
-import { FolderIcon, PageIcon } from './icons.tsx';
+import { FolderIcon, PenIcon, PageIcon } from './icons.tsx';
 
 /**
  * Every icon the set exports, as the kebab-case names stored in a document.
@@ -69,13 +69,17 @@ function componentFor(name: string): lucide.LucideIcon | null {
 interface EntryIconProps {
   icon: { kind: string; value: string; color?: string } | null;
   /** Drawn when there is no icon of its own. */
-  kind: 'page' | 'folder' | 'row';
+  kind: 'page' | 'folder' | 'row' | 'canvas';
 }
 
 export function EntryIconView({ icon, kind }: EntryIconProps): ReactElement {
   const Chosen = icon && icon.kind === 'icon' ? componentFor(icon.value) : null;
 
   if (!Chosen) {
+    // A canvas is told apart in the tree, not only on opening it: a list where
+    // a drawing and a document look the same is a list you have to click to
+    // read (ADR-0043).
+    if (kind === 'canvas') return <PenIcon />;
     return kind === 'folder' ? <FolderIcon /> : <PageIcon />;
   }
 

@@ -89,6 +89,25 @@ export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [
     // lets the server refuse such a client at the handshake instead.
     migrate: () => {},
   },
+  {
+    from: 2,
+    to: 3,
+    description: 'a canvas page exists; a client that cannot draw one must not open it',
+    // Nothing to change here either, and for a sharper reason than the last one.
+    //
+    // A canvas is a whole second document shape (ADR-0043): a page kind and a
+    // root map of items, neither of which a client from before this release
+    // knows. That client does not destroy a canvas — y-prosemirror never sees
+    // the map — but it opens the page, finds an empty body, and offers somebody
+    // a blank sheet where a drawing is. Writing into it would then produce a
+    // page that is both, which nothing can resolve.
+    //
+    // The previous release also called itself version 2, which is exactly why
+    // this step exists: "same version, different format" is the one thing the
+    // handshake cannot catch, and the only way to fix it is to stop being the
+    // same version.
+    migrate: () => {},
+  },
 ];
 
 /*
