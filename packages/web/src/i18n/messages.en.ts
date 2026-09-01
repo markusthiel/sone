@@ -720,6 +720,7 @@ export const en = {
   // --- a canvas (ADR-0043) ------------------------------------------------
   'canvas.tools': 'Canvas tools',
   'canvas.tool.select': 'Select',
+  'canvas.tool.hand': 'Move the board',
   'canvas.tool.pen': 'Pen',
   'canvas.tool.text': 'Text',
   'canvas.remove': 'Remove this',

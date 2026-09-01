@@ -54,6 +54,7 @@ import {
   CursorIcon,
   EllipseIcon,
   EraserIcon,
+  HandIcon,
   ImageIcon,
   LineIcon,
   PencilIcon,
@@ -62,7 +63,7 @@ import {
   TrashIcon,
 } from './icons.tsx';
 
-type Tool = 'select' | 'pen' | 'text' | 'rect' | 'ellipse' | 'line' | 'erase';
+type Tool = 'select' | 'hand' | 'pen' | 'text' | 'rect' | 'ellipse' | 'line' | 'erase';
 
 /** A stroke's points as an SVG path. Straight segments; a canvas is not calligraphy. */
 function pathFrom(points: number[]): string {
@@ -271,7 +272,7 @@ export function CanvasSurface({
     // drawing tool has trained people to expect. Not a drag with the left
     // button on empty space — that is the rubber band, and a canvas that pans
     // when you meant to select is one you cannot select on.
-    if (event.button === 1 || space) {
+    if (event.button === 1 || space || tool === 'hand') {
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
       panning.current = { x: event.clientX, y: event.clientY, left: pan.x, top: pan.y };
@@ -559,6 +560,10 @@ export function CanvasSurface({
           {(
             [
               ['select', CursorIcon],
+              // A hand, because a phone has neither a middle button nor a space
+              // key — so on the device most likely to be used for drawing there
+              // was no way to move the board at all.
+              ['hand', HandIcon],
               ['pen', PencilIcon],
               ['text', TextIcon],
               ['rect', RectangleIcon],
@@ -739,7 +744,7 @@ export function CanvasSurface({
 
       <div
         className="canvas-surface"
-        data-tool={space ? 'pan' : tool}
+        data-tool={space || tool === 'hand' ? 'pan' : tool}
         ref={surface}
         onPointerDown={onSurfaceDown}
         onPointerMove={onSurfaceMove}

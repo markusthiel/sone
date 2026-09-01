@@ -1047,3 +1047,23 @@ test('a folder shows everything in it, not everything named page', () => {
   const folder = codeOf(new URL('../src/components/FolderView.tsx', import.meta.url));
   assert.match(folder, /children\.filter\(\(child\) => child\.kind !== 'folder'\)/);
 });
+
+test('a swatch is round on a narrow screen', () => {
+  // A flex child shrinks before the row wraps, and on a phone the toolbar is
+  // narrower than its contents — so the colours became ovals.
+  assert.match(css, /\.canvas-ink-choice \{[^}]*flex: none;[^}]*aspect-ratio: 1/s);
+  assert.match(css, /\.canvas-ink-custom \{[^}]*flex: none/s);
+  // And the row wraps rather than squeezing: a row that cannot fit and will not
+  // wrap deforms whatever is most compressible.
+  assert.match(css, /\.canvas-tools \{[^}]*flex-wrap: wrap/s);
+});
+
+test('the board can be moved with a finger', () => {
+  // Panning was the middle button or a held space, and a phone has neither — so
+  // on the device most likely to be drawn on there was no way to move the board.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /\['hand', HandIcon\]/);
+  assert.match(canvas, /event\.button === 1 \|\| space \|\| tool === 'hand'/);
+  // And the cursor says so before the button goes down.
+  assert.match(canvas, /data-tool=\{space \|\| tool === 'hand' \? 'pan' : tool\}/);
+});
