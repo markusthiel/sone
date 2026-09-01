@@ -659,7 +659,48 @@ function ShareRoute({
   // the page rather than on a form.
   const [joined, setJoined] = useState(remembered !== '');
 
-  if (!joined) {
+  /**
+   * Whether this link lets somebody write.
+   *
+   * The name is asked for so that other people can see who is editing — which
+   * makes it pointless on a link that only reads. A reader was being stopped by
+   * a form asking them to identify themselves before showing them a page they
+   * were invited to read, which is a question with no purpose and, on a page
+   * shared with strangers, one they may not want to answer.
+   *
+   * `null` while the answer is on its way: the form is not shown until it is
+   * known, because showing it and then removing it is worse than a moment's
+   * wait.
+   */
+  const [canWrite, setCanWrite] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .resolveShare(token)
+      .then((info) => {
+        // A password-protected link is resolved after the password, so its role
+        // is not known yet — treated as writable, since asking for a name and
+        // not needing it is a smaller fault than not asking and being unable to
+        // attribute.
+        if (!cancelled) setCanWrite(info.requiresPassword || info.role !== 'viewer');
+      })
+      .catch(() => {
+        if (!cancelled) setCanWrite(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  if (canWrite === null && !joined) {
+    return (
+      <div className="centered">
+        <p className="muted">{'…'}</p>
+      </div>
+    );
+  }
+
+  if (!joined && canWrite === true) {
     return (
       <div className="centered">
         <form
@@ -704,7 +745,10 @@ function ShareRoute({
     <ShareSession
       token={token}
       pageId={pageId}
-      displayName={displayName || 'Guest'}
+      // Empty when nobody was asked, which is a reader — and an empty name
+      // records nothing, so a reader leaves no trace in the people panel. That
+      // is the correct outcome: they did not write anything to attribute.
+      displayName={displayName}
     />
   );
 }

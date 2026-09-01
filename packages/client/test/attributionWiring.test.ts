@@ -95,3 +95,21 @@ test('the client passes a guest name only for a guest', async () => {
   const store = readFileSync(new URL('../src/store.ts', import.meta.url), 'utf8');
   assert.match(store, /guestName: this\.opts\.presence\?\.isAnonymous/);
 });
+
+test('a reader is never recorded, even though the document opens for them', () => {
+  // The mapping is written when the document opens rather than when somebody
+  // first types, so an empty name is the only thing keeping a reader out of the
+  // list — and a read-only link never asks for one.
+  const store = readFileSync(new URL('../src/store.ts', import.meta.url), 'utf8');
+  // Written across two lines by the formatter, so this reads it as one.
+  assert.match(store, /guestName: this\.opts\.presence\?\.isAnonymous[\s\S]{0,80}presence\?\.guestName \?\? null/);
+  // Not the presence label, which falls back to something so a cursor has a
+  // name: a reader would then appear as "Someone", having written nothing.
+  assert.doesNotMatch(store, /guestName: this\.opts\.presence\?\.displayName/);
+
+  const hook = readFileSync(
+    new URL('../../web/src/hooks/useSoneClient.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(hook, /guestName: credentials\.displayName \?\? null/);
+});

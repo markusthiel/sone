@@ -47,6 +47,18 @@ lists one person twice for reconnecting — a worse lie than merging two people 
 both chose to be called Anna. A session that gives no name at all is still not
 recorded, and the panel says that separately.
 
+**A read-only link does not ask.** The name exists so other people can see who is
+editing, which makes it pointless on a link that only reads — and on a page shared
+with strangers it is a question somebody may not want to answer to read something
+they were invited to read. So the link's role is resolved first and the form is
+shown only when it grants writing.
+
+That makes an unnamed session the ordinary case rather than an edge one, which
+matters because the mapping is written when the document *opens* rather than when
+somebody first types: without a name there is nothing to record, so a reader
+leaves no trace. Presence still labels their cursor — it needs something to put on
+it — but that label is deliberately not what attribution reads.
+
 **A guest sees attribution.** Somebody editing through a share link is a
 collaborator; hiding from them who wrote what, while showing them the writing,
 would be an odd half-secret. This is the default and is intended to become an
