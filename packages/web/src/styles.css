@@ -1645,6 +1645,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    somewhere specific and the rest of the board stays usable. */
 .canvas-surface[data-busy='true'] { cursor: progress; }
 .canvas-surface[data-tool='erase'] { cursor: cell; }
+/* Space held: the whole plane is a thing to push, so it says so before the
+   button goes down rather than after. */
+.canvas-surface[data-tool='pan'] { cursor: grab; }
+.canvas-surface[data-tool='pan']:active { cursor: grabbing; }
 
 /* The plane inside the scroller. Everything on the canvas is in here, so zooming
    is one transform and nothing else has to know about it. */
