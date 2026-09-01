@@ -32,6 +32,7 @@ import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
 import {
+  PenIcon,
   ChevronRightIcon,
   FolderIcon,
   FolderPlusIcon,
@@ -308,14 +309,28 @@ export function Sidebar({
           />
         )}
 
-        {/* At the bottom of the tree, where the thing it adds to ends. */}
-        <button
-          className="tree-new-folder"
-          type="button"
-          onClick={() => onCreatePage(null, 'folder')}
-        >
-          <FolderPlusIcon /> {t('sidebar.newFolder')}
-        </button>
+        {/* At the bottom of the tree, where the thing it adds to ends.
+          *
+          * Both kinds of container, side by side. A canvas was reachable only
+          * through a folder's ⋮ menu, so somebody with no folders — or somebody
+          * looking at a page — could not find one at all. A thing you can create
+          * has to be offered where creating happens, and this is where. */}
+        <div className="tree-new">
+          <button
+            className="tree-new-folder"
+            type="button"
+            onClick={() => onCreatePage(null, 'folder')}
+          >
+            <FolderPlusIcon /> {t('sidebar.newFolder')}
+          </button>
+          <button
+            className="tree-new-folder"
+            type="button"
+            onClick={() => onCreatePage(null, 'canvas')}
+          >
+            <PenIcon /> {t('canvas.new')}
+          </button>
+        </div>
 
         {/* The face, and the menu behind it (AccountMenu).
           *

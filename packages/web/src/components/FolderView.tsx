@@ -17,7 +17,8 @@ import { useT } from '../i18n/useT.tsx';
 import { type PageNode } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
-import { FolderPlusIcon, PlusIcon } from './icons.tsx';
+import {
+  PenIcon, FolderPlusIcon, PlusIcon } from './icons.tsx';
 
 interface FolderViewProps {
   folder: PageNode;
@@ -100,6 +101,13 @@ export function FolderView({
         </button>
         <button type="button" className="btn" onClick={() => onCreate(folder.id, 'folder')}>
           <FolderPlusIcon /> {t('entry.newFolder')}
+        </button>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => onCreate(folder.id, 'canvas')}
+        >
+          <PenIcon /> {t('canvas.new')}
         </button>
       </div>
 
