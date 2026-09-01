@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the + menu in the tree was cut off** by the content area. It is the same
+panel as the ⋮ menu now — same width, same alignment, opening the same way.
+
 **A visitor using a share link now appears by the name they gave**, marked as a
 guest. Writing that still cannot be attributed — from before the page began
 keeping track, or by somebody who gave no name — is stated rather than left

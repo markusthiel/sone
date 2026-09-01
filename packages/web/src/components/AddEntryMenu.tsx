@@ -61,8 +61,16 @@ export function AddEntryMenu({
         <PlusIcon />
       </button>
 
+      {/* The panel is the ⋮ menu's, in every respect.
+        *
+        * Mine opened rightward, out of the sidebar and under the content area —
+        * which is a stacking context, so it painted over the menu. The ⋮ menu
+        * never had that problem because it opens leftward and stays over the
+        * sidebar. Two popups a row apart should not differ in width, alignment
+        * or which way they open, and the fix for the clipping is the same thing
+        * as the fix for the inconsistency. */}
       {open && (
-        <div className="tree-add-menu" role="menu">
+        <div className="entry-menu tree-add-menu" role="menu">
           {(
             [
               // The marks the tree draws these with, so the menu says what each
