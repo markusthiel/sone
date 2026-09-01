@@ -30,6 +30,23 @@ written before carry no client-to-user mapping, and inventing one would mean
 guessing. A document with partial attribution must say so rather than implying
 that unattributed text belongs to nobody.
 
+**A guest is attributed, under the name they gave.** Corrected after shipping the
+opposite: a share link asks for a name before letting anybody in, and that name is
+the identity the visitor chose for this page. Refusing to use it — which is what
+"a guest has no user id to record against" led to — threw away the only thing they
+had told us and then reported that nobody had written.
+
+The key is prefixed, and the prefix is the point rather than a namespace trick: a
+guest calling themselves after a member must not be indistinguishable from that
+member's account. The panel reads the prefix and says "guest" beside the name, so
+an unverified name is shown as an unverified name.
+
+Two guests who type the same name become one entry. That is the honest outcome of
+an identity that is self-declared: the alternative is a per-session id, which
+lists one person twice for reconnecting — a worse lie than merging two people who
+both chose to be called Anna. A session that gives no name at all is still not
+recorded, and the panel says that separately.
+
 **A guest sees attribution.** Somebody editing through a share link is a
 collaborator; hiding from them who wrote what, while showing them the writing,
 would be an odd half-secret. This is the default and is intended to become an

@@ -752,10 +752,10 @@ export const de: Record<keyof typeof en, string> = {
   'panel.people': 'Leute',
   'panel.properties': 'Eigenschaften',
   'panel.tasksOpen': '{open} von {total} offen',
+  'panel.guest': 'Gast',
   'panel.guestWriting':
-    'Ein Teil davon wurde über einen Freigabe-Link geschrieben. Diese Besucher ' +
-    'werden nicht verzeichnet: sie haben hier kein Konto, und sie alle als ' +
-    '„Gast" zu führen wäre ein Name für mehrere Leute.',
+    'Ein Teil davon entstand, bevor diese Seite mitgeschrieben hat — oder von ' +
+    'jemandem, der gar keinen Namen angegeben hat.',
   'panel.noPeople':
     'Noch niemand verzeichnet. Geschriebenes wird von dem Moment an zugeordnet, in dem ' +
     'es geschrieben wird — was vor Beginn dieser Aufzeichnung getippt wurde, steht hier ' +
@@ -774,6 +774,8 @@ export const de: Record<keyof typeof en, string> = {
   'canvas.textItem': 'Text auf der Fläche',
   'canvas.resize': 'Größe ändern',
   'canvas.colour': 'Farbe des Stifts',
+  'canvas.colour.default': 'Die des Themes',
+  'canvas.colour.own': 'Eine eigene Farbe',
   'canvas.thickness': 'Stärke',
   'canvas.tool.erase': 'Radierer',
   'canvas.tool.rect': 'Rechteck',

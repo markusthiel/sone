@@ -22,7 +22,7 @@
 
 import type { PageHandle } from '@sone/client';
 import { useT } from '../i18n/useT.tsx';
-import { attributionUsers, hasUnattributedWriting } from '@sone/client';
+import { attributionUsers, guestName, hasUnattributedWriting, isGuestKey } from '@sone/client';
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 
 import { api, type WorkspaceMember } from '../api/client.ts';
@@ -121,14 +121,24 @@ export function Contributors({
 
   const people = useMemo(() => {
     const byId = new Map((members ?? []).map((member) => [member.userId, member]));
-    return userIds.map((userId) => ({
-      userId,
-      // Somebody who has left the workspace still wrote what they wrote. Their
-      // name is gone, and dropping them from the list would quietly rewrite
-      // who worked on the page.
-      name: byId.get(userId)?.displayName || 'Somebody who has left',
-      known: byId.has(userId),
-    }));
+    return userIds.map((userId) => {
+      // A guest, recorded under the name they gave when the share link asked
+      // for one (ADR-0022). Marked as a guest rather than shown as a member: the
+      // name is self-declared and unverified, and somebody reading the list has
+      // to be able to tell those apart.
+      if (isGuestKey(userId)) {
+        return { userId, name: guestName(userId), known: true, guest: true };
+      }
+      return {
+        userId,
+        // Somebody who has left the workspace still wrote what they wrote. Their
+        // name is gone, and dropping them from the list would quietly rewrite
+        // who worked on the page.
+        name: byId.get(userId)?.displayName || 'Somebody who has left',
+        known: byId.has(userId),
+        guest: false,
+      };
+    });
   }, [userIds, members]);
 
   if (people.length === 0) {
@@ -172,6 +182,10 @@ export function Contributors({
                   className={person.known ? 'contributor-name' : 'contributor-name muted'}
                 >
                   {person.name}
+                  {/* Said beside the name rather than instead of it: the name is
+                      what they chose to be called, and "guest" is what the page
+                      can vouch for. */}
+                  {person.guest && <span className="contributor-guest">{t('panel.guest')}</span>}
                 </span>
               </button>
             </li>

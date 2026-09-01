@@ -282,6 +282,11 @@ export class DocumentStore {
     // attributed, because the information was simply not captured.
     recordAttribution(doc, {
       userId: this.opts.presence?.userId ?? null,
+      // A guest has no account and does have a name — the one every share link
+      // asks for before letting anybody in. Recorded under that (ADR-0022).
+      guestName: this.opts.presence?.isAnonymous
+        ? (this.opts.presence?.displayName ?? null)
+        : null,
       enabled: this.opts.attribution !== false,
     });
 

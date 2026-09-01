@@ -67,3 +67,31 @@ test('writing nobody can be named is reported rather than left silent', async ()
 
   assert.equal(hasUnattributedWriting(doc), true);
 });
+
+test('a guest is recorded under the name they gave', async () => {
+  // A share link asks for a name before letting anybody in, and that name is the
+  // identity they chose for this page. Refusing to use it threw away the only
+  // thing they had told us and then reported that nobody had written.
+  const { guestKey, guestName, isGuestKey } = await import('../src/attribution.js');
+
+  const doc = new Y.Doc();
+  recordAttribution(doc, { userId: null, guestName: 'Anna', enabled: true });
+  assert.deepEqual([...attributionUsers(doc).keys()], [guestKey('Anna')]);
+
+  // Prefixed, and the prefix is the point: a guest called "Markus Thiel" must
+  // not be indistinguishable from the account of that name.
+  assert.ok(isGuestKey(guestKey('Markus Thiel')));
+  assert.equal(guestName(guestKey('Anna')), 'Anna');
+
+  // A session with no identity at all is still not recorded.
+  const nameless = new Y.Doc();
+  recordAttribution(nameless, { userId: null, guestName: null, enabled: true });
+  assert.deepEqual([...attributionUsers(nameless).keys()], []);
+});
+
+test('the client passes a guest name only for a guest', async () => {
+  // A member has an account; sending their display name as a guest name would
+  // list them twice, once as themselves and once as a guest of the same name.
+  const store = readFileSync(new URL('../src/store.ts', import.meta.url), 'utf8');
+  assert.match(store, /guestName: this\.opts\.presence\?\.isAnonymous/);
+});

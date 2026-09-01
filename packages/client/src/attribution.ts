@@ -41,25 +41,60 @@ export interface AttributionOptions {
   userId: string | null;
   /** False leaves the document untouched. */
   enabled: boolean;
+  /** A guest's chosen name, used when there is no account. */
+  guestName?: string | null;
+}
+
+/**
+ * The key a guest's writing is recorded under.
+ *
+ * A guest has no account, but they do have a name: every share link asks for one
+ * before letting anybody in. That name is the identity they chose for this page,
+ * and refusing to use it — which is what this did — threw away the only thing
+ * they had told us and then reported that nobody had written.
+ *
+ * Prefixed, and the prefix is the point rather than a namespace trick: a guest
+ * called "Markus Thiel" must not be indistinguishable from the account of that
+ * name. The panel reads the prefix and says who is a guest, so an unverified
+ * name is shown as an unverified name.
+ *
+ * Two guests who type the same name become one entry. That is the honest
+ * outcome of an identity that is self-declared and unverified — the alternative
+ * is a per-session id, which lists the same person twice for reconnecting.
+ */
+export const GUEST_PREFIX = 'guest:';
+
+export function guestKey(displayName: string): string {
+  const name = displayName.trim().slice(0, 64);
+  return `${GUEST_PREFIX}${name === '' ? 'Guest' : name}`;
+}
+
+/** Whether an attribution key belongs to a guest rather than an account. */
+export function isGuestKey(key: string): boolean {
+  return key.startsWith(GUEST_PREFIX);
+}
+
+/** The name a guest gave, without the prefix. */
+export function guestName(key: string): string {
+  return key.slice(GUEST_PREFIX.length);
 }
 
 /**
  * Start recording this session's edits against a person.
  *
- * Returns null when nothing is recorded, which is the case for an anonymous
- * visitor and whenever attribution is off. The caller does not have to
- * distinguish the two: in both, the document simply carries no mapping for this
- * session.
+ * Returns null when nothing is recorded, which is the case whenever attribution
+ * is off or when there is neither an account nor a name.
  *
- * A share-link guest is deliberately not recorded. They have no user id to
- * record *against* — attributing to "a guest" would produce one contributor
- * that is really several people, which is worse than saying nothing.
+ * A guest is recorded under the name they gave (see `guestKey`), because that is
+ * what a share link is for: somebody without an account who is nonetheless
+ * somebody. What is *not* recorded is a session with no identity at all.
  */
 export function recordAttribution(
   doc: Y.Doc,
   options: AttributionOptions,
 ): Y.PermanentUserData | null {
-  if (!options.enabled || !options.userId) return null;
+  const key = options.userId ?? (options.guestName ? guestKey(options.guestName) : null);
+  if (!options.enabled || !key) return null;
 
   const data = new Y.PermanentUserData(doc);
 
@@ -68,9 +103,9 @@ export function recordAttribution(
   // re-opens both reach this, so without the check a long session would leave
   // the same id in the mapping many times over — a leak nobody would notice
   // until a document was large, and one that would make pruning count wrong.
-  const existing = attributionUsers(doc).get(options.userId) ?? [];
+  const existing = attributionUsers(doc).get(key) ?? [];
   if (!existing.includes(doc.clientID)) {
-    data.setUserMapping(doc, doc.clientID, options.userId);
+    data.setUserMapping(doc, doc.clientID, key);
   }
   return data;
 }

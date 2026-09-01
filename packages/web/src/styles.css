@@ -1696,6 +1696,21 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   cursor: pointer;
 }
 .canvas-ink-choice.current { box-shadow: 0 0 0 2px var(--surface-chrome), 0 0 0 3px var(--accent); }
+/* Any colour at all, for the one a palette of eight does not contain. Small and
+   square, so it reads as one more swatch rather than as a form field. */
+.canvas-ink-custom {
+  inline-size: 22px;
+  block-size: 22px;
+  min-block-size: 0;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.canvas-ink-custom::-webkit-color-swatch-wrapper { padding: 2px; }
+.canvas-ink-custom::-webkit-color-swatch { border: 0; border-radius: 50%; }
+
 .canvas-ink-width {
   display: inline-flex;
   align-items: center;
@@ -5345,6 +5360,13 @@ select {
  */
 /* Said above the list, or on its own when the list is empty: a fact about this
    page rather than a person in it. */
+/* "Anna · guest". Beside the name, not instead of it. */
+.contributor-guest {
+  margin-inline-start: var(--sone-space-2);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+
 .contributor-note {
   margin-block-end: var(--sone-space-4);
   font-size: var(--sone-text-sm);
