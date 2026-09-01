@@ -16,10 +16,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 **The document format is version 3.** A browser holding an older build is asked to
 reload rather than being shown a canvas it cannot draw.
 
-**A page can be a canvas** ([ADR-0043](docs/adr/0043-canvas.md)) — the first slice:
-"New canvas" in an entry's menu, a pen that draws, text notes you can place and
-drag anywhere, and everything on it merging properly when two people work at once.
-Images, resizing and connectors are not built yet.
+**A page can be a canvas** ([ADR-0043](docs/adr/0043-canvas.md)): "New canvas" in
+an entry's menu, a pen in five colours and any thickness, text notes you can place
+and drag anywhere, pictures dropped straight onto the board, and a corner to
+resize what is selected. Everything on it merges properly when two people work at
+once. Connectors between items are not built.
 
 **A page can be set to the full width of the window**, under Width in the panel
 beside it. The reading column stays the default; this is for the pages that are

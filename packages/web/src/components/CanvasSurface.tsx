@@ -13,7 +13,14 @@
  * which also means an unfinished stroke is not somebody else's problem.
  */
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactElement } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactElement,
+} from 'react';
 
 import type { PageHandle } from '@sone/client';
 import {
@@ -23,8 +30,11 @@ import {
   moveItem,
   readCanvas,
   removeItem,
+  resizeItem,
   type CanvasItem,
 } from '@sone/core';
+
+import { api } from '../api/client.ts';
 
 import { useT } from '../i18n/useT.tsx';
 import { TrashIcon } from './icons.tsx';
@@ -45,9 +55,12 @@ const newId = (): string =>
 
 export function CanvasSurface({
   handle,
+  pageId,
   canEdit,
 }: {
   handle: PageHandle;
+  /** Whose files an image on this canvas belongs to (ADR-0029). */
+  pageId: string;
   canEdit: boolean;
 }): ReactElement {
   const { t } = useT();
@@ -59,8 +72,19 @@ export function CanvasSurface({
   /** The stroke being drawn, if any. Local until the pen lifts. */
   const [drawing, setDrawing] = useState<number[] | null>(null);
 
+  /** What the pen writes with. Per person and per session, not in the document:
+   *  the colour somebody draws in is theirs, and the stroke keeps it once
+   *  drawn. */
+  const [ink, setInk] = useState<{ colour: string; width: number }>({
+    colour: 'currentColor',
+    width: 2,
+  });
+  const [busy, setBusy] = useState(false);
+
   const surface = useRef<HTMLDivElement | null>(null);
   const dragging = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  /** Resizing, which is dragging a corner rather than the item. */
+  const sizing = useRef<{ id: string; x: number; y: number; w: number; h: number } | null>(null);
 
   // Redraw on any change to the map. Deep, because an item's own keys are where
   // a move lands — observing only the map would miss everything except adding
@@ -111,21 +135,77 @@ export function CanvasSurface({
       setDrawing((current) => (current ? [...current, point.x, point.y] : current));
       return;
     }
+    const size = sizing.current;
+    if (size) {
+      resizeItem(doc, size.id, size.w + (point.x - size.x), size.h + (point.y - size.y));
+      return;
+    }
     const drag = dragging.current;
     if (drag) moveItem(doc, drag.id, point.x - drag.dx, point.y - drag.dy);
   };
 
   const onSurfaceUp = (): void => {
     dragging.current = null;
+    sizing.current = null;
     if (!drawing) return;
 
     // One write, at the end. The points are stored relative to nothing — the
     // path carries absolute coordinates and the item sits at the origin, so a
     // stroke can be moved later by moving the item rather than every point.
     if (drawing.length >= 4) {
-      addItem(doc, { id: newId(), kind: 'path', x: 0, y: 0, points: drawing, width: 2 });
+      addItem(doc, {
+        id: newId(),
+        kind: 'path',
+        x: 0,
+        y: 0,
+        points: drawing,
+        colour: ink.colour,
+        width: ink.width,
+      });
     }
     setDrawing(null);
+  };
+
+  /**
+   * A picture dropped onto the plane.
+   *
+   * The same upload every other file uses — the workspace's file, served by the
+   * same route, counted in the same storage (ADR-0029). A canvas that had its
+   * own picture store would be a second place for a backup to miss.
+   */
+  const onDrop = async (event: React.DragEvent<HTMLDivElement>): Promise<void> => {
+    if (!canEdit) return;
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+
+    const box = surface.current?.getBoundingClientRect();
+    const x = event.clientX - (box?.left ?? 0) + (surface.current?.scrollLeft ?? 0);
+    const y = event.clientY - (box?.top ?? 0) + (surface.current?.scrollTop ?? 0);
+
+    setBusy(true);
+    try {
+      const uploaded = await api.uploadFile(pageId, file);
+      addItem(doc, {
+        id: newId(),
+        kind: uploaded.category === 'image' ? 'image' : 'text',
+        x,
+        y,
+        w: 320,
+        h: 240,
+        ...(uploaded.category === 'image'
+          ? { fileId: uploaded.id }
+          : // Anything that is not a picture becomes a note naming it, rather
+            // than nothing at all: a file dropped on a board was meant to be
+            // there, and refusing silently looks like a broken drop target.
+            { text: uploaded.filename }),
+      });
+    } catch {
+      // Silent, deliberately: the upload's own errors are reported by the page,
+      // and a canvas is not the place to explain a proxy's size limit.
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -143,6 +223,36 @@ export function CanvasSurface({
               {t(`canvas.tool.${id}` as 'canvas.tool.select')}
             </button>
           ))}
+
+          {tool === 'pen' && (
+            <>
+              {/* The colours the workspace already knows, so ink matches
+                  everything else that is coloured here (ADR-0030). */}
+              {['currentColor', '#c0392b', '#2d7a4f', '#2a6f97', '#b8860b'].map((colour) => (
+                <button
+                  key={colour}
+                  type="button"
+                  className={ink.colour === colour ? 'canvas-ink-choice current' : 'canvas-ink-choice'}
+                  style={{ color: colour }}
+                  aria-label={t('canvas.colour')}
+                  aria-pressed={ink.colour === colour}
+                  onClick={() => setInk((current) => ({ ...current, colour }))}
+                />
+              ))}
+              <label className="canvas-ink-width">
+                {t('canvas.thickness')}
+                <input
+                  type="range"
+                  min={1}
+                  max={12}
+                  value={ink.width}
+                  onChange={(event) =>
+                    setInk((current) => ({ ...current, width: Number(event.target.value) }))
+                  }
+                />
+              </label>
+            </>
+          )}
 
           {selected && (
             <button
@@ -169,6 +279,9 @@ export function CanvasSurface({
         onPointerMove={onSurfaceMove}
         onPointerUp={onSurfaceUp}
         onPointerCancel={onSurfaceUp}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => void onDrop(event)}
+        data-busy={busy ? 'true' : undefined}
       >
         {/* Every stroke in one SVG, under the items: ink is the background a
             note is stuck onto, which is what a whiteboard is. */}
@@ -241,6 +354,27 @@ export function CanvasSurface({
 
               {item.kind === 'image' && item.fileId && (
                 <img className="canvas-image" src={`/api/files/${item.fileId}`} alt="" />
+              )}
+
+              {/* The corner, only on what is selected: a handle on everything
+                  is eight more things to hit by accident. */}
+              {canEdit && selected === item.id && (
+                <span
+                  className="canvas-size"
+                  role="button"
+                  aria-label={t('canvas.resize')}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    const point = at(event);
+                    sizing.current = {
+                      id: item.id,
+                      x: point.x,
+                      y: point.y,
+                      w: item.w,
+                      h: item.h,
+                    };
+                  }}
+                />
               )}
             </div>
           ))}
