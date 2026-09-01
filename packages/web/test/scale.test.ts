@@ -955,3 +955,16 @@ test('a read-only link does not ask for a name', () => {
   // removing it is worse than a moment's wait.
   assert.match(app, /if \(canWrite === null && !joined\)/);
 });
+
+test('the handle keeps its press to itself', () => {
+  // It bubbled to the surface, which clears the selection on a press against the
+  // empty plane — so the handle unmounted between `pointerdown` and `click`, and
+  // the click landed on nothing. The buttons looked dead; they were never
+  // reached.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  const handle = canvas.slice(canvas.indexOf('className="canvas-handle"'));
+  assert.match(
+    handle.slice(0, 900),
+    /onPointerDown=\{\(event\) => event\.stopPropagation\(\)\}/,
+  );
+});
