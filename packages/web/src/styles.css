@@ -2185,7 +2185,13 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   z-index: 42;
   inset-inline-end: 0;
   inset-block-start: 100%;
-  inline-size: 190px;
+  /* Wider, and shorter for it.
+   *
+   * At 190px the five most-used actions were five rows of text and the menu ran
+   * most of the way down the sidebar. As a row of marks they take one row, and
+   * the width is what makes five of them fit — the space is bought back several
+   * times over. */
+  inline-size: 232px;
   padding: 4px;
   /* One treatment for everything that floats: the overlay surface, a subtle
      border, and a lift.
@@ -2198,6 +2204,51 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   border-radius: var(--sone-radius-lg);
   background: var(--surface-overlay);
   box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+}
+
+/* A row of marks inside the menu: the five things done most, and the three
+   things that can be put inside a folder. The same trade the block menu made —
+   the word survives as the tooltip and the accessible label. */
+.entry-menu-actions {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+}
+.entry-menu-action {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--sone-control-lg);
+  padding: 0;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+}
+.entry-menu-action svg { inline-size: 16px; block-size: 16px; }
+.entry-menu-action:hover:not(:disabled) {
+  background: var(--sone-bg-hover);
+  color: var(--sone-text);
+}
+.entry-menu-action:disabled { opacity: 0.35; cursor: default; }
+/* A favourite that is one already: the star is filled, and the button says so
+   too rather than leaving the fill to carry it alone. */
+.entry-menu-action.current { color: var(--accent); }
+
+.entry-menu-new {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  padding-inline-start: var(--sone-space-3);
+}
+.entry-menu-new .entry-menu-actions { flex: 1 1 auto; }
+.entry-menu-label {
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .entry-menu-item {

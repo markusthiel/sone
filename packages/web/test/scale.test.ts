@@ -705,12 +705,35 @@ test('a canvas can be started where anything else can', () => {
   assert.doesNotMatch(sidebar, /onCreatePage\(null, 'canvas'\)/);
   assert.match(sidebar, /<AddEntryMenu/, 'behind the + on a folder');
   assert.match(folder, /onCreate\(folder\.id, 'canvas'\)/, 'inside a folder being looked at');
-  assert.match(menu, /onCreate\(node\.id, 'canvas'\)/, 'and in the ⋮ menu');
+  // In the ⋮ menu the kind comes from the list rather than being written three
+  // times, so this reads the list.
+  assert.match(menu, /onCreate\(node\.id, kind\)/, 'and in the ⋮ menu');
+  assert.match(menu, /\['canvas', 'canvas\.new', PenIcon\]/);
 
   // The order is how often each is wanted, in both menus: page, canvas, folder.
   const add = codeOf(new URL('../src/components/AddEntryMenu.tsx', import.meta.url));
   assert.ok(add.indexOf("'page'") < add.indexOf("'canvas'"));
   assert.ok(add.indexOf("'canvas'") < add.indexOf("'folder'"));
-  assert.ok(menu.indexOf("t('entry.newPage')") < menu.indexOf("t('canvas.new')"));
-  assert.ok(menu.indexOf("t('canvas.new')") < menu.indexOf("t('entry.newFolder')"));
+  // In the ⋮ menu the three are a row of marks under one word now, declared as a
+  // list — so the order is the list's rather than the markup's.
+  const creates = menu.slice(menu.indexOf('entry-menu-new'));
+  assert.ok(creates.indexOf("'page'") < creates.indexOf("'canvas'"));
+  assert.ok(creates.indexOf("'canvas'") < creates.indexOf("'folder'"));
+});
+
+test('the entry menu is a row of marks and a short list, not twelve rows', () => {
+  // Five full-width rows of text — rename, favourite, share, up, down — were
+  // most of the menu's height before anything about the entry appeared. Each is
+  // a verb with an obvious picture, and the word survives as the tooltip.
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  assert.match(menu, /className="entry-menu-actions"/);
+  assert.match(menu, /title=\{t\('entry\.rename'\)\}/);
+  assert.match(menu, /aria-label=\{isFavourite \? t\('entry\.unfavourite'\) : t\('entry\.favourite'\)\}/);
+  // The favourite is a checkbox rather than a plain item: it has a state, and a
+  // menu item that toggles without saying so is one people press twice.
+  assert.match(menu, /role="menuitemcheckbox"\s*\n\s*aria-checked=\{isFavourite\}/);
+
+  // Wider, which is what makes five marks fit — and the width is bought back
+  // several times over in height.
+  assert.match(css, /\.entry-menu \{[\s\S]{0,600}?inline-size: 232px/);
 });

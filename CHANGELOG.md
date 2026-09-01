@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An entry's ⋮ menu is shorter and wider.** Rename, favourite, share and the two
+reorderings are one row of marks; what can be added inside a folder is another,
+under "New". Everything still says what it is when you rest on it.
+
 **The document format is version 3.** A browser holding an older build is asked to
 reload rather than being shown a canvas it cannot draw.
 
