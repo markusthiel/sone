@@ -363,7 +363,7 @@ function Workspace({
 
   const onCreateEntry = async (
     parentPageId: string | null,
-    kind: 'page' | 'folder',
+    kind: 'page' | 'folder' | 'canvas',
   ): Promise<void> => {
     const id = await createPage({ title: '', parentPageId, kind });
     // A folder has no document to open, so creating one must not navigate

@@ -27,6 +27,7 @@ import { ICON_NAMES } from './EntryIconView.tsx';
 import { api, type PageNode } from '../api/client.ts';
 import { EntryIconView } from './EntryIconView.tsx';
 import {
+  PenIcon,
   ArrowDownIcon,
   ArrowUpIcon,
   FolderPlusIcon,
@@ -266,7 +267,7 @@ interface EntryMenuProps {
   /** Reloads the tree after an icon or colour changed. */
   onChanged: () => void;
   onRename: (pageId: string, title: string) => void;
-  onCreate: (parentPageId: string, kind: 'page' | 'folder') => void;
+  onCreate: (parentPageId: string, kind: 'page' | 'folder' | 'canvas') => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartRename: (pageId: string) => void;
   onStartMove: (pageId: string) => void;

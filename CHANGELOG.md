@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A page can be a canvas** ([ADR-0043](docs/adr/0043-canvas.md)) — the first slice:
+"New canvas" in an entry's menu, a pen that draws, text notes you can place and
+drag anywhere, and everything on it merging properly when two people work at once.
+Images, resizing and connectors are not built yet.
+
 **A page can be set to the full width of the window**, under Width in the panel
 beside it. The reading column stays the default; this is for the pages that are
 not prose — a wide table, a board, a page of pictures. The setting travels with

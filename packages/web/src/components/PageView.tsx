@@ -14,12 +14,14 @@ import {
   readTitleColor,
   type EntryIcon,
 } from '@sone/core';
+import { useEntryKind } from '../hooks/usePageWidth.ts';
 import { usePageWidth } from '../hooks/usePageWidth.ts';
 import { useT } from '../i18n/useT.tsx';
 import { useEffect, useState , type ReactElement } from 'react';
 
 import { blockFromHash } from '../routes/paths.ts';
 import { scrollToBlock } from '../hooks/useOutline.ts';
+import { CanvasSurface } from './CanvasSurface.tsx';
 import { EditorSurface } from './EditorSurface.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
@@ -50,6 +52,7 @@ export function PageView({
   connectionState,
   onTitleChange,
 }: PageViewProps): ReactElement {
+  const isCanvas = useEntryKind(handle?.doc ?? null) === 'canvas';
   // From the document, so it arrives like any other edit (ADR-0028).
   const width = usePageWidth(handle?.doc ?? null);
   const { t } = useT();
@@ -196,8 +199,15 @@ export function PageView({
       {/* A second boundary around the editor specifically, so a crash there
           leaves the title, the sidebar and navigation working. Losing the
           editor is bad; losing the way out of the page is worse. */}
+      {/* A canvas is a page with a different body, not a different screen: the
+          title, the panel, the trail and the sharing are all the page's
+          (ADR-0043). Only what is under the heading changes. */}
       <ErrorBoundary where="The editor">
-        <EditorSurface handle={handle} pageId={pageId} />
+        {isCanvas ? (
+          <CanvasSurface handle={handle} canEdit={handle.canEdit !== false} />
+        ) : (
+          <EditorSurface handle={handle} pageId={pageId} />
+        )}
       </ErrorBoundary>
 
     </div>

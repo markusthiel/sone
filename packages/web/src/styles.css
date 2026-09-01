@@ -1526,6 +1526,88 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   .settings-row input, .settings-row select { inline-size: 100%; }
 }
 
+/* --- a canvas page (ADR-0043) --- */
+
+.canvas-page {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.canvas-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  padding: var(--sone-space-2) var(--sone-space-4);
+  border-block-end: 1px solid var(--border-subtle);
+}
+.canvas-tool {
+  min-block-size: var(--sone-control);
+  padding-inline: var(--sone-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font: inherit;
+  font-size: var(--sone-text-sm);
+  cursor: pointer;
+}
+.canvas-tool:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.canvas-tool.current {
+  border-color: var(--border-default);
+  background: var(--surface-page);
+  color: var(--sone-text);
+  font-weight: 600;
+}
+.canvas-tool.destructive { margin-inline-start: auto; color: var(--sone-danger); }
+
+/* The plane. Scrolls in both directions, which is the one place in this
+   application where sideways scrolling is the point rather than a fault. */
+.canvas-surface {
+  position: relative;
+  flex: 1 1 auto;
+  min-block-size: 60vh;
+  overflow: auto;
+  background:
+    radial-gradient(circle, var(--border-subtle) 1px, transparent 1px) 0 0 / 24px 24px;
+  touch-action: none;
+}
+.canvas-surface[data-tool='pen'] { cursor: crosshair; }
+.canvas-surface[data-tool='text'] { cursor: text; }
+
+/* The ink, under everything: a whiteboard is a surface things are stuck onto. */
+.canvas-ink {
+  position: absolute;
+  inset: 0;
+  inline-size: 4000px;
+  block-size: 4000px;
+  color: var(--sone-text);
+  pointer-events: none;
+}
+
+.canvas-item {
+  position: absolute;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+  background: var(--surface-page);
+  overflow: hidden;
+}
+.canvas-item.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+.canvas-text {
+  inline-size: 100%;
+  block-size: 100%;
+  padding: var(--sone-space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  resize: none;
+  font: inherit;
+  font-size: var(--sone-text-sm);
+}
+.canvas-image { inline-size: 100%; block-size: 100%; object-fit: contain; }
+
 /* --- motion (ADR-0042) ---
  *
  * Three durations and two properties. `transform` and `opacity` are the only

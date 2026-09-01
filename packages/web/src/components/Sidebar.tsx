@@ -51,7 +51,7 @@ interface SidebarProps {
   currentPageId: string | null;
   open: boolean;
   onClose: () => void;
-  onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder') => void;
+  onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder' | 'canvas') => void;
   onRename: (pageId: string, title: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
@@ -377,7 +377,7 @@ function TreeLevel({
   collapsed: Set<string>;
   renaming: string | null;
   onToggle: (pageId: string) => void;
-  onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder') => void;
+  onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder' | 'canvas') => void;
   onRename: (pageId: string, title: string) => void;
   onCancelRename: () => void;
   onStartRename: (pageId: string) => void;

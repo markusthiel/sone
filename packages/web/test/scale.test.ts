@@ -590,3 +590,24 @@ test('a page can ask for the whole width, and says so in its document', () => {
   // Anything the stylesheet does not know is the default rather than an error.
   assert.match(hook, /value === 'full' \? 'full' : 'column'/);
 });
+
+test('a canvas writes a stroke once, when the pen lifts', () => {
+  // Sixty updates a second per stroke is a log that grows forever and a document
+  // carrying the history of somebody's wrist (ADR-0043). The stroke in progress
+  // is local state; only the finished one is written.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  const move = canvas.slice(canvas.indexOf('const onSurfaceMove'), canvas.indexOf('const onSurfaceUp'));
+  assert.doesNotMatch(move, /addItem/, 'nothing is written while drawing');
+  assert.match(move, /setDrawing/);
+
+  const up = canvas.slice(canvas.indexOf('const onSurfaceUp'));
+  assert.match(up.slice(0, 600), /addItem\(doc, \{ id: newId\(\), kind: 'path'/);
+});
+
+test('a canvas is a page, not a screen of its own', () => {
+  // It gets the tree, the trash, permissions, sharing and moving by being a
+  // page. Only what is under the heading changes.
+  const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  assert.match(view, /isCanvas \? \(\s*<CanvasSurface/);
+  assert.match(view, /useEntryKind\(handle\?\.doc \?\? null\) === 'canvas'/);
+});

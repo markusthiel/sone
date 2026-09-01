@@ -710,6 +710,16 @@ export const en = {
   'panel.noPeople':
     'Nobody is recorded yet. Writing is attributed from the moment it is written, so ' +
     'anything typed before this page started keeping track is not listed here.',
+  // --- a canvas (ADR-0043) ------------------------------------------------
+  'canvas.tools': 'Canvas tools',
+  'canvas.tool.select': 'Select',
+  'canvas.tool.pen': 'Pen',
+  'canvas.tool.text': 'Text',
+  'canvas.remove': 'Remove this',
+  'canvas.textItem': 'Text on the canvas',
+  'canvas.new': 'New canvas',
+  'panel.kind.canvas': 'Canvas',
+
   'panel.width': 'Width',
   'panel.width.column': 'Column',
   'panel.width.full': 'Full page',

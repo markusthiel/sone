@@ -23,6 +23,7 @@ import {
   compareSiblings,
   readBlockTree,
   type StoredValue,
+  canvasText,
 } from '@sone/core';
 import * as Y from 'yjs';
 
@@ -89,6 +90,14 @@ export interface ReadDocument {
   schemaVersion: number;
   page: ReadPage;
   blocks: ReadBlock[];
+  /**
+   * A canvas's text, for the search index (ADR-0043).
+   *
+   * Not blocks: a canvas has no blocks and inventing some would put fake rows in
+   * the block table, which the tree and the outline read. The text goes into the
+   * index and nowhere else, which is exactly what a canvas can honestly claim.
+   */
+  canvasText: string;
   properties: Map<string, StoredValue>;
   /**
    * Every collection this page holds, keyed by id.
@@ -339,6 +348,7 @@ export function readDocument(doc: Y.Doc, pageId: string | null): ReadDocument {
     schemaVersion: asNumber(meta.get(META_KEYS.schemaVersion), 1),
     page,
     blocks: readBlocks(doc, warnings),
+    canvasText: canvasText(doc),
     properties: readProperties(doc, warnings),
     collections: readCollections(doc, pageId, warnings),
     warnings,
