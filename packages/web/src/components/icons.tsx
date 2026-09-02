@@ -290,6 +290,15 @@ export function EraserIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A bookmark: a page kept to come back to, which is what a template is. */
+export function BookmarkIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M6.5 3.5h11v17l-5.5-4-5.5 4z" />
+    </svg>
+  );
+}
+
 /**
  * A brush, for a canvas.
  *

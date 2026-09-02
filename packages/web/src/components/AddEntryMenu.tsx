@@ -12,20 +12,52 @@
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
+import { api } from '../api/client.ts';
+
 import { useT } from '../i18n/useT.tsx';
 import { BrushIcon, FolderIcon, PageIcon, PlusIcon } from './icons.tsx';
 
 export function AddEntryMenu({
   title,
+  workspaceId,
   onCreate,
 }: {
   /** The folder this adds to, for the label. */
   title: string;
-  onCreate: (kind: 'page' | 'canvas' | 'folder') => void;
+  workspaceId: string;
+  onCreate: (kind: 'page' | 'canvas' | 'folder', templateId?: string) => void;
 }): ReactElement {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * The shapes this workspace offers (ADR-0045).
+   *
+   * Fetched when the menu opens rather than held with the tree: it is a short
+   * list read at the moment of a decision, and a workspace with none should not
+   * pay for asking on every load.
+   */
+  const [templates, setTemplates] = useState<
+    Array<{ id: string; title: string; kind: 'page' | 'canvas' }>
+  >([]);
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void api
+      .templates(workspaceId)
+      .then((result) => {
+        if (!cancelled) setTemplates(result.templates);
+      })
+      .catch(() => {
+        // Silent: the menu's own three entries still work, and a failed list of
+        // templates is not worth an error over a menu.
+        if (!cancelled) setTemplates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, workspaceId]);
 
   useEffect(() => {
     if (!open) return;
@@ -94,6 +126,35 @@ export function AddEntryMenu({
               <Mark /> {t(key)}
             </button>
           ))}
+
+          {/* And the shapes somebody has already built.
+            *
+            * Under their own heading and after the blank ones, because a blank
+            * page is what most presses of this button want. A workspace with no
+            * templates shows no heading — a feature that advertises its own
+            * emptiness teaches people to ignore that part of the menu. */}
+          {templates.length > 0 && (
+            <>
+              <hr className="entry-menu-rule" />
+              <span className="entry-menu-label">{t('template.heading')}</span>
+              {templates.map((template) => (
+                <button
+                  key={template.id}
+                  className="entry-menu-item"
+                  type="button"
+                  role="menuitem"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpen(false);
+                    onCreate(template.kind, template.id);
+                  }}
+                >
+                  {template.kind === 'canvas' ? <BrushIcon /> : <PageIcon />}
+                  <span>{template.title || t('entry.untitled')}</span>
+                </button>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

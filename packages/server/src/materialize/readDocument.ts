@@ -55,6 +55,8 @@ export interface ReadPage {
   coverUrl: string | null;
   /** 'column' or 'full'; null means the reader's default. */
   width: 'column' | 'full' | null;
+  /** Whether the page is offered as a template (ADR-0045). */
+  template: boolean;
   parentPageId: string | null;
   collectionId: string | null;
   idx: string;
@@ -156,6 +158,7 @@ function readPageMeta(doc: Y.Doc, warnings: string[]): ReadPage {
     // Only the two values, and anything else is treated as absent: a document is
     // written by clients and a width the stylesheet does not know would be a
     // page nobody can read.
+    template: map.get(PAGE_KEYS.template) === true,
     width: (() => {
       const value = asString(map.get(PAGE_KEYS.width));
       return value === 'column' || value === 'full' ? value : null;

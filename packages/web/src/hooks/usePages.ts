@@ -99,7 +99,12 @@ export function usePages(workspaceId: string | null): {
   }, [reload]);
 
   const createPage = useCallback(
-    async (input: { title?: string; parentPageId?: string | null; kind?: EntryKind }) => {
+    async (input: {
+      title?: string;
+      parentPageId?: string | null;
+      kind?: EntryKind;
+      templateId?: string;
+    }) => {
       if (!workspaceId) return null;
       try {
         const created = await api.createPage(workspaceId, input);

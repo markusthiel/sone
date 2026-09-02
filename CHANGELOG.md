@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Pages can be started from a template** ([ADR-0045](docs/adr/0045-templates.md)).
+Mark any page — or any canvas — with "Use as a template" in its ⋮ menu, and it is
+offered under the `+` beside every folder. The copy keeps everything the editor
+can hold: collections, tables, boards, drawings.
+
 **Fixed: somebody could appear in the People panel and then vanish.** Writing
 inside a canvas note or a collection's properties was invisible to the tidying
 that removes names whose words are gone, so it removed names whose words were

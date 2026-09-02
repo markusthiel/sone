@@ -147,6 +147,13 @@ export const PAGE_KEYS = {
    * workspace or restored from a backup keeps the shape its author gave it.
    */
   width: 'width',
+  /**
+   * Whether this page is offered as a shape to start from (ADR-0045).
+   *
+   * In the document as well as the database, like the icon and the width: it is
+   * a property of the page and it travels when the page does.
+   */
+  template: 'template',
   coverUrl: 'coverUrl',
   parentPageId: 'parentPageId',
   /** Fractional index among sibling pages, not among blocks. */
@@ -180,6 +187,13 @@ export const BLOCK_ATTRS = {
    */
   align: 'align',
   width: 'width',
+  /**
+   * Whether this page is offered as a shape to start from (ADR-0045).
+   *
+   * In the document as well as the database, like the icon and the width: it is
+   * a property of the page and it travels when the page does.
+   */
+  template: 'template',
   color: 'color',
   /** JSON-encoded block-specific settings. Never derived values. */
   props: 'props',

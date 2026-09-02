@@ -136,6 +136,8 @@ export interface PageSummary {
   title: string;
   icon: { kind: string; value: string; color?: string; titleColor?: string } | null;
   kind: EntryKind;
+  /** Offered as a shape to start from (ADR-0045). */
+  template?: boolean;
   archived: boolean;
   lastEditedAt: string;
 }
@@ -691,7 +693,13 @@ export const api = {
 
   createPage: (
     workspaceId: string,
-    input: { title?: string; parentPageId?: string | null; kind?: EntryKind },
+    input: {
+      title?: string;
+      parentPageId?: string | null;
+      kind?: EntryKind;
+      /** A template to start from (ADR-0045). */
+      templateId?: string;
+    },
   ) =>
     post<{
       id: string;
@@ -1015,6 +1023,24 @@ export const api = {
         parentPageId,
         ...(afterPageId === undefined ? {} : { afterPageId }),
       }),
+    }),
+
+  /** The shapes a page can be started from in this workspace (ADR-0045). */
+  templates: (workspaceId: string) =>
+    request<{
+      templates: Array<{
+        id: string;
+        title: string;
+        icon: { kind: string; value: string; color?: string } | null;
+        kind: 'page' | 'canvas';
+      }>;
+    }>(`/api/workspaces/${workspaceId}/templates`),
+
+  /** Offer this page as a template, or stop offering it. */
+  setPageTemplate: (pageId: string, template: boolean) =>
+    request<void>(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ template }),
     }),
 
   /** How wide this page's writing is. `null` follows the reader's default. */

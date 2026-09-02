@@ -308,6 +308,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       title: string;
       icon: unknown;
       kind: string;
+      template: boolean;
       archived_at: Date | null;
       last_edited_at: Date;
       ancestor_ids: string[];
@@ -315,7 +316,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     }>(
       deps.pool,
       `SELECT p.id, p.parent_page_id, p.collection_id, p.idx, p.title, p.icon,
-              p.kind, p.archived_at, p.last_edited_at, p.ancestor_ids,
+              p.kind, p.template, p.archived_at, p.last_edited_at, p.ancestor_ids,
               -- A page somebody reaches only as the path to a child they were
               -- granted. It appears, and the interface draws it without its
               -- title (ADR-0026).
@@ -378,6 +379,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           row.kind === 'folder' || row.kind === 'canvas'
             ? (row.kind as 'folder' | 'canvas')
             : 'page',
+        // Sent so the ⋮ menu knows which label to show without a request of
+        // its own — and withheld with the title for a path-only page, since a
+        // page somebody cannot read should disclose nothing about itself.
+        template: row.path_only ? false : row.template,
         archived: row.archived_at !== null,
         lastEditedAt: row.last_edited_at,
       })),
@@ -401,6 +406,8 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       parentPageId?: string | null;
       afterPageId?: string | null;
       kind?: string;
+      /** A template to start this page from (ADR-0045). */
+      templateId?: unknown;
     }>(ctx);
     if (!body) return;
 
@@ -480,15 +487,92 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       }
     }
 
+    /*
+     * Started from a template, if one was named (ADR-0045).
+     *
+     * Checked here rather than in `createEntry`: whether this person may read
+     * that template is an authorisation question and belongs with the other
+     * ones. A template in another workspace is refused as not found, which is
+     * the same answer a page in another workspace gets — the distinction would
+     * say whether it exists.
+     */
+    let fromTemplate: Uint8Array | undefined;
+    if (typeof body.templateId === 'string' && body.templateId !== '') {
+      const template = await queryOne<{ id: string; template: boolean }>(
+        deps.pool,
+        `SELECT id, template FROM pages
+          WHERE id = $1 AND workspace_id = $2 AND archived_at IS NULL`,
+        [body.templateId, workspaceId],
+      );
+      if (!template || !template.template) {
+        ctx.fail(404, 'not_found');
+        return;
+      }
+      const loaded = await loadDoc(deps.pool, template.id);
+      try {
+        fromTemplate = Y.encodeStateAsUpdate(loaded.doc);
+      } finally {
+        loaded.doc.destroy();
+      }
+    }
+
     const created = await createEntry(deps.pool, {
       workspaceId,
       kind,
       title: body.title ?? '',
       parentPageId,
+      ...(fromTemplate ? { fromTemplate } : {}),
       actorId: claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
     });
 
     ctx.send(201, created);
+  });
+
+  /**
+   * The shapes a page can be started from (ADR-0045).
+   *
+   * Only ones this person may read: a template is an ordinary page and its
+   * permissions are the page's own, so a restricted template is invisible to
+   * somebody who could not open it — otherwise the menu would offer a shape
+   * that then refuses to be copied.
+   */
+  router.get('/api/workspaces/:workspaceId/templates', async (ctx) => {
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    const claims = await claimsFor(deps.pool, ctx, workspaceId);
+    if (!claims) return;
+
+    const rows = await queryRows<{
+      id: string;
+      title: string;
+      icon: unknown;
+      kind: string;
+    }>(
+      deps.pool,
+      `SELECT p.id, p.title, p.icon, p.kind
+         FROM pages p
+        WHERE p.workspace_id = $1
+          AND p.template
+          AND p.archived_at IS NULL
+          -- The same condition the tree and search use, rather than a second
+          -- one: its own comment says the copy that drifts is a disclosure, and
+          -- a template's title discloses as much as a search result's.
+          AND ${visiblePagesCondition('p', '$3', '$2')}
+        ORDER BY p.title, p.id`,
+      [
+        workspaceId,
+        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
+        claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
+      ],
+    );
+
+    ctx.send(200, {
+      templates: rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        icon: row.icon,
+        kind: row.kind === 'canvas' ? 'canvas' : 'page',
+      })),
+    });
   });
 
   /** Page metadata. The body itself arrives over the sync connection. */
@@ -607,6 +691,8 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       titleColor?: unknown;
       /** 'column', 'full', or null to follow the reader's default. */
       width?: unknown;
+      /** Whether this page is offered as a template (ADR-0045). */
+      template?: unknown;
     }>(ctx);
     if (!body) return;
 
@@ -667,6 +753,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     // How wide the page is drawn (ADR-0028's measure, per page). Null clears it
     // back to the reader's default, the same distinction the icon makes.
     const wantsWidth = 'width' in body;
+    // Whether this page is offered as a shape to start from. A fact about the
+    // page, decided while looking at it (ADR-0045).
+    const wantsTemplate = 'template' in body;
     const width =
       body.width === 'column' || body.width === 'full' ? body.width : null;
     if (wantsWidth && body.width !== null && width === null) {
@@ -674,7 +763,13 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       return;
     }
 
-    if (typeof body.title !== 'string' && !wantsIcon && !wantsTitleColor && !wantsWidth) {
+    if (
+      typeof body.title !== 'string' &&
+      !wantsIcon &&
+      !wantsTitleColor &&
+      !wantsWidth &&
+      !wantsTemplate
+    ) {
       ctx.fail(422, 'missing_fields');
       return;
     }
@@ -699,6 +794,12 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       (doc) => {
         const page = doc.getMap(DOC_KEYS.page);
         if (title !== null) page.set(PAGE_KEYS.title, title);
+        if (wantsTemplate) {
+          // Deleted rather than set to false: a page nobody has marked carries
+          // nothing, the same distinction every other optional property makes.
+          if (body.template === true) page.set(PAGE_KEYS.template, true);
+          else page.delete(PAGE_KEYS.template);
+        }
         if (wantsWidth) {
           if (width) page.set(PAGE_KEYS.width, width);
           else page.delete(PAGE_KEYS.width);
