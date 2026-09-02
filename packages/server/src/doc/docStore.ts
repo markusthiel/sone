@@ -12,6 +12,7 @@ import type { Pool, PoolClient } from 'pg';
 import * as Y from 'yjs';
 
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
+import { authorsSince, lastVersionSeq, takeVersion } from './versions.js';
 import { USERS_KEY, liveClientIds } from '@sone/core';
 
 /** Fold updates into a snapshot once this many have accumulated. */
@@ -119,6 +120,28 @@ export async function compactDoc(pool: Pool, docId: string): Promise<boolean> {
 
     const { doc, throughSeq, updateCount } = await loadDoc(client, docId);
     if (updateCount === 0) return false;
+
+    /*
+     * Record the past before destroying it (ADR-0047).
+     *
+     * This function is where a page's history ends: it folds the updates into
+     * one state and deletes the ones it folded in. Taking a version here rather
+     * than on a schedule makes that a guarantee — the thing that discards the
+     * past cannot run without first writing it down, and a second caller that
+     * forgot would otherwise destroy history silently.
+     *
+     * In the same transaction as the deletion, so there is no window in which
+     * the updates are gone and the version is not.
+     */
+    const since = (await lastVersionSeq(client, docId)) ?? 0;
+    await takeVersion(
+      client,
+      docId,
+      doc,
+      throughSeq,
+      'compaction',
+      await authorsSince(client, docId, since),
+    );
 
     const state = Y.encodeStateAsUpdateV2(doc);
     const stateVector = Y.encodeStateVector(doc);

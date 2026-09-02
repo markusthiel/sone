@@ -36,7 +36,13 @@ import {
 import { appendUpdate } from '../doc/docStore.js';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { collateClause, workspaceI18n } from '../i18n/locale.js';
+import { readDocument } from '../materialize/readDocument.js';
 import { applyToDocument, loadDoc } from '../doc/docStore.js';
+import {
+  VERSION_RETENTION_DAYS,
+  listVersions,
+  loadVersion,
+} from '../doc/versions.js';
 import { materializeYDoc } from '../materialize/materialize.js';
 import { createEntry } from '../pages/createEntry.js';
 import { rematerialize } from '../materialize/rematerialize.js';
@@ -648,6 +654,122 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         kind: row.kind === 'canvas' ? 'canvas' : 'page',
       })),
     });
+  });
+
+  /**
+   * May this person read this page?
+   *
+   * Extracted rather than copied for the version routes: the check above is
+   * eleven lines with three separate reasons to answer 404, and a second copy
+   * of it is a second thing to keep in step — which the comment on
+   * `visiblePagesCondition` already says is how a disclosure happens.
+   */
+  const mayReadPage = async (
+    ctx: Parameters<Parameters<typeof router.get>[1]>[0],
+    pageId: string,
+  ): Promise<boolean> => {
+    const page = await queryOne<{
+      id: string;
+      workspace_id: string;
+      ancestor_ids: string[];
+      restricted: boolean;
+    }>(
+      deps.pool,
+      `SELECT id, workspace_id, ancestor_ids, restricted
+         FROM pages WHERE id = $1 AND archived_at IS NULL`,
+      [pageId],
+    );
+    if (!page) {
+      ctx.fail(404, 'not_found');
+      return false;
+    }
+    if (!sessionTokenFrom(ctx)) {
+      ctx.fail(401, 'not_authenticated');
+      return false;
+    }
+    const claims = await claimsOrNull(deps.pool, ctx, page.workspace_id);
+    const role = claims
+      ? effectiveRole(claims, {
+          id: page.id,
+          workspaceId: page.workspace_id,
+          ancestorIds: page.ancestor_ids,
+          restricted: page.restricted,
+        })
+      : null;
+    if (role === null) {
+      // Not a member is indistinguishable from the page not existing.
+      ctx.fail(404, 'not_found');
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * What this page said, at moments worth keeping (ADR-0047).
+   *
+   * Read rights are enough: a version is the page, and somebody who may read it
+   * now may read what it said on Tuesday.
+   */
+  router.get('/api/pages/:pageId/versions', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    if (!(await mayReadPage(ctx, pageId))) return;
+
+    const versions = await listVersions(deps.pool, pageId);
+
+    ctx.send(200, {
+      versions: versions.map((version) => ({
+        id: version.id,
+        takenAt: version.takenAt,
+        authors: version.authors,
+        reason: version.reason,
+      })),
+      /*
+       * How far back this goes, said rather than implied.
+       *
+       * History begins when it is switched on, and every page older than that
+       * has one collapsed state and no past — no amount of work recovers what
+       * compaction discarded. A list that stops without saying why looks like a
+       * page nobody edited before then (ADR-0047).
+       */
+      retentionDays: VERSION_RETENTION_DAYS,
+      complete: false,
+    });
+  });
+
+  /**
+   * One version, as text.
+   *
+   * The state is a Yjs document; what a reader wants is what it said. So this
+   * projects it the same way the materialiser does and sends that — the client
+   * has no business decoding a document it cannot edit.
+   */
+  router.get('/api/pages/:pageId/versions/:versionId', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    if (!(await mayReadPage(ctx, pageId))) return;
+
+    const loaded = await loadVersion(deps.pool, pageId, ctx.params['versionId'] ?? '');
+    if (!loaded) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    try {
+      const parsed = readDocument(loaded.doc, pageId);
+      ctx.send(200, {
+        id: loaded.row.id,
+        takenAt: loaded.row.takenAt,
+        authors: loaded.row.authors,
+        title: parsed.page.title,
+        blocks: parsed.blocks.map((block: { id: string; parentId: string | null; type: string; plainText: string }) => ({
+          id: block.id,
+          parentId: block.parentId,
+          type: block.type,
+          text: block.plainText,
+        })),
+      });
+    } finally {
+      loaded.doc.destroy();
+    }
   });
 
   /** Page metadata. The body itself arrives over the sync connection. */
