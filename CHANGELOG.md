@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An inbox** ([ADR-0052](docs/adr/0052-notifications.md)). When somebody names you
+in a comment, or replies in a thread you are in, it appears under your face in the
+sidebar with a count — across every workspace, because the question you missed is
+usually the one asked somewhere you were not looking. Opening a notification marks
+it read; looking at the list does not. It is deliberately not an activity feed: no
+row appears because a page changed. SONE sends no email, and the inbox says so.
+
 **A PDF can be paged and read with a keyboard.** The viewer shipped as a
 scrolling column that was not in the tab order, so it could be read with a
 pointer and not otherwise, and it had no paging controls at all despite

@@ -58,6 +58,8 @@ export const paths = {
   /** The instance everybody shares. Only offered with the right. */
   admin: (section = 'instance') => `/admin/${section}`,
   trash: () => '/trash',
+  /** What is waiting, across every workspace (ADR-0052). */
+  inbox: () => '/inbox',
 
   /**
    * A page, optionally at one of its blocks.
@@ -118,6 +120,7 @@ export type Route =
   | { kind: 'workspaceSettings'; section: string }
   | { kind: 'admin'; section: string }
   | { kind: 'trash' }
+  | { kind: 'inbox' }
   | { kind: 'page'; pageId: string }
   | { kind: 'share'; token: string; pageId: string | null }
   | { kind: 'notFound' };
@@ -153,6 +156,15 @@ export function parseRoute(pathname: string, search = ''): Route {
       return { kind: 'admin', section: segments[1] ?? 'instance' };
     case 'trash':
       return { kind: 'trash' };
+    /*
+     * Outside any workspace, deliberately.
+     *
+     * An inbox spans them — the whole point is being told about a question
+     * asked somewhere other than where somebody is standing — so a path with a
+     * workspace in it would be a lie about what the screen shows.
+     */
+    case 'inbox':
+      return { kind: 'inbox' };
 
     case 'p': {
       const pageId = segments[1];

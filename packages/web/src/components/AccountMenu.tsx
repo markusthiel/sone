@@ -15,9 +15,11 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { WEB_VERSION } from '../buildInfo.ts';
+import { api } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import {
+  BellIcon,
   PersonIcon,
   SettingsIcon,
   SignOutIcon,
@@ -31,6 +33,7 @@ interface AccountMenuProps {
   userId: string;
   /** Whether to offer the way into the instance administration (ADR-0032). */
   canAdminister: boolean;
+
   onLogout: () => void;
 }
 
@@ -42,6 +45,33 @@ export function AccountMenu({
 }: AccountMenuProps): ReactElement {
   const { t } = useT();
   const [open, setOpen] = useState(false);
+  /*
+   * The count, fetched here rather than passed in (ADR-0052).
+   *
+   * Two screens render this menu — the application and the settings shell — and
+   * a prop would mean both of them fetching the same number and both being
+   * responsible for keeping it fresh. The badge is the menu's own business.
+   *
+   * Once per mount, which is once per navigation: not polled. A number that is
+   * a minute old is the right trade for a request nobody asked for.
+   */
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .inboxCount()
+      .then((result) => {
+        if (!cancelled) setUnread(result.unread);
+      })
+      .catch(() => {
+        // A count that cannot be fetched is drawn as no count. An error badge
+        // on the account button would be a permanent complaint about something
+        // nobody can act on.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   // Most accounts have no picture, so a failed request is the ordinary case
   // rather than an error worth reporting.
   const [avatarBroken, setAvatarBroken] = useState(false);
@@ -84,7 +114,11 @@ export function AccountMenu({
         className="sidebar-account"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={t('account.label', { name: displayName })}
+        aria-label={
+          unread > 0
+            ? t('account.label.waiting', { name: displayName, count: unread })
+            : t('account.label', { name: displayName })
+        }
         onClick={() => setOpen((previous) => !previous)}
       >
         <span className="sidebar-avatar" aria-hidden="true">
@@ -99,6 +133,17 @@ export function AccountMenu({
           )}
         </span>
         <span className="sidebar-account-name">{displayName}</span>
+        {/* What is waiting (ADR-0052).
+          *
+          * On the button rather than beside it, because this is the one thing
+          * in the interface that has to be noticed without being looked for.
+          * The number is in the button's own label as well, or a screen reader
+          * announces the name and not the count. */}
+        {unread > 0 && (
+          <span className="sidebar-unread" aria-hidden="true">
+            {unread > 99 ? '99+' : unread}
+          </span>
+        )}
       </button>
 
       <a
@@ -131,6 +176,12 @@ export function AccountMenu({
               {t('account.administration')}
             </a>
           )}
+          {/* Above the trash: it is the thing somebody came to the menu for
+              when the count is showing. */}
+          <a role="menuitem" href={paths.inbox()} onClick={() => setOpen(false)}>
+            <BellIcon />
+            {unread > 0 ? t('account.inbox.waiting', { count: unread }) : t('account.inbox')}
+          </a>
           <a role="menuitem" href={paths.trash()} onClick={() => setOpen(false)}>
             <TrashIcon />
             {t('account.trash')}

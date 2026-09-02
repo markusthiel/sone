@@ -23,6 +23,20 @@ export const de: Record<keyof typeof en, string> = {
     '{address, select, formal {Ihre Einstellungen} other {Deine Einstellungen}}',
   'account.thisWorkspace': 'Dieser Workspace',
   'account.administration': 'Verwaltung',
+  'account.inbox': 'Posteingang',
+  'account.inbox.waiting': 'Posteingang, {count} wartend',
+  'account.label.waiting': '{name}, {count} Benachrichtigungen wartend',
+  'inbox.title': 'Posteingang',
+  'inbox.empty':
+    'Nichts wartet. Hier erscheint es, wenn jemand einen Namen in einem ' +
+    'Kommentar nennt oder in einem Verlauf antwortet, an dem die eigene ' +
+    'Person beteiligt ist.',
+  'inbox.unreadOnly': 'Nur Ungelesenes',
+  'inbox.markAll': 'Alles als gelesen markieren',
+  'inbox.mention': 'Namensnennung',
+  'inbox.reply': 'Antwort im Verlauf',
+  'inbox.assignment': 'Zuweisung',
+  'inbox.noEmail': 'SONE verschickt keine E-Mails. Benachrichtigungen stehen hier.',
   'account.trash': 'Papierkorb',
   'account.signOut': 'Abmelden',
   'account.version': 'Version und Lizenz',

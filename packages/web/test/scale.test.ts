@@ -1680,3 +1680,32 @@ test('a correction is offered as a search, and keeps the filters', () => {
   assert.match(screen, /function withWord\(query: string, word: string\)/);
   assert.match(screen, /query\.replace\(parsed\.text, word\)/);
 });
+
+test('the inbox count is the menu´s own business, and not polled', () => {
+  // Two screens render the account menu, so a prop would mean both fetching the
+  // same number and both keeping it fresh (ADR-0052).
+  const menu = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
+  assert.match(menu, /api\s*\n?\s*\.inboxCount\(\)/);
+  assert.match(menu, /\}, \[\]\);/, 'once per mount, which is once per navigation');
+  assert.doesNotMatch(menu, /setInterval/);
+  // A count that cannot be fetched is drawn as no count: an error badge on the
+  // account button is a permanent complaint about something nobody can act on.
+  assert.match(menu, /\.catch\(\(\) => \{/);
+});
+
+test('an inbox spans workspaces, so its route carries none', () => {
+  // The whole point is being told about a question asked somewhere other than
+  // where somebody is standing, so a path with a workspace in it would be a lie
+  // about what the screen shows.
+  const paths = codeOf(new URL('../src/routes/paths.ts', import.meta.url));
+  assert.match(paths, /inbox: \(\) => '\/inbox'/);
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /route\.kind === 'inbox' && <InboxScreen \/>/);
+
+  const screen = codeOf(new URL('../src/components/InboxScreen.tsx', import.meta.url));
+  // Read on opening, not on looking: an inbox that empties itself when glanced
+  // at is one that loses things.
+  assert.match(screen, /if \(!item\.read\) void api\.markInboxRead\(\[item\.id\]\)/);
+  // And it says there is no email, rather than letting somebody assume one.
+  assert.match(screen, /t\('inbox\.noEmail'\)/);
+});

@@ -1081,6 +1081,30 @@ export const api = {
       }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
 
+  /** How many notifications are waiting, across every workspace (ADR-0052). */
+  inboxCount: () => request<{ unread: number }>('/api/inbox/count'),
+
+  /** What is in the inbox, newest first. */
+  inbox: (unreadOnly = false) =>
+    request<{
+      notifications: Array<{
+        id: string;
+        kind: 'mention' | 'reply' | 'assignment';
+        excerpt: string;
+        createdAt: string;
+        read: boolean;
+        pageId: string;
+        pageTitle: string;
+        threadId: string | null;
+        workspaceId: string;
+        workspaceName: string;
+      }>;
+    }>(`/api/inbox${unreadOnly ? '?unread=true' : ''}`),
+
+  /** Mark things read. With no ids, everything (ADR-0052). */
+  markInboxRead: (ids?: string[]) =>
+    post<{ marked: number }>('/api/inbox/read', ids ? { ids } : {}),
+
   /** Ask for the whole workspace as an archive. It becomes a job (ADR-0044). */
   startWorkspaceExport: (workspaceId: string, attachments: boolean) =>
     post<{ jobId: string; alreadyRunning?: boolean }>(
