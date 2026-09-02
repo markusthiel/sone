@@ -78,8 +78,12 @@ export const de: Record<keyof typeof en, string> = {
   'entry.share': 'Teilen…',
   'entry.move': 'Verschieben nach…',
   'entry.lockedShort': 'Gesperrt',
-  'entry.lock': 'Gegen versehentliche Änderungen sperren',
-  'entry.unlock': 'Änderungen wieder erlauben',
+  'entry.lock': 'Sperren',
+  'entry.lock.hint':
+    'Gegen versehentliche Änderungen sperren. Wer bearbeiten darf, kann sie ' +
+    'wieder aufheben.',
+  'entry.unlock': 'Entsperren',
+  'entry.unlock.hint': 'Änderungen wieder erlauben.',
   'entry.export': 'Exportieren\u2026',
   'share.heading': '„{title}“ teilen',
   'file.pdfAllPages': 'Original öffnen',
@@ -743,6 +747,8 @@ export const de: Record<keyof typeof en, string> = {
   'block.outdent': 'Ausrücken',
   'block.indent': 'Einrücken',
   'block.duplicate': 'Duplizieren',
+  'block.lock': 'Diesen Baustein sperren',
+  'block.unlock': 'Diesen Baustein entsperren',
   'block.delete': 'Löschen',
   'block.heading': 'Überschrift',
   'block.openInNewTab': 'In neuem Tab öffnen',

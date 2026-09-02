@@ -1593,7 +1593,26 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   .settings-row input, .settings-row select { inline-size: 100%; }
 }
 
-/* --- a locked page (ADR-0049) --- */
+/* --- a locked page or block (ADR-0049) --- */
+
+/* A locked block, marked by the editor's own decoration.
+ *
+ * Quietly: it is still a block to read, and a coloured border would compete with
+ * whatever it holds. A hairline in the margin says where the lock is, and the
+ * cursor says it again to anybody who tries to type. */
+.ProseMirror [data-locked='true'] {
+  cursor: default;
+  position: relative;
+}
+.ProseMirror [data-locked='true']::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--sone-space-4) * -1);
+  inline-size: 2px;
+  border-radius: 1px;
+  background: var(--border-default);
+}
 
 /* In the tree, beside the title: visible before somebody starts typing. Small
    and grey, because a lock anybody who may edit can lift must not look like a
@@ -2827,6 +2846,11 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
    * since it sits under "move to" — and this keeps the row honest when a
    * translation runs longer than English again. */
   white-space: nowrap;
+  /* A label longer than the panel is cut rather than pushed through its edge,
+     which is what the first lock wording did. The `title` carries the full
+     sentence where one is needed. */
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   display: flex;
   align-items: center;

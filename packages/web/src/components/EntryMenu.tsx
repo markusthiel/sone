@@ -644,6 +644,7 @@ export function EntryMenu({
             type="button"
             role="menuitemcheckbox"
             aria-checked={isLocked}
+            title={isLocked ? t('entry.unlock.hint') : t('entry.lock.hint')}
             onClick={() => {
               setOpen(false);
               void api
@@ -652,6 +653,10 @@ export function EntryMenu({
                 .catch(() => onChanged());
             }}
           >
+            {/* Short. The full sentence is the title, because `white-space:
+                nowrap` on a menu item means a long label does not wrap — it
+                leaves the panel, which is what mine did. A menu is a column of
+                verbs; the explanation belongs on hover and in the record. */}
             <LockIcon /> {isLocked ? t('entry.unlock') : t('entry.lock')}
           </button>
 
