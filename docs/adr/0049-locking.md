@@ -2,8 +2,7 @@
 
 ## Status
 
-Accepted. The page lock is built. The block lock is decided here and not yet
-built — the next slice.
+Accepted. Both are built.
 
 ## Context
 
@@ -85,9 +84,24 @@ per-block setting lives.
 The case is narrower and real: a page that is mostly working notes with one table
 of figures that must not move. Locking the page would stop the notes.
 
-A locked block refuses typing, its gutter offers only unlock, and it cannot be
-dragged. It can still be selected and copied, and a table inside it can still be
-filtered.
+A locked block refuses typing and cannot be dragged. It can still be selected and
+copied, and a table inside it can still be filtered.
+
+Enforced by one `filterTransaction` that refuses any transaction whose replace
+steps touch a locked block's range — the same "one place" reasoning the page
+lock's single `editable` predicate follows.
+
+Two things that had to be exceptions, both found by a test rather than by
+thinking: **the lock's own change**, because `setNodeMarkup` produces a
+`ReplaceAroundStep` like any other structural step, so a first version locked
+away the only way to unlock; and **another client's edit**, which is never
+refused, because rejecting it would make this client's document differ from
+everybody else's.
+
+A locked block is marked by a decoration rather than by an attribute in the
+document: how a block is drawn is the editor's business, and writing a
+presentation attribute into everybody's document in order to style it in one
+client would be the wrong place for it.
 
 ### Where the controls are
 

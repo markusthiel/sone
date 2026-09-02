@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A single block can be locked too** ([ADR-0049](docs/adr/0049-locking.md)), from
+the block's own gutter menu — for a page of working notes with one table that must
+not move. A locked block is marked with a hairline in the margin.
+
+**Fixed: the page lock's label was too long for the menu** and ran past its edge.
+
 **A workspace can set the interface's tint and accent** under This workspace →
 Typography ([ADR-0023](docs/adr/0023-workspace-theme.md)). One tint is mixed into
 the sidebar, panels and menus rather than a colour per surface, so they keep

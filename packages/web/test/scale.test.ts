@@ -1560,8 +1560,14 @@ test('a lock does not read like a permission', () => {
   // to lock a page and believe it is safe from a colleague; what restricts other
   // people is a permission (ADR-0026, ADR-0049).
   const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
-  assert.match(en, /'entry\.lock': 'Lock against accidental changes'/);
-  assert.doesNotMatch(en, /'entry\.lock':.*[Pp]rotect/);
+  // A short verb in the menu, with the sentence as its hint: `white-space:
+  // nowrap` on a menu item means a long label does not wrap, it leaves the
+  // panel — which is what the first wording did.
+  assert.match(en, /'entry\.lock': 'Lock',/);
+  assert.match(en, /'entry\.lock\.hint': 'Lock against accidental changes/);
+  assert.doesNotMatch(en, /'entry\.lock[^']*': '[^']*[Pp]rotect/);
+  // And no label can leave the panel again.
+  assert.match(css, /\.entry-menu-item \{[^}]*text-overflow: ellipsis/s);
   // The padlock in the tree is grey and small rather than a warning colour.
   assert.match(css, /\.tree-locked \{[^}]*color: var\(--sone-text-muted\)/s);
   // And no banner across the page: a locked page is still a page to read.
@@ -1600,4 +1606,29 @@ test('the gutter cannot start a text selection', () => {
   // `manipulation` rather than `none`: a finger landing in the gutter and moving
   // up the page should still scroll it.
   assert.match(rule, /touch-action: manipulation/);
+});
+
+test('a single block can be locked, from where its other settings are', () => {
+  // The case the page lock cannot serve: working notes with one table of figures
+  // that must not move (ADR-0049). In the gutter menu, beside duplicate and
+  // before delete — not a floating padlock over the content, which would cover
+  // the thing it acts on.
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+  assert.match(menu, /label: lockedHere \? 'block\.unlock' : 'block\.lock'/);
+  assert.ok(menu.indexOf("id: 'lock'") < menu.indexOf("id: 'delete'"));
+
+  // One filter, not a guard per command — the same reasoning as the page lock's
+  // single `editable` predicate.
+  const lock = codeOf(new URL('../../editor/src/blockLock.ts', import.meta.url));
+  assert.match(lock, /filterTransaction:/);
+  // The lock's own change is announced, because `setNodeMarkup` is a
+  // ReplaceAroundStep: without this, locking a block locked away the unlock.
+  assert.match(lock, /if \(tr\.getMeta\(blockLockKey\) === 'set'\) return true/);
+  // Another client's edit is never refused: rejecting it would make this
+  // document differ from everybody else's (ADR-0002).
+  assert.match(lock, /tr\.getMeta\('y-sync\$'\)/);
+  // And a locked block is visibly locked, by a decoration rather than by an
+  // attribute written into everybody's document.
+  assert.match(lock, /Decoration\.node\(pos, pos \+ node\.nodeSize, \{ 'data-locked': 'true' \}\)/);
+  assert.match(css, /\.ProseMirror \[data-locked='true'\]/);
 });

@@ -29,6 +29,8 @@ import {
   selectedBlockRange,
   toggleBlockType,
   currentBlockStyle,
+  isBlockLocked,
+  setBlockLocked,
   setBlockStyle,
   setFileDisplay,
   setVideoDisplay,
@@ -46,6 +48,7 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { useViewportChanges } from '../hooks/useViewportChanges.ts';
 
 import {
+  LockIcon,
   ArrowDownIcon,
   ArrowUpIcon,
   DuplicateIcon,
@@ -596,6 +599,18 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
   };
 
   /**
+   * Whether the block this menu is about is locked.
+   *
+   * From the node at the range's start rather than from a selection scan: the
+   * menu is about one block, and a mixed answer for a selection spanning two
+   * would make one label wrong.
+   */
+  const lockedHere = (() => {
+    const node = view.state.doc.nodeAt(range.from);
+    return node ? isBlockLocked(node) : false;
+  })();
+
+  /**
    * What can be done to the block, as one row of six.
    *
    * Six full-width rows of text was most of the menu's height before anything
@@ -618,6 +633,20 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
       label: 'block.duplicate',
       Mark: DuplicateIcon,
       command: duplicateBlockSubtree,
+    },
+    /*
+     * Locking, beside duplicate and before delete (ADR-0049).
+     *
+     * A verb with an obvious picture, which is this row's condition. Its label
+     * flips, so one control says both what it does and what the block's state
+     * is — a padlock that only ever said "lock" would leave somebody guessing
+     * whether it already was.
+     */
+    {
+      id: 'lock',
+      label: lockedHere ? 'block.unlock' : 'block.lock',
+      Mark: LockIcon,
+      command: setBlockLocked(!lockedHere),
     },
     {
       id: 'delete',
