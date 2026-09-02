@@ -193,9 +193,16 @@ export function RightSidebar({
       <aside
         className={`right-panel${open ? ' open' : ''}`}
         aria-label={t('panel.label')}
-        // Hidden from assistive technology when closed, or a screen reader
-        // announces a panel that is not on screen.
-        {...(open ? {} : { 'aria-hidden': true })}
+        /*
+         * Closed means unreachable, not merely unannounced.
+         *
+         * `aria-hidden` keeps a screen reader from reading it and does *nothing*
+         * about the tab order — every button inside stayed focusable. That was
+         * survivable while a closed panel was removed from the DOM; now that it
+         * stays there to slide, a tab from the page would land in a drawer
+         * nobody can see. `inert` is the attribute that means both.
+         */
+        {...(open ? {} : { 'aria-hidden': true, inert: true })}
       >
         <div className="right-tabs" role="tablist" aria-label={t('panel.label')}>
           {RIGHT_TABS.map((name) => {

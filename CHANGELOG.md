@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The right panel slides in and out** like the left sidebar does, with the same
+timing. **Fixed: a closed drawer was still reachable with the Tab key** — on both
+sides, and on the left it had been for longer.
+
 **An inbox** ([ADR-0052](docs/adr/0052-notifications.md)). When somebody names you
 in a comment, or replies in a thread you are in, it appears under your face in the
 sidebar with a count — across every workspace, because the question you missed is

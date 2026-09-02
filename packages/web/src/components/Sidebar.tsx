@@ -321,7 +321,19 @@ export function Sidebar({
       {open && (
         <button className="scrim" aria-label={t('sidebar.close')} onClick={onClose} type="button" />
       )}
-      <nav className={`sidebar${open ? ' open' : ''}`} aria-label={t('sidebar.label')}>
+      <nav
+        className={`sidebar${open ? ' open' : ''}`}
+        aria-label={t('sidebar.label')}
+        /*
+         * The same for this side, which has had the fault longer.
+         *
+         * On a narrow screen this stays in the DOM when closed so it can slide,
+         * and it had neither `aria-hidden` nor `inert` — so a tab from the page
+         * walked into an off-screen sidebar. Found while giving the right panel
+         * its animation, which is the sort of thing symmetry turns up.
+         */
+        {...(open ? {} : { 'aria-hidden': true, inert: true })}
+      >
         <div className="sidebar-head">
           <WorkspaceMenu
           canManageWorkspaces={canManageWorkspaces}
