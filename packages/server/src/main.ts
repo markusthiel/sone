@@ -50,6 +50,7 @@ import { registerExportRoutes } from './export/routes.js';
 import { registerImportRoutes } from './import/routes.js';
 import { WORKSPACE_EXPORT, workspaceExportHandler } from './export/workspaceJob.js';
 import { registerJobRoutes } from './jobs/routes.js';
+import { registerInboxRoutes } from './notifications/routes.js';
 import { runOneJob } from './jobs/runner.js';
 import { registerAvatarRoutes, registerFileRoutes } from './files/routes.js';
 import { LocalFileStore } from './files/store.js';
@@ -297,6 +298,9 @@ async function main(): Promise<void> {
   jobTimer.unref();
 
   registerJobRoutes(router, { pool, store: fileStore });
+
+  // Being told when somebody asked you something (ADR-0052).
+  registerInboxRoutes(router, { pool });
 
   registerAdminRoutes(router, {
     pool,
