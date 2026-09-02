@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Commented passages are highlighted**, and how much they are marked is up to the
+reader: highlighted, underlined, or not at all, with a switch in the comments
+panel to turn them off for the page you are reading.
+
+**Fixed: a filled button turned pale on hover** — near-white text on pale grey,
+which read as an empty box. **Fixed: comment threads had a bullet** and an indent
+to make room for it.
+
 **Comments are searchable, and a workspace can list what is still waiting.** A
 page's threads are projected into the database, so "what has somebody asked that
 nobody has answered" is a query rather than a hunt — and the text of a discussion

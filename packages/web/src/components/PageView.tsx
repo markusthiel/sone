@@ -37,6 +37,8 @@ interface PageViewProps {
   threads: DrawnThread[];
   /** A selection somebody wants to comment on. */
   onComment: (anchor: CommentAnchor) => void;
+  /** How much to mark a commented passage (ADR-0046). */
+  markStyle: 'highlight' | 'underline' | 'off';
   /**
    * Called when the title changes, including by another client.
    *
@@ -56,6 +58,7 @@ export function PageView({
   handle,
   threads,
   onComment,
+  markStyle,
   pageId,
   connectionState,
   onTitleChange,
@@ -222,6 +225,7 @@ export function PageView({
             pageId={pageId}
             threads={threads}
             onComment={onComment}
+            markStyle={markStyle}
           />
         )}
       </ErrorBoundary>

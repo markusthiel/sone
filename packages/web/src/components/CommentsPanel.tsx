@@ -17,6 +17,10 @@ import type { CommentThread } from '@sone/core';
 
 import type { WorkspaceMember } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
+import {
+  COMMENT_MARK_STYLES,
+  type CommentMarkStyle,
+} from '../hooks/useCommentMarkStyle.ts';
 import type { CommentActions } from '../hooks/useComments.ts';
 import { CheckSquareIcon, TrashIcon } from './icons.tsx';
 
@@ -139,6 +143,7 @@ export function CommentsPanel({
   onReveal,
   pending,
   onCancelPending,
+  marks,
 }: {
   comments: CommentActions;
   members: WorkspaceMember[];
@@ -147,6 +152,12 @@ export function CommentsPanel({
   /** A selection waiting for its first message (ADR-0046). */
   pending: { from: Uint8Array; to: Uint8Array; quote: string } | null;
   onCancelPending: () => void;
+  marks: {
+    style: CommentMarkStyle;
+    setStyle: (style: CommentMarkStyle) => void;
+    hidden: boolean;
+    setHidden: (hidden: boolean) => void;
+  };
 }): ReactElement {
   const { t } = useT();
   const [draft, setDraft] = useState('');
@@ -248,6 +259,40 @@ export function CommentsPanel({
 
   return (
     <>
+      {/* How much the page is marked.
+        *
+        * Two controls of different kinds, deliberately (ADR-0046). The switch is
+        * view state — it lasts while somebody reads this page and is not written
+        * into the document, because a switch stored there would let one person
+        * hide the marks for everybody. The choice below it is a preference, kept
+        * per browser: how much marking somebody wants depends on the screen they
+        * are reading on, and a phone is not a desk. */}
+      <div className="comment-marks">
+        <label className="comment-marks-toggle">
+          <input
+            type="checkbox"
+            className="checkbox"
+            checked={!marks.hidden}
+            onChange={(event) => marks.setHidden(!event.target.checked)}
+          />
+          {t('comment.showMarks')}
+        </label>
+
+        <select
+          className="comment-marks-style"
+          value={marks.style}
+          disabled={marks.hidden}
+          aria-label={t('comment.markStyle')}
+          onChange={(event) => marks.setStyle(event.target.value as CommentMarkStyle)}
+        >
+          {COMMENT_MARK_STYLES.map((one) => (
+            <option key={one} value={one}>
+              {t(`comment.mark.${one}` as 'comment.mark.highlight')}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {start}
       {group('comment.open', comments.open)}
       {/* Between the open threads and the resolved ones, deliberately: a

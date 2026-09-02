@@ -332,8 +332,15 @@ button.btn.quiet {
 button.btn.quiet:hover:not(:disabled) { color: var(--sone-text); }
 
 button.btn:disabled { opacity: 0.45; cursor: default; }
-button.btn:hover:not(:disabled),
-form button:hover:not(:disabled) { background: var(--sone-bg-hover); }
+/* Only a button that has no colour of its own.
+ *
+ * This came after `button.btn.primary` and had the same specificity, so it won
+ * on order: a primary button turned pale grey with near-white text on hover —
+ * invisible, which is how a filled button ends up looking like an empty box.
+ * `:not(.primary)` rather than reordering, because order-dependence is what
+ * made it fragile in the first place. */
+button.btn:not(.primary):hover:not(:disabled),
+form button:not(.btn):hover:not(:disabled) { background: var(--sone-bg-hover); }
 button:disabled { opacity: 0.5; cursor: default; }
 
 /* `primary` without `btn`, which several forms use. Same treatment, because a
@@ -1569,17 +1576,59 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 /* --- comments (ADR-0046) --- */
 
-/* The mark under a commented passage.
+/* A commented passage, marked as much as the reader asked for (ADR-0046).
  *
- * An underline rather than a highlight: a highlight competes with the text it
- * marks, and a page under review has many of these at once. */
-.ProseMirror .sone-commented {
+ * A highlighter by default: it is the mark everybody has already met, it costs
+ * the text no space, and it says exactly as much as it should — these words are
+ * being discussed. Not a speech bubble in the line, which would reflow every
+ * paragraph after it the moment somebody turned the marks off.
+ */
+.ProseMirror .sone-commented { cursor: pointer; }
+.ProseMirror .sone-commented-highlight {
+  /* Faint enough to read through. A highlighter that fights the words is one
+     people turn off, and then the marks are worth nothing. */
+  background: color-mix(in srgb, var(--sone-palette-yellow, #e0b341) 22%, transparent);
+  border-radius: 2px;
+}
+.ProseMirror .sone-commented-underline {
   border-block-end: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  cursor: pointer;
 }
 
-.comment-list { display: flex; flex-direction: column; gap: var(--sone-space-4); }
+/* The two controls at the head of the panel: a switch for this page, and how
+   much to mark when it is on. */
+.comment-marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sone-space-2) var(--sone-space-3);
+  padding: var(--sone-space-3) var(--sone-space-4);
+  border-block-end: 1px solid var(--border-subtle);
+}
+.comment-marks-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+.comment-marks-style {
+  min-block-size: var(--sone-control);
+  font-size: var(--sone-text-xs);
+}
+
+/* A list of threads, not a bulleted list.
+ *
+ * `list-style: none` was missing, so every thread had a bullet outside its card
+ * with the indent to make room for it — a column of dots and a strip of empty
+ * space down the side of a panel that has none to spare. */
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 .comment-thread {
   padding: var(--sone-space-3);
   border: 1px solid var(--border-subtle);
@@ -1594,6 +1643,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 /* The words it is about, as they read when it was written. */
 .comment-quote {
+  margin: 0;
   display: block;
   inline-size: 100%;
   padding: 0;
@@ -1617,8 +1667,8 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .comment-messages {
   display: flex;
   flex-direction: column;
-  gap: var(--sone-space-3);
-  margin-block: var(--sone-space-3) 0;
+  gap: var(--sone-space-2);
+  margin-block: var(--sone-space-2) 0;
   padding: 0;
   list-style: none;
 }
@@ -1648,8 +1698,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 .comment-draft {
   inline-size: 100%;
-  min-block-size: calc(var(--sone-control) * 1.6);
-  margin-block-start: var(--sone-space-3);
+  /* One line until somebody needs two: a reply box the height of a paragraph
+     suggests a paragraph is expected, and most replies are a sentence. */
+  min-block-size: var(--sone-control);
+  margin-block-start: var(--sone-space-2);
   padding: var(--sone-space-2) var(--sone-space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius);

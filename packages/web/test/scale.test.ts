@@ -1198,5 +1198,39 @@ test('the editor resolves an anchor for the page, in one place', () => {
   assert.match(surface, /revealRange\(view\.state, found\)/);
   // Fed from a ref, because the editor is created once and the threads change
   // constantly — a captured list would be the one that existed on open.
-  assert.match(surface, /commentMarks\(\(\) => threadsRef\.current\)/);
+  // Both the threads and the mark style are read on every rebuild rather than
+  // captured: the editor is created once and both change while somebody reads.
+  assert.match(
+    surface,
+    /commentMarks\(\(\) => threadsRef\.current, \(\) => markStyleRef\.current\)/,
+  );
+});
+
+test('marking a commented passage is the reader’s choice, in two kinds of control', () => {
+  // Not a speech bubble in the text: an element in the line reflows every
+  // paragraph after it the moment somebody turns the marks off, and a page under
+  // review would carry a rash of them (ADR-0046).
+  const anchors = codeOf(new URL('../../editor/src/commentAnchors.ts', import.meta.url));
+  assert.match(anchors, /if \(style === 'off'\) return DecorationSet\.empty/);
+  assert.match(anchors, /sone-commented-\$\{style\}/);
+  assert.match(css, /\.sone-commented-highlight \{[^}]*background: color-mix/s);
+  assert.match(css, /\.sone-commented-underline \{[^}]*border-block-end/s);
+
+  // The switch is view state and the choice is a preference — and the preference
+  // is per browser, because how much marking somebody wants depends on the
+  // screen they are reading on.
+  const hook = codeOf(new URL('../src/hooks/useCommentMarkStyle.ts', import.meta.url));
+  assert.match(hook, /localStorage\.setItem\(KEY, next\)/);
+  assert.doesNotMatch(hook, /api\./, 'not on the account');
+  assert.match(hook, /effective: hidden \? 'off' : style/);
+});
+
+test('a thread is not a bullet, and a filled button keeps its colour', () => {
+  // Two things from one screenshot. `list-style: none` was missing, so every
+  // thread had a bullet outside its card and an indent to make room for it.
+  assert.match(css, /\.comment-list \{[^}]*list-style: none/s);
+  // And the generic hover came after the primary rule with the same specificity,
+  // so it won on order: near-white text on pale grey, which reads as an empty
+  // box rather than a button.
+  assert.match(css, /button\.btn:not\(\.primary\):hover:not\(:disabled\)/);
 });
