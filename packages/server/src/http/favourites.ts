@@ -59,11 +59,12 @@ export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): vo
       page_id: string;
       title: string;
       kind: string;
+      icon: unknown;
       workspace_id: string;
       idx: string;
     }>(
       deps.pool,
-      `SELECT f.page_id, p.title, p.kind, p.workspace_id, f.idx
+      `SELECT f.page_id, p.title, p.kind, p.icon, p.workspace_id, f.idx
          FROM favourites f
          JOIN pages p ON p.id = f.page_id
         WHERE f.user_id = $1
@@ -104,7 +105,18 @@ export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): vo
         .map((row) => ({
           pageId: row.page_id,
           title: row.title,
-          kind: row.kind === 'folder' ? 'folder' : 'page',
+          /*
+           * The entry's own kind, and its own icon.
+           *
+           * This narrowed every kind to "folder or else page", so a canvas in
+           * the favourites was a document — the same mistake `entryKind()` was
+           * written to stop, made again in a route rather than a component. And
+           * the icon was simply not selected, so the sidebar drew a default one:
+           * a page called "Zugangsdaten" with a key on it in the tree appeared
+           * in the favourites as a blank document.
+           */
+          kind: row.kind,
+          icon: row.icon,
           workspaceId: row.workspace_id,
           idx: row.idx,
         })),

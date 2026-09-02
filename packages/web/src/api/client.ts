@@ -339,6 +339,8 @@ export interface FavouriteEntry {
   pageId: string;
   title: string;
   kind: EntryKind;
+  /** The same shape a page carries in the tree, so both draw it the same way. */
+  icon: { kind: string; value: string; color?: string; titleColor?: string } | null;
   workspaceId: string;
   idx: string;
 }

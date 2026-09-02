@@ -137,6 +137,36 @@ describe(
       return body.favourites.map((entry) => entry.pageId);
     };
 
+    test('a favourite carries its own kind and its own icon', async () => {
+      // The route narrowed every kind to "folder or else page" and did not
+      // select the icon at all, so a canvas appeared as a document and a page
+      // with a key on it in the tree appeared as a blank one — the same mistake
+      // `entryKind()` was written to stop, made in a route rather than a
+      // component.
+      const session = await setup();
+      const page = await createPage(session, 'Zugangsdaten');
+      await db.query(
+        `UPDATE pages
+            SET kind = 'canvas',
+                icon = '{"kind":"lucide","value":"key","color":"blue"}'::jsonb
+          WHERE id = $1`,
+        [page],
+      );
+
+      await expectStatus(await favourite(session.cookie, page), 200);
+
+      const list = await expectJson<{
+        favourites: Array<{ kind: string; icon: { value: string; color?: string } | null }>;
+      }>(
+        await fetch(`${base}/api/favourites`, { headers: { cookie: session.cookie } }),
+        200,
+      );
+
+      assert.equal(list.favourites[0]?.kind, 'canvas', 'its own kind');
+      assert.equal(list.favourites[0]?.icon?.value, 'key', 'and its own icon');
+      assert.equal(list.favourites[0]?.icon?.color, 'blue');
+    });
+
     test('a page can be favourited and listed', async () => {
       const session = await setup();
       const pageId = await createPage(session, 'Important');

@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a favourite was drawn with a default icon** instead of its own, and a
+favourited canvas appeared as a page.
+
 **The sidebar has two sections that fold**, Favourites and Folders, separated by a
 line — and a `+` on the Folders heading replaces the "New folder" button at the
 foot of the tree. Whether a section is open is remembered.
