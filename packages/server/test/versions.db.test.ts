@@ -14,7 +14,12 @@ import * as Y from 'yjs';
 import { DOC_KEYS, PAGE_KEYS } from '@sone/core';
 
 import { appendUpdate, compactDoc, loadDoc } from '../src/doc/docStore.js';
-import { listVersions, loadVersion, thinVersions } from '../src/doc/versions.js';
+import {
+  listVersions,
+  loadVersion,
+  restoreInto,
+  thinVersions,
+} from '../src/doc/versions.js';
 import { closeTestPool, getTestPool, resetDatabase, seedWorkspace } from './support/db.js';
 
 let db: Pool;
@@ -123,4 +128,43 @@ test('thinning drops an ordinary version past the window', async () => {
 
   await thinVersions(db);
   assert.deepEqual(await listVersions(db, pageId), []);
+});
+
+test('restoring writes the old state forward and keeps what happened in between', async () => {
+  // A CRDT cannot be rewound (ADR-0047), so this is an edit like any other: the
+  // restore is in the history, and the state it replaced is recorded before it.
+  const pageId = await makePage();
+  await write(pageId, 'As it was');
+  await compactDoc(db, pageId);
+
+  const [first] = await listVersions(db, pageId);
+  assert.ok(first);
+
+  await write(pageId, 'As it became');
+
+  const past = await loadVersion(db, pageId, first.id);
+  assert.ok(past);
+  try {
+    const live = await loadDoc(db, pageId);
+    try {
+      const before_ = Y.encodeStateVector(live.doc);
+      restoreInto(live.doc, past.doc);
+      await appendUpdate(db, pageId, Y.encodeStateAsUpdate(live.doc, before_), null);
+    } finally {
+      live.doc.destroy();
+    }
+  } finally {
+    past.doc.destroy();
+  }
+
+  const after = await loadDoc(db, pageId);
+  try {
+    assert.equal(
+      after.doc.getMap(DOC_KEYS.page).get(PAGE_KEYS.title),
+      'As it was',
+      'the page reads as it did',
+    );
+  } finally {
+    after.doc.destroy();
+  }
 });

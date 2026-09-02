@@ -18,7 +18,9 @@ moments it was kept at, who wrote in between, and what it said — read in place
 the page, with a way back to now. A version is taken when a sitting ends and
 always before compaction, which is where a page's past used to be discarded. The
 panel says how far back the list goes and that it does not go all the way, because
-history begins when it was switched on. Restoring one comes next.
+history begins when it was switched on. **A version can be restored** — as an edit
+applied forward, so everything since stays in the list and the restore becomes a
+version of its own. Comments are not touched.
 
 **A reply has a Reply button.** Enter still sends it; the button is for everybody
 who did not know that.

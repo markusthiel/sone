@@ -228,16 +228,24 @@ Anybody who may comment may resolve. Restricting resolve to the thread's author
 sounds tidier and is wrong in practice: the person who fixes the paragraph is
 usually not the person who complained about it.
 
-### Commenting requires edit rights, for now
+### Commenting requires the `commenter` role, which already existed
 
-No new role in this record. Anybody who may edit a page may comment on it — member
-or guest — and a read-only share link cannot.
+Corrected while building something else: this record said "no new role, commenting
+requires edit rights", and a `commenter` role has been in the access model since
+the beginning. `share_role` is an enum of viewer, commenter, editor, admin;
+`claims.ts` has `canComment` sitting beside `canEdit`; share links accept it.
 
-A "may comment but not edit" role is genuinely wanted — it is how a document goes
-out for review — and it is not free: it touches page permissions (ADR-0026),
-share links, groups and the role vocabulary in four screens. Adding it as a
-side-effect of comments would be the kind of decision that gets made badly
-because it was made while thinking about something else.
+So there was nothing to add and something to *use*. Commenting is `canComment`,
+which an editor satisfies and a viewer does not — and a share link can already be
+created that permits comments and refuses edits, which is exactly the review case
+this feature is for.
+
+What is genuinely missing is smaller than a role: the interface does not offer it
+anywhere, so the capability exists and nobody can reach it. That is a screen, not
+a decision.
+
+The lesson is the one this codebase keeps teaching: I asserted an absence without
+checking, and the assertion was in a record other work would have trusted.
 
 Named here as the intended next step, with the reason it is not this step.
 

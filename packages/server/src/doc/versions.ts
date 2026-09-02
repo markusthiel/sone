@@ -213,3 +213,113 @@ export async function thinVersions(pool: Pool): Promise<number> {
   );
   return rowCount ?? 0;
 }
+
+/**
+ * Copy a Yjs XML fragment's contents into another document.
+ *
+ * Structurally, rather than through ProseMirror. The alternative is
+ * `yXmlFragmentToProsemirrorJSON` and its inverse, which would mean this package
+ * depending on y-prosemirror and the editor's schema — a document format the
+ * server otherwise never needs to understand. It only has to *reproduce* the
+ * shape, and the shape is elements, attributes and formatted text.
+ *
+ * New items rather than merged ones, which is what makes this a restore instead
+ * of a merge: the old content is written as fresh content, and the CRDT records
+ * it as an edit made now (ADR-0047).
+ */
+function cloneInto(source: Y.XmlFragment, target: Y.XmlFragment): void {
+  target.delete(0, target.length);
+
+  const build = (node: Y.XmlElement | Y.XmlText | Y.XmlHook): Y.XmlElement | Y.XmlText => {
+    if (node instanceof Y.XmlText) {
+      const text = new Y.XmlText();
+      // Through the delta, so bold, links and every other mark come with the
+      // words rather than being flattened out of them.
+      text.applyDelta(node.toDelta());
+      return text;
+    }
+
+    const element = new Y.XmlElement((node as Y.XmlElement).nodeName);
+    for (const [key, value] of Object.entries((node as Y.XmlElement).getAttributes())) {
+      if (value !== undefined && value !== null) element.setAttribute(key, value as string);
+    }
+    const children = (node as Y.XmlElement)
+      .toArray()
+      .map((child) => build(child as Y.XmlElement | Y.XmlText | Y.XmlHook));
+    if (children.length > 0) element.insert(0, children as never);
+    return element;
+  };
+
+  const copies = source
+    .toArray()
+    .map((child) => build(child as Y.XmlElement | Y.XmlText | Y.XmlHook));
+  if (copies.length > 0) target.insert(0, copies as never);
+}
+
+/**
+ * What a restore does and does not touch.
+ *
+ * **The body and the page's own words**, obviously. **The canvas**, for the same
+ * reason: it is what the page *is*.
+ *
+ * **Not where the page lives.** Its kind, its position, its parent and its
+ * collection are facts about the tree, not about what the page said — restoring
+ * an old parent would silently move the page, which is not what anybody pressing
+ * "restore" is asking for.
+ *
+ * **Not the comments.** A comment is about the page rather than part of it
+ * (ADR-0046), and rolling the page back must not delete a discussion about
+ * rolling it back. A thread whose text is gone becomes detached, which is exactly
+ * the state that already exists for it.
+ */
+const STRUCTURAL_KEYS = ['kind', 'idx', 'parentPageId', 'collectionId'];
+
+/**
+ * Make the page read as it did, by writing that state forward.
+ *
+ * Never a rewind. A CRDT cannot be rolled back — rewriting a history other
+ * clients have already merged is not something it can express — so this computes
+ * what the live document has to change and applies it as an ordinary edit. The
+ * restore is therefore in the history itself, is undone by restoring the version
+ * before it, and arrives for anybody connected like any other change.
+ */
+export function restoreInto(live: Y.Doc, past: Y.Doc): void {
+  cloneInto(past.getXmlFragment('content'), live.getXmlFragment('content'));
+
+  // The page's own properties, minus the ones that say where it lives.
+  const pastPage = past.getMap('page');
+  const livePage = live.getMap('page');
+  for (const key of [...livePage.keys()]) {
+    if (STRUCTURAL_KEYS.includes(key)) continue;
+    if (!pastPage.has(key)) livePage.delete(key);
+  }
+  pastPage.forEach((value, key) => {
+    if (STRUCTURAL_KEYS.includes(key)) return;
+    // Only plain values: a Y.Text title would need the same clone treatment, and
+    // nothing writes one today. Skipped rather than half-copied, so a future
+    // shared value fails to restore visibly instead of arriving corrupted.
+    if (value instanceof Y.AbstractType) return;
+    livePage.set(key, value);
+  });
+
+  // The canvas, wholesale. An item is a map of plain values, so a shallow copy
+  // per item is the whole of it.
+  const pastCanvas = past.getMap<Y.Map<unknown>>('canvas');
+  const liveCanvas = live.getMap<Y.Map<unknown>>('canvas');
+  for (const id of [...liveCanvas.keys()]) liveCanvas.delete(id);
+  pastCanvas.forEach((item, id) => {
+    if (!(item instanceof Y.Map)) return;
+    const copy = new Y.Map<unknown>();
+    item.forEach((value, key) => {
+      if (value instanceof Y.Text) {
+        const text = new Y.Text();
+        text.insert(0, value.toString());
+        copy.set(key, text);
+        return;
+      }
+      if (value instanceof Y.AbstractType) return;
+      copy.set(key, value);
+    });
+    liveCanvas.set(id, copy);
+  });
+}

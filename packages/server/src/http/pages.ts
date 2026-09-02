@@ -28,6 +28,7 @@ import type { Pool } from 'pg';
 import * as Y from 'yjs';
 
 import {
+  canEdit,
   effectiveRole,
   loadPageLocation,
   resolveSessionClaims,
@@ -42,6 +43,8 @@ import {
   VERSION_RETENTION_DAYS,
   listVersions,
   loadVersion,
+  restoreInto,
+  takeVersion,
 } from '../doc/versions.js';
 import { materializeYDoc } from '../materialize/materialize.js';
 import { createEntry } from '../pages/createEntry.js';
@@ -770,6 +773,79 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     } finally {
       loaded.doc.destroy();
     }
+  });
+
+  /**
+   * Make the page read as it did (ADR-0047).
+   *
+   * Edit rights, not read: this changes the page. And a version of the page as
+   * it stood *before* the restore is taken first — otherwise the state somebody
+   * is about to replace would be the one moment with no entry, which is the
+   * moment they are most likely to want back.
+   */
+  router.post('/api/pages/:pageId/versions/:versionId/restore', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const versionId = ctx.params['versionId'] ?? '';
+
+    const page = await queryOne<{ id: string; workspace_id: string; ancestor_ids: string[] }>(
+      deps.pool,
+      `SELECT id, workspace_id, ancestor_ids FROM pages
+        WHERE id = $1 AND archived_at IS NULL`,
+      [pageId],
+    );
+    if (!page) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    const claims = await claimsFor(deps.pool, ctx, page.workspace_id);
+    if (!claims) return;
+    // `canEdit` rather than a comparison written here: the role ladder already
+    // has a helper, and I started to hand-roll one — which is how a fifth place
+    // ends up disagreeing with the other four about what an editor may do.
+    if (
+      !canEdit(claims, {
+        id: page.id,
+        workspaceId: page.workspace_id,
+        ancestorIds: page.ancestor_ids,
+        restricted: false,
+      })
+    ) {
+      ctx.fail(403, 'not_authorized');
+      return;
+    }
+
+    const loaded = await loadVersion(deps.pool, pageId, versionId);
+    if (!loaded) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const actorId =
+      claims.principal.kind === 'anonymous' ? null : claims.principal.userId;
+
+    try {
+      // The state about to be replaced, recorded first.
+      const current = await loadDoc(deps.pool, pageId);
+      try {
+        await takeVersion(deps.pool, pageId, current.doc, current.throughSeq, 'restore', [
+          ...(actorId ? [actorId] : []),
+        ]);
+      } finally {
+        current.doc.destroy();
+      }
+
+      await applyToDocument(
+        deps.pool,
+        pageId,
+        (doc) => restoreInto(doc, loaded.doc),
+        actorId,
+      );
+      await rematerialize(deps.pool, pageId, page.workspace_id, actorId);
+    } finally {
+      loaded.doc.destroy();
+    }
+
+    ctx.send(200, { ok: true });
   });
 
   /** Page metadata. The body itself arrives over the sync connection. */

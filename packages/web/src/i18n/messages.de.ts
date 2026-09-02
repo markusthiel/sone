@@ -768,6 +768,11 @@ export const de: Record<keyof typeof en, string> = {
   'history.none': 'Von dieser Seite sind noch keine früheren Fassungen aufbewahrt.',
   'history.viewing': 'So stand die Seite am {when}.',
   'history.backToNow': 'Zurück zum Jetzt',
+  'history.restore': 'Die Seite wieder so lesen lassen',
+  'history.restoreMeans':
+    'Das ist eine Änderung, kein Zurückspulen: die Seite liest sich wieder so, ' +
+    'alles seitdem bleibt in der Liste, und diese Wiederherstellung wird selbst ' +
+    'eine Fassung. Kommentare bleiben unberührt.',
   'history.wasRestore': 'eine Wiederherstellung',
   'history.wasEmpty': 'Die Seite war leer.',
   'history.retention':

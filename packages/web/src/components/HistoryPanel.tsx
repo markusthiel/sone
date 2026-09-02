@@ -49,6 +49,7 @@ export function HistoryPanel({
   const [versions, setVersions] = useState<Version[] | null>(null);
   const [retentionDays, setRetentionDays] = useState(90);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!pageId) {
@@ -93,9 +94,43 @@ export function HistoryPanel({
   return (
     <div className="panel-section">
       {viewing && (
-        <button type="button" className="btn primary history-back" onClick={() => onView(null)}>
-          {t('history.backToNow')}
-        </button>
+        <>
+          <button
+            type="button"
+            className="btn primary history-back"
+            onClick={() => onView(null)}
+          >
+            {t('history.backToNow')}
+          </button>
+
+          {/* What restoring actually does, said before it is done.
+            *
+            * "Restore" in most applications means going back and losing what
+            * came after. Here it is an edit applied forward: the page reads as
+            * it did, the versions in between stay, and the restore itself
+            * becomes one of them (ADR-0047). Somebody who expects the usual
+            * meaning has to be told the truth, not reassured. */}
+          <button
+            type="button"
+            className="btn history-restore"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void api
+                .restoreVersion(pageId ?? '', viewing)
+                .then(() => {
+                  onView(null);
+                })
+                .catch((err: unknown) => {
+                  setError(err instanceof ApiError ? err.code : 'network_error');
+                })
+                .finally(() => setBusy(false));
+            }}
+          >
+            {t('history.restore')}
+          </button>
+          <p className="muted history-note">{t('history.restoreMeans')}</p>
+        </>
       )}
 
       {versions.length === 0 ? (

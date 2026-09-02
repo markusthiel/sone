@@ -1596,7 +1596,8 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .history-when { font-size: var(--sone-text-sm); }
 .history-who,
 .history-reason { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
-.history-back { inline-size: 100%; margin-block-end: var(--sone-space-3); }
+.history-back { inline-size: 100%; margin-block-end: var(--sone-space-2); }
+.history-restore { inline-size: 100%; }
 .history-note {
   margin-block-start: var(--sone-space-4);
   font-size: var(--sone-text-xs);

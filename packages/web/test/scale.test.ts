@@ -1331,3 +1331,20 @@ test('a past version replaces the body and shows no editor', () => {
   assert.match(app, /const \[viewingVersion, setViewingVersion\] = useState<string \| null>/);
   assert.doesNotMatch(app, /paths\.version/);
 });
+
+test('restoring says what it actually does', () => {
+  // "Restore" in most applications means going back and losing what came after.
+  // Here it is an edit applied forward, because a CRDT cannot be rewound — and
+  // somebody who expects the usual meaning has to be told the truth rather than
+  // reassured (ADR-0047).
+  const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
+  assert.match(en, /'history\.restoreMeans':/);
+  assert.match(en, /an edit, not a rewind/);
+  assert.match(en, /Comments are not touched/);
+
+  // And the server does not touch where the page lives, or restoring an old
+  // parent would silently move it.
+  const versions = codeOf(new URL('../../server/src/doc/versions.ts', import.meta.url));
+  assert.match(versions, /const STRUCTURAL_KEYS = \['kind', 'idx', 'parentPageId', 'collectionId'\]/);
+  assert.doesNotMatch(versions, /getMap\('comments'\)/, 'comments are left alone');
+});
