@@ -22,6 +22,7 @@ import {
   removeThread,
   resolveThread,
   threadsMap,
+  participants,
 } from '../src/doc/comments.js';
 
 /** A document with some prose and a thread on one word of it. */
@@ -197,4 +198,38 @@ test('a deleted thread is gone from the list, not merely resolved', () => {
   removeThread(doc, 't1');
   assert.deepEqual(readThreads(doc), []);
   assert.equal(threadsMap(doc).size, 0, 'and nothing is left behind in the map');
+});
+
+test('a mention is stored as an id, and never of oneself', () => {
+  // Ids beside the text, not names in it: a name breaks when somebody is
+  // renamed and matches the wrong person when two share one (ADR-0052).
+  const { doc } = docWithThread();
+
+  addMessage(doc, 't1', {
+    id: 'm2',
+    author: 'user-a',
+    text: 'Frage an @Anna und mich',
+    // Somebody who writes their own name has not asked to be told about it, and
+    // a message carrying a self-mention has recorded something untrue.
+    mentions: ['user-b', 'user-a', 'user-b'],
+  });
+
+  const thread = readThreads(doc)[0];
+  const reply = thread?.messages.at(-1);
+  assert.deepEqual(reply?.mentions, ['user-b'], 'deduplicated, and without the author');
+});
+
+test('a thread´s participants are the people who wrote in it', () => {
+  // A definition somebody can predict, which is the point of choosing it over
+  // "everybody who can see the page" (ADR-0052).
+  const { doc } = docWithThread();
+  addMessage(doc, 't1', { id: 'm2', author: 'user-b', text: 'Ja' });
+  addMessage(doc, 't1', { id: 'm3', author: 'user-a', text: 'Danke' });
+
+  const thread = readThreads(doc)[0];
+  assert.ok(thread);
+  // Read from the fixture rather than assumed: its first author is 'u-1', which
+  // my first version of this test guessed wrong.
+  const first = thread.messages[0]?.author;
+  assert.deepEqual(participants(thread).sort(), [first, 'user-a', 'user-b'].sort());
 });
