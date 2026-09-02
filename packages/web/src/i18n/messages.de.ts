@@ -79,6 +79,7 @@ export const de: Record<keyof typeof en, string> = {
   'entry.move': 'Verschieben nach…',
   'entry.export': 'Exportieren\u2026',
   'share.heading': '„{title}“ teilen',
+  'file.pdfAllPages': 'Alle Seiten öffnen',
   'workspace.export': 'Diesen Workspace exportieren',
   'workspace.export.hint':
     'Jede lesbare Seite als Markdown-Dateien mit ihren Anhängen, in einem ' +

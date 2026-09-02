@@ -1487,3 +1487,21 @@ test('the workspace export lives in the workspace settings', () => {
   assert.match(screen, /\{ id: 'export', label: 'workspace\.export'/);
   assert.match(screen, /current === 'export' && <WorkspaceExport/);
 });
+
+test('a PDF that shows only its first page says where the rest is', () => {
+  // WebKit on iOS and iPadOS renders an embedded PDF as a static preview: no
+  // viewer, no paging, no scrolling, and no attribute changes it. Detected from
+  // the platform because there is nothing to feature-detect — the frame loads,
+  // reports no error, and simply cannot be scrolled.
+  const view = codeOf(new URL('../src/components/FileNodeView.ts', import.meta.url));
+  assert.match(view, /function onlyFirstPageInline\(\)/);
+  // iPadOS reports itself as a Mac, so touch points are what separate an iPad
+  // from a desktop Safari, where embedding works.
+  assert.match(view, /maxTouchPoints/);
+  assert.match(view, /category === 'pdf' && onlyFirstPageInline\(\)/);
+  // And its one sentence is handed in, because a node view is not a React
+  // component and this package has no translator outside a hook (ADR-0041).
+  assert.match(view, /labels: \{ pdfAllPages: string \}/);
+  const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+  assert.match(surface, /pdfAllPages: t\('file\.pdfAllPages'\)/);
+});

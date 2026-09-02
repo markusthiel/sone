@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Importing and exporting are documented** for people using SONE, not just for
+the record: [docs/import-export.md](docs/import-export.md) says what an archive
+must look like, what round-trips and what does not, and answers the questions
+worth asking before trusting it with your notes.
+
+**A PDF on iPhone or iPad now says where the rest of it is.** WebKit shows only
+the first page of an embedded PDF and will not scroll it, so there is an "Open all
+pages" link under the preview.
+
 **A whole workspace can be exported** — "Export this workspace" under This
 workspace ([ADR-0044](docs/adr/0044-import-export.md)). The archive is packed in
 the background, so the page need not stay open, and the download is available for
