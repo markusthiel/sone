@@ -509,6 +509,17 @@ export const en = {
     'columns, blocks, folder icons — follows.',
   'type.element': 'Element',
   'type.elements': 'Elements',
+  'type.base': 'The interface',
+  'type.base.note':
+    'The tint is mixed into the sidebar, the panels and the menus. One colour ' +
+    'rather than one per surface, so they keep belonging to each other.',
+  'type.tint': 'Tint',
+  'type.accent': 'Accent',
+  'type.accent.note':
+    'The accent is used for links, defined text and filled buttons. The text ' +
+    'colour on a filled button is worked out from it, so a pale accent gets ' +
+    'dark text.',
+  'type.clear': 'Reset',
   'type.palette': 'Palette',
   'type.size': 'Size',
   'type.colour': 'Colour',

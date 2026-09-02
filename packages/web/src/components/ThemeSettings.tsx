@@ -148,6 +148,91 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
 
       {error && <p className="error">{message(error)}</p>}
 
+      {/* The two whole-interface colours first, because they decide what
+        * everything else sits on and in. One tint rather than a colour per
+        * surface: the surfaces are a ramp of one grey, and setting them
+        * separately would let a workspace set them inconsistently — a sidebar
+        * that no longer belongs to the panel beside it (ADR-0023). */}
+      <h3 className="settings-heading">{t('type.base')}</h3>
+      <p className="muted">{t('type.base.note')}</p>
+
+      <div className="theme-base">
+        <label className="theme-base-entry">
+          <span>{t('type.tint')}</span>
+          <input
+            type="color"
+            disabled={!canEdit}
+            value={typeof theme.tint === 'string' && theme.tint.startsWith('#') ? theme.tint : '#f7f5f0'}
+            aria-label={t('type.tint')}
+            onChange={(event) => {
+              setSaved(false);
+              // Cast to the literal shape the type asks for: an `<input
+              // type="color">` yields a string and the theme wants `#…`, and the
+              // element cannot produce anything else.
+              const value = event.target.value as `#${string}`;
+              setTheme((current) => ({ ...current, tint: value }));
+            }}
+          />
+          {/* Removing it has to be possible, and it has to leave no trace: a
+              workspace that stops tinting must look like one that never did. */}
+          {theme.tint !== undefined && canEdit && (
+            <button
+              type="button"
+              className="btn quiet"
+              onClick={() => {
+                setSaved(false);
+                setTheme((current) => {
+                  const next = { ...current };
+                  delete next.tint;
+                  return next;
+                });
+              }}
+            >
+              {t('type.clear')}
+            </button>
+          )}
+        </label>
+
+        <label className="theme-base-entry">
+          <span>{t('type.accent')}</span>
+          <input
+            type="color"
+            disabled={!canEdit}
+            value={
+              typeof theme.accent === 'string' && theme.accent.startsWith('#')
+                ? theme.accent
+                : '#4f7d6f'
+            }
+            aria-label={t('type.accent')}
+            onChange={(event) => {
+              setSaved(false);
+              const value = event.target.value as `#${string}`;
+              setTheme((current) => ({ ...current, accent: value }));
+            }}
+          />
+          {theme.accent !== undefined && canEdit && (
+            <button
+              type="button"
+              className="btn quiet"
+              onClick={() => {
+                setSaved(false);
+                setTheme((current) => {
+                  const next = { ...current };
+                  delete next.accent;
+                  return next;
+                });
+              }}
+            >
+              {t('type.clear')}
+            </button>
+          )}
+        </label>
+      </div>
+      {/* Said rather than left to be discovered: the text colour on a filled
+          button is computed from the accent, so a pale accent gets dark text
+          and nobody can make a button unreadable by choosing badly. */}
+      <p className="settings-note">{t('type.accent.note')}</p>
+
       {/* The palette first.
         *
         * It is the setting the others are expressed in: an element's colour is

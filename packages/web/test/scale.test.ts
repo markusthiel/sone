@@ -414,8 +414,11 @@ test('full width reaches the edges of the page, and no further', () => {
 test('the gutter stays legible over whatever it sits on', () => {
   // It sits beside the block, which is empty margin for a paragraph and a
   // photograph for a full-width image — grey icons on a picture are invisible.
+  // Read from the rule rather than from a byte window: the window version broke
+  // the moment a comment above it grew, which is a test measuring the wrong
+  // thing.
   const gutter = css.slice(css.indexOf('.block-gutter {'));
-  assert.match(gutter.slice(0, 400), /background:/);
+  assert.match(gutter.slice(0, gutter.indexOf('}')), /background: color-mix/);
 });
 
 test('the page cannot scroll sideways', () => {
@@ -1563,4 +1566,38 @@ test('a lock does not read like a permission', () => {
   assert.match(css, /\.tree-locked \{[^}]*color: var\(--sone-text-muted\)/s);
   // And no banner across the page: a locked page is still a page to read.
   assert.doesNotMatch(css, /\.locked-banner/);
+});
+
+test('a workspace tint is mixed into the ramp, not set per surface', () => {
+  // The surfaces are a ramp of one warm grey (ADR-0028). Letting a workspace set
+  // each separately would let it set them inconsistently — a sidebar that no
+  // longer belongs to the panel beside it — so one tint is mixed into all of
+  // them, with the proportions here where the ramp's relationships are readable.
+  assert.match(css, /--surface-sunken: color-mix\(in srgb, var\(--sone-theme-tint, transparent\) 14%/);
+  assert.match(css, /--surface: color-mix\(in srgb, var\(--sone-theme-tint, transparent\) 3%/);
+  // Less of it in the dark theme: a hue reads stronger against black.
+  assert.match(css, /--surface-sunken: color-mix\(in srgb, var\(--sone-theme-tint, transparent\) 8%/);
+  // A fallback at every use rather than a default declared once, which is the
+  // rule this stylesheet already follows — `clearTheme` removes these from the
+  // root, and a value living in a rule would survive its own deletion.
+  assert.doesNotMatch(css, /--sone-theme-tint:/);
+});
+
+test('the gutter cannot start a text selection', () => {
+  // It had `touch-action` and nothing else — half the treatment the menu items
+  // above it got. `touch-action` stops scrolling and zooming from a touch; it
+  // does nothing about selection, which is why reaching for the handle on a
+  // tablet marked the text beside it.
+  // One rule for the element, not two: this test first found an earlier
+  // `.block-gutter` rule that set only its position, which is the same
+  // two-rules-for-one-thing fragility that put a pale hover on filled buttons
+  // twice this week. They are merged.
+  assert.equal([...css.matchAll(/^\.block-gutter \{/gm)].length, 1);
+  const gutter = css.slice(css.indexOf('.block-gutter {'));
+  const rule = gutter.slice(0, gutter.indexOf('}'));
+  assert.match(rule, /user-select: none/);
+  assert.match(rule, /-webkit-touch-callout: none/);
+  // `manipulation` rather than `none`: a finger landing in the gutter and moving
+  // up the page should still scroll it.
+  assert.match(rule, /touch-action: manipulation/);
 });

@@ -60,11 +60,23 @@
  * ------------------------------------------------------------------------- */
 :root,
 [data-theme='light'] {
-  --surface-sunken: var(--ink-050);
-  --surface: var(--ink-000);
-  --surface-raised: var(--ink-000);
-  --surface-overlay: var(--ink-000);
-  --surface-hover: #f0eee8;
+  /* A workspace's own tint, mixed into the neutral ramp (ADR-0023).
+   *
+   * The fallback is `transparent` at every use rather than a default declared
+   * once — which is the rule the stylesheet already follows for every theme
+   * property, and it is the right one: `clearTheme` removes these from the root
+   * when a theme stops setting them, and a value that lives in a rule would
+   * survive its own deletion in some places and not others.
+   *
+   * The proportions are here rather than computed in the theme, because this is
+   * where the ramp's relationships live: the sunken surface takes the most hue,
+   * the page almost none, and the dark theme takes less than the light one
+   * because a hue reads stronger against black. */
+  --surface-sunken: color-mix(in srgb, var(--sone-theme-tint, transparent) 14%, var(--ink-050));
+  --surface: color-mix(in srgb, var(--sone-theme-tint, transparent) 3%, var(--ink-000));
+  --surface-raised: color-mix(in srgb, var(--sone-theme-tint, transparent) 3%, var(--ink-000));
+  --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, transparent) 5%, var(--ink-000));
+  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, transparent) 14%, #f0eee8);
   /* The writing surface, and the furniture around it.
    *
    * These two were the other way round: the page was the sunken surface and the
@@ -102,11 +114,14 @@
   /* Not an inversion. Height is expressed by a *lighter* surface, because a
      shadow on a dark background reads as dirt; and the accent is a lighter
      step, because the one that works on white glows on black. */
-  --surface-sunken: var(--ink-950);
-  --surface: var(--ink-900);
-  --surface-raised: var(--ink-850);
-  --surface-overlay: var(--ink-800);
-  --surface-hover: #262623;
+  /* Less of it here: a hue reads stronger against black, and the same 14% that
+     looks like paper in the light theme looks like a coloured screen in this
+     one. */
+  --surface-sunken: color-mix(in srgb, var(--sone-theme-tint, transparent) 8%, var(--ink-950));
+  --surface: color-mix(in srgb, var(--sone-theme-tint, transparent) 4%, var(--ink-900));
+  --surface-raised: color-mix(in srgb, var(--sone-theme-tint, transparent) 4%, var(--ink-850));
+  --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, transparent) 5%, var(--ink-800));
+  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, transparent) 8%, #262623);
   /* Unchanged here, and that is the point: dark already had the relationship
      the light theme was missing. The page is the darkest surface and the chrome
      a step nearer, because nearer means lighter in the dark. Naming the two
@@ -2388,6 +2403,42 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 .block-gutter {
   position: fixed;
   z-index: 30;
+  /* The gutter sits over the text column, so a touch meant for the handle must
+     not start a selection in the block underneath.
+   *
+   * It had `touch-action` alone — half the treatment the menu items get.
+   * `touch-action` stops the browser scrolling or zooming from a touch here; it
+   * does nothing about selection, which is why reaching for the handle on a
+   * tablet marked the text beside it. The other three are what prevent that, and
+   * `-webkit-touch-callout` stops the long press that starts one.
+   *
+   * `manipulation` rather than `none`: the handle is a drag source and the JS
+   * takes the drag, but a finger landing in the gutter and moving up the page
+   * should still scroll it. */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1px;
+  /* Fixed, and matching GUTTER_WIDTH in BlockMenu.tsx: the position is computed
+     from the right edge, so a width that depends on the content would place the
+     controls a frame late and then move them. */
+  inline-size: 54px;
+
+  /* The controls carry their own background.
+   *
+   * They sit beside the block, which is empty margin for a paragraph and a
+   * photograph for a full-width image — grey icons on a picture are invisible,
+   * which is how that was reported. A chip behind them keeps them legible over
+   * anything without changing where they sit. */
+  border-radius: var(--sone-radius);
+  background: color-mix(in srgb, var(--sone-bg) 82%, transparent);
+  backdrop-filter: blur(6px);
 }
 
 /* While its own menu is open, the gutter gets out of the way.
@@ -2403,29 +2454,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   z-index: 1;
 }
 
-.block-gutter {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1px;
-  /* Fixed, and matching GUTTER_WIDTH in BlockMenu.tsx: the position is computed
-     from the right edge, so a width that depends on the content would place the
-     controls a frame late and then move them. */
-  inline-size: 54px;
-}
 
-/* The controls carry their own background.
- *
- * They sit beside the block, which is empty margin for a paragraph and a
- * photograph for a full-width image — grey icons on a picture are invisible,
- * which is how this was reported. A chip behind them keeps them legible over
- * anything without changing where they sit.
- */
-.block-gutter {
-  border-radius: var(--sone-radius);
-  background: color-mix(in srgb, var(--sone-bg) 82%, transparent);
-  backdrop-filter: blur(6px);
-}
 
 .block-insert,
 .block-handle {
@@ -4235,9 +4264,11 @@ select {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* The gutter controls sit over the text column, so without this a tap intended
-   for one of them can start a text selection in the block underneath. */
-.block-gutter { touch-action: manipulation; }
+/* (The gutter's rule is further up, and it is one rule now. There were three
+   for this one element — position, layout, and the chip behind the controls —
+   spread over fifty lines, which is the fragility that put a pale hover on
+   filled buttons twice this week. I claimed to have merged them after finding
+   two; a test counting them found the third.) */
 
 /* --- copying code --- */
 
@@ -6262,6 +6293,23 @@ body {
   text-transform: uppercase;
   color: var(--sone-text-muted);
 }
+/* The two whole-interface colours. */
+.theme-base { display: flex; flex-wrap: wrap; gap: var(--sone-space-5); margin-block: var(--sone-space-4); }
+.theme-base-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+  font-size: var(--sone-text-sm);
+}
+.theme-base-entry input[type='color'] {
+  inline-size: 40px;
+  block-size: 28px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+}
+
 .theme-palette {
   display: flex;
   flex-wrap: wrap;
