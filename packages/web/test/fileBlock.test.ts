@@ -45,7 +45,13 @@ test('everything but a PDF is sandboxed from the embedding side too', () => {
   // The server sends a sandbox policy with those files; this states the same
   // restriction where they are embedded, so the header and the attribute have
   // to agree before anything runs.
-  assert.match(source, /if \(category !== 'pdf'\) frame\.setAttribute\('sandbox', ''\)/);
+  // Everything embedded is sandboxed to nothing, with no exception left. The
+  // PDF case needed one — Chromium's own viewer refuses to run in a sandboxed
+  // frame — and it is no longer drawn by the browser at all (ADR-0048), so the
+  // exception went with it. That is the point of asserting it here: the
+  // exception must not survive the reason for it.
+  assert.match(source, /frame\.setAttribute\('sandbox', ''\)/);
+  assert.doesNotMatch(source, /category !== 'pdf'/);
 });
 
 

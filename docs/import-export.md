@@ -209,18 +209,19 @@ export appears under This workspace → Export this workspace and stays for a da
 
 ---
 
-## A note about PDFs on iPhone and iPad
+## PDFs
 
-A PDF in a page shows only its **first** page there, and cannot be scrolled. That
-is WebKit, not SONE: an embedded PDF on iOS and iPadOS is rendered as a static
-preview with no viewer, no paging and no scrolling, and no attribute changes it.
-Chromium and Firefox embed their own viewer, which is why scrolling works on a
-desktop.
+A PDF in a page is drawn by SONE itself: a scrolling column of pages, the same on
+a phone as at a desk ([ADR-0048](adr/0048-pdf-viewer.md)). The page count is in
+the bar at the top, and **Open the original** beside the file's name opens the
+file itself.
 
-So under the preview there is **Open all pages**, which opens the file in the
-browser's own viewer — where paging works properly.
+It replaced the browser's own embed, which was a real viewer on Chromium and
+Firefox and a static picture of page one on iOS and iPadOS — the same document
+readable at a desk and unreadable on a phone.
 
-Rendering every page inside the document would mean shipping a PDF renderer
-(pdf.js, roughly a megabyte) for one block type. That is a decision for the
-project rather than something to add while fixing a display bug, so for now the
-limitation is named where somebody meets it.
+What it does not do yet: selecting or searching text inside a PDF, and
+annotating. Reading came first; both are named in the record as the next steps.
+
+The renderer is loaded the first time a PDF is opened and not before, so a
+workspace with no PDFs in it never downloads it.

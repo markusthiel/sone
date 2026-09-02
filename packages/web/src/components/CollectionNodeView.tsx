@@ -29,7 +29,7 @@ import { createElement } from 'react';
 
 import { applyBlockAttrs } from './blockAttrs.ts';
 import { CollectionTable } from './CollectionTable.tsx';
-import { fileNodeView } from './FileNodeView.ts';
+import { fileNodeView, type FileViewLabels } from './FileNodeView.ts';
 import { videoNodeView } from './VideoNodeView.ts';
 import { protectedSectionView } from './ProtectedSectionView.ts';
 
@@ -165,7 +165,7 @@ class CollectionNodeView implements NodeView {
 export const soneNodeViews = (
   onOpenContainer: (containerId: string) => void,
   /** The words a node view needs in the reader's language (ADR-0041). */
-  labels: { pdfAllPages: string },
+  labels: FileViewLabels,
 ): EditorView['props']['nodeViews'] => ({
   collectionView: (node, view, getPos) =>
     new CollectionNodeView(node as unknown as PMNodeLike, () => {

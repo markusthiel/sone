@@ -70,7 +70,10 @@ export const en = {
   'entry.move': 'Move to…',
   'entry.export': 'Export\u2026',
   'share.heading': 'Share “{title}”',
-  'file.pdfAllPages': 'Open all pages',
+  'file.pdfAllPages': 'Open the original',
+  'file.pdfPageOf': 'Page {page} of {total}',
+  'file.pdfLoading': 'Opening the document\u2026',
+  'file.pdfFailed': 'This document could not be shown here.',
   'workspace.export': 'Export this workspace',
   'workspace.export.hint':
     'Every page you can read, as Markdown files with their attachments, in one ' +

@@ -1488,20 +1488,48 @@ test('the workspace export lives in the workspace settings', () => {
   assert.match(screen, /current === 'export' && <WorkspaceExport/);
 });
 
-test('a PDF that shows only its first page says where the rest is', () => {
-  // WebKit on iOS and iPadOS renders an embedded PDF as a static preview: no
-  // viewer, no paging, no scrolling, and no attribute changes it. Detected from
-  // the platform because there is nothing to feature-detect — the frame loads,
-  // reports no error, and simply cannot be scrolled.
+test('a PDF is drawn by us, not by the browser', () => {
+  // The embed was a real viewer on Chromium and a picture of page one on iOS, so
+  // the same document was readable at a desk and not on a phone. Replaced rather
+  // than worked around: the platform check and the "open all pages" note it
+  // needed are gone with it (ADR-0048).
   const view = codeOf(new URL('../src/components/FileNodeView.ts', import.meta.url));
-  assert.match(view, /function onlyFirstPageInline\(\)/);
-  // iPadOS reports itself as a Mac, so touch points are what separate an iPad
-  // from a desktop Safari, where embedding works.
-  assert.match(view, /maxTouchPoints/);
-  assert.match(view, /category === 'pdf' && onlyFirstPageInline\(\)/);
-  // And its one sentence is handed in, because a node view is not a React
-  // component and this package has no translator outside a hook (ADR-0041).
-  assert.match(view, /labels: \{ pdfAllPages: string \}/);
-  const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
-  assert.match(surface, /pdfAllPages: t\('file\.pdfAllPages'\)/);
+  assert.match(view, /display === 'full' && category === 'pdf'/);
+  assert.match(view, /mountPdfViewer\(host, url, this\.labels\.pdf\)/);
+  assert.doesNotMatch(view, /onlyFirstPageInline|maxTouchPoints/);
+});
+
+test('the PDF engine is loaded only when a PDF is opened', () => {
+  // The whole reason the dependency is acceptable (ADR-0048): 448 kB of engine
+  // and 1.3 MB of worker must not land on somebody who never opens a PDF. A
+  // static import would add half a megabyte to every first load, which is
+  // exactly the kind of regression nobody notices.
+  const viewer = codeOf(new URL('../src/components/pdfViewer.ts', import.meta.url));
+  assert.match(viewer, /await Promise\.all\(\[\s*\n?\s*import\('pdfjs-dist'\)/);
+  assert.doesNotMatch(viewer, /^import .*pdfjs-dist/m, 'never a static import');
+  // The worker comes from the build, so it is served from our own origin: a CDN
+  // here would be a third party learning who reads which document.
+  assert.match(viewer, /pdfjs-dist\/build\/pdf\.worker\.min\.mjs\?url/);
+
+  // And no other file may pull it in statically either.
+  for (const file of ['FileNodeView.ts', 'EditorSurface.tsx', 'CollectionNodeView.tsx']) {
+    const source = codeOf(new URL(`../src/components/${file}`, import.meta.url));
+    assert.doesNotMatch(source, /from 'pdfjs-dist/, `${file} does not import the engine`);
+  }
+});
+
+test('a PDF viewer releases what it holds', () => {
+  // It holds a worker, an open document and an observer, and a node view is
+  // destroyed and recreated as somebody edits around it — so without this,
+  // scrolling past a PDF while typing leaves a worker per recreation.
+  const view = codeOf(new URL('../src/components/FileNodeView.ts', import.meta.url));
+  assert.match(view, /destroy\(\): void \{\s*\n\s*this\.pdf\?\.destroy\(\)/);
+  const viewer = codeOf(new URL('../src/components/pdfViewer.ts', import.meta.url));
+  assert.match(viewer, /observer\?\.disconnect\(\)/);
+  // The loading task is destroyed, not the document proxy — which has no such
+  // method, as the compiler pointed out before a leak could.
+  assert.match(viewer, /cleanups\.push\(\(\) => void task\.destroy\(\)\)/);
+  // A page far out of view is released, or a hundred-page document read to the
+  // end holds a hundred canvases.
+  assert.match(viewer, /Math\.abs\(number - current\) > 4/);
 });

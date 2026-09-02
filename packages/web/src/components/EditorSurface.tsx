@@ -541,7 +541,14 @@ export function EditorSurface({
         (containerId) => {
           window.location.assign(paths.page(containerId));
         },
-        { pdfAllPages: t('file.pdfAllPages') },
+        {
+          pdf: {
+            pageOf: (page, total) => t('file.pdfPageOf', { page, total }),
+            loading: t('file.pdfLoading'),
+            failed: t('file.pdfFailed'),
+            openOriginal: t('file.pdfAllPages'),
+          },
+        },
       ),
     });
     viewRef.current = created;

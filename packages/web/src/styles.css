@@ -5690,18 +5690,63 @@ select {
   background: var(--sone-bg-subtle);
 }
 
-/* Where the rest of a PDF is, on a browser that shows only its first page.
-   Under the frame rather than over it: the preview is still the useful thing,
-   and a banner on top of it would cover the page somebody can see. */
-.file-pdf-note {
-  display: block;
-  padding: var(--sone-space-2) var(--sone-space-3);
-  border-block-start: 1px solid var(--border-subtle);
-  color: var(--accent);
-  font-size: var(--sone-text-sm);
-  text-decoration: none;
+/* Our own PDF viewer (ADR-0048): a scrolling column of pages, with our bar over
+   it rather than pdf.js's toolbar. */
+.pdf-viewer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-sunken);
+  border-radius: var(--sone-radius);
+  overflow: hidden;
 }
-.file-pdf-note:hover { text-decoration: underline; }
+.pdf-bar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--sone-space-2) var(--sone-space-3);
+  /* Over the pages, so the count is readable against a white page. */
+  background: color-mix(in srgb, var(--surface-sunken) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+.pdf-indicator {
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+/* The column scrolls; the page it sits in does not have to grow to a hundred
+   pages tall. */
+.pdf-pages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-3);
+  max-block-size: 75vh;
+  overflow-y: auto;
+  padding: 0 var(--sone-space-3) var(--sone-space-3);
+  overscroll-behavior: contain;
+}
+/* A slot keeps its height before and after its page is drawn, so releasing one
+   does not move the scroll position under somebody's thumb. */
+.pdf-page {
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+}
+.pdf-page canvas { display: block; }
+.pdf-status,
+.pdf-fallback {
+  padding: var(--sone-space-4);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.pdf-fallback { color: var(--accent); }
+
+@media (max-width: 799px) {
+  /* Taller on a phone, where there is nothing beside the document anyway. */
+  .pdf-pages { max-block-size: 80vh; }
+}
 
 .file-line {
   display: flex;

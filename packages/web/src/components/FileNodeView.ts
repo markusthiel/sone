@@ -21,6 +21,25 @@
 
 import { NodeSelection } from 'prosemirror-state';
 
+import { mountPdfViewer, type PdfViewerHandle } from './pdfViewer.ts';
+
+/**
+ * The words this view needs in the reader's language (ADR-0041).
+ *
+ * Handed in, because a node view is not a React component and this package has
+ * no translator outside a hook. The rest of this file's words — "PDF", "Image",
+ * "Word document" — are still English, which is a real gap rather than one to
+ * pretend away.
+ */
+export interface FileViewLabels {
+  pdf: {
+    pageOf: (page: number, total: number) => string;
+    loading: string;
+    failed: string;
+    openOriginal: string;
+  };
+}
+
 import { applyBlockAttrs } from './blockAttrs.ts';
 import type { EditorView, NodeView } from 'prosemirror-view';
 
@@ -69,25 +88,6 @@ function describe(category: unknown, mime: unknown): string {
   }
 }
 
-/**
- * Does this browser show only the first page of an embedded PDF?
- *
- * True on iOS and iPadOS, where WebKit renders an embedded PDF as a static
- * preview with no viewer. Detected from the platform because there is nothing to
- * feature-detect: the frame loads, reports no error, and simply cannot be
- * scrolled.
- *
- * iPadOS reports itself as a Mac, so the touch-points check is what separates an
- * iPad from a desktop Safari — where embedding works.
- */
-function onlyFirstPageInline(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const platform = navigator.platform ?? '';
-  const iOS = /iPad|iPhone|iPod/.test(platform);
-  const iPadOS = platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1;
-  return iOS || iPadOS;
-}
-
 /** Can a browser draw this in place? Mirrors the server's own answer. */
 const viewable = (category: unknown): boolean =>
   category === 'pdf' || category === 'text' || category === 'image';
@@ -95,10 +95,12 @@ const viewable = (category: unknown): boolean =>
 class FileNodeView implements NodeView {
   readonly dom: HTMLElement;
   private attrs: Record<string, unknown>;
+  /** The PDF viewer, when this block is showing one. */
+  private pdf: PdfViewerHandle | null = null;
 
   constructor(
     node: PMNodeLike,
-    private readonly labels: { pdfAllPages: string },
+    private readonly labels: FileViewLabels,
     private readonly select: () => void,
   ) {
     this.dom = document.createElement('div');
@@ -131,6 +133,10 @@ class FileNodeView implements NodeView {
     const { fileId, filename, mimeType, category, sizeBytes } = this.attrs;
     const display = String(this.attrs['display'] ?? 'card');
     this.dom.dataset['display'] = display;
+    // Whatever was drawn before is going. The viewer has to be told, or its
+    // worker and observer outlive the elements they were drawing into.
+    this.pdf?.destroy();
+    this.pdf = null;
     this.dom.textContent = '';
 
     if (typeof fileId !== 'string' || fileId === '') {
@@ -147,6 +153,25 @@ class FileNodeView implements NodeView {
     const name = String(filename || 'File');
     const kind = describe(category, mimeType);
     const size = formatSize(sizeBytes);
+
+    if (display === 'full' && category === 'pdf') {
+      /*
+       * Our own viewer (ADR-0048), not the browser's embed.
+       *
+       * The embed was a real viewer on Chromium and Firefox and a picture of
+       * page one on iOS, so the same document was readable at a desk and not on
+       * a phone. This draws every page itself, which makes the behaviour the
+       * same everywhere — and puts the surrounding interface in our hands
+       * rather than pdf.js's.
+       */
+      const host = document.createElement('div');
+      this.dom.append(host, this.bar(name, kind, size, url));
+      // `render()` has already torn down whatever was here, which is why there
+      // is no destroy call in front of this one — the compiler pointed out that
+      // the field is provably null by now.
+      this.pdf = mountPdfViewer(host, url, this.labels.pdf);
+      return;
+    }
 
     if (display === 'full' && viewable(category)) {
       const frame = document.createElement('iframe');
@@ -165,38 +190,14 @@ class FileNodeView implements NodeView {
       // nothing. See the header comment in the server's file routes.
       //
       // Everything else is still sandboxed to nothing.
-      if (category !== 'pdf') frame.setAttribute('sandbox', '');
+      // Everything here is sandboxed to nothing. The PDF case, which could not
+      // be — Chromium's own viewer refuses to run inside a sandboxed frame — is
+      // no longer drawn by the browser at all (ADR-0048), so the exception this
+      // needed is gone with it.
+      frame.setAttribute('sandbox', '');
       frame.setAttribute('loading', 'lazy');
       this.dom.append(frame, this.bar(name, kind, size, url));
 
-      /*
-       * On iOS and iPadOS an embedded PDF is one page and cannot be scrolled.
-       *
-       * That is WebKit rather than this code: a PDF in an `<iframe>` or
-       * `<object>` there is rendered as a static preview of the first page, with
-       * no viewer, no paging and no scrolling. `<embed>` behaves the same, and
-       * no attribute changes it. Chromium and Firefox embed their own viewer,
-       * which is why scrolling works on the desktop.
-       *
-       * So the frame keeps showing what it can and a line under it says where
-       * the rest is. Reading the whole document happens in the browser's own
-       * viewer, one tap away, where paging works properly.
-       *
-       * The alternative is rendering every page ourselves with pdf.js — about a
-       * megabyte of dependency for one block type, which is a decision for the
-       * project rather than something to slip in while fixing a bug (ADR-0004's
-       * rule about dependencies). Written down in docs/import-export.md's
-       * neighbour rather than left as a mystery on a phone.
-       */
-      if (category === 'pdf' && onlyFirstPageInline()) {
-        const note = document.createElement('a');
-        note.className = 'file-pdf-note';
-        note.href = url;
-        note.target = '_blank';
-        note.rel = 'noopener noreferrer';
-        note.textContent = this.labels.pdfAllPages;
-        this.dom.append(note);
-      }
       return;
     }
 
@@ -281,6 +282,18 @@ class FileNodeView implements NodeView {
     return true;
   }
 
+  /**
+   * ProseMirror is done with this block.
+   *
+   * The viewer holds a worker, an open document and an observer, and a node view
+   * is destroyed and recreated as somebody edits around it — so without this,
+   * scrolling past a PDF while typing would leave a worker per recreation.
+   */
+  destroy(): void {
+    this.pdf?.destroy();
+    this.pdf = null;
+  }
+
   /** Everything inside is this view's, not ProseMirror's. */
   stopEvent(): boolean {
     return true;
@@ -309,7 +322,7 @@ export function fileNodeView(
    * of this file's words are still English, which is a gap worth naming here
    * rather than pretending the file is translated.
    */
-  labels: { pdfAllPages: string } = { pdfAllPages: 'Open all pages' },
+  labels: FileViewLabels,
 ): NonNullable<EditorView['props']['nodeViews']>[string] {
   return (node, view, getPos) =>
     new FileNodeView(node as unknown as PMNodeLike, labels, () => {
