@@ -1533,3 +1533,34 @@ test('a PDF viewer releases what it holds', () => {
   // end holds a hundred canvases.
   assert.match(viewer, /Math\.abs\(number - current\) > 4/);
 });
+
+test('a locked page goes through the one predicate the editor already had', () => {
+  // `if (locked)` in fifteen commands is fifteen chances for one to be
+  // forgotten, and the one forgotten is a hole nobody finds until a locked page
+  // changes. ProseMirror asks `editable` for typing, pasting, dragging and every
+  // command, so one place covers all of them (ADR-0049).
+  const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+  assert.match(surface, /editable: \(\) => canEditRef\.current && !lockedRef\.current/);
+  // And re-evaluated when the lock changes, or a page stays editable until the
+  // next transaction — one keystroke too many.
+  assert.match(surface, /\}, \[handle\.canEdit, locked\]\)/);
+
+  // Read from the document, because a lock has to reach an editor that is
+  // already open — which is exactly when the accident happens.
+  const hook = codeOf(new URL('../src/hooks/usePageWidth.ts', import.meta.url));
+  assert.match(hook, /export function usePageLocked/);
+  assert.match(hook, /page\.get\(PAGE_KEYS\.locked\) === true/);
+});
+
+test('a lock does not read like a permission', () => {
+  // Anybody who may edit may lift it. Saying "protected" would invite somebody
+  // to lock a page and believe it is safe from a colleague; what restricts other
+  // people is a permission (ADR-0026, ADR-0049).
+  const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
+  assert.match(en, /'entry\.lock': 'Lock against accidental changes'/);
+  assert.doesNotMatch(en, /'entry\.lock':.*[Pp]rotect/);
+  // The padlock in the tree is grey and small rather than a warning colour.
+  assert.match(css, /\.tree-locked \{[^}]*color: var\(--sone-text-muted\)/s);
+  // And no banner across the page: a locked page is still a page to read.
+  assert.doesNotMatch(css, /\.locked-banner/);
+});

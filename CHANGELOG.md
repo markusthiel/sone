@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A page can be locked against accidental changes**
+([ADR-0049](docs/adr/0049-locking.md)) — in the entry's ⋮ menu, above the trash. A
+locked page can still be read, selected, copied, exported, commented on, and its
+tables filtered and sorted; only its text stops being editable. The tree shows a
+small padlock. **This is a guard, not a permission**: anybody who may edit the
+page may lift it, and what restricts other people is a page permission.
+
 **Importing and exporting are documented** for people using SONE, not just for
 the record: [docs/import-export.md](docs/import-export.md) says what an archive
 must look like, what round-trips and what does not, and answers the questions

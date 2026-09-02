@@ -138,6 +138,8 @@ export interface PageSummary {
   kind: EntryKind;
   /** Offered as a shape to start from (ADR-0045). */
   template?: boolean;
+  /** Locked against accidental editing (ADR-0049). */
+  locked?: boolean;
   archived: boolean;
   lastEditedAt: string;
 }
@@ -1104,6 +1106,13 @@ export const api = {
     }>(`/api/workspaces/${workspaceId}/templates`),
 
   /** Offer this page as a template, or stop offering it. */
+  /** Lock or unlock a page against accidental editing (ADR-0049). */
+  setPageLocked: (pageId: string, locked: boolean) =>
+    request<void>(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ locked }),
+    }),
+
   setPageTemplate: (pageId: string, template: boolean) =>
     request<void>(`/api/pages/${pageId}`, {
       method: 'PATCH',

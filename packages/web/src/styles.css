@@ -1578,6 +1578,25 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   .settings-row input, .settings-row select { inline-size: 100%; }
 }
 
+/* --- a locked page (ADR-0049) --- */
+
+/* In the tree, beside the title: visible before somebody starts typing. Small
+   and grey, because a lock anybody who may edit can lift must not look like a
+   warning — what restricts other people is a permission. */
+.tree-locked {
+  flex: none;
+  inline-size: 12px;
+  block-size: 12px;
+  margin-inline-start: 4px;
+  color: var(--sone-text-muted);
+  vertical-align: -1px;
+}
+
+/* The page itself. No banner across the top: a locked page is still a page to
+   read, and a bar saying so would push the writing down every time. The cursor
+   and the absent gutter say it where somebody would try to type. */
+[data-locked='true'] .ProseMirror { cursor: default; }
+
 /* --- exporting a workspace (ADR-0044) --- */
 
 .job-list {
