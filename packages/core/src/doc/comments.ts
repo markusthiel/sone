@@ -53,6 +53,18 @@ export const MESSAGE_KEYS = {
    */
   author: 'author',
   at: 'at',
+  /**
+   * Who was addressed in this message (ADR-0052).
+   *
+   * Ids beside the text, not names in it. A name alone breaks the moment
+   * somebody is renamed, and matches the wrong person when two people share
+   * one. Resolved when the message is written, because a mention is an act and
+   * who was meant is decided at that moment.
+   *
+   * A plain array on the message rather than its own structure: a mention is
+   * decided once and never edited, so there is nothing for two people to merge.
+   */
+  mentions: 'mentions',
   /** One text field. A document per message would be a second editor in a list. */
   text: 'text',
 } as const;
@@ -68,6 +80,8 @@ export interface CommentMessage {
   author: string;
   at: number;
   text: string;
+  /** Who was addressed, by id or guest key (ADR-0052). */
+  mentions: string[];
 }
 
 export interface CommentThread {
@@ -137,12 +151,16 @@ export function readThread(doc: Y.Doc, id: string, entry: Y.Map<unknown>): Comme
   if (list instanceof Y.Array) {
     list.forEach((value) => {
       if (!(value instanceof Y.Map)) return;
+      const mentions = value.get(MESSAGE_KEYS.mentions);
       const text = value.get(MESSAGE_KEYS.text);
       messages.push({
         id: asString(value.get(MESSAGE_KEYS.id)),
         author: asString(value.get(MESSAGE_KEYS.author)),
         at: asNumber(value.get(MESSAGE_KEYS.at)),
         text: text instanceof Y.Text ? text.toString() : asString(text),
+        mentions: Array.isArray(mentions)
+          ? mentions.filter((one): one is string => typeof one === 'string')
+          : [],
       });
     });
   }
@@ -201,6 +219,8 @@ export interface NewThread {
   author: string;
   text: string;
   at?: number;
+  /** Who was addressed in the first message (ADR-0052). */
+  mentions?: string[];
 }
 
 /**
@@ -221,18 +241,37 @@ export function addThread(doc: Y.Doc, input: NewThread): void {
     entry.set(THREAD_KEYS.createdAt, input.at ?? Date.now());
 
     const messages = new Y.Array<Y.Map<unknown>>();
-    messages.push([message(input.messageId, input.author, input.text, input.at)]);
+    messages.push([
+      message(input.messageId, input.author, input.text, input.at, input.mentions),
+    ]);
     entry.set(THREAD_KEYS.messages, messages);
 
     map.set(input.id, entry);
   });
 }
 
-function message(id: string, author: string, text: string, at?: number): Y.Map<unknown> {
+function message(
+  id: string,
+  author: string,
+  text: string,
+  at?: number,
+  mentions?: string[],
+): Y.Map<unknown> {
   const entry = new Y.Map<unknown>();
   entry.set(MESSAGE_KEYS.id, id);
   entry.set(MESSAGE_KEYS.author, author);
   entry.set(MESSAGE_KEYS.at, at ?? Date.now());
+  /*
+   * Only when there are any, and never the author.
+   *
+   * Somebody who writes "@me" has not asked to be told about it, and the check
+   * belongs here rather than in the projection: the projection would have to
+   * know which of several people wrote a message it is looking at, and it
+   * already knows — but a message that carries a self-mention has recorded
+   * something that was never true.
+   */
+  const addressed = (mentions ?? []).filter((who) => who !== author);
+  if (addressed.length > 0) entry.set(MESSAGE_KEYS.mentions, [...new Set(addressed)]);
   // Y.Text rather than a string: two people editing one message is rare, and
   // "rare" is not "never" — and it costs nothing to have it merge instead of
   // one of them losing a sentence.
@@ -246,7 +285,14 @@ function message(id: string, author: string, text: string, at?: number): Y.Map<u
 export function addMessage(
   doc: Y.Doc,
   threadId: string,
-  input: { id: string; author: string; text: string; at?: number },
+  input: {
+    id: string;
+    author: string;
+    text: string;
+    at?: number;
+    /** Who was addressed (ADR-0052). */
+    mentions?: string[];
+  },
 ): void {
   const entry = threadsMap(doc).get(threadId);
   if (!(entry instanceof Y.Map)) return;
@@ -254,7 +300,7 @@ export function addMessage(
   if (!(list instanceof Y.Array)) return;
 
   doc.transact(() => {
-    list.push([message(input.id, input.author, input.text, input.at)]);
+    list.push([message(input.id, input.author, input.text, input.at, input.mentions)]);
     // Replying to a resolved thread reopens it: somebody had more to say, and a
     // reply nobody sees because the thread is closed is a reply lost.
     if (entry.get(THREAD_KEYS.resolved) === true) {
@@ -330,4 +376,19 @@ export function commentText(doc: Y.Doc): string {
     .flatMap((thread) => thread.messages.map((one) => one.text))
     .filter((text) => text !== '')
     .join('\n');
+}
+
+/**
+ * The people a message addresses, and the people in a thread (ADR-0052).
+ *
+ * Two questions the projection asks and nothing else should have to answer
+ * twice: who was mentioned in this message, and who is *in* this conversation —
+ * which means having written in it, a definition somebody can predict.
+ */
+export function addressedBy(message: CommentMessage): string[] {
+  return message.mentions;
+}
+
+export function participants(thread: CommentThread): string[] {
+  return [...new Set(thread.messages.map((message) => message.author))];
 }
