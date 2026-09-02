@@ -1943,10 +1943,40 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
             ],
           );
 
+    /*
+     * A correction for a word in the body (ADR-0051).
+     *
+     * Only when the search found little, like the name suggestions above it: a
+     * search that found what somebody wanted must not be interrupted with a
+     * guess about what else they might have meant.
+     *
+     * The word list, not the content — so this returns the *correction*, and
+     * the interface can offer it as a search rather than as a result. Which
+     * means no visibility condition is needed here and none would help: the list
+     * has no page ids, and the search somebody then runs applies the rules.
+     */
+    const corrections =
+      visible.length >= SIMILAR_THRESHOLD || raw.length < 4
+        ? []
+        : await queryRows<{ word: string }>(
+            deps.pool,
+            `SELECT word FROM workspace_words
+              WHERE workspace_id = $1
+                AND word % $2
+                -- Not the word somebody typed: if it is in the list, it is
+                -- spelt correctly and suggesting it back is nonsense.
+                AND word <> lower($2)
+              ORDER BY similarity(word, $2) DESC
+              LIMIT 3`,
+            [workspaceId, raw],
+          );
+
     ctx.send(200, {
       // What was typed, and what was made of it.
       query: typed,
       filters: describeFilters(filters),
+      /** Spellings that exist in this workspace, when the search found little. */
+      corrections: corrections.map((row) => row.word),
       results: visible.map((row) => ({
         pageId: row.page_id,
         title: row.title,

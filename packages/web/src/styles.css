@@ -1601,6 +1601,19 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   .settings-row input, .settings-row select { inline-size: 100%; }
 }
 
+/* A spelling that exists here, offered as a search rather than as a result
+   (ADR-0051). */
+.search-corrections { margin-block: var(--sone-space-3); font-size: var(--sone-text-sm); }
+.search-corrections .link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* --- what a search was read as (ADR-0050) --- */
 
 .search-chips {

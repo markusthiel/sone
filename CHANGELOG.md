@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A misspelt word in the body now suggests the right one**
+([ADR-0051](docs/adr/0051-body-typo-tolerance.md)). Searching for "beratenummer"
+offers "beraternummer" under "did you mean", and pressing it runs the ordinary
+search — so the results are ranked and snippeted like any other search rather than
+by how similar the letters were. A misspelt title already found its page; this
+closes the other half.
+
 **A search can be narrowed** ([ADR-0050](docs/adr/0050-search-filters.md)) by
 typing filters into the search box: `tag:budget`, `author:markus`,
 `after:2026-08-01`, `before:2026-09-01`. A filter on its own is a valid search, so

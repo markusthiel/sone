@@ -129,8 +129,9 @@ is better than I remembered and better than the round-ups credit most tools with
 
 **Filtering is built** ([ADR-0050](adr/0050-search-filters.md)): `tag:`,
 `author:`, `after:` and `before:`, typed into the query so a narrowed search can
-be shared and typed again. What remains of this item is typo tolerance in the
-body.
+be shared and typed again. Typo tolerance in the body is built too
+([ADR-0051](adr/0051-body-typo-tolerance.md)), from a per-workspace word list
+chosen by measurement — **this item is closed.**
 And typo tolerance is titles-only: trigrams cover names, so a misspelt word in
 the body finds nothing where a misspelt title still finds the page.
 

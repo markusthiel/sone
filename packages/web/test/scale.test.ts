@@ -1668,3 +1668,15 @@ test('the chips show what the server used, not what the client guessed', () => {
   // page somebody has to find.
   assert.match(screen, /query === '' && <p className="settings-note">\{t\('search\.syntax'\)\}/);
 });
+
+test('a correction is offered as a search, and keeps the filters', () => {
+  // The point of correcting the word rather than matching the text (ADR-0051):
+  // pressing it runs the *ordinary* ranked search, with the same weighting and
+  // snippets as any other — not a second ranking by string similarity.
+  const screen = codeOf(new URL('../src/components/Search.tsx', import.meta.url));
+  assert.match(screen, /setQuery\(withWord\(query, word\)\)/);
+  // And only the misspelt word is replaced: throwing away a `tag:` somebody
+  // typed to accept a spelling would be a strange trade.
+  assert.match(screen, /function withWord\(query: string, word: string\)/);
+  assert.match(screen, /query\.replace\(parsed\.text, word\)/);
+});

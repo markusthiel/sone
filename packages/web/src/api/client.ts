@@ -1232,6 +1232,8 @@ export const api = {
       similar?: SimilarName[];
       /** What the server made of the query (ADR-0050). */
       filters?: AppliedFilters;
+      /** Spellings that exist in this workspace (ADR-0051). */
+      corrections?: string[];
     }>(
       `/api/workspaces/${workspaceId}/search?q=${encodeURIComponent(query)}`,
     ),

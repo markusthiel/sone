@@ -18,6 +18,14 @@ import { registerPageRoutes } from '../src/http/pages.js';
 import { Router } from '../src/http/router.js';
 import { registerWorkspaceRoutes } from '../src/http/workspaces.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
+import crypto from 'node:crypto';
+
+import * as Y from 'yjs';
+
+import { BLOCK_ATTRS, pageContent } from '@sone/core';
+
+import { applyToDocument } from '../src/doc/docStore.js';
+import { rematerialize } from '../src/materialize/rematerialize.js';
 import { expectJson, expectStatus } from './support/http.js';
 
 const PASSWORD = 'correct-horse-battery-staple';
@@ -154,6 +162,37 @@ describe(
      * the WebSocket in the running system, and standing up a sync session to test
      * a SELECT would test the wrong thing.
      */
+    /**
+     * A paragraph written the way a client writes one.
+     *
+     * Through the document and the materialiser, unlike `addParagraph` below,
+     * which inserts a block row and patches `page_search` by hand. That
+     * simulation is fine for testing the *query* — it was written before there
+     * was anything else to project — but a test of what the materialiser
+     * derives has to run the materialiser, or it tests the simulation.
+     */
+    async function writeParagraph(
+      session: Session,
+      pageId: string,
+      text: string,
+    ): Promise<void> {
+      await applyToDocument(
+        db,
+        pageId,
+        (doc) => {
+          const fragment = pageContent(doc);
+          const paragraph = new Y.XmlElement('paragraph');
+          paragraph.setAttribute(BLOCK_ATTRS.id, crypto.randomUUID());
+          const body = new Y.XmlText();
+          body.insert(0, text);
+          paragraph.insert(0, [body]);
+          fragment.insert(fragment.length, [paragraph]);
+        },
+        null,
+      );
+      await rematerialize(db, pageId, session.workspaceId, null);
+    }
+
     async function addParagraph(pageId: string, text: string): Promise<string> {
       const { rows } = await db.query<{ id: string }>(
         `INSERT INTO blocks (id, page_id, type, idx, plain_text)
@@ -189,6 +228,45 @@ describe(
       const body = await expectJson<{ results: SearchResult[] }>(res, 200);
       return body.results;
     }
+
+    test('a misspelt word in the body is offered as a correction', async () => {
+      // The asymmetry this closes: a misspelt *title* already found its page
+      // (ADR-0036), a misspelt word in the body found nothing (ADR-0051).
+      const session = await setup();
+      const folder = await defaultFolder(session);
+      const page = await create(session, 'Buchhaltung', 'page', folder);
+      await writeParagraph(session, page, 'Die Beraternummer steht in der Kopfzeile.');
+
+      const res = await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/search?q=beratenummer`,
+        auth(session),
+      );
+      const body = await expectJson<{ results: SearchResult[]; corrections: string[] }>(res, 200);
+
+      assert.deepEqual(body.results, [], 'the misspelling itself finds nothing');
+      assert.ok(
+        body.corrections.includes('beraternummer'),
+        `the correction is offered, got ${JSON.stringify(body.corrections)}`,
+      );
+    });
+
+    test('a word that is spelt correctly is not corrected back at itself', async () => {
+      const session = await setup();
+      const folder = await defaultFolder(session);
+      const page = await create(session, 'Buchhaltung', 'page', folder);
+      await writeParagraph(session, page, 'Die Beraternummer steht in der Kopfzeile.');
+
+      const res = await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/search?q=beraternummer`,
+        auth(session),
+      );
+      const body = await expectJson<{ results: SearchResult[]; corrections: string[] }>(res, 200);
+      assert.ok(body.results.length > 0, 'it is found');
+      assert.ok(
+        !body.corrections.includes('beraternummer'),
+        'and not suggested as a correction of itself',
+      );
+    });
 
     test('a tag filter narrows, and works with no words at all', async () => {
       // "Show me everything tagged X" is a question people ask constantly and
