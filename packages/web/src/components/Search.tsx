@@ -33,6 +33,18 @@ import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import { EntryIconView, entryKind, titleColorStyle } from './EntryIconView.tsx';
 
+/**
+ * Swap the misspelt word for the correction, keeping the filters.
+ *
+ * Replacing the whole query would throw away a `tag:` or `after:` somebody
+ * typed — a correction is about one word, and losing the rest of a narrowed
+ * search to accept a spelling would be a strange trade.
+ */
+function withWord(query: string, word: string): string {
+  const parsed = parseSearchQuery(query);
+  return parsed.text === '' ? word : query.replace(parsed.text, word);
+}
+
 export function SearchScreen({
   workspaceId,
   initialQuery,
@@ -55,6 +67,8 @@ export function SearchScreen({
    * agree because they are the same function.
    */
   const [applied, setApplied] = useState<AppliedFilters | null>(null);
+  /** Spellings that exist here, when the search found little (ADR-0051). */
+  const [corrections, setCorrections] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
   const requestId = useRef(0);
 
@@ -68,6 +82,7 @@ export function SearchScreen({
       setResults([]);
       setSimilar([]);
       setApplied(null);
+      setCorrections([]);
       setSearching(false);
       return;
     }
@@ -83,6 +98,7 @@ export function SearchScreen({
           setResults(response.results);
           setSimilar(response.similar ?? []);
           setApplied(response.filters ?? null);
+          setCorrections(response.corrections ?? []);
           setError(null);
         })
         .catch((err: unknown) => {
@@ -151,6 +167,26 @@ export function SearchScreen({
           find, and not a permanent panel either: it disappears as soon as
           anything is typed. */}
       {query === '' && <p className="settings-note">{t('search.syntax')}</p>}
+
+      {/* A spelling that exists here (ADR-0051).
+        *
+        * Offered as a *search* rather than as a result, which is the whole point
+        * of correcting the word instead of matching the text: pressing it runs
+        * the ordinary ranked search, with the same weighting and snippets as any
+        * other. */}
+      {corrections.length > 0 && (
+        <p className="search-corrections">
+          {t('search.didYouMean')}{' '}
+          {corrections.map((word, at) => (
+            <span key={word}>
+              {at > 0 && ', '}
+              <button type="button" className="link" onClick={() => setQuery(withWord(query, word))}>
+                {word}
+              </button>
+            </span>
+          ))}
+        </p>
+      )}
 
       {error && <p className="error">{messageFor(error)}</p>}
 

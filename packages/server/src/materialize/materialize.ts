@@ -628,6 +628,34 @@ export async function materializeDocument(
     ],
   );
 
+  /*
+   * The workspace's word list (ADR-0051).
+   *
+   * This page's words, replaced wholesale — the same discipline as the tags and
+   * the comment threads, and for the same reason: a diff would have to decide
+   * what an absent word means, and the answer differs between "this page no
+   * longer says it" and "this projection is behind".
+   *
+   * But *only this page's* rows can be removed, and a word another page still
+   * uses must survive that. So the delete is scoped by a subquery over this
+   * page's own words, and the insert is `ON CONFLICT DO NOTHING`: two pages
+   * sharing a word share one row.
+   *
+   * The consequence, accepted rather than engineered around: a word that has
+   * left the workspace entirely lingers until something else is projected. A
+   * suggestion for a word that used to be here harms nobody, and a reference
+   * count per word would be a second thing to keep correct.
+   */
+  const words = searchWords(`${parsed.page.title} ${searchText}`);
+  if (words.length > 0) {
+    await db.query(
+      `INSERT INTO workspace_words (workspace_id, word)
+       SELECT $1, unnest($2::text[])
+       ON CONFLICT DO NOTHING`,
+      [opts.workspaceId, words],
+    );
+  }
+
   // --- bookkeeping --------------------------------------------------------
 
   await db.query(
@@ -763,4 +791,24 @@ async function authorNames(db: PoolClient, keys: string[]): Promise<string[]> {
 
   // Deduplicated: one person with two client ids is one author.
   return [...new Set(names)];
+}
+
+/**
+ * The words worth suggesting, from a page's text.
+ *
+ * Letters only, and at least four of them: a suggestion for "der" is noise, and
+ * a trigram match on a three-letter word is mostly coincidence. Digits are
+ * dropped because nobody misspells 2026 in a way a correction helps with.
+ *
+ * Capped per page, so one enormous imported document cannot write forty thousand
+ * rows in a single projection.
+ */
+export function searchWords(text: string): string[] {
+  const found = new Set<string>();
+  for (const raw of text.toLowerCase().split(/[^\p{L}]+/u)) {
+    if (raw.length < 4 || raw.length > 40) continue;
+    found.add(raw);
+    if (found.size >= 2000) break;
+  }
+  return [...found];
 }
