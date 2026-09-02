@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An archive can be imported into a folder** — Markdown files become pages, and
+directories become folders ([ADR-0044](docs/adr/0044-import-export.md)). The plan
+is computed first and writes nothing, so what will happen can be read before it
+does. Files inside the archive are not imported yet, and the plan says so. The
+screen for it comes next.
+
+**Fixed: the export window opened at the foot of the menu** instead of centred
+like the sharing window. **Fixed: the sharing window's title was in English.**
+
 **A person can be given permission to comment on a page without being able to
 edit it.** The role has been in the access model since the beginning; no screen
 offered it. **Fixed: a share link's roles were shown in English** in an otherwise

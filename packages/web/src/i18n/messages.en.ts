@@ -67,6 +67,7 @@ export const en = {
   'entry.share': 'Share…',
   'entry.move': 'Move to…',
   'entry.export': 'Export\u2026',
+  'share.heading': 'Share “{title}”',
   'export.title': 'Export',
   'export.what': '{title} and everything inside it, as Markdown files in one archive.',
   'export.withAttachments': 'Include the files and pictures',

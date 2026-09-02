@@ -47,6 +47,7 @@ import { registerCollectionRoutes } from './http/collections.js';
 import { registerAdminRoutes } from './admin/routes.js';
 import { SettingsStore } from './admin/settings.js';
 import { registerExportRoutes } from './export/routes.js';
+import { registerImportRoutes } from './import/routes.js';
 import { registerAvatarRoutes, registerFileRoutes } from './files/routes.js';
 import { LocalFileStore } from './files/store.js';
 import { createStaticHandler } from './http/static.js';
@@ -289,6 +290,10 @@ async function main(): Promise<void> {
   // Handing a page's contents back (ADR-0044). Its own module because it is the
   // one thing that needs both the database and the file store.
   registerExportRoutes(router, { pool, store: fileStore });
+
+  // Reading an archive in (ADR-0044). The plan and the execution are separate
+  // routes so that nothing is written before somebody has seen what would be.
+  registerImportRoutes(router, { pool, maxUploadBytes: config.maxUploadBytes });
 
   registerFileRoutes(router, {
     pool,

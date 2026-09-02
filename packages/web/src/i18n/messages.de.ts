@@ -76,6 +76,7 @@ export const de: Record<keyof typeof en, string> = {
   'entry.share': 'Teilen…',
   'entry.move': 'Verschieben nach…',
   'entry.export': 'Exportieren\u2026',
+  'share.heading': '„{title}“ teilen',
   'export.title': 'Exportieren',
   'export.what': '{title} und alles darin, als Markdown-Dateien in einem Archiv.',
   'export.withAttachments': 'Dateien und Bilder mitnehmen',
