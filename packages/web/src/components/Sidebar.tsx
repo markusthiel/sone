@@ -12,7 +12,14 @@
  * closes it on a phone mid-sentence.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 
 import type { FavouriteEntry, PageNode } from '../api/client.ts';
 import {
@@ -35,7 +42,6 @@ import type { WorkspaceIcon } from '../api/client.ts';
 import {
   ChevronRightIcon,
   FolderIcon,
-  FolderPlusIcon,
   PageIcon,
   PlusIcon,
   SearchIcon,
@@ -110,6 +116,69 @@ function readCollapsed(): Set<string> {
   }
 }
 
+
+/**
+ * A heading that folds what is under it.
+ *
+ * The heading itself is the control, which is what makes both sections behave
+ * the same: a caret beside a label somebody has to hit precisely is a control
+ * that only works with a mouse.
+ *
+ * The count when folded, because a section that says only "Favourites" with
+ * nothing under it looks like an empty section rather than a closed one.
+ */
+function SidebarSection({
+  label,
+  open,
+  count,
+  onToggle,
+  onAdd,
+  addLabel,
+  children,
+}: {
+  label: string;
+  open: boolean;
+  count: number;
+  onToggle: () => void;
+  onAdd?: () => void;
+  addLabel?: string;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <div className="sidebar-section" data-open={open}>
+      <div className="sidebar-section-head">
+        <button
+          type="button"
+          className="sidebar-section-toggle"
+          aria-expanded={open}
+          onClick={onToggle}
+        >
+          <ChevronRightIcon />
+          <span className="sidebar-label">{label}</span>
+          {!open && count > 0 && <span className="sidebar-section-count">{count}</span>}
+        </button>
+
+        {/* Always drawn, never on hover: a control that appears when a pointer
+            is near it does not exist on a phone, and this is the way to make a
+            folder now that the button at the foot of the tree is gone. */}
+        {onAdd && addLabel && (
+          <button
+            type="button"
+            className="sidebar-section-add"
+            aria-label={addLabel}
+            title={addLabel}
+            onClick={onAdd}
+          >
+            <PlusIcon />
+          </button>
+        )}
+      </div>
+
+      {open && children}
+    </div>
+  );
+}
+
 export function Sidebar({
   workspaceId,
   workspaceName,
@@ -138,6 +207,42 @@ export function Sidebar({
   userId,
 }: SidebarProps): ReactElement {
   const { t } = useT();
+
+  /**
+   * Which sections are open, remembered per browser.
+   *
+   * A fold somebody set is an instruction, and a reload undoing it is the
+   * application forgetting one — the same argument the comment folds make
+   * (ADR-0046). Not on the account, because a sidebar on a phone is not a
+   * sidebar at a desk.
+   */
+  const [sectionsOpen, setSectionsOpen] = useState<{ favourites: boolean; folders: boolean }>(
+    () => {
+      try {
+        const stored: unknown = JSON.parse(localStorage.getItem('sone.sidebarSections') ?? '{}');
+        const value = (stored ?? {}) as Record<string, unknown>;
+        return {
+          // Open unless somebody closed it: a sidebar that starts folded hides
+          // the thing it exists to show.
+          favourites: value['favourites'] !== false,
+          folders: value['folders'] !== false,
+        };
+      } catch {
+        return { favourites: true, folders: true };
+      }
+    },
+  );
+  const toggleSection = (which: 'favourites' | 'folders'): void => {
+    setSectionsOpen((current) => {
+      const next = { ...current, [which]: !current[which] };
+      try {
+        localStorage.setItem('sone.sidebarSections', JSON.stringify(next));
+      } catch {
+        // Folded for this session and not remembered, which beats refusing.
+      }
+      return next;
+    });
+  };
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
   const [renaming, setRenaming] = useState<string | null>(null);
   // One drag at a time, and every row has to know about it — so it belongs
@@ -249,8 +354,12 @@ export function Sidebar({
             first thing in reach. Hidden entirely when empty rather than shown
             as an empty heading, which would take space to say nothing. */}
         {favourites.length > 0 && (
-          <div className="sidebar-section">
-            <p className="sidebar-label">{t('sidebar.favourites')}</p>
+          <SidebarSection
+            label={t('sidebar.favourites')}
+            open={sectionsOpen.favourites}
+            count={favourites.length}
+            onToggle={() => toggleSection('favourites')}
+          >
             {favourites.map((entry) => (
               <div className="tree-row" data-kind={entry.kind} key={entry.pageId}>
                 <span className="tree-twisty" data-placeholder="true" aria-hidden="true" />
@@ -281,14 +390,28 @@ export function Sidebar({
                 </button>
               </div>
             ))}
-          </div>
+          </SidebarSection>
         )}
 
-        {tree.length === 0 ? (
-          <p className="muted" style={{ padding: '8px' }}>
-            {t('sidebar.empty')}
-          </p>
-        ) : (
+        {/* The tree, under a heading of its own.
+          *
+          * It had none: the folders simply began, so there was nothing to fold
+          * and nothing to hang a `+` on. The heading is what makes both
+          * sections behave alike, which is the point of the change. */}
+        <SidebarSection
+          label={t('sidebar.folders')}
+          open={sectionsOpen.folders}
+          count={tree.length}
+          onToggle={() => toggleSection('folders')}
+          onAdd={() => onCreatePage(null, 'folder')}
+          addLabel={t('sidebar.newFolder')}
+        >
+          {tree.length === 0 ? (
+            // The empty case matters more now that the large button at the foot
+            // is gone: it says where to press rather than only that there is
+            // nothing here.
+            <p className="sidebar-empty muted">{t('sidebar.emptyFolders')}</p>
+          ) : (
           <TreeLevel
             workspaceId={workspaceId}
             nodes={tree}
@@ -315,22 +438,8 @@ export function Sidebar({
             onMove={onMove}
             drag={drag}
           />
-        )}
-
-        {/* At the bottom of the tree, where the thing it adds to ends.
-          *
-          * A folder and nothing else, because the root holds only folders
-          * (ADR-0019). I briefly put a canvas here too, and the server refused
-          * it — the rule that made pages need a folder applies to a canvas for
-          * the same reason, and offering something that cannot work is worse
-          * than not offering it. */}
-        <button
-          className="tree-new-folder"
-          type="button"
-          onClick={() => onCreatePage(null, 'folder')}
-        >
-          <FolderPlusIcon /> {t('sidebar.newFolder')}
-        </button>
+          )}
+        </SidebarSection>
 
         {/* The face, and the menu behind it (AccountMenu).
           *

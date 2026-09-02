@@ -51,6 +51,8 @@ export const en = {
   'sidebar.hide': 'Hide the sidebar',
   'sidebar.search': 'Search',
   'sidebar.favourites': 'Favourites',
+  'sidebar.folders': 'Folders',
+  'sidebar.emptyFolders': 'No folders yet. Press + to make one.',
   'sidebar.newFolder': 'New folder',
   'sidebar.empty': 'No pages yet.',
   'sidebar.rename': 'Rename',

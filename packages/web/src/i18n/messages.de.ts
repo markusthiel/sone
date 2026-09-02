@@ -60,6 +60,8 @@ export const de: Record<keyof typeof en, string> = {
   'sidebar.hide': 'Seitenleiste ausblenden',
   'sidebar.search': 'Suchen',
   'sidebar.favourites': 'Favoriten',
+  'sidebar.folders': 'Ordner',
+  'sidebar.emptyFolders': 'Noch keine Ordner. Drücke +, um einen anzulegen.',
   'sidebar.newFolder': 'Neuer Ordner',
   'sidebar.empty': 'Noch keine Seiten.',
   'sidebar.rename': 'Umbenennen',

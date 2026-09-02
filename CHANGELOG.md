@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The sidebar has two sections that fold**, Favourites and Folders, separated by a
+line — and a `+` on the Folders heading replaces the "New folder" button at the
+foot of the tree. Whether a section is open is remembered.
+
 **An archive can be imported into a folder** — Markdown files become pages, and
 directories become folders ([ADR-0044](docs/adr/0044-import-export.md)). The plan
 is computed first and writes nothing, so what will happen can be read before it
