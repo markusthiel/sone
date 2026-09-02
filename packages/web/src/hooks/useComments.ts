@@ -60,20 +60,22 @@ export function useComments(doc: Y.Doc | null, author: string): CommentActions {
     const read = (): void => {
       setThreads(readThreads(doc));
       /*
-       * And tell the editor, from here rather than from a React effect.
+       * And tell the editor — with the threads, not just that there are some.
        *
-       * The marks are decorations, and decorations rebuild on a transaction —
-       * so something has to dispatch one when a thread appears or goes. I had
-       * that in an effect keyed on the threads prop, and deleting a thread left
-       * its highlight in the text until a reload: the effect depends on props
-       * reaching the editor and on my being right about when React re-renders,
-       * and I was not able to say which of those failed.
+       * The marks are decorations, and decorations rebuild on a transaction, so
+       * something has to dispatch one when a thread appears or goes.
        *
-       * This does not depend on either. The document changed, so the thing that
-       * noticed says so — the same channel the panel already uses to ask for a
-       * passage to be revealed.
+       * The announcement carries the list because of *when* it happens: this
+       * runs synchronously inside the Yjs transaction, before React has
+       * re-rendered, so anything reading a prop or a ref at that moment sees the
+       * state from before the change. An empty event made the editor redraw the
+       * *previous* list — which is why the very first comment on a page showed
+       * no highlight at all until a reload, and why every later one was drawing
+       * one change behind without it being obvious.
        */
-      window.dispatchEvent(new CustomEvent('sone:comments-changed'));
+      window.dispatchEvent(
+        new CustomEvent('sone:comments-changed', { detail: readThreads(doc) }),
+      );
     };
     read();
     map.observeDeep(read);

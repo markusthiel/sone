@@ -409,7 +409,13 @@ export function EditorSurface({
    * change says so directly, and this listens.
    */
   useEffect(() => {
-    const nudge = (): void => {
+    const nudge = (event?: Event): void => {
+      // The list from the event, when there is one: it was read after the change
+      // and before React re-rendered, so it is newer than anything the props or
+      // the ref can offer at this moment.
+      const carried = (event as CustomEvent<DrawnThread[]> | undefined)?.detail;
+      if (Array.isArray(carried)) threadsRef.current = carried;
+
       const view = viewRef.current;
       if (!view) return;
       view.dispatch(view.state.tr.setMeta(commentMarksKey, true));
