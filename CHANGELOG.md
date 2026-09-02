@@ -11,6 +11,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 - **MINOR** — pull and restart; migrations run automatically.
 - **MAJOR** — read this file first, there is something to do.
 
+## Unreleased
+
+Nothing yet.
+
 ## 0.3.0
 
 The release where SONE became something more than one person's notes: accounts,
