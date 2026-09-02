@@ -89,6 +89,9 @@ export const de: Record<keyof typeof en, string> = {
     'Nichts Vorhandenes wird ersetzt. Ohne dies bleibt eine Seite, deren Name ' +
     'schon da ist, unberührt, und die Fassung aus dem Archiv kommt nicht mit.',
   'import.skipped': '{count} Dateien kommen nicht mit',
+  'import.attachments':
+    '{count} Dateien kommen mit. Eine Datei, deren Art nicht erkennbar ist, ' +
+    'bleibt weg, und das Bild dazu wird als fehlend gezeigt.',
   'import.attachmentsNotYet':
     'Die {count} Dateien in diesem Archiv werden noch nicht importiert, und ' +
     'die Links darauf zeigen ins Leere.',

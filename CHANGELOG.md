@@ -21,8 +21,8 @@ foot of the tree. Whether a section is open is remembered.
 ([ADR-0044](docs/adr/0044-import-export.md)). Choosing a file shows what would
 happen — the pages and folders it would create, which names are already taken,
 what will not come — and nothing is written until you confirm it. Nothing existing
-is ever replaced. Files inside the archive are not imported yet, and the plan says
-so.
+is ever replaced. **The files come with it**: a picture in the archive arrives as a
+picture, stored here and linked to the page that used it.
 
 **Fixed: the export window opened at the foot of the menu** instead of centred
 like the sharing window. **Fixed: the sharing window's title was in English.**

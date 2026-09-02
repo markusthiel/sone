@@ -15,6 +15,8 @@ import type { Pool } from 'pg';
 import { SCHEMA_VERSION } from '@sone/core';
 
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
+import { createHash } from 'node:crypto';
+
 import { zip } from '../src/export/zip.js';
 import { registerExportRoutes } from '../src/export/routes.js';
 import { registerImportRoutes } from '../src/import/routes.js';
@@ -62,7 +64,42 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
      * and a stub that throws proves the route survives a file it cannot read
      * rather than hiding the case behind a real store that always can.
      */
-    registerImportRoutes(router, { pool: db, maxUploadBytes: 32 * 1024 * 1024 });
+    /*
+     * An import with a store that keeps bytes in a map.
+     *
+     * A real `LocalFileStore` would need a directory per test run; a refusing
+     * stub would make every archive's pictures arrive as missing and prove
+     * nothing about the path that stores them. This is the smallest thing that
+     * exercises it.
+     */
+    const stored = new Map<string, Buffer>();
+    registerImportRoutes(router, {
+      pool: db,
+      maxUploadBytes: 32 * 1024 * 1024,
+      store: {
+        kind: 'memory',
+        put: (bytes: Buffer, extension: string) => {
+          const key = `ab/${stored.size}.${extension}`;
+          stored.set(key, bytes);
+          return Promise.resolve({
+            key,
+            sizeBytes: bytes.length,
+            sha256: createHash('sha256').update(bytes).digest(),
+          });
+        },
+        get: (key: string) =>
+          stored.has(key)
+            ? Promise.resolve(stored.get(key)!)
+            : Promise.reject(new Error('missing')),
+        delete: (key: string) => {
+          stored.delete(key);
+          return Promise.resolve();
+        },
+        exists: (key: string) => Promise.resolve(stored.has(key)),
+        size: (key: string) => Promise.resolve(stored.get(key)?.length ?? 0),
+        read: () => Promise.reject(new Error('not in this test')),
+      },
+    });
     registerExportRoutes(router, {
       pool: db,
       store: {
@@ -410,7 +447,11 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       ],
     );
     assert.deepEqual(planned.skipped, [{ name: 'Ordner/style.css', reason: 'not_markdown' }]);
-    assert.equal(planned.attachmentsImported, false, 'said, not discovered');
+    // True since the files came back too. The flag stays in the response
+    // because the interface reads it — and this assertion failing when
+    // attachments were implemented is the test doing its job: it was written to
+    // pin down a promise, and the promise changed.
+    assert.equal(planned.attachmentsImported, true);
 
     // Nothing written yet.
     let tree = await expectJson<{ pages: Array<{ id: string }> }>(
@@ -436,6 +477,58 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       200,
     );
     assert.ok(JSON.stringify(tree).includes('Notiz'), 'and now it is there');
+  });
+
+  test('a picture in an archive arrives as a picture', async () => {
+    // The last piece of the round trip: without this the link is imported as
+    // literal `![…]` characters, so a page describes its own pictures instead
+    // of showing them — and the file behind it is nowhere.
+    const session = await setup();
+    const folder = await createFolder(session, 'Bilder');
+
+    // A real PNG header, because the store refuses bytes it cannot describe: a
+    // wrong mime type is a file the browser renders wrongly or refuses.
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(64),
+    ]);
+
+    const archive = zip([
+      {
+        name: 'Seite.md',
+        body: Buffer.from('# Seite\n\n![Ein Plan](attachments/f-1)\n'),
+        at: new Date(),
+      },
+      { name: 'attachments/f-1', body: png, at: new Date() },
+    ]);
+
+    const done = await expectJson<{ created: number }>(
+      await fetch(`${base}/api/pages/${folder}/import`, {
+        method: 'POST',
+        headers: { ...auth(session).headers, 'content-type': 'application/zip' },
+        body: archive,
+      }),
+      200,
+    );
+    assert.equal(done.created, 1);
+
+    const blocks = await db.query<{ type: string; props: { fileId?: string } }>(
+      `SELECT b.type, b.props FROM blocks b JOIN pages p ON p.id = b.page_id
+        WHERE p.title = 'Seite' AND p.workspace_id = $1`,
+      [session.workspaceId],
+    );
+    assert.equal(blocks.rows[0]?.type, 'image', 'a picture, not a paragraph');
+    const fileId = blocks.rows[0]?.props.fileId;
+    assert.ok(fileId, 'and it names a file that exists here');
+
+    const file = await db.query<{ mime_type: string; page_id: string }>(
+      `SELECT mime_type, page_id FROM files WHERE id = $1`,
+      [fileId],
+    );
+    assert.equal(file.rows[0]?.mime_type, 'image/png');
+    // Files are authorised through their page, so the file hangs on the page
+    // that referred to it.
+    assert.ok(file.rows[0]?.page_id, 'and it hangs on a page');
   });
 
   test('something that is not an archive is refused with a reason', async () => {
