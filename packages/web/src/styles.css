@@ -2438,6 +2438,15 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 }
 
 .entry-menu-item {
+  /* One row, one height.
+   *
+   * The second move item wrapped to two lines and sat taller than the first,
+   * which made a pair of related choices look like two unrelated ones. The
+   * shorter wording is the real fix — "to a workspace" already implies moving,
+   * since it sits under "move to" — and this keeps the row honest when a
+   * translation runs longer than English again. */
+  white-space: nowrap;
+
   display: flex;
   align-items: center;
   gap: var(--sone-space-4);

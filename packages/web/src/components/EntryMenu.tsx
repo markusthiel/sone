@@ -447,14 +447,6 @@ export function EntryMenu({
             </button>
           </div>
 
-          {/* The row of marks is a group like any other and needs closing off.
-            *
-            * It did not, because the appearance block used to sit under it and
-            * its heading did that job by accident. With appearance moved to the
-            * bottom, the marks ran straight into "Move to…" with no boundary —
-            * five icons and then a list, reading as one thing. */}
-          <hr className="entry-menu-rule" />
-
           {/* What can be put inside, as three marks under one word.
             *
             * The same three the `+` offers and in the same order (page, canvas,
@@ -494,9 +486,13 @@ export function EntryMenu({
             </div>
           )}
 
-          {/* Inside the condition, so a page — which cannot hold anything — does
-              not get a line separating nothing from what follows. */}
-          {isFolder && <hr className="entry-menu-rule" />}
+          {/* One line under both rows of marks, not one between them.
+            *
+            * They are two compact rows of icons and they read as one band; a
+            * line between them and another under them was two lines to separate
+            * five items from three. What needs closing off is the band, and
+            * that is here. */}
+          <hr className="entry-menu-rule" />
 
           <button
             className="entry-menu-item"
