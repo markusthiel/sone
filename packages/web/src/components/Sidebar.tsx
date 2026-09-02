@@ -40,6 +40,7 @@ import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
 import {
+  LockIcon,
   ChevronRightIcon,
   FolderIcon,
   PageIcon,
@@ -619,6 +620,12 @@ function TreeLevel({
                       board in the tree was drawn as a document. */}
                   <EntryIconView icon={node.icon} kind={node.kind} />{' '}
                   <span style={titleColorStyle(node.icon)}>{title}</span>
+                  {/* Visible before somebody starts typing rather than after
+                      (ADR-0049). Small and grey: a lock anybody who may edit can
+                      lift must not read like a warning. */}
+                  {node.locked === true && (
+                    <LockIcon className="tree-locked" aria-label={t('entry.lockedShort')} />
+                  )}
                 </a>
               )}
 

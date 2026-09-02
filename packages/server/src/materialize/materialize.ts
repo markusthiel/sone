@@ -208,8 +208,8 @@ export async function materializeDocument(
     `INSERT INTO pages (
        id, workspace_id, parent_page_id, collection_id, idx, title, icon,
        cover_url, schema_version, archived_at, last_edited_at, last_edited_by,
-       ancestor_ids, kind, width, template
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), $11, $12, $13, $14, $15)
+       ancestor_ids, kind, width, template, locked
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), $11, $12, $13, $14, $15, $16)
      ON CONFLICT (id) DO UPDATE SET
        parent_page_id = EXCLUDED.parent_page_id,
        collection_id  = EXCLUDED.collection_id,
@@ -226,7 +226,8 @@ export async function materializeDocument(
        -- client lands here like any other edit (ADR-0019).
        kind           = EXCLUDED.kind,
        width          = EXCLUDED.width,
-       template       = EXCLUDED.template`,
+       template       = EXCLUDED.template,
+       locked         = EXCLUDED.locked`,
     [
       pageId,
       opts.workspaceId,
@@ -252,6 +253,8 @@ export async function materializeDocument(
       // A row is part of a collection and cannot be started from, so it is
       // never offered as a shape however its document is marked.
       parsed.page.kind === 'row' ? false : parsed.page.template,
+      // Projected for the tree's padlock (ADR-0049); the document is the truth.
+      parsed.page.locked,
     ],
   );
 

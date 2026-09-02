@@ -58,6 +58,8 @@ export interface ReadPage {
   width: 'column' | 'full' | null;
   /** Whether the page is offered as a template (ADR-0045). */
   template: boolean;
+  /** Locked against accidental editing (ADR-0049). */
+  locked: boolean;
   parentPageId: string | null;
   collectionId: string | null;
   idx: string;
@@ -183,6 +185,9 @@ function readPageMeta(doc: Y.Doc, warnings: string[]): ReadPage {
     // written by clients and a width the stylesheet does not know would be a
     // page nobody can read.
     template: map.get(PAGE_KEYS.template) === true,
+    // Projected so the tree can draw a padlock without opening every document
+    // (ADR-0049). The document is still where it lives.
+    locked: map.get(PAGE_KEYS.locked) === true,
     width: (() => {
       const value = asString(map.get(PAGE_KEYS.width));
       return value === 'column' || value === 'full' ? value : null;

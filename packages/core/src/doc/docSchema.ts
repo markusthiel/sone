@@ -163,6 +163,20 @@ export const PAGE_KEYS = {
    * a property of the page and it travels when the page does.
    */
   template: 'template',
+  /**
+   * Locked against accidental editing (ADR-0049).
+   *
+   * In the document rather than only in the database, and for a sharper reason
+   * than the icon has: it must reach another person's *open* editor, which is
+   * exactly when the accident happens. A flag in the projection would arrive on
+   * their next reload.
+   *
+   * Not a permission. Anybody who may edit the page may lift it — a CRDT cannot
+   * refuse an update without the client and server disagreeing about the
+   * document, so this stops the interface from offering editing and claims
+   * nothing more. What restricts other people is a permission (ADR-0026).
+   */
+  locked: 'locked',
   coverUrl: 'coverUrl',
   parentPageId: 'parentPageId',
   /** Fractional index among sibling pages, not among blocks. */
@@ -203,6 +217,20 @@ export const BLOCK_ATTRS = {
    * a property of the page and it travels when the page does.
    */
   template: 'template',
+  /**
+   * Locked against accidental editing (ADR-0049).
+   *
+   * In the document rather than only in the database, and for a sharper reason
+   * than the icon has: it must reach another person's *open* editor, which is
+   * exactly when the accident happens. A flag in the projection would arrive on
+   * their next reload.
+   *
+   * Not a permission. Anybody who may edit the page may lift it — a CRDT cannot
+   * refuse an update without the client and server disagreeing about the
+   * document, so this stops the interface from offering editing and claims
+   * nothing more. What restricts other people is a permission (ADR-0026).
+   */
+  locked: 'locked',
   color: 'color',
   /** JSON-encoded block-specific settings. Never derived values. */
   props: 'props',

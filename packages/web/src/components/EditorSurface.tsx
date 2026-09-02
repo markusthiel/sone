@@ -41,6 +41,7 @@ import { SlashMenu } from './SlashMenu.tsx';
 import { TableToolbar } from './TableToolbar.tsx';
 import { VideoDialog } from './VideoDialog.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
+import { usePageLocked } from '../hooks/usePageWidth.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { webVariant } from '../lib/imageVariant.ts';
@@ -457,6 +458,10 @@ export function EditorSurface({
     return () => window.removeEventListener('sone:reveal-comment', reveal);
   }, []);
   canEditRef.current = handle.canEdit;
+  /** The lock, read from the document so it arrives like any other edit. */
+  const locked = usePageLocked(handle.doc);
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
 
   /**
    * Whether what the document contains is known yet.
@@ -529,7 +534,16 @@ export function EditorSurface({
           keywords: [...item.keywords, ...extra],
         };
       },
-      editable: () => canEditRef.current,
+      /*
+       * One predicate, and the lock goes through it (ADR-0049).
+       *
+       * ProseMirror asks this for typing, pasting, dragging and every command,
+       * so a locked page stops offering all of them at once. The alternative —
+       * `if (locked)` in fifteen commands — is fifteen chances for one to be
+       * forgotten, and the one forgotten is a hole nobody finds until a locked
+       * page changes.
+       */
+      editable: () => canEditRef.current && !lockedRef.current,
       onStateChange: () => setRevision((n) => n + 1),
       uploadImage: uploader,
       // A collection is a block in the text (ADR-0021), and this is what draws
@@ -614,7 +628,9 @@ export function EditorSurface({
   // so a downgraded user can still type for a moment.
   useEffect(() => {
     viewRef.current?.setProps({});
-  }, [handle.canEdit]);
+    // The lock too, and for the same reason: without this a page stays editable
+    // until the next transaction, which is one keystroke too many.
+  }, [handle.canEdit, locked]);
 
   return (
     <>
@@ -647,7 +663,8 @@ export function EditorSurface({
         ref={mountRef}
         // Focus lands on the ProseMirror element inside, which manages its own
         // tabindex and ARIA attributes.
-        data-editable={handle.canEdit ? 'true' : 'false'}
+        data-editable={handle.canEdit && !locked ? 'true' : 'false'}
+        data-locked={locked ? 'true' : undefined}
       />
 
       {/* Outside the conditional block below, so it survives the slash menu

@@ -308,6 +308,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       icon: unknown;
       kind: string;
       template: boolean;
+      locked: boolean;
       archived_at: Date | null;
       last_edited_at: Date;
       ancestor_ids: string[];
@@ -315,7 +316,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     }>(
       deps.pool,
       `SELECT p.id, p.parent_page_id, p.collection_id, p.idx, p.title, p.icon,
-              p.kind, p.template, p.archived_at, p.last_edited_at, p.ancestor_ids,
+              p.kind, p.template, p.locked, p.archived_at, p.last_edited_at, p.ancestor_ids,
               -- A page somebody reaches only as the path to a child they were
               -- granted. It appears, and the interface draws it without its
               -- title (ADR-0026).
@@ -382,6 +383,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         // its own — and withheld with the title for a path-only page, since a
         // page somebody cannot read should disclose nothing about itself.
         template: row.path_only ? false : row.template,
+        // So the tree can draw a padlock, and the ⋮ menu knows which way its
+        // toggle points, without opening the document (ADR-0049).
+        locked: row.path_only ? false : row.locked,
         archived: row.archived_at !== null,
         lastEditedAt: row.last_edited_at,
       })),
@@ -1022,6 +1026,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     // Whether this page is offered as a shape to start from. A fact about the
     // page, decided while looking at it (ADR-0045).
     const wantsTemplate = 'template' in body;
+    // Locked against accidental editing (ADR-0049). A guard, not a permission —
+    // anybody who may edit the page may lift it, which is why this needs no
+    // check beyond the edit right the route already requires.
+    const wantsLocked = 'locked' in body;
     const width =
       body.width === 'column' || body.width === 'full' ? body.width : null;
     if (wantsWidth && body.width !== null && width === null) {
@@ -1034,7 +1042,8 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       !wantsIcon &&
       !wantsTitleColor &&
       !wantsWidth &&
-      !wantsTemplate
+      !wantsTemplate &&
+      !wantsLocked
     ) {
       ctx.fail(422, 'missing_fields');
       return;
@@ -1065,6 +1074,12 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           // nothing, the same distinction every other optional property makes.
           if (body.template === true) page.set(PAGE_KEYS.template, true);
           else page.delete(PAGE_KEYS.template);
+        }
+        if (wantsLocked) {
+          // Deleted rather than set to false, like the template flag: a page
+          // nobody has locked carries nothing.
+          if (body.locked === true) page.set(PAGE_KEYS.locked, true);
+          else page.delete(PAGE_KEYS.locked);
         }
         if (wantsWidth) {
           if (width) page.set(PAGE_KEYS.width, width);

@@ -27,6 +27,7 @@ import { ICON_NAMES } from './EntryIconView.tsx';
 import { api, type PageNode } from '../api/client.ts';
 import { EntryIconView } from './EntryIconView.tsx';
 import {
+  LockIcon,
   UploadIcon,
   DownloadIcon,
   BookmarkIcon,
@@ -347,6 +348,7 @@ export function EntryMenu({
   // From the tree's own record of the page, so the label is right the moment
   // the menu opens rather than after a request.
   const isTemplate = node.template === true;
+  const isLocked = node.locked === true;
   const descendants = countDescendants(node);
   const title = node.title || (isFolder ? 'Untitled folder' : 'Untitled');
 
@@ -626,6 +628,32 @@ export function EntryMenu({
           <EntryAppearance node={node} onChanged={onChanged} />
 
           <hr className="entry-menu-rule" />
+
+          {/* Locking, in the group above the trash (ADR-0049).
+            *
+            * Consequential and reversible, which is the group the trash is in —
+            * and above it, because it is the lesser of the two. A checkbox item
+            * rather than two entries, so the state is visible without opening
+            * anything.
+            *
+            * The wording says "against accidental changes" rather than
+            * "protected": anybody who may edit can lift it, and a lock that
+            * anybody can lift must not read like a permission. */}
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={isLocked}
+            onClick={() => {
+              setOpen(false);
+              void api
+                .setPageLocked(node.id, !isLocked)
+                .then(() => onChanged())
+                .catch(() => onChanged());
+            }}
+          >
+            <LockIcon /> {isLocked ? t('entry.unlock') : t('entry.lock')}
+          </button>
 
           <button
             className="entry-menu-item destructive"

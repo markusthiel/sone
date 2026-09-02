@@ -66,3 +66,32 @@ export function useEntryKind(doc: Y.Doc | null): string {
 
   return kind;
 }
+
+/**
+ * Whether this page is locked against accidental editing (ADR-0049).
+ *
+ * From the document, and here the reason is sharper than for the width: a lock
+ * has to reach another person's *open* editor, because that is exactly when the
+ * accident happens. A flag fetched with the page record would arrive on their
+ * next reload.
+ *
+ * Not a permission. Anybody who may edit may lift it — what restricts other
+ * people is a page permission (ADR-0026).
+ */
+export function usePageLocked(doc: Y.Doc | null): boolean {
+  const [locked, setLocked] = useState(false);
+
+  useEffect(() => {
+    if (!doc) {
+      setLocked(false);
+      return;
+    }
+    const page = doc.getMap(DOC_KEYS.page);
+    const read = (): void => setLocked(page.get(PAGE_KEYS.locked) === true);
+    read();
+    page.observe(read);
+    return () => page.unobserve(read);
+  }, [doc]);
+
+  return locked;
+}

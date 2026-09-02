@@ -409,6 +409,60 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     );
   });
 
+  test('a page can be locked, and the lock reaches the tree', async () => {
+    // A guard, not a permission (ADR-0049): the same edit right the route
+    // already requires is enough to set it and to lift it. What it must do is
+    // arrive — in the document, where an open editor sees it, and in the
+    // projection, so the tree can draw a padlock without opening anything.
+    const session = await setup();
+    const folder = await createFolder(session, 'Sperren');
+    const page = await expectJson<{ id: string }>(
+      await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/pages`,
+        auth(session, json({ title: 'Zahlen', parentPageId: folder })),
+      ),
+      201,
+    );
+
+    await expectStatus(
+      await fetch(`${base}/api/pages/${page.id}`, {
+        method: 'PATCH',
+        headers: { ...auth(session).headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ locked: true }),
+      }),
+      200,
+    );
+
+    const locked = await db.query<{ locked: boolean }>(
+      `SELECT locked FROM pages WHERE id = $1`,
+      [page.id],
+    );
+    assert.equal(locked.rows[0]?.locked, true, 'projected');
+
+    const tree = await expectJson<{ pages: Array<{ id: string; locked?: boolean }> }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/pages`, auth(session)),
+      200,
+    );
+    const found = JSON.stringify(tree).includes('"locked":true');
+    assert.equal(found, true, 'and in the tree');
+
+    // Lifted again by the same right, because it is a lock and not a
+    // permission: nothing else may be required to undo it.
+    await expectStatus(
+      await fetch(`${base}/api/pages/${page.id}`, {
+        method: 'PATCH',
+        headers: { ...auth(session).headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ locked: false }),
+      }),
+      200,
+    );
+    const after = await db.query<{ locked: boolean }>(
+      `SELECT locked FROM pages WHERE id = $1`,
+      [page.id],
+    );
+    assert.equal(after.rows[0]?.locked, false);
+  });
+
   test('an import is planned before it is carried out', async () => {
     // The split is the feature (ADR-0044): planning writes nothing, and nothing
     // is written before somebody has seen what would be.
