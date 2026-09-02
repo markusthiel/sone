@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Eight translations that nothing used have been removed**, and two new checks
+keep both from returning: a message defined and never used now fails a test, and
+so does a route module the server never mounts.
+
 **Fixed: nine class names in the interface had no styling behind them** — panel
 sections, a comment's reply box, an import plan's indentation and the "+" beside a
 collection's views, which looked exactly like a view.

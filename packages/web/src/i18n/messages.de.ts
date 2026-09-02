@@ -86,7 +86,6 @@ export const de: Record<keyof typeof en, string> = {
   // --- das Menü eines Eintrags -------------------------------------------
   'entry.menu': 'Mehr zu {title}',
   'entry.rename': 'Umbenennen',
-  'entry.icon': 'Symbol und Farbe',
   'entry.favourite': 'Zu Favoriten hinzufügen',
   'entry.unfavourite': 'Aus Favoriten entfernen',
   'entry.share': 'Teilen…',
@@ -218,9 +217,6 @@ export const de: Record<keyof typeof en, string> = {
   'admin.signup.closed': 'Niemand — keine neuen Konten',
   'admin.mayCreateWorkspaces': 'Mitglieder dürfen Workspaces anlegen',
   'admin.addressForm': 'Wie die Oberfläche die Leute anspricht',
-  'admin.addressForm.hint':
-    'Auf Deutsch und in anderen Sprachen, die das unterscheiden. Englisch hat nur ' +
-    'eine Form und bleibt unberührt.',
   'admin.addressForm.informal': 'Vertraut — „du"',
   'admin.addressForm.formal': 'Förmlich — „Sie"',
   'admin.version': 'Version',
@@ -266,7 +262,6 @@ export const de: Record<keyof typeof en, string> = {
   'area.instance': 'Verwaltung',
   'settings.navLabel': 'Einstellungen: {area}',
   'settings.back': '‹ Zurück zu den Notizen',
-  'settings.sections': 'Abschnitte',
 
   // --- die eigenen Einstellungen -----------------------------------------
   'you.profile': 'Profil',
@@ -707,8 +702,6 @@ export const de: Record<keyof typeof en, string> = {
     '{count, plural, one {einen Eintrag einfügen} other {# Einträge einfügen}}',
   'undo.empty':
     '{count, plural, one {Tabelle leeren (# Eintrag)} other {Tabelle leeren (# Einträge)}}',
-  'undo.archive':
-    '{count, plural, one {einen Eintrag in den Papierkorb} other {# Einträge in den Papierkorb}}',
   'table.boardNeedsSelect':
     'Ein Board braucht eine Auswahlspalte mit Optionen. Erst eine anlegen, dann noch einmal.',
   // Steht neben der Titelspalte: sie ist immer da und lässt sich nicht entfernen.
@@ -737,16 +730,13 @@ export const de: Record<keyof typeof en, string> = {
   'role.admin.hint': 'Darf außerdem Leute und Rechte verwalten',
   'role.guest': 'Gast',
   'role.guest.hint': 'Sieht nur, worauf ausdrücklich Zugriff gegeben wurde',
-  'role.owner': 'Besitzer',
   'access.viewer': 'Darf lesen',
   'access.commenter': 'Darf lesen und kommentieren',
   'access.editor': 'Darf bearbeiten',
   'access.admin': 'Darf verwalten',
-  'access.from': '{level} · über {source}',
 
   // --- das Block-Menü ----------------------------------------------------
   'block.insert': 'Block einfügen',
-  'block.nesting': 'Verschachtelung',
   'block.appearance': 'Darstellung',
   'block.width': 'Breite',
   'block.alignment': 'Ausrichtung',
@@ -925,7 +915,6 @@ export const de: Record<keyof typeof en, string> = {
   'canvas.toFront': 'Nach vorn holen',
   'canvas.textItem': 'Text auf der Fläche',
   'canvas.resize': 'Größe ändern',
-  'canvas.colour': 'Farbe des Stifts',
   'canvas.colour.default': 'Die des Themes',
   'canvas.colour.own': 'Eine eigene Farbe',
   'canvas.thickness': 'Stärke',

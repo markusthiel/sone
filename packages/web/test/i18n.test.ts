@@ -8,7 +8,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { formatMessage } from '../src/i18n/format.ts';
@@ -385,4 +385,42 @@ test('a confirmation is translated, and says what it actually does', () => {
   // to distrust the next one.
   const en = readFileSync(new URL('../src/i18n/messages.en.ts', import.meta.url), 'utf8');
   assert.match(en, /'entry\.confirmTrash': 'Move this to the trash\?'/);
+});
+
+test('no message is defined and never used', () => {
+  // A dead key is a translation somebody maintained for nothing, and it is the
+  // sort of debt that only grows: eight were in the catalogue when this was
+  // written, from features that had moved on.
+  //
+  // Keys built from a template — `inbox.${kind}` — cannot be seen literally, so
+  // the prefixes those produce are collected and their keys allowed. That is a
+  // hole, and a narrow one: it lets a dead `inbox.foo` through and nothing else.
+  const en = readFileSync(new URL('../src/i18n/messages.en.ts', import.meta.url), 'utf8');
+  const keys = [...en.matchAll(/^ {2}'([\w.]+)':/gm)].map((m) => m[1] ?? '');
+
+  // Every source in the package, walked rather than listed: a list would go
+  // stale and this test would then pass by not looking.
+  const walk = (dir: URL): string[] => {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === 'i18n') continue;
+      const child = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, dir);
+      if (entry.isDirectory()) out.push(...walk(child));
+      else if (/\.tsx?$/.test(entry.name)) out.push(readFileSync(child, 'utf8'));
+    }
+    return out;
+  };
+  const code = walk(new URL('../src/', import.meta.url)).join('\n');
+
+  // Only a quoted key counts as a use. My first pass at this counted any quoted
+  // string and so mistook the CSS class `entry-icon` for the key `entry.icon`,
+  // which hid two of the eight.
+  const used = new Set([...code.matchAll(/'([\w.]+)'/g)].map((m) => m[1] ?? ''));
+  const templates = [...code.matchAll(/`([\w.]+)\$\{/g)].map((m) => m[1] ?? '');
+
+  const dead = keys.filter(
+    (key) => !used.has(key) && !templates.some((prefix) => key.startsWith(prefix)),
+  );
+
+  assert.deepEqual(dead, [], 'messages defined and never used');
 });

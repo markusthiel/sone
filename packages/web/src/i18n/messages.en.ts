@@ -76,7 +76,6 @@ export const en = {
   // --- an entry's own menu -----------------------------------------------
   'entry.menu': 'More for {title}',
   'entry.rename': 'Rename',
-  'entry.icon': 'Icon and colour',
   'entry.favourite': 'Add to favourites',
   'entry.unfavourite': 'Remove from favourites',
   'entry.share': 'Share…',
@@ -203,9 +202,6 @@ export const en = {
   'admin.signup.closed': 'Nobody — no new accounts',
   'admin.mayCreateWorkspaces': 'Members may create workspaces',
   'admin.addressForm': 'How the interface addresses people',
-  'admin.addressForm.hint':
-    'In German and other languages that distinguish it. English has one form and ' +
-    'is unaffected.',
   'admin.addressForm.informal': 'Informally — “du”',
   'admin.addressForm.formal': 'Formally — “Sie”',
   'admin.version': 'Version',
@@ -250,7 +246,6 @@ export const en = {
   'area.instance': 'Administration',
   'settings.navLabel': '{area} settings',
   'settings.back': '‹ Back to your notes',
-  'settings.sections': 'Sections',
 
   // --- your own settings -------------------------------------------------
   'you.profile': 'Profile',
@@ -658,7 +653,6 @@ export const en = {
   'undo.rename': 'rename an entry',
   'undo.paste': '{count, plural, one {paste an entry} other {paste # entries}}',
   'undo.empty': '{count, plural, one {empty the table (# entry)} other {empty the table (# entries)}}',
-  'undo.archive': '{count, plural, one {move an entry to the trash} other {move # entries to the trash}}',
   'table.boardNeedsSelect':
     'A board needs a select column with options. Add one, then try again.',
   'table.always': 'always',
@@ -689,18 +683,15 @@ export const en = {
   'role.admin.hint': 'Can also manage people and permissions',
   'role.guest': 'Guest',
   'role.guest.hint': 'Sees only what they are given access to',
-  'role.owner': 'Owner',
   'access.viewer': 'Can view',
   'access.commenter': 'Can read and comment',
   'access.editor': 'Can edit',
   'access.admin': 'Can manage',
   // "Can edit · from a group called Editors" — one message, because word order
   // and the case of "from" differ by language.
-  'access.from': '{level} · from {source}',
 
   // --- the block menu ----------------------------------------------------
   'block.insert': 'Insert a block',
-  'block.nesting': 'Nesting',
   'block.appearance': 'Appearance',
   'block.width': 'Width',
   'block.alignment': 'Alignment',
@@ -877,7 +868,6 @@ export const en = {
   'canvas.toFront': 'Bring to front',
   'canvas.textItem': 'Text on the canvas',
   'canvas.resize': 'Resize this',
-  'canvas.colour': 'Ink colour',
   'canvas.colour.default': 'The theme\u2019s own',
   'canvas.colour.own': 'A colour of your own',
   'canvas.thickness': 'Thickness',
