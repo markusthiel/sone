@@ -146,15 +146,20 @@ test('the schema version moved with the canvas', async () => {
   // at the handshake rather than shown a blank sheet where a drawing is.
   const { SCHEMA_VERSION } = await import('../src/types/ids.js');
   const { DOCUMENT_MIGRATIONS } = await import('../src/doc/migrations.js');
-  assert.equal(SCHEMA_VERSION, 3);
+  // Moved on again for comments (ADR-0046), so this asserts the *chain* rather
+  // than a number — the number is somebody else's business now.
+  assert.ok(SCHEMA_VERSION >= 3);
 
-  // The chain has no gaps: `migrateDocument` refuses one, so a version bumped
-  // without a step would take every document down rather than one client.
+  // No gaps: `migrateDocument` refuses one, so a version bumped without a step
+  // would take every document down rather than one client. And the last step
+  // has to arrive at the current version, or the bump was never recorded.
   const steps = DOCUMENT_MIGRATIONS.map((step) => [step.from, step.to]);
-  assert.deepEqual(steps, [
-    [1, 2],
-    [2, 3],
-  ]);
+  assert.deepEqual(
+    steps,
+    steps.map((_, at) => [at + 1, at + 2]),
+    'each step follows the one before',
+  );
+  assert.equal(steps.at(-1)?.[1], SCHEMA_VERSION, 'and the chain reaches today');
 });
 
 test('a group moves as one transaction, by a delta', async () => {

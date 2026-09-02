@@ -65,6 +65,15 @@ export const DOC_KEYS = {
    * people moving two things never touch the same data.
    */
   canvas: 'canvas',
+  /**
+   * Comment threads, by id (ADR-0046).
+   *
+   * In the document rather than in a table of its own: an anchor has to live
+   * beside the text it refers to or the two get out of step, and a comments
+   * table with its own sync path would be a second real-time system beside the
+   * one that works.
+   */
+  comments: 'comments',
 } as const;
 
 export const META_KEYS = {

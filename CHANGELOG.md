@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The document format is version 4**, for comments. A browser holding an older
+build is asked to reload.
+
 **Pages can be started from a template** ([ADR-0045](docs/adr/0045-templates.md)).
 Mark any page — or any canvas — with "Use as a template" in its ⋮ menu, and it is
 offered under the `+` beside every folder. The copy keeps everything the editor
