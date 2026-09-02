@@ -1747,9 +1747,15 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .comment-actions {
   display: flex;
+  align-items: center;
   gap: var(--sone-space-2);
   margin-block-start: var(--sone-space-2);
 }
+/* Away from the other two, so the irreversible one is not next to the one
+   somebody presses most. It is a mark rather than a sentence, because "delete
+   the whole thread" wrapped to two lines in German and pushed the row about. */
+.comment-destroy { margin-inline-start: auto; padding-inline: var(--sone-space-2); }
+.comment-destroy svg { inline-size: 14px; block-size: 14px; }
 .comment-actions .btn { font-size: var(--sone-text-xs); }
 
 /* --- a canvas page (ADR-0043) --- */

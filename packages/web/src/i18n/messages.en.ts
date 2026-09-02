@@ -730,6 +730,7 @@ export const en = {
   'comment.replyPlaceholder': 'Reply\u2026',
   'comment.resolve': 'Resolve',
   'comment.reopen': 'Open again',
+  'comment.reply': 'Reply',
   'comment.removeThread': 'Delete the whole thread',
   'comment.removeMessage': 'Delete this message',
   'comment.unknownAuthor': 'Somebody who has left',

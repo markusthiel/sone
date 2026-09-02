@@ -142,7 +142,24 @@ function Thread({
               }
             }}
           />
+          {/* A button, not only Enter.
+            *
+            * Enter stays, because a comment is usually one sentence — but a
+            * shortcut is the *second* way to do something, never the only one. A
+            * box with no button is a box somebody types into and then looks
+            * around for what to press. */}
           <div className="comment-actions">
+            <button
+              type="button"
+              className="btn primary"
+              disabled={draft.trim() === ''}
+              onClick={() => {
+                comments.reply(thread.id, draft);
+                setDraft('');
+              }}
+            >
+              {t('comment.reply')}
+            </button>
             <button
               type="button"
               className="btn subtle"
@@ -150,12 +167,16 @@ function Thread({
             >
               <CheckSquareIcon /> {thread.resolved ? t('comment.reopen') : t('comment.resolve')}
             </button>
+            {/* Last, and on its own side: the one thing here that cannot be
+                undone by pressing it again. */}
             <button
               type="button"
-              className="btn subtle destructive"
+              className="btn subtle destructive comment-destroy"
+              aria-label={t('comment.removeThread')}
+              title={t('comment.removeThread')}
               onClick={() => comments.removeOne(thread.id)}
             >
-              {t('comment.removeThread')}
+              <TrashIcon />
             </button>
           </div>
         </div>

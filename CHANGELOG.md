@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A reply has a Reply button.** Enter still sends it; the button is for everybody
+who did not know that.
+
 **Fixed: deleting a comment left its highlight in the text** until the page was
 reloaded.
 

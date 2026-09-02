@@ -773,6 +773,7 @@ export const de: Record<keyof typeof en, string> = {
   'comment.replyPlaceholder': 'Antworten\u2026',
   'comment.resolve': 'Lösen',
   'comment.reopen': 'Wieder öffnen',
+  'comment.reply': 'Antworten',
   'comment.removeThread': 'Den ganzen Verlauf löschen',
   'comment.removeMessage': 'Diese Nachricht löschen',
   'comment.unknownAuthor': 'Jemand, der nicht mehr dabei ist',
