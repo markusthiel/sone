@@ -27,6 +27,8 @@ import {
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
 
+import { hasSearchCriteria, parseSearchQuery, type SearchFilters } from '@sone/core';
+
 import {
   canEdit,
   effectiveRole,
@@ -1696,16 +1698,42 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
    * is built (ADR-0011), so a German search for "Häuser" finds "Haus" while
    * content in another language still matches exactly.
    */
+  /**
+   * What was parsed out of a query, for the chips above the results.
+   *
+   * Sent rather than left to the client to re-derive: the client parses the same
+   * string to show them while somebody types, and this is the server saying what
+   * it actually used — which is the only version that can be trusted after the
+   * fact (ADR-0050).
+   */
+  const describeFilters = (filters: SearchFilters) => ({
+    tags: filters.tags,
+    authors: filters.authors,
+    after: filters.after,
+    before: filters.before,
+    unreadable: filters.unreadable,
+  });
+
   router.get('/api/workspaces/:workspaceId/search', async (ctx) => {
     const workspaceId = ctx.params['workspaceId'] ?? '';
     const claims = await claimsFor(deps.pool, ctx, workspaceId);
     if (!claims) return;
 
-    const raw = (ctx.url.searchParams.get('q') ?? '').trim();
-    if (raw.length < 2) {
+    const typed = (ctx.url.searchParams.get('q') ?? '').trim();
+    /*
+     * Filters out of the query, the rest of the words being the search
+     * (ADR-0050). Parsed by core, because the interface parses the same string
+     * to draw its chips and two parsers would eventually disagree about what
+     * somebody typed.
+     */
+    const filters = parseSearchQuery(typed);
+    const raw = filters.text;
+
+    if (!hasSearchCriteria(filters)) {
       // One character matches most of the workspace and is never what anyone
-      // meant.
-      ctx.send(200, { results: [], query: raw });
+      // meant — but a filter is not a guess, so `tag:rechnung` alone is a valid
+      // search and gets past this.
+      ctx.send(200, { results: [], query: typed, filters: describeFilters(filters) });
       return;
     }
 
@@ -1795,7 +1823,37 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
          ) hit ON true
         WHERE ps.workspace_id = $1
           AND p.archived_at IS NULL
-          AND (ps.tsv @@ q.stemmed OR ps.tsv @@ q.simple)
+          -- With no words left, the filters are the search: the text condition
+          -- is skipped rather than matched against an empty query, which would
+          -- match nothing at all.
+          AND ($8::boolean OR ps.tsv @@ q.stemmed OR ps.tsv @@ q.simple)
+          -- Every tag named, not any of them: two tags in one query means
+          -- "both", which is what somebody narrowing a list expects.
+          AND ($9::text[] IS NULL OR EXISTS (
+                SELECT 1 FROM page_tags pt
+                 WHERE pt.page_id = p.id AND pt.tag_key = ANY($9::text[])
+                HAVING count(*) = cardinality($9::text[])
+              ))
+          -- A prefix against any of the page's authors: nobody types a whole
+          -- name to narrow a list.
+          AND ($10::text[] IS NULL OR EXISTS (
+                SELECT 1 FROM unnest(ps.authors) AS name, unnest($10::text[]) AS wanted
+                 WHERE lower(name) LIKE wanted || '%'
+              ))
+          -- The page's last edit, by day.
+          --
+          -- In the *server's* zone, which is what a cast to date on a
+          -- timestamptz uses. I wrote in ADR-0050 that this would be the
+          -- workspace's own
+          -- zone, and then found there is no such setting anywhere in SONE — so
+          -- the record is corrected rather than the claim left standing. A
+          -- container running in UTC and a reader in Berlin disagree about
+          -- "today" for two hours, which is a real limit and is written down.
+          --
+          -- Inclusive at both ends, because "before 2026-09-01" meaning "up to
+          -- the 31st" is a boundary nobody would guess.
+          AND ($11::date IS NULL OR p.last_edited_at::date >= $11::date)
+          AND ($12::date IS NULL OR p.last_edited_at::date <= $12::date)
           -- The same condition the tree uses (ADR-0026).
           --
           -- Filtering after the query would still have been correct here, and
@@ -1817,6 +1875,11 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
         claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
         headline,
+        raw.length < 2,
+        filters.tags.length > 0 ? filters.tags : null,
+        filters.authors.length > 0 ? filters.authors : null,
+        filters.after,
+        filters.before,
       ],
     );
     const visible = rows.filter(
@@ -1881,7 +1944,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           );
 
     ctx.send(200, {
-      query: raw,
+      // What was typed, and what was made of it.
+      query: typed,
+      filters: describeFilters(filters),
       results: visible.map((row) => ({
         pageId: row.page_id,
         title: row.title,

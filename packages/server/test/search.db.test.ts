@@ -190,6 +190,71 @@ describe(
       return body.results;
     }
 
+    test('a tag filter narrows, and works with no words at all', async () => {
+      // "Show me everything tagged X" is a question people ask constantly and
+      // could not ask at all (ADR-0050). The two-character minimum is about a
+      // guess, and a filter is not one.
+      const session = await setup();
+      const folder = await defaultFolder(session);
+      const tagged = await create(session, 'Rechnung März', 'page', folder);
+      const other = await create(session, 'Rechnung April', 'page', folder);
+
+      await fetch(`${base}/api/pages/${tagged}`, {
+        method: 'PATCH',
+        headers: { ...auth(session).headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ tags: ['Buchhaltung'] }),
+      });
+
+      const filtered = await search(session, 'tag:buchhaltung');
+      assert.deepEqual(
+        filtered.map((one) => one.pageId),
+        [tagged],
+        'the tag alone is a search',
+      );
+
+      // And it narrows a text search rather than replacing it.
+      const both_ = await search(session, 'tag:buchhaltung rechnung');
+      assert.deepEqual(both_.map((one) => one.pageId), [tagged]);
+      const unfiltered = await search(session, 'rechnung');
+      assert.equal(unfiltered.length, 2, 'without the filter, both');
+      void other;
+    });
+
+    test('a date filter reads the page´s last edit, and a bad date is reported', async () => {
+      const session = await setup();
+      const folder = await defaultFolder(session);
+      const page = await create(session, 'Heute geschrieben', 'page', folder);
+      void page;
+
+      const today = new Date().toISOString().slice(0, 10);
+      assert.ok(
+        (await search(session, `after:${today} geschrieben`)).length > 0,
+        'edited today is after today, because both ends are inclusive',
+      );
+      assert.equal(
+        (await search(session, 'before:2020-01-01 geschrieben')).length,
+        0,
+        'and not before 2020',
+      );
+
+      // A filter that cannot be read narrows nothing and says so, rather than
+      // being silently dropped.
+      const res = await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/search?q=${encodeURIComponent(
+          'after:letzte-woche geschrieben',
+        )}`,
+        auth(session),
+      );
+      const body = await expectJson<{
+        results: SearchResult[];
+        filters: { unreadable: Array<{ prefix: string; value: string }> };
+      }>(res, 200);
+      assert.deepEqual(body.filters.unreadable, [
+        { prefix: 'after', value: 'letzte-woche', reason: 'not_a_date' },
+      ]);
+      assert.ok(body.results.length > 0, 'and the rest of the search still ran');
+    });
+
     test('a part of a word finds it', async () => {
       // The report: a folder called "Testordner" was found by all of it and by
       // nothing less.

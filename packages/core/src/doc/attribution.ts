@@ -72,3 +72,34 @@ export function liveClientIds(doc: Y.Doc): Set<number> {
 
   return seen;
 }
+
+/**
+ * How a guest is named in a document's attribution (ADR-0022).
+ *
+ * Prefixed, and the prefix is the point rather than a namespace trick: a guest
+ * called "Markus Thiel" must not be indistinguishable from the account of that
+ * name. Anything reading the mapping reads the prefix and can say which is
+ * which.
+ *
+ * Moved here from `@sone/client` when the search projection needed it: this is a
+ * convention about what a *document* contains, and the server has to read it to
+ * project who wrote a page (ADR-0050). The client re-exports it, so nothing that
+ * imported it from there has to change — and duplicating the prefix in a second
+ * package would have been two definitions of one convention.
+ */
+export const GUEST_PREFIX = 'guest:';
+
+export function guestKey(displayName: string): string {
+  const name = displayName.trim().slice(0, 64);
+  return `${GUEST_PREFIX}${name === '' ? 'Guest' : name}`;
+}
+
+/** Whether an attribution key belongs to a guest rather than an account. */
+export function isGuestKey(key: string): boolean {
+  return key.startsWith(GUEST_PREFIX);
+}
+
+/** The name a guest gave, without the prefix. */
+export function guestName(key: string): string {
+  return key.slice(GUEST_PREFIX.length);
+}

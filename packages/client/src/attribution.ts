@@ -62,22 +62,13 @@ export interface AttributionOptions {
  * outcome of an identity that is self-declared and unverified — the alternative
  * is a per-session id, which lists the same person twice for reconnecting.
  */
-export const GUEST_PREFIX = 'guest:';
+// The convention itself now lives in @sone/core, because it describes what a
+// *document* contains and the server has to read it to project a page's authors
+// (ADR-0050). Re-exported so nothing that imported it from here has to change.
+export { GUEST_PREFIX, guestKey, guestName, isGuestKey } from '@sone/core';
 
-export function guestKey(displayName: string): string {
-  const name = displayName.trim().slice(0, 64);
-  return `${GUEST_PREFIX}${name === '' ? 'Guest' : name}`;
-}
-
-/** Whether an attribution key belongs to a guest rather than an account. */
-export function isGuestKey(key: string): boolean {
-  return key.startsWith(GUEST_PREFIX);
-}
-
-/** The name a guest gave, without the prefix. */
-export function guestName(key: string): string {
-  return key.slice(GUEST_PREFIX.length);
-}
+// Imported as well as re-exported, because this file uses `guestKey` itself.
+import { guestKey } from '@sone/core';
 
 /**
  * Start recording this session's edits against a person.
