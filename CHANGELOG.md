@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: somebody could appear in the People panel and then vanish.** Writing
+inside a canvas note or a collection's properties was invisible to the tidying
+that removes names whose words are gone, so it removed names whose words were
+still there.
+
 **Fixed: two confirmation questions were still in English**, and the one for
 trashing an entry said "delete" when the entry is recoverable for thirty days.
 

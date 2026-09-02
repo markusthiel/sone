@@ -48,7 +48,18 @@ export function liveClientIds(doc: Y.Doc): Set<number> {
     }
 
     for (const value of type._map.values()) {
-      if (!value.deleted) seen.add(value.id.client);
+      if (value.deleted) continue;
+      seen.add(value.id.client);
+      // And into it, the same as above.
+      //
+      // This did not recurse, and the walk over the list did — so writing inside
+      // anything held in a map was invisible to pruning and the person who wrote
+      // it lost their attribution. That is a canvas note (an item is a map, its
+      // words a Y.Text inside it) and a collection's properties, which is to say
+      // somebody appeared in the people panel, then vanished when the pruner
+      // next ran, having written something that is still on the page.
+      const content = value.content;
+      if (content instanceof Y.ContentType) walk(content.type);
     }
   };
 
