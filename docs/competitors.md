@@ -61,6 +61,11 @@ around it, which is a CRDT question and therefore an architectural one.
 
 Needs an ADR before code. The hard part is not the panel.
 
+**Decided** — [ADR-0046](adr/0046-comments.md). The anchor is a pair of Yjs
+relative positions, threads live in the document and are projected into Postgres
+by the materialiser, and a thread whose text has been deleted is *detached*
+rather than dropped. Not built.
+
 ### 2. Page history you can look at
 
 We have a complete history already — every document is a Yjs log, which is
