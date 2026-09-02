@@ -142,12 +142,7 @@ interface RightSidebarProps {
   pendingComment: { from: Uint8Array; to: Uint8Array; quote: string } | null;
   onCancelPendingComment: () => void;
   /** How much a commented passage is marked, and whether at all here. */
-  marks: {
-    style: CommentMarkStyle;
-    setStyle: (style: CommentMarkStyle) => void;
-    hidden: boolean;
-    setHidden: (hidden: boolean) => void;
-  };
+  marks: { style: CommentMarkStyle; setStyle: (style: CommentMarkStyle) => void };
 }
 
 export function RightSidebar({

@@ -203,12 +203,7 @@ export function CommentsPanel({
   /** A selection waiting for its first message (ADR-0046). */
   pending: { from: Uint8Array; to: Uint8Array; quote: string } | null;
   onCancelPending: () => void;
-  marks: {
-    style: CommentMarkStyle;
-    setStyle: (style: CommentMarkStyle) => void;
-    hidden: boolean;
-    setHidden: (hidden: boolean) => void;
-  };
+  marks: { style: CommentMarkStyle; setStyle: (style: CommentMarkStyle) => void };
   /** Which page's folding is being remembered. */
   pageId: string | null;
 }): ReactElement {
@@ -338,16 +333,15 @@ export function CommentsPanel({
         * per browser: how much marking somebody wants depends on the screen they
         * are reading on, and a phone is not a desk. */}
       <div className="comment-marks">
-        {/* `.checkbox` belongs to the label — it is the row, sized for a
-            finger. I put it on the input, which turned the box into a tall flex
-            container and made the whole control behave oddly. */}
-        <label className="checkbox comment-marks-toggle">
-          <input
-            type="checkbox"
-            checked={!marks.hidden}
-            onChange={(event) => marks.setHidden(!event.target.checked)}
-          />
-          {t('comment.showMarks')}
+        {/* One control, not two.
+          *
+          * There was a checkbox for "mark commented passages" *and* a "not at
+          * all" option in the list below it — two controls for one decision,
+          * which is why the tick appeared to keep coming back: unticking it and
+          * choosing "not at all" were the same thing said twice, and the two
+          * could disagree. The list says all three states on its own. */}
+        <label className="comment-marks-label" htmlFor="comment-marks">
+          {t('comment.markStyle')}
         </label>
 
         {comments.threads.length > 1 && (
@@ -361,10 +355,9 @@ export function CommentsPanel({
         )}
 
         <select
+          id="comment-marks"
           className="comment-marks-style"
           value={marks.style}
-          disabled={marks.hidden}
-          aria-label={t('comment.markStyle')}
           onChange={(event) => marks.setStyle(event.target.value as CommentMarkStyle)}
         >
           {COMMENT_MARK_STYLES.map((one) => (

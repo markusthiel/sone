@@ -1206,25 +1206,28 @@ test('the editor resolves an anchor for the page, in one place', () => {
   );
 });
 
-test('marking a commented passage is the reader’s choice, in two kinds of control', () => {
+test('marking a commented passage is the reader’s choice', () => {
   // Not a speech bubble in the text: an element in the line reflows every
   // paragraph after it the moment somebody turns the marks off, and a page under
   // review would carry a rash of them (ADR-0046).
   const anchors = codeOf(new URL('../../editor/src/commentAnchors.ts', import.meta.url));
   assert.match(anchors, /if \(style === 'off'\) return DecorationSet\.empty/);
   assert.match(anchors, /sone-commented-\$\{style\}/);
-  // The surface a menu sits on rather than a highlighter yellow: a marked
-  // passage should read as part of the application, not stuck onto it.
-  assert.match(css, /\.sone-commented-highlight \{[^}]*background: var\(--surface-sunken\)/s);
+  // The colour itself is asserted in its own test below, which is where the two
+  // wrong attempts are recorded.
   assert.match(css, /\.sone-commented-underline \{[^}]*border-block-end/s);
 
-  // The switch is view state and the choice is a preference — and the preference
-  // is per browser, because how much marking somebody wants depends on the
-  // screen they are reading on.
+  // A preference, per browser, because how much marking somebody wants depends
+  // on the screen they are reading on.
   const hook = codeOf(new URL('../src/hooks/useCommentMarkStyle.ts', import.meta.url));
   assert.match(hook, /localStorage\.setItem\(KEY, next\)/);
   assert.doesNotMatch(hook, /api\./, 'not on the account');
-  assert.match(hook, /effective: hidden \? 'off' : style/);
+  // One control, not two: a checkbox for "mark passages" and a "not at all"
+  // option are the same decision said twice, and they could disagree — which is
+  // why the tick appeared to keep coming back.
+  assert.doesNotMatch(hook, /hidden/);
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  assert.doesNotMatch(panel, /type="checkbox"/);
 });
 
 test('a thread is not a bullet, and a filled button keeps its colour', () => {
@@ -1282,12 +1285,16 @@ test('a thread folds, and so do all of them', () => {
   assert.match(panel, /!open && thread\.messages\.length > 1/);
 });
 
-test('the marks checkbox is a label, not a styled input', () => {
-  // `.checkbox` is the row — sized for a finger. I had put it on the input,
-  // which turned the box into a tall flex container.
-  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
-  assert.match(panel, /<label className="checkbox comment-marks-toggle">/);
-  assert.doesNotMatch(panel, /type="checkbox"\s*\n\s*className="checkbox"/);
+test('the highlight is visible against the page', () => {
+  // Twice wrong before this: a highlighter yellow that competed with the words,
+  // then the surface panels are drawn on — #f7f5f0 against a #ffffff page, a
+  // three per cent difference, so the mark disappeared. "Toned down" and
+  // "invisible" are not the same thing, and both values were there to compare.
+  assert.match(
+    css,
+    /\.sone-commented-highlight \{[^}]*background: color-mix\(in srgb, var\(--accent\) 16%/s,
+  );
+  assert.doesNotMatch(css, /\.sone-commented-highlight \{[^}]*var\(--surface-sunken\)/s);
 });
 
 test('a reply has a button, not only a shortcut', () => {

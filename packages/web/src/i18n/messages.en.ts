@@ -738,7 +738,6 @@ export const en = {
   'comment.expand': 'Open this thread',
   'comment.collapseAll': 'Fold all',
   'comment.expandAll': 'Open all',
-  'comment.showMarks': 'Mark commented passages',
   'comment.markStyle': 'How to mark them',
   'comment.mark.highlight': 'Highlighted',
   'comment.mark.underline': 'Underlined',

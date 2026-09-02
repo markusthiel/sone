@@ -147,16 +147,15 @@ should: these words are being discussed.
 nothing — because somebody reading a page they did not write wants the marks and
 somebody proofreading their own prose does not.
 
-Two controls, and they are deliberately different in kind:
+**One control, and it says all three states.** Kept in the browser rather than
+on the account or in the document — how much marking somebody wants depends on the
+screen they are reading on, and a setting in the document would hide the marks for
+everybody.
 
-- **In the panel, a toggle for this page.** View state, not a setting: it lasts
-  while somebody is reading and is not written into the document. A switch stored
-  in the document would let one person hide the marks for everybody, and a page's
-  comments are not one reader's business to hide.
-- **A default, per person.** Kept in the browser rather than on the account, and
-  that is the argument worth stating: how much marking somebody wants depends on
-  the screen they are reading on. A phone is not a desk. A preference that
-  follows the account would make one of the two wrong.
+Corrected after building it: there was also a "mark commented passages" checkbox
+beside the list, which is the same decision as choosing "not at all" from it. Two
+controls for one thing, able to disagree, and the reason the tick appeared to keep
+coming back on.
 
 ### Folding is remembered, per page and per browser
 

@@ -1585,15 +1585,19 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
  */
 .ProseMirror .sone-commented { cursor: pointer; }
 .ProseMirror .sone-commented-highlight {
-  /* The surface a menu sits on, not a yellow.
+  /* The workspace's own accent, faint.
    *
-   * A highlighter yellow was too strong: it competes with the words it marks and
-   * it belongs to nothing else in the interface. This is the same tone the panels
-   * and menus are drawn on, so a marked passage reads as *part of* the
-   * application rather than as something stuck onto it — and faint enough to read
-   * straight through, which is the whole point. */
-  background: var(--surface-sunken);
-  box-shadow: 0 0 0 2px var(--surface-sunken);
+   * Two attempts before this one. A highlighter yellow was too strong and
+   * belonged to nothing else in the interface. Then I used the surface panels
+   * are drawn on — which is #f7f5f0 against a #ffffff page, a three per cent
+   * difference, so the mark disappeared entirely. "Toned down" and "invisible"
+   * are not the same thing and I could have checked the two values.
+   *
+   * The accent at a low mix is visible on the page, faint enough to read
+   * straight through, and it is a colour the application already uses — so a
+   * marked passage reads as part of it rather than stuck onto it. */
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
   border-radius: 2px;
 }
 .ProseMirror .sone-commented-underline {
@@ -1610,10 +1614,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   padding: var(--sone-space-3) var(--sone-space-4);
   border-block-end: 1px solid var(--border-subtle);
 }
-.comment-marks-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sone-space-2);
+.comment-marks-label {
   color: var(--sone-text-muted);
   font-size: var(--sone-text-xs);
 }

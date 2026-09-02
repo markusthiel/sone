@@ -36,14 +36,8 @@ function read(): CommentMarkStyle {
 export function useCommentMarkStyle(): {
   style: CommentMarkStyle;
   setStyle: (style: CommentMarkStyle) => void;
-  /** Hidden for this page only, for as long as somebody is reading it. */
-  hidden: boolean;
-  setHidden: (hidden: boolean) => void;
-  /** What the editor should actually draw. */
-  effective: CommentMarkStyle;
 } {
   const [style, setStyleState] = useState<CommentMarkStyle>(read);
-  const [hidden, setHidden] = useState(false);
 
   const setStyle = useCallback((next: CommentMarkStyle) => {
     setStyleState(next);
@@ -66,11 +60,5 @@ export function useCommentMarkStyle(): {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  return {
-    style,
-    setStyle,
-    hidden,
-    setHidden,
-    effective: hidden ? 'off' : style,
-  };
+  return { style, setStyle };
 }
