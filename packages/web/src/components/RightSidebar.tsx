@@ -34,6 +34,7 @@ import { useT } from '../i18n/useT.tsx';
 import { TagEditor } from './TagEditor.tsx';
 import { messageFor } from './Auth.tsx';
 import {
+  ClockIcon,
   MessageIcon,
   CheckSquareIcon,
   ChevronRightIcon,
@@ -51,6 +52,7 @@ import {
 } from './icons.tsx';
 import { useDocAssets } from '../hooks/useDocAssets.ts';
 import { CommentsPanel } from './CommentsPanel.tsx';
+import { HistoryPanel } from './HistoryPanel.tsx';
 import { Contributors } from './Contributors.tsx';
 import { highlightAuthor } from './authorHighlightBridge.ts';
 
@@ -66,6 +68,9 @@ export const RIGHT_TABS = [
   // Before people: a discussion about the page is about the page, and the list
   // of who wrote it is about the people.
   'comments',
+  // After the page's own content and before the people: a version is the page,
+  // at another time.
+  'history',
   'people',
   'properties',
 ] as const;
@@ -91,6 +96,7 @@ const TABS: Record<RightTab, { label: MessageKey; Icon: (props: IconProps) => Re
   images: { label: 'panel.images', Icon: ImageIcon },
   links: { label: 'panel.links', Icon: LinkIcon },
   comments: { label: 'panel.comments', Icon: MessageIcon },
+  history: { label: 'panel.history', Icon: ClockIcon },
   // "People" rather than "Contributors": shorter, and it does not imply a
   // ranking of who contributed most, which this list deliberately does not
   // measure.
@@ -143,6 +149,9 @@ interface RightSidebarProps {
   onCancelPendingComment: () => void;
   /** How much a commented passage is marked, and whether at all here. */
   marks: { style: CommentMarkStyle; setStyle: (style: CommentMarkStyle) => void };
+  /** Which past version is being read, and how to choose one (ADR-0047). */
+  viewingVersion: string | null;
+  onViewVersion: (versionId: string | null) => void;
 }
 
 export function RightSidebar({
@@ -157,6 +166,8 @@ export function RightSidebar({
   pendingComment,
   onCancelPendingComment,
   marks,
+  viewingVersion,
+  onViewVersion,
 }: RightSidebarProps): ReactElement {
   const { t } = useT();
   const [tab, setTab] = useState<RightTab>(readTab);
@@ -231,6 +242,14 @@ export function RightSidebar({
           {tab === 'files' && <FilesPanel handle={handle} />}
           {tab === 'images' && <ImagesPanel handle={handle} />}
           {tab === 'links' && <LinksPanel handle={handle} />}
+          {tab === 'history' && (
+            <HistoryPanel
+              pageId={pageId}
+              members={members}
+              viewing={viewingVersion}
+              onView={onViewVersion}
+            />
+          )}
           {tab === 'comments' && (
             <CommentsPanel
               comments={comments}

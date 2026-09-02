@@ -1574,6 +1574,58 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   .settings-row input, .settings-row select { inline-size: 100%; }
 }
 
+/* --- what a page said before (ADR-0047) --- */
+
+.history-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.history-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  inline-size: 100%;
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.history-entry:hover { background: var(--sone-bg-hover); }
+.history-entry.current { background: var(--surface-sunken); font-weight: 600; }
+.history-when { font-size: var(--sone-text-sm); }
+.history-who,
+.history-reason { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+.history-back { inline-size: 100%; margin-block-end: var(--sone-space-3); }
+.history-note {
+  margin-block-start: var(--sone-space-4);
+  font-size: var(--sone-text-xs);
+  line-height: 1.5;
+}
+
+/* A page as it was. Deliberately not styled like the editor: the difference is
+   the point, and prose that looks editable invites typing into a past that
+   cannot receive it. */
+.version-view { display: flex; flex-direction: column; gap: var(--sone-space-4); }
+.version-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sone-space-3);
+  padding: var(--sone-space-3) var(--sone-space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius);
+  background: var(--surface-sunken);
+  font-size: var(--sone-text-sm);
+}
+.version-body { color: var(--text-secondary); }
+.version-body h1 { font-size: 1.6rem; font-weight: 300; letter-spacing: -0.01em; }
+.version-body h2 { font-size: 1.25rem; font-weight: 300; }
+.version-body h3 { font-size: 1.05rem; font-weight: 400; }
+.version-body p,
+.version-body li { margin-block: var(--sone-space-3) 0; line-height: 1.6; }
+.version-body li { margin-inline-start: var(--sone-space-5); }
+
 /* --- comments (ADR-0046) --- */
 
 /* A commented passage, marked as much as the reader asked for (ADR-0046).

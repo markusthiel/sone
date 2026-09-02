@@ -290,6 +290,16 @@ export function EraserIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A clock, for what a page said before. */
+export function ClockIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3.5 2" />
+    </svg>
+  );
+}
+
 /** A speech bubble, for comments. */
 export function MessageIcon(props: IconProps): ReactElement {
   return (

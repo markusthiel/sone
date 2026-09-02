@@ -224,6 +224,8 @@ const MIGRATED = [
   'src/components/CanvasSurface.tsx',
   'src/components/AddEntryMenu.tsx',
   'src/components/CommentsPanel.tsx',
+  'src/components/HistoryPanel.tsx',
+  'src/components/VersionView.tsx',
 ];
 
 /**

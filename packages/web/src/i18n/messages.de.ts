@@ -764,6 +764,18 @@ export const de: Record<keyof typeof en, string> = {
   'panel.properties': 'Eigenschaften',
   'panel.tasksOpen': '{open} von {total} offen',
   'panel.comments': 'Kommentare',
+  'panel.history': 'Verlauf',
+  'history.none': 'Von dieser Seite sind noch keine früheren Fassungen aufbewahrt.',
+  'history.viewing': 'So stand die Seite am {when}.',
+  'history.backToNow': 'Zurück zum Jetzt',
+  'history.wasRestore': 'eine Wiederherstellung',
+  'history.wasEmpty': 'Die Seite war leer.',
+  'history.retention':
+    'Fassungen werden {days} Tage aufbewahrt: jede vom letzten Tag, eine pro ' +
+    'Stunde für eine Woche, danach eine pro Tag.',
+  'history.incomplete':
+    'Diese Liste beginnt, als die Seite anfing, Fassungen aufzubewahren. Was ' +
+    'älter ist, wurde nicht aufgezeichnet und ist nicht wiederherstellbar.',
   'comment.none': 'Noch nichts kommentiert. Markiere ein paar Worte und drücke Kommentieren.',
   'comment.open': 'Offen',
   'comment.detachedHeading': 'Text ist weg',

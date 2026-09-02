@@ -721,6 +721,18 @@ export const en = {
   'panel.properties': 'Properties',
   'panel.tasksOpen': '{open} of {total} open',
   'panel.comments': 'Comments',
+  'panel.history': 'History',
+  'history.none': 'No earlier versions of this page have been kept yet.',
+  'history.viewing': 'This is how the page read on {when}.',
+  'history.backToNow': 'Back to now',
+  'history.wasRestore': 'a restore',
+  'history.wasEmpty': 'The page was empty.',
+  'history.retention':
+    'Versions are kept for {days} days: every one from the last day, one an ' +
+    'hour for a week, one a day after that.',
+  'history.incomplete':
+    'This list begins when the page started keeping versions. Anything older ' +
+    'than that was not recorded and cannot be recovered.',
   'comment.none': 'Nothing has been commented on yet. Select some words and press Comment.',
   'comment.open': 'Open',
   'comment.detachedHeading': 'Text is gone',
