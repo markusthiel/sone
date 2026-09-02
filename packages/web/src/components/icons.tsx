@@ -290,6 +290,15 @@ export function EraserIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A speech bubble, for comments. */
+export function MessageIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M20.5 12.5a7.5 7.5 0 0 1-7.5 7.5H8l-4.5 3v-4.6A7.5 7.5 0 0 1 8 5h5a7.5 7.5 0 0 1 7.5 7.5z" />
+    </svg>
+  );
+}
+
 /** A bookmark: a page kept to come back to, which is what a template is. */
 export function BookmarkIcon(props: IconProps): ReactElement {
   return (

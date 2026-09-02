@@ -1567,6 +1567,101 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   .settings-row input, .settings-row select { inline-size: 100%; }
 }
 
+/* --- comments (ADR-0046) --- */
+
+/* The mark under a commented passage.
+ *
+ * An underline rather than a highlight: a highlight competes with the text it
+ * marks, and a page under review has many of these at once. */
+.ProseMirror .sone-commented {
+  border-block-end: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  cursor: pointer;
+}
+
+.comment-list { display: flex; flex-direction: column; gap: var(--sone-space-4); }
+.comment-thread {
+  padding: var(--sone-space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+  background: var(--surface-page);
+}
+/* A thread whose text is gone. Marked, not hidden — it is unfinished business. */
+.comment-thread[data-detached='true'] { border-style: dashed; }
+
+/* The words it is about, as they read when it was written. */
+.comment-quote {
+  display: block;
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  border-inline-start: 2px solid var(--accent);
+  padding-inline-start: var(--sone-space-3);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font: inherit;
+  font-size: var(--sone-text-sm);
+  text-align: start;
+  cursor: pointer;
+}
+.comment-quote:disabled { border-inline-start-color: var(--border-default); cursor: default; }
+.comment-note {
+  margin-block: var(--sone-space-2) 0;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+
+.comment-messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-3);
+  margin-block: var(--sone-space-3) 0;
+  padding: 0;
+  list-style: none;
+}
+.comment-message { position: relative; }
+.comment-author { color: var(--sone-text); font-size: var(--sone-text-xs); font-weight: 600; }
+.comment-text {
+  margin-block: 2px 0;
+  font-size: var(--sone-text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.comment-remove {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  opacity: 0;
+  cursor: pointer;
+}
+.comment-message:hover .comment-remove,
+.comment-remove:focus-visible { opacity: 1; }
+.comment-remove svg { inline-size: 13px; block-size: 13px; }
+
+.comment-draft {
+  inline-size: 100%;
+  min-block-size: calc(var(--sone-control) * 1.6);
+  margin-block-start: var(--sone-space-3);
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+  background: var(--surface-raised);
+  resize: vertical;
+  font: inherit;
+  font-size: var(--sone-text-sm);
+}
+.comment-actions {
+  display: flex;
+  gap: var(--sone-space-2);
+  margin-block-start: var(--sone-space-2);
+}
+.comment-actions .btn { font-size: var(--sone-text-xs); }
+
 /* --- a canvas page (ADR-0043) --- */
 
 .canvas-page {
