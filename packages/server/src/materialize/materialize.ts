@@ -271,6 +271,40 @@ export async function materializeDocument(
     );
   }
 
+  /*
+   * Comment threads, replaced wholesale for this page (ADR-0046).
+   *
+   * The same discipline as the tags above, and for a sharper reason: a diff
+   * would have to decide what an absent row means, and the answer differs
+   * between "the thread was deleted" and "this projection is behind". The
+   * document is the truth, so the projection is rewritten from it.
+   */
+  await db.query(`DELETE FROM page_comments WHERE page_id = $1`, [pageId]);
+  if (parsed.comments.length > 0) {
+    await db.query(
+      `INSERT INTO page_comments (
+         page_id, thread_id, quote, resolved, detached, messages, opened_by,
+         created_at, last_message_at
+       )
+       SELECT $1, unnest($2::text[]), unnest($3::text[]), unnest($4::boolean[]),
+              unnest($5::boolean[]), unnest($6::integer[]), unnest($7::text[]),
+              to_timestamp(unnest($8::bigint[]) / 1000.0),
+              to_timestamp(unnest($9::bigint[]) / 1000.0)
+       ON CONFLICT (page_id, thread_id) DO NOTHING`,
+      [
+        pageId,
+        parsed.comments.map((thread) => thread.id),
+        parsed.comments.map((thread) => thread.quote),
+        parsed.comments.map((thread) => thread.resolved),
+        parsed.comments.map((thread) => thread.detached),
+        parsed.comments.map((thread) => thread.messages),
+        parsed.comments.map((thread) => thread.openedBy),
+        parsed.comments.map((thread) => thread.createdAt),
+        parsed.comments.map((thread) => thread.lastMessageAt),
+      ],
+    );
+  }
+
   if (parentChanged) {
     // The page moved: every descendant's ancestor path is now wrong, and so
     // is any share-link scope check that relies on it.
@@ -529,6 +563,10 @@ export async function materializeDocument(
       // (ADR-0043) — a snippet needs some order, and this is the fiction
       // everybody already has.
       parsed.canvasText,
+      // And what was said *about* the page. A discussion of a decision is often
+      // where the decision is actually explained (ADR-0046), so a search that
+      // ignored comments would miss the reasoning while finding the result.
+      ...parsed.comments.map((thread) => thread.text),
       ...propertySearchText,
     ].join(' '),
   );

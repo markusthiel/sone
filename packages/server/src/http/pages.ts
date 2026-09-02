@@ -529,6 +529,81 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
   });
 
   /**
+   * Every thread in the workspace that is still waiting (ADR-0046).
+   *
+   * The question the projection exists for: no amount of opening documents
+   * answers "what has somebody asked that nobody has answered" well.
+   *
+   * Open by default, because that is the list somebody comes here for.
+   * `?state=detached` for threads whose text has been deleted — unfinished
+   * business of a different kind — and `?state=resolved` for decisions that were
+   * made, which are worth being able to find.
+   */
+  router.get('/api/workspaces/:workspaceId/comments', async (ctx) => {
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    const claims = await claimsFor(deps.pool, ctx, workspaceId);
+    if (!claims) return;
+
+    const state = ctx.url.searchParams.get('state') ?? 'open';
+    if (state !== 'open' && state !== 'resolved' && state !== 'detached') {
+      ctx.fail(422, 'invalid_state');
+      return;
+    }
+
+    const rows = await queryRows<{
+      page_id: string;
+      title: string;
+      thread_id: string;
+      quote: string;
+      resolved: boolean;
+      detached: boolean;
+      messages: number;
+      opened_by: string | null;
+      last_message_at: Date | null;
+    }>(
+      deps.pool,
+      `SELECT c.page_id, p.title, c.thread_id, c.quote, c.resolved, c.detached,
+              c.messages, c.opened_by, c.last_message_at
+         FROM page_comments c
+         JOIN pages p ON p.id = c.page_id
+        WHERE p.workspace_id = $1
+          AND p.archived_at IS NULL
+          AND ${
+            state === 'resolved'
+              ? 'c.resolved'
+              : state === 'detached'
+                ? 'NOT c.resolved AND c.detached'
+                : 'NOT c.resolved AND NOT c.detached'
+          }
+          -- The same visibility condition as the tree and search. A quotation
+          -- from a page somebody may not read is a disclosure, and this list is
+          -- made of quotations.
+          AND ${visiblePagesCondition('p', '$3', '$2')}
+        ORDER BY c.last_message_at DESC NULLS LAST, c.thread_id
+        LIMIT 200`,
+      [
+        workspaceId,
+        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
+        claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
+      ],
+    );
+
+    ctx.send(200, {
+      threads: rows.map((row) => ({
+        pageId: row.page_id,
+        pageTitle: row.title,
+        threadId: row.thread_id,
+        quote: row.quote,
+        resolved: row.resolved,
+        detached: row.detached,
+        messages: Number(row.messages),
+        openedBy: row.opened_by,
+        lastMessageAt: row.last_message_at,
+      })),
+    });
+  });
+
+  /**
    * The shapes a page can be started from (ADR-0045).
    *
    * Only ones this person may read: a template is an ordinary page and its

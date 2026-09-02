@@ -24,6 +24,7 @@ import {
   readBlockTree,
   type StoredValue,
   canvasText,
+  readThreads,
 } from '@sone/core';
 import * as Y from 'yjs';
 
@@ -88,6 +89,20 @@ export interface ReadCollection {
   views: ReadView[];
 }
 
+/** One projected thread. */
+export interface ReadThread {
+  id: string;
+  quote: string;
+  resolved: boolean;
+  detached: boolean;
+  messages: number;
+  openedBy: string | null;
+  createdAt: number;
+  lastMessageAt: number;
+  /** Every message, for the search index. */
+  text: string;
+}
+
 export interface ReadDocument {
   schemaVersion: number;
   page: ReadPage;
@@ -100,6 +115,15 @@ export interface ReadDocument {
    * index and nowhere else, which is exactly what a canvas can honestly claim.
    */
   canvasText: string;
+  /**
+   * The page's comment threads, resolved against the document (ADR-0046).
+   *
+   * Read here rather than in the materialiser because this is where the Yjs
+   * document is open: whether a thread is *detached* is a question only the
+   * document can answer, and answering it from the projection would mean
+   * storing an anchor the database cannot interpret.
+   */
+  comments: ReadThread[];
   properties: Map<string, StoredValue>;
   /**
    * Every collection this page holds, keyed by id.
@@ -352,6 +376,19 @@ export function readDocument(doc: Y.Doc, pageId: string | null): ReadDocument {
     page,
     blocks: readBlocks(doc, warnings),
     canvasText: canvasText(doc),
+    comments: readThreads(doc).map((thread) => ({
+      id: thread.id,
+      quote: thread.quote,
+      resolved: thread.resolved,
+      // Its text is gone. The one state somebody should be able to find
+      // deliberately, so it is projected rather than recomputed on read.
+      detached: thread.range === null,
+      messages: thread.messages.length,
+      openedBy: thread.messages[0]?.author ?? null,
+      createdAt: thread.createdAt,
+      lastMessageAt: thread.messages.at(-1)?.at ?? thread.createdAt,
+      text: thread.messages.map((one) => one.text).join('\n'),
+    })),
     properties: readProperties(doc, warnings),
     collections: readCollections(doc, pageId, warnings),
     warnings,
