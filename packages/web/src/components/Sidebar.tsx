@@ -379,8 +379,14 @@ export function Sidebar({
                       the default one. Reaching for the tree node here would
                       make the favourites list depend on the tree being loaded,
                       which it deliberately does not. */}
-                  {entry.kind === 'folder' ? <FolderIcon /> : <PageIcon />}{' '}
-                  {entry.title || 'Untitled'}
+                  {/* The same component the tree uses, and the entry's own
+                      icon: this drew "folder or else a document", so a page
+                      with a key on it in the tree was a blank document here and
+                      a canvas was one too. */}
+                  <EntryIconView icon={entry.icon} kind={entry.kind} />{' '}
+                  <span style={titleColorStyle(entry.icon)}>
+                    {entry.title || t('page.untitled')}
+                  </span>
                 </a>
                 <button
                   className="entry-more"
