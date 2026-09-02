@@ -386,7 +386,6 @@ button.primary {
   font-weight: 550;
 }
 button.primary:hover:not(:disabled) { filter: brightness(1.08); }
-button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 button.quiet {
   border-color: transparent;
@@ -1626,6 +1625,39 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   font-size: var(--sone-text-sm);
   line-height: 1.5;
 }
+
+/* --- groupings inside a right-hand panel --- */
+
+/* These were used in the markup and defined nowhere.
+ *
+ * Found by counting rather than by looking: a class in a `className` with no
+ * rule behind it is the mirror image of dead CSS, and it is quieter — the
+ * markup says a structure exists and nothing draws it, so a panel looks
+ * plausible and its parts have whatever spacing they inherited. `panel-section`
+ * predates this session; `panel-heading`, `comment-reply` and `import-depth`
+ * are mine from the last few days. */
+.panel-section { padding: var(--sone-space-4); }
+.panel-section + .panel-section { border-block-start: 1px solid var(--border-subtle); }
+.panel-heading {
+  margin: 0 0 var(--sone-space-3);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* A reply box and its buttons, under the messages it answers. */
+.comment-reply { margin-block-start: var(--sone-space-3); }
+/* The indent in an import plan's tree. It is spaces in a span, so it needs to
+   keep them. */
+.import-depth { white-space: pre; }
+
+/* A group's people, listed under its name. */
+.group-members { display: flex; flex-direction: column; gap: var(--sone-space-2); }
+
+/* A collection column's name and its type, in the header row. */
+.collection-column-name { font-weight: 600; }
+.collection-column-type { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
 
 /* --- the inbox (ADR-0052) --- */
 
@@ -5388,6 +5420,9 @@ select {
   color: var(--sone-text-muted);
   font-size: var(--sone-text-sm);
 }
+/* The "+" beside the views. It carried the modifier and no rule, so it looked
+   exactly like a view — a control that adds one, drawn as one of them. */
+.view-tab.add { color: var(--sone-text-muted); font-weight: 400; }
 .view-tab:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
 .view-tab.current { background: var(--sone-bg-hover); color: var(--sone-text); font-weight: 600; }
 
