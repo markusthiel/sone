@@ -1268,8 +1268,12 @@ test('a thread folds, and so do all of them', () => {
   // Bounded, or it grows for ever: a deleted page leaves an entry nothing can
   // clean up.
   assert.match(folded, /MAX_PAGES/);
-  // And ids for threads that no longer exist are not written back.
-  assert.match(folded, /\.filter\(\(id\) => existing\.includes\(id\)\)/);
+  // Ids for threads that no longer exist are dropped on the next *write* — and
+  // never on read: on a reload the document has not arrived, so the thread list
+  // is empty, and filtering the stored set against it threw everything away.
+  // That is the same mistake as seeding the editor before Yjs had synced.
+  assert.match(folded, /setClosed\(new Set\(readAll\(\)\[pageId\] \?\? \[\]\)\)/);
+  assert.match(folded, /existing\.length > 0 \? \[\.\.\.next\]\.filter/);
   assert.match(panel, /aria-expanded=\{open\}/);
   // Closed, the first message stays: a thread showing only its quotation says
   // what is being discussed and not what was said about it.

@@ -55,7 +55,12 @@ function readAll(): Stored {
 
 export function useFoldedThreads(
   pageId: string | null,
-  /** The threads that exist now, so ids for deleted ones are not kept. */
+  /**
+   * The threads that exist now.
+   *
+   * Used when *writing*, to drop ids for threads that are gone — and never when
+   * reading, because on a reload the document has not arrived and this is empty.
+   */
   existing: string[],
 ): {
   closed: Set<string>;
@@ -69,14 +74,23 @@ export function useFoldedThreads(
       setClosed(new Set());
       return;
     }
-    const stored = readAll()[pageId] ?? [];
-    // Intersected with what is actually there: a thread deleted while somebody
-    // was away should not leave an id that quietly folds a *different* thread
-    // if ids were ever reused, and should not be written back for ever either.
-    setClosed(new Set(stored.filter((id) => existing.includes(id))));
-    // Deliberately not keyed on `existing`: this reads the stored set when the
-    // page changes, and re-reading it every time a thread appears would undo
-    // whatever somebody has folded since.
+    /*
+     * The stored set as it is, without checking it against the threads.
+     *
+     * This filtered by `existing` and that was the same mistake as seeding the
+     * editor before Yjs had synced: on a reload the document has not arrived
+     * yet, so there are no threads, so every stored id was discarded — and
+     * everything sprang open. Switching pages worked, which is what made it
+     * look like the store was fine: by then the document was already in hand.
+     *
+     * An id for a thread that no longer exists is harmless here: nothing renders
+     * it, so it matches nothing. It is dropped on the next write instead, which
+     * is a moment when the threads are known.
+     */
+    setClosed(new Set(readAll()[pageId] ?? []));
+    // Deliberately not keyed on `existing` — see above. Re-reading the store
+    // every time a thread appears would also undo whatever somebody folded
+    // since.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageId]);
 
@@ -85,7 +99,15 @@ export function useFoldedThreads(
       if (!pageId) return;
       try {
         const all = readAll();
-        const kept = [...next].filter((id) => existing.includes(id));
+        /*
+         * Dropped ids for threads that are gone — but only when the threads are
+         * actually known.
+         *
+         * With none in hand this would write an empty set, which is how a fold
+         * made a moment after opening a page could erase every other fold on it.
+         */
+        const kept =
+          existing.length > 0 ? [...next].filter((id) => existing.includes(id)) : [...next];
         if (kept.length === 0) delete all[pageId];
         else all[pageId] = kept;
 
