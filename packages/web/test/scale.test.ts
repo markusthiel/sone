@@ -1348,3 +1348,21 @@ test('restoring says what it actually does', () => {
   assert.match(versions, /const STRUCTURAL_KEYS = \['kind', 'idx', 'parentPageId', 'collectionId'\]/);
   assert.doesNotMatch(versions, /getMap\('comments'\)/, 'comments are left alone');
 });
+
+test('exporting asks one question and downloads by navigating', () => {
+  // "With or without attachments" is the difference between an archive somebody
+  // can email and one they cannot, and it is not guessable from outside.
+  // Everything else about the export is decided, so there is nothing else to
+  // ask (ADR-0044).
+  const dialog = codeOf(new URL('../src/components/ExportDialog.tsx', import.meta.url));
+  assert.match(dialog, /t\('export\.withAttachments'\)/);
+  // A navigation rather than a fetch: the response is a file with a
+  // Content-Disposition, and fetching it into a blob would hold the archive
+  // twice and lose the name the server chose.
+  assert.match(dialog, /window\.location\.assign\(/);
+  assert.doesNotMatch(dialog, /createObjectURL/);
+  // Offered beside the two moves, which are the same family: all three are the
+  // page going somewhere.
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  assert.ok(menu.indexOf("t('entry.moveToWorkspace')") < menu.indexOf("t('entry.export')"));
+});

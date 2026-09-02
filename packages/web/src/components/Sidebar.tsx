@@ -62,6 +62,7 @@ interface SidebarProps {
   onStartMove: (pageId: string) => void;
   /** Moving out of this workspace entirely (ADR-0038). Its own dialog. */
   onStartMoveToWorkspace: (pageId: string) => void;
+  onStartExport: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
   /**
    * Moves an entry into a folder, or to the root when the target is null.
@@ -122,6 +123,7 @@ export function Sidebar({
   onDelete,
   onStartMove,
   onStartMoveToWorkspace,
+  onStartExport,
   onStartShare,
   onMove,
   favourites,
@@ -304,6 +306,7 @@ export function Sidebar({
             onDelete={onDelete}
             onStartMove={onStartMove}
             onStartMoveToWorkspace={onStartMoveToWorkspace}
+            onStartExport={onStartExport}
             onStartShare={onStartShare}
             favouriteIds={favouriteIds}
             onToggleFavourite={onToggleFavourite}
@@ -376,6 +379,7 @@ function TreeLevel({
   onDelete,
   onStartMove,
   onStartMoveToWorkspace,
+  onStartExport,
   onStartShare,
   favouriteIds,
   onToggleFavourite,
@@ -404,6 +408,7 @@ function TreeLevel({
   onStartMove: (pageId: string) => void;
   /** Moving out of this workspace entirely (ADR-0038). Its own dialog. */
   onStartMoveToWorkspace: (pageId: string) => void;
+  onStartExport: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
@@ -520,6 +525,7 @@ function TreeLevel({
                     onStartRename={onStartRename}
                     onStartMove={onStartMove}
             onStartMoveToWorkspace={onStartMoveToWorkspace}
+            onStartExport={onStartExport}
                     onStartShare={onStartShare}
                     onReorder={(id, direction) => {
                       const target = stepTarget(tree, id, direction);
@@ -555,6 +561,7 @@ function TreeLevel({
                   onDelete={onDelete}
                   onStartMove={onStartMove}
             onStartMoveToWorkspace={onStartMoveToWorkspace}
+            onStartExport={onStartExport}
                   onStartShare={onStartShare}
                   favouriteIds={favouriteIds}
                   onToggleFavourite={onToggleFavourite}

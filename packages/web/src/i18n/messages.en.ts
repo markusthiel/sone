@@ -66,6 +66,14 @@ export const en = {
   'entry.unfavourite': 'Remove from favourites',
   'entry.share': 'Share…',
   'entry.move': 'Move to…',
+  'entry.export': 'Export\u2026',
+  'export.title': 'Export',
+  'export.what': '{title} and everything inside it, as Markdown files in one archive.',
+  'export.withAttachments': 'Include the files and pictures',
+  'export.attachmentsNote':
+    'Without them the archive is small enough to email, and the links in it ' +
+    'point at files that are not there.',
+  'export.download': 'Download',
   'entry.moveToWorkspace': 'To a workspace…',
   'template.heading': 'From a template',
   'template.use': 'Use as a template',
