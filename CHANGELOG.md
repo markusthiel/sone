@@ -11,7 +11,36 @@ version answers "what must I do to upgrade?", not "how much changed?".
 - **MINOR** — pull and restart; migrations run automatically.
 - **MAJOR** — read this file first, there is something to do.
 
-## Unreleased
+## 0.3.0
+
+The release where SONE became something more than one person's notes: accounts,
+invitations, groups and per-page permissions — then comments, page history,
+templates, import and export, a canvas, a PDF viewer, and a great deal of work on
+how the thing looks and reads while using it.
+
+**Operator action: none.** Thirty-six migrations apply on start; upgrading from
+0.2.0 has been tested in place, and a page written by 0.2.0 survives it intact.
+
+**Two version numbers changed and one did not.** The document schema is now
+version 4 (it was 1), because documents gained canvases, comments and page
+properties. Every step has a migration and they run when a document is opened, so
+there is nothing to do — but a client from *this* release writing a document that
+an older client then opens is not a case that has been designed for, so upgrade
+all of them together. The sync protocol is unchanged at version 1, which is what
+makes upgrading the server first safe.
+
+Settings worth knowing about, all optional and all with sensible defaults:
+`SONE_WORKSPACE_RETENTION_DAYS` (how long a deleted workspace can be restored),
+`SONE_OIDC_CLIENT_SECRET` (turns single sign-on on), `SONE_VERSION_RETENTION_DAYS`
+(how long page versions are kept), `SONE_VERSION_QUIET_MINUTES` (when a sitting
+counts as ended), and `SONE_JOB_RESULT_HOURS` (how long a prepared workspace
+export stays downloadable).
+
+**A note about this section's history**, because a reader deserves it: these notes
+were first cut at the end of August, and the release was not tagged. It kept
+growing for two more days — everything from comments onwards was written after the
+summary above was first drafted — and rather than skip the number, the notes were
+rewritten and the whole of it shipped as 0.3.0.
 
 **A single block can be locked too** ([ADR-0049](docs/adr/0049-locking.md)), from
 the block's own gutter menu — for a page of working notes with one table that must
@@ -485,29 +514,6 @@ Nothing else an operator or a reader would notice: `pnpm lint` runs for the firs
 (it was in the scripts and had never had eslint installed or configured), and the
 architecture records now say which decisions are actually implemented — nine of
 them still said "not yet" long after they were.
-
-## 0.3.0
-
-Everything a workspace needs to be shared with somebody: accounts, invitations,
-groups and per-page permissions — and a great deal of work on how the thing looks
-and reads while using it.
-
-**Operator action: none.** Sixteen migrations apply on start. The document schema
-and the sync protocol are both still version 1, so an older client keeps working
-against this server and a client from this release keeps working against an older
-one.
-
-Two settings are worth knowing about, both optional and both with sensible
-defaults: `SONE_WORKSPACE_RETENTION_DAYS` decides how long a deleted workspace can
-be restored, and `SONE_OIDC_CLIENT_SECRET` is what turns single sign-on on. Both
-are documented in `docs/deployment.md`.
-
-**Operator note:** a folder that carried a collection becomes an ordinary folder
-again and keeps its pages. The columns are not converted — the shape existed for
-one release, and converting it faithfully would mean rewriting every child
-document.
-
-### Collections in a page
 
 **A collection is content in a page, not a folder.** 0.2.0 made a folder *be* a
 table and put every row in the sidebar; a folder stopped meaning one thing, and a
