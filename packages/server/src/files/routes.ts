@@ -50,7 +50,11 @@ export interface FileDeps {
  * Read a request body up to a limit.
  *
  * Its own reader rather than the router's `readJson`, because an upload is
- * megabytes of binary and the router's limit is 1 MB of text. The limit is
+ * megabytes of binary and the router's limit is 1 MB of text. Exported since the
+ * import route needs the same thing — an archive is an upload by any other
+ * name, and a second reader would be a second place to get the limit wrong.
+ * (It was already exported at the foot of this file for the tests — I nearly
+ * added a second `export` keyword to something already exported.) The limit is
  * enforced while reading: checking Content-Length alone lets a client lie and
  * send more.
  */

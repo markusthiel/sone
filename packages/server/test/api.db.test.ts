@@ -15,7 +15,9 @@ import type { Pool } from 'pg';
 import { SCHEMA_VERSION } from '@sone/core';
 
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
+import { zip } from '../src/export/zip.js';
 import { registerExportRoutes } from '../src/export/routes.js';
+import { registerImportRoutes } from '../src/import/routes.js';
 import { registerPageRoutes } from '../src/http/pages.js';
 import { Router } from '../src/http/router.js';
 import { hashPassword } from '../src/auth/password.js';
@@ -60,6 +62,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
      * and a stub that throws proves the route survives a file it cannot read
      * rather than hiding the case behind a real store that always can.
      */
+    registerImportRoutes(router, { pool: db, maxUploadBytes: 32 * 1024 * 1024 });
     registerExportRoutes(router, {
       pool: db,
       store: {
@@ -367,6 +370,86 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       [['thread-1', 'quick']],
       'and it still says what it was about',
     );
+  });
+
+  test('an import is planned before it is carried out', async () => {
+    // The split is the feature (ADR-0044): planning writes nothing, and nothing
+    // is written before somebody has seen what would be.
+    const session = await setup();
+    const folder = await createFolder(session, 'Ziel');
+
+    const archive = zip([
+      { name: 'Ordner/index.md', body: Buffer.from('# Ordner\n'), at: new Date() },
+      {
+        name: 'Ordner/Notiz.md',
+        body: Buffer.from('# Notiz\n\nEin Satz.\n'),
+        at: new Date(),
+      },
+      { name: 'Ordner/style.css', body: Buffer.from('body{}'), at: new Date() },
+    ]);
+
+    const planned = await expectJson<{
+      pages: Array<{ path: string[]; title: string; isFolder: boolean; collides: boolean }>;
+      skipped: Array<{ name: string; reason: string }>;
+      totals: { pages: number; folders: number };
+      attachmentsImported: boolean;
+    }>(
+      await fetch(`${base}/api/pages/${folder}/import/plan`, {
+        method: 'POST',
+        headers: { ...auth(session).headers, 'content-type': 'application/zip' },
+        body: archive,
+      }),
+      200,
+    );
+
+    assert.deepEqual(
+      planned.pages.map((page) => [page.path.join('/'), page.isFolder]),
+      [
+        ['Ordner', true],
+        ['Ordner/Notiz', false],
+      ],
+    );
+    assert.deepEqual(planned.skipped, [{ name: 'Ordner/style.css', reason: 'not_markdown' }]);
+    assert.equal(planned.attachmentsImported, false, 'said, not discovered');
+
+    // Nothing written yet.
+    let tree = await expectJson<{ pages: Array<{ id: string }> }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/pages`, auth(session)),
+      200,
+    );
+    const before = JSON.stringify(tree).includes('Ordner');
+    assert.equal(before, false, 'planning wrote nothing');
+
+    const done = await expectJson<{ created: number; failed: unknown[] }>(
+      await fetch(`${base}/api/pages/${folder}/import`, {
+        method: 'POST',
+        headers: { ...auth(session).headers, 'content-type': 'application/zip' },
+        body: archive,
+      }),
+      200,
+    );
+    assert.equal(done.created, 2);
+    assert.deepEqual(done.failed, []);
+
+    tree = await expectJson<{ pages: Array<{ id: string }> }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/pages`, auth(session)),
+      200,
+    );
+    assert.ok(JSON.stringify(tree).includes('Notiz'), 'and now it is there');
+  });
+
+  test('something that is not an archive is refused with a reason', async () => {
+    const session = await setup();
+    const folder = await createFolder(session, 'Ziel zwei');
+    const res = await fetch(`${base}/api/pages/${folder}/import/plan`, {
+      method: 'POST',
+      headers: { ...auth(session).headers, 'content-type': 'application/zip' },
+      body: Buffer.from('Not a zip at all.'),
+    });
+    assert.equal(res.status, 422);
+    // The parser's own code, so the interface can say why: "not an archive" and
+    // "too large uncompressed" are different problems with different fixes.
+    assert.equal(((await res.json()) as { error: string }).error, 'not_an_archive');
   });
 
   test('exporting a folder hands back its pages, and refuses what may not be read', async () => {

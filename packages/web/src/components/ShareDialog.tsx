@@ -178,7 +178,12 @@ export function ShareDialog({
       }}
     >
       <div className="dialog share-dialog" role="dialog" aria-modal="true" aria-label={t('share.label')}>
-        <h2 className="dialog-title">Share “{pageTitle || 'Untitled'}”</h2>
+        {/* Was an English sentence with the quotation marks written into the
+            JSX, which is why no translation existed to miss: the guard reads
+            text nodes, and this one had an expression in the middle of it. */}
+        <h2 className="dialog-title">
+          {t('share.heading', { title: pageTitle || t('page.untitled') })}
+        </h2>
 
         {error && <p className="error">{messageFor(error)}</p>}
 

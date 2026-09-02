@@ -30,7 +30,11 @@ export function ExportDialog({
   const [attachments, setAttachments] = useState(true);
 
   return (
-    <div className="dialog-backdrop" role="presentation" onClick={onClose}>
+    // `dialog-scrim`, which is the class this application's dialogs use. I wrote
+    // `dialog-backdrop`, which exists nowhere — so the window had no fixed,
+    // centred wrapper and simply rendered where it stood, at the foot of the
+    // menu that opened it.
+    <div className="dialog-scrim" role="presentation" onClick={onClose}>
       <div
         className="dialog"
         role="dialog"
@@ -38,7 +42,7 @@ export function ExportDialog({
         aria-label={t('export.title')}
         onClick={(event) => event.stopPropagation()}
       >
-        <h2>{t('export.title')}</h2>
+        <h2 className="dialog-title">{t('export.title')}</h2>
         <p className="muted">{t('export.what', { title })}</p>
 
         <label className="checkbox">
