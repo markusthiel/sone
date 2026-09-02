@@ -1085,6 +1085,15 @@ test('the entry menu is ordered by how often and how permanent', () => {
   // be made inside, where it goes, how it looks, and the trash. The line after
   // "New" is inside the folder condition, so a page that can hold nothing does
   // not get a line separating nothing from what follows.
-  assert.equal([...menu.matchAll(/entry-menu-rule/g)].length, 4);
-  assert.match(menu, /\{isFolder && <hr className="entry-menu-rule" \/>\}/);
+  // Three lines: one under the band of icon rows, one after where-it-goes, one
+  // before the trash. Not one between the two icon rows — they read as one band,
+  // and a line there separated five marks from three.
+  assert.equal([...menu.matchAll(/entry-menu-rule/g)].length, 3);
+  // Both move rows are one line tall, so a pair of related choices does not look
+  // like two unrelated ones.
+  assert.match(css, /\.entry-menu-item \{[^}]*white-space: nowrap/s);
+  // The band of icon rows closes with one line under both, so the "New" row is
+  // inside the folder condition but the line is not: a page simply has one row
+  // in the band instead of two.
+  assert.match(menu, /\{isFolder && \(\s*\n\s*<div className="entry-menu-new">/);
 });

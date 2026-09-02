@@ -66,7 +66,7 @@ export const en = {
   'entry.unfavourite': 'Remove from favourites',
   'entry.share': 'Share…',
   'entry.move': 'Move to…',
-  'entry.moveToWorkspace': 'Move to a workspace…',
+  'entry.moveToWorkspace': 'To a workspace…',
   'entry.actions': 'What to do with this entry',
   'entry.new': 'New',
   'entry.newPage': 'New page',
