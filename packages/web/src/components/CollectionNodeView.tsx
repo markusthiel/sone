@@ -164,6 +164,8 @@ class CollectionNodeView implements NodeView {
  */
 export const soneNodeViews = (
   onOpenContainer: (containerId: string) => void,
+  /** The words a node view needs in the reader's language (ADR-0041). */
+  labels: { pdfAllPages: string },
 ): EditorView['props']['nodeViews'] => ({
   collectionView: (node, view, getPos) =>
     new CollectionNodeView(node as unknown as PMNodeLike, () => {
@@ -171,7 +173,7 @@ export const soneNodeViews = (
       if (pos === undefined) return;
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
     }),
-  file: fileNodeView(),
+  file: fileNodeView(labels),
   video: videoNodeView(),
   protectedSection: protectedSectionView(onOpenContainer),
 });

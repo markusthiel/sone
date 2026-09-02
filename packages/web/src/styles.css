@@ -5690,6 +5690,19 @@ select {
   background: var(--sone-bg-subtle);
 }
 
+/* Where the rest of a PDF is, on a browser that shows only its first page.
+   Under the frame rather than over it: the preview is still the useful thing,
+   and a banner on top of it would cover the page somebody can see. */
+.file-pdf-note {
+  display: block;
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border-block-start: 1px solid var(--border-subtle);
+  color: var(--accent);
+  font-size: var(--sone-text-sm);
+  text-decoration: none;
+}
+.file-pdf-note:hover { text-decoration: underline; }
+
 .file-line {
   display: flex;
   align-items: center;

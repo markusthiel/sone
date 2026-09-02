@@ -537,9 +537,12 @@ export function EditorSurface({
       // mounts there.
       // A protected section is a document of its own, so opening one is
       // navigating to it rather than expanding something here.
-      nodeViews: soneNodeViews((containerId) => {
-        window.location.assign(paths.page(containerId));
-      }),
+      nodeViews: soneNodeViews(
+        (containerId) => {
+          window.location.assign(paths.page(containerId));
+        },
+        { pdfAllPages: t('file.pdfAllPages') },
+      ),
     });
     viewRef.current = created;
     setView(created);

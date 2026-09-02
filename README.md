@@ -46,6 +46,10 @@ instead.
 One application container plus Postgres, serving both the API and the web
 client. Migrations run on start.
 
+Your content can be taken out and put back at any time — see
+[docs/import-export.md](docs/import-export.md), which says exactly what an
+archive contains and what it does not.
+
 Read [docs/deployment.md](docs/deployment.md) before putting it behind a reverse
 proxy — the WebSocket upgrade and the database locale both have to be right, and
 both fail in ways that look like application bugs.

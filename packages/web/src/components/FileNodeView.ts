@@ -69,6 +69,25 @@ function describe(category: unknown, mime: unknown): string {
   }
 }
 
+/**
+ * Does this browser show only the first page of an embedded PDF?
+ *
+ * True on iOS and iPadOS, where WebKit renders an embedded PDF as a static
+ * preview with no viewer. Detected from the platform because there is nothing to
+ * feature-detect: the frame loads, reports no error, and simply cannot be
+ * scrolled.
+ *
+ * iPadOS reports itself as a Mac, so the touch-points check is what separates an
+ * iPad from a desktop Safari — where embedding works.
+ */
+function onlyFirstPageInline(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const platform = navigator.platform ?? '';
+  const iOS = /iPad|iPhone|iPod/.test(platform);
+  const iPadOS = platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1;
+  return iOS || iPadOS;
+}
+
 /** Can a browser draw this in place? Mirrors the server's own answer. */
 const viewable = (category: unknown): boolean =>
   category === 'pdf' || category === 'text' || category === 'image';
@@ -79,6 +98,7 @@ class FileNodeView implements NodeView {
 
   constructor(
     node: PMNodeLike,
+    private readonly labels: { pdfAllPages: string },
     private readonly select: () => void,
   ) {
     this.dom = document.createElement('div');
@@ -148,6 +168,35 @@ class FileNodeView implements NodeView {
       if (category !== 'pdf') frame.setAttribute('sandbox', '');
       frame.setAttribute('loading', 'lazy');
       this.dom.append(frame, this.bar(name, kind, size, url));
+
+      /*
+       * On iOS and iPadOS an embedded PDF is one page and cannot be scrolled.
+       *
+       * That is WebKit rather than this code: a PDF in an `<iframe>` or
+       * `<object>` there is rendered as a static preview of the first page, with
+       * no viewer, no paging and no scrolling. `<embed>` behaves the same, and
+       * no attribute changes it. Chromium and Firefox embed their own viewer,
+       * which is why scrolling works on the desktop.
+       *
+       * So the frame keeps showing what it can and a line under it says where
+       * the rest is. Reading the whole document happens in the browser's own
+       * viewer, one tap away, where paging works properly.
+       *
+       * The alternative is rendering every page ourselves with pdf.js — about a
+       * megabyte of dependency for one block type, which is a decision for the
+       * project rather than something to slip in while fixing a bug (ADR-0004's
+       * rule about dependencies). Written down in docs/import-export.md's
+       * neighbour rather than left as a mystery on a phone.
+       */
+      if (category === 'pdf' && onlyFirstPageInline()) {
+        const note = document.createElement('a');
+        note.className = 'file-pdf-note';
+        note.href = url;
+        note.target = '_blank';
+        note.rel = 'noopener noreferrer';
+        note.textContent = this.labels.pdfAllPages;
+        this.dom.append(note);
+      }
       return;
     }
 
@@ -250,9 +299,20 @@ class FileNodeView implements NodeView {
  * second place to ask the same kind of question, and the gutter is where
  * somebody already looks.
  */
-export function fileNodeView(): NonNullable<EditorView['props']['nodeViews']>[string] {
+export function fileNodeView(
+  /**
+   * The one sentence this view needs in the reader's language.
+   *
+   * Handed in rather than looked up, because a node view is not a React
+   * component and this package has no translator outside a hook — the same
+   * arrangement `localiseSlashItem` uses for the `/` menu (ADR-0041). The rest
+   * of this file's words are still English, which is a gap worth naming here
+   * rather than pretending the file is translated.
+   */
+  labels: { pdfAllPages: string } = { pdfAllPages: 'Open all pages' },
+): NonNullable<EditorView['props']['nodeViews']>[string] {
   return (node, view, getPos) =>
-    new FileNodeView(node as unknown as PMNodeLike, () => {
+    new FileNodeView(node as unknown as PMNodeLike, labels, () => {
       const pos = typeof getPos === 'function' ? getPos() : undefined;
       if (pos === undefined) return;
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
