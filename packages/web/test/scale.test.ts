@@ -1274,3 +1274,15 @@ test('the marks checkbox is a label, not a styled input', () => {
   assert.match(panel, /<label className="checkbox comment-marks-toggle">/);
   assert.doesNotMatch(panel, /type="checkbox"\s*\n\s*className="checkbox"/);
 });
+
+test('a reply has a button, not only a shortcut', () => {
+  // Enter stays, because a comment is usually one sentence — but a shortcut is
+  // the *second* way to do something, never the only one. A box with no button
+  // is a box somebody types into and then looks around for what to press.
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  const reply = panel.slice(panel.indexOf('className="comment-reply"'));
+  assert.match(reply.slice(0, 1600), /t\('comment\.reply'\)/);
+  assert.match(reply.slice(0, 1600), /disabled=\{draft\.trim\(\) === ''\}/);
+  // And the irreversible one is not beside the one pressed most.
+  assert.match(css, /\.comment-destroy \{ margin-inline-start: auto/);
+});
