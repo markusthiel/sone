@@ -240,9 +240,13 @@ which an editor satisfies and a viewer does not — and a share link can already
 created that permits comments and refuses edits, which is exactly the review case
 this feature is for.
 
-What is genuinely missing is smaller than a role: the interface does not offer it
-anywhere, so the capability exists and nobody can reach it. That is a screen, not
-a decision.
+What was genuinely missing was smaller than a role: no screen offered it, so the
+capability existed and nobody could reach it. Now built — the page-permissions
+screen lists it beside the other three, and a share link could already be created
+with it.
+
+The test for it reads the server's own list of levels rather than a copy, so the
+next level added there fails a test instead of quietly having no interface.
 
 The lesson is the one this codebase keeps teaching: I asserted an absence without
 checking, and the assertion was in a record other work would have trusted.

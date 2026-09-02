@@ -607,6 +607,7 @@ export const en = {
   'role.guest.hint': 'Sees only what they are given access to',
   'role.owner': 'Owner',
   'access.viewer': 'Can view',
+  'access.commenter': 'Can read and comment',
   'access.editor': 'Can edit',
   'access.admin': 'Can manage',
   // "Can edit · from a group called Editors" — one message, because word order
