@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An entry's ⋮ menu is reordered**: what you can make inside it near the top, then
+where it can go, then how it looks, with the trash on its own past a line.
+
 **A canvas has a hand tool**, so the board can be moved on a phone or tablet.
 **Fixed: the ink colours were squashed into ovals** on a narrow screen.
 

@@ -447,44 +447,6 @@ export function EntryMenu({
             </button>
           </div>
 
-          {/* Icon and the two colours.
-            *
-            * In the menu the entry already has rather than a dialog: choosing
-            * an icon is a small decision, and making somebody open a window for
-            * it turns a moment into a task. The menu stays open while choosing,
-            * because people try several before settling. */}
-          <EntryAppearance node={node} onChanged={onChanged} />
-
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onStartMove(node.id);
-            }}
-          >
-            <MoveIcon /> {t('entry.move')}
-          </button>
-
-          {/* Out of this workspace entirely (ADR-0038).
-            *
-            * Its own entry rather than a destination in the list above, because
-            * it is a different decision: a move within a workspace loses
-            * nothing, and this one revokes share links, drops restrictions and
-            * severs links to what stays behind. */}
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onStartMoveToWorkspace(node.id);
-            }}
-          >
-            <MoveIcon /> {t('entry.moveToWorkspace')}
-          </button>
-
           {/* What can be put inside, as three marks under one word.
             *
             * The same three the `+` offers and in the same order (page, canvas,
@@ -523,6 +485,62 @@ export function EntryMenu({
               </div>
             </div>
           )}
+
+          {/* Inside the condition, so a page — which cannot hold anything — does
+              not get a line separating nothing from what follows. */}
+          {isFolder && <hr className="entry-menu-rule" />}
+
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onStartMove(node.id);
+            }}
+          >
+            <MoveIcon /> {t('entry.move')}
+          </button>
+
+          {/* Out of this workspace entirely (ADR-0038).
+            *
+            * Its own entry rather than a destination in the list above, because
+            * it is a different decision: a move within a workspace loses
+            * nothing, and this one revokes share links, drops restrictions and
+            * severs links to what stays behind. */}
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onStartMoveToWorkspace(node.id);
+            }}
+          >
+            <MoveIcon /> {t('entry.moveToWorkspace')}
+          </button>
+
+          <hr className="entry-menu-rule" />
+
+          {/* Appearance last, above the trash.
+            *
+            * It was in the middle, and it is by far the largest block here — a
+            * search field, thirty-odd icons and two rows of colours. Anything
+            * that big in the middle pushes everything below it out of reach: on
+            * a phone the trash needed scrolling past the icon grid to find.
+            *
+            * It is also the rarest thing anybody comes here for. Frequent and
+            * reversible at the top, rare and consequential at the bottom, and
+            * the big rare block belongs with the second group. */}
+          {/* Icon and the two colours.
+            *
+            * In the menu the entry already has rather than a dialog: choosing
+            * an icon is a small decision, and making somebody open a window for
+            * it turns a moment into a task. The menu stays open while choosing,
+            * because people try several before settling. */}
+          <EntryAppearance node={node} onChanged={onChanged} />
+
+          <hr className="entry-menu-rule" />
 
           <button
             className="entry-menu-item destructive"

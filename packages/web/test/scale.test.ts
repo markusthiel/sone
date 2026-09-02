@@ -1067,3 +1067,23 @@ test('the board can be moved with a finger', () => {
   // And the cursor says so before the button goes down.
   assert.match(canvas, /data-tool=\{space \|\| tool === 'hand' \? 'pan' : tool\}/);
 });
+
+test('the entry menu is ordered by how often and how permanent', () => {
+  // Frequent and reversible at the top, rare and consequential at the bottom.
+  // The appearance block — a search field, thirty-odd icons, two rows of
+  // colours — was in the middle, where anything that big pushes what is below it
+  // out of reach: on a phone the trash needed scrolling past the icon grid.
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  const at = (needle: string): number => menu.indexOf(needle);
+
+  assert.ok(at('entry-menu-actions') < at('entry-menu-new'), 'what it does, then what it makes');
+  assert.ok(at('entry-menu-new') < at("t('entry.move')"), 'then where it goes');
+  assert.ok(at("t('entry.move')") < at('<EntryAppearance'), 'then how it looks');
+  assert.ok(at('<EntryAppearance') < at('entry-menu-item destructive'), 'the trash last');
+
+  // Three lines, one per group boundary, rather than one per item — and the
+  // first is inside the folder condition, so a page that can hold nothing does
+  // not get a line separating nothing from what follows.
+  assert.equal([...menu.matchAll(/entry-menu-rule/g)].length, 3);
+  assert.match(menu, /\{isFolder && <hr className="entry-menu-rule" \/>\}/);
+});
