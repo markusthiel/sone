@@ -8,6 +8,8 @@
 -- plus Postgres (ADR-0004), and `FOR UPDATE SKIP LOCKED` is a work queue that
 -- several instances can share correctly — which is the only property a queue
 -- service would add here.
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS jobs (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
@@ -44,3 +46,8 @@ CREATE INDEX IF NOT EXISTS jobs_queued_idx
   ON jobs (created_at) WHERE state = 'queued';
 
 CREATE INDEX IF NOT EXISTS jobs_workspace_idx ON jobs (workspace_id, created_at DESC);
+
+INSERT INTO schema_migrations (version) VALUES ('0035_jobs')
+  ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

@@ -28,11 +28,22 @@ test('an archive has one local header and one directory entry per file', () => {
 
   // Signatures, counted rather than assumed: two locals, two central headers,
   // one end record.
-  const locals = [...archive.toString('latin1').matchAll(/PK\x03\x04/g)].length;
-  const headers = [...archive.toString('latin1').matchAll(/PK\x01\x02/g)].length;
+  // Counted by scanning for the byte sequences rather than by regex: the
+  // signatures contain control characters, which lint refuses in a pattern
+  // because they are invisible in a diff — and it is right.
+  const count = (needle: number[]): number => {
+    const pattern = Buffer.from([0x50, 0x4b, ...needle]);
+    let found = 0;
+    for (let at = archive.indexOf(pattern); at !== -1; at = archive.indexOf(pattern, at + 1)) {
+      found += 1;
+    }
+    return found;
+  };
+  const locals = count([0x03, 0x04]);
+  const headers = count([0x01, 0x02]);
   assert.equal(locals, 2);
   assert.equal(headers, 2);
-  assert.match(archive.toString('latin1'), /PK\x05\x06/);
+  assert.equal(count([0x05, 0x06]), 1, 'one end-of-directory record');
 });
 
 test('a name is marked as UTF-8, or a reader guesses at its own code page', () => {
