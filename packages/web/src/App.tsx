@@ -32,6 +32,7 @@ import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
 import { useWorkspaceTheme } from './hooks/useWorkspaceTheme.ts';
 import { useFavourites } from './hooks/useFavourites.ts';
+import { useCommentMarkStyle } from './hooks/useCommentMarkStyle.ts';
 import { useComments } from './hooks/useComments.ts';
 import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
@@ -335,6 +336,8 @@ function Workspace({
    * screen as exactly that.
    */
   const [pendingComment, setPendingComment] = useState<CommentAnchor | null>(null);
+  /** How much a commented passage is marked, and whether at all here. */
+  const marks = useCommentMarkStyle();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -584,6 +587,7 @@ function Workspace({
             handle={handle}
             pageId={routePageId!}
             threads={commentMarksFor(comments.threads)}
+            markStyle={marks.effective}
             onComment={(anchor) => {
               // Straight into a thread with an empty first message would be a
               // thread with nothing in it. So the anchor is held, the panel
@@ -684,6 +688,7 @@ function Workspace({
         members={members}
         pendingComment={pendingComment}
         onCancelPendingComment={() => setPendingComment(null)}
+        marks={marks}
         onRevealComment={(thread) => {
           // Resolving a thread's range into editor coordinates is the editor's
           // job, so revealing is a message to it rather than a scroll from
@@ -954,6 +959,9 @@ function ShareSession({
             // guest's half of ADR-0046 is real and is the next slice.
             threads={[]}
             onComment={() => {}}
+            // Nothing to mark: the shared view has no comments panel yet, and a
+            // guest's half of ADR-0046 is the next slice.
+            markStyle="off"
           />
         ) : (
           <div className="page-body">

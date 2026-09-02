@@ -28,6 +28,7 @@ import { useOutline, scrollToBlock } from '../hooks/useOutline.ts';
 import { usePageTags } from '../hooks/usePageTags.ts';
 import { useTasks, type Task } from '../hooks/useTasks.ts';
 import { en, type MessageKey } from '../i18n/messages.en.ts';
+import type { CommentMarkStyle } from '../hooks/useCommentMarkStyle.ts';
 import type { CommentActions } from '../hooks/useComments.ts';
 import { useT } from '../i18n/useT.tsx';
 import { TagEditor } from './TagEditor.tsx';
@@ -140,6 +141,13 @@ interface RightSidebarProps {
   /** A selection waiting for its first message, and how to drop it. */
   pendingComment: { from: Uint8Array; to: Uint8Array; quote: string } | null;
   onCancelPendingComment: () => void;
+  /** How much a commented passage is marked, and whether at all here. */
+  marks: {
+    style: CommentMarkStyle;
+    setStyle: (style: CommentMarkStyle) => void;
+    hidden: boolean;
+    setHidden: (hidden: boolean) => void;
+  };
 }
 
 export function RightSidebar({
@@ -153,6 +161,7 @@ export function RightSidebar({
   onRevealComment,
   pendingComment,
   onCancelPendingComment,
+  marks,
 }: RightSidebarProps): ReactElement {
   const { t } = useT();
   const [tab, setTab] = useState<RightTab>(readTab);
@@ -235,6 +244,7 @@ export function RightSidebar({
               onReveal={onRevealComment}
               pending={pendingComment}
               onCancelPending={onCancelPendingComment}
+              marks={marks}
             />
           )}
           {tab === 'properties' && (

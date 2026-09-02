@@ -128,6 +128,36 @@ asked. So a guest mention says so — it names them as a guest, and there is no
 second. Not every guest who ever held a link: a list of self-declared names from
 strangers is not an address book.
 
+### A commented passage is marked, and how is the reader's choice
+
+Three options were on the table: a speech-bubble icon in the text, a highlighter
+colour, either, or both.
+
+**Not an icon in the text.** It changes the line it sits in — the text reflows
+around it, so turning marks off would move every paragraph after the first
+comment — and a page under review would carry a rash of bubbles. An icon also
+says "there is something here" without saying *what*, which is the one thing the
+quotation in the panel already does better.
+
+**A highlighter colour, faint, is the default.** It is the mark everybody has
+already met, it costs the text no space, and it says exactly as much as it
+should: these words are being discussed.
+
+**And it can be turned down.** Three states — highlight, a thin underline, or
+nothing — because somebody reading a page they did not write wants the marks and
+somebody proofreading their own prose does not.
+
+Two controls, and they are deliberately different in kind:
+
+- **In the panel, a toggle for this page.** View state, not a setting: it lasts
+  while somebody is reading and is not written into the document. A switch stored
+  in the document would let one person hide the marks for everybody, and a page's
+  comments are not one reader's business to hide.
+- **A default, per person.** Kept in the browser rather than on the account, and
+  that is the argument worth stating: how much marking somebody wants depends on
+  the screen they are reading on. A phone is not a desk. A preference that
+  follows the account would make one of the two wrong.
+
 ### Comments are visible to anybody who can read the page, including guests
 
 Which is the correct default and a hazard worth writing down: **the moment a share

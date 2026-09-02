@@ -52,6 +52,8 @@ interface EditorSurfaceProps {
   threads: DrawnThread[];
   /** A selection somebody wants to comment on. */
   onComment: (anchor: CommentAnchor) => void;
+  /** How much to mark a commented passage (ADR-0046). */
+  markStyle: 'highlight' | 'underline' | 'off';
 }
 
 /**
@@ -73,6 +75,7 @@ export function EditorSurface({
   pageId,
   threads,
   onComment,
+  markStyle,
 }: EditorSurfaceProps): ReactElement {
   const { t } = useT();
   // One uploader, shared by paste, drop and the Image slash item, so all three
@@ -385,6 +388,9 @@ export function EditorSurface({
    */
   const threadsRef = useRef<DrawnThread[]>([]);
   threadsRef.current = threads;
+  /** Same reason as the threads: the editor is made once, this changes. */
+  const markStyleRef = useRef(markStyle);
+  markStyleRef.current = markStyle;
 
   /**
    * Scroll to a thread's text when the panel asks.
@@ -469,7 +475,7 @@ export function EditorSurface({
        * the editor is created once and the threads change constantly, so a
        * captured list would be the one that existed when the page opened.
        */
-      plugins: [commentMarks(() => threadsRef.current)],
+      plugins: [commentMarks(() => threadsRef.current, () => markStyleRef.current)],
       // The `/` menu's items, in this interface's language (ADR-0041). Given to
       // the plugin rather than applied when drawing, because the list is
       // filtered by what somebody typed — a German reader typing "übersch" has

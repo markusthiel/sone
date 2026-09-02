@@ -133,7 +133,16 @@ export const commentMarksKey = new PluginKey<DecorationSet>('sone-comment-marks'
  * them in — because the plugin should not also be a subscriber. One thing
  * knowing how to read comments is enough.
  */
-export function commentMarks(threads: () => DrawnThread[]): Plugin<DecorationSet> {
+export function commentMarks(
+  threads: () => DrawnThread[],
+  /**
+   * How much to mark, read on every rebuild (ADR-0046).
+   *
+   * A function rather than a value, for the same reason the threads are: the
+   * editor is created once and this changes while somebody reads.
+   */
+  markStyle: () => 'highlight' | 'underline' | 'off' = () => 'highlight',
+): Plugin<DecorationSet> {
   const build = (state: EditorState): DecorationSet => {
     const sync = ySyncPluginKey.getState(state) as
       | { binding?: { mapping?: unknown; type?: Y.XmlFragment }; type?: Y.XmlFragment }
@@ -145,6 +154,12 @@ export function commentMarks(threads: () => DrawnThread[]): Plugin<DecorationSet
     const doc = type.doc;
     if (!doc) return DecorationSet.empty;
     const mapping = binding.mapping as never;
+
+    const style = markStyle();
+    // Nothing at all rather than a transparent decoration: an element in the
+    // text that draws nothing is still an element, and it would keep taking
+    // clicks from the words underneath.
+    if (style === 'off') return DecorationSet.empty;
 
     const decorations: Decoration[] = [];
     for (const thread of threads()) {
@@ -161,7 +176,7 @@ export function commentMarks(threads: () => DrawnThread[]): Plugin<DecorationSet
         Decoration.inline(
           from,
           to,
-          { class: 'sone-commented', 'data-thread': thread.id },
+          { class: `sone-commented sone-commented-${style}`, 'data-thread': thread.id },
           { inclusiveEnd: false },
         ),
       );
