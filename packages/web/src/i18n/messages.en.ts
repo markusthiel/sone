@@ -73,6 +73,11 @@ export const en = {
   'entry.newFolder': 'New folder',
   'entry.moveUp': 'Move up',
   'entry.moveDown': 'Move down',
+  'groups.confirmDelete':
+    '{name} has been given access to pages. Delete it anyway?',
+  'entry.confirmTrash': 'Move this to the trash?',
+  'entry.confirmTrashWithChildren':
+    'Move this to the trash, with {count, plural, one {# entry} other {# entries}} inside?',
   'entry.delete': 'Trash',
   // The count stays: it is what decides whether somebody opens the confirmation
   // at all. The verb goes — the mark beside it already says it.

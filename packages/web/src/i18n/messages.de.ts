@@ -82,6 +82,11 @@ export const de: Record<keyof typeof en, string> = {
   'entry.newFolder': 'Neuer Ordner',
   'entry.moveUp': 'Nach oben',
   'entry.moveDown': 'Nach unten',
+  'groups.confirmDelete':
+    '{name} hat Zugriff auf Seiten erhalten. Trotzdem löschen?',
+  'entry.confirmTrash': 'Das hier in den Papierkorb legen?',
+  'entry.confirmTrashWithChildren':
+    'Das hier in den Papierkorb legen, mit {count, plural, one {# Eintrag} other {# Einträgen}} darin?',
   'entry.delete': 'Papierkorb',
   // Der Zähler bleibt: er entscheidet, ob jemand die Bestätigung überhaupt
   // öffnet. Das Verb geht — das Symbol daneben sagt es schon.
