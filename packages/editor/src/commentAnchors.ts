@@ -98,6 +98,32 @@ function at(
   }
 }
 
+/**
+ * Where a thread's text is, in editor coordinates, or null when it is gone.
+ *
+ * Exported because the application needs it for one thread — revealing the words
+ * a comment is about — and the plugin's own loop is not reachable from there.
+ * Same conversion, one place.
+ */
+export function revealRange(
+  state: EditorState,
+  thread: { from: Uint8Array; to: Uint8Array },
+): { from: number; to: number } | null {
+  const sync = ySyncPluginKey.getState(state) as
+    | { binding?: { mapping?: unknown; type?: Y.XmlFragment }; type?: Y.XmlFragment }
+    | undefined;
+  const binding = sync?.binding;
+  const type = binding?.type ?? sync?.type;
+  const doc = type?.doc;
+  if (!binding?.mapping || !type || !doc) return null;
+
+  const mapping = binding.mapping as never;
+  const from = at(doc, type, mapping, thread.from);
+  const to = at(doc, type, mapping, thread.to);
+  if (from === null || to === null || to <= from) return null;
+  return { from, to };
+}
+
 export const commentMarksKey = new PluginKey<DecorationSet>('sone-comment-marks');
 
 /**

@@ -64,6 +64,15 @@ export interface EditorOptions {
   /** Node views for atoms that mount their own renderer, e.g. collectionView. */
   nodeViews?: EditorView['props']['nodeViews'];
   /**
+   * Plugins the application supplies, appended after this package's own.
+   *
+   * The comment marks need the page's thread list, which this package has no
+   * business knowing how to read — the same reasoning as `localiseSlashItem`
+   * above. After rather than before, so a supplied plugin sees a state the
+   * editor has already set up.
+   */
+  plugins?: Plugin[];
+  /**
    * How a `/` menu item reads, in the interface's language (ADR-0041).
    *
    * Passed in rather than looked up: this package has no business knowing how
@@ -215,6 +224,10 @@ export function createEditorState(opts: EditorOptions): EditorState {
     // block instead of picking an item.
     slashMenu(opts.localiseSlashItem),
   );
+
+  // Last, so a supplied plugin sees a state this package has already set up —
+  // and so it cannot shadow a key binding the editor depends on.
+  if (opts.plugins) plugins.push(...opts.plugins);
 
   return EditorState.create({ schema, plugins });
 }

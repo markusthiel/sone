@@ -24,6 +24,7 @@ import {
   setLink,
 } from '@sone/editor';
 import { useT } from '../i18n/useT.tsx';
+import { anchorFromSelection, type CommentAnchor } from '@sone/editor';
 import { toggleMark } from 'prosemirror-commands';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
@@ -33,6 +34,13 @@ import { keepsEditorSelection } from './popup.ts';
 
 interface SelectionToolbarProps {
   view: EditorView;
+  /**
+   * Called with an anchor for the current selection (ADR-0046).
+   *
+   * Absent for somebody who may only read, which is how the button disappears
+   * rather than appearing and refusing.
+   */
+  onComment?: (anchor: CommentAnchor) => void;
   /** Bumped on every transaction, so the toolbar follows the selection. */
   revision: number;
 }
@@ -40,7 +48,11 @@ interface SelectionToolbarProps {
 const GAP = 8;
 const MARGIN = 8;
 
-export function SelectionToolbar({ view, revision }: SelectionToolbarProps): ReactElement | null {
+export function SelectionToolbar({
+  view,
+  revision,
+  onComment,
+}: SelectionToolbarProps): ReactElement | null {
   const { t } = useT();
   const [box, setBox] = useState<{ top: number; left: number; above: boolean } | null>(null);
   const [editingLink, setEditingLink] = useState(false);
@@ -222,6 +234,26 @@ export function SelectionToolbar({ view, revision }: SelectionToolbarProps): Rea
               </button>
             );
           })}
+
+          {onComment && (
+            <>
+              <span className="toolbar-divider" aria-hidden="true" />
+              <button
+                type="button"
+                className="toolbar-button"
+                title={t('comment.start')}
+                onClick={() => {
+                  const anchor = anchorFromSelection(view.state);
+                  // Null for an empty selection, which this toolbar does not
+                  // appear for — but the state can change between the render and
+                  // the press, and a comment on nothing is not worth guessing at.
+                  if (anchor) onComment(anchor);
+                }}
+              >
+                {t('comment.start')}
+              </button>
+            </>
+          )}
 
           <span className="toolbar-divider" aria-hidden="true" />
 

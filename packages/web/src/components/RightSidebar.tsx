@@ -137,6 +137,9 @@ interface RightSidebarProps {
   members: WorkspaceMember[];
   /** Scroll to a thread's text and flash it. */
   onRevealComment: (thread: CommentThread) => void;
+  /** A selection waiting for its first message, and how to drop it. */
+  pendingComment: { from: Uint8Array; to: Uint8Array; quote: string } | null;
+  onCancelPendingComment: () => void;
 }
 
 export function RightSidebar({
@@ -148,6 +151,8 @@ export function RightSidebar({
   comments,
   members,
   onRevealComment,
+  pendingComment,
+  onCancelPendingComment,
 }: RightSidebarProps): ReactElement {
   const { t } = useT();
   const [tab, setTab] = useState<RightTab>(readTab);
@@ -228,6 +233,8 @@ export function RightSidebar({
               members={members}
               canEdit={handle?.canEdit !== false}
               onReveal={onRevealComment}
+              pending={pendingComment}
+              onCancelPending={onCancelPendingComment}
             />
           )}
           {tab === 'properties' && (

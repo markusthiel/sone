@@ -72,6 +72,17 @@ export interface CommentMessage {
 
 export interface CommentThread {
   id: string;
+  /**
+   * The anchor as stored.
+   *
+   * Returned as well as resolved, because the two consumers work in different
+   * coordinate systems: this module resolves against the Yjs document, and the
+   * editor has to resolve the same bytes against ProseMirror's positions through
+   * y-prosemirror's mapping. Handing back only the resolved range would make the
+   * editor decode the document a second time to get at them.
+   */
+  from: Uint8Array;
+  to: Uint8Array;
   quote: string;
   resolved: boolean;
   resolvedBy?: string;
@@ -139,8 +150,13 @@ export function readThread(doc: Y.Doc, id: string, entry: Y.Map<unknown>): Comme
   const from = resolve(doc, entry.get(THREAD_KEYS.from));
   const to = resolve(doc, entry.get(THREAD_KEYS.to));
 
+  const fromBytes = entry.get(THREAD_KEYS.from);
+  const toBytes = entry.get(THREAD_KEYS.to);
+
   return {
     id,
+    from: fromBytes instanceof Uint8Array ? fromBytes : new Uint8Array(),
+    to: toBytes instanceof Uint8Array ? toBytes : new Uint8Array(),
     quote: asString(entry.get(THREAD_KEYS.quote)),
     resolved: entry.get(THREAD_KEYS.resolved) === true,
     ...(typeof entry.get(THREAD_KEYS.resolvedBy) === 'string'

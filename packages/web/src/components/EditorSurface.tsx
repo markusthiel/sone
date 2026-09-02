@@ -14,6 +14,10 @@ import type { PageHandle } from '@sone/client';
 import { pageContent, readStreamLink, readVideoLink } from '@sone/core';
 import {
   authorHighlightKey,
+  commentMarks,
+  revealRange,
+  type CommentAnchor,
+  type DrawnThread,
   createEditor,
   insertFileBlock,
   insertVideoBlock,
@@ -44,6 +48,10 @@ interface EditorSurfaceProps {
   handle: PageHandle;
   /** Needed to upload files, which are authorised through their page. */
   pageId: string;
+  /** The threads to mark, read by the page (ADR-0046). */
+  threads: DrawnThread[];
+  /** A selection somebody wants to comment on. */
+  onComment: (anchor: CommentAnchor) => void;
 }
 
 /**
@@ -60,7 +68,12 @@ function unplayableNotice(file: File): string {
     : `${file.name} is a format this browser cannot play (${file.type || 'unknown type'}). It is uploaded, but MP4 (H.264) or WebM is what plays everywhere.`;
 }
 
-export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElement {
+export function EditorSurface({
+  handle,
+  pageId,
+  threads,
+  onComment,
+}: EditorSurfaceProps): ReactElement {
   const { t } = useT();
   // One uploader, shared by paste, drop and the Image slash item, so all three
   // report failures the same way.
@@ -363,6 +376,47 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
   // server sends RoleChanged rather than disconnecting — and recreating the
   // view would throw away the caret and the undo stack.
   const canEditRef = useRef(handle.canEdit);
+  /**
+   * The current threads, for the marks plugin to read on every rebuild.
+   *
+   * A ref rather than a closure over the list: the editor is created once and
+   * the threads change constantly, so a captured list would be the one that
+   * existed when the page opened.
+   */
+  const threadsRef = useRef<DrawnThread[]>([]);
+  threadsRef.current = threads;
+
+  /**
+   * Scroll to a thread's text when the panel asks.
+   *
+   * A window event rather than a callback threaded down: the panel and the
+   * editor are siblings in different subtrees, and connecting two siblings by
+   * passing a function up through three components and back down is more moving
+   * parts than one named event. The panel already knows the thread's id; only
+   * the editor can turn its anchor into a position.
+   */
+  useEffect(() => {
+    const reveal = (event: Event): void => {
+      const id = (event as CustomEvent<string>).detail;
+      const found = threadsRef.current.find((thread) => thread.id === id);
+      const view = viewRef.current;
+      if (!found || !view) return;
+
+      const at = revealRange(view.state, found);
+      if (!at) return;
+
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at.from, at.to)));
+      view.focus();
+      // Into view, and not more than that: a flash would be a second thing to
+      // build and the selection already says which words.
+      view.domAtPos(at.from).node.parentElement?.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth',
+      });
+    };
+    window.addEventListener('sone:reveal-comment', reveal);
+    return () => window.removeEventListener('sone:reveal-comment', reveal);
+  }, []);
   canEditRef.current = handle.canEdit;
 
   /**
@@ -408,6 +462,14 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
     const created = createEditor(mount, {
       fragment,
       awareness: handle.awareness,
+      /*
+       * The marks under commented passages (ADR-0046).
+       *
+       * Fed from a ref rather than from a closure over the current threads:
+       * the editor is created once and the threads change constantly, so a
+       * captured list would be the one that existed when the page opened.
+       */
+      plugins: [commentMarks(() => threadsRef.current)],
       // The `/` menu's items, in this interface's language (ADR-0041). Given to
       // the plugin rather than applied when drawing, because the list is
       // filtered by what somebody typed — a German reader typing "übersch" has
@@ -632,7 +694,15 @@ export function EditorSurface({ handle, pageId }: EditorSurfaceProps): ReactElem
           )}
           <BlockMenu view={view} revision={revision} />
           <TableToolbar view={view} revision={revision} />
-          <SelectionToolbar view={view} revision={revision} />
+          {/* No comment button for somebody who may only read: commenting
+              requires edit rights until there is a role that separates them
+              (ADR-0046). A JSX comment cannot sit among attributes, which is
+              the second time this week I have tried to put one there. */}
+          <SelectionToolbar
+            view={view}
+            revision={revision}
+            {...(handle.canEdit ? { onComment } : {})}
+          />
         </>
       )}
     </>

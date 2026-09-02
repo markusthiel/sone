@@ -1168,3 +1168,35 @@ test('the page owns the comment list, not the panel', () => {
   assert.match(hook, /map\.observeDeep\(read\)/);
   assert.match(hook, /doc\.on\('update', read\)/);
 });
+
+test('a thread exists once somebody has written something', () => {
+  // Pressing Comment holds the anchor and opens the panel; the thread is created
+  // on submit. A thread with an empty first message is a highlight over nothing,
+  // and it would arrive on somebody else's screen as exactly that (ADR-0046).
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /setPendingComment\(anchor\);\s*\n\s*setRightOpen\(true\);/);
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  assert.match(panel, /comments\.start\(pending, draft\)/);
+  assert.match(panel, /disabled=\{draft\.trim\(\) === ''\}/);
+});
+
+test('the comment button is absent for somebody who may only read', () => {
+  // Absent rather than present and refusing: commenting needs edit rights until
+  // there is a role that separates them (ADR-0046).
+  const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+  assert.match(surface, /\{\.\.\.\(handle\.canEdit \? \{ onComment \} : \{\}\)\}/);
+  const toolbar = codeOf(new URL('../src/components/SelectionToolbar.tsx', import.meta.url));
+  assert.match(toolbar, /\{onComment && \(/);
+});
+
+test('the editor resolves an anchor for the page, in one place', () => {
+  // The panel knows a thread's id; only the editor can turn its anchor into a
+  // position, and the plugin's own loop is not reachable from the application.
+  const anchors = codeOf(new URL('../../editor/src/commentAnchors.ts', import.meta.url));
+  assert.match(anchors, /export function revealRange/);
+  const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+  assert.match(surface, /revealRange\(view\.state, found\)/);
+  // Fed from a ref, because the editor is created once and the threads change
+  // constantly — a captured list would be the one that existed on open.
+  assert.match(surface, /commentMarks\(\(\) => threadsRef\.current\)/);
+});

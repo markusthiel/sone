@@ -36,6 +36,9 @@ import { useComments } from './hooks/useComments.ts';
 import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
+import type { CommentThread } from '@sone/core';
+import type { CommentAnchor, DrawnThread } from '@sone/editor';
+
 import { api, type PageNode, type WorkspaceMember } from './api/client.ts';
 import { MOVED_SETTINGS, paths, type Route } from './routes/paths.ts';
 import { AcceptInvitation } from './components/AcceptInvitation.tsx';
@@ -323,6 +326,15 @@ function Workspace({
    * this whole feature is built to avoid.
    */
   const comments = useComments(handle?.doc ?? null, session.user.id);
+  /**
+   * A selection somebody has pressed Comment on, before they have written
+   * anything.
+   *
+   * Held rather than turned into a thread at once: a thread with an empty first
+   * message is a highlight over nothing, and it would arrive on somebody else's
+   * screen as exactly that.
+   */
+  const [pendingComment, setPendingComment] = useState<CommentAnchor | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -571,6 +583,15 @@ function Workspace({
             connectionState={connectionState}
             handle={handle}
             pageId={routePageId!}
+            threads={commentMarksFor(comments.threads)}
+            onComment={(anchor) => {
+              // Straight into a thread with an empty first message would be a
+              // thread with nothing in it. So the anchor is held, the panel
+              // opens, and the thread exists once somebody has actually said
+              // something (ADR-0046).
+              setPendingComment(anchor);
+              setRightOpen(true);
+            }}
             // Keeps the sidebar in step with the heading as it is typed. The
             // tree comes from the projection over HTTP, so without this it
             // showed the old name until something refetched.
@@ -661,6 +682,8 @@ function Workspace({
         onClose={() => setRightOpen(false)}
         comments={comments}
         members={members}
+        pendingComment={pendingComment}
+        onCancelPendingComment={() => setPendingComment(null)}
         onRevealComment={(thread) => {
           // Resolving a thread's range into editor coordinates is the editor's
           // job, so revealing is a message to it rather than a scroll from
@@ -922,7 +945,16 @@ function ShareSession({
           <PageStatus handle={handle} connectionState={state} />
         </div>
         {handle && effectivePageId ? (
-          <PageView handle={handle} pageId={effectivePageId} connectionState={state} />
+          <PageView
+            handle={handle}
+            pageId={effectivePageId}
+            connectionState={state}
+            // A guest sees the marks but has no panel here yet: the shared view
+            // has no right sidebar, so a comment button would open nothing. The
+            // guest's half of ADR-0046 is real and is the next slice.
+            threads={[]}
+            onComment={() => {}}
+          />
         ) : (
           <div className="page-body">
             <p className="muted">Opening…</p>
@@ -931,6 +963,22 @@ function ShareSession({
       </div>
     </div>
   );
+}
+
+/**
+ * What the editor needs to draw, from what the panel reads.
+ *
+ * The two want different shapes — the panel wants messages and quotations, the
+ * editor wants two anchors and whether to draw at all — so the page converts
+ * rather than either knowing about the other.
+ */
+function commentMarksFor(threads: CommentThread[]): DrawnThread[] {
+  return threads.map((thread) => ({
+    id: thread.id,
+    from: thread.from,
+    to: thread.to,
+    resolved: thread.resolved,
+  }));
 }
 
 /** Find a node anywhere in the tree. */

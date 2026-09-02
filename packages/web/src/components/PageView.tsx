@@ -21,6 +21,8 @@ import { useEffect, useState , type ReactElement } from 'react';
 
 import { blockFromHash } from '../routes/paths.ts';
 import { scrollToBlock } from '../hooks/useOutline.ts';
+import type { CommentAnchor, DrawnThread } from '@sone/editor';
+
 import { CanvasSurface } from './CanvasSurface.tsx';
 import { EditorSurface } from './EditorSurface.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
@@ -31,6 +33,10 @@ interface PageViewProps {
   connectionState: string;
   handle: PageHandle;
   pageId: string;
+  /** The threads to mark in the text, read by the workspace (ADR-0046). */
+  threads: DrawnThread[];
+  /** A selection somebody wants to comment on. */
+  onComment: (anchor: CommentAnchor) => void;
   /**
    * Called when the title changes, including by another client.
    *
@@ -48,6 +54,8 @@ function readIcon(value: unknown): { icon: EntryIcon | null; titleColor: string 
 
 export function PageView({
   handle,
+  threads,
+  onComment,
   pageId,
   connectionState,
   onTitleChange,
@@ -209,7 +217,12 @@ export function PageView({
         {isCanvas ? (
           <CanvasSurface handle={handle} pageId={pageId} canEdit={handle.canEdit !== false} />
         ) : (
-          <EditorSurface handle={handle} pageId={pageId} />
+          <EditorSurface
+            handle={handle}
+            pageId={pageId}
+            threads={threads}
+            onComment={onComment}
+          />
         )}
       </ErrorBoundary>
 
