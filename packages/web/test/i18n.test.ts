@@ -229,6 +229,7 @@ const MIGRATED = [
   'src/components/ExportDialog.tsx',
   'src/components/ImportDialog.tsx',
   'src/components/WorkspaceExport.tsx',
+  'src/components/InboxScreen.tsx',
 ];
 
 /**

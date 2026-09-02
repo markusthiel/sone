@@ -35,6 +35,7 @@ import { useFavourites } from './hooks/useFavourites.ts';
 import { useCommentMarkStyle } from './hooks/useCommentMarkStyle.ts';
 import { ExportDialog } from './components/ExportDialog.tsx';
 import { ImportDialog } from './components/ImportDialog.tsx';
+import { InboxScreen } from './components/InboxScreen.tsx';
 import { useComments } from './hooks/useComments.ts';
 import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
@@ -635,6 +636,11 @@ function Workspace({
         {route.kind === 'trash' && (
           <Trash workspaceId={workspaceId} onChanged={() => void reloadPages()} />
         )}
+
+        {/* The inbox spans workspaces, so it takes no workspace id — the whole
+            point is being told about a question asked somewhere other than
+            where somebody is standing (ADR-0052). */}
+        {route.kind === 'inbox' && <InboxScreen />}
 
         {route.kind === 'home' && pages.length === 0 && (
           <div className="page-body">

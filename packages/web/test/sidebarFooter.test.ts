@@ -27,7 +27,14 @@ test('the one mark says what it opens', () => {
   // out among other things.
   // Through the catalogue now (ADR-0041) — and the label still names the person,
   // which is what the message's own parameter is for.
-  assert.match(sidebar, /aria-label=\{t\('account\.label', \{ name: displayName \}\)\}/);
+  // The label says the count as well when something is waiting: a screen
+  // reader would otherwise announce the name and not the badge beside it
+  // (ADR-0052). Both forms asserted rather than the old one loosened.
+  assert.match(sidebar, /t\('account\.label', \{ name: displayName \}\)/);
+  assert.match(
+    sidebar,
+    /t\('account\.label\.waiting', \{ name: displayName, count: unread \}\)/,
+  );
 });
 
 test('the account entry carries the person, not a symbol', () => {

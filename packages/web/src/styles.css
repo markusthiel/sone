@@ -1614,6 +1614,48 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   text-decoration: underline;
 }
 
+/* --- the inbox (ADR-0052) --- */
+
+/* The count on the account button. Small and filled: this is the one thing in
+   the interface that has to be noticed without being looked for, and it is a
+   number rather than a dot because "how many" is the useful part. */
+.sidebar-unread {
+  min-inline-size: 18px;
+  margin-inline-start: auto;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: var(--sone-text-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.inbox-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sone-space-4);
+  margin-block: var(--sone-space-4);
+}
+.inbox-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.inbox-list a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sone-space-3);
+  border-radius: var(--sone-radius);
+  color: inherit;
+  text-decoration: none;
+}
+.inbox-list a:hover { background: var(--sone-bg-hover); }
+.inbox-what { font-size: var(--sone-text-sm); font-weight: 600; }
+/* Read ones stay in the list and step back rather than disappearing: an inbox
+   that hides what has been read is a list nobody can go back to. */
+.inbox-list li[data-read='true'] .inbox-what { font-weight: 400; color: var(--sone-text-muted); }
+.inbox-excerpt { font-size: var(--sone-text-sm); }
+.inbox-where { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+
 /* --- what a search was read as (ADR-0050) --- */
 
 .search-chips {

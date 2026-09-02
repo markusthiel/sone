@@ -312,6 +312,16 @@ export function DownloadIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A bell: somebody was addressed and has not seen it yet. */
+export function BellIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M6.5 10a5.5 5.5 0 0 1 11 0c0 4 1.5 5.5 1.5 5.5H5S6.5 14 6.5 10z" />
+      <path d="M10.5 19a1.8 1.8 0 0 0 3 0" />
+    </svg>
+  );
+}
+
 /** A clock, for what a page said before. */
 export function ClockIcon(props: IconProps): ReactElement {
   return (
