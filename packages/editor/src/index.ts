@@ -15,3 +15,4 @@ export * from './slashMenu.js';
 export * from './editor.js';
 export * from './authorship.js';
 export * from './authorHighlight.js';
+export * from './commentAnchors.js';
