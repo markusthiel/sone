@@ -30,6 +30,8 @@ import type { PoolClient } from 'pg';
 
 import { guestName, isGuestKey } from '@sone/core';
 
+import { writeNotifications } from '../notifications/fromComments.js';
+
 import { queryOne, queryRows } from '../db/pool.js';
 import { normaliseText } from './plainText.js';
 import { readDocument, type ReadDocument } from './readDocument.js';
@@ -308,6 +310,21 @@ export async function materializeDocument(
         parsed.comments.map((thread) => thread.lastMessageAt),
       ],
     );
+  }
+
+  /*
+   * And who has been addressed (ADR-0052).
+   *
+   * After the comment rows, from the same threads: this is the trusted side, so
+   * it happens for a comment delivered by sync, by an import, or by any path
+   * that did not exist when this was written.
+   *
+   * The threads come from `readDocument`, which resolved their anchors — but a
+   * notification does not care whether the text is still there. Somebody was
+   * asked a question either way.
+   */
+  if (parsed.comments.length > 0) {
+    await writeNotifications(db, pageId, opts.workspaceId, parsed.commentThreads);
   }
 
   if (parentChanged) {

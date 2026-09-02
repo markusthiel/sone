@@ -26,6 +26,7 @@ import {
   canvasText,
   readThreads,
   USERS_KEY,
+  type CommentThread,
 } from '@sone/core';
 import * as Y from 'yjs';
 
@@ -127,6 +128,14 @@ export interface ReadDocument {
    * storing an anchor the database cannot interpret.
    */
   comments: ReadThread[];
+  /**
+   * The threads themselves, for the notification step (ADR-0052).
+   *
+   * Beside the projected rows rather than instead of them: the rows are what the
+   * database stores, and this is what decides who was addressed — which needs
+   * the messages, and the rows deliberately do not carry them.
+   */
+  commentThreads: CommentThread[];
   /**
    * Who has writing in this page, as the document names them (ADR-0050).
    *
@@ -392,6 +401,7 @@ export function readDocument(doc: Y.Doc, pageId: string | null): ReadDocument {
     blocks: readBlocks(doc, warnings),
     canvasText: canvasText(doc),
     authorKeys: [...doc.getMap(USERS_KEY).keys()],
+    commentThreads: readThreads(doc),
     comments: readThreads(doc).map((thread) => ({
       id: thread.id,
       quote: thread.quote,
