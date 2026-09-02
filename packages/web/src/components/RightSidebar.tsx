@@ -245,6 +245,7 @@ export function RightSidebar({
               pending={pendingComment}
               onCancelPending={onCancelPendingComment}
               marks={marks}
+              pageId={pageId}
             />
           )}
           {tab === 'properties' && (

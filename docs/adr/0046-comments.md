@@ -158,6 +158,26 @@ Two controls, and they are deliberately different in kind:
   the screen they are reading on. A phone is not a desk. A preference that
   follows the account would make one of the two wrong.
 
+### Folding is remembered, per page and per browser
+
+A thread somebody folded stays folded across a reload: folding is something they
+did on purpose, and a reload undoing it is the application forgetting an
+instruction.
+
+Not in the document, for the reason the mark switch is not: it would fold a
+thread for everybody, and a page's comments are not one reader's business to
+hide. Not on the account either, because the amount of panel somebody wants on a
+phone is not the amount they want at a desk.
+
+What is stored is the set of *closed* threads, never the open ones. A thread that
+arrives while nobody is looking must be open — a new comment hidden by a
+preference set last week is a comment nobody reads.
+
+The store is bounded to the last thirty pages. Otherwise it grows for ever: every
+page anybody folds a thread on leaves an entry, and a page that has since been
+deleted leaves one that nothing can ever clean up, because nothing left knows
+what it referred to.
+
 ### Comments are visible to anybody who can read the page, including guests
 
 Which is the correct default and a hazard worth writing down: **the moment a share
