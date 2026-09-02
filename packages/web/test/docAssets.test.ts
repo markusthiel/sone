@@ -180,6 +180,7 @@ test('every tab is listed and rendered', () => {
     'files',
     'images',
     'links',
+    'comments',
     'people',
     'properties',
   ]);

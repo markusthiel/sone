@@ -18,6 +18,9 @@
  */
 
 import type { PageHandle } from '@sone/client';
+import type { CommentThread } from '@sone/core';
+
+import type { WorkspaceMember } from '../api/client.ts';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type PageDetail } from '../api/client.ts';
@@ -25,10 +28,12 @@ import { useOutline, scrollToBlock } from '../hooks/useOutline.ts';
 import { usePageTags } from '../hooks/usePageTags.ts';
 import { useTasks, type Task } from '../hooks/useTasks.ts';
 import { en, type MessageKey } from '../i18n/messages.en.ts';
+import type { CommentActions } from '../hooks/useComments.ts';
 import { useT } from '../i18n/useT.tsx';
 import { TagEditor } from './TagEditor.tsx';
 import { messageFor } from './Auth.tsx';
 import {
+  MessageIcon,
   CheckSquareIcon,
   ChevronRightIcon,
   PanelRightIcon,
@@ -44,6 +49,7 @@ import {
   type IconProps,
 } from './icons.tsx';
 import { useDocAssets } from '../hooks/useDocAssets.ts';
+import { CommentsPanel } from './CommentsPanel.tsx';
 import { Contributors } from './Contributors.tsx';
 import { highlightAuthor } from './authorHighlightBridge.ts';
 
@@ -56,6 +62,9 @@ export const RIGHT_TABS = [
   'files',
   'images',
   'links',
+  // Before people: a discussion about the page is about the page, and the list
+  // of who wrote it is about the people.
+  'comments',
   'people',
   'properties',
 ] as const;
@@ -80,6 +89,7 @@ const TABS: Record<RightTab, { label: MessageKey; Icon: (props: IconProps) => Re
   files: { label: 'panel.files', Icon: PaperclipIcon },
   images: { label: 'panel.images', Icon: ImageIcon },
   links: { label: 'panel.links', Icon: LinkIcon },
+  comments: { label: 'panel.comments', Icon: MessageIcon },
   // "People" rather than "Contributors": shorter, and it does not imply a
   // ranking of who contributed most, which this list deliberately does not
   // measure.
@@ -115,6 +125,18 @@ interface RightSidebarProps {
   workspaceId: string;
   open: boolean;
   onClose: () => void;
+  /**
+   * The page's comment threads, from the page rather than read here.
+   *
+   * The editor needs the same list to draw its marks, and two readers of one
+   * document would disagree about the moment a thread appeared — so the page
+   * owns the hook and hands it down (ADR-0046).
+   */
+  comments: CommentActions;
+  /** The workspace's people, for naming a comment's author. */
+  members: WorkspaceMember[];
+  /** Scroll to a thread's text and flash it. */
+  onRevealComment: (thread: CommentThread) => void;
 }
 
 export function RightSidebar({
@@ -123,6 +145,9 @@ export function RightSidebar({
   workspaceId,
   open,
   onClose,
+  comments,
+  members,
+  onRevealComment,
 }: RightSidebarProps): ReactElement {
   const { t } = useT();
   const [tab, setTab] = useState<RightTab>(readTab);
@@ -197,6 +222,14 @@ export function RightSidebar({
           {tab === 'files' && <FilesPanel handle={handle} />}
           {tab === 'images' && <ImagesPanel handle={handle} />}
           {tab === 'links' && <LinksPanel handle={handle} />}
+          {tab === 'comments' && (
+            <CommentsPanel
+              comments={comments}
+              members={members}
+              canEdit={handle?.canEdit !== false}
+              onReveal={onRevealComment}
+            />
+          )}
           {tab === 'properties' && (
             <PropertiesPanel pageId={pageId} handle={handle} workspaceId={workspaceId} />
           )}

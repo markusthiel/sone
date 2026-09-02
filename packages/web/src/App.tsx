@@ -32,10 +32,11 @@ import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
 import { useWorkspaceTheme } from './hooks/useWorkspaceTheme.ts';
 import { useFavourites } from './hooks/useFavourites.ts';
+import { useComments } from './hooks/useComments.ts';
 import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
-import { api, type PageNode } from './api/client.ts';
+import { api, type PageNode, type WorkspaceMember } from './api/client.ts';
 import { MOVED_SETTINGS, paths, type Route } from './routes/paths.ts';
 import { AcceptInvitation } from './components/AcceptInvitation.tsx';
 
@@ -256,6 +257,7 @@ function Workspace({
 
   const message = useMessage();
   const { t } = useT();
+
   // Whether there is anything above the fold, for the line under the bar at the
   // top (ADR-0042).
   const { scrolled, ref: mainRef } = useScrolled();
@@ -312,6 +314,31 @@ function Workspace({
   const isFolder = selected?.kind === 'folder';
   const pageId = isFolder ? null : routePageId;
   const handle = usePage(client, pageId);
+  /**
+   * The page's comment threads (ADR-0046).
+   *
+   * Owned here rather than in the panel, because the editor needs the same list
+   * to draw its marks: two readers of one document would disagree about the
+   * moment a thread appeared, and a mark over the wrong words is the failure
+   * this whole feature is built to avoid.
+   */
+  const comments = useComments(handle?.doc ?? null, session.user.id);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .members(workspaceId)
+      .then((result) => {
+        if (!cancelled) setMembers(result.members);
+      })
+      .catch(() => {
+        // Names are a nicety: a comment still reads without one.
+        if (!cancelled) setMembers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
 
   // The root redirects to the first page rather than showing an empty shell.
   useEffect(() => {
@@ -632,6 +659,19 @@ function Workspace({
         workspaceId={workspaceId}
         open={rightOpen}
         onClose={() => setRightOpen(false)}
+        comments={comments}
+        members={members}
+        onRevealComment={(thread) => {
+          // Resolving a thread's range into editor coordinates is the editor's
+          // job, so revealing is a message to it rather than a scroll from
+          // here. Nothing to do when the text is gone, and the button that
+          // would ask is disabled in that case.
+          if (thread.range) {
+            window.dispatchEvent(
+              new CustomEvent('sone:reveal-comment', { detail: thread.id }),
+            );
+          }
+        }}
       />
     </div>
   );

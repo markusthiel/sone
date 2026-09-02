@@ -1133,3 +1133,38 @@ test('marking a template is a toggle on the entry itself', () => {
   // Not offered on a folder: there is no document to copy.
   assert.match(menu, /\{!isFolder && \(/);
 });
+
+test('a detached thread keeps its place and its words', () => {
+  // Dropping it would mean somebody's objection vanishes when the text they
+  // objected to is removed — the case where the objection matters most. So it is
+  // its own group, between the open threads and the resolved ones: unfinished
+  // business, not a decision.
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  assert.ok(
+    panel.indexOf("group('comment.open'") < panel.indexOf("group('comment.detachedHeading'"),
+  );
+  assert.ok(
+    panel.indexOf("group('comment.detachedHeading'") <
+      panel.indexOf("group('comment.resolvedHeading'"),
+  );
+  // Marked rather than hidden, and the quotation is not a button when there is
+  // nowhere to go.
+  assert.match(panel, /data-detached=\{thread\.range === null \? 'true' : undefined\}/);
+  assert.match(panel, /disabled=\{thread\.range === null\}/);
+  assert.match(css, /\.comment-thread\[data-detached='true'\] \{ border-style: dashed; \}/);
+});
+
+test('the page owns the comment list, not the panel', () => {
+  // The editor needs the same list to draw its marks, and two readers of one
+  // document would disagree about the moment a thread appeared — a mark over the
+  // wrong words is the failure this feature exists to avoid.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /useComments\(handle\?\.doc \?\? null, session\.user\.id\)/);
+  assert.match(app, /comments=\{comments\}/);
+  // And the hook watches the document's updates as well as the map: an anchor
+  // resolves against the text, so a thread's range moves when the text does even
+  // though the thread itself did not change.
+  const hook = codeOf(new URL('../src/hooks/useComments.ts', import.meta.url));
+  assert.match(hook, /map\.observeDeep\(read\)/);
+  assert.match(hook, /doc\.on\('update', read\)/);
+});

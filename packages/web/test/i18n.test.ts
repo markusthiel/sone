@@ -223,6 +223,7 @@ const MIGRATED = [
   'src/components/WorkspaceMenu.tsx',
   'src/components/CanvasSurface.tsx',
   'src/components/AddEntryMenu.tsx',
+  'src/components/CommentsPanel.tsx',
 ];
 
 /**

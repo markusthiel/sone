@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A page has a Comments panel** ([ADR-0046](docs/adr/0046-comments.md)) — threads
+with replies, resolving, and a group of its own for threads whose text has been
+deleted, which keep the words they were about. Starting one from a selection comes
+next.
+
 **The document format is version 4**, for comments. A browser holding an older
 build is asked to reload.
 
