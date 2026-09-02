@@ -1601,6 +1601,31 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   .settings-row input, .settings-row select { inline-size: 100%; }
 }
 
+/* --- what a search was read as (ADR-0050) --- */
+
+.search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sone-space-2);
+  margin-block: var(--sone-space-3);
+}
+.search-chip {
+  padding: 2px var(--sone-space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+/* A filter that could not be read. Struck through rather than hidden: a search
+   that quietly ignores half of what was asked is worse than one that says which
+   half it could not use. */
+.search-chip.unreadable {
+  border-color: color-mix(in srgb, var(--danger, #b3261e) 40%, transparent);
+  color: var(--sone-text-muted);
+  text-decoration: line-through;
+}
+
 /* --- a locked page or block (ADR-0049) --- */
 
 /* A locked block, marked by the editor's own decoration.

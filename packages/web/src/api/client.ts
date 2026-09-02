@@ -347,6 +347,20 @@ export interface FavouriteEntry {
   idx: string;
 }
 
+/**
+ * The filters a search actually used.
+ *
+ * From the server rather than re-derived, because this is the version that was
+ * applied — the only one worth showing above a list of results.
+ */
+export interface AppliedFilters {
+  tags: string[];
+  authors: string[];
+  after: string | null;
+  before: string | null;
+  unreadable: Array<{ prefix: string; value: string; reason: 'not_a_date' }>;
+}
+
 export interface WorkspaceSummary {
   id: string;
   name: string;
@@ -1212,7 +1226,13 @@ export const api = {
 
   /** A name close enough to offer when a search found little (ADR-0036). */
   search: (workspaceId: string, query: string) =>
-    request<{ query: string; results: SearchResult[]; similar?: SimilarName[] }>(
+    request<{
+      query: string;
+      results: SearchResult[];
+      similar?: SimilarName[];
+      /** What the server made of the query (ADR-0050). */
+      filters?: AppliedFilters;
+    }>(
       `/api/workspaces/${workspaceId}/search?q=${encodeURIComponent(query)}`,
     ),
 

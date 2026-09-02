@@ -1649,3 +1649,22 @@ test('a single block can be locked, from where its other settings are', () => {
   assert.match(lock, /Decoration\.node\(pos, pos \+ node\.nodeSize, \{ 'data-locked': 'true' \}\)/);
   assert.match(css, /\.ProseMirror \[data-locked='true'\]/);
 });
+
+test('the chips show what the server used, not what the client guessed', () => {
+  // Both parse the query — the client has to, to decide whether to search at
+  // all — but the chips come from the response, because that is the version
+  // that was actually applied (ADR-0050).
+  const screen = codeOf(new URL('../src/components/Search.tsx', import.meta.url));
+  assert.match(screen, /setApplied\(response\.filters \?\? null\)/);
+  // A filter alone is enough to search, so the two-character gate is replaced
+  // by the shared predicate rather than sitting beside it.
+  assert.match(screen, /if \(!hasSearchCriteria\(parseSearchQuery\(query\)\)\)/);
+  assert.doesNotMatch(screen, /query\.trim\(\)\.length >= 2/);
+  assert.doesNotMatch(screen, /query\.trim\(\)\.length < 2/);
+  // An unreadable filter is struck through rather than hidden.
+  assert.match(screen, /className="search-chip unreadable"/);
+  assert.match(css, /\.search-chip\.unreadable \{[^}]*text-decoration: line-through/s);
+  // And the syntax is said once, under an empty field, rather than in a help
+  // page somebody has to find.
+  assert.match(screen, /query === '' && <p className="settings-note">\{t\('search\.syntax'\)\}/);
+});

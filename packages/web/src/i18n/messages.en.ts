@@ -578,6 +578,14 @@ export const en = {
   'search.placeholder': 'Search pages…',
   'search.folders': 'Folders',
   'search.pages': 'Pages',
+  'search.chip.tag': 'Tagged {value}',
+  'search.chip.author': 'Written by {value}',
+  'search.chip.after': 'Edited on or after {value}',
+  'search.chip.before': 'Edited on or before {value}',
+  'search.chip.notADate': 'Not a date. Use YYYY-MM-DD.',
+  'search.syntax':
+    'Narrow it by typing tag:name, author:name, after:2026-08-01 or ' +
+    'before:2026-09-01. A filter on its own works too.',
   'search.nothing': 'Nothing matched.',
   'search.didYouMean': 'Did you mean',
   'search.similar': 'Similar names',
