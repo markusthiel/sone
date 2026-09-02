@@ -1588,6 +1588,9 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 /* A thread whose text is gone. Marked, not hidden — it is unfinished business. */
 .comment-thread[data-detached='true'] { border-style: dashed; }
+/* A selection waiting for its first message: the thread does not exist yet, so
+   it is drawn as the thing being written rather than as one of the list. */
+.comment-thread[data-pending='true'] { border-color: var(--accent); }
 
 /* The words it is about, as they read when it was written. */
 .comment-quote {

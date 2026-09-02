@@ -137,19 +137,90 @@ export function CommentsPanel({
   members,
   canEdit,
   onReveal,
+  pending,
+  onCancelPending,
 }: {
   comments: CommentActions;
   members: WorkspaceMember[];
   canEdit: boolean;
   onReveal: (thread: CommentThread) => void;
+  /** A selection waiting for its first message (ADR-0046). */
+  pending: { from: Uint8Array; to: Uint8Array; quote: string } | null;
+  onCancelPending: () => void;
 }): ReactElement {
   const { t } = useT();
+  const [draft, setDraft] = useState('');
+
+  /**
+   * The selection somebody pressed Comment on, at the top and focused.
+   *
+   * The thread does not exist until this is submitted: a thread with an empty
+   * first message is a highlight over nothing, and it would arrive on somebody
+   * else's screen as exactly that.
+   */
+  const start = pending ? (
+    <section className="panel-section">
+      <div className="comment-thread" data-pending="true">
+        <p className="comment-quote" aria-hidden="true">
+          {pending.quote}
+        </p>
+        <textarea
+          className="comment-draft"
+          value={draft}
+          autoFocus
+          placeholder={t('comment.startPlaceholder')}
+          aria-label={t('comment.startPlaceholder')}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              onCancelPending();
+              setDraft('');
+              return;
+            }
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              comments.start(pending, draft);
+              setDraft('');
+              onCancelPending();
+            }
+          }}
+        />
+        <div className="comment-actions">
+          <button
+            type="button"
+            className="btn primary"
+            disabled={draft.trim() === ''}
+            onClick={() => {
+              comments.start(pending, draft);
+              setDraft('');
+              onCancelPending();
+            }}
+          >
+            {t('comment.start')}
+          </button>
+          <button
+            type="button"
+            className="btn subtle"
+            onClick={() => {
+              setDraft('');
+              onCancelPending();
+            }}
+          >
+            {t('action.cancel')}
+          </button>
+        </div>
+      </div>
+    </section>
+  ) : null;
 
   if (comments.threads.length === 0) {
     return (
-      <div className="panel-section">
-        <p className="muted">{t('comment.none')}</p>
-      </div>
+      <>
+        {start}
+        <div className="panel-section">
+          <p className="muted">{t('comment.none')}</p>
+        </div>
+      </>
     );
   }
 
@@ -177,6 +248,7 @@ export function CommentsPanel({
 
   return (
     <>
+      {start}
       {group('comment.open', comments.open)}
       {/* Between the open threads and the resolved ones, deliberately: a
           detached thread is unfinished business, not a decision. */}

@@ -145,6 +145,10 @@ describe('editor surface', () => {
       createElement(EditorSurface as never, {
         handle: await makeHandle(),
         pageId: '00000000-0000-4000-8000-000000000001',
+        // A page with no comments, which is the ordinary state and the one these
+        // tests are about (ADR-0046).
+        threads: [],
+        onComment: () => {},
       }),
     );
 
@@ -220,6 +224,8 @@ describe('editor surface', () => {
       createElement(EditorSurface as never, {
         handle: await makeHandle(),
         pageId: '00000000-0000-4000-8000-000000000002',
+        threads: [],
+        onComment: () => {},
       }),
     );
 
@@ -267,6 +273,10 @@ describe('editor surface', () => {
       createElement(EditorSurface as never, {
         handle,
         pageId: '00000000-0000-4000-8000-000000000001',
+        // A page with no comments, which is the ordinary state and the one these
+        // tests are about (ADR-0046).
+        threads: [],
+        onComment: () => {},
       }),
     );
 
@@ -295,6 +305,8 @@ describe('editor surface', () => {
       createElement(EditorSurface as never, {
         handle,
         pageId: '00000000-0000-4000-8000-000000000002',
+        threads: [],
+        onComment: () => {},
       }),
     );
 
@@ -315,6 +327,8 @@ describe('editor surface', () => {
       createElement(EditorSurface as never, {
         handle,
         pageId: '00000000-0000-4000-8000-000000000003',
+        threads: [],
+        onComment: () => {},
       }),
     );
 
@@ -355,6 +369,8 @@ describe('editor surface', () => {
       createElement(EditorSurface as never, {
         handle,
         pageId: '00000000-0000-4000-8000-0000000000aa',
+        threads: [],
+        onComment: () => {},
       }),
     );
 
