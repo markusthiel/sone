@@ -1,6 +1,7 @@
 export * from './types/index.js';
 export * from './order/fractionalIndex.js';
 export * from './doc/canvas.js';
+export * from './doc/comments.js';
 export * from './doc/docSchema.js';
 export * from './doc/blockTree.js';
 export * from './doc/tags.js';

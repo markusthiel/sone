@@ -108,6 +108,19 @@ export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [
     // same version.
     migrate: () => {},
   },
+  {
+    from: 3,
+    to: 4,
+    description: 'comments exist; a client that cannot show one must not delete the text it holds',
+    // Nothing to change, and a sharper reason than the last two.
+    //
+    // A client from before this release does not destroy a thread — it never
+    // touches the key. What it does is worse in a quieter way: it lets somebody
+    // delete a paragraph that carries an unresolved comment, sees nothing, says
+    // nothing, and leaves a detached thread quoting text that person never knew
+    // was under discussion (ADR-0046).
+    migrate: () => {},
+  },
 ];
 
 /*
