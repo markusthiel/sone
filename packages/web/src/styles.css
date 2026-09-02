@@ -3410,24 +3410,9 @@ select {
 
 .tree-link[aria-current='page'] { font-weight: 600; }
 
-.tree-new-folder {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  inline-size: 100%;
-  min-block-size: 34px;
-  margin-block-start: 6px;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: var(--sone-radius);
-  background: transparent;
-  color: var(--sone-text-muted);
-  font-size: 0.85rem;
-  text-align: start;
-  cursor: pointer;
-}
-.tree-new-folder:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
-.tree-new-folder svg { inline-size: 1em; block-size: 1em; }
+/* `.tree-new-folder` was here: the large button at the foot of the tree, now
+   replaced by the `+` on the Folders heading. Removed rather than left behind —
+   dead rules are how a stylesheet becomes impossible to reason about. */
 
 /* The sidebar's own collapse button. Hidden where the sidebar is a permanent
    column and there is nothing to reveal it again with. */
@@ -3853,7 +3838,74 @@ select {
 
 /* --- sidebar sections --- */
 
-.sidebar-section { margin-block-end: var(--sone-space-5); }
+/* A sidebar section, and the line that separates one from the next.
+ *
+ * Favourites used to run straight into the folders with only a gap between
+ * them, so a shortcut list and the tree read as one long list. A rule above
+ * each section after the first says where one ends without adding a heading's
+ * worth of weight. */
+.sidebar-section { margin-block-end: var(--sone-space-4); }
+.sidebar-section + .sidebar-section {
+  margin-block-start: var(--sone-space-4);
+  padding-block-start: var(--sone-space-4);
+  border-block-start: 1px solid var(--border-subtle);
+}
+
+.sidebar-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  padding-inline-end: 4px;
+}
+/* The whole heading is the fold, not a caret somebody has to hit precisely. */
+.sidebar-section-toggle {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 28px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.sidebar-section-toggle:hover { background: var(--sone-bg-hover); }
+.sidebar-section-toggle svg {
+  inline-size: 12px;
+  block-size: 12px;
+  color: var(--sone-text-muted);
+  transition: transform var(--motion-state, 140ms) ease;
+}
+.sidebar-section-toggle[aria-expanded='true'] svg { transform: rotate(90deg); }
+/* What is behind a closed section, so it does not read as an empty one. */
+.sidebar-section-count {
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-section-add {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+}
+.sidebar-section-add:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+.sidebar-section-add svg { inline-size: 14px; block-size: 14px; }
+
+.sidebar-empty { padding: var(--sone-space-2) var(--sone-space-3); font-size: var(--sone-text-xs); }
 
 .sidebar-label {
   margin: 0 0 var(--sone-space-1);

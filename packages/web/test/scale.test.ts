@@ -1420,3 +1420,27 @@ test('every access level the server accepts is offered by a screen', () => {
   assert.match(share, /Record<string, MessageKey>/);
   assert.doesNotMatch(share, /viewer: 'Can read'/);
 });
+
+test('both sidebar sections fold, and the tree has a heading of its own', () => {
+  // The folders simply began: no heading, so nothing to fold and nothing to hang
+  // a `+` on. A heading for each makes the two behave alike, which is the point.
+  const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+  assert.match(sidebar, /label=\{t\('sidebar\.favourites'\)\}/);
+  assert.match(sidebar, /label=\{t\('sidebar\.folders'\)\}/);
+  // The whole heading is the control, not a caret somebody has to hit precisely.
+  assert.match(sidebar, /className="sidebar-section-toggle"[\s\S]{0,200}aria-expanded=\{open\}/);
+  // A rule between sections, so a shortcut list and the tree stop reading as one
+  // long list.
+  assert.match(css, /\.sidebar-section \+ \.sidebar-section \{[^}]*border-block-start/s);
+
+  // The `+` is always drawn: a control that appears when a pointer is near it
+  // does not exist on a phone, and it is now the only way to make a folder.
+  assert.match(sidebar, /className="sidebar-section-add"/);
+  assert.doesNotMatch(sidebar, /tree-new-folder/);
+  assert.doesNotMatch(css, /^\.tree-new-folder \{/m);
+  // Which makes the empty case matter: it says where to press.
+  assert.match(sidebar, /t\('sidebar\.emptyFolders'\)/);
+
+  // Remembered per browser, for the reason the comment folds are (ADR-0046).
+  assert.match(sidebar, /localStorage\.setItem\('sone\.sidebarSections'/);
+});
