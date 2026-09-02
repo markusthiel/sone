@@ -186,3 +186,15 @@ test('comment text goes to the search index', () => {
   addMessage(doc, 't1', { id: 'm2', author: 'u-2', text: 'Chestnut.', at: 3000 });
   assert.equal(commentText(doc), 'Which brown?\nChestnut.');
 });
+
+test('a deleted thread is gone from the list, not merely resolved', () => {
+  // The half I could check when a highlight outlived its thread: whether the
+  // model still had it. It does not — which located the fault in the redraw
+  // rather than in the deletion.
+  const { doc } = docWithThread();
+  assert.equal(readThreads(doc).length, 1);
+
+  removeThread(doc, 't1');
+  assert.deepEqual(readThreads(doc), []);
+  assert.equal(threadsMap(doc).size, 0, 'and nothing is left behind in the map');
+});
