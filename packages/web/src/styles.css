@@ -1614,6 +1614,19 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   text-decoration: underline;
 }
 
+/* What a share link gives away (ADR-0046). Marked, not shouted: it is a fact
+   about the decision rather than an error, and a red banner every time would be
+   a warning nobody reads. */
+.share-warning {
+  margin: 0;
+  padding: var(--sone-space-3);
+  border: 1px solid color-mix(in srgb, var(--sone-palette-orange, #c8791f) 45%, transparent);
+  border-radius: var(--sone-radius);
+  background: color-mix(in srgb, var(--sone-palette-orange, #c8791f) 8%, transparent);
+  font-size: var(--sone-text-sm);
+  line-height: 1.5;
+}
+
 /* --- the inbox (ADR-0052) --- */
 
 /* The count on the account button. Small and filled: this is the one thing in

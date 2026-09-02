@@ -23,6 +23,13 @@ import { PagePermissions } from './PagePermissions.tsx';
 
 interface ShareDialogProps {
   pageId: string;
+  /**
+   * How many comment threads the page carries (ADR-0046).
+   *
+   * Counted by the caller, which already has the page's document open — the
+   * dialog would otherwise fetch a page it is only being asked about.
+   */
+  threadCount: number;
   pageTitle: string;
   /** For the list of people who could be given access. */
   workspaceId: string;
@@ -48,6 +55,7 @@ const MIN_PASSWORD_LENGTH = 12;
 
 export function ShareDialog({
   pageId,
+  threadCount,
   pageTitle,
   workspaceId,
   onClose,
@@ -184,6 +192,23 @@ export function ShareDialog({
         <h2 className="dialog-title">
           {t('share.heading', { title: pageTitle || t('page.untitled') })}
         </h2>
+
+        {/* What a link gives away, where the link is made (ADR-0046).
+          *
+          * The moment a share link is handed out, every existing comment on the
+          * page is visible to whoever holds it — a team that has been
+          * discussing a draft and then sends the link to a client has published
+          * that discussion.
+          *
+          * With the count, for the same reason the trash button carries one:
+          * the fact that changes the decision belongs where the decision is
+          * made. And only when there are comments, because a warning that
+          * appears every time is a warning nobody reads. */}
+        {threadCount > 0 && (
+          <p className="share-warning">
+            {t('share.commentsVisible', { count: threadCount })}
+          </p>
+        )}
 
         {error && <p className="error">{messageFor(error)}</p>}
 

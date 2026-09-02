@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The share dialog says that a link exposes the page's comments**, with how many
+([ADR-0046](docs/adr/0046-comments.md)) — because a team discussing a draft in
+comments and then sending the link to a client has published that discussion.
+
 **The right panel slides in and out** like the left sidebar does, with the same
 timing. **Fixed: a closed drawer was still reachable with the Tab key** — on both
 sides, and on the left it had been for longer.

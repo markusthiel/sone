@@ -196,7 +196,27 @@ Nothing in this record fixes that, and pretending otherwise would be worse than
 naming it. What this record requires is that the share dialog says it, in the
 place where the link is created, with the number of threads on the page — the same
 argument as the trash button carrying its count: the fact that changes the
-decision belongs where the decision is made.
+decision belongs where the decision is made. **Built**, and only when the page has
+comments: a warning that appears every time is a warning nobody reads.
+
+### Why "internal threads" is not the small feature I called it
+
+The deferred item below reads as though a flag on a thread would do it. It would
+not, and the reason is worth having here rather than discovered later.
+
+A sync room sends a client **the whole document**. A share-link visitor therefore
+receives every comment on the page as data, on their machine, before anything
+decides what to draw. A thread marked "internal" would be hidden by their
+interface and present in their browser — which is not a privacy feature, it is a
+worse one than none, because it would be believed.
+
+Doing it honestly means internal comments living in a **separate document**,
+synced only to members: a second room per page, its own place in the update log,
+its own authorisation, and a panel that reads two sources and merges them. That is
+a real piece of work and its own record — not a flag.
+
+Until then, the warning above is the honest answer: the hazard is named where the
+decision is made.
 
 An *internal* thread, invisible to guests, is the real answer and is deferred: it
 needs a visibility on a thread, a rule for what happens when the page is exported,

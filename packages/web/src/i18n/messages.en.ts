@@ -87,6 +87,10 @@ export const en = {
   'entry.unlock': 'Unlock',
   'entry.unlock.hint': 'Allow changes again.',
   'entry.export': 'Export\u2026',
+  'share.commentsVisible':
+    'Anybody with this link can read the {count} comment threads on this page. ' +
+    'A discussion held in comments becomes visible the moment the link is given ' +
+    'out.',
   'share.heading': 'Share “{title}”',
   'file.pdfAllPages': 'Open the original',
   'file.pdfDocument': 'Document, scrollable',
