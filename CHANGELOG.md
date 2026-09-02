@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Comments are searchable, and a workspace can list what is still waiting.** A
+page's threads are projected into the database, so "what has somebody asked that
+nobody has answered" is a query rather than a hunt — and the text of a discussion
+is now found by search, which is often where a decision is actually explained.
+
 **Pages can be commented on** ([ADR-0046](docs/adr/0046-comments.md)). Select some
 words, press Comment, and write. Commented passages are underlined, replies and
 resolving live in the panel beside the page, and a thread whose text somebody

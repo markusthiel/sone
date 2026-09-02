@@ -26,6 +26,12 @@ import {
   hasDatabase,
   resetDatabase,
 } from './support/db.js';
+import * as Y from 'yjs';
+
+import { addThread } from '@sone/core';
+
+import { applyToDocument } from '../src/doc/docStore.js';
+import { rematerialize } from '../src/materialize/rematerialize.js';
 import { expectJson, expectStatus } from './support/http.js';
 
 const PASSWORD = 'correct-horse-battery-staple';
@@ -184,7 +190,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     );
 
     // Nothing is offered until somebody says so.
-    let list = await expectJson<{ templates: Array<{ id: string }> }>(
+    let list = await expectJson<{ templates: Array<{ id: string; title: string }> }>(
       await fetch(`${base}/api/workspaces/${session.workspaceId}/templates`, auth(session)),
       200,
     );
@@ -247,6 +253,97 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
         auth(session, json({ parentPageId: folder, templateId: ordinary.id })),
       ),
       404,
+    );
+  });
+
+  /**
+   * Edit a page's document the way a client would, through the server's own
+   * path — so the update is stored, materialised and visible to the projection.
+   */
+  async function withDoc(
+    pageId: string,
+    mutate: (doc: Y.Doc) => void,
+    session_: Session,
+  ): Promise<void> {
+    await applyToDocument(db, pageId, mutate, null);
+    // And projected, which `applyToDocument` deliberately does not do — it
+    // writes the log and leaves the projection to its caller, because the sync
+    // room materialises on its own schedule. A test that skipped this checked
+    // the log and called it a projection.
+    await rematerialize(db, pageId, session_.workspaceId);
+  }
+
+  test('the workspace lists what is still waiting, and only what may be read', async () => {
+    // The question the projection exists for (ADR-0046): no amount of opening
+    // documents answers "what has somebody asked that nobody has answered".
+    const session = await setup();
+    const folder = await createFolder(session, 'Drafts');
+    const page = await expectJson<{ id: string }>(
+      await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/pages`,
+        auth(session, json({ title: 'A draft', parentPageId: folder })),
+      ),
+      201,
+    );
+
+    // Nothing yet, and the answer is a list rather than an error.
+    const empty = await expectJson<{ threads: unknown[] }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/comments`, auth(session)),
+      200,
+    );
+    assert.deepEqual(empty.threads, []);
+
+    // A thread, written into the document the way a client would.
+    await withDoc(
+      page.id,
+      (doc) => {
+        const text = doc.getText('probe');
+      text.insert(0, 'The quick brown fox');
+        addThread(doc, {
+          id: 'thread-1',
+          from: Y.encodeRelativePosition(Y.createRelativePositionFromTypeIndex(text, 4)),
+          to: Y.encodeRelativePosition(Y.createRelativePositionFromTypeIndex(text, 9)),
+          quote: 'quick',
+          messageId: 'msg-1',
+          author: 'guest:Anna',
+          text: 'Is it though?',
+        });
+      },
+      session,
+    );
+
+    const open = await expectJson<{
+      threads: Array<{ threadId: string; quote: string; pageTitle: string; openedBy: string }>;
+    }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/comments`, auth(session)),
+      200,
+    );
+    assert.deepEqual(
+      open.threads.map((one) => [one.threadId, one.quote, one.pageTitle, one.openedBy]),
+      [['thread-1', 'quick', 'A draft', 'guest:Anna']],
+    );
+
+    // Deleting the words it was about moves it to the other list rather than
+    // dropping it: unfinished business of a different kind.
+    await withDoc(page.id, (doc) => doc.getText('probe').delete(4, 5), session);
+
+    const stillOpen = await expectJson<{ threads: unknown[] }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/comments`, auth(session)),
+      200,
+    );
+    assert.deepEqual(stillOpen.threads, [], 'no longer in the open list');
+
+    const detached = await expectJson<{ threads: Array<{ threadId: string; quote: string }> }>(
+      await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/comments?state=detached`,
+        auth(session),
+      ),
+      200,
+    );
+    assert.deepEqual(
+      detached.threads.map((one) => [one.threadId, one.quote]),
+      [['thread-1', 'quick']],
+      'and it still says what it was about',
     );
   });
 
