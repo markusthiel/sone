@@ -26,6 +26,9 @@ interface ViewerLabels {
   loading: string;
   failed: string;
   openOriginal: string;
+  document: string;
+  previous: string;
+  next: string;
 }
 
 export interface PdfViewerHandle {
@@ -54,12 +57,49 @@ export function mountPdfViewer(
 
   const pages = document.createElement('div');
   pages.className = 'pdf-pages';
+  /*
+   * Focusable, and that is not a nicety.
+   *
+   * A `div` with `overflow-y: auto` is not in the tab order, so a keyboard could
+   * not scroll this at all — the document was readable with a mouse and a finger
+   * and by nothing else. `tabindex="0"` puts it in the order and the browser's
+   * own arrow-key scrolling then works, which is why no key handler is needed
+   * here.
+   */
+  pages.tabIndex = 0;
+  pages.setAttribute('role', 'region');
+  pages.setAttribute('aria-label', labels.document);
 
   const bar = document.createElement('div');
   bar.className = 'pdf-bar';
+
+  /*
+   * Paging controls, which ADR-0048 said were "a second way to move, not the
+   * only way" — and which I then did not build. The record described an
+   * interface that did not exist until this.
+   *
+   * A second way matters more than it sounds: scrolling a hundred pages to
+   * reach page ninety is not a thing anybody does, and on a phone the column
+   * scrolls inside a page that also scrolls.
+   */
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'pdf-step';
+  back.setAttribute('aria-label', labels.previous);
+  back.textContent = '\u2191';
+
+  const forward = document.createElement('button');
+  forward.type = 'button';
+  forward.className = 'pdf-step';
+  forward.setAttribute('aria-label', labels.next);
+  forward.textContent = '\u2193';
+
   const indicator = document.createElement('span');
   indicator.className = 'pdf-indicator';
-  bar.append(indicator);
+  // Polite, so a screen reader says "page 4 of 12" when somebody pages rather
+  // than interrupting whatever it was reading.
+  indicator.setAttribute('aria-live', 'polite');
+  bar.append(indicator, back, forward);
 
   let cancelled = false;
   let observer: IntersectionObserver | null = null;
@@ -101,8 +141,21 @@ export function mountPdfViewer(
       let current = 1;
       const say = (): void => {
         indicator.textContent = labels.pageOf(current, doc.numPages);
+        back.disabled = current <= 1;
+        forward.disabled = current >= doc.numPages;
       };
       say();
+
+      /** Scroll a page's slot to the top of the column. */
+      const goTo = (number: number): void => {
+        const target = pages.querySelector<HTMLElement>(`[data-page="${number}"]`);
+        if (!target) return;
+        // `scrollTop` rather than `scrollIntoView`: the latter scrolls every
+        // ancestor, so paging a PDF would move the page around it as well.
+        pages.scrollTop = target.offsetTop - pages.offsetTop;
+      };
+      back.addEventListener('click', () => goTo(Math.max(1, current - 1)));
+      forward.addEventListener('click', () => goTo(Math.min(doc.numPages, current + 1)));
 
       /*
        * One render at a time.
