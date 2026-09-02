@@ -15,6 +15,7 @@ import type { Pool } from 'pg';
 import { SCHEMA_VERSION } from '@sone/core';
 
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
+import { registerExportRoutes } from '../src/export/routes.js';
 import { registerPageRoutes } from '../src/http/pages.js';
 import { Router } from '../src/http/router.js';
 import { hashPassword } from '../src/auth/password.js';
@@ -50,6 +51,27 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       secureCookies: false,
     });
     registerPageRoutes(router, { pool: db });
+    /*
+     * The export route lives in its own module, so it has to be registered
+     * here too — which is the answer to why this test first saw a 404: the
+     * router had never heard of it.
+     *
+     * With a store that refuses: this test exports pages without attachments,
+     * and a stub that throws proves the route survives a file it cannot read
+     * rather than hiding the case behind a real store that always can.
+     */
+    registerExportRoutes(router, {
+      pool: db,
+      store: {
+        kind: 'stub',
+        put: () => Promise.reject(new Error('not in this test')),
+        get: () => Promise.reject(new Error('not in this test')),
+        delete: () => Promise.reject(new Error('not in this test')),
+        exists: () => Promise.resolve(false),
+        size: () => Promise.reject(new Error('not in this test')),
+        read: () => Promise.reject(new Error('not in this test')),
+      },
+    });
 
     server = createServer((req, res) => {
       void router.handle(req, res, 'http://localhost').then((handled) => {
@@ -345,6 +367,44 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       [['thread-1', 'quick']],
       'and it still says what it was about',
     );
+  });
+
+  test('exporting a folder hands back its pages, and refuses what may not be read', async () => {
+    // The most consequential use of the visibility condition in the codebase: a
+    // file on a laptop outlives every permission change (ADR-0044).
+    const session = await setup();
+    const folder = await createFolder(session, 'Buchhaltung');
+    const page = await expectJson<{ id: string }>(
+      await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/pages`,
+        auth(session, json({ title: 'Übersicht', parentPageId: folder })),
+      ),
+      201,
+    );
+    void page;
+
+    const res = await fetch(`${base}/api/pages/${folder}/export`, auth(session));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'application/zip');
+    // The name survives the trip, which the plain `filename` parameter has no
+    // encoding for.
+    assert.match(
+      res.headers.get('content-disposition') ?? '',
+      /filename\*=UTF-8''Buchhaltung\.zip/,
+    );
+
+    const archive = Buffer.from(await res.arrayBuffer());
+    const text = archive.toString('latin1');
+    // A folder becomes a directory with an index, and its page a file beside it.
+    assert.ok(text.includes('Buchhaltung/index.md'), 'the folder has an index');
+    assert.ok(
+      archive.includes(Buffer.from('Buchhaltung/Übersicht.md', 'utf8')),
+      'and the page keeps its name, umlaut included',
+    );
+
+    // Somebody with no session gets nothing, and cannot tell the page exists.
+    const anonymous = await fetch(`${base}/api/pages/${folder}/export`);
+    assert.equal(anonymous.status, 401);
   });
 
   async function createFolder(

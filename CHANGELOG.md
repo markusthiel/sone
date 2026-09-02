@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A page and everything under it can be exported** as Markdown with its
+attachments, in one archive ([ADR-0044](docs/adr/0044-import-export.md)).
+`?attachments=false` leaves the files out. A button for it comes next; the whole
+workspace needs the job runner the record describes.
+
 **A page has a History panel** ([ADR-0047](docs/adr/0047-page-history.md)): the
 moments it was kept at, who wrote in between, and what it said — read in place of
 the page, with a way back to now. A version is taken when a sitting ends and
