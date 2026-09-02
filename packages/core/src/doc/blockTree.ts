@@ -178,7 +178,24 @@ function inlineText(element: Y.XmlElement, depth = 0): string {
   for (let i = 0; i < element.length; i++) {
     const child: unknown = element.get(i);
     if (child instanceof Y.XmlText) {
-      parts.push(child.toString());
+      /*
+       * The delta, not `toString()`.
+       *
+       * `Y.XmlText.toString()` *serialises* — a bold word comes back as
+       * `<strong>bold</strong>`. So every mark in the document has been going
+       * into the search index as literal tags, which is why searching for
+       * "strong" matched half a workspace and why a word at the start of a bold
+       * run could not be found at all. Reading a past version showed it plainly
+       * for the first time; the projection had been wrong since it was written.
+       */
+      parts.push(
+        child
+          .toDelta()
+          .map((op: { insert?: unknown }) =>
+            typeof op.insert === 'string' ? op.insert : '',
+          )
+          .join(''),
+      );
     } else if (child instanceof Y.XmlElement) {
       // A child carrying a block id is a block, not inline content.
       if (child.getAttribute(BLOCK_ATTRS.id)) continue;
@@ -244,6 +261,9 @@ export function readBlockTree(doc: Y.Doc): TreeReadResult {
       const child: unknown = container.get(i);
 
       if (child instanceof Y.XmlText) {
+        // Its own text, not the container's: this branch is about *this* stray
+        // node. My first edit reached for the enclosing element, which would
+        // have reported loose text whenever the block had any at all.
         if (child.toString().trim() !== '') {
           // Text with no owning block cannot be materialised or edited
           // coherently. Reported so it is visible rather than silently dropped.

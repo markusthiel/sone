@@ -1234,10 +1234,16 @@ test('a thread is not a bullet, and a filled button keeps its colour', () => {
   // Two things from one screenshot. `list-style: none` was missing, so every
   // thread had a bullet outside its card and an indent to make room for it.
   assert.match(css, /\.comment-list \{[^}]*list-style: none/s);
-  // And the generic hover came after the primary rule with the same specificity,
-  // so it won on order: near-white text on pale grey, which reads as an empty
-  // box rather than a button.
+  // One hover rule for buttons without a colour of their own, and *one*: there
+  // were two, twenty lines apart, and patching the second left the first
+  // winning — `button.btn:hover` outranks `button.btn.primary`, so a filled
+  // button went pale grey with near-white text on it and read as an empty box.
   assert.match(css, /button\.btn:not\(\.primary\):hover:not\(:disabled\)/);
+  assert.equal(
+    [...css.matchAll(/^button\.btn(?::not\(\.primary\))?:hover/gm)].length,
+    1,
+    'exactly one hover rule for an uncoloured button',
+  );
 });
 
 test('the marks are redrawn by whatever noticed the change', () => {
