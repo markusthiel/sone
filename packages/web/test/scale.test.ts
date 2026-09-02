@@ -1097,3 +1097,20 @@ test('the entry menu is ordered by how often and how permanent', () => {
   // in the band instead of two.
   assert.match(menu, /\{isFolder && \(\s*\n\s*<div className="entry-menu-new">/);
 });
+
+test('one boundary, one line', () => {
+  // The appearance block drew its own top border from when it sat in the middle
+  // of the menu and nothing else separated groups. With the menu drawing its own
+  // boundaries that became a second line a pixel under the first — two rules for
+  // one boundary, which is what to look for whenever a divider appears doubled.
+  assert.doesNotMatch(css, /\.entry-appearance \{[^}]*border-block-start/s);
+});
+
+test('the trash says what it is and how much, not what it does', () => {
+  // "Move to the trash, with 2 entries inside" wrapped to two lines on a phone.
+  // The count stays — it is what decides whether somebody opens the confirmation
+  // at all — and the verb goes, because the mark beside it already says it.
+  const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
+  assert.match(en, /'entry\.delete': 'Trash',/);
+  assert.match(en, /'entry\.deleteWithChildren': 'Trash, \{count, plural/);
+});
