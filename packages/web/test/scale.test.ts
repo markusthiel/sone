@@ -1255,10 +1255,21 @@ test('the marks are redrawn by whatever noticed the change', () => {
 
 test('a thread folds, and so do all of them', () => {
   const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
-  // A set of the *closed* ones, so a thread that arrives while somebody is
-  // reading is open — a new comment appearing folded is a comment nobody
-  // notices, which is the opposite of what a comment is for.
-  assert.match(panel, /const \[closed, setClosed\] = useState<Set<string>>/);
+  // Remembered per page, in the browser: folding is something somebody did on
+  // purpose, and a reload undoing it is the application forgetting an
+  // instruction. Not in the document — that would fold a thread for everybody.
+  const folded = codeOf(new URL('../src/hooks/useFoldedThreads.ts', import.meta.url));
+  assert.match(panel, /useFoldedThreads\(\s*\n?\s*pageId,/);
+  assert.match(folded, /localStorage\.setItem\(KEY, JSON\.stringify\(all\)\)/);
+  // A set of the *closed* ones, so a thread that arrives while nobody is
+  // looking is open — a new comment hidden by last week's preference is a
+  // comment nobody reads.
+  assert.match(folded, /const \[closed, setClosed\] = useState<Set<string>>/);
+  // Bounded, or it grows for ever: a deleted page leaves an entry nothing can
+  // clean up.
+  assert.match(folded, /MAX_PAGES/);
+  // And ids for threads that no longer exist are not written back.
+  assert.match(folded, /\.filter\(\(id\) => existing\.includes\(id\)\)/);
   assert.match(panel, /aria-expanded=\{open\}/);
   // Closed, the first message stays: a thread showing only its quotation says
   // what is being discussed and not what was said about it.

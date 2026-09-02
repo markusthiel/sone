@@ -22,6 +22,7 @@ import {
   type CommentMarkStyle,
 } from '../hooks/useCommentMarkStyle.ts';
 import type { CommentActions } from '../hooks/useComments.ts';
+import { useFoldedThreads } from '../hooks/useFoldedThreads.ts';
 import { CheckSquareIcon, ChevronRightIcon, TrashIcon } from './icons.tsx';
 
 /** A person's name, or what can honestly be said instead. */
@@ -193,6 +194,7 @@ export function CommentsPanel({
   pending,
   onCancelPending,
   marks,
+  pageId,
 }: {
   comments: CommentActions;
   members: WorkspaceMember[];
@@ -207,26 +209,25 @@ export function CommentsPanel({
     hidden: boolean;
     setHidden: (hidden: boolean) => void;
   };
+  /** Which page's folding is being remembered. */
+  pageId: string | null;
 }): ReactElement {
   const { t } = useT();
   const [draft, setDraft] = useState('');
 
   /**
-   * Which threads are open.
+   * Which threads are folded, remembered per page (ADR-0046).
    *
-   * A set of the *closed* ones rather than the open ones, so a thread that
-   * arrives while somebody is reading is open — a new comment appearing folded
-   * would be a comment nobody notices, which is the opposite of what a comment
-   * is for.
+   * Folding is something somebody did on purpose, and a reload undoing it is
+   * the application forgetting an instruction. Kept in the browser rather than
+   * in the document — a switch stored there would fold a thread for everybody —
+   * and the set is of the *closed* ones, so a thread that arrives while nobody
+   * is looking is open.
    */
-  const [closed, setClosed] = useState<Set<string>>(new Set());
-  const toggle = (id: string): void =>
-    setClosed((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const { closed, toggle, setAll } = useFoldedThreads(
+    pageId,
+    comments.threads.map((thread) => thread.id),
+  );
   const allClosed = comments.threads.length > 0 && closed.size === comments.threads.length;
 
   /**
@@ -353,11 +354,7 @@ export function CommentsPanel({
           <button
             type="button"
             className="btn subtle comment-fold-all"
-            onClick={() =>
-              setClosed(
-                allClosed ? new Set() : new Set(comments.threads.map((thread) => thread.id)),
-              )
-            }
+            onClick={() => setAll(!allClosed)}
           >
             {allClosed ? t('comment.expandAll') : t('comment.collapseAll')}
           </button>
