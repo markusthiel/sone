@@ -1237,14 +1237,20 @@ test('a thread is not a bullet, and a filled button keeps its colour', () => {
   assert.match(css, /button\.btn:not\(\.primary\):hover:not\(:disabled\)/);
 });
 
-test('changing how much is marked takes effect at once', () => {
-  // The refs alone were not enough, and the omission made every switch look
-  // dead: the plugin rebuilds its decorations on a transaction, and changing a
-  // ref is not one. So the marks stayed as they were drawn on load, and
-  // switching from highlighted to underlined did nothing until a reload.
+test('the marks are redrawn by whatever noticed the change', () => {
+  // Decorations rebuild on a transaction, and neither a ref nor a prop is one.
+  // The style is React state, so an effect is right for it. The threads are in
+  // the document, and a change there produces no editor transaction at all — so
+  // the hook that noticed says so, and the editor listens. Keyed on a prop, a
+  // deleted thread kept its highlight until a reload.
+  const hook = codeOf(new URL('../src/hooks/useComments.ts', import.meta.url));
+  assert.match(hook, /new CustomEvent\('sone:comments-changed'\)/);
+
   const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+  assert.match(surface, /addEventListener\('sone:comments-changed', nudge\)/);
+  assert.match(surface, /removeEventListener\('sone:comments-changed', nudge\)/);
   assert.match(surface, /setMeta\(commentMarksKey, true\)/);
-  assert.match(surface, /\}, \[threads, markStyle\]\)/);
+  assert.match(surface, /\}, \[markStyle\]\)/);
 });
 
 test('a thread folds, and so do all of them', () => {

@@ -394,19 +394,30 @@ export function EditorSurface({
   markStyleRef.current = markStyle;
 
   /*
-   * Tell the editor when either has changed.
+   * Redraw the marks when the threads or the style change.
    *
-   * The refs alone were not enough and the omission made every switch look
-   * dead: the plugin rebuilds its decorations on a transaction, and changing a
-   * ref is not one. So the marks stayed exactly as they were drawn when the page
-   * loaded, which is why switching from highlighted to underlined appeared to do
-   * nothing until a reload.
+   * The plugin rebuilds its decorations on a transaction, and neither a ref nor
+   * a prop is one — so something has to dispatch. Two triggers, because there
+   * are two kinds of change and they arrive by different routes:
+   *
+   * The style is React state and arrives as a prop, so an effect is right.
+   *
+   * The threads are in the document, and a change there produces no editor
+   * transaction at all — the body did not change, only a map beside it. That
+   * used to be an effect on the threads prop too, and deleting a thread left its
+   * highlight in the text until a reload. So the hook that noticed the document
+   * change says so directly, and this listens.
    */
   useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    view.dispatch(view.state.tr.setMeta(commentMarksKey, true));
-  }, [threads, markStyle]);
+    const nudge = (): void => {
+      const view = viewRef.current;
+      if (!view) return;
+      view.dispatch(view.state.tr.setMeta(commentMarksKey, true));
+    };
+    nudge();
+    window.addEventListener('sone:comments-changed', nudge);
+    return () => window.removeEventListener('sone:comments-changed', nudge);
+  }, [markStyle]);
 
   /**
    * Scroll to a thread's text when the panel asks.

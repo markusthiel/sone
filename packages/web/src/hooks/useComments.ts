@@ -57,7 +57,24 @@ export function useComments(doc: Y.Doc | null, author: string): CommentActions {
       return;
     }
     const map = threadsMap(doc);
-    const read = (): void => setThreads(readThreads(doc));
+    const read = (): void => {
+      setThreads(readThreads(doc));
+      /*
+       * And tell the editor, from here rather than from a React effect.
+       *
+       * The marks are decorations, and decorations rebuild on a transaction —
+       * so something has to dispatch one when a thread appears or goes. I had
+       * that in an effect keyed on the threads prop, and deleting a thread left
+       * its highlight in the text until a reload: the effect depends on props
+       * reaching the editor and on my being right about when React re-renders,
+       * and I was not able to say which of those failed.
+       *
+       * This does not depend on either. The document changed, so the thing that
+       * noticed says so — the same channel the panel already uses to ask for a
+       * passage to be revealed.
+       */
+      window.dispatchEvent(new CustomEvent('sone:comments-changed'));
+    };
     read();
     map.observeDeep(read);
     // The anchors resolve against the document, so a thread's *range* changes

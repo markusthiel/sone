@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: deleting a comment left its highlight in the text** until the page was
+reloaded.
+
 **Commented passages are marked**, and how much is up to the reader:
 highlighted, underlined, or not at all, with a switch in the comments panel to
 turn them off for the page you are reading. **Threads fold**, one at a time or all
