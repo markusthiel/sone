@@ -5,6 +5,8 @@
 -- reaches back to the last compaction and no further. A history built on it
 -- would silently end minutes ago, which is worse than none because somebody
 -- would trust it.
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS page_versions (
   id           bigserial PRIMARY KEY,
   doc_id       uuid NOT NULL REFERENCES pages (id) ON DELETE CASCADE,
@@ -25,3 +27,8 @@ CREATE TABLE IF NOT EXISTS page_versions (
 
 CREATE INDEX IF NOT EXISTS page_versions_doc_idx
   ON page_versions (doc_id, taken_at DESC);
+
+INSERT INTO schema_migrations (version) VALUES ('0034_page_versions')
+  ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

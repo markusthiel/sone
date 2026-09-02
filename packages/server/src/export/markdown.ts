@@ -164,7 +164,11 @@ function props(block: ExportBlock): Record<string, unknown> {
  */
 export function fileNameFor(title: string, fallback: string): string {
   const cleaned = (title || fallback)
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+    // The control range written as an explicit class rather than a range with
+    // literal control characters in the source, which lint refuses for the good
+    // reason that they are invisible in a diff.
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\\/:*?"<>|]|[\u0000-\u001f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/^\.+/, '')

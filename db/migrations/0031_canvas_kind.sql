@@ -22,3 +22,6 @@ COMMENT ON COLUMN pages.kind IS
   'rather than places and are not shown in the tree.';
 
 COMMIT;
+
+INSERT INTO schema_migrations (version) VALUES ('0031_canvas_kind')
+  ON CONFLICT (version) DO NOTHING;

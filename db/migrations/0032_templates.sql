@@ -7,9 +7,16 @@
 -- Not null with a default, unlike `width`: here there is no third state. A page
 -- either is offered as a template or is not, and nobody needs to distinguish
 -- "not a template" from "nobody has said".
+BEGIN;
+
 ALTER TABLE pages
   ADD COLUMN IF NOT EXISTS template boolean NOT NULL DEFAULT false;
 
 -- The list is read per workspace, and it is short.
 CREATE INDEX IF NOT EXISTS pages_templates_idx
   ON pages (workspace_id) WHERE template AND archived_at IS NULL;
+
+INSERT INTO schema_migrations (version) VALUES ('0032_templates')
+  ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

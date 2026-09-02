@@ -7,6 +7,8 @@
 --
 -- Rebuildable and never authoritative, like every other projection here — the
 -- materialiser replaces a page's rows wholesale rather than diffing them.
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS page_comments (
   page_id       uuid NOT NULL REFERENCES pages (id) ON DELETE CASCADE,
   -- The thread's id from the document. Not a serial: the document names it, and
@@ -34,3 +36,8 @@ CREATE TABLE IF NOT EXISTS page_comments (
 -- to pages carries the workspace, so the index is on what filters first.
 CREATE INDEX IF NOT EXISTS page_comments_open_idx
   ON page_comments (page_id) WHERE NOT resolved;
+
+INSERT INTO schema_migrations (version) VALUES ('0033_comments')
+  ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

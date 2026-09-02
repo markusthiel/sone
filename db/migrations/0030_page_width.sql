@@ -10,6 +10,13 @@
 -- 'column' written into every row: an instance that later changes its mind
 -- about the default would have to distinguish rows nobody chose for from rows
 -- somebody chose the old default for, and by then it cannot.
+BEGIN;
+
 ALTER TABLE pages
   ADD COLUMN IF NOT EXISTS width text
     CHECK (width IS NULL OR width IN ('column', 'full'));
+
+INSERT INTO schema_migrations (version) VALUES ('0030_page_width')
+  ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
