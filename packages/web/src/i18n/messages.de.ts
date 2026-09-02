@@ -781,7 +781,6 @@ export const de: Record<keyof typeof en, string> = {
   'comment.expand': 'Diesen Verlauf öffnen',
   'comment.collapseAll': 'Alle zuklappen',
   'comment.expandAll': 'Alle öffnen',
-  'comment.showMarks': 'Kommentierte Stellen markieren',
   'comment.markStyle': 'Wie sie markiert werden',
   'comment.mark.highlight': 'Farbig hinterlegt',
   'comment.mark.underline': 'Unterstrichen',

@@ -587,7 +587,7 @@ function Workspace({
             handle={handle}
             pageId={routePageId!}
             threads={commentMarksFor(comments.threads)}
-            markStyle={marks.effective}
+            markStyle={marks.style}
             onComment={(anchor) => {
               // Straight into a thread with an empty first message would be a
               // thread with nothing in it. So the anchor is held, the panel
