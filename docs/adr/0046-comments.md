@@ -85,6 +85,66 @@ label, while an unsigned comment is a different thing from a signed one.
 A guest with a share link that permits commenting is recorded by the name they
 gave, using the same `guest:` key as ADR-0022, and shown as a guest.
 
+### A guest can comment, under the name they gave
+
+A share link that grants editing grants commenting, and the guest's messages
+carry the `guest:` key from ADR-0022 — the name they typed when the link asked
+for one — shown beside the name as *guest*, as in the people panel.
+
+That is the whole point of a comment from somebody without an account: a review
+by a client, a contractor or a colleague from another company is the case comments
+exist for, and forcing an account first is how a review does not happen.
+
+The name is self-declared and unverified. It is displayed as a guest's name and
+never as a member's, which is what the prefix is for, and the same merge applies:
+two guests who type the same name are one identity. On a comment thread that is
+more visible than it is in the people panel — two people called Anna answering
+each other under one label — and it is still the honest outcome of an identity
+nobody verified. A per-session id would list one reconnecting person twice, which
+in a conversation is worse.
+
+### A guest can be addressed, but not notified, and the difference is stated
+
+Asked for, and the answer has two halves.
+
+**Replying to a message is how anybody is addressed.** A reply quotes the message
+it answers, works for members and guests alike, needs no identity beyond what the
+message already carries, and cannot address the wrong person. This is the
+mechanism, and it should be built first for that reason.
+
+**A mention of a guest is a label, not a delivery.** A member has an account, an
+address and (soon) an inbox. A guest has none of those: there is nowhere to send
+anything, and while their session is open they are already looking at the page.
+So `@` on a guest highlights the name and links to what they wrote — and must not
+be styled or worded like a mention that reaches somebody.
+
+That distinction has to be visible in the interface rather than only true in the
+code, because a mention that looks like it will reach somebody and does not is
+worse than no mention: the person who wrote it believes the question has been
+asked. So a guest mention says so — it names them as a guest, and there is no
+"notified" state to imply otherwise.
+
+`@` therefore offers members first, and guests who have written on *this page*
+second. Not every guest who ever held a link: a list of self-declared names from
+strangers is not an address book.
+
+### Comments are visible to anybody who can read the page, including guests
+
+Which is the correct default and a hazard worth writing down: **the moment a share
+link is given out, every existing comment on that page becomes visible to whoever
+holds it.** A team that has been discussing a draft in comments and then sends the
+link to a client has published that discussion.
+
+Nothing in this record fixes that, and pretending otherwise would be worse than
+naming it. What this record requires is that the share dialog says it, in the
+place where the link is created, with the number of threads on the page — the same
+argument as the trash button carrying its count: the fact that changes the
+decision belongs where the decision is made.
+
+An *internal* thread, invisible to guests, is the real answer and is deferred: it
+needs a visibility on a thread, a rule for what happens when the page is exported,
+and a way to see at a glance which threads are which. Named as intended.
+
 ### A message is plain text with mentions, not a document
 
 One text field. No blocks, no nesting, no slash menu.
@@ -113,8 +173,8 @@ usually not the person who complained about it.
 
 ### Commenting requires edit rights, for now
 
-No new role in this record. Anybody who may edit a page may comment on it; a
-read-only share link cannot.
+No new role in this record. Anybody who may edit a page may comment on it — member
+or guest — and a read-only share link cannot.
 
 A "may comment but not edit" role is genuinely wanted — it is how a document goes
 out for review — and it is not free: it touches page permissions (ADR-0026),
@@ -128,6 +188,9 @@ Named here as the intended next step, with the reason it is not this step.
 
 **Notifications and an inbox.** The next record, and a prerequisite for mentions
 being more than a highlight.
+
+**Internal threads, invisible to guests.** Decided above to be the real answer to
+the disclosure hazard, and deferred with its own requirements.
 
 **Comments on a canvas item.** The anchor there is an item id, which is a far
 simpler problem than a text range — deliberately left until the text case is
