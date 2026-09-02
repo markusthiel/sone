@@ -22,6 +22,7 @@ import { canEdit } from '../auth/claims.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { readBinary } from '../files/routes.js';
 import { claimsOrNull, sessionTokenFrom } from '../http/auth.js';
+import type { FileStore } from '../files/store.js';
 import type { Router } from '../http/router.js';
 import { executePlan } from './execute.js';
 import { planImport, type Existing, type ImportPlan } from './plan.js';
@@ -29,6 +30,8 @@ import { ArchiveError, unzip } from './unzip.js';
 
 export interface ImportDeps {
   pool: Pool;
+  /** Where an archive's files go. */
+  store: FileStore;
   /** The same limit uploads use: an archive is an upload by any other name. */
   maxUploadBytes: number;
 }
@@ -122,11 +125,18 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
     return { byPath };
   };
 
-  const readPlan = async (
+  /**
+   * The archive, as a plan and as its files.
+   *
+   * Both from one read, because the entries are already in hand: planning and
+   * uploading from two separate unzips of the same bytes would be two chances
+   * to disagree about what the archive contained.
+   */
+  const readArchive = async (
     ctx: Parameters<Parameters<typeof router.post>[1]>[0],
     workspaceId: string,
     parentPageId: string,
-  ): Promise<ImportPlan | null> => {
+  ): Promise<{ plan: ImportPlan; attachments: Map<string, Buffer> } | null> => {
     const body = await readBinary(ctx.req, deps.maxUploadBytes);
     if (body === 'too_large') {
       ctx.fail(413, 'too_large');
@@ -134,7 +144,17 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
     }
 
     try {
-      return planImport(unzip(body), await existingUnder(workspaceId, parentPageId));
+      const entries = unzip(body);
+      const attachments = new Map<string, Buffer>();
+      for (const entry of entries) {
+        if (!entry.name.startsWith('attachments/')) continue;
+        const name = entry.name.slice('attachments/'.length);
+        if (name !== '') attachments.set(name, entry.body);
+      }
+      return {
+        plan: planImport(entries, await existingUnder(workspaceId, parentPageId)),
+        attachments,
+      };
     } catch (error) {
       if (error instanceof ArchiveError) {
         // The parser's own code, so the interface can say *why* rather than
@@ -153,8 +173,9 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
     const target = await destination(ctx, pageId);
     if (!target) return;
 
-    const plan = await readPlan(ctx, target.workspaceId, pageId);
-    if (!plan) return;
+    const read = await readArchive(ctx, target.workspaceId, pageId);
+    if (!read) return;
+    const plan = read.plan;
 
     ctx.send(200, {
       // Without the bodies: a plan is read to be looked at, and the Markdown of
@@ -168,15 +189,11 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
       attachments: plan.attachments,
       skipped: plan.skipped,
       totals: plan.totals,
-      /*
-       * Files are not imported yet, said in the plan rather than discovered
-       * afterwards.
-       *
-       * They need an upload per file into the store and every link in every
-       * page rewritten to the new ids — the plan counts them so the number is
-       * honest, and this flag is what stops the count from implying they arrive.
-       */
-      attachmentsImported: false,
+      // They are, now: each one is stored and every link rewritten to the id it
+      // became. The flag stays because the interface reads it, and because an
+      // archive whose files this instance cannot store — an unrecognisable type
+      // — still leaves a picture drawn as missing rather than silently absent.
+      attachmentsImported: true,
     });
   });
 
@@ -190,14 +207,16 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
       ? 'duplicate'
       : 'skip';
 
-    const plan = await readPlan(ctx, target.workspaceId, pageId);
-    if (!plan) return;
+    const read = await readArchive(ctx, target.workspaceId, pageId);
+    if (!read) return;
 
-    const result = await executePlan(deps.pool, plan, {
+    const result = await executePlan(deps.pool, read.plan, {
       workspaceId: target.workspaceId,
       parentPageId: pageId,
       actorId: target.actorId,
       onCollision: collision,
+      store: deps.store,
+      attachments: read.attachments,
     });
 
     // 200 even with failures in it: the pages that arrived did arrive, and a

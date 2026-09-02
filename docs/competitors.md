@@ -105,7 +105,7 @@ runner.
 
 **Export and import are built for a page and its subtree** — Markdown plus
 attachments out, an archive with a previewed plan in. Still to come: the whole
-workspace, which needs the job runner, and carrying attachments *back* in.
+workspace, which needs the job runner.
 
 Export is an ownership question, not a convenience: a self-hosted tool that
 cannot hand back its contents in an open format is asking for the same trust the

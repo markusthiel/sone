@@ -80,6 +80,9 @@ export const en = {
     'Nothing existing is replaced. Without this, a page whose name is already ' +
     'there is left alone and the archive\u2019s copy is not imported.',
   'import.skipped': '{count} files will not be imported',
+  'import.attachments':
+    '{count} files come with it. A file whose kind cannot be recognised is left ' +
+    'out, and the picture that used it shows as missing.',
   'import.attachmentsNotYet':
     'The {count} files in this archive are not imported yet, and the links to ' +
     'them will point nowhere.',

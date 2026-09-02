@@ -293,7 +293,11 @@ async function main(): Promise<void> {
 
   // Reading an archive in (ADR-0044). The plan and the execution are separate
   // routes so that nothing is written before somebody has seen what would be.
-  registerImportRoutes(router, { pool, maxUploadBytes: config.maxUploadBytes });
+  registerImportRoutes(router, {
+    pool,
+    store: fileStore,
+    maxUploadBytes: config.maxUploadBytes,
+  });
 
   registerFileRoutes(router, {
     pool,

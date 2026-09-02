@@ -98,6 +98,38 @@ export function markdownToBlocks(markdown: string): ParsedBlock[] {
       continue;
     }
 
+    /*
+     * A picture on its own line, which is what the export writes.
+     *
+     * Before the list patterns, because `![alt](x)` starts with no marker but a
+     * line like `- ![alt](x)` would otherwise become a bullet holding literal
+     * Markdown. And an image needs to be an `image` block rather than a
+     * paragraph: as a paragraph it arrives as the characters `![…]`, which is
+     * how an imported page ends up describing its own pictures instead of
+     * showing them.
+     */
+    const image = /^!\[([^\]]*)\]\((.*?)\)\s*$/.exec(line.trim());
+    if (image) {
+      at += 1;
+      const target = image[2] ?? '';
+      const attachment = /^attachments\/(.+)$/.exec(target);
+      blocks.push({
+        type: 'image',
+        text: '',
+        props: attachment
+          // The archive's own id, which the importer maps to the file it
+          // uploads. An `attachmentRef` rather than a `fileId`, so a block that
+          // was never resolved is visibly unresolved instead of pointing at a
+          // file id that means nothing here.
+          ? { alt: image[1] ?? '', attachmentRef: attachment[1] }
+          // A picture somewhere else on the web. Kept as it was: rewriting it
+          // would mean downloading somebody else's server on import.
+          : { alt: image[1] ?? '', url: target },
+        indent: 0,
+      });
+      continue;
+    }
+
     const todo = /^(\s*)[-*+]\s+\[([ xX])\]\s+(.*)$/.exec(line);
     if (todo) {
       at += 1;

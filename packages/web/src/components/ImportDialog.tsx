@@ -180,9 +180,11 @@ export function ImportDialog({
               </details>
             )}
 
-            {plan.attachments.length > 0 && !plan.attachmentsImported && (
+            {plan.attachments.length > 0 && (
               <p className="settings-note">
-                {t('import.attachmentsNotYet', { count: plan.attachments.length })}
+                {plan.attachmentsImported
+                  ? t('import.attachments', { count: plan.attachments.length })
+                  : t('import.attachmentsNotYet', { count: plan.attachments.length })}
               </p>
             )}
 
