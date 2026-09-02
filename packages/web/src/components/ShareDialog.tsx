@@ -13,6 +13,7 @@
  * it, whether it covers subpages, and how many people are using it right now.
  */
 
+import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
@@ -28,10 +29,18 @@ interface ShareDialogProps {
   onClose: () => void;
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  viewer: 'Can read',
-  commenter: 'Can read and comment',
-  editor: 'Can edit',
+/**
+ * What a link allows, keyed by the role the server stores.
+ *
+ * Keys rather than sentences, and the *same* keys the page-permissions screen
+ * uses: these were English strings in a translated interface — a Record of
+ * plain values, which is why the translation guard did not see them — and two
+ * lists of role names would eventually disagree about what a role allows.
+ */
+const ROLE_LABELS: Record<string, MessageKey> = {
+  viewer: 'access.viewer',
+  commenter: 'access.commenter',
+  editor: 'access.editor',
 };
 
 /** The minimum the server enforces, stated here so it is not discovered. */
@@ -209,7 +218,7 @@ export function ShareDialog({
             >
               {Object.entries(ROLE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(label)}
                 </option>
               ))}
             </select>
@@ -282,7 +291,14 @@ export function ShareDialog({
           {links?.map((link) => (
             <div className="admin-row" key={link.id}>
               <div className="admin-row-main">
-                <span className="admin-name">{ROLE_LABELS[link.role] ?? link.role}</span>
+                <span className="admin-name">
+                  {/* The raw value when the server sends a role this build does
+                      not know: a name nobody can read beats a blank. */}
+                  {(() => {
+                    const key = ROLE_LABELS[link.role];
+                    return key ? t(key) : link.role;
+                  })()}
+                </span>
                 <span className="admin-meta">
                   {link.includeSubtree ? 'with subpages' : 'this page only'}
                   {link.hasPassword && ' · password'}

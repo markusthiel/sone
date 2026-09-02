@@ -651,6 +651,7 @@ export const de: Record<keyof typeof en, string> = {
   'role.guest.hint': 'Sieht nur, worauf ausdrücklich Zugriff gegeben wurde',
   'role.owner': 'Besitzer',
   'access.viewer': 'Darf lesen',
+  'access.commenter': 'Darf lesen und kommentieren',
   'access.editor': 'Darf bearbeiten',
   'access.admin': 'Darf verwalten',
   'access.from': '{level} · über {source}',

@@ -1390,3 +1390,33 @@ test('a version is drawn with the block names that exist', () => {
   // And the level comes from the block's own props, which the server now sends.
   assert.match(view, /Number\(block\.props\?\.\['level'\] \?\? 1\)/);
 });
+
+test('every access level the server accepts is offered by a screen', () => {
+  // The gap ADR-0046 got wrong: the role existed in the model — `share_role` has
+  // been an enum of viewer, commenter, editor, admin since the first migration,
+  // and `canComment` sits beside `canEdit` — while no screen offered it. A
+  // capability nobody can reach is a capability nobody has.
+  //
+  // Read from the server's own list rather than a copy typed here, so the next
+  // level added there fails this test instead of quietly having no interface.
+  const routes = codeOf(
+    new URL('../../server/src/pages/permissionRoutes.ts', import.meta.url),
+  );
+  const match = routes.match(/const LEVELS: readonly PageAccess\[\] = \[([^\]]+)\]/);
+  assert.ok(match, "the server's level list was found");
+  const levels = [...match[1]!.matchAll(/'([a-z]+)'/g)].map((one) => one[1]);
+  assert.deepEqual(levels, ['viewer', 'commenter', 'editor', 'admin']);
+
+  const permissions = codeOf(
+    new URL('../src/components/PagePermissions.tsx', import.meta.url),
+  );
+  for (const level of levels) {
+    assert.match(permissions, new RegExp(`id: '${level}'`), `${level} can be granted`);
+  }
+
+  // And a share link's roles are keys, not English sentences in a translated
+  // interface — which is what they were, in a Record the guard cannot see.
+  const share = codeOf(new URL('../src/components/ShareDialog.tsx', import.meta.url));
+  assert.match(share, /Record<string, MessageKey>/);
+  assert.doesNotMatch(share, /viewer: 'Can read'/);
+});

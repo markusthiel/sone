@@ -34,6 +34,11 @@ interface GroupGrant {
  */
 const LEVELS: Array<{ id: string; label: MessageKey }> = [
   { id: 'viewer', label: 'access.viewer' },
+  // The role the access model has had since the first migration and no screen
+  // offered: `share_role` is an enum of viewer, commenter, editor, admin, and
+  // `canComment` has been sitting beside `canEdit` in claims.ts. A capability
+  // nobody can reach is a capability nobody has (ADR-0046).
+  { id: 'commenter', label: 'access.commenter' },
   { id: 'editor', label: 'access.editor' },
   { id: 'admin', label: 'access.admin' },
 ];

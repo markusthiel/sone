@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A person can be given permission to comment on a page without being able to
+edit it.** The role has been in the access model since the beginning; no screen
+offered it. **Fixed: a share link's roles were shown in English** in an otherwise
+translated interface.
+
 **Fixed: a past version showed every heading and list item as a paragraph**, and
 an exported page did the same — both were written against block names that do not
 exist.
