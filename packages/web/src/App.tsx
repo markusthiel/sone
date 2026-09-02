@@ -255,6 +255,7 @@ function Workspace({
   useWorkspaceTheme(workspaceId);
 
   const message = useMessage();
+  const { t } = useT();
   // Whether there is anything above the fold, for the line under the bar at the
   // top (ADR-0042).
   const { scrolled, ref: mainRef } = useScrolled();
@@ -458,13 +459,19 @@ function Workspace({
         onReloadTree={() => void reloadPages()}
         onToggleFavourite={(id, on) => void toggleFavourite(id, on)}
         onDelete={(id, descendants) => {
-          // Confirmed, and the count is in the question. Deleting a folder
+          // Confirmed, and the count is in the question. Trashing a folder
           // takes its contents, and someone who has not opened it in a month
           // may not remember what is inside.
+          //
+          // It says "to the trash" rather than "delete", which is what actually
+          // happens: the entry is recoverable for thirty days (ADR-0027). A
+          // question that overstates the consequence teaches people to distrust
+          // the next one — and this one was also the last English string left in
+          // a screen everything else in has been translated.
           const message =
             descendants > 0
-              ? `Delete this and the ${descendants} item(s) inside it?`
-              : 'Delete this?';
+              ? t('entry.confirmTrashWithChildren', { count: descendants })
+              : t('entry.confirmTrash');
           if (!window.confirm(message)) return;
           void archivePage(id).then(() => {
             // Navigate away if the page being viewed was just deleted, or the

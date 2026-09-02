@@ -363,3 +363,19 @@ test('a language names itself, in its own language', () => {
     assert.ok(LANGUAGE_NAMES[code], `${code} names itself`);
   }
 });
+
+test('a confirmation is translated, and says what it actually does', () => {
+  // These were the last English strings in screens everything else in has been
+  // translated — missed because the guard reads JSX text and attributes, and a
+  // `window.confirm` argument is neither.
+  for (const file of ['App.tsx', 'components/GroupsPanel.tsx']) {
+    const source = readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /window\.confirm\(`/, `${file} builds no string of its own`);
+    assert.doesNotMatch(source, /window\.confirm\('/, `${file} passes no literal`);
+  }
+  // And it says "to the trash", not "delete": the entry is recoverable for
+  // thirty days, and a question that overstates the consequence teaches people
+  // to distrust the next one.
+  const en = readFileSync(new URL('../src/i18n/messages.en.ts', import.meta.url), 'utf8');
+  assert.match(en, /'entry\.confirmTrash': 'Move this to the trash\?'/);
+});

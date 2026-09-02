@@ -75,7 +75,7 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
     // means finding out from somebody who can no longer open one of them.
     void api.deleteGroup(group.id).catch((err: unknown) => {
       if (err instanceof ApiError && err.code === 'grants_exist') {
-        if (window.confirm(`${group.name} has been given access to pages. Delete it anyway?`)) {
+        if (window.confirm(t('groups.confirmDelete', { name: group.name }))) {
           act(api.deleteGroup(group.id, true));
         }
         return;

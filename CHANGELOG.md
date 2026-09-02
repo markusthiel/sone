@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: two confirmation questions were still in English**, and the one for
+trashing an entry said "delete" when the entry is recoverable for thirty days.
+
 **An entry's ⋮ menu is reordered**: what you can make inside it near the top, then
 where it can go, then how it looks, with the trash on its own past a line.
 
