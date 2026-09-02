@@ -75,6 +75,14 @@ export const de: Record<keyof typeof en, string> = {
   'entry.unfavourite': 'Aus Favoriten entfernen',
   'entry.share': 'Teilen…',
   'entry.move': 'Verschieben nach…',
+  'entry.export': 'Exportieren\u2026',
+  'export.title': 'Exportieren',
+  'export.what': '{title} und alles darin, als Markdown-Dateien in einem Archiv.',
+  'export.withAttachments': 'Dateien und Bilder mitnehmen',
+  'export.attachmentsNote':
+    'Ohne sie ist das Archiv klein genug für eine E-Mail, und die Links darin ' +
+    'zeigen auf Dateien, die nicht dabei sind.',
+  'export.download': 'Herunterladen',
   'entry.moveToWorkspace': 'In einen Workspace…',
   'template.heading': 'Aus einer Vorlage',
   'template.use': 'Als Vorlage anbieten',

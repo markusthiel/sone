@@ -27,6 +27,7 @@ import { ICON_NAMES } from './EntryIconView.tsx';
 import { api, type PageNode } from '../api/client.ts';
 import { EntryIconView } from './EntryIconView.tsx';
 import {
+  DownloadIcon,
   BookmarkIcon,
   PageIcon,
   FolderIcon,
@@ -280,6 +281,8 @@ interface EntryMenuProps {
   onStartRename: (pageId: string) => void;
   onStartMove: (pageId: string) => void;
   onStartMoveToWorkspace: (pageId: string) => void;
+  /** Open the export dialog for this entry (ADR-0044). */
+  onStartExport: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
   onReorder: (pageId: string, direction: 'up' | 'down') => void;
   /** False at the ends of the list, so the entries are visibly unavailable. */
@@ -302,6 +305,7 @@ export function EntryMenu({
   onStartRename,
   onStartMove,
   onStartMoveToWorkspace,
+  onStartExport,
   onStartShare,
   onReorder,
   canMoveUp,
@@ -535,6 +539,23 @@ export function EntryMenu({
             }}
           >
             <MoveIcon /> {t('entry.moveToWorkspace')}
+          </button>
+
+          {/* Handing the page's contents back (ADR-0044).
+            *
+            * Beside the two moves, because it belongs to the same family: all
+            * three are about the page going somewhere. Read rights are enough,
+            * so it is offered to everybody who can see the entry. */}
+          <button
+            className="entry-menu-item"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onStartExport(node.id);
+            }}
+          >
+            <DownloadIcon /> {t('entry.export')}
           </button>
 
           {/* Offered as a shape to start from (ADR-0045).

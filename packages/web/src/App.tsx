@@ -33,6 +33,7 @@ import { usePages } from './hooks/usePages.ts';
 import { useWorkspaceTheme } from './hooks/useWorkspaceTheme.ts';
 import { useFavourites } from './hooks/useFavourites.ts';
 import { useCommentMarkStyle } from './hooks/useCommentMarkStyle.ts';
+import { ExportDialog } from './components/ExportDialog.tsx';
 import { useComments } from './hooks/useComments.ts';
 import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
@@ -347,6 +348,8 @@ function Workspace({
    * different past than the one that was shared.
    */
   const [viewingVersion, setViewingVersion] = useState<string | null>(null);
+  /** The entry somebody is exporting, if any (ADR-0044). */
+  const [exportingId, setExportingId] = useState<string | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -495,6 +498,7 @@ function Workspace({
       data-sidebar={sidebarVisible ? 'shown' : 'hidden'}
     >
       <Sidebar
+        onStartExport={setExportingId}
         canManageWorkspaces={session.user.canManageWorkspaces}
         isInstanceAdmin={session.user.isInstanceAdmin}
         currentIcon={
@@ -686,6 +690,14 @@ function Workspace({
             setMovingId(null);
             void moveEntry(movingId, parent);
           }}
+        />
+      )}
+
+      {exportingId && (
+        <ExportDialog
+          pageId={exportingId}
+          title={findNode(tree, exportingId)?.title ?? ''}
+          onClose={() => setExportingId(null)}
         />
       )}
 

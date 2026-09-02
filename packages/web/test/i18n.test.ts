@@ -226,6 +226,7 @@ const MIGRATED = [
   'src/components/CommentsPanel.tsx',
   'src/components/HistoryPanel.tsx',
   'src/components/VersionView.tsx',
+  'src/components/ExportDialog.tsx',
 ];
 
 /**

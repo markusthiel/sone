@@ -13,10 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**A page and everything under it can be exported** as Markdown with its
-attachments, in one archive ([ADR-0044](docs/adr/0044-import-export.md)).
-`?attachments=false` leaves the files out. A button for it comes next; the whole
-workspace needs the job runner the record describes.
+**A page and everything under it can be exported**: "Export…" in an entry's ⋮
+menu, as Markdown files with the attachments beside them, in one archive
+([ADR-0044](docs/adr/0044-import-export.md)). Leaving the files out makes it small
+enough to email. Exporting a whole workspace needs the job runner the record
+describes; importing is the next piece.
 
 **A page has a History panel** ([ADR-0047](docs/adr/0047-page-history.md)): the
 moments it was kept at, who wrote in between, and what it said — read in place of

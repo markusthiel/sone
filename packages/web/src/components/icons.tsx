@@ -290,6 +290,17 @@ export function EraserIcon(props: IconProps): ReactElement {
   );
 }
 
+/** An arrow into a tray: something leaving the application as a file. */
+export function DownloadIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3.5v11" />
+      <path d="M7.5 10L12 14.5 16.5 10" />
+      <path d="M4.5 17.5v3h15v-3" />
+    </svg>
+  );
+}
+
 /** A clock, for what a page said before. */
 export function ClockIcon(props: IconProps): ReactElement {
   return (
