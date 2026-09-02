@@ -103,9 +103,9 @@ part that turned out to be the real prerequisite: an export of a whole workspace
 is a background job, and this server has a maintenance timer rather than a job
 runner.
 
-**Export is built for a page and its subtree** (Markdown plus attachments, one
-archive). Still to come: the whole workspace, which needs the job runner, and
-import.
+**Export and import are built for a page and its subtree** — Markdown plus
+attachments out, an archive with a previewed plan in. Still to come: the whole
+workspace, which needs the job runner, and carrying attachments *back* in.
 
 Export is an ownership question, not a convenience: a self-hosted tool that
 cannot hand back its contents in an open format is asking for the same trust the

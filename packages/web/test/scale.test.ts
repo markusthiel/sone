@@ -1444,3 +1444,21 @@ test('both sidebar sections fold, and the tree has a heading of its own', () => 
   // Remembered per browser, for the reason the comment folds are (ADR-0046).
   assert.match(sidebar, /localStorage\.setItem\('sone\.sidebarSections'/);
 });
+
+test('an import shows its plan and writes nothing until it is confirmed', () => {
+  // The middle state is the feature (ADR-0044): an import that has created two
+  // hundred pages by the time somebody notices it mangled the hierarchy is
+  // worse than no import, because undoing it is two hundred deletions.
+  const dialog = codeOf(new URL('../src/components/ImportDialog.tsx', import.meta.url));
+  assert.match(dialog, /import\/plan/);
+  assert.ok(
+    dialog.indexOf('import/plan') < dialog.indexOf("t('import.confirm')"),
+    'the plan is fetched before the confirm button exists',
+  );
+  // Collisions are shown and named, and there is no "replace" — said rather
+  // than left for somebody to look for.
+  assert.match(dialog, /t\('import\.noOverwrite'\)/);
+  assert.doesNotMatch(dialog, /overwrite=|replace=/);
+  // And the files that will not come are stated, because the plan counts them.
+  assert.match(dialog, /t\('import\.attachmentsNotYet'/);
+});
