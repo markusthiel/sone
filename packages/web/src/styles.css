@@ -2380,6 +2380,18 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
 }
 
+/* A line between groups.
+ *
+ * Three of them, not one per item: the menu now reads as what can be *made*
+ * here, where this entry can *go*, and how it *looks* — with the one thing that
+ * cannot be undone by pressing it again on the far side of the last line. */
+.entry-menu-rule {
+  block-size: 0;
+  margin: 4px 0;
+  border: 0;
+  border-block-start: 1px solid var(--border-subtle);
+}
+
 /* A row of marks inside the menu: the five things done most, and the three
    things that can be put inside a folder. The same trade the block menu made —
    the word survives as the tooltip and the accessible label. */
