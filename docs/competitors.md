@@ -73,9 +73,14 @@ strictly more than a list of versions. What we do not have is any way to *see*
 it. Docmost and Outline both offer "restore this version", and it is one of the
 first things anybody asks of a wiki after they lose a paragraph.
 
-Cheaper than it sounds because the data exists. Expensive in one place: a
-snapshot list needs meaningful moments rather than every keystroke, and choosing
-what counts as a moment is a real decision.
+**Corrected, and decided in [ADR-0047](adr/0047-page-history.md).** The claim
+above that "the data exists" is wrong, which I found only when writing the
+record: `compactDoc` folds the updates into one state and *deletes* the ones it
+folded in (ADR-0002, deliberately). The log therefore reaches back to the last
+compaction and no further, so history has to be kept on purpose rather than
+derived — versions taken when a sitting ends and, as a guarantee, before
+compaction runs. Restoring applies the old state forward as a new edit, because a
+CRDT cannot be rewound. Not built.
 
 ### 3. Templates
 
