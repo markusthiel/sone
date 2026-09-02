@@ -28,6 +28,8 @@ import {
 } from '@sone/core';
 import type { PoolClient } from 'pg';
 
+import { guestName, isGuestKey } from '@sone/core';
+
 import { queryOne, queryRows } from '../db/pool.js';
 import { normaliseText } from './plainText.js';
 import { readDocument, type ReadDocument } from './readDocument.js';
@@ -590,7 +592,7 @@ export async function materializeDocument(
   // is the normal case in a multilingual workspace. Title at weight A, body at
   // D, so a title match outranks a passing mention.
   await db.query(
-    `INSERT INTO page_search (page_id, workspace_id, tsv, built_with, updated_at)
+    `INSERT INTO page_search (page_id, workspace_id, tsv, authors, built_with, updated_at)
      VALUES (
        $1, $2,
        setweight(to_tsvector($3::regconfig, $4), 'A') ||
@@ -602,10 +604,11 @@ export async function materializeDocument(
        setweight(to_tsvector('simple',      $6), 'B') ||
        setweight(to_tsvector($3::regconfig, $5), 'D') ||
        setweight(to_tsvector('simple',      $5), 'D'),
-       $3::regconfig, now()
+       $7::text[], $3::regconfig, now()
      )
      ON CONFLICT (page_id) DO UPDATE
        SET tsv = EXCLUDED.tsv,
+           authors = EXCLUDED.authors,
            built_with = EXCLUDED.built_with,
            updated_at = now(),
            workspace_id = EXCLUDED.workspace_id`,
@@ -619,6 +622,9 @@ export async function materializeDocument(
       // prose, and stemming "meetings" into "meet" would make it match text
       // that has nothing to do with the tag.
       parsed.page.tags.join(' '),
+      // Who has writing in this page, by the name somebody would type
+      // (ADR-0050). Resolved here rather than per search row.
+      await authorNames(db, parsed.authorKeys),
     ],
   );
 
@@ -720,4 +726,41 @@ export async function markFailed(
            materialized_at = now()`,
     [pageId, message.slice(0, 2000)],
   );
+}
+
+/**
+ * The names somebody would type, from the keys the document holds.
+ *
+ * A `guest:` key carries its own name (ADR-0022) and needs nothing; a user id
+ * needs the users table. One query for all of them, once per projection —
+ * rather than a join per row of every ranked search, which is the same work
+ * done thousands of times to answer a question that changes when a page is
+ * edited.
+ *
+ * Somebody who has since been deleted contributes nothing to the array rather
+ * than an empty string: an empty name would match every prefix.
+ */
+async function authorNames(db: PoolClient, keys: string[]): Promise<string[]> {
+  if (keys.length === 0) return [];
+
+  const names: string[] = [];
+  const userIds: string[] = [];
+  for (const key of keys) {
+    if (isGuestKey(key)) names.push(guestName(key));
+    else userIds.push(key);
+  }
+
+  if (userIds.length > 0) {
+    const rows = await queryRows<{ display_name: string | null }>(
+      db,
+      `SELECT display_name FROM users WHERE id = ANY($1::uuid[])`,
+      [userIds],
+    );
+    for (const row of rows) {
+      if (row.display_name) names.push(row.display_name);
+    }
+  }
+
+  // Deduplicated: one person with two client ids is one author.
+  return [...new Set(names)];
 }

@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A search can be narrowed** ([ADR-0050](docs/adr/0050-search-filters.md)) by
+typing filters into the search box: `tag:budget`, `author:markus`,
+`after:2026-08-01`, `before:2026-09-01`. A filter on its own is a valid search, so
+`tag:rechnung` lists everything tagged that way. The German prefixes (`autor:`,
+`schlagwort:`, `seit:`, `bis:`) work too. A filter that cannot be read is shown
+struck through with the reason rather than silently ignored, and the rest of the
+search still runs. Dates are in the server's time zone — there is no
+per-workspace zone yet, and the record says so.
+
 **Fixed: a workspace's tint reached the menus and not the sidebar.** The sidebar
 sits on its own surface token, which the first version of the tint missed.
 

@@ -25,6 +25,7 @@ import {
   type StoredValue,
   canvasText,
   readThreads,
+  USERS_KEY,
 } from '@sone/core';
 import * as Y from 'yjs';
 
@@ -126,6 +127,15 @@ export interface ReadDocument {
    * storing an anchor the database cannot interpret.
    */
   comments: ReadThread[];
+  /**
+   * Who has writing in this page, as the document names them (ADR-0050).
+   *
+   * The keys of the attribution mapping: a user id, or a `guest:` key. Read
+   * here because this is where the document is open — the materialiser is handed
+   * this result and not the document, which is why the keys travel rather than
+   * the map.
+   */
+  authorKeys: string[];
   properties: Map<string, StoredValue>;
   /**
    * Every collection this page holds, keyed by id.
@@ -381,6 +391,7 @@ export function readDocument(doc: Y.Doc, pageId: string | null): ReadDocument {
     page,
     blocks: readBlocks(doc, warnings),
     canvasText: canvasText(doc),
+    authorKeys: [...doc.getMap(USERS_KEY).keys()],
     comments: readThreads(doc).map((thread) => ({
       id: thread.id,
       quote: thread.quote,
