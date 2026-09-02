@@ -104,8 +104,9 @@ is a background job, and this server has a maintenance timer rather than a job
 runner.
 
 **Export and import are built for a page and its subtree** — Markdown plus
-attachments out, an archive with a previewed plan in. Still to come: the whole
-workspace, which needs the job runner.
+attachments out, an archive with a previewed plan in. The whole workspace is a background job with
+a queue in Postgres; a subtree is a response. **All four gaps from this review
+are now built.**
 
 Export is an ownership question, not a convenience: a self-hosted tool that
 cannot hand back its contents in an open format is asking for the same trust the

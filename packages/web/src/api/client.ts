@@ -1065,6 +1065,29 @@ export const api = {
       }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
 
+  /** Ask for the whole workspace as an archive. It becomes a job (ADR-0044). */
+  startWorkspaceExport: (workspaceId: string, attachments: boolean) =>
+    post<{ jobId: string; alreadyRunning?: boolean }>(
+      `/api/workspaces/${workspaceId}/export${attachments ? '' : '?attachments=false'}`,
+      {},
+    ),
+
+  /** What this person has asked for in this workspace, newest first. */
+  jobs: (workspaceId: string) =>
+    request<{
+      jobs: Array<{
+        id: string;
+        kind: string;
+        state: 'queued' | 'running' | 'done' | 'failed';
+        progress: string | null;
+        error: string | null;
+        bytes: number | null;
+        pages: number | null;
+        createdAt: string;
+        expiresAt: string | null;
+      }>;
+    }>(`/api/workspaces/${workspaceId}/jobs`),
+
   /** Make the page read as it did. Applied forward, never a rewind (ADR-0047). */
   restoreVersion: (pageId: string, versionId: string) =>
     post<{ ok: true }>(`/api/pages/${pageId}/versions/${versionId}/restore`, {}),

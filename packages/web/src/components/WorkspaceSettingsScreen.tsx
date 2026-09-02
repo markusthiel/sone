@@ -23,6 +23,7 @@ import { useT } from '../i18n/useT.tsx';
 import { SettingsShell, resolveSection } from './SettingsShell.tsx';
 import { ThemeSettings } from './ThemeSettings.tsx';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
+import { WorkspaceExport } from './WorkspaceExport.tsx';
 import { WorkspaceInvite } from './WorkspaceInvite.tsx';
 import { WorkspaceMembers } from './WorkspaceMembers.tsx';
 
@@ -35,6 +36,10 @@ const SECTIONS = [
   { id: 'people', label: 'workspace.people', hint: 'workspace.people.hint' },
   // Unreachable for the same reason.
   { id: 'groups', label: 'workspace.groups', hint: 'workspace.groups.hint' },
+  // Where the record put it: a workspace export belongs to the workspace, not
+  // to a page's ⋮ menu and not to the administration area — it is not a backup
+  // (ADR-0044).
+  { id: 'export', label: 'workspace.export', hint: 'workspace.export.hint' },
 ] as const;
 
 interface WorkspaceSettingsProps {
@@ -115,6 +120,7 @@ export function WorkspaceSettingsScreen({
         </section>
       )}
       {current === 'groups' && <GroupsPanel workspaceId={workspaceId} />}
+      {current === 'export' && <WorkspaceExport workspaceId={workspaceId} />}
     </SettingsShell>
   );
 }
