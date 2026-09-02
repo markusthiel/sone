@@ -1585,9 +1585,15 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
  */
 .ProseMirror .sone-commented { cursor: pointer; }
 .ProseMirror .sone-commented-highlight {
-  /* Faint enough to read through. A highlighter that fights the words is one
-     people turn off, and then the marks are worth nothing. */
-  background: color-mix(in srgb, var(--sone-palette-yellow, #e0b341) 22%, transparent);
+  /* The surface a menu sits on, not a yellow.
+   *
+   * A highlighter yellow was too strong: it competes with the words it marks and
+   * it belongs to nothing else in the interface. This is the same tone the panels
+   * and menus are drawn on, so a marked passage reads as *part of* the
+   * application rather than as something stuck onto it — and faint enough to read
+   * straight through, which is the whole point. */
+  background: var(--surface-sunken);
+  box-shadow: 0 0 0 2px var(--surface-sunken);
   border-radius: 2px;
 }
 .ProseMirror .sone-commented-underline {
@@ -1641,8 +1647,37 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    it is drawn as the thing being written rather than as one of the list. */
 .comment-thread[data-pending='true'] { border-color: var(--accent); }
 
+/* The quotation and the chevron on one line. */
+.comment-head { display: flex; align-items: flex-start; gap: var(--sone-space-2); }
+.comment-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+}
+.comment-fold svg {
+  inline-size: 14px;
+  block-size: 14px;
+  transition: transform var(--motion-state, 140ms) ease;
+}
+.comment-fold[aria-expanded='true'] svg { transform: rotate(90deg); }
+.comment-fold:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
+/* How many are behind a closed thread, so it still says whether anybody
+   answered. */
+.comment-count { font-size: var(--sone-text-xs); font-variant-numeric: tabular-nums; }
+
+.comment-fold-all { margin-inline-start: auto; font-size: var(--sone-text-xs); }
+
 /* The words it is about, as they read when it was written. */
 .comment-quote {
+  flex: 1 1 auto;
+  min-inline-size: 0;
   margin: 0;
   display: block;
   inline-size: 100%;

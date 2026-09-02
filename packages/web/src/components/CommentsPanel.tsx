@@ -22,7 +22,7 @@ import {
   type CommentMarkStyle,
 } from '../hooks/useCommentMarkStyle.ts';
 import type { CommentActions } from '../hooks/useComments.ts';
-import { CheckSquareIcon, TrashIcon } from './icons.tsx';
+import { CheckSquareIcon, ChevronRightIcon, TrashIcon } from './icons.tsx';
 
 /** A person's name, or what can honestly be said instead. */
 function nameOf(author: string, members: WorkspaceMember[]): { name: string; guest: boolean } {
@@ -39,12 +39,16 @@ function Thread({
   comments,
   canEdit,
   onReveal,
+  open,
+  onToggle,
 }: {
   thread: CommentThread;
   members: WorkspaceMember[];
   comments: CommentActions;
   canEdit: boolean;
   onReveal: (thread: CommentThread) => void;
+  open: boolean;
+  onToggle: () => void;
 }): ReactElement {
   const { t } = useT();
   const [draft, setDraft] = useState('');
@@ -53,20 +57,44 @@ function Thread({
     <li className="comment-thread" data-detached={thread.range === null ? 'true' : undefined}>
       {/* The words it is about, as they read when it was written. A thread whose
           text has changed is only readable because of this. */}
-      <button
-        type="button"
-        className="comment-quote"
-        disabled={thread.range === null}
-        title={thread.range === null ? t('comment.detached') : t('comment.reveal')}
-        onClick={() => onReveal(thread)}
-      >
-        {thread.quote}
-      </button>
+      <div className="comment-head">
+        {/* Two jobs on one line, and they are deliberately two controls: the
+            quotation shows the passage in the page, the chevron opens the
+            thread. One control doing both would mean somebody who wants to read
+            a reply gets scrolled somewhere first. */}
+        <button
+          type="button"
+          className="comment-quote"
+          disabled={thread.range === null}
+          title={thread.range === null ? t('comment.detached') : t('comment.reveal')}
+          onClick={() => onReveal(thread)}
+        >
+          {thread.quote}
+        </button>
+        <button
+          type="button"
+          className="comment-fold"
+          aria-expanded={open}
+          aria-label={open ? t('comment.collapse') : t('comment.expand')}
+          title={open ? t('comment.collapse') : t('comment.expand')}
+          onClick={onToggle}
+        >
+          <ChevronRightIcon />
+          {/* How much is behind it, so a closed thread still says whether
+              anybody answered. */}
+          {!open && thread.messages.length > 1 && (
+            <span className="comment-count">{thread.messages.length}</span>
+          )}
+        </button>
+      </div>
 
       {thread.range === null && <p className="comment-note">{t('comment.detached')}</p>}
 
       <ul className="comment-messages">
-        {thread.messages.map((message) => {
+        {/* Closed, the first message stays. A thread showing only its quotation
+            says what is being discussed and not what was said about it, which is
+            the half somebody scanning a page actually wants. */}
+        {(open ? thread.messages : thread.messages.slice(0, 1)).map((message) => {
           const who = nameOf(message.author, members);
           return (
             <li key={message.id} className="comment-message">
@@ -91,7 +119,7 @@ function Thread({
         })}
       </ul>
 
-      {canEdit && (
+      {canEdit && open && (
         <div className="comment-reply">
           {/* A reply, which is how anybody is addressed — member or guest
               (ADR-0046). It quotes nothing and needs no identity beyond what the
@@ -161,6 +189,24 @@ export function CommentsPanel({
 }): ReactElement {
   const { t } = useT();
   const [draft, setDraft] = useState('');
+
+  /**
+   * Which threads are open.
+   *
+   * A set of the *closed* ones rather than the open ones, so a thread that
+   * arrives while somebody is reading is open — a new comment appearing folded
+   * would be a comment nobody notices, which is the opposite of what a comment
+   * is for.
+   */
+  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const toggle = (id: string): void =>
+    setClosed((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allClosed = comments.threads.length > 0 && closed.size === comments.threads.length;
 
   /**
    * The selection somebody pressed Comment on, at the top and focused.
@@ -251,6 +297,8 @@ export function CommentsPanel({
               comments={comments}
               canEdit={canEdit}
               onReveal={onReveal}
+              open={!closed.has(thread.id)}
+              onToggle={() => toggle(thread.id)}
             />
           ))}
         </ul>
@@ -268,15 +316,31 @@ export function CommentsPanel({
         * per browser: how much marking somebody wants depends on the screen they
         * are reading on, and a phone is not a desk. */}
       <div className="comment-marks">
-        <label className="comment-marks-toggle">
+        {/* `.checkbox` belongs to the label — it is the row, sized for a
+            finger. I put it on the input, which turned the box into a tall flex
+            container and made the whole control behave oddly. */}
+        <label className="checkbox comment-marks-toggle">
           <input
             type="checkbox"
-            className="checkbox"
             checked={!marks.hidden}
             onChange={(event) => marks.setHidden(!event.target.checked)}
           />
           {t('comment.showMarks')}
         </label>
+
+        {comments.threads.length > 1 && (
+          <button
+            type="button"
+            className="btn subtle comment-fold-all"
+            onClick={() =>
+              setClosed(
+                allClosed ? new Set() : new Set(comments.threads.map((thread) => thread.id)),
+              )
+            }
+          >
+            {allClosed ? t('comment.expandAll') : t('comment.collapseAll')}
+          </button>
+        )}
 
         <select
           className="comment-marks-style"

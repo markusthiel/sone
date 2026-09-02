@@ -15,6 +15,7 @@ import { pageContent, readStreamLink, readVideoLink } from '@sone/core';
 import {
   authorHighlightKey,
   commentMarks,
+  commentMarksKey,
   revealRange,
   type CommentAnchor,
   type DrawnThread,
@@ -391,6 +392,21 @@ export function EditorSurface({
   /** Same reason as the threads: the editor is made once, this changes. */
   const markStyleRef = useRef(markStyle);
   markStyleRef.current = markStyle;
+
+  /*
+   * Tell the editor when either has changed.
+   *
+   * The refs alone were not enough and the omission made every switch look
+   * dead: the plugin rebuilds its decorations on a transaction, and changing a
+   * ref is not one. So the marks stayed exactly as they were drawn when the page
+   * loaded, which is why switching from highlighted to underlined appeared to do
+   * nothing until a reload.
+   */
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch(view.state.tr.setMeta(commentMarksKey, true));
+  }, [threads, markStyle]);
 
   /**
    * Scroll to a thread's text when the panel asks.
