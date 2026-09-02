@@ -2392,6 +2392,25 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   border-block-start: 1px solid var(--border-subtle);
 }
 
+/* The band of controls at the head of the menu.
+ *
+ * Its own surface rather than a line under it: what sets these two rows apart
+ * from everything below is that they are buttons and the rest is a list, and a
+ * surface says that where a rule only says "something changes here". It also
+ * lets the "New" row be labelled inside a band of buttons rather than fenced off
+ * by a divider — which would split two rows of icons that read as one.
+ *
+ * No colour. Colour in this application means a palette choice or danger, and
+ * emphasis with no meaning behind it is how a palette stops meaning anything.
+ */
+.entry-menu-band {
+  margin-block-end: 4px;
+  padding: 2px;
+  border-radius: var(--sone-radius);
+  background: var(--surface-sunken);
+}
+.entry-menu-band .entry-menu-new { padding-inline-start: var(--sone-space-3); }
+
 /* A row of marks inside the menu: the five things done most, and the three
    things that can be put inside a folder. The same trade the block menu made —
    the word survives as the tooltip and the accessible label. */

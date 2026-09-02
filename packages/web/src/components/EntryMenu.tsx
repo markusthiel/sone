@@ -367,6 +367,21 @@ export function EntryMenu({
             * and the word stays as the tooltip and the accessible label, the
             * same trade the block menu made (ADR-0042).
             */}
+          {/* Both rows of marks in one band.
+            *
+            * You are right that "New" needs to stand apart, and I do not think a
+            * line or a colour is the way. A line between two rows of icons
+            * splits a thing that reads as one; a coloured row would be emphasis
+            * with no meaning behind it, and colour here has always meant
+            * something — a palette choice, or danger.
+            *
+            * What actually sets these apart is that they are controls and
+            * everything below is a list. So they sit on their own surface, and
+            * the surface is the separator: no line needed, and "New" is
+            * distinct because it is labelled inside a band of buttons rather
+            * than because it has been fenced off.
+            */}
+          <div className="entry-menu-band">
           <div className="entry-menu-actions" role="group" aria-label={t('entry.actions')}>
             <button
               type="button"
@@ -486,13 +501,7 @@ export function EntryMenu({
             </div>
           )}
 
-          {/* One line under both rows of marks, not one between them.
-            *
-            * They are two compact rows of icons and they read as one band; a
-            * line between them and another under them was two lines to separate
-            * five items from three. What needs closing off is the band, and
-            * that is here. */}
-          <hr className="entry-menu-rule" />
+          </div>
 
           <button
             className="entry-menu-item"

@@ -1081,21 +1081,18 @@ test('the entry menu is ordered by how often and how permanent', () => {
   assert.ok(at("t('entry.move')") < at('<EntryAppearance'), 'then how it looks');
   assert.ok(at('<EntryAppearance') < at('entry-menu-item destructive'), 'the trash last');
 
-  // One line per group boundary rather than one per item: the marks, what can
-  // be made inside, where it goes, how it looks, and the trash. The line after
-  // "New" is inside the folder condition, so a page that can hold nothing does
-  // not get a line separating nothing from what follows.
-  // Three lines: one under the band of icon rows, one after where-it-goes, one
-  // before the trash. Not one between the two icon rows — they read as one band,
-  // and a line there separated five marks from three.
-  assert.equal([...menu.matchAll(/entry-menu-rule/g)].length, 3);
+  // Two lines, not three: the band of controls at the head separates itself by
+  // sitting on its own surface, so the rules only fall between the list groups.
+  assert.match(menu, /className="entry-menu-band"/);
+  assert.match(css, /\.entry-menu-band \{[^}]*background: var\(--surface-sunken\)/s);
+  assert.equal([...menu.matchAll(/entry-menu-rule/g)].length, 2);
   // Both move rows are one line tall, so a pair of related choices does not look
   // like two unrelated ones.
   assert.match(css, /\.entry-menu-item \{[^}]*white-space: nowrap/s);
-  // The band of icon rows closes with one line under both, so the "New" row is
-  // inside the folder condition but the line is not: a page simply has one row
-  // in the band instead of two.
   assert.match(menu, /\{isFolder && \(\s*\n\s*<div className="entry-menu-new">/);
+  // And no colour: colour here means a palette choice or danger, and emphasis
+  // with no meaning behind it is how a palette stops meaning anything.
+  assert.doesNotMatch(css, /\.entry-menu-band \{[^}]*var\(--accent\)/s);
 });
 
 test('one boundary, one line', () => {
