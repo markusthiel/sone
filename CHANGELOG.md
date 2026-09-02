@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: bold and italic were stored in the search index as literal `<strong>`
+tags.** Every document's text had been projected by serialising it rather than
+reading it, so searching for a mark's name matched half a workspace and a word at
+the start of a bold run could not be found at all. Existing pages are corrected as
+they are next edited, or by a rematerialise.
+
+**Fixed: a filled button went pale on hover** and its label vanished into the
+background.
+
 **A page and everything under it can be exported**: "Export…" in an entry's ⋮
 menu, as Markdown files with the attachments beside them, in one archive
 ([ADR-0044](docs/adr/0044-import-export.md)). Leaving the files out makes it small

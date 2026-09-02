@@ -142,3 +142,23 @@ test('props serialise with sorted keys', () => {
   );
   assert.equal(serialiseProps({}), null, 'empty is absent, not "{}"');
 });
+
+test('a block’s text is text, not serialised markup', () => {
+  // `Y.XmlText.toString()` serialises: a bold word comes back as
+  // `<strong>bold</strong>`. Every mark in every document was going into the
+  // search index as literal tags — so searching for "strong" matched half a
+  // workspace, and a word at the start of a bold run could not be found at all.
+  const doc = new Y.Doc();
+  const fragment = pageContent(doc);
+  const paragraph = new Y.XmlElement('paragraph');
+  paragraph.setAttribute(BLOCK_ATTRS.id, 'b1');
+  const text = new Y.XmlText();
+  text.insert(0, 'Hello world');
+  text.format(0, 5, { strong: {} });
+  paragraph.insert(0, [text]);
+  fragment.insert(0, [paragraph]);
+
+  const { blocks } = readBlockTree(doc);
+  assert.equal(blocks[0]?.text, 'Hello world');
+  assert.doesNotMatch(blocks[0]?.text ?? '', /</);
+});

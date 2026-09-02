@@ -315,7 +315,13 @@ button.btn {
   color: var(--sone-text);
   transition: background 120ms ease, border-color 120ms ease;
 }
-button.btn:hover:not(:disabled) { background: var(--surface-hover); }
+/* Only a button with no colour of its own.
+ *
+ * There were two of these — this one and another twenty lines down — and two
+ * days ago I "fixed" the hover for filled buttons by patching the *other* one.
+ * This one kept winning: `button.btn:hover` outranks `button.btn.primary`, so a
+ * primary button went pale grey on hover with near-white text on it, which is
+ * why it read as an empty box. The two are merged below; this one is gone. */
 
 button.btn.primary {
   background: var(--accent);
@@ -332,15 +338,13 @@ button.btn.quiet {
 button.btn.quiet:hover:not(:disabled) { color: var(--sone-text); }
 
 button.btn:disabled { opacity: 0.45; cursor: default; }
-/* Only a button that has no colour of its own.
+/* The one hover rule for buttons without a colour of their own.
  *
- * This came after `button.btn.primary` and had the same specificity, so it won
- * on order: a primary button turned pale grey with near-white text on hover —
- * invisible, which is how a filled button ends up looking like an empty box.
- * `:not(.primary)` rather than reordering, because order-dependence is what
- * made it fragile in the first place. */
+ * `:not(.primary)` rather than an order that happens to work, because order is
+ * what made this wrong twice — and one rule rather than two, because the second
+ * copy is what made the first fix look like it had worked. */
 button.btn:not(.primary):hover:not(:disabled),
-form button:not(.btn):hover:not(:disabled) { background: var(--sone-bg-hover); }
+form button:not(.btn):hover:not(:disabled) { background: var(--surface-hover); }
 button:disabled { opacity: 0.5; cursor: default; }
 
 /* `primary` without `btn`, which several forms use. Same treatment, because a
