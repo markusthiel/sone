@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: nine class names in the interface had no styling behind them** — panel
+sections, a comment's reply box, an import plan's indentation and the "+" beside a
+collection's views, which looked exactly like a view.
+
 **The share dialog says that a link exposes the page's comments**, with how many
 ([ADR-0046](docs/adr/0046-comments.md)) — because a team discussing a draft in
 comments and then sending the link to a client has published that discussion.

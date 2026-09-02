@@ -567,7 +567,10 @@ function TreeLevel({
         const title = node.title || (isFolder ? 'Untitled folder' : 'Untitled');
 
         return (
-          <div key={node.id} className="tree-node">
+          // No class: nothing styles this wrapper and nothing reads it. A class
+          // name that means nothing is a name somebody will later assume means
+          // something.
+          <div key={node.id}>
             <div
               className="tree-row"
               data-kind={node.kind}
