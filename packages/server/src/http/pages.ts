@@ -51,7 +51,7 @@ import { createEntry } from '../pages/createEntry.js';
 import { rematerialize } from '../materialize/rematerialize.js';
 import { moveToWorkspace } from '../pages/moveWorkspace.js';
 import { normaliseTags, writeTags } from '@sone/core';
-import { requireSession, sessionTokenFrom } from './auth.js';
+import { claimsOrNull, requireSession, sessionTokenFrom, type Claims } from './auth.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
 import { isPathOnlyCondition, visiblePagesCondition } from '../pages/access.js';
 
@@ -71,7 +71,7 @@ async function readBody<T>(ctx: RequestContext): Promise<T | null> {
   }
 }
 
-type Claims = NonNullable<Awaited<ReturnType<typeof resolveSessionClaims>>>;
+
 
 /**
  * Resolve claims without writing a response.
@@ -83,16 +83,6 @@ type Claims = NonNullable<Awaited<ReturnType<typeof resolveSessionClaims>>>;
  * rule exists to prevent. An earlier version used one helper for both and
  * leaked exactly that; a test caught it.
  */
-async function claimsOrNull(
-  pool: Pool,
-  ctx: RequestContext,
-  workspaceId: string,
-): Promise<Claims | null> {
-  const token = sessionTokenFrom(ctx);
-  if (!token) return null;
-  return resolveSessionClaims(pool, token, workspaceId);
-}
-
 /**
  * Claims for a workspace named in the path.
  *

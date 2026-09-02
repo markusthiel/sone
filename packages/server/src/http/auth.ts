@@ -31,6 +31,16 @@ import { createDefaultFolder } from '../pages/createEntry.js';
 import { negotiateLocale } from '../i18n/locale.js';
 import { WORKSPACE_ORDER_SQL } from '../workspaces/order.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
+import { resolveSessionClaims } from '../auth/claims.js';
+
+/**
+ * What a resolved session knows.
+ *
+ * Derived from the resolver rather than declared, so it cannot drift from what
+ * that function actually returns — the same definition `pages.ts` had, moved
+ * here with the helper that uses it.
+ */
+export type Claims = NonNullable<Awaited<ReturnType<typeof resolveSessionClaims>>>;
 
 export const SESSION_COOKIE = 'sone_session';
 
@@ -113,6 +123,24 @@ function clearSessionCookie(ctx: RequestContext, secure: boolean): void {
   ];
   if (secure) attrs.push('Secure');
   ctx.res.setHeader('set-cookie', attrs.join('; '));
+}
+
+/**
+ * Claims for a workspace, or null without a session.
+ *
+ * Moved here from `pages.ts` when the export route needed it. It was a private
+ * helper there, and the alternative was a second copy — two functions deciding
+ * who somebody is would be two places to disagree about it, which for an
+ * authorisation helper is the worst kind of duplication.
+ */
+export async function claimsOrNull(
+  pool: Pool,
+  ctx: RequestContext,
+  workspaceId: string,
+): Promise<Claims | null> {
+  const token = sessionTokenFrom(ctx);
+  if (!token) return null;
+  return resolveSessionClaims(pool, token, workspaceId);
 }
 
 export const sessionTokenFrom = (ctx: RequestContext): string | null =>
