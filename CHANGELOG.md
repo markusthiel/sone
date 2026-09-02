@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A PDF can be paged and read with a keyboard.** The viewer shipped as a
+scrolling column that was not in the tab order, so it could be read with a
+pointer and not otherwise, and it had no paging controls at all despite
+[ADR-0048](docs/adr/0048-pdf-viewer.md) describing them.
+
 **A misspelt word in the body now suggests the right one**
 ([ADR-0051](docs/adr/0051-body-typo-tolerance.md)). Searching for "beratenummer"
 offers "beraternummer" under "did you mean", and pressing it runs the ordinary

@@ -37,6 +37,9 @@ export interface FileViewLabels {
     loading: string;
     failed: string;
     openOriginal: string;
+    document: string;
+    previous: string;
+    next: string;
   };
 }
 

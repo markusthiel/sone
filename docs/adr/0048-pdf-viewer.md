@@ -52,6 +52,17 @@ Pages are stacked and scrolled, which is what a PDF viewer means to everybody wh
 has used one — and what the desktop already did before this. Paging controls are
 a second way to move, not the only way.
 
+**Built late, and the record was wrong in between.** The sentence above was
+written before the controls existed, and they were not in the first version — so
+this ADR described an interface that could only be scrolled. They are there now,
+for two reasons that the first version made obvious: scrolling a hundred pages to
+reach page ninety is not something anybody does, and on a phone the column
+scrolls inside a page that also scrolls.
+
+The column is also `tabindex="0"` with a visible focus ring, which is not a
+nicety: a `div` with `overflow-y: auto` is not in the tab order, so the first
+version could be read with a pointer and a finger and by nothing else.
+
 Pages are rendered when they come near the viewport and not before. A hundred-page
 document must not draw a hundred canvases to show its first one, and an
 `IntersectionObserver` is how the browser answers "is this nearly visible" without
