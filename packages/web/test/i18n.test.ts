@@ -228,6 +228,7 @@ const MIGRATED = [
   'src/components/VersionView.tsx',
   'src/components/ExportDialog.tsx',
   'src/components/ImportDialog.tsx',
+  'src/components/WorkspaceExport.tsx',
 ];
 
 /**

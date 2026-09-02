@@ -1462,3 +1462,28 @@ test('an import shows its plan and writes nothing until it is confirmed', () => 
   // And the files that will not come are stated, because the plan counts them.
   assert.match(dialog, /t\('import\.attachmentsNotYet'/);
 });
+
+test('a workspace export is watched, not waited for', () => {
+  // Packing a large workspace takes minutes, and a spinner somebody has to keep
+  // a tab open for is a request they cannot walk away from (ADR-0044).
+  const panel = codeOf(new URL('../src/components/WorkspaceExport.tsx', import.meta.url));
+  assert.match(panel, /setTimeout\(\(\) => void tick\(\), 2000\)/);
+  // Polled only while something is running: a page that keeps asking about jobs
+  // that finished yesterday costs something to leave open.
+  assert.match(panel, /rows\.some\(\(job\) => job\.state === 'queued' \|\| job\.state === 'running'\)/);
+  // Progress is the job's own sentence, never a fraction.
+  assert.match(panel, /job\.progress \?\? t\('workspace\.export\.waiting'\)/);
+  assert.doesNotMatch(panel, /percent|%\}/);
+  // And what an archive contains is said before it is asked for.
+  assert.match(panel, /t\('workspace\.export\.rights'\)/);
+});
+
+test('the workspace export lives in the workspace settings', () => {
+  // Where the record put it: it belongs to the workspace, not to a page's ⋮ menu
+  // and not to the administration area — it is not a backup (ADR-0044).
+  const screen = codeOf(
+    new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
+  );
+  assert.match(screen, /\{ id: 'export', label: 'workspace\.export'/);
+  assert.match(screen, /current === 'export' && <WorkspaceExport/);
+});

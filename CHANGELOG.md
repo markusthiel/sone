@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A whole workspace can be exported** — "Export this workspace" under This
+workspace ([ADR-0044](docs/adr/0044-import-export.md)). The archive is packed in
+the background, so the page need not stay open, and the download is available for
+a day (`SONE_JOB_RESULT_HOURS`). An archive holds what its asker can read at the
+moment it is packed: less if their access changed in between, never more.
+
 **Fixed: a favourite was drawn with a default icon** instead of its own, and a
 favourited canvas appeared as a page.
 

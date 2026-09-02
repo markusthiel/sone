@@ -70,6 +70,18 @@ export const en = {
   'entry.move': 'Move to…',
   'entry.export': 'Export\u2026',
   'share.heading': 'Share “{title}”',
+  'workspace.export': 'Export this workspace',
+  'workspace.export.hint':
+    'Every page you can read, as Markdown files with their attachments, in one ' +
+    'archive. It is packed in the background \u2014 you can leave this page.',
+  'workspace.export.start': 'Prepare an archive',
+  'workspace.export.rights':
+    'An archive holds what you can read at the moment it is packed. If your ' +
+    'access changes in between, it holds less \u2014 never more.',
+  'workspace.export.waiting': 'Waiting to start\u2026',
+  'workspace.export.ready': '{pages} pages, {size}',
+  'workspace.export.until': 'available until {when}',
+  'workspace.export.failed': 'It did not finish.',
   'import.title': 'Import',
   'import.where': 'Into {title}.',
   'import.reading': 'Reading the archive\u2026',

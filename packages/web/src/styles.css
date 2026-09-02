@@ -1578,6 +1578,32 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   .settings-row input, .settings-row select { inline-size: 100%; }
 }
 
+/* --- exporting a workspace (ADR-0044) --- */
+
+.job-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-2);
+  margin-block-start: var(--sone-space-4);
+  padding: 0;
+  list-style: none;
+}
+.job-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sone-space-3);
+  padding: var(--sone-space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+}
+/* A running job marked, so a list of five says which one is working. */
+.job-list li[data-state='running'],
+.job-list li[data-state='queued'] { border-color: var(--accent); }
+.job-when { font-size: var(--sone-text-sm); font-variant-numeric: tabular-nums; }
+.job-detail { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+.job-list .btn { margin-inline-start: auto; }
+
 /* --- importing an archive (ADR-0044) --- */
 
 .import-dialog { inline-size: min(560px, 100%); }

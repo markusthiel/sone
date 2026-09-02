@@ -79,6 +79,19 @@ export const de: Record<keyof typeof en, string> = {
   'entry.move': 'Verschieben nach…',
   'entry.export': 'Exportieren\u2026',
   'share.heading': '„{title}“ teilen',
+  'workspace.export': 'Diesen Workspace exportieren',
+  'workspace.export.hint':
+    'Jede lesbare Seite als Markdown-Dateien mit ihren Anhängen, in einem ' +
+    'Archiv. Es wird im Hintergrund gepackt; diese Seite muss dabei nicht ' +
+    'offen bleiben.',
+  'workspace.export.start': 'Ein Archiv vorbereiten',
+  'workspace.export.rights':
+    'Ein Archiv enthält, was im Moment des Packens lesbar ist. Ändert sich der ' +
+    'Zugang dazwischen, enthält es weniger \u2014 nie mehr.',
+  'workspace.export.waiting': 'Wartet auf den Start\u2026',
+  'workspace.export.ready': '{pages} Seiten, {size}',
+  'workspace.export.until': 'verfügbar bis {when}',
+  'workspace.export.failed': 'Es ist nicht fertig geworden.',
   'import.title': 'Importieren',
   'import.where': 'Nach {title}.',
   'import.reading': 'Archiv wird gelesen\u2026',
