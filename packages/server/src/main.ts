@@ -48,6 +48,9 @@ import { registerAdminRoutes } from './admin/routes.js';
 import { SettingsStore } from './admin/settings.js';
 import { registerExportRoutes } from './export/routes.js';
 import { registerImportRoutes } from './import/routes.js';
+import { WORKSPACE_EXPORT, workspaceExportHandler } from './export/workspaceJob.js';
+import { registerJobRoutes } from './jobs/routes.js';
+import { runOneJob } from './jobs/runner.js';
 import { registerAvatarRoutes, registerFileRoutes } from './files/routes.js';
 import { LocalFileStore } from './files/store.js';
 import { createStaticHandler } from './http/static.js';
@@ -268,7 +271,32 @@ async function main(): Promise<void> {
     pool,
     sync,
     workspaceRetentionDays: config.workspaceRetentionDays,
+    // For freeing what an expired export left in storage (ADR-0044).
+    store: fileStore,
   });
+
+  /*
+   * The job runner: its own timer, faster than maintenance (ADR-0044).
+   *
+   * Not a task inside the maintenance job, which runs on a slow schedule
+   * because everything in it is housekeeping — somebody waiting for an export
+   * would wait for the next sweep. A separate interval, and one job per tick so
+   * a queue drains steadily rather than one tick holding the process for an
+   * hour.
+   */
+  const jobHandlers = {
+    [WORKSPACE_EXPORT]: workspaceExportHandler(pool, fileStore),
+  };
+  const jobTimer = setInterval(() => {
+    void runOneJob(pool, jobHandlers).catch(() => {
+      // Logged by the job row itself. A throw here would be an unhandled
+      // rejection in a timer, which takes the process down for one bad export.
+    });
+  }, 5_000);
+  // So a test or a shutdown is not held open by a timer.
+  jobTimer.unref();
+
+  registerJobRoutes(router, { pool, store: fileStore });
 
   registerAdminRoutes(router, {
     pool,

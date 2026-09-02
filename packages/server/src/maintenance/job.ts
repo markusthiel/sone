@@ -24,6 +24,7 @@ import { queryRows } from '../db/pool.js';
 import { pruneAuthTables } from '../auth/session.js';
 import { pruneShareSessions } from '../auth/share.js';
 import { compactDoc, loadDoc } from '../doc/docStore.js';
+import { expireJobs } from '../jobs/runner.js';
 import {
   authorsSince,
   lastVersionSeq,
@@ -73,6 +74,14 @@ export interface MaintenanceOptions {
   pool: Pool;
   sync?: SyncServer;
   intervalMs?: number;
+  /**
+   * Where a job's result was stored, so an expired one can be freed.
+   *
+   * Optional, and the expiry step is skipped without it: a maintenance job in a
+   * test that never wrote a file has nothing to free, and requiring the store
+   * would make every existing caller pass one for a step it does not use.
+   */
+  store?: { delete: (key: string) => Promise<void> };
   log?: (msg: string, meta?: unknown) => void;
 }
 
@@ -87,6 +96,8 @@ export interface MaintenanceReport {
   versionedDocuments: number;
   /** Versions dropped by thinning. */
   thinnedVersions: number;
+  /** Job results whose time was up (ADR-0044). */
+  expiredJobs: number;
   /** Failed projections attempted again this pass. */
   retriedProjections: number;
   /** Of those, the ones that succeeded. */
@@ -145,6 +156,7 @@ export class Maintenance {
       compactedDocuments: 0,
       versionedDocuments: 0,
       thinnedVersions: 0,
+      expiredJobs: 0,
       retriedProjections: 0,
       recoveredProjections: 0,
       abandonedProjections: 0,
@@ -218,6 +230,15 @@ export class Maintenance {
 
     await guard('compact documents', async () => {
       report.compactedDocuments = await compactBacklog(this.opts.pool);
+    });
+
+    // Freeing what expired jobs left behind. Here rather than in the runner's
+    // timer, because it is housekeeping and the runner's job is to run work.
+    await guard('expire job results', async () => {
+      report.expiredJobs = await expireJobs(this.opts.pool, async (result) => {
+        const key = result['key'];
+        if (typeof key === 'string' && this.opts.store) await this.opts.store.delete(key);
+      });
     });
 
     await guard('thin versions', async () => {
