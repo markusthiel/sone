@@ -447,6 +447,14 @@ export function EntryMenu({
             </button>
           </div>
 
+          {/* The row of marks is a group like any other and needs closing off.
+            *
+            * It did not, because the appearance block used to sit under it and
+            * its heading did that job by accident. With appearance moved to the
+            * bottom, the marks ran straight into "Move to…" with no boundary —
+            * five icons and then a list, reading as one thing. */}
+          <hr className="entry-menu-rule" />
+
           {/* What can be put inside, as three marks under one word.
             *
             * The same three the `+` offers and in the same order (page, canvas,
