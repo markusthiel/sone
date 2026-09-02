@@ -13,9 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**Commented passages are highlighted**, and how much they are marked is up to the
-reader: highlighted, underlined, or not at all, with a switch in the comments
-panel to turn them off for the page you are reading.
+**Commented passages are marked**, and how much is up to the reader:
+highlighted, underlined, or not at all, with a switch in the comments panel to
+turn them off for the page you are reading. **Threads fold**, one at a time or all
+at once, so you can concentrate on one part of a page.
 
 **Fixed: a filled button turned pale on hover** — near-white text on pale grey,
 which read as an empty box. **Fixed: comment threads had a bullet** and an indent

@@ -1213,7 +1213,9 @@ test('marking a commented passage is the reader’s choice, in two kinds of cont
   const anchors = codeOf(new URL('../../editor/src/commentAnchors.ts', import.meta.url));
   assert.match(anchors, /if \(style === 'off'\) return DecorationSet\.empty/);
   assert.match(anchors, /sone-commented-\$\{style\}/);
-  assert.match(css, /\.sone-commented-highlight \{[^}]*background: color-mix/s);
+  // The surface a menu sits on rather than a highlighter yellow: a marked
+  // passage should read as part of the application, not stuck onto it.
+  assert.match(css, /\.sone-commented-highlight \{[^}]*background: var\(--surface-sunken\)/s);
   assert.match(css, /\.sone-commented-underline \{[^}]*border-block-end/s);
 
   // The switch is view state and the choice is a preference — and the preference
@@ -1233,4 +1235,36 @@ test('a thread is not a bullet, and a filled button keeps its colour', () => {
   // so it won on order: near-white text on pale grey, which reads as an empty
   // box rather than a button.
   assert.match(css, /button\.btn:not\(\.primary\):hover:not\(:disabled\)/);
+});
+
+test('changing how much is marked takes effect at once', () => {
+  // The refs alone were not enough, and the omission made every switch look
+  // dead: the plugin rebuilds its decorations on a transaction, and changing a
+  // ref is not one. So the marks stayed as they were drawn on load, and
+  // switching from highlighted to underlined did nothing until a reload.
+  const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+  assert.match(surface, /setMeta\(commentMarksKey, true\)/);
+  assert.match(surface, /\}, \[threads, markStyle\]\)/);
+});
+
+test('a thread folds, and so do all of them', () => {
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  // A set of the *closed* ones, so a thread that arrives while somebody is
+  // reading is open — a new comment appearing folded is a comment nobody
+  // notices, which is the opposite of what a comment is for.
+  assert.match(panel, /const \[closed, setClosed\] = useState<Set<string>>/);
+  assert.match(panel, /aria-expanded=\{open\}/);
+  // Closed, the first message stays: a thread showing only its quotation says
+  // what is being discussed and not what was said about it.
+  assert.match(panel, /open \? thread\.messages : thread\.messages\.slice\(0, 1\)/);
+  // And the count says whether anybody answered.
+  assert.match(panel, /!open && thread\.messages\.length > 1/);
+});
+
+test('the marks checkbox is a label, not a styled input', () => {
+  // `.checkbox` is the row — sized for a finger. I had put it on the input,
+  // which turned the box into a tall flex container.
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  assert.match(panel, /<label className="checkbox comment-marks-toggle">/);
+  assert.doesNotMatch(panel, /type="checkbox"\s*\n\s*className="checkbox"/);
 });
