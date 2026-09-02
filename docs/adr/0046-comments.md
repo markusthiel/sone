@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Not built.
+Accepted, and built — model, editor anchors, panel, and the Postgres projection.
 
 ## Context
 

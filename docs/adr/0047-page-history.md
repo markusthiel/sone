@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Not built.
+Accepted, and built: versions, the history panel, and restoring forward.
 
 ## Context
 

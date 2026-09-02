@@ -2,8 +2,7 @@
 
 ## Status
 
-Accepted. Not built. This decides the shape, the vocabulary and the order, and
-names the one thing that has to exist first.
+Accepted, and built: subtree export, workspace export as a job, and import with a previewed plan. The shape, vocabulary and order below were decided first, and the build followed them.
 
 ## Context
 

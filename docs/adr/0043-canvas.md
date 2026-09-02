@@ -2,8 +2,7 @@
 
 ## Status
 
-Accepted. Not built — this decides the shape before anybody writes it, which is
-the point of writing it now.
+Accepted, and built. The shape below was decided before anybody wrote it, which is why the schema versioning survived four revisions of the feature.
 
 ## Context
 
