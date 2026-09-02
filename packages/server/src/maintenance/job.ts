@@ -23,7 +23,13 @@ import type { Pool } from 'pg';
 import { queryRows } from '../db/pool.js';
 import { pruneAuthTables } from '../auth/session.js';
 import { pruneShareSessions } from '../auth/share.js';
-import { compactDoc } from '../doc/docStore.js';
+import { compactDoc, loadDoc } from '../doc/docStore.js';
+import {
+  authorsSince,
+  lastVersionSeq,
+  takeVersion,
+  thinVersions,
+} from '../doc/versions.js';
 import { rematerialize } from '../materialize/rematerialize.js';
 import { COMPACT_THRESHOLD } from '../doc/docStore.js';
 import type { SyncServer } from '../sync/server.js';
@@ -77,6 +83,10 @@ export interface MaintenanceReport {
   /** Workspaces marked for deletion long enough ago to be removed (ADR-0027). */
   purgedWorkspaces: number;
   compactedDocuments: number;
+  /** Pages a version was taken of because their sitting ended (ADR-0047). */
+  versionedDocuments: number;
+  /** Versions dropped by thinning. */
+  thinnedVersions: number;
   /** Failed projections attempted again this pass. */
   retriedProjections: number;
   /** Of those, the ones that succeeded. */
@@ -133,6 +143,8 @@ export class Maintenance {
       prunedShareSessions: 0,
       purgedWorkspaces: 0,
       compactedDocuments: 0,
+      versionedDocuments: 0,
+      thinnedVersions: 0,
       retriedProjections: 0,
       recoveredProjections: 0,
       abandonedProjections: 0,
@@ -192,8 +204,24 @@ export class Maintenance {
       report.abandonedProjections = result.abandoned;
     });
 
+    /*
+     * A version of every page whose sitting has ended (ADR-0047).
+     *
+     * Before compaction in this list, deliberately: compaction takes its own
+     * version, and one taken here first means the entry is labelled as the end
+     * of somebody's writing rather than as a housekeeping artefact. The same
+     * state either way; a different answer to "why does this version exist".
+     */
+    await guard('version quiet documents', async () => {
+      report.versionedDocuments = await versionQuietDocuments(this.opts.pool);
+    });
+
     await guard('compact documents', async () => {
       report.compactedDocuments = await compactBacklog(this.opts.pool);
+    });
+
+    await guard('thin versions', async () => {
+      report.thinnedVersions = await thinVersions(this.opts.pool);
     });
 
     // Reported, not fixed: both conditions need an operator decision. A stale
@@ -287,6 +315,66 @@ export interface RetryResult {
  * is attempted a few times and then left for a person rather than filling the
  * log forever.
  */
+/**
+ * How long a page has to be quiet before its sitting counts as ended.
+ *
+ * The gap between "still writing" and "finished for now". Too short and the list
+ * is keystrokes; too long and a version is never taken for somebody who works in
+ * short bursts.
+ */
+export const QUIET_MINUTES = Number(process.env['SONE_VERSION_QUIET_MINUTES'] ?? 10);
+
+/**
+ * Take a version of every page that has changed and then gone quiet.
+ *
+ * "Changed" means there are updates past the last version; "quiet" means nothing
+ * for a while. A page nobody has touched since its last version is skipped —
+ * otherwise this would write an identical state every time it ran, which is how
+ * a history table outgrows the documents it describes.
+ */
+export async function versionQuietDocuments(pool: Pool): Promise<number> {
+  const candidates = await queryRows<{ doc_id: string; last_seq: string }>(
+    pool,
+    `SELECT u.doc_id, max(u.seq)::text AS last_seq
+       FROM doc_updates u
+       JOIN pages p ON p.id = u.doc_id
+      WHERE p.archived_at IS NULL
+      GROUP BY u.doc_id
+     HAVING max(u.created_at) < now() - ($1 || ' minutes')::interval
+        AND max(u.seq) > coalesce(
+              (SELECT max(v.through_seq) FROM page_versions v WHERE v.doc_id = u.doc_id),
+              0)
+      LIMIT 50`,
+    [QUIET_MINUTES],
+  );
+
+  let taken = 0;
+  for (const row of candidates) {
+    // One at a time and each on its own: a document that fails to load must not
+    // stop the others, which is the same guard every task in this job has.
+    try {
+      const since = (await lastVersionSeq(pool, row.doc_id)) ?? 0;
+      const loaded = await loadDoc(pool, row.doc_id);
+      try {
+        await takeVersion(
+          pool,
+          row.doc_id,
+          loaded.doc,
+          loaded.throughSeq,
+          'quiet',
+          await authorsSince(pool, row.doc_id, since),
+        );
+        taken += 1;
+      } finally {
+        loaded.doc.destroy();
+      }
+    } catch {
+      // Reported by the job's own guard on the next pass if it persists.
+    }
+  }
+  return taken;
+}
+
 export async function retryFailedProjections(
   pool: Pool,
   batchSize = RETRY_BATCH,

@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A page keeps versions** ([ADR-0047](docs/adr/0047-page-history.md)). One is taken
+when a sitting ends, and always before compaction — which is where a page's past
+used to be discarded. Older ones are thinned: everything from the last day, hourly
+for a week, daily for ninety days (`SONE_VERSION_RETENTION_DAYS`). Looking at one
+in the interface comes next, and restoring after that.
+
 **A reply has a Reply button.** Enter still sends it; the button is for everybody
 who did not know that.
 
