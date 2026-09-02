@@ -1053,7 +1053,14 @@ export const api = {
       takenAt: string;
       authors: string[];
       title: string;
-      blocks: Array<{ id: string; parentId: string | null; type: string; text: string }>;
+      blocks: Array<{
+        id: string;
+        parentId: string | null;
+        type: string;
+        text: string;
+        /** A heading's level, a todo's state: without them it is all paragraphs. */
+        props: Record<string, unknown>;
+      }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
 
   /** Make the page read as it did. Applied forward, never a rewind (ADR-0047). */

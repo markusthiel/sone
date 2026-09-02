@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a past version showed every heading and list item as a paragraph**, and
+an exported page did the same — both were written against block names that do not
+exist.
+
 **Fixed: bold and italic were stored in the search index as literal `<strong>`
 tags.** Every document's text had been projected by serialising it rather than
 reading it, so searching for a mark's name matched half a workspace and a word at

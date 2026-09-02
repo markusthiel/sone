@@ -753,11 +753,14 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         takenAt: loaded.row.takenAt,
         authors: loaded.row.authors,
         title: parsed.page.title,
-        blocks: parsed.blocks.map((block: { id: string; parentId: string | null; type: string; plainText: string }) => ({
+        blocks: parsed.blocks.map((block) => ({
           id: block.id,
           parentId: block.parentId,
           type: block.type,
           text: block.plainText,
+          // A heading's level, a todo's state: without them a version is drawn
+          // as a wall of paragraphs, which is what it was.
+          props: block.props,
         })),
       });
     } finally {

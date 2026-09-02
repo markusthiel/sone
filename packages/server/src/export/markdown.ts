@@ -71,32 +71,39 @@ export function pageToMarkdown(title: string, blocks: ExportBlock[]): string {
     const indent = '  '.repeat(depth.get(block.id) ?? 0);
     const text = block.plainText;
 
-    if (block.type !== 'numbered') numbering = 0;
+    if (block.type !== 'numberedList') numbering = 0;
 
+    /*
+     * By the block's real name.
+     *
+     * I wrote this switch against `heading-1`, `bullet` and `numbered`, which do
+     * not exist — the types are `heading` with a `level`, `bulletList`,
+     * `numberedList` and `collectionView` (see CoreBlockType). Every heading
+     * and every list item was therefore exported as a plain paragraph, and my
+     * tests passed because I had written them against the same invented names.
+     * The list below is checked against core's own set by a test now.
+     */
     switch (block.type) {
       case 'paragraph':
         lines.push(text);
         break;
-      case 'heading-1':
-        // Demoted by one, because the title already holds level one. A document
+      case 'heading': {
+        // Demoted by one, because the title already holds level one: a document
         // with two `#` headings has two titles as far as a reader is concerned.
-        lines.push(`## ${text}`);
+        const level = Number(props(block)['level'] ?? 1);
+        const hashes = '#'.repeat(Math.min(6, Math.max(2, level + 1)));
+        lines.push(`${hashes} ${text}`);
         break;
-      case 'heading-2':
-        lines.push(`### ${text}`);
-        break;
-      case 'heading-3':
-        lines.push(`#### ${text}`);
-        break;
-      case 'bullet':
+      }
+      case 'bulletList':
         lines.push(`${indent}- ${text}`);
         break;
-      case 'numbered':
+      case 'numberedList':
         numbering += 1;
         lines.push(`${indent}${numbering}. ${text}`);
         break;
       case 'todo':
-        lines.push(`${indent}- [${props(block).checked === true ? 'x' : ' '}] ${text}`);
+        lines.push(`${indent}- [${props(block)['checked'] === true ? 'x' : ' '}] ${text}`);
         break;
       case 'quote':
         lines.push(`> ${text}`);
@@ -104,10 +111,10 @@ export function pageToMarkdown(title: string, blocks: ExportBlock[]): string {
       case 'callout':
         // A blockquote with its first line naming what it is. Markdown has no
         // callout, and every dialect that invented one disagrees with the others.
-        lines.push(`> **${String(props(block).tone ?? 'Note')}**\n>\n> ${text}`);
+        lines.push(`> **${String(props(block)['tone'] ?? 'Note')}**\n>\n> ${text}`);
         break;
       case 'code': {
-        const language = String(props(block).language ?? '');
+        const language = String(props(block)['language'] ?? '');
         lines.push('```' + language + '\n' + text + '\n```');
         break;
       }
@@ -116,25 +123,25 @@ export function pageToMarkdown(title: string, blocks: ExportBlock[]): string {
         break;
       case 'toggle':
         // The summary as a bold line and the children after it, which is what a
-        // reader without HTML sees anyway. `<details>` would render in some
-        // places and appear as tags in others.
+        // reader without HTML sees anyway. `<details>` renders in some places
+        // and appears as tags in others.
         lines.push(`**${text}**`);
         break;
       case 'image': {
-        const alt = String(props(block).alt ?? text ?? '');
-        const file = props(block).fileId;
-        lines.push(
-          file ? `![${alt}](attachments/${String(file)})` : `![${alt}]()`,
-        );
+        const alt = String(props(block)['alt'] ?? text ?? '');
+        const file = props(block)['fileId'];
+        lines.push(file ? `![${alt}](attachments/${String(file)})` : `![${alt}]()`);
         break;
       }
       case 'file': {
-        const file = props(block).fileId;
-        const name = String(props(block).filename ?? text ?? 'file');
+        const file = props(block)['fileId'];
+        const name = String(props(block)['filename'] ?? text ?? 'file');
         lines.push(file ? `[${name}](attachments/${String(file)})` : name);
         break;
       }
       default:
+        // A collection, a table, an embed, a column: no Markdown spelling, so
+        // the data goes in a fence our own importer can read back.
         lines.push(fence(block.type, block.props, text));
         break;
     }

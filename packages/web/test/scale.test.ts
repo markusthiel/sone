@@ -1372,3 +1372,15 @@ test('exporting asks one question and downloads by navigating', () => {
   const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
   assert.ok(menu.indexOf("t('entry.moveToWorkspace')") < menu.indexOf("t('entry.export')"));
 });
+
+test('a version is drawn with the block names that exist', () => {
+  // I wrote this against `heading-1`, `bullet` and `numbered`, none of which
+  // exist: the types are `heading` with a `level`, `bulletList` and
+  // `numberedList`. Every heading and every list item was drawn as a paragraph.
+  const view = codeOf(new URL('../src/components/VersionView.tsx', import.meta.url));
+  assert.match(view, /if \(type === 'heading'\)/);
+  assert.match(view, /'bulletList' \|\| type === 'numberedList'/);
+  assert.doesNotMatch(view, /'heading-1'|'bullet'|'numbered'/);
+  // And the level comes from the block's own props, which the server now sends.
+  assert.match(view, /Number\(block\.props\?\.\['level'\] \?\? 1\)/);
+});

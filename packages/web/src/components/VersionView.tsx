@@ -21,15 +21,35 @@ interface Version {
   id: string;
   takenAt: string;
   title: string;
-  blocks: Array<{ id: string; parentId: string | null; type: string; text: string }>;
+  blocks: Array<{
+    id: string;
+    parentId: string | null;
+    type: string;
+    text: string;
+    props: Record<string, unknown>;
+  }>;
 }
 
-/** Which element a block's text belongs in. */
-function elementFor(type: string): 'h1' | 'h2' | 'h3' | 'li' | 'p' {
-  if (type === 'heading-1') return 'h1';
-  if (type === 'heading-2') return 'h2';
-  if (type === 'heading-3') return 'h3';
-  if (type === 'todo' || type === 'bullet' || type === 'numbered') return 'li';
+/**
+ * Which element a block's text belongs in.
+ *
+ * By the block's real name. This read `heading-1`, `bullet` and `numbered`,
+ * none of which exist — the types are `heading` with a `level`, `bulletList`
+ * and `numberedList` — so every heading and every list item was drawn as a
+ * paragraph. The level comes from the block's own props.
+ */
+function elementFor(
+  type: string,
+  level: number,
+): 'h2' | 'h3' | 'h4' | 'li' | 'blockquote' | 'p' {
+  if (type === 'heading') {
+    // Demoted like the export's, because the page's title is the h1 above.
+    if (level <= 1) return 'h2';
+    if (level === 2) return 'h3';
+    return 'h4';
+  }
+  if (type === 'todo' || type === 'bulletList' || type === 'numberedList') return 'li';
+  if (type === 'quote' || type === 'callout') return 'blockquote';
   return 'p';
 }
 
@@ -85,10 +105,13 @@ export function VersionView({
         <article className="version-body">
           <h1>{version.title || t('page.untitled')}</h1>
           {version.blocks.map((block) => {
-            const Element = elementFor(block.type);
+            const Element = elementFor(block.type, Number(block.props?.['level'] ?? 1));
             return (
               <Element key={block.id} data-type={block.type}>
-                {block.text}
+                {/* A divider has no text and a rule instead. Anything else with
+                    no text was empty when the version was taken, and an empty
+                    paragraph is part of how a page read. */}
+                {block.type === 'divider' ? <hr /> : block.text}
               </Element>
             );
           })}
