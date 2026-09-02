@@ -13,7 +13,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Fixed: a workspace's tint reached the menus and not the sidebar.** The sidebar
+sits on its own surface token, which the first version of the tint missed.
 
 ## 0.3.0
 

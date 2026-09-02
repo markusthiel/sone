@@ -93,8 +93,14 @@
    * field or a code block inside the chrome keeps standing out from it. Reusing
    * one value for both would have made every input in the sidebar disappear
    * into the sidebar. */
-  --surface-page: var(--ink-000);
-  --surface-chrome: #faf8f4;
+  --surface-page: color-mix(in srgb, var(--sone-theme-tint, transparent) 3%, var(--ink-000));
+  /* The furniture: the sidebar, the panels, the bars.
+   *
+   * The tint's strongest place, because this is what somebody means by "the
+   * colour of the interface" — I tinted the surfaces and missed this one, so a
+   * workspace set to blue got a blue menu highlight and a beige sidebar. It is
+   * the token the sidebar actually sits on. */
+  --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, transparent) 16%, #faf8f4);
 
   --text-primary: var(--ink-900);
   --text-secondary: var(--ink-600);
@@ -127,8 +133,10 @@
      a step nearer, because nearer means lighter in the dark. Naming the two
      roles makes both themes say the same thing rather than one describing the
      other. */
-  --surface-page: var(--ink-950);
-  --surface-chrome: var(--ink-900);
+  --surface-page: color-mix(in srgb, var(--sone-theme-tint, transparent) 4%, var(--ink-950));
+  /* Less again, for the reason the other dark surfaces take less: a hue reads
+     stronger against black. */
+  --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, transparent) 9%, var(--ink-900));
 
   --text-primary: var(--ink-100);
   --text-secondary: var(--ink-300);

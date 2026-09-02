@@ -1579,10 +1579,27 @@ test('a workspace tint is mixed into the ramp, not set per surface', () => {
   // each separately would let it set them inconsistently — a sidebar that no
   // longer belongs to the panel beside it — so one tint is mixed into all of
   // them, with the proportions here where the ramp's relationships are readable.
-  assert.match(css, /--surface-sunken: color-mix\(in srgb, var\(--sone-theme-tint, transparent\) 14%/);
-  assert.match(css, /--surface: color-mix\(in srgb, var\(--sone-theme-tint, transparent\) 3%/);
-  // Less of it in the dark theme: a hue reads stronger against black.
-  assert.match(css, /--surface-sunken: color-mix\(in srgb, var\(--sone-theme-tint, transparent\) 8%/);
+  // Every surface, counted rather than remembered.
+  //
+  // I tinted a list I had typed from memory and missed `--surface-chrome` — the
+  // token the sidebar actually sits on — so a workspace set to blue got a blue
+  // menu highlight and a beige sidebar. This enumerates the declarations in each
+  // theme block and asserts that none is left untinted, which is a test about
+  // completeness rather than about the seven names I happen to know today.
+  for (const block of ['light', 'dark']) {
+    const start =
+      block === 'light' ? css.indexOf(":root,\n[data-theme='light'] {") : css.indexOf("[data-theme='dark'] {");
+    assert.ok(start > -1, `${block} theme block found`);
+    const body = css.slice(start, css.indexOf('--text-primary', start));
+    const surfaces = [...body.matchAll(/^\s+(--surface[a-z-]*): (.+);$/gm)];
+    assert.ok(surfaces.length >= 7, `${block} declares its surfaces`);
+    for (const [, name, value] of surfaces) {
+      assert.match(value, /color-mix\(in srgb, var\(--sone-theme-tint, transparent\)/, `${name} in ${block}`);
+    }
+  }
+  // The chrome takes the most, because it is what somebody means by "the colour
+  // of the interface"; the page almost none.
+  assert.match(css, /--surface-chrome: color-mix\(in srgb, var\(--sone-theme-tint, transparent\) 16%/);
   // A fallback at every use rather than a default declared once, which is the
   // rule this stylesheet already follows — `clearTheme` removes these from the
   // root, and a value living in a rule would survive its own deletion.
