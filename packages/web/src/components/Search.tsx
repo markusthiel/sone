@@ -17,11 +17,14 @@
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
+import { hasSearchCriteria, parseSearchQuery } from '@sone/core';
+
 import {
   ApiError,
   MATCH_CLOSE,
   MATCH_OPEN,
   api,
+  type AppliedFilters,
   type SearchResult,
   type SimilarName,
 } from '../api/client.ts';
@@ -43,13 +46,28 @@ export function SearchScreen({
   /** Names that are close, offered only when the search found little. */
   const [similar, setSimilar] = useState<SimilarName[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * What the *server* made of the query (ADR-0050).
+   *
+   * The chips are drawn from this rather than from the local parse, because this
+   * is the version that was actually used. The local parse decides whether to
+   * search at all — it has to answer that before a request exists — and the two
+   * agree because they are the same function.
+   */
+  const [applied, setApplied] = useState<AppliedFilters | null>(null);
   const [searching, setSearching] = useState(false);
   const requestId = useRef(0);
 
+  /** Parsed here as well, to decide whether there is anything to search for. */
+  const parsed = parseSearchQuery(query);
+
   useEffect(() => {
-    if (query.trim().length < 2) {
+    // A filter alone is enough: the two-character minimum is about a guess, and
+    // a filter is not one (ADR-0050).
+    if (!hasSearchCriteria(parseSearchQuery(query))) {
       setResults([]);
       setSimilar([]);
+      setApplied(null);
       setSearching(false);
       return;
     }
@@ -64,6 +82,7 @@ export function SearchScreen({
           if (id !== requestId.current) return;
           setResults(response.results);
           setSimilar(response.similar ?? []);
+          setApplied(response.filters ?? null);
           setError(null);
         })
         .catch((err: unknown) => {
@@ -90,9 +109,52 @@ export function SearchScreen({
         type="search"
       />
 
+      {/* What the query was read as.
+        *
+        * Above the results, so nothing is hidden: somebody who typed `autor:`
+        * and got no filter can see that, and somebody who typed a date that
+        * could not be read sees it struck through with the reason rather than
+        * silently dropped. */}
+      {applied && (
+        <div className="search-chips">
+          {applied.tags.map((tag) => (
+            <span key={`tag-${tag}`} className="search-chip">
+              {t('search.chip.tag', { value: tag })}
+            </span>
+          ))}
+          {applied.authors.map((author) => (
+            <span key={`author-${author}`} className="search-chip">
+              {t('search.chip.author', { value: author })}
+            </span>
+          ))}
+          {applied.after && (
+            <span className="search-chip">{t('search.chip.after', { value: applied.after })}</span>
+          )}
+          {applied.before && (
+            <span className="search-chip">
+              {t('search.chip.before', { value: applied.before })}
+            </span>
+          )}
+          {applied.unreadable.map((one) => (
+            <span
+              key={`bad-${one.prefix}-${one.value}`}
+              className="search-chip unreadable"
+              title={t('search.chip.notADate')}
+            >
+              {one.prefix}:{one.value}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* The syntax, once, under the field — not a help page somebody has to
+          find, and not a permanent panel either: it disappears as soon as
+          anything is typed. */}
+      {query === '' && <p className="settings-note">{t('search.syntax')}</p>}
+
       {error && <p className="error">{messageFor(error)}</p>}
 
-      {query.trim().length >= 2 &&
+      {hasSearchCriteria(parsed) &&
         !searching &&
         results.length === 0 &&
         similar.length === 0 &&

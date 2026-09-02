@@ -17,9 +17,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 typing filters into the search box: `tag:budget`, `author:markus`,
 `after:2026-08-01`, `before:2026-09-01`. A filter on its own is a valid search, so
 `tag:rechnung` lists everything tagged that way. The German prefixes (`autor:`,
-`schlagwort:`, `seit:`, `bis:`) work too. A filter that cannot be read is shown
-struck through with the reason rather than silently ignored, and the rest of the
-search still runs. Dates are in the server's time zone — there is no
+`schlagwort:`, `seit:`, `bis:`) work too. What the search was read as is shown as chips above
+the results, and a filter that cannot be read appears struck through with the
+reason rather than being silently ignored — the rest of the search still runs.
+The syntax is written under the empty search field. Dates are in the server's time zone — there is no
 per-workspace zone yet, and the record says so.
 
 **Fixed: a workspace's tint reached the menus and not the sidebar.** The sidebar

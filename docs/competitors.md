@@ -127,8 +127,10 @@ not: body text is a ranked `tsvector` search using both a stemmed and a simple
 configuration, with `ts_headline` snippets and the workspace's own dictionary. It
 is better than I remembered and better than the round-ups credit most tools with.
 
-What is actually missing is narrower. There is no way to filter results by tag,
-author or date — the search screen separates folders from pages and nothing else.
+**Filtering is built** ([ADR-0050](adr/0050-search-filters.md)): `tag:`,
+`author:`, `after:` and `before:`, typed into the query so a narrowed search can
+be shared and typed again. What remains of this item is typo tolerance in the
+body.
 And typo tolerance is titles-only: trigrams cover names, so a misspelt word in
 the body finds nothing where a misspelt title still finds the page.
 
