@@ -18,9 +18,11 @@ the record: [docs/import-export.md](docs/import-export.md) says what an archive
 must look like, what round-trips and what does not, and answers the questions
 worth asking before trusting it with your notes.
 
-**A PDF on iPhone or iPad now says where the rest of it is.** WebKit shows only
-the first page of an embedded PDF and will not scroll it, so there is an "Open all
-pages" link under the preview.
+**PDFs are drawn by SONE itself now** ([ADR-0048](docs/adr/0048-pdf-viewer.md)):
+a scrolling column of pages with a page count, the same on a phone as on a
+desktop. The browser's embed showed only the first page on iPhone and iPad and
+would not scroll. The renderer is downloaded the first time a PDF is opened and
+never otherwise.
 
 **A whole workspace can be exported** — "Export this workspace" under This
 workspace ([ADR-0044](docs/adr/0044-import-export.md)). The archive is packed in
