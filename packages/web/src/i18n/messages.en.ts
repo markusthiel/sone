@@ -73,9 +73,10 @@ export const en = {
   'entry.newFolder': 'New folder',
   'entry.moveUp': 'Move up',
   'entry.moveDown': 'Move down',
-  'entry.delete': 'Move to the trash',
-  'entry.deleteWithChildren':
-    'Move to the trash, with {count, plural, one {# entry} other {# entries}} inside',
+  'entry.delete': 'Trash',
+  // The count stays: it is what decides whether somebody opens the confirmation
+  // at all. The verb goes — the mark beside it already says it.
+  'entry.deleteWithChildren': 'Trash, {count, plural, one {# entry} other {# entries}}',
 
   // --- the administration area -------------------------------------------
   'admin.instance': 'This instance',

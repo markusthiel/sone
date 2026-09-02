@@ -82,9 +82,11 @@ export const de: Record<keyof typeof en, string> = {
   'entry.newFolder': 'Neuer Ordner',
   'entry.moveUp': 'Nach oben',
   'entry.moveDown': 'Nach unten',
-  'entry.delete': 'In den Papierkorb',
+  'entry.delete': 'Papierkorb',
+  // Der Zähler bleibt: er entscheidet, ob jemand die Bestätigung überhaupt
+  // öffnet. Das Verb geht — das Symbol daneben sagt es schon.
   'entry.deleteWithChildren':
-    'In den Papierkorb, mit {count, plural, one {# Eintrag} other {# Einträgen}} darin',
+    'Papierkorb, {count, plural, one {# Eintrag} other {# Einträge}}',
 
   // --- der Verwaltungsbereich --------------------------------------------
   'admin.instance': 'Diese Instanz',

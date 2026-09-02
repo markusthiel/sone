@@ -5665,7 +5665,12 @@ body {
  */
 .entry-appearance {
   padding: var(--sone-space-2);
-  border-block-start: 1px solid var(--sone-border);
+  /* No line of its own.
+   *
+   * It had one from when it sat in the middle of the menu and nothing else
+   * separated groups. Now the menu draws its own boundaries, so this drew a
+   * second line a pixel under the first — two rules for one boundary, which is
+   * the thing to look for whenever a divider appears doubled. */
 }
 .entry-menu-label {
   margin: var(--sone-space-2) var(--sone-space-1) var(--sone-space-1);
