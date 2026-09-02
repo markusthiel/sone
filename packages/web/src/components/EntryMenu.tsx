@@ -27,6 +27,7 @@ import { ICON_NAMES } from './EntryIconView.tsx';
 import { api, type PageNode } from '../api/client.ts';
 import { EntryIconView } from './EntryIconView.tsx';
 import {
+  UploadIcon,
   DownloadIcon,
   BookmarkIcon,
   PageIcon,
@@ -283,6 +284,8 @@ interface EntryMenuProps {
   onStartMoveToWorkspace: (pageId: string) => void;
   /** Open the export dialog for this entry (ADR-0044). */
   onStartExport: (pageId: string) => void;
+  /** Open the import dialog with this entry as the destination (ADR-0044). */
+  onStartImport: (pageId: string) => void;
   onStartShare: (pageId: string) => void;
   onReorder: (pageId: string, direction: 'up' | 'down') => void;
   /** False at the ends of the list, so the entries are visibly unavailable. */
@@ -306,6 +309,7 @@ export function EntryMenu({
   onStartMove,
   onStartMoveToWorkspace,
   onStartExport,
+  onStartImport,
   onStartShare,
   onReorder,
   canMoveUp,
@@ -556,6 +560,25 @@ export function EntryMenu({
             }}
           >
             <DownloadIcon /> {t('entry.export')}
+          </button>
+
+          {/* Beside the export.
+            *
+            * Offered unconditionally, like every other write in this menu —
+            * rename, move, delete. This menu has no notion of rights and I was
+            * about to invent one for a single entry; the server refuses an
+            * import somebody may not make, and one item guarded differently
+            * from its neighbours would be a lie about the other four. */}
+          <button
+              className="entry-menu-item"
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onStartImport(node.id);
+              }}
+            >
+            <UploadIcon /> {t('entry.import')}
           </button>
 
           {/* Offered as a shape to start from (ADR-0045).

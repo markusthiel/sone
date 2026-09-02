@@ -70,6 +70,24 @@ export const en = {
   'entry.move': 'Move to…',
   'entry.export': 'Export\u2026',
   'share.heading': 'Share “{title}”',
+  'import.title': 'Import',
+  'import.where': 'Into {title}.',
+  'import.reading': 'Reading the archive\u2026',
+  'import.summary': '{pages} pages and {folders} folders would be created.',
+  'import.exists': 'already there',
+  'import.duplicate': 'Create the {count} that already exist a second time',
+  'import.noOverwrite':
+    'Nothing existing is replaced. Without this, a page whose name is already ' +
+    'there is left alone and the archive\u2019s copy is not imported.',
+  'import.skipped': '{count} files will not be imported',
+  'import.attachmentsNotYet':
+    'The {count} files in this archive are not imported yet, and the links to ' +
+    'them will point nowhere.',
+  'import.confirm': 'Import',
+  'import.working': 'Importing\u2026',
+  'import.done': '{count} pages created.',
+  'import.wereSkipped': 'Left alone, because something of that name was there: {paths}',
+  'entry.import': 'Import\u2026',
   'export.title': 'Export',
   'export.what': '{title} and everything inside it, as Markdown files in one archive.',
   'export.withAttachments': 'Include the files and pictures',

@@ -34,6 +34,7 @@ import { useWorkspaceTheme } from './hooks/useWorkspaceTheme.ts';
 import { useFavourites } from './hooks/useFavourites.ts';
 import { useCommentMarkStyle } from './hooks/useCommentMarkStyle.ts';
 import { ExportDialog } from './components/ExportDialog.tsx';
+import { ImportDialog } from './components/ImportDialog.tsx';
 import { useComments } from './hooks/useComments.ts';
 import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
@@ -350,6 +351,8 @@ function Workspace({
   const [viewingVersion, setViewingVersion] = useState<string | null>(null);
   /** The entry somebody is exporting, if any (ADR-0044). */
   const [exportingId, setExportingId] = useState<string | null>(null);
+  /** The entry somebody is importing into, if any (ADR-0044). */
+  const [importingId, setImportingId] = useState<string | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -499,6 +502,7 @@ function Workspace({
     >
       <Sidebar
         onStartExport={setExportingId}
+        onStartImport={setImportingId}
         canManageWorkspaces={session.user.canManageWorkspaces}
         isInstanceAdmin={session.user.isInstanceAdmin}
         currentIcon={
@@ -690,6 +694,16 @@ function Workspace({
             setMovingId(null);
             void moveEntry(movingId, parent);
           }}
+        />
+      )}
+
+      {importingId && (
+        <ImportDialog
+          pageId={importingId}
+          title={findNode(tree, importingId)?.title ?? ''}
+          onClose={() => setImportingId(null)}
+          // The pages exist and the sidebar does not know yet.
+          onDone={() => void reloadPages()}
         />
       )}
 

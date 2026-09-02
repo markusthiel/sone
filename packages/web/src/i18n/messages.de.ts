@@ -79,6 +79,24 @@ export const de: Record<keyof typeof en, string> = {
   'entry.move': 'Verschieben nach…',
   'entry.export': 'Exportieren\u2026',
   'share.heading': '„{title}“ teilen',
+  'import.title': 'Importieren',
+  'import.where': 'Nach {title}.',
+  'import.reading': 'Archiv wird gelesen\u2026',
+  'import.summary': 'Es würden {pages} Seiten und {folders} Ordner angelegt.',
+  'import.exists': 'schon da',
+  'import.duplicate': 'Die {count} schon vorhandenen ein zweites Mal anlegen',
+  'import.noOverwrite':
+    'Nichts Vorhandenes wird ersetzt. Ohne dies bleibt eine Seite, deren Name ' +
+    'schon da ist, unberührt, und die Fassung aus dem Archiv kommt nicht mit.',
+  'import.skipped': '{count} Dateien kommen nicht mit',
+  'import.attachmentsNotYet':
+    'Die {count} Dateien in diesem Archiv werden noch nicht importiert, und ' +
+    'die Links darauf zeigen ins Leere.',
+  'import.confirm': 'Importieren',
+  'import.working': 'Wird importiert\u2026',
+  'import.done': '{count} Seiten angelegt.',
+  'import.wereSkipped': 'Unberührt gelassen, weil der Name schon da war: {paths}',
+  'entry.import': 'Importieren\u2026',
   'export.title': 'Exportieren',
   'export.what': '{title} und alles darin, als Markdown-Dateien in einem Archiv.',
   'export.withAttachments': 'Dateien und Bilder mitnehmen',

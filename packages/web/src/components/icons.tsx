@@ -290,6 +290,17 @@ export function EraserIcon(props: IconProps): ReactElement {
   );
 }
 
+/** An arrow out of a tray: a file coming into the application. */
+export function UploadIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 20.5v-11" />
+      <path d="M7.5 14L12 9.5 16.5 14" />
+      <path d="M4.5 6.5v-3h15v3" />
+    </svg>
+  );
+}
+
 /** An arrow into a tray: something leaving the application as a file. */
 export function DownloadIcon(props: IconProps): ReactElement {
   return (

@@ -17,11 +17,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 line — and a `+` on the Folders heading replaces the "New folder" button at the
 foot of the tree. Whether a section is open is remembered.
 
-**An archive can be imported into a folder** — Markdown files become pages, and
-directories become folders ([ADR-0044](docs/adr/0044-import-export.md)). The plan
-is computed first and writes nothing, so what will happen can be read before it
-does. Files inside the archive are not imported yet, and the plan says so. The
-screen for it comes next.
+**An archive can be imported**: "Import…" in an entry's ⋮ menu
+([ADR-0044](docs/adr/0044-import-export.md)). Choosing a file shows what would
+happen — the pages and folders it would create, which names are already taken,
+what will not come — and nothing is written until you confirm it. Nothing existing
+is ever replaced. Files inside the archive are not imported yet, and the plan says
+so.
 
 **Fixed: the export window opened at the foot of the menu** instead of centred
 like the sharing window. **Fixed: the sharing window's title was in English.**
