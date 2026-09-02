@@ -67,3 +67,30 @@ test('every icon-only button has a name', () => {
 
   assert.deepEqual(offenders, [], 'icon-only buttons with neither a label nor a title');
 });
+
+test('a closed drawer is unreachable, not merely unannounced', () => {
+  // `aria-hidden` stops a screen reader reading it and does nothing about the
+  // tab order — every button inside stays focusable. That was survivable while
+  // a closed panel was removed from the DOM; both drawers now stay there to
+  // slide, so a tab from the page would land in one nobody can see.
+  for (const file of ['Sidebar.tsx', 'RightSidebar.tsx']) {
+    const source = readFileSync(new URL(`../src/components/${file}`, import.meta.url), 'utf8');
+    assert.match(
+      source,
+      /\{\.\.\.\(open \? \{\} : \{ 'aria-hidden': true, inert: true \}\)\}/,
+      `${file} makes a closed drawer inert`,
+    );
+  }
+});
+
+test('both drawers slide, with the same duration', () => {
+  // The right panel appeared and vanished while the left one slid, which is the
+  // difference somebody notices without being able to name it. Same duration
+  // and easing, so the two sides behave alike rather than nearly alike.
+  const left = css.slice(css.indexOf('.sidebar {', css.indexOf('max-width: 799px')));
+  assert.match(left.slice(0, 500), /transition: transform 160ms ease/);
+  const right = css.slice(css.indexOf('.right-panel {', css.indexOf('max-width: 1099px')));
+  assert.match(right.slice(0, 700), /transition: transform 160ms ease/);
+  // And a closed drawer keeps its box, or there is nothing to animate.
+  assert.match(css, /\.app\[data-right-panel='closed'\] \.right-panel \{ display: flex; \}/);
+});

@@ -3257,7 +3257,11 @@ select {
   overflow: hidden;
 }
 
-/* Closed means gone, not narrow: a zero-width column still draws its border. */
+/* Closed means gone, not narrow: a zero-width column still draws its border.
+ *
+ * As a *column* only. Below 1100px the panel is a drawer, and a drawer has to
+ * stay in the DOM to slide — which is why the rule is overridden there, exactly
+ * as the left sidebar overrides it for the same reason. */
 .app[data-right-panel='closed'] .right-panel { display: none; }
 
 @media (min-width: 1100px) {
@@ -3275,7 +3279,20 @@ select {
     inset-inline-end: 0;
     inline-size: min(320px, 90vw);
     z-index: 20;
+    /* It slides, like the left one.
+     *
+     * The left sidebar has had this since it became an overlay; this panel was
+     * a drawer that appeared and vanished, which is the difference somebody
+     * notices without being able to name it. Same duration and same easing, so
+     * the two sides of the screen behave alike rather than nearly alike. */
+    transform: translateX(102%);
+    transition: transform 160ms ease;
   }
+  html[dir='rtl'] .right-panel { transform: translateX(-102%); }
+  .app[data-right-panel='open'] .right-panel { transform: none; }
+  /* Kept in the DOM when closed so it has somewhere to slide from. Without
+     this the column rule above removes it and there is nothing to animate. */
+  .app[data-right-panel='closed'] .right-panel { display: flex; }
   .app[data-right-panel='open'] .scrim-right { display: block; }
 }
 
