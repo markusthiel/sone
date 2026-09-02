@@ -1081,9 +1081,10 @@ test('the entry menu is ordered by how often and how permanent', () => {
   assert.ok(at("t('entry.move')") < at('<EntryAppearance'), 'then how it looks');
   assert.ok(at('<EntryAppearance') < at('entry-menu-item destructive'), 'the trash last');
 
-  // Three lines, one per group boundary, rather than one per item — and the
-  // first is inside the folder condition, so a page that can hold nothing does
+  // One line per group boundary rather than one per item: the marks, what can
+  // be made inside, where it goes, how it looks, and the trash. The line after
+  // "New" is inside the folder condition, so a page that can hold nothing does
   // not get a line separating nothing from what follows.
-  assert.equal([...menu.matchAll(/entry-menu-rule/g)].length, 3);
+  assert.equal([...menu.matchAll(/entry-menu-rule/g)].length, 4);
   assert.match(menu, /\{isFolder && <hr className="entry-menu-rule" \/>\}/);
 });
