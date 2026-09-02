@@ -27,6 +27,7 @@ import { ICON_NAMES } from './EntryIconView.tsx';
 import { api, type PageNode } from '../api/client.ts';
 import { EntryIconView } from './EntryIconView.tsx';
 import {
+  BookmarkIcon,
   PageIcon,
   FolderIcon,
   BrushIcon,
@@ -335,6 +336,9 @@ export function EntryMenu({
   }, [open]);
 
   const isFolder = node.kind === 'folder';
+  // From the tree's own record of the page, so the label is right the moment
+  // the menu opens rather than after a request.
+  const isTemplate = node.template === true;
   const descendants = countDescendants(node);
   const title = node.title || (isFolder ? 'Untitled folder' : 'Untitled');
 
@@ -532,6 +536,30 @@ export function EntryMenu({
           >
             <MoveIcon /> {t('entry.moveToWorkspace')}
           </button>
+
+          {/* Offered as a shape to start from (ADR-0045).
+            *
+            * A toggle in the entry's own menu rather than a setting somewhere
+            * else: whether this page is a shape is a fact about this page, and
+            * it is decided while looking at it. Only for pages and canvases —
+            * a folder has no document to copy. */}
+          {!isFolder && (
+            <button
+              className="entry-menu-item"
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={isTemplate}
+              onClick={() => {
+                setOpen(false);
+                void api
+                  .setPageTemplate(node.id, !isTemplate)
+                  .then(() => onChanged())
+                  .catch(() => onChanged());
+              }}
+            >
+              <BookmarkIcon /> {isTemplate ? t('template.stop') : t('template.use')}
+            </button>
+          )}
 
           <hr className="entry-menu-rule" />
 

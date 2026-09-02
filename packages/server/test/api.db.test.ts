@@ -168,6 +168,88 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.equal(found?.kind, 'canvas', 'the tree says what it is');
   });
 
+  test('a page started from a template is a copy of it, and is not itself one', async () => {
+    // Copied as a document rather than as text (ADR-0045): a round trip through
+    // Markdown loses collections, canvases, table widths and block attributes,
+    // which are the things somebody built a template for.
+    const session = await setup();
+    const folder = await createFolder(session, 'Shapes');
+
+    const template = await expectJson<{ id: string }>(
+      await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/pages`,
+        auth(session, json({ title: 'Meeting notes', parentPageId: folder })),
+      ),
+      201,
+    );
+
+    // Nothing is offered until somebody says so.
+    let list = await expectJson<{ templates: Array<{ id: string }> }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/templates`, auth(session)),
+      200,
+    );
+    assert.deepEqual(list.templates, []);
+
+    await expectStatus(
+      await fetch(
+        `${base}/api/pages/${template.id}`,
+        auth(session, { ...json({ template: true }), method: 'PATCH' }),
+      ),
+      200,
+    );
+
+    list = await expectJson<{ templates: Array<{ id: string; title: string }> }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/templates`, auth(session)),
+      200,
+    );
+    assert.deepEqual(
+      list.templates.map((one) => one.title),
+      ['Meeting notes'],
+    );
+
+    const made = await expectJson<{ id: string }>(
+      await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/pages`,
+        auth(session, json({ parentPageId: folder, templateId: template.id })),
+      ),
+      201,
+    );
+    assert.notEqual(made.id, template.id);
+
+    // The copy is not itself a shape to start from: two entries in that list
+    // after using it once would become four after using it twice.
+    const after = await expectJson<{ templates: Array<{ id: string }> }>(
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/templates`, auth(session)),
+      200,
+    );
+    assert.deepEqual(
+      after.templates.map((one) => one.id),
+      [template.id],
+    );
+  });
+
+  test('a page that is not a template cannot be started from', async () => {
+    // Refused as not found rather than as not-a-template: the distinction would
+    // say whether the page exists.
+    const session = await setup();
+    const folder = await createFolder(session, 'Pages');
+    const ordinary = await expectJson<{ id: string }>(
+      await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/pages`,
+        auth(session, json({ title: 'Just a page', parentPageId: folder })),
+      ),
+      201,
+    );
+
+    await expectStatus(
+      await fetch(
+        `${base}/api/workspaces/${session.workspaceId}/pages`,
+        auth(session, json({ parentPageId: folder, templateId: ordinary.id })),
+      ),
+      404,
+    );
+  });
+
   async function createFolder(
     session: Session,
     title: string,

@@ -52,7 +52,11 @@ interface SidebarProps {
   currentPageId: string | null;
   open: boolean;
   onClose: () => void;
-  onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder' | 'canvas') => void;
+  onCreatePage: (
+    parentPageId: string | null,
+    kind: 'page' | 'folder' | 'canvas',
+    templateId?: string,
+  ) => void;
   onRename: (pageId: string, title: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
   onStartMove: (pageId: string) => void;
@@ -284,6 +288,7 @@ export function Sidebar({
           </p>
         ) : (
           <TreeLevel
+            workspaceId={workspaceId}
             nodes={tree}
             currentPageId={currentPageId}
             collapsed={collapsed}
@@ -378,13 +383,20 @@ function TreeLevel({
   tree,
   onMove,
   drag,
+  workspaceId,
 }: {
   nodes: PageNode[];
+  /** For the list of templates the `+` offers (ADR-0045). */
+  workspaceId: string;
   currentPageId: string | null;
   collapsed: Set<string>;
   renaming: string | null;
   onToggle: (pageId: string) => void;
-  onCreatePage: (parentPageId: string | null, kind: 'page' | 'folder' | 'canvas') => void;
+  onCreatePage: (
+    parentPageId: string | null,
+    kind: 'page' | 'folder' | 'canvas',
+    templateId?: string,
+  ) => void;
   onRename: (pageId: string, title: string) => void;
   onCancelRename: () => void;
   onStartRename: (pageId: string) => void;
@@ -493,7 +505,10 @@ function TreeLevel({
                   {isFolder && (
                     <AddEntryMenu
                       title={title}
-                      onCreate={(kind) => onCreatePage(node.id, kind)}
+                      workspaceId={workspaceId}
+                      onCreate={(kind, templateId) =>
+                        onCreatePage(node.id, kind, templateId)
+                      }
                     />
                   )}
                   <EntryMenu
@@ -527,6 +542,7 @@ function TreeLevel({
               // the tree read as a flat list of differently indented rows.
               <div className="tree-children">
                 <TreeLevel
+                  workspaceId={workspaceId}
                   nodes={node.children}
                   currentPageId={currentPageId}
                   collapsed={collapsed}

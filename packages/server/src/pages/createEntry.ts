@@ -30,6 +30,14 @@ import { queryRows, withTransaction } from '../db/pool.js';
 import { materializeYDoc } from '../materialize/materialize.js';
 
 export interface CreateEntryInput {
+  /**
+   * The encoded state of a template's document, copied into the new page.
+   *
+   * Bytes rather than a page id, so this function does no loading and stays a
+   * pure "make a page out of this" — the caller has already checked that the
+   * template exists, is in this workspace, and may be read by this person.
+   */
+  fromTemplate?: Uint8Array;
   workspaceId: string;
   kind: EntryKind;
   title: string;
@@ -80,11 +88,28 @@ export async function createEntry(
 
   const doc = new Y.Doc();
   try {
+    /*
+     * From a template, if one was named (ADR-0045).
+     *
+     * The template's document is copied whole and then its page properties are
+     * replaced. Not extracted as text and re-parsed: a round trip through
+     * Markdown loses collections, canvases, table widths and block attributes,
+     * which are exactly the things somebody built a template for.
+     *
+     * Applied before the properties below, so those overwrite the template's
+     * own title, position and template flag rather than the other way round.
+     */
+    if (input.fromTemplate) {
+      Y.applyUpdate(doc, input.fromTemplate);
+    }
+
     doc.getMap(DOC_KEYS.meta).set(META_KEYS.schemaVersion, SCHEMA_VERSION);
     doc.getMap(DOC_KEYS.meta).set(META_KEYS.createdWith, 'sone-server');
 
     const page = doc.getMap(DOC_KEYS.page);
     page.set(PAGE_KEYS.title, title);
+    // A copy is not itself a shape to start from unless somebody says so.
+    page.delete(PAGE_KEYS.template);
     // In the document, not only the projection, so a folder is rebuildable
     // from the CRDT log like everything else (ADR-0019).
     page.set(PAGE_KEYS.kind, input.kind);

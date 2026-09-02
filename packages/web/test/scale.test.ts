@@ -1111,3 +1111,25 @@ test('the trash says what it is and how much, not what it does', () => {
   assert.match(en, /'entry\.delete': 'Trash',/);
   assert.match(en, /'entry\.deleteWithChildren': 'Trash, \{count, plural/);
 });
+
+test('a template is offered where a page is started, and only if there are any', () => {
+  // A workspace with no templates shows no heading: a feature that advertises
+  // its own emptiness teaches people to ignore that part of the menu.
+  const add = codeOf(new URL('../src/components/AddEntryMenu.tsx', import.meta.url));
+  assert.match(add, /templates\.length > 0 && \(/);
+  // After the blank ones, because a blank page is what most presses want.
+  assert.ok(add.indexOf("['folder', 'entry.newFolder'") < add.indexOf('template.heading'));
+  // Fetched when the menu opens rather than held with the tree: a short list
+  // read at the moment of a decision.
+  assert.match(add, /if \(!open\) return;[\s\S]{0,200}api\s*\n?\s*\.templates\(workspaceId\)/);
+});
+
+test('marking a template is a toggle on the entry itself', () => {
+  // Whether this page is a shape to start from is a fact about this page, and
+  // it is decided while looking at it (ADR-0045).
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  assert.match(menu, /role="menuitemcheckbox"\s*\n\s*aria-checked=\{isTemplate\}/);
+  assert.match(menu, /setPageTemplate\(node\.id, !isTemplate\)/);
+  // Not offered on a folder: there is no document to copy.
+  assert.match(menu, /\{!isFolder && \(/);
+});

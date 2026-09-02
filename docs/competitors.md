@@ -80,6 +80,9 @@ shape is the difference between a wiki people fill in and one they abandon.
 
 Small, well understood, no architecture at risk. The cheapest large win here.
 
+**Built** — [ADR-0045](adr/0045-templates.md). A template is an ordinary page with
+a flag, which meant it came out working for canvases too.
+
 ### 4. Export and import
 
 Export: Markdown, PDF, and a whole workspace as an archive. Import: Markdown,

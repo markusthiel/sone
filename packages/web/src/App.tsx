@@ -366,11 +366,21 @@ function Workspace({
   const onCreateEntry = async (
     parentPageId: string | null,
     kind: 'page' | 'folder' | 'canvas',
+    // A shape to start from, when one was chosen (ADR-0045).
+    templateId?: string,
   ): Promise<void> => {
-    const id = await createPage({ title: '', parentPageId, kind });
+    const id = await createPage({
+      title: '',
+      parentPageId,
+      kind,
+      ...(templateId ? { templateId } : {}),
+    });
     // A folder has no document to open, so creating one must not navigate
     // anywhere — it appears in the sidebar and the person carries on.
-    if (id && kind === 'page') navigate(paths.page(id));
+    //
+    // A canvas does open, which it did not before: a page started from a
+    // template is a page somebody wants to look at, and so is a board.
+    if (id && kind !== 'folder') navigate(paths.page(id));
   };
 
   // Settings is its own screen, not a page inside the workspace.
