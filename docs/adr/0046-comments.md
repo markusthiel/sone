@@ -173,6 +173,14 @@ What is stored is the set of *closed* threads, never the open ones. A thread tha
 arrives while nobody is looking must be open — a new comment hidden by a
 preference set last week is a comment nobody reads.
 
+What is *not* checked on reading is whether those threads exist. That check
+belongs to writing only: on a reload the document has not arrived yet, so the
+thread list is empty, and intersecting the stored set with it discards
+everything — which is the same mistake as seeding the editor before Yjs had
+synced (ADR-0002's lesson, learned again). An id for a thread that is gone
+matches nothing when drawing, and is dropped the next time somebody folds
+anything.
+
 The store is bounded to the last thirty pages. Otherwise it grows for ever: every
 page anybody folds a thread on leaves an entry, and a page that has since been
 deleted leaves one that nothing can ever clean up, because nothing left knows
