@@ -1253,10 +1253,16 @@ test('the marks are redrawn by whatever noticed the change', () => {
   // the hook that noticed says so, and the editor listens. Keyed on a prop, a
   // deleted thread kept its highlight until a reload.
   const hook = codeOf(new URL('../src/hooks/useComments.ts', import.meta.url));
-  assert.match(hook, /new CustomEvent\('sone:comments-changed'\)/);
+  // The announcement carries the list, and that is the whole of it: the hook
+  // runs inside the Yjs transaction, before React re-renders, so a prop or a
+  // ref read at that moment holds the state from before the change. An empty
+  // event made the editor redraw the *previous* list — no highlight at all for
+  // the first comment on a page, and one change behind for every later one.
+  assert.match(hook, /new CustomEvent\('sone:comments-changed', \{ detail: readThreads\(doc\) \}\)/);
 
   const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
   assert.match(surface, /addEventListener\('sone:comments-changed', nudge\)/);
+  assert.match(surface, /if \(Array\.isArray\(carried\)\) threadsRef\.current = carried/);
   assert.match(surface, /removeEventListener\('sone:comments-changed', nudge\)/);
   assert.match(surface, /setMeta\(commentMarksKey, true\)/);
   assert.match(surface, /\}, \[markStyle\]\)/);
