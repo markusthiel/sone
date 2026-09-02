@@ -85,6 +85,11 @@ Small, well understood, no architecture at risk. The cheapest large win here.
 Export: Markdown, PDF, and a whole workspace as an archive. Import: Markdown,
 DOCX, and Notion or Confluence for people arriving from somewhere else.
 
+Decided in [ADR-0044](adr/0044-import-export.md), not yet built — including the
+part that turned out to be the real prerequisite: an export of a whole workspace
+is a background job, and this server has a maintenance timer rather than a job
+runner.
+
 Export is an ownership question, not a convenience: a self-hosted tool that
 cannot hand back its contents in an open format is asking for the same trust the
 hosted ones ask for. That argument is ours to make and we currently cannot.
