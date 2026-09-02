@@ -80,7 +80,7 @@ folded in (ADR-0002, deliberately). The log therefore reaches back to the last
 compaction and no further, so history has to be kept on purpose rather than
 derived — versions taken when a sitting ends and, as a guarantee, before
 compaction runs. Restoring applies the old state forward as a new edit, because a
-CRDT cannot be rewound. Not built.
+CRDT cannot be rewound. **Built.**
 
 ### 3. Templates
 

@@ -725,6 +725,11 @@ export const en = {
   'history.none': 'No earlier versions of this page have been kept yet.',
   'history.viewing': 'This is how the page read on {when}.',
   'history.backToNow': 'Back to now',
+  'history.restore': 'Make the page read like this',
+  'history.restoreMeans':
+    'This is an edit, not a rewind: the page will read as it did, everything ' +
+    'that happened since stays in the list, and this restore becomes a version ' +
+    'of its own. Comments are not touched.',
   'history.wasRestore': 'a restore',
   'history.wasEmpty': 'The page was empty.',
   'history.retention':

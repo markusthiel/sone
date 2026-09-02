@@ -1056,6 +1056,10 @@ export const api = {
       blocks: Array<{ id: string; parentId: string | null; type: string; text: string }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
 
+  /** Make the page read as it did. Applied forward, never a rewind (ADR-0047). */
+  restoreVersion: (pageId: string, versionId: string) =>
+    post<{ ok: true }>(`/api/pages/${pageId}/versions/${versionId}/restore`, {}),
+
   /** The shapes a page can be started from in this workspace (ADR-0045). */
   templates: (workspaceId: string) =>
     request<{
