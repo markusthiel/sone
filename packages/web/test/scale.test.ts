@@ -1308,3 +1308,26 @@ test('a reply has a button, not only a shortcut', () => {
   // And the irreversible one is not beside the one pressed most.
   assert.match(css, /\.comment-destroy \{ margin-inline-start: auto/);
 });
+
+test('history says how far back it goes, and that it does not go all the way', () => {
+  // Both stated rather than implied (ADR-0047). Every page that existed before
+  // versions were kept has one collapsed state and no past, and a list that
+  // simply stops looks like a page nobody edited until then.
+  const panel = codeOf(new URL('../src/components/HistoryPanel.tsx', import.meta.url));
+  assert.match(panel, /t\('history\.retention', \{ days: retentionDays \}\)/);
+  assert.match(panel, /t\('history\.incomplete'\)/);
+});
+
+test('a past version replaces the body and shows no editor', () => {
+  // The point is to read the page as it was, and a page cannot be read in a
+  // column beside itself. The editor is not rendered rather than disabled — an
+  // editor that refuses keystrokes is an invitation somebody has already
+  // accepted by the time it refuses.
+  const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  assert.match(view, /viewingVersion \? \(\s*\n\s*<VersionView/);
+  // And it is not in the URL: thinning does not promise a version still exists,
+  // so a shared link could show a different past than the one that was shared.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /const \[viewingVersion, setViewingVersion\] = useState<string \| null>/);
+  assert.doesNotMatch(app, /paths\.version/);
+});

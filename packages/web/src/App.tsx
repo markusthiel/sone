@@ -338,6 +338,15 @@ function Workspace({
   const [pendingComment, setPendingComment] = useState<CommentAnchor | null>(null);
   /** How much a commented passage is marked, and whether at all here. */
   const marks = useCommentMarkStyle();
+  /**
+   * A past version being read (ADR-0047).
+   *
+   * Not in the URL. A version is something somebody is looking at for a moment,
+   * and a link to one would promise that it still exists when opened — which
+   * thinning does not guarantee, and which would make a stale link show a
+   * different past than the one that was shared.
+   */
+  const [viewingVersion, setViewingVersion] = useState<string | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -588,6 +597,8 @@ function Workspace({
             pageId={routePageId!}
             threads={commentMarksFor(comments.threads)}
             markStyle={marks.style}
+            viewingVersion={viewingVersion}
+            onCloseVersion={() => setViewingVersion(null)}
             onComment={(anchor) => {
               // Straight into a thread with an empty first message would be a
               // thread with nothing in it. So the anchor is held, the panel
@@ -689,6 +700,8 @@ function Workspace({
         pendingComment={pendingComment}
         onCancelPendingComment={() => setPendingComment(null)}
         marks={marks}
+        viewingVersion={viewingVersion}
+        onViewVersion={setViewingVersion}
         onRevealComment={(thread) => {
           // Resolving a thread's range into editor coordinates is the editor's
           // job, so revealing is a message to it rather than a scroll from
@@ -962,6 +975,8 @@ function ShareSession({
             // Nothing to mark: the shared view has no comments panel yet, and a
             // guest's half of ADR-0046 is the next slice.
             markStyle="off"
+            viewingVersion={null}
+            onCloseVersion={() => {}}
           />
         ) : (
           <div className="page-body">

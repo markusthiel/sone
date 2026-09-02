@@ -181,6 +181,7 @@ test('every tab is listed and rendered', () => {
     'images',
     'links',
     'comments',
+    'history',
     'people',
     'properties',
   ]);

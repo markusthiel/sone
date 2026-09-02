@@ -1025,6 +1025,37 @@ export const api = {
       }),
     }),
 
+  /** What this page said, at moments worth keeping (ADR-0047). */
+  versions: (pageId: string) =>
+    request<{
+      versions: Array<{
+        id: string;
+        takenAt: string;
+        authors: string[];
+        reason: 'quiet' | 'compaction' | 'restore';
+      }>;
+      retentionDays: number;
+      /** False, always, for now: history begins when it was switched on. */
+      complete: boolean;
+    }>(`/api/pages/${pageId}/versions`),
+
+  /**
+   * One version of a page, as text. The client does not decode documents it
+   * cannot edit.
+   *
+   * `pageVersion`, not `version`: there is already a `version` here and it is
+   * the *instance's* — the build somebody is running. Two unrelated things
+   * under one name in one object is how a call gets made to the wrong one.
+   */
+  pageVersion: (pageId: string, versionId: string) =>
+    request<{
+      id: string;
+      takenAt: string;
+      authors: string[];
+      title: string;
+      blocks: Array<{ id: string; parentId: string | null; type: string; text: string }>;
+    }>(`/api/pages/${pageId}/versions/${versionId}`),
+
   /** The shapes a page can be started from in this workspace (ADR-0045). */
   templates: (workspaceId: string) =>
     request<{

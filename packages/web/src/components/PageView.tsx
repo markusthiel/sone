@@ -24,6 +24,7 @@ import { scrollToBlock } from '../hooks/useOutline.ts';
 import type { CommentAnchor, DrawnThread } from '@sone/editor';
 
 import { CanvasSurface } from './CanvasSurface.tsx';
+import { VersionView } from './VersionView.tsx';
 import { EditorSurface } from './EditorSurface.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
@@ -39,6 +40,9 @@ interface PageViewProps {
   onComment: (anchor: CommentAnchor) => void;
   /** How much to mark a commented passage (ADR-0046). */
   markStyle: 'highlight' | 'underline' | 'off';
+  /** A past version to show instead of the body (ADR-0047). */
+  viewingVersion: string | null;
+  onCloseVersion: () => void;
   /**
    * Called when the title changes, including by another client.
    *
@@ -59,6 +63,8 @@ export function PageView({
   threads,
   onComment,
   markStyle,
+  viewingVersion,
+  onCloseVersion,
   pageId,
   connectionState,
   onTitleChange,
@@ -216,6 +222,16 @@ export function PageView({
       {/* A canvas is a page with a different body, not a different screen: the
           title, the panel, the trail and the sharing are all the page's
           (ADR-0043). Only what is under the heading changes. */}
+      {/* A past version, in place of the body (ADR-0047).
+        *
+        * In the content rather than in the panel: the point is to read the page
+        * as it was, and a page cannot be read in a column beside itself. The
+        * editor is not rendered at all rather than disabled — an editor that
+        * refuses keystrokes is an invitation somebody has already accepted by
+        * the time it refuses. */}
+      {viewingVersion ? (
+        <VersionView pageId={pageId} versionId={viewingVersion} onClose={onCloseVersion} />
+      ) : (
       <ErrorBoundary where="The editor">
         {isCanvas ? (
           <CanvasSurface handle={handle} pageId={pageId} canEdit={handle.canEdit !== false} />
@@ -229,6 +245,7 @@ export function PageView({
           />
         )}
       </ErrorBoundary>
+      )}
 
     </div>
   );
