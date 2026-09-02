@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A workspace can set the interface's tint and accent** under This workspace →
+Typography ([ADR-0023](docs/adr/0023-workspace-theme.md)). One tint is mixed into
+the sidebar, panels and menus rather than a colour per surface, so they keep
+belonging to each other; the accent covers links, defined text and filled
+buttons, and the text colour on a filled button is worked out from it.
+
+**Fixed: reaching for a block's handle on a tablet selected the text beside it.**
+
 **A page can be locked against accidental changes**
 ([ADR-0049](docs/adr/0049-locking.md)) — in the entry's ⋮ menu, above the trash. A
 locked page can still be read, selected, copied, exported, commented on, and its

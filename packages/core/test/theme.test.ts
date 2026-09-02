@@ -218,3 +218,33 @@ test('the palette survives alongside element settings', () => {
   });
   assert.deepEqual(theme, { palette: { green: '#00ff00' }, heading1: { size: 1 } });
 });
+
+test('a tint and an accent survive, and their contrast is computed', () => {
+  // Two whole-interface knobs rather than a colour per surface: the surfaces are
+  // a ramp of one grey, and setting them separately would let a workspace set
+  // them inconsistently (ADR-0023).
+  const theme = sanitiseTheme({ tint: '#F7F5F0', accent: 'green' });
+  assert.equal(theme.tint, '#f7f5f0', 'lowercased like every other literal');
+  assert.equal(theme.accent, 'green', 'or one of the eight names');
+
+  const properties = themeProperties({ accent: '#eedd55' });
+  assert.equal(properties['--accent'], '#eedd55');
+  // A pale accent needs dark text on it. Computed, never chosen: offering the
+  // choice would be offering a way to make a button unreadable.
+  assert.equal(properties['--accent-contrast'], '#141210');
+  assert.equal(themeProperties({ accent: '#1b4d3e' })['--accent-contrast'], '#ffffff');
+
+  // The tint is one property; the stylesheet holds the proportions, because that
+  // is where the ramp's relationships are readable beside the tokens.
+  assert.deepEqual(themeProperties({ tint: '#f0e6d2' }), {
+    '--sone-theme-tint': '#f0e6d2',
+  });
+});
+
+test('nonsense is dropped rather than stored', () => {
+  // The same rule the palette follows: unknown values are dropped, not
+  // rejected, so an older build reading a newer theme degrades quietly.
+  const theme = sanitiseTheme({ tint: 'chartreuse', accent: 42 });
+  assert.equal(theme.tint, undefined);
+  assert.equal(theme.accent, undefined);
+});

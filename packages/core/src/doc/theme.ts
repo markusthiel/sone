@@ -124,6 +124,25 @@ export type WorkspacePalette = Partial<Record<ThemeColor, `#${string}`>>;
 
 export type WorkspaceTheme = Partial<Record<ThemedElement, ElementTheme>> & {
   palette?: WorkspacePalette;
+  /**
+   * A hue mixed into the neutral surfaces — the sidebar, the panels, the menus.
+   *
+   * One knob rather than eight. The design system's surfaces are a ramp of one
+   * warm grey (ADR-0028), and letting a workspace set each of them separately
+   * would let it set them inconsistently: a sidebar that no longer belongs to
+   * the panel beside it. A tint mixed into the whole ramp keeps the relationships
+   * the ramp was built to express, and keeps the dark theme working without a
+   * second set of choices.
+   */
+  tint?: ThemeColor | `#${string}`;
+  /**
+   * The accent: what defined text, links and filled buttons are drawn in.
+   *
+   * Its contrast colour is computed rather than chosen. Somebody picking a pale
+   * yellow accent has not asked for white text on it, and offering them the
+   * choice would be offering them a way to make a button unreadable.
+   */
+  accent?: ThemeColor | `#${string}`;
 };
 
 const inList = <T>(list: readonly T[], value: unknown): value is T =>
@@ -143,6 +162,18 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
 
   const out: WorkspaceTheme = {};
+
+  // The two whole-interface knobs, from the same eight names entries use or a
+  // literal — the same rule the palette follows, so somebody who has coloured a
+  // folder already knows what is accepted here.
+  const tint = (input as Record<string, unknown>)['tint'];
+  if (inList(THEME_COLORS, tint) || isCustomColor(tint)) {
+    out.tint = isCustomColor(tint) ? (tint.toLowerCase() as `#${string}`) : tint;
+  }
+  const accent = (input as Record<string, unknown>)['accent'];
+  if (inList(THEME_COLORS, accent) || isCustomColor(accent)) {
+    out.accent = isCustomColor(accent) ? (accent.toLowerCase() as `#${string}`) : accent;
+  }
 
   const palette = sanitisePalette((input as Record<string, unknown>)['palette']);
   if (Object.keys(palette).length > 0) out.palette = palette;
@@ -166,6 +197,32 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
   }
 
   return out;
+}
+
+/**
+ * Black or white on this colour, whichever can be read.
+ *
+ * The sRGB relative luminance from WCAG, and the same threshold every
+ * implementation of that formula uses. Not a guess at "is this light": a mid
+ * green and a mid blue of the same lightness need different answers, and the
+ * formula is why.
+ */
+export function readableOn(color: string): string {
+  const hex = color.replace('#', '');
+  const full =
+    hex.length === 3
+      ? hex
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : hex;
+  const channel = (at: number): number => {
+    const value = Number.parseInt(full.slice(at, at + 2), 16) / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+  // 0.179 is where white and black are equally readable by the WCAG ratio.
+  return luminance > 0.179 ? '#141210' : '#ffffff';
 }
 
 /** The eight names, and what this workspace makes of them. */
@@ -193,6 +250,27 @@ function sanitisePalette(input: unknown): WorkspacePalette {
  */
 export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
   const properties: Record<string, string> = {};
+
+  /*
+   * The tint, mixed into the surfaces by the stylesheet rather than here.
+   *
+   * A single property, because the stylesheet is where the ramp's proportions
+   * live: it knows that the sunken surface takes more of the hue than the raised
+   * one, and that the dark theme takes less of it than the light one. Emitting
+   * eight computed colours from here would move that knowledge somewhere it
+   * cannot be read beside the design tokens.
+   */
+  const tint = colorValue(theme.tint);
+  if (tint !== undefined) properties['--sone-theme-tint'] = tint;
+
+  const accent = colorValue(theme.accent);
+  if (accent !== undefined) {
+    properties['--accent'] = accent;
+    // Computed, never chosen. A pale accent needs dark text on it and a deep one
+    // needs light text, and a workspace that picked the wrong one would have a
+    // button nobody can read.
+    properties['--accent-contrast'] = readableOn(accent);
+  }
 
   for (const [name, value] of Object.entries(theme.palette ?? {})) {
     // The same variable the stylesheet defines, overridden for this workspace.

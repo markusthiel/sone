@@ -149,3 +149,37 @@ change.
 
 **Reading size on the server.** Rejected: a display preference is not account
 data, and syncing it makes one device's setting a surprise on another.
+
+---
+
+## Amendment: the interface's own two colours
+
+Added after the element settings had been in use for a while, because the
+question that kept coming back was not about headings: it was about the beige in
+the sidebar and the green in the buttons.
+
+**A tint, not a colour per surface.** The surfaces are a ramp of one warm grey
+(ADR-0028) whose steps express what sits on top of what. A workspace that could
+set each of them separately could set them inconsistently — a sidebar that no
+longer belongs to the panel beside it. One hue mixed into the whole ramp keeps
+those relationships, and keeps the dark theme working without a second set of
+choices.
+
+The proportions live in the stylesheet rather than in the theme: the sunken
+surface takes the most hue, the page almost none, and the dark theme takes less
+than the light one because a hue reads stronger against black. Emitting eight
+computed colours from the theme module would move that knowledge somewhere it
+cannot be read beside the tokens it belongs to.
+
+**An accent, with its contrast computed.** The colour of links, defined text and
+filled buttons is a choice; the colour of the text *on* a filled button is not.
+It is derived from the accent's relative luminance, so a pale yellow accent gets
+dark text and a deep green gets light. Offering that as a second choice would be
+offering somebody a way to make a button unreadable, and the interface says so
+under the control rather than leaving it to be discovered.
+
+**Both are nothing when unset.** The fallback is at every use rather than
+declared once in a rule, which is the discipline this record already imposed:
+`clearTheme` removes theme properties from the root when a theme stops setting
+them, and a value living in a rule would survive its own deletion in some places
+and not others.

@@ -554,6 +554,17 @@ export const de: Record<keyof typeof en, string> = {
     'Spalten, Blöcke, Ordnersymbole — folgt dem.',
   'type.element': 'Element',
   'type.elements': 'Elemente',
+  'type.base': 'Die Oberfläche',
+  'type.base.note':
+    'Die Tönung wird in Seitenleiste, Bereiche und Menüs gemischt. Eine Farbe ' +
+    'statt einer pro Fläche, damit sie weiter zusammengehören.',
+  'type.tint': 'Tönung',
+  'type.accent': 'Akzent',
+  'type.accent.note':
+    'Der Akzent gilt für Links, hervorgehobenen Text und gefüllte Knöpfe. Die ' +
+    'Textfarbe auf einem gefüllten Knopf wird daraus berechnet, eine blasse ' +
+    'Akzentfarbe bekommt also dunklen Text.',
+  'type.clear': 'Zurücksetzen',
   'type.palette': 'Palette',
   'type.size': 'Größe',
   'type.colour': 'Farbe',
