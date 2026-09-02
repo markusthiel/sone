@@ -1709,3 +1709,17 @@ test('an inbox spans workspaces, so its route carries none', () => {
   // And it says there is no email, rather than letting somebody assume one.
   assert.match(screen, /t\('inbox\.noEmail'\)/);
 });
+
+test('a share link says what it gives away, with the count', () => {
+  // The moment a link is handed out, every comment on the page is visible to
+  // whoever holds it. ADR-0046 required the dialog to say so, with the number,
+  // where the link is made — the same argument as the trash button carrying its
+  // count: the fact that changes the decision belongs where the decision is.
+  const dialog = codeOf(new URL('../src/components/ShareDialog.tsx', import.meta.url));
+  assert.match(dialog, /threadCount > 0 && \(/);
+  assert.match(dialog, /t\('share\.commentsVisible', \{ count: threadCount \}\)/);
+  // Only when there are comments: a warning that appears every time is a
+  // warning nobody reads.
+  const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
+  assert.match(en, /'share\.commentsVisible':/);
+});

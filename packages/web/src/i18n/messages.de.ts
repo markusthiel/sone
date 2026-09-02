@@ -99,6 +99,10 @@ export const de: Record<keyof typeof en, string> = {
   'entry.unlock': 'Entsperren',
   'entry.unlock.hint': 'Änderungen wieder erlauben.',
   'entry.export': 'Exportieren\u2026',
+  'share.commentsVisible':
+    'Wer diesen Link hat, kann die {count} Kommentarverläufe dieser Seite ' +
+    'lesen. Eine in Kommentaren geführte Diskussion wird sichtbar, sobald der ' +
+    'Link herausgegeben ist.',
   'share.heading': '„{title}“ teilen',
   'file.pdfAllPages': 'Original öffnen',
   'file.pdfDocument': 'Dokument, scrollbar',

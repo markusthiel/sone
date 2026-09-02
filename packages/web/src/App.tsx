@@ -670,6 +670,10 @@ function Workspace({
           workspaceId={workspaceId}
           pageId={sharingId}
           pageTitle={findNode(tree, sharingId)?.title ?? ''}
+          // From the open document rather than fetched: the count is only
+          // meaningful for the page somebody is looking at, which is the only
+          // page this dialog is opened for.
+          threadCount={sharingId === pageId ? comments.threads.length : 0}
           onClose={() => setSharingId(null)}
         />
       )}
