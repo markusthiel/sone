@@ -1209,6 +1209,20 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         </table>
       </div>
 
+      {/* How many rows there are, and how many are showing (ADR-0055).
+        *
+        * Beside the button rather than in the header: it is the answer to "is
+        * there more", asked where somebody runs out of rows. Vague above ten
+        * thousand, because the count is bounded in the query — a number that
+        * costs a scan to be precise about is worth being vague about. */}
+      {typeof data.total === 'number' && data.total > data.rows.length && (
+        <p className="collection-count">
+          {data.totalIsExact === false
+            ? t('table.countMany', { shown: data.rows.length })
+            : t('table.countOf', { shown: data.rows.length, total: data.total })}
+        </p>
+      )}
+
       {/* More rows, on a button rather than on a scroll observer (ADR-0055).
         *
         * A button, first, because it is the version that cannot go wrong: an

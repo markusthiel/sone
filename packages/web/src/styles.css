@@ -1685,6 +1685,14 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .properties-row { display: contents; }
 .properties-row dd { min-inline-size: 0; overflow-wrap: anywhere; }
 
+/* How many rows, under the table. */
+.collection-count {
+  margin-block: var(--sone-space-3) 0;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
 /* More rows (ADR-0055). Under the table and full width, so it is where reading
    stopped rather than a control to hunt for. */
 .collection-more { display: block; inline-size: 100%; margin-block-start: var(--sone-space-3); }

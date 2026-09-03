@@ -300,6 +300,9 @@ export interface CollectionData {
   nextCursor?: string | null;
   /** True when this view had to fetch every row to sort it. */
   sortedInMemory?: boolean;
+  /** How many rows match, capped — see `totalIsExact` (ADR-0055). */
+  total?: number;
+  totalIsExact?: boolean;
   pageId: string;
   collectionId: string;
   titleFieldId: string;
