@@ -35,6 +35,7 @@ import {
   loadDoc,
   pendingUpdateCount,
 } from '../doc/docStore.js';
+import { projectInternalComments } from '../materialize/internalComments.js';
 import { markFailed, materializeYDoc } from '../materialize/materialize.js';
 
 /** Quiet period before a flush. Long enough to batch a burst of typing. */
@@ -64,10 +65,23 @@ export interface RoomOptions {
    * it to be zero.
    */
   lingerMs?: number;
+  /**
+   * A page's internal comments rather than a page (ADR-0057).
+   *
+   * The room projects with its own key as the page id, and
+   * `materializeDocument` *inserts* a page row — so without this an internal
+   * document appeared in the workspace as a page nobody created, titled
+   * nothing. Found by asserting its absence rather than by seeing it: my first
+   * version of that test waited exactly the debounce interval, asserted no
+   * failure, and passed because nothing had happened yet.
+   */
+  commentsFor?: string;
 }
 
 export class DocumentRoom {
   readonly pageId: string;
+  /** The page whose internal comments these are, or null for a page's own document. */
+  readonly commentsFor: string | null;
   readonly workspaceId: string;
   readonly doc: Y.Doc;
   readonly awareness: awarenessProtocol.Awareness;
@@ -99,6 +113,7 @@ export class DocumentRoom {
     this.lingerMs = opts.lingerMs ?? ROOM_LINGER_MS;
     this.pool = opts.pool;
     this.pageId = opts.pageId;
+    this.commentsFor = opts.commentsFor ?? null;
     this.workspaceId = opts.workspaceId;
     this.doc = doc;
     this.throughSeq = throughSeq;
@@ -403,13 +418,31 @@ export class DocumentRoom {
       const seq = await appendUpdate(this.pool, this.pageId, merged, actorId);
       this.throughSeq = seq;
 
-      await withTransaction(this.pool, (client) =>
-        materializeYDoc(client, this.pageId, this.doc, {
-          throughSeq: seq,
-          workspaceId: this.workspaceId,
-          actorId,
-        }),
-      );
+      /*
+       * A comment document is not a page, so it does not get a page's
+       * projection (ADR-0057).
+       *
+       * `materializeDocument` inserts a page row, which for a derived document
+       * id means a page nobody created. Its comments are projected on their
+       * own instead, into their own table, so a mention inside an internal
+       * thread cannot reach an inbox through the table the ordinary comment
+       * queries read.
+       */
+      if (this.commentsFor) {
+        await withTransaction(this.pool, (client) =>
+          projectInternalComments(client, this.commentsFor!, this.doc, {
+            workspaceId: this.workspaceId,
+          }),
+        );
+      } else {
+        await withTransaction(this.pool, (client) =>
+          materializeYDoc(client, this.pageId, this.doc, {
+            throughSeq: seq,
+            workspaceId: this.workspaceId,
+            actorId,
+          }),
+        );
+      }
 
       // Compact opportunistically. Cheap to check, and without it loadDoc
       // replays an ever-growing list on every cold open.

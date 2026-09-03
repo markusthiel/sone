@@ -479,10 +479,12 @@ export class SyncServer {
 
     let room: DocumentRoom;
     try {
-      room = await this.acquireRoom(
-        internal ? internalDocId(pageId, sha1Of) : pageId,
-        workspaceId,
-      );
+      room = internal
+        ? // The room is keyed by the derived id and told which page it belongs
+          // to: without the second the projection ran as a page's and created
+          // one (ADR-0057).
+          await this.acquireRoom(internalDocId(pageId, sha1Of), workspaceId, pageId)
+        : await this.acquireRoom(pageId, workspaceId);
     } catch (err) {
       this.log('error', `failed to load room ${pageId}`, err);
       conn.send(encodeError(requestId, SyncError.Internal));
@@ -520,7 +522,12 @@ export class SyncServer {
    * room. Without the in-flight promise map, both would load a Y.Doc and one
    * would be silently discarded along with any updates applied to it.
    */
-  private async acquireRoom(pageId: string, workspaceId: string): Promise<DocumentRoom> {
+  private async acquireRoom(
+    pageId: string,
+    workspaceId: string,
+    /** The page whose internal comments this document holds (ADR-0057). */
+    commentsFor?: string,
+  ): Promise<DocumentRoom> {
     const existing = this.rooms.get(pageId);
     if (existing && !existing.isDestroyed) return existing;
 
@@ -528,6 +535,7 @@ export class SyncServer {
     if (loading) return loading;
 
     const promise = DocumentRoom.open({
+      ...(commentsFor === undefined ? {} : { commentsFor }),
       pool: this.pool,
       pageId,
       workspaceId,
