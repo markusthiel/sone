@@ -1764,3 +1764,17 @@ test('the stream player is loaded only when a stream needs it, and released', ()
   assert.match(view, /this\.labels\.dashOnly/);
   assert.doesNotMatch(view, /'DASH streams play only/);
 });
+
+test('a page shows where it sits only while the sidebar is away', () => {
+  // The sidebar is the trail when it is there, and two of them is one too many.
+  // With it hidden — on a phone, or by choice — a page gives no clue where it
+  // is, which is worst for a collection's row: it opens as a page with a name
+  // and no visible parent at all.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /trail=\{sidebarVisible \? \[\] : ancestorNodes\(tree, selected\?\.id \?\? ''\)\}/);
+
+  // The same markup a folder's own trail uses, and now the same rules: they
+  // were scoped to `.folder-view`, so a page would have shown an unstyled one.
+  assert.match(css, /^\.breadcrumb \{/m);
+  assert.doesNotMatch(css, /\.folder-view \.breadcrumb/);
+});

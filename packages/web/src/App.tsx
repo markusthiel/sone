@@ -603,6 +603,17 @@ function Workspace({
 
         {route.kind === 'page' && !isFolder && handle && (
           <PageView
+            /*
+             * Where this page sits, but only while the sidebar is away
+             * (ADR-0019's tree is the trail when it is there).
+             *
+             * A permanent breadcrumb would repeat what the sidebar already
+             * shows, on every page, for the sake of the case where it does not.
+             * With the sidebar hidden — on a phone, or by choice — a page gives
+             * no clue where it is, which is worst for a collection's row: it
+             * opens as a page with a name and no visible parent at all.
+             */
+            trail={sidebarVisible ? [] : ancestorNodes(tree, selected?.id ?? '')}
             connectionState={connectionState}
             handle={handle}
             pageId={routePageId!}
@@ -1026,6 +1037,9 @@ function ShareSession({
             // Nothing to mark: the shared view has no comments panel yet, and a
             // guest's half of ADR-0046 is the next slice.
             markStyle="off"
+            // No trail here: this path renders a page outside the tree, so
+            // there are no folders above it to name.
+            trail={[]}
             viewingVersion={null}
             comparingVersion={null}
             onCloseVersion={() => {}}

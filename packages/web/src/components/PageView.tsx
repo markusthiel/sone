@@ -7,6 +7,8 @@
  */
 
 import type { PageHandle } from '@sone/client';
+
+import type { PageNode } from '../api/client.ts';
 import {
   DOC_KEYS,
   PAGE_KEYS,
@@ -17,6 +19,8 @@ import {
 import { useEntryKind } from '../hooks/usePageWidth.ts';
 import { usePageWidth } from '../hooks/usePageWidth.ts';
 import { useT } from '../i18n/useT.tsx';
+import { paths } from '../routes/paths.ts';
+
 import { useEffect, useState , type ReactElement } from 'react';
 
 import { blockFromHash } from '../routes/paths.ts';
@@ -41,6 +45,13 @@ interface PageViewProps {
   onComment: (anchor: CommentAnchor) => void;
   /** How much to mark a commented passage (ADR-0046). */
   markStyle: 'highlight' | 'underline' | 'off';
+  /**
+   * The folders above this page, when the sidebar is not showing them.
+   *
+   * Empty when it is: the sidebar is the trail, and two of them is one too
+   * many.
+   */
+  trail: PageNode[];
   /** A past version to show instead of the body (ADR-0047). */
   viewingVersion: string | null;
   /** Or what that version changed (ADR-0053). */
@@ -66,6 +77,7 @@ export function PageView({
   threads,
   onComment,
   markStyle,
+  trail,
   viewingVersion,
   comparingVersion,
   onCloseVersion,
@@ -170,6 +182,24 @@ export function PageView({
 
   return (
     <div className="page-body" data-width={width} data-kind={isCanvas ? 'canvas' : undefined}>
+      {/* Where this page sits, when the sidebar is not saying so.
+        *
+        * Above the title, which is where a location belongs — reading it
+        * downwards gives the folders and then the page. The same markup a
+        * folder's own trail uses, so the two do not drift apart. */}
+      {trail.length > 0 && (
+        <nav className="breadcrumb" aria-label={t('folder.location')}>
+          {trail.map((ancestor) => (
+            <span key={ancestor.id}>
+              <a href={paths.page(ancestor.id, ancestor.title)}>
+                {ancestor.title || t('folder.untitled')}
+              </a>
+              <span aria-hidden="true"> / </span>
+            </span>
+          ))}
+        </nav>
+      )}
+
       {/* The icon and the name on one line, the same shape a folder has. */}
       <div className="entry-heading">
         <span className="entry-heading-icon">

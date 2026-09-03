@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A page says where it sits when the sidebar is hidden** — the folders above it,
+above the title. Most useful for a collection's row, which opens as a page with a
+name and, until now, no visible parent at all.
+
 **Live HLS streams play in Chromium, Firefox and Brave**
 ([ADR-0037](docs/adr/0037-video.md)), not only in Safari. The player is fetched
 only when a page actually shows a stream, so nobody pays for it otherwise. The
