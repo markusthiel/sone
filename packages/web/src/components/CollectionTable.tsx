@@ -27,6 +27,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import {
+  type DerivedCellValue,
   ApiError,
   api,
   type CollectionData,
@@ -38,6 +39,7 @@ import { paths } from '../routes/paths.ts';
 import { RelationCell } from './RelationCell.tsx';
 import { messageFor } from './Auth.tsx';
 import {
+  SigmaIcon,
   RelationIcon,
   ArrowDownIcon,
   ArrowUpIcon,
@@ -136,6 +138,9 @@ const ADDABLE: ReadonlyArray<{
   // type; the collection it points at is asked for immediately afterwards,
   // because a relation cannot be created without one.
   { type: 'relation', label: 'field.relation', Icon: RelationIcon },
+  // The derived other side (ADR-0054). Like a relation, it asks a question
+  // immediately afterwards: which relation points here, and what to do with it.
+  { type: 'rollup', label: 'field.rollup', Icon: SigmaIcon },
 ];
 
 /** How long after the last keystroke a text cell is saved. */
@@ -253,6 +258,27 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
 
   /** A relation column waiting for the collection it points at (ADR-0054). */
   const [choosingRelation, setChoosingRelation] = useState(false);
+  /** A rollup waiting for the relation it reads, and what to do with it. */
+  const [choosingRollup, setChoosingRollup] = useState(false);
+  const [incoming, setIncoming] = useState<
+    Array<{ fieldId: string; fieldName: string; fromCollection: string }> | null
+  >(null);
+
+  useEffect(() => {
+    if (!choosingRollup) return;
+    let cancelled = false;
+    void api
+      .incomingRelations(collectionId)
+      .then((result) => {
+        if (!cancelled) setIncoming(result.relations);
+      })
+      .catch(() => {
+        if (!cancelled) setIncoming([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [choosingRollup, collectionId]);
   const [collections, setCollections] = useState<
     Array<{ id: string; title: string }> | null
   >(null);
@@ -289,11 +315,36 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       setChoosingRelation(true);
       return;
     }
+    /*
+     * A rollup asks which relation points here, and what to do with it.
+     *
+     * The server refuses one without a valid pair, so the menu hands off rather
+     * than creating something that would be rejected — the same shape as the
+     * relation step beside it.
+     */
+    if (fieldType === 'rollup') {
+      setChoosingRollup(true);
+      return;
+    }
     try {
       await api.addCollectionField(collectionId, {
         name: 'Untitled',
         fieldType,
         ...(target ? { config: { collectionId: target } } : {}),
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
+
+  /** Create a rollup that counts what points here through one relation. */
+  const addRollup = async (viaFieldId: string): Promise<void> => {
+    try {
+      await api.addCollectionField(collectionId, {
+        name: 'Untitled',
+        fieldType: 'rollup',
+        config: { viaFieldId, aggregate: 'count' },
       });
       await load();
     } catch (err) {
@@ -1017,6 +1068,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                     <Cell
                       field={field}
                       value={row.values[field.id] ?? null}
+                      derived={row.derived?.[field.id] ?? null}
                       canEdit={data.canEdit}
                       files={fileIndex}
                       pageId={row.id}
@@ -1098,6 +1150,56 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                 type="button"
                 className="btn subtle"
                 onClick={() => setChoosingRelation(false)}
+              >
+                {t('action.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {choosingRollup && (
+        <div
+          className="dialog-scrim"
+          role="presentation"
+          onClick={() => setChoosingRollup(false)}
+        >
+          <div
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('rollup.choose')}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="dialog-title">{t('rollup.choose')}</h2>
+            {incoming === null && <p className="muted">{t('panel.loading')}</p>}
+            {/* Said plainly: a rollup cannot exist before something points here,
+                and "no relations" is a more useful answer than an empty list. */}
+            {incoming?.length === 0 && <p className="muted">{t('rollup.nothingPointsHere')}</p>}
+            <ul className="dialog-list">
+              {(incoming ?? []).map((relation) => (
+                <li key={relation.fieldId}>
+                  <button
+                    type="button"
+                    className="dialog-item"
+                    onClick={() => {
+                      setChoosingRollup(false);
+                      // Count, because it is the one aggregate that needs no
+                      // second question — the rest can be changed on the column
+                      // once it exists.
+                      void addRollup(relation.fieldId);
+                    }}
+                  >
+                    {relation.fromCollection} · {relation.fieldName}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="btn subtle"
+                onClick={() => setChoosingRollup(false)}
               >
                 {t('action.cancel')}
               </button>
@@ -1481,6 +1583,7 @@ function FilesCell({
 function Cell({
   field,
   value,
+  derived,
   canEdit,
   files,
   pageId,
@@ -1494,10 +1597,45 @@ function Cell({
   files: Map<string, CollectionFile>;
   /** The row, which is the page a file uploaded here belongs to. */
   pageId: string;
+  /** What the server computed for this cell, when the column is derived. */
+  derived: DerivedCellValue | null;
   onChange: (value: StoredCellValue | null) => void;
   /** So a newly uploaded file can be named before the next reload. */
   onUploaded: (file: CollectionFile) => void;
 }): ReactElement {
+  // `Cell` had no translations of its own; the partial marker needs one.
+  const { t } = useT();
+
+  /*
+   * A derived column is read-only, and drawn before anything else asks what
+   * kind it is (ADR-0054).
+   *
+   * Before, because the alternative is a branch per derived type in a dispatch
+   * that is about *stored* kinds — and because an editable cell whose value the
+   * server computes would be a lie the moment somebody typed in it.
+   */
+  if (field.fieldType === 'rollup') {
+    if (!derived) return <span className="muted">—</span>;
+    return (
+      <span className="derived-cell">
+        {derived.rows
+          ? derived.rows.map((row, at) => (
+              <span key={row.id}>
+                {at > 0 && ', '}
+                <a href={paths.page(row.id, row.title)}>{row.title || '—'}</a>
+              </span>
+            ))
+          : (derived.number ?? '—')}
+        {/* Said, not hidden: two people seeing different numbers on one page is
+            correct, and looks like a fault when nothing explains it. */}
+        {derived.partial && (
+          <span className="derived-partial" title={t('rollup.partial')}>
+            {' *'}
+          </span>
+        )}
+      </span>
+    );
+  }
   if (field.fieldType === 'relation') {
     /*
      * Which collection this points at, from the column's own config (ADR-0054).

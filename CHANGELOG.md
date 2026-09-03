@@ -22,7 +22,8 @@ column on the collection being pointed at says how many rows point here, or list
 them, or sums a number on them — computed on the server and read-only, because
 nothing is ever written to the other side. It runs with your own visibility, so a
 count says when something was left out rather than quietly differing between two
-people.
+people. Pick **Rollup** as a column type and choose which relation it should
+count.
 
 **A canvas item can be commented on** ([ADR-0046](docs/adr/0046-comments.md)) —
 the speech bubble in the item's own handle menu. The thread appears in the

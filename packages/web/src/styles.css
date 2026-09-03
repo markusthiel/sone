@@ -1659,6 +1659,14 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .collection-column-name { font-weight: 600; }
 .collection-column-type { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
 
+/* A derived cell: what the server computed, not what anybody typed. */
+.derived-cell { color: var(--sone-text); font-variant-numeric: tabular-nums; }
+.derived-cell a { color: inherit; }
+/* The marker for a count that left something out. Muted and small: it is a
+   footnote, not a warning — nothing is wrong, the reader simply cannot see
+   everything the number would otherwise include. */
+.derived-partial { color: var(--sone-text-muted); cursor: help; }
+
 /* --- a relation cell (ADR-0054) --- */
 
 .relation-cell { position: relative; }

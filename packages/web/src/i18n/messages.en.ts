@@ -99,6 +99,14 @@ export const en = {
   'field.relation': 'Relation',
   'relation.chooseTarget': 'Which collection should this point at?',
   'relation.noCollections': 'There is no other collection to point at yet.',
+  'field.rollup': 'Rollup',
+  'rollup.choose': 'Which relation should this count?',
+  'rollup.nothingPointsHere':
+    'No relation column points at this collection yet. Add one on the other ' +
+    'collection first.',
+  'rollup.partial':
+    'Some linked rows are not shown because you cannot open them, so this ' +
+    'number is lower than somebody else may see.',
   'relation.aRow': 'A row',
   'relation.add': 'Link a row',
   'relation.remove': 'Unlink',

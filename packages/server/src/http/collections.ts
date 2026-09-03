@@ -562,6 +562,60 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
    * tree and search use — a picker that lists a collection somebody cannot open
    * is a way to learn that it exists.
    */
+  /**
+   * Relation columns pointing *at* this collection (ADR-0054).
+   *
+   * The counterpart of `/targets`, and what a rollup has to choose from: it
+   * names one of these, and that is the only thing a rollup can be built on.
+   * Asked from the collection being pointed at, for the same reason — the
+   * question is about here.
+   */
+  router.get('/api/collections/:collectionId/incoming', async (ctx) => {
+    const collectionId = ctx.params['collectionId'] ?? '';
+    const here = await queryOne<{ workspace_id: string }>(
+      deps.pool,
+      `SELECT p.workspace_id
+         FROM collections c JOIN pages p ON p.id = c.page_id
+        WHERE c.id = $1`,
+      [collectionId],
+    );
+    if (!here) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    const claims = await claimsFor(deps.pool, ctx, here.workspace_id);
+    if (!claims) return;
+
+    const rows = await queryRows<{ id: string; name: string; from_title: string }>(
+      deps.pool,
+      `SELECT f.id, f.name, p.title AS from_title
+         FROM collection_fields f
+         JOIN collections c ON c.id = f.collection_id
+         JOIN pages p ON p.id = c.page_id
+        WHERE f.field_type = 'relation'
+          AND f.config ->> 'collectionId' = $1
+          AND p.workspace_id = $2
+          AND p.archived_at IS NULL
+          AND ${visiblePagesCondition('p', '$3', '$4')}
+        ORDER BY p.title ASC, f.name ASC
+        LIMIT 100`,
+      [
+        collectionId,
+        here.workspace_id,
+        claims.principal.kind === 'user' ? claims.principal.userId : null,
+        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
+      ],
+    );
+
+    ctx.send(200, {
+      relations: rows.map((row) => ({
+        fieldId: row.id,
+        fieldName: row.name,
+        fromCollection: row.from_title,
+      })),
+    });
+  });
+
   router.get('/api/collections/:collectionId/targets', async (ctx) => {
     /*
      * Asked from a collection rather than from a workspace.
