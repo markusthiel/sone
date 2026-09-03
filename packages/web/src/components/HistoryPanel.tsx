@@ -38,12 +38,15 @@ export function HistoryPanel({
   members,
   viewing,
   onView,
+  onCompare,
 }: {
   pageId: string | null;
   members: WorkspaceMember[];
   /** Which version is being read, if any. */
   viewing: string | null;
   onView: (versionId: string | null) => void;
+  /** Show what a version changed, rather than what it said (ADR-0053). */
+  onCompare: (versionId: string) => void;
 }): ReactElement {
   const { t } = useT();
   const [versions, setVersions] = useState<Version[] | null>(null);
@@ -159,6 +162,17 @@ export function HistoryPanel({
                   {version.reason === 'restore' && (
                     <span className="history-reason">{t('history.wasRestore')}</span>
                   )}
+                </button>
+                {/* Beside the entry rather than inside it: the entry opens the
+                    version, and this asks a different question about it
+                    (ADR-0053). One control doing both would make somebody
+                    choose before they knew which they wanted. */}
+                <button
+                  type="button"
+                  className="history-compare"
+                  onClick={() => onCompare(version.id)}
+                >
+                  {t('diff.compare')}
                 </button>
               </li>
             );

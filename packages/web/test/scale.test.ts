@@ -1723,3 +1723,25 @@ test('a share link says what it gives away, with the count', () => {
   const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
   assert.match(en, /'share\.commentsVisible':/);
 });
+
+test('a diff is inline, tells added from removed without colour, and states its limits', () => {
+  // Inline rather than side by side: two columns on a phone is one column
+  // (ADR-0053).
+  const view = codeOf(new URL('../src/components/VersionDiff.tsx', import.meta.url));
+  assert.doesNotMatch(view, /side-by-side|column-left|diff-columns/);
+  // Underline and strike-through as well as colour, so the two are told apart
+  // without seeing colour.
+  assert.match(css, /\.diff-word\.added \{[^}]*text-decoration: underline/s);
+  assert.match(css, /\.diff-word\.removed \{[^}]*text-decoration: line-through/s);
+  // A bar in the margin rather than a background behind the prose, which would
+  // make the prose harder to read and defeat the purpose of showing it.
+  assert.match(css, /\.diff-block \{[^}]*border-inline-start: 3px solid/s);
+
+  // Both limits said where the comparison is, not in a document to be found.
+  assert.match(view, /t\('diff\.noFormatting'\)/);
+  assert.match(view, /unmatched > 0 &&/);
+
+  // Reading a version and comparing it are two states, not one with a mode.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /setComparingVersion\(id\);\s*\n\s*setViewingVersion\(null\);/);
+});

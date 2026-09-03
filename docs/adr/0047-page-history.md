@@ -100,9 +100,11 @@ to anchor to, which the detached state already covers (ADR-0046).
 
 ## What is deliberately not decided
 
-**Diffs between two versions.** Wanted, and its own record: word-level
-comparison of ProseMirror documents is not a small job and it needs the reading
-view to exist first.
+**Diffs between two versions.** Now built and decided in
+[ADR-0053](0053-version-diff.md) — and cheaper than this deferral assumed,
+because block ids make the correspondence between two versions given rather
+than guessed. The hard part of a text diff is the part the block model does not
+have.
 
 **Naming a version.** "Before the client call" is obviously useful and needs a
 decision about who may name and rename one.

@@ -810,6 +810,21 @@ export const en = {
   'panel.history': 'History',
   'history.none': 'No earlier versions of this page have been kept yet.',
   'history.viewing': 'This is how the page read on {when}.',
+  'diff.whatThisDid': 'What this changed',
+  'diff.sinceThen': 'Changed since',
+  'diff.added': 'Added',
+  'diff.removed': 'Removed',
+  'diff.changed': 'Rewritten',
+  'diff.moved': 'Moved',
+  'diff.movedFrom': 'from position {from} to {to}',
+  'diff.empty': '(empty)',
+  'diff.nothing': 'Nothing changed.',
+  'diff.compare': 'Compare',
+  'diff.noFormatting':
+    'Bold, italic and links are not compared \u2014 only the words.',
+  'diff.approximate':
+    '{count} blocks could not be matched between the two versions, so this ' +
+    'comparison is approximate for those.',
   'history.backToNow': 'Back to now',
   'history.restore': 'Make the page read like this',
   'history.restoreMeans':

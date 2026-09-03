@@ -12,7 +12,7 @@
  * wrong, not for display.
  */
 
-import type { EntryIcon, WorkspaceTheme } from '@sone/core';
+import type { DiffBlock, EntryIcon, WordChange, WorkspaceTheme } from '@sone/core';
 
 export class ApiError extends Error {
   constructor(
@@ -1127,6 +1127,20 @@ export const api = {
         expiresAt: string | null;
       }>;
     }>(`/api/workspaces/${workspaceId}/jobs`),
+
+  /** What changed between a version and its neighbour, or between it and now. */
+  versionDiff: (pageId: string, versionId: string, against: 'previous' | 'now') =>
+    request<{
+      against: 'previous' | 'now';
+      isFirst?: boolean;
+      unmatched: number;
+      changes: Array<
+        | { kind: 'added'; block: DiffBlock }
+        | { kind: 'removed'; block: DiffBlock }
+        | { kind: 'changed'; block: DiffBlock; words: WordChange[] }
+        | { kind: 'moved'; block: DiffBlock; from: number; to: number }
+      >;
+    }>(`/api/pages/${pageId}/versions/${versionId}/diff?against=${against}`),
 
   /** Make the page read as it did. Applied forward, never a rewind (ADR-0047). */
   restoreVersion: (pageId: string, versionId: string) =>

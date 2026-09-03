@@ -350,6 +350,8 @@ function Workspace({
    * different past than the one that was shared.
    */
   const [viewingVersion, setViewingVersion] = useState<string | null>(null);
+  /** A version being compared rather than read (ADR-0053). */
+  const [comparingVersion, setComparingVersion] = useState<string | null>(null);
   /** The entry somebody is exporting, if any (ADR-0044). */
   const [exportingId, setExportingId] = useState<string | null>(null);
   /** The entry somebody is importing into, if any (ADR-0044). */
@@ -607,7 +609,11 @@ function Workspace({
             threads={commentMarksFor(comments.threads)}
             markStyle={marks.style}
             viewingVersion={viewingVersion}
-            onCloseVersion={() => setViewingVersion(null)}
+            comparingVersion={comparingVersion}
+            onCloseVersion={() => {
+              setViewingVersion(null);
+              setComparingVersion(null);
+            }}
             onComment={(anchor) => {
               // Straight into a thread with an empty first message would be a
               // thread with nothing in it. So the anchor is held, the panel
@@ -737,7 +743,16 @@ function Workspace({
         onCancelPendingComment={() => setPendingComment(null)}
         marks={marks}
         viewingVersion={viewingVersion}
-        onViewVersion={setViewingVersion}
+        onViewVersion={(id) => {
+          setViewingVersion(id);
+          // Looking at a version and comparing it are two states, not one with a
+          // mode: choosing either clears the other rather than leaving both set.
+          setComparingVersion(null);
+        }}
+        onCompareVersion={(id) => {
+          setComparingVersion(id);
+          setViewingVersion(null);
+        }}
         onRevealComment={(thread) => {
           // Resolving a thread's range into editor coordinates is the editor's
           // job, so revealing is a message to it rather than a scroll from
@@ -1012,6 +1027,7 @@ function ShareSession({
             // guest's half of ADR-0046 is the next slice.
             markStyle="off"
             viewingVersion={null}
+            comparingVersion={null}
             onCloseVersion={() => {}}
           />
         ) : (
