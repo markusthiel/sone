@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted. The token, its storage and its rules are built and tested; the two
+routes, the screen and the mail are not. What is left is at the end.
 
 ## Context
 
@@ -85,6 +86,30 @@ a link on the sign-in page that appears only when mail works.
 
 An administrator can still set a password out of band; this does not replace
 that, and an instance with no relay is unchanged.
+
+## Built so far
+
+Issuing and redeeming, with the token stored as a hex SHA-256 digest and never
+in plaintext, and every refusal the decisions above describe covered by a test:
+an unknown address yields nothing, a single sign-on account yields nothing, a
+rejected password does not burn the link, a link works once, an expired one says
+*which* no it is, and a successful reset drops every session and voids the
+person's other outstanding links.
+
+**Using the primitives that already existed.** I wrote a `hashToken` here —
+plain SHA-256, with a comment explaining why a KDF would be pointless for a
+random token — and `password.ts` has had exactly that, plus `generateToken` and
+`tokensMatch`, since ADR-0010. Two answers to one question is the thing this
+codebase keeps having removed from it; a third, explained well, would have been
+worse rather than better. The password policy is the existing
+`assertPasswordAcceptable` too, so the sign-up form and this screen cannot
+disagree about what a password must be.
+
+## Still to build
+
+The request route, the redeem route, the screen with its two states, the mail
+itself, and the "forgot your password?" link that appears on the sign-in page
+only when a relay is configured.
 
 ## What is deliberately not decided
 
