@@ -122,6 +122,26 @@ text.
 preference: the token lives in the sub-address the *mailbox* saw, and `To` may
 have been rewritten by a list, a forward or somebody's filter.
 
+**The IMAP client.** Six commands, written for the same reason as the SMTP one
+and with the same condition: tested against something that speaks the protocol
+rather than against my idea of it.
+
+The part hand-written IMAP clients get wrong is **literals**. A server answers a
+FETCH with a byte count and then exactly that many bytes, which may contain
+anything — including a line that looks like a tagged completion. A client that
+scans for its own tag finds one inside somebody's mail and stops there, leaving a
+message that still looks like a message. The fake server's second test sends
+exactly that, and the client counts bytes.
+
+The socket is read as latin1 on purpose: one byte, one character, so a count is
+a count. Decoding as UTF-8 here would make the byte count wrong for any mail
+containing an umlaut and land the truncation mid-message — the MIME reader
+decodes properly afterwards, where the charset is known.
+
+Messages the handler declines are left **unread**, which is the protocol side of
+a decision above: a mailbox somebody else also uses must not lose their mail to
+us.
+
 ## Consequences
 
 An operator gains IMAP settings beside the SMTP ones and a mailbox to dedicate.
