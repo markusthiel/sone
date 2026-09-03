@@ -2108,3 +2108,28 @@ test('a thread is internal or not when it is started, and never moved after', ()
   // And forgotten when the page changes, rather than carried to another page.
   assert.match(panel, /setStartInternal\(false\);\s*\n\s*\}, \[pageId\]\)/);
 });
+
+test('the mail server is set in the administration area, and the password is not', () => {
+  // The settings keys existed and the route accepted them, and no screen drew
+  // them — so from an administrator's side they were environment-only whatever
+  // the code said (ADR-0058).
+  const admin = codeOf(new URL('../src/components/Admin.tsx', import.meta.url));
+  for (const key of ['smtpHost', 'smtpPort', 'smtpSecurity', 'smtpUser', 'smtpFrom', 'emailDetail']) {
+    assert.match(admin, new RegExp(`settings\\.${key}`), `${key} is on the screen`);
+  }
+  // Each says where its value came from, so an administrator can tell a value
+  // they typed from one the environment set.
+  assert.match(admin, /settingSources\['smtpHost'\]/);
+
+  // The password is not there and must not become a setting: a secret in a
+  // table is a secret in every backup (ADR-0024). The hint says where it lives
+  // instead, because an administrator looking for the field deserves an answer
+  // rather than an absence.
+  assert.doesNotMatch(admin, /smtpPassword/);
+  const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
+  assert.match(en, /SONE_SMTP_PASSWORD/);
+
+  // An empty host means no email, and the hint says so: a normal instance, not
+  // a broken one, and nobody should learn that by watching a queue.
+  assert.match(en, /'admin\.smtpHost\.hint':\s*\n?\s*'Empty means no email/);
+});

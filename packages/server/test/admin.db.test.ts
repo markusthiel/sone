@@ -361,6 +361,48 @@ describe(
       assert.equal(body.settingSources['signupMode'], 'environment');
     });
 
+    test('the mail server can be set without touching the environment', async () => {
+      // The keys existed and the route accepted them, and no screen drew them —
+      // so from an administrator's side they were environment-only whatever the
+      // code said (ADR-0058). This is the route half of the fix; the screen is
+      // asserted in the web tests.
+      const admin = await setup();
+      const response = await fetch(`${base}/api/admin/settings`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: admin.cookie },
+        body: JSON.stringify({
+          smtpHost: 'mail.example.org',
+          smtpPort: '465',
+          smtpSecurity: 'tls',
+          smtpFrom: 'sone@example.org',
+          emailDetail: 'workspace',
+        }),
+      });
+      // The PATCH answers with the settings; there is no GET for them, and the
+      // field is `settingSources`. I wrote a second request to a route that
+      // does not exist and read a field name I had invented.
+      const read = await expectJson<{
+        settings: Record<string, unknown>;
+        settingSources: Record<string, string>;
+      }>(response);
+      assert.equal(read.settings['smtpHost'], 'mail.example.org');
+      assert.equal(read.settings['smtpSecurity'], 'tls');
+      assert.equal(read.settings['emailDetail'], 'workspace');
+      // And it says where the value came from, which is what makes the screen
+      // able to explain itself.
+      assert.equal(read.settingSources['smtpHost'], 'database');
+
+      // The password is not a setting and cannot become one: a secret in a
+      // table is a secret in every backup (ADR-0024).
+      assert.ok(!('smtpPassword' in read.settings), 'no password among the settings');
+      const refused = await fetch(`${base}/api/admin/settings`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: admin.cookie },
+        body: JSON.stringify({ smtpPassword: 'hunter2' }),
+      });
+      assert.equal(refused.status, 422, 'an unknown key, because it is not one');
+    });
+
     test('an unknown setting is refused rather than stored', async () => {
       // A typo silently stored is a setting somebody believes they changed.
       const admin = await setup();

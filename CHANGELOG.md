@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A mail server can be configured in the administration area**
+([ADR-0058](docs/adr/0058-email-notifications.md)) — host, port, encryption,
+user, sender address, and whether a mail may name the page. An empty host means
+no email at all, which the screen says. The password stays in the environment as
+`SONE_SMTP_PASSWORD`, because a secret in a table is a secret in every backup.
+
 **A comment can be internal** ([ADR-0057](docs/adr/0057-internal-comments.md)):
 tick "only for members" under the draft and the thread goes into a second
 document that a share link cannot open at all — not hidden from it, unreachable.

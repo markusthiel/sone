@@ -175,6 +175,31 @@ each enqueuing the same batch. The preference is read at claim time rather than
 at write time, so turning mail off stops what is already waiting instead of
 having decided somebody's next week.
 
+### Set in the administration area, except the password
+
+The five values that describe a relay — host, port, encryption, user, sender —
+and the detail setting are ordinary instance settings: an administrator changes
+them without a redeploy, and each row says whether the value came from the
+database or the environment.
+
+They were settings from the start and **no screen drew them**, which meant that
+from an administrator's side they were environment-only whatever the code said.
+That is worth naming as a failure mode of its own: a key in `SETTING_KEYS` and a
+route that accepts it are not a feature until something renders it.
+
+**The password stays in the environment**, as `SONE_SMTP_PASSWORD`, for the same
+reason as the OIDC secret (ADR-0024): a secret in a table is a secret in every
+backup, in every `pg_dump` somebody mails themselves, in every copy of a staging
+database. It is refused as an unknown setting rather than silently ignored, and
+the user field's hint says where it lives — an administrator hunting for the
+field deserves an answer rather than an absence.
+
+Encrypting it in the database with `SONE_SECRET_KEY` would work and was
+considered: the key is not in the backup, so the ciphertext in one is useless.
+It is not done because it buys convenience at the cost of a second place where a
+credential lives, and an operator who can set one environment variable can set
+two.
+
 ## Still to build
 
 The per-person settings screen, and failed sends surfaced in the administration

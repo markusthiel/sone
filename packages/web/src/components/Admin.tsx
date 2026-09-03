@@ -236,6 +236,142 @@ export function InstancePanel(): ReactElement {
             />
           </div>
 
+          {/* Where mail goes (ADR-0058).
+            *
+            * Here rather than only in the environment, which is what they were:
+            * the keys existed and the route accepted them, and no screen drew
+            * them — so from an administrator's side they were environment-only
+            * whatever the code said.
+            *
+            * An empty host means no email at all, and the hint says so: that is
+            * a normal instance, not a broken one, and somebody should not have
+            * to find that out by watching a queue. */}
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('admin.smtpHost')}</b>
+              <span>
+                {t('admin.smtpHost.hint')}
+                <SettingSource source={settingSources['smtpHost']} />
+              </span>
+            </span>
+            <input
+              id="smtp-host"
+              aria-label={t('admin.smtpHost')}
+              defaultValue={settings.smtpHost}
+              disabled={saving}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (value !== settings.smtpHost) void update({ smtpHost: value });
+              }}
+            />
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('admin.smtpPort')}</b>
+              <span>
+                {t('admin.smtpPort.hint')}
+                <SettingSource source={settingSources['smtpPort']} />
+              </span>
+            </span>
+            <input
+              id="smtp-port"
+              inputMode="numeric"
+              aria-label={t('admin.smtpPort')}
+              defaultValue={settings.smtpPort}
+              disabled={saving}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (value !== settings.smtpPort) void update({ smtpPort: value });
+              }}
+            />
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('admin.smtpSecurity')}</b>
+              <span>
+                {t('admin.smtpSecurity.hint')}
+                <SettingSource source={settingSources['smtpSecurity']} />
+              </span>
+            </span>
+            <select
+              id="smtp-security"
+              aria-label={t('admin.smtpSecurity')}
+              value={settings.smtpSecurity}
+              disabled={saving}
+              onChange={(event) => void update({ smtpSecurity: event.target.value })}
+            >
+              <option value="starttls">STARTTLS (587)</option>
+              <option value="tls">TLS (465)</option>
+              <option value="none">{t('admin.smtpSecurity.none')}</option>
+            </select>
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('admin.smtpUser')}</b>
+              <span>
+                {/* And where the password is, because it is the one value that
+                    stays in the environment (ADR-0024): a secret in a table is
+                    a secret in every backup. */}
+                {t('admin.smtpUser.hint')}
+                <SettingSource source={settingSources['smtpUser']} />
+              </span>
+            </span>
+            <input
+              id="smtp-user"
+              autoComplete="off"
+              aria-label={t('admin.smtpUser')}
+              defaultValue={settings.smtpUser}
+              disabled={saving}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (value !== settings.smtpUser) void update({ smtpUser: value });
+              }}
+            />
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('admin.smtpFrom')}</b>
+              <span>
+                {t('admin.smtpFrom.hint')}
+                <SettingSource source={settingSources['smtpFrom']} />
+              </span>
+            </span>
+            <input
+              id="smtp-from"
+              aria-label={t('admin.smtpFrom')}
+              defaultValue={settings.smtpFrom}
+              disabled={saving}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (value !== settings.smtpFrom) void update({ smtpFrom: value });
+              }}
+            />
+          </div>
+
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('admin.emailDetail')}</b>
+              <span>
+                {t('admin.emailDetail.hint')}
+                <SettingSource source={settingSources['emailDetail']} />
+              </span>
+            </span>
+            <select
+              id="email-detail"
+              aria-label={t('admin.emailDetail')}
+              value={settings.emailDetail}
+              disabled={saving}
+              onChange={(event) => void update({ emailDetail: event.target.value })}
+            >
+              <option value="title">{t('admin.emailDetail.title')}</option>
+              <option value="workspace">{t('admin.emailDetail.workspace')}</option>
+            </select>
+          </div>
+
           <label className="settings-row">
             <span className="settings-row-label">
               <b>{t('admin.mayCreateWorkspaces')}</b>
