@@ -2245,3 +2245,25 @@ test('the mail settings are their own section, with a test that names the relayÂ
   assert.match(routes, /SELECT email, display_name FROM users WHERE id = \$1/);
   assert.doesNotMatch(admin, /name="testAddress"|placeholder=\{t\('admin\.mail\.testTo'\)\}/);
 });
+
+test('the reset screen shows one answer, and its link appears only with a relay', () => {
+  const auth = codeOf(new URL('../src/components/Auth.tsx', import.meta.url));
+
+  // The same next screen whichever way the request went, including a network
+  // failure: a screen that said "we sent you a mail" only for real addresses
+  // would put back the oracle the route removed (ADR-0059).
+  assert.match(auth, /\.then\(\(\) => setAsked\(true\)\)\s*\n?\s*(?:\/\/[^\n]*\n\s*)*\.catch\(\(\) => setAsked\(true\)\)/);
+
+  // And the link is absent without a relay, because the reset is absent â€” a
+  // link to a form that can only ever promise a mail nobody will send teaches
+  // somebody to wait.
+  assert.match(auth, /instance\.canResetPassword === true &&/);
+
+  // The token lands before the sign-in screen: somebody arriving from a mail
+  // must not be shown a form for the password they are replacing.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.ok(
+    app.indexOf("route.kind === 'reset'") < app.indexOf('<LoginScreen'),
+    'the reset route is checked first',
+  );
+});

@@ -7,7 +7,7 @@
 
 import { useEffect, useState , type ReactElement } from 'react';
 
-import { LoginScreen, SetupScreen, SignupScreen, useMessage } from './components/Auth.tsx';
+import { LoginScreen, SetupScreen, SignupScreen, useMessage, ResetScreen } from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
 import { MoveDialog } from './components/MoveDialog.tsx';
 import { MoveToWorkspaceDialog } from './components/MoveToWorkspaceDialog.tsx';
@@ -198,6 +198,17 @@ function Routes({
         />
       );
     }
+    /*
+     * A reset link lands here, signed out (ADR-0059).
+     *
+     * Before the login screen, because somebody arriving from a mail has a
+     * token in the address and should not be shown a sign-in form for the
+     * password they are about to replace.
+     */
+    if (route.kind === 'reset') {
+      return <ResetScreen token={route.token} navigate={navigate} />;
+    }
+
     return (
       <LoginScreen
         onDone={() => void reload()}

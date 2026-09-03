@@ -1172,6 +1172,29 @@ export const en = {
   'auth.setup.note': 'This creates the first workspace and its owner. It can only be done once.',
   'auth.workspaceName': 'Workspace name',
   'auth.yourName': 'Your name',
+  'reset.forgot': 'Forgot your password?',
+  'reset.askTitle': 'Set a new password',
+  'reset.askHint':
+    'Enter the address you sign in with. If it has an account, a link is on its ' +
+    'way — the link works for an hour and once.',
+  'reset.ask': 'Send me a link',
+  'reset.asking': 'Sending…',
+  'reset.askedTitle': 'Check your mail',
+  'reset.askedHint':
+    'If that address has an account here, a link is on its way. It works for an ' +
+    'hour. Nothing has changed until you use it.',
+  'reset.setTitle': 'Choose a new password',
+  'reset.setHint':
+    'At least 12 characters. Everywhere you are signed in will be signed out, ' +
+    'including here.',
+  'reset.newPassword': 'New password',
+  'reset.set': 'Set the password',
+  'reset.setting': 'Saving…',
+  'reset.done': 'The password is set',
+  'reset.done.hint':
+    'Every session was signed out, so sign in again with the new password.',
+  'reset.toSignIn': 'Go to sign in',
+  'reset.backToSignIn': 'Back to sign in',
   'auth.email': 'Email',
   'auth.password': 'Password',
   'auth.passwordHint': 'At least 12 characters. Length beats complexity.',

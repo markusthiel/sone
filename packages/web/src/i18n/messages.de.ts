@@ -1234,6 +1234,32 @@ export const de: Record<keyof typeof en, string> = {
     'Das legt den ersten Workspace und seinen Besitzer an. Es geht nur ein Mal.',
   'auth.workspaceName': 'Name des Workspace',
   'auth.yourName': '{address, select, formal {Ihr Name} other {Dein Name}}',
+  'reset.forgot': 'Passwort vergessen?',
+  'reset.askTitle': 'Neues Passwort setzen',
+  // Beugt sich nach der Anredeform (ADR-0041): die Anmeldeseite spricht jemanden
+  // an, und eine Instanz, die „Sie" gewählt hat, darf hier nicht duzen.
+  'reset.askHint':
+    'Die Adresse eingeben, mit der {address, select, formal {Sie sich anmelden} ' +
+    'other {du dich anmeldest}}. Hat sie ein Konto, ist ein Link unterwegs — er ' +
+    'gilt eine Stunde und einmal.',
+  'reset.ask': 'Link senden',
+  'reset.asking': 'Wird gesendet…',
+  'reset.askedTitle': 'Ins Postfach sehen',
+  'reset.askedHint':
+    'Hat diese Adresse hier ein Konto, ist ein Link unterwegs. Er gilt eine ' +
+    'Stunde. Bis er benutzt wird, hat sich nichts geändert.',
+  'reset.setTitle': 'Neues Passwort wählen',
+  'reset.setHint':
+    'Mindestens 12 Zeichen. Alle Anmeldungen werden beendet, auch diese hier.',
+  'reset.newPassword': 'Neues Passwort',
+  'reset.set': 'Passwort setzen',
+  'reset.setting': 'Wird gespeichert…',
+  'reset.done': 'Das Passwort ist gesetzt',
+  // Ohne Anrede formuliert, damit sie in beiden Formen stimmt.
+  'reset.done.hint':
+    'Alle Sitzungen wurden beendet — mit dem neuen Passwort neu anmelden.',
+  'reset.toSignIn': 'Zur Anmeldung',
+  'reset.backToSignIn': 'Zurück zur Anmeldung',
   'auth.email': 'E-Mail',
   'auth.password': 'Passwort',
   'auth.passwordHint': 'Mindestens 12 Zeichen. Länge schlägt Komplexität.',
