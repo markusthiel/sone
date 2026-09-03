@@ -468,6 +468,87 @@ describe(
       assert.deepEqual(none.fields, []);
     });
 
+    test('a view can be sorted by a rollup', async () => {
+      // Before this the sort vanished: a rollup has no shadow column, so
+      // `columnFor` returned null and the whole sort was dropped without a word
+      // — the view looked unsorted and nothing said why (ADR-0054).
+      const session = await setup();
+      const clients = await collectionOn(
+        session,
+        await create(session, 'Kunden 5', 'page', session.rootFolder),
+      );
+      const invoices = await collectionOn(
+        session,
+        await create(session, 'Rechnungen 5', 'page', session.rootFolder),
+      );
+      const link = await expectJson<{ id: string }>(
+        await addField(session, invoices, {
+          name: 'Kunde',
+          fieldType: 'relation',
+          config: { collectionId: clients },
+        }),
+        201,
+      );
+      const count = await expectJson<{ id: string }>(
+        await addField(session, clients, {
+          name: 'Rechnungen',
+          fieldType: 'rollup',
+          config: { viaFieldId: link.id, aggregate: 'count' },
+        }),
+        201,
+      );
+
+      const few = await addRow(session, clients, 'Wenig');
+      const many = await addRow(session, clients, 'Viel');
+      for (const [target, howMany] of [
+        [few, 1],
+        [many, 3],
+      ] as const) {
+        for (let n = 0; n < howMany; n += 1) {
+          const invoice = await addRow(session, invoices, `R-${target.slice(0, 4)}-${n}`);
+          await fetch(`${base}/api/pages/${invoice}/properties/${link.id}`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json', cookie: session.cookie },
+            body: JSON.stringify({ value: { kind: 'relation', pageIds: [target] } }),
+          });
+        }
+      }
+
+      const view = await expectJson<{ views: Array<{ id: string }> }>(
+        await fetch(`${base}/api/collections/${clients}`, {
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+      const viewId = view.views[0]!.id;
+      await fetch(`${base}/api/collections/${clients}/views/${viewId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({
+          // `sort`, not `sorts` — the key `readSorts` reads. Two guesses in one
+          // test, and both failed the same way: a definition nobody reads and a
+          // parameter nobody looks for both produce an unsorted list, which is
+          // indistinguishable from a sort that ran and did nothing.
+          definition: { sort: [{ fieldId: count.id, direction: 'desc' }] },
+        }),
+      });
+
+      const sorted = await expectJson<{ rows: Array<{ id: string; title: string }> }>(
+        // `view`, not `viewId` — the parameter the route reads. My first version
+        // guessed, so the request named no view and the sort was never applied:
+        // the test failed on an unsorted list rather than a wrong sort.
+        await fetch(`${base}/api/collections/${clients}?view=${viewId}`, {
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+      assert.deepEqual(
+        sorted.rows.map((row) => row.title),
+        ['Viel', 'Wenig'],
+        'most first',
+      );
+    });
+
     test('a page can hold a collection', async () => {
       // Content inside a page, not a folder wearing a different hat
       // (ADR-0021). "A folder should be a folder" was the report that led here.

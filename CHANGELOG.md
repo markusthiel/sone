@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A view can be sorted by a rollup** — most invoices first, largest total first
+([ADR-0054](docs/adr/0054-relations.md)). Sorting by a computed column used to be
+silently ignored: the view came back in its ordinary order and nothing said why.
+
 **A row's own page now shows its fields** in the properties panel, above the
 page's kind and dates — editable, and including relations and rollups. Opening a
 row from a table previously showed a page that said nothing about the row it was.
