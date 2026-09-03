@@ -893,7 +893,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                   type="button"
                   className="view-tab collection-clear"
                   disabled={history.busy}
-                  title={`Move all ${data.rows.length} entries to the trash`}
+                  title={t('table.emptyTitle')}
                   onClick={() => setClearing(true)}
                 >
                   <TrashIcon /> {t('table.empty')}
@@ -1376,11 +1376,18 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
 
       {clearing && (
         <div className="collection-confirm" role="alert">
-          <p>
-            Move all {data?.rows.length ?? 0} entries to the trash? Each one is a
-            page, so nothing is destroyed — they can be restored from the trash,
-            or with undo.
-          </p>
+          {/* No number, and that is the fix (ADR-0055).
+            *
+            * It said "move all {loaded} entries" while the button clears the
+            * whole collection — so with paging it promised fifty and did twelve
+            * thousand. The count is not known here without a second scan, so
+            * the sentence names the scope instead, and the notice afterwards
+            * carries the true number from the server.
+            *
+            * Also translated now: it was English in the JSX, which the i18n
+            * guard misses because the text node has an expression in it — the
+            * same hole the share dialog's heading fell through. */}
+          <p>{t('table.confirmEmpty')}</p>
           <div className="settings-actions">
             <button
               type="button"

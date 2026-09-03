@@ -82,10 +82,27 @@ vague about. The extra row fetched to answer "is there more" is what a first
 version needs; a count is a second scan and can wait for somebody to want the
 number.
 
-**Select-all, paste, export and trash-all** have not been checked against paging
-yet — the next thing here, and the thing paging usually breaks. Written below as
-a decision because that is what it is; written here as unverified because that is
-what it is.
+**Select-all, paste, export and trash-all — checked**, one at a time, and the
+prediction was right about one of them.
+
+*Trash-all was a lie.* The confirmation said "move all N entries to the trash"
+with N counting the *loaded* rows, while the button clears the whole collection
+server-side. Before paging those were the same number; after it, the dialog
+promised fifty and did twelve thousand. It names the scope now and no number,
+because the number is not known here without a second scan — and the notice
+afterwards carries the true count, which the server already returns.
+
+*Select-all was already right*, which is worth saying rather than only reporting
+faults: its label reads "select every entry **shown**", written before paging
+existed and true after it.
+
+*Export and copy* act on the selection, and a selection can only hold rows
+somebody has loaded. Their notices state the count they acted on, which stays
+true. What changed silently is that "select all, then export" now means the
+loaded pages rather than the collection — acceptable, because both the label and
+the count say so, and an export of a collection is what ADR-0044 is for.
+
+*Paste* appends rows and does not read the loaded set at all.
 
 ### Everything else keeps working, including paste and export
 
