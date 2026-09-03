@@ -11,7 +11,7 @@
     "test": "tsc -b ../core && SONE_PASSWORD_COST=12 tsx --test test/*.test.ts",
     "migrate": "tsx scripts/migrate.mjs",
     "rematerialize": "tsx scripts/rematerialize.mjs",
-    "test:db": "tsx --test test/*.db.test.ts"
+    "test:db": "SONE_PASSWORD_COST=12 tsx --test test/*.db.test.ts"
   },
   "dependencies": {
     "@sone/core": "workspace:*",
