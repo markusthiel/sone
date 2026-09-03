@@ -142,6 +142,28 @@ Messages the handler declines are left **unread**, which is the protocol side of
 a decision above: a mailbox somebody else also uses must not lose their mail to
 us.
 
+**The poll that ties it together**, and two checks it makes that the token
+alone cannot:
+
+The token names a thread and a message; the *notification* is what knows which
+page they belong to, so the poll looks it up — which is also a second check for
+free: a token whose notification has been deleted, or which never matched one,
+cannot post.
+
+And **whether the person may still write there is checked when the reply
+arrives**, not when the notification was sent. Somebody removed from a workspace
+in the meantime must not be able to post from an old mail; this is the one place
+a fortnight-long token could otherwise outlive the access it was issued under.
+
+A forged or malformed token is answered with **nothing**, while an expired one
+gets a refusal mail. Answering a bad signature would confirm to whoever sent it
+that the address is live and the format is close, and there is nobody legitimate
+to help — an expired token is a real person whose mail sat too long.
+
+A mail with no token at all is left unread and *not* answered: replying to every
+stray message in a shared mailbox would make SONE a nuisance in somebody else's
+inbox.
+
 ## Consequences
 
 An operator gains IMAP settings beside the SMTP ones and a mailbox to dedicate.

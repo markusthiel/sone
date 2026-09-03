@@ -261,3 +261,64 @@ test('a thread about text says so by saying nothing', () => {
   const { doc } = docWithThread();
   assert.equal(readThreads(doc)[0]?.item, null);
 });
+
+test('a message that arrived by email says so, and an ordinary one says nothing', () => {
+  /*
+   * Marked because quote trimming is guesswork: a reader should be able to tell
+   * that a machine cut a reply rather than that a colleague wrote something
+   * strange (ADR-0060).
+   *
+   * And absent on everything typed here, which is the overwhelming majority — a
+   * key that is usually missing costs nothing, where one that is usually "app"
+   * would be noise in every message ever written.
+   */
+  const doc = new Y.Doc();
+  addThread(doc, {
+    id: 't1',
+    from: new Uint8Array(),
+    to: new Uint8Array(),
+    quote: 'etwas',
+    messageId: 'm1',
+    author: 'anna',
+    text: 'Frage?',
+  });
+
+  addMessage(doc, 't1', {
+    id: 'm2',
+    author: 'bo',
+    text: 'Antwort per Mail.',
+    via: 'email',
+    trimmed: true,
+    hadAttachments: true,
+  });
+  addMessage(doc, 't1', { id: 'm3', author: 'bo', text: 'Und hier getippt.' });
+
+  const [thread] = readThreads(doc);
+  const messages = thread?.messages ?? [];
+  assert.equal(messages[1]?.via, 'email');
+  assert.equal(messages[1]?.trimmed, true);
+  assert.equal(messages[1]?.hadAttachments, true);
+  // The ordinary one carries none of it.
+  assert.equal(messages[2]?.via, undefined);
+  assert.equal(messages[2]?.trimmed, undefined);
+});
+
+test('a reply that needed no trimming does not claim it was cut', () => {
+  // Otherwise every emailed reply would wear a "trimmed" mark, and the mark
+  // would stop meaning anything.
+  const doc = new Y.Doc();
+  addThread(doc, {
+    id: 't1',
+    from: new Uint8Array(),
+    to: new Uint8Array(),
+    quote: 'etwas',
+    messageId: 'm1',
+    author: 'anna',
+    text: 'Frage?',
+  });
+  addMessage(doc, 't1', { id: 'm2', author: 'bo', text: 'Ja.', via: 'email' });
+
+  const message = readThreads(doc)[0]?.messages[1];
+  assert.equal(message?.via, 'email');
+  assert.equal(message?.trimmed, undefined);
+});

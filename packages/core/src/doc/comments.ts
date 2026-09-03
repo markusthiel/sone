@@ -78,6 +78,23 @@ export const MESSAGE_KEYS = {
    * decided once and never edited, so there is nothing for two people to merge.
    */
   mentions: 'mentions',
+  /**
+   * How this message arrived, when it was not typed here (ADR-0060).
+   *
+   * `email` for a reply that came back through a notification. Absent for
+   * everything written in SONE, which is the overwhelming majority — a key
+   * that is usually missing costs nothing, and a key that is usually `app`
+   * would be noise in every message ever written.
+   *
+   * Marked because quote trimming is guesswork: a reader should be able to tell
+   * that a machine cut a reply rather than that a colleague wrote something
+   * strange. `trimmed` says whether anything was actually dropped, so a reply
+   * that needed no trimming does not claim it was cut.
+   */
+  via: 'via',
+  trimmed: 'trimmed',
+  /** Whether the mail carried attachments, which are not kept (ADR-0060). */
+  attachments: 'attachments',
   /** One text field. A document per message would be a second editor in a list. */
   text: 'text',
 } as const;
@@ -95,6 +112,10 @@ export interface CommentMessage {
   text: string;
   /** Who was addressed, by id or guest key (ADR-0052). */
   mentions: string[];
+  /** How it arrived, when not typed here (ADR-0060). */
+  via?: 'email';
+  trimmed?: boolean;
+  hadAttachments?: boolean;
 }
 
 export interface CommentThread {
@@ -186,6 +207,17 @@ export function readThread(doc: Y.Doc, id: string, entry: Y.Map<unknown>): Comme
         mentions: Array.isArray(mentions)
           ? mentions.filter((one): one is string => typeof one === 'string')
           : [],
+        /*
+         * How it arrived, when it did not come from here (ADR-0060).
+         *
+         * Read defensively and left undefined for everything else, so the
+         * panel's mark appears only where the document actually says so — I
+         * wrote these keys and forgot to read them, and the test that asserted
+         * the mark is what found it.
+         */
+        ...(value.get(MESSAGE_KEYS.via) === 'email' ? { via: 'email' as const } : {}),
+        ...(value.get(MESSAGE_KEYS.trimmed) === true ? { trimmed: true } : {}),
+        ...(value.get(MESSAGE_KEYS.attachments) === true ? { hadAttachments: true } : {}),
       });
     });
   }
@@ -284,12 +316,22 @@ export function addThread(doc: Y.Doc, input: NewThread): void {
   });
 }
 
+/** How a message arrived, when it did not come from here (ADR-0060). */
+export interface Arrival {
+  via?: 'email';
+  trimmed?: boolean;
+  hadAttachments?: boolean;
+}
+
 function message(
   id: string,
   author: string,
   text: string,
   at?: number,
   mentions?: string[],
+  // One object rather than three more positional parameters: a call with four
+  // trailing booleans is a call nobody can read.
+  arrival?: Arrival,
 ): Y.Map<unknown> {
   const entry = new Y.Map<unknown>();
   entry.set(MESSAGE_KEYS.id, id);
@@ -306,6 +348,13 @@ function message(
    */
   const addressed = (mentions ?? []).filter((who) => who !== author);
   if (addressed.length > 0) entry.set(MESSAGE_KEYS.mentions, [...new Set(addressed)]);
+  // Only when it did not come from here, so an ordinary message carries nothing
+  // extra (ADR-0060).
+  if (arrival?.via) {
+    entry.set(MESSAGE_KEYS.via, arrival.via);
+    if (arrival.trimmed) entry.set(MESSAGE_KEYS.trimmed, true);
+    if (arrival.hadAttachments) entry.set(MESSAGE_KEYS.attachments, true);
+  }
   // Y.Text rather than a string: two people editing one message is rare, and
   // "rare" is not "never" — and it costs nothing to have it merge instead of
   // one of them losing a sentence.
@@ -326,6 +375,10 @@ export function addMessage(
     at?: number;
     /** Who was addressed (ADR-0052). */
     mentions?: string[];
+    /** How it arrived, when not typed here (ADR-0060). */
+    via?: 'email';
+    trimmed?: boolean;
+    hadAttachments?: boolean;
   },
 ): void {
   const entry = threadsMap(doc).get(threadId);
@@ -334,7 +387,13 @@ export function addMessage(
   if (!(list instanceof Y.Array)) return;
 
   doc.transact(() => {
-    list.push([message(input.id, input.author, input.text, input.at, input.mentions)]);
+    list.push([
+      message(input.id, input.author, input.text, input.at, input.mentions, {
+        ...(input.via ? { via: input.via } : {}),
+        ...(input.trimmed ? { trimmed: input.trimmed } : {}),
+        ...(input.hadAttachments ? { hadAttachments: input.hadAttachments } : {}),
+      }),
+    ]);
     // Replying to a resolved thread reopens it: somebody had more to say, and a
     // reply nobody sees because the thread is closed is a reply lost.
     if (entry.get(THREAD_KEYS.resolved) === true) {
