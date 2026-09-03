@@ -292,6 +292,22 @@ async function main(): Promise<void> {
     // Asked, not cached: a cached host is a third place the truth lives, and
     // this is one settings read on a route somebody uses twice a year.
     canSendMail: async () => (await mailSettings()).relay !== null,
+    // The mail an account with no password gets instead of a link (ADR-0059).
+    sendProviderMail: async (to) => {
+      const current = await mailSettings();
+      if (!current.relay) return;
+      await sendMail(current.relay, {
+        to,
+        subject: 'SONE: signing in to your account',
+        body:
+          'Somebody asked to set a new password for this address.\n\n' +
+          'This account signs in through your identity provider rather than ' +
+          'with a password here, so there is nothing to reset. Use the ' +
+          'single sign-on button on the sign-in page.\n\n' +
+          `${config.publicUrl}/login\n\n` +
+          'If this was not you, nothing has changed and you can ignore it.\n',
+      });
+    },
     sendResetMail: async (to, token, expiresAt) => {
       const current = await mailSettings();
       if (!current.relay) return;

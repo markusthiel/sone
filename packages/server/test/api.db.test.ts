@@ -45,6 +45,8 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
   let db: Pool;
   /** Addresses the reset route asked for a mail to, in order (ADR-0059). */
   const resetMailsTo: string[] = [];
+  /** Addresses told their account signs in elsewhere (ADR-0059). */
+  const providerMailsTo: string[] = [];
   let server: Server;
   let base: string;
 
@@ -64,6 +66,12 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       canSendMail: () => Promise.resolve(true),
       sendResetMail: (to) => {
         resetMailsTo.push(to);
+        return Promise.resolve();
+      },
+      // Recorded separately, because the point of this mail is that it differs
+      // from the other one while the *form* does not (ADR-0059).
+      sendProviderMail: (to) => {
+        providerMailsTo.push(to);
         return Promise.resolve();
       },
       signupMode: () => Promise.resolve('invite' as const),
@@ -261,6 +269,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     }
     assert.equal(answers[0]?.status, 200);
     assert.deepEqual(resetMailsTo, [], 'and no mail went anywhere');
+    assert.deepEqual(providerMailsTo, [], 'not even the provider one');
   });
 
   test('a canvas can be created, and comes back as one', async () => {

@@ -81,6 +81,7 @@ describe(
         // ordinary case for an instance without mail (ADR-0059).
         canSendMail: () => Promise.resolve(false),
         sendResetMail: () => Promise.resolve(),
+        sendProviderMail: () => Promise.resolve(),
       });
       registerAdminRoutes(router, {
         pool: db,

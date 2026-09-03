@@ -49,24 +49,46 @@ export interface IssuedReset {
 }
 
 /**
+ * An account that signs in somewhere else (ADR-0059).
+ *
+ * There is no password here to reset, and sending nothing left a real person
+ * waiting for a mail that would never arrive — the enumeration rule protected
+ * them into silence.
+ *
+ * The resolution is that the *form* must answer identically and **the mail need
+ * not**: a mail reaches only somebody who controls that mailbox, so it is a
+ * private channel and may say what the screen must not. It says to use the
+ * provider button, and it may name the provider.
+ */
+export interface SignsInElsewhere {
+  kind: 'provider';
+  email: string;
+}
+
+/**
  * Make a link for an address, or nothing at all — and say nothing either way.
  *
  * Returns null when there is no account, when it is deactivated, and when it has
  * no password to reset (a single sign-on account). The caller answers the same
  * in every case, which is the point.
  */
-export async function issueReset(db: Pool, email: string): Promise<IssuedReset | null> {
-  const account = await queryOne<{ id: string; email: string }>(
+export async function issueReset(
+  db: Pool,
+  email: string,
+): Promise<IssuedReset | SignsInElsewhere | null> {
+  const account = await queryOne<{ id: string; email: string; has_password: boolean }>(
     db,
-    `SELECT id, email FROM users
+    `SELECT id, email, password_hash IS NOT NULL AS has_password
+       FROM users
       WHERE lower(email) = lower($1)
-        AND deactivated_at IS NULL
-        -- An account with no password hash signs in through the provider, and a
-        -- reset mail would be a mail that cannot help (ADR-0059).
-        AND password_hash IS NOT NULL`,
+        AND deactivated_at IS NULL`,
     [email.trim()],
   );
   if (!account) return null;
+
+  // No password here to reset. Told, rather than left in silence — in the mail,
+  // which is the channel where saying so costs nothing.
+  if (!account.has_password) return { kind: 'provider', email: account.email };
 
   const token = generateToken();
   const expiresAt = new Date(Date.now() + RESET_MINUTES * 60_000);

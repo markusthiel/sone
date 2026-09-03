@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Asking to reset the password of a single sign-on account now gets an answer**
+([ADR-0059](docs/adr/0059-password-reset.md)) — a mail saying the account signs
+in through its provider, instead of the silence that left people waiting for a
+link that was never coming. The form itself still answers the same way for every
+address.
+
 **Each kind of notification now has its own answer**: at once, in the daily
 mail, or never ([ADR-0061](docs/adr/0061-digest.md)). "Tell me immediately when
 somebody mentions me, let the rest wait until tomorrow" was not sayable before.

@@ -139,10 +139,21 @@ teaches somebody to wait.
 
 ## What is deliberately not decided
 
-**A reset that also unlocks single sign-on accounts.** An OIDC account has no
-password here to reset; the reset form should say so rather than send a mail
-that cannot help. Whether it says *which* provider is a disclosure question of
-its own, and it needs the enumeration rule above thought through again.
+~~**A reset that also unlocks single sign-on accounts.**~~ *Decided, and the
+answer was already implied by the enumeration rule rather than blocked by it.*
+
+An account with no password here received **nothing at all**: no token, and so no
+mail. Enumeration-safe, and it left a real person waiting for a link that was
+never coming — protected into silence.
+
+The resolution is that **the form must answer identically and the mail need
+not.** A mail reaches only somebody who controls that mailbox, so it is a private
+channel: saying "this account signs in through your provider, use the button"
+costs nothing there, where saying it on screen would tell a stranger which
+addresses have accounts and of what kind.
+
+That also answers the sub-question this paragraph raised: the mail *may* name the
+provider, for the same reason.
 
 **Second factors.** There are none yet. When there are, a password reset must not
 be a way around them, which is a decision that belongs with the second factor

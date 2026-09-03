@@ -45,17 +45,26 @@ describe(
       assert.equal(await issueReset(db, 'niemand@example.org'), null);
     });
 
-    test('a single sign-on account yields nothing either', async () => {
-      // No password hash means signing in happens at the provider, and a reset
-      // mail would be a mail that cannot help.
+    test('a single sign-on account is told where it signs in', async () => {
+      /*
+       * It used to yield nothing, which was enumeration-safe and left a real
+       * person waiting for a mail that was never coming.
+       *
+       * The resolution: the *form* answers identically and the **mail** need
+       * not. A mail reaches only somebody who controls that mailbox, so it is a
+       * private channel and may say what the screen must not (ADR-0059).
+       */
       await person('sso@example.org', false);
-      assert.equal(await issueReset(db, 'sso@example.org'), null);
+      const answer = await issueReset(db, 'sso@example.org');
+      assert.ok(answer && 'kind' in answer, 'not a token');
+      assert.equal(answer.kind, 'provider');
+      assert.equal(answer.email, 'sso@example.org');
     });
 
     test('the token is never stored, only its hash', async () => {
       const userId = await person('reset@example.org');
       const issued = await issueReset(db, 'reset@example.org');
-      assert.ok(issued);
+      assert.ok(issued && 'token' in issued);
 
       const { rows } = await db.query<{ token_hash: string; user_id: string }>(
         `SELECT token_hash, user_id::text AS user_id FROM password_reset_tokens`,
@@ -72,7 +81,7 @@ describe(
       // must not have to go back to their mail.
       await person('mistype@example.org');
       const issued = await issueReset(db, 'mistype@example.org');
-      assert.ok(issued);
+      assert.ok(issued && 'token' in issued);
 
       const client = await db.connect();
       try {
@@ -90,7 +99,7 @@ describe(
     test('a link works once', async () => {
       await person('once@example.org');
       const issued = await issueReset(db, 'once@example.org');
-      assert.ok(issued);
+      assert.ok(issued && 'token' in issued);
 
       const client = await db.connect();
       try {
@@ -108,7 +117,7 @@ describe(
       // right thing.
       const userId = await person('slow@example.org');
       const issued = await issueReset(db, 'slow@example.org');
-      assert.ok(issued);
+      assert.ok(issued && 'token' in issued);
       await db.query(
         `UPDATE password_reset_tokens SET expires_at = now() - interval '1 minute'
           WHERE user_id = $1`,
@@ -136,7 +145,7 @@ describe(
       );
       const first = await issueReset(db, 'compromised@example.org');
       const second = await issueReset(db, 'compromised@example.org');
-      assert.ok(first && second);
+      assert.ok(first && 'token' in first && second && 'token' in second);
 
       const client = await db.connect();
       try {
