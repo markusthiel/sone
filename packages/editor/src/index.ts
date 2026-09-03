@@ -15,5 +15,6 @@ export * from './slashMenu.js';
 export * from './editor.js';
 export * from './authorship.js';
 export * from './authorHighlight.js';
+export * from './assignment.js';
 export * from './blockLock.js';
 export * from './commentAnchors.js';

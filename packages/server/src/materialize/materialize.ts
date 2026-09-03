@@ -323,8 +323,11 @@ export async function materializeDocument(
    * notification does not care whether the text is still there. Somebody was
    * asked a question either way.
    */
-  if (parsed.comments.length > 0) {
-    await writeNotifications(db, pageId, opts.workspaceId, parsed.commentThreads);
+  const assigned = parsed.blocks.filter(
+    (block) => block.type === 'todo' && typeof block.props['assignee'] === 'string',
+  );
+  if (parsed.comments.length > 0 || assigned.length > 0) {
+    await writeNotifications(db, pageId, opts.workspaceId, parsed.commentThreads, assigned);
   }
 
   if (parentChanged) {

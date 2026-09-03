@@ -52,6 +52,8 @@ interface PageViewProps {
    * many.
    */
   trail: PageNode[];
+  /** The workspace's people, for assigning a task (ADR-0052). */
+  members: Array<{ userId: string; displayName: string }>;
   /** A past version to show instead of the body (ADR-0047). */
   viewingVersion: string | null;
   /** Or what that version changed (ADR-0053). */
@@ -78,6 +80,7 @@ export function PageView({
   onComment,
   markStyle,
   trail,
+  members,
   viewingVersion,
   comparingVersion,
   onCloseVersion,
@@ -276,6 +279,7 @@ export function PageView({
             handle={handle}
             pageId={pageId}
             threads={threads}
+            members={members}
             onComment={onComment}
             markStyle={markStyle}
           />

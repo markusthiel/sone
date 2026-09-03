@@ -13,6 +13,7 @@
 import type { PageHandle } from '@sone/client';
 import { pageContent, readStreamLink, readVideoLink } from '@sone/core';
 import {
+  assignmentChips,
   authorHighlightKey,
   commentMarks,
   commentMarksKey,
@@ -56,6 +57,8 @@ interface EditorSurfaceProps {
   onComment: (anchor: CommentAnchor) => void;
   /** How much to mark a commented passage (ADR-0046). */
   markStyle: 'highlight' | 'underline' | 'off';
+  /** The workspace's people, for assigning a task (ADR-0052). */
+  members: Array<{ userId: string; displayName: string }>;
 }
 
 /**
@@ -78,6 +81,7 @@ export function EditorSurface({
   threads,
   onComment,
   markStyle,
+  members,
 }: EditorSurfaceProps): ReactElement {
   const { t } = useT();
   // One uploader, shared by paste, drop and the Image slash item, so all three
@@ -389,6 +393,9 @@ export function EditorSurface({
    * existed when the page opened.
    */
   const threadsRef = useRef<DrawnThread[]>([]);
+  /** userId → name, for the assignment chips (ADR-0052). */
+  const membersRef = useRef<Map<string, string>>(new Map());
+  membersRef.current = new Map(members.map((one) => [one.userId, one.displayName]));
   threadsRef.current = threads;
   /** Same reason as the threads: the editor is made once, this changes. */
   const markStyleRef = useRef(markStyle);
@@ -513,7 +520,12 @@ export function EditorSurface({
        * the editor is created once and the threads change constantly, so a
        * captured list would be the one that existed when the page opened.
        */
-      plugins: [commentMarks(() => threadsRef.current, () => markStyleRef.current)],
+      plugins: [
+        commentMarks(() => threadsRef.current, () => markStyleRef.current),
+        // Whose task it is, from a ref for the same reason the marks are: the
+        // member list arrives after the editor is built (ADR-0052).
+        assignmentChips((userId) => membersRef.current.get(userId) ?? null),
+      ],
       // The `/` menu's items, in this interface's language (ADR-0041). Given to
       // the plugin rather than applied when drawing, because the list is
       // filtered by what somebody typed — a German reader typing "übersch" has
@@ -766,7 +778,7 @@ export function EditorSurface({
               onClose={() => setVideoOpen(false)}
             />
           )}
-          <BlockMenu view={view} revision={revision} />
+          <BlockMenu view={view} revision={revision} members={members} />
           <TableToolbar view={view} revision={revision} />
           {/* No comment button for somebody who may only read: commenting
               requires edit rights until there is a role that separates them

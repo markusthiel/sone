@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A task can be assigned to somebody**, who is told in their inbox
+([ADR-0052](docs/adr/0052-notifications.md)). Choose the person in the task
+block's menu; their name appears at the end of the line. Only tasks can be
+assigned.
+
 **A page says where it sits when the sidebar is hidden** — the folders above it,
 above the title. Most useful for a collection's row, which opens as a page with a
 name and, until now, no visible parent at all.

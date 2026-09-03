@@ -22,8 +22,8 @@ const EXCERPT = 140;
 
 interface Candidate {
   userId: string;
-  kind: 'mention' | 'reply';
-  threadId: string;
+  kind: 'mention' | 'reply' | 'assignment';
+  threadId: string | null;
   messageId: string;
   excerpt: string;
 }
@@ -105,6 +105,36 @@ export function notificationsFor(threads: CommentThread[]): Candidate[] {
 }
 
 /**
+ * Who has been given a task on this page (ADR-0052).
+ *
+ * The block id stands in for the message id, which is what makes this idempotent
+ * for free: reassigning writes a row for the new person and finds the old one
+ * already there, and re-projecting an unchanged page writes nothing.
+ *
+ * The consequence, and it is the right one: assigning the same task to somebody
+ * twice — assign, unassign, assign again — tells them once. A notification is
+ * "you have this", not a log of who decided what.
+ */
+export function assignmentsFor(
+  blocks: Array<{ id: string; type: string; props: Record<string, unknown>; plainText: string }>,
+): Candidate[] {
+  const out: Candidate[] = [];
+  for (const block of blocks) {
+    if (block.type !== 'todo') continue;
+    const who = block.props['assignee'];
+    if (typeof who !== 'string' || who === '' || isGuestKey(who)) continue;
+    out.push({
+      userId: who,
+      kind: 'assignment',
+      threadId: null,
+      messageId: block.id,
+      excerpt: block.plainText.slice(0, EXCERPT),
+    });
+  }
+  return out;
+}
+
+/**
  * Write them, for the people who may actually read the page.
  *
  * The visibility check is in the insert rather than around it, and that is the
@@ -121,8 +151,15 @@ export async function writeNotifications(
   pageId: string,
   workspaceId: string,
   threads: CommentThread[],
+  /** Task blocks, for assignments (ADR-0052). */
+  blocks: Array<{
+    id: string;
+    type: string;
+    props: Record<string, unknown>;
+    plainText: string;
+  }> = [],
 ): Promise<number> {
-  const candidates = notificationsFor(threads);
+  const candidates = [...notificationsFor(threads), ...assignmentsFor(blocks)];
   if (candidates.length === 0) return 0;
 
   const { rowCount } = await db.query(

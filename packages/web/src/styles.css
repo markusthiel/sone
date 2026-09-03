@@ -1885,6 +1885,29 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   line-height: 1.6;
 }
 
+/* Whose task this is (ADR-0052). A chip at the end of the line, not part of the
+   text: it is about the task rather than in it. */
+.todo-assignee {
+  margin-inline-start: var(--sone-space-2);
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  user-select: none;
+}
+
+.block-assignee {
+  inline-size: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius-sm);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--sone-text-sm);
+}
+
 /* --- comparing two versions (ADR-0053) --- */
 
 .diff-choice { display: inline-flex; gap: 2px; }
