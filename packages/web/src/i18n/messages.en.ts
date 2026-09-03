@@ -282,6 +282,22 @@ export const en = {
   'admin.maintenance.note':
     'This pass runs on its own every few minutes. Pressing it is for when waiting is ' +
     'not acceptable — after fixing whatever made a projection fail, typically.',
+  'admin.replies': 'Replying by email',
+  'admin.replies.hint':
+    'With a mailbox here, a notification can be answered by replying to it. ' +
+    'Without one, no reply address is sent and nothing is polled.',
+  'admin.imapHost': 'Mailbox server (IMAP)',
+  'admin.imapHost.hint': 'Empty means replies are not read at all.',
+  'admin.imapPort': 'Port',
+  'admin.imapPort.hint': '993 for IMAP over TLS.',
+  'admin.imapUser': 'Mailbox user',
+  'admin.imapUser.hint':
+    'The password stays in the environment, as SONE_IMAP_PASSWORD.',
+  'admin.replyMailbox': 'Reply address',
+  'admin.replyMailbox.hint':
+    'What people reply to. SONE adds a token to it per notification ' +
+    '(sone+token@…), so one mailbox serves them all — the mailbox has to ' +
+    'deliver those to the same inbox.',
   'admin.mail': 'Mail server',
   'admin.mail.hint':
     'For notification emails. Without a host nothing is sent and nothing is ' +
@@ -1010,6 +1026,11 @@ export const en = {
     'This list begins when the page started keeping versions. Anything older ' +
     'than that was not recorded and cannot be recovered.',
   'comment.startInternal': 'Only for members — a share link cannot read this',
+  'comment.viaEmail': 'by email',
+  'comment.viaEmail.hint':
+    'This arrived as a reply to a notification. SONE trimmed the quoted part.',
+  'comment.trimmed': 'trimmed',
+  'comment.attachmentsDropped': 'attachments not kept',
   'comment.internal': ' · internal',
   'comment.none': 'Nothing has been commented on yet. Select some words and press Comment.',
   'comment.open': 'Open',

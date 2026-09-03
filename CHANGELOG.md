@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A notification can be answered by replying to it**
+([ADR-0060](docs/adr/0060-reply-by-email.md)). Configure a mailbox under
+Instance → Settings and every notification carries a reply address; answering it
+posts a comment on the thread. The address a mail was sent *to* is what
+identifies the writer, so a forged sender does nothing. Replies are marked in the
+panel, because trimming the quoted part is guesswork.
+
 **A forgotten password can be reset by email**
 ([ADR-0059](docs/adr/0059-password-reset.md)). A link that works for an hour and
 once, a new password of your choosing, and every session signed out — including
