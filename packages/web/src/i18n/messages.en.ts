@@ -1016,6 +1016,10 @@ export const en = {
     'Nobody is recorded yet. Writing is attributed from the moment it is written, so ' +
     'anything typed before this page started keeping track is not listed here.',
   // --- a canvas (ADR-0043) ------------------------------------------------
+  'canvas.commented': '{count, plural, one {One comment} other {# comments}}',
+  'canvas.commentedInternal':
+    '{count, plural, one {One comment} other {# comments}}, {internal} of them ' +
+    'only for members',
   'canvas.tools': 'Canvas tools',
   'canvas.tool.select': 'Select',
   'canvas.tool.hand': 'Move the board',

@@ -2125,6 +2125,27 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    written, not a setting. */
 .comment-internal-choice { margin-block: var(--sone-space-2); font-size: var(--sone-text-xs); }
 
+/* A comment mark on a canvas item (ADR-0046, ADR-0057).
+   Over the item's top-right corner, because an item can be a drawn shape with
+   nothing to put a badge inside. The internal variant differs by more than
+   colour — a ring — so it is not a distinction somebody has to have learnt. */
+.canvas-comment-mark {
+  position: absolute;
+  z-index: 3;
+  min-inline-size: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: var(--sone-text-xs);
+  line-height: 18px;
+  text-align: center;
+  cursor: default;
+}
+.canvas-comment-mark[data-internal='true'] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
 /* An internal thread, marked by a word (ADR-0057). Beside the heading, in the
    heading's own quiet weight: it is a fact about the group, not a warning. */
 .comment-internal { color: var(--sone-text-muted); font-weight: 400; text-transform: none; }

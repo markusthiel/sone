@@ -21,7 +21,7 @@ import { usePageWidth } from '../hooks/usePageWidth.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 
-import { useEffect, useState , type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 
 import { blockFromHash } from '../routes/paths.ts';
 import { scrollToBlock } from '../hooks/useOutline.ts';
@@ -41,6 +41,15 @@ interface PageViewProps {
   pageId: string;
   /** The threads to mark in the text, read by the workspace (ADR-0046). */
   threads: DrawnThread[];
+  /**
+   * The threads themselves, for the canvas's marks (ADR-0057).
+   *
+   * Separate from `threads` above, which is the editor's drawn shape and holds
+   * a text range rather than an item — `DrawnThread` has no `item`, which I
+   * found by writing against a field it does not have.
+   */
+  itemThreads?: Array<{ item: string | null; resolved: boolean }>;
+  internalItemThreads?: Array<{ item: string | null; resolved: boolean }>;
   /** A selection somebody wants to comment on. */
   onComment: (anchor: CommentAnchor) => void;
   /** How much to mark a commented passage (ADR-0046). */
@@ -77,6 +86,8 @@ function readIcon(value: unknown): { icon: EntryIcon | null; titleColor: string 
 export function PageView({
   handle,
   threads,
+  itemThreads,
+  internalItemThreads,
   onComment,
   markStyle,
   trail,
@@ -92,6 +103,35 @@ export function PageView({
   // From the document, so it arrives like any other edit (ADR-0028).
   const width = usePageWidth(handle?.doc ?? null);
   const { t } = useT();
+
+  /*
+   * Which canvas items carry comments, and how many of those are internal
+   * (ADR-0057).
+   *
+   * One map from both documents, built here because the canvas draws items and
+   * knows nothing about threads — handing it two lists to reconcile would put
+   * the distinction in a third place, and this is the one distinction where
+   * being wrong is a disclosure.
+   */
+  const commentedItems = useMemo(() => {
+    const counts = new Map<string, { total: number; internal: number }>();
+    const add = (
+      list: Array<{ item: string | null; resolved: boolean }>,
+      internal: boolean,
+    ): void => {
+      for (const thread of list) {
+        // Only item threads: a text thread's mark is the editor's business.
+        if (!thread.item || thread.resolved) continue;
+        const at = counts.get(thread.item) ?? { total: 0, internal: 0 };
+        at.total += 1;
+        if (internal) at.internal += 1;
+        counts.set(thread.item, at);
+      }
+    };
+    add(itemThreads ?? [], false);
+    add(internalItemThreads ?? [], true);
+    return counts;
+  }, [itemThreads, internalItemThreads]);
   const pageMap = handle.doc.getMap(DOC_KEYS.page);
   const [title, setTitle] = useState<string>(
     () => (pageMap.get(PAGE_KEYS.title) as string | undefined) ?? '',
@@ -280,6 +320,15 @@ export function PageView({
             // The panel takes it from here: a pending anchor carrying an item
             // rather than a text range, which is the shape the prose side
             // already hands over (ADR-0046).
+            /*
+             * Which items carry comments, counted from both documents
+             * (ADR-0057).
+             *
+             * Built here rather than in the canvas: the canvas draws items and
+             * knows nothing about threads, and handing it two lists to reconcile
+             * would put the internal/ordinary distinction in a third place.
+             */
+            commented={commentedItems}
             onCommentItem={(itemId) =>
               onComment({ from: new Uint8Array(), to: new Uint8Array(), quote: '', item: itemId })
             }
