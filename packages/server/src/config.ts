@@ -21,6 +21,16 @@ export interface Config {
   port: number;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   signupMode: 'open' | 'invite' | 'closed';
+  /** Where mail goes, if anywhere. Empty host means no email (ADR-0058). */
+  smtpHost: string | null;
+  smtpPort: string | null;
+  smtpUser: string | null;
+  smtpFrom: string | null;
+  /**
+   * Never in the database, for the same reason as the OIDC secret (ADR-0024):
+   * a secret in a table is a secret in every backup.
+   */
+  smtpPassword: string | null;
   maxUploadBytes: number;
   /** The provider's client secret, or null. From the environment only. */
   oidcClientSecret: string | null;
@@ -131,6 +141,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       'invite',
       'closed',
     ] as const),
+    smtpHost: optional(env, 'SONE_SMTP_HOST', '') || null,
+    smtpPort: optional(env, 'SONE_SMTP_PORT', '') || null,
+    smtpUser: optional(env, 'SONE_SMTP_USER', '') || null,
+    smtpFrom: optional(env, 'SONE_SMTP_FROM', '') || null,
+    smtpPassword: optional(env, 'SONE_SMTP_PASSWORD', '') || null,
     maxUploadBytes: Math.floor(maxUploadMb * 1024 * 1024),
     // Never in the database (ADR-0024): a secret in a table is a secret in
     // every backup. Absent means single sign-on stays off, whatever the

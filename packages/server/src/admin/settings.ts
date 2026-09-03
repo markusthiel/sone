@@ -51,6 +51,29 @@ export const SETTING_KEYS = {
    * (ADR-0041).
    */
   addressForm: { type: 'enum', values: ['informal', 'formal'] as const },
+
+  /*
+   * Where to send mail, if anywhere (ADR-0058).
+   *
+   * Empty host means no email: nothing is attempted, nothing is offered in the
+   * interface, and no queue fills up. A self-hosted instance without a relay is
+   * a normal instance, not a broken one.
+   */
+  smtpHost: { type: 'string', maxLength: 253 },
+  smtpPort: { type: 'string', maxLength: 5 },
+  smtpUser: { type: 'string', maxLength: 320 },
+  /** The address mail comes from, which a relay usually insists on owning. */
+  smtpFrom: { type: 'string', maxLength: 320 },
+  smtpSecurity: { type: 'enum', values: ['starttls', 'tls', 'none'] as const },
+  /**
+   * Whether a mail may name the page.
+   *
+   * `title` is the default because "you have a notification" is a mail nobody
+   * can act on and everybody learns to filter. `workspace` is for an operator
+   * who cannot accept even a title leaving the instance — a real need, and not
+   * the common one, which is why it is not the default (ADR-0058).
+   */
+  emailDetail: { type: 'enum', values: ['title', 'workspace'] as const },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_KEYS;
@@ -61,6 +84,13 @@ export interface InstanceSettings {
   allowWorkspaceCreation: boolean;
   defaultLocale: string;
   addressForm: 'informal' | 'formal';
+  /** Empty host means no email at all (ADR-0058). */
+  smtpHost: string;
+  smtpPort: string;
+  smtpUser: string;
+  smtpFrom: string;
+  smtpSecurity: 'starttls' | 'tls' | 'none';
+  emailDetail: 'title' | 'workspace';
 }
 
 /** Where each value came from, so the interface can say so. */
@@ -77,6 +107,13 @@ export interface SettingsDefaults {
   allowWorkspaceCreation: boolean;
   defaultLocale: string;
   addressForm: 'informal' | 'formal';
+  /** Empty host means no email at all (ADR-0058). */
+  smtpHost: string;
+  smtpPort: string;
+  smtpUser: string;
+  smtpFrom: string;
+  smtpSecurity: 'starttls' | 'tls' | 'none';
+  emailDetail: 'title' | 'workspace';
 }
 
 /** How long a resolved set of settings is reused. */

@@ -44,6 +44,14 @@ describe(
         allowWorkspaceCreation: true,
         defaultLocale: 'en',
       addressForm: 'informal' as const,
+        // No relay in a test instance, which is the ordinary case: no email is
+        // attempted and nothing is offered (ADR-0058).
+        smtpHost: '',
+        smtpPort: '587',
+        smtpUser: '',
+        smtpFrom: '',
+        smtpSecurity: 'starttls' as const,
+        emailDetail: 'title' as const,
       });
 
       const router = new Router();
