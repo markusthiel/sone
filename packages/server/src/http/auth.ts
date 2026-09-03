@@ -486,13 +486,14 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       email_mentions: boolean;
       email_assignments: boolean;
       email_replies: boolean;
+      email_schedule: string;
     }>(
       deps.pool,
       // The rights come with the session, so the interface can hide a section
       // somebody cannot reach rather than showing it and failing on arrival
       // (ADR-0027).
       `SELECT locale, timezone, is_instance_admin, can_manage_workspaces,
-              email_mentions, email_assignments, email_replies
+              email_mentions, email_assignments, email_replies, email_schedule
          FROM users WHERE id = $1`,
       [auth.userId],
     );
@@ -517,6 +518,7 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
          * it, and a second request for three booleans would be a second thing
          * to keep in step with the profile patch that changes them.
          */
+        emailSchedule: user?.email_schedule ?? 'batched',
         emailMentions: user?.email_mentions !== false,
         emailAssignments: user?.email_assignments !== false,
         emailReplies: user?.email_replies === true,
@@ -704,6 +706,8 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       emailMentions?: boolean;
       emailAssignments?: boolean;
       emailReplies?: boolean;
+      /** How often, as opposed to about what (ADR-0061). */
+      emailSchedule?: 'batched' | 'daily' | 'off';
     }>(ctx);
     if (!body) return;
 
@@ -714,7 +718,11 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
               timezone = coalesce($4, timezone),
               email_mentions = coalesce($5, email_mentions),
               email_assignments = coalesce($6, email_assignments),
-              email_replies = coalesce($7, email_replies)
+              email_replies = coalesce($7, email_replies),
+              -- Checked against the three it may be rather than trusted: the
+              -- column has a CHECK, and a rejected write there would be a 500
+              -- where this is a quiet no-op (ADR-0061).
+              email_schedule = coalesce($8, email_schedule)
         WHERE id = $1`,
       [
         auth.userId,
@@ -724,6 +732,11 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         body.emailMentions ?? null,
         body.emailAssignments ?? null,
         body.emailReplies ?? null,
+        body.emailSchedule === 'batched' ||
+        body.emailSchedule === 'daily' ||
+        body.emailSchedule === 'off'
+          ? body.emailSchedule
+          : null,
       ],
     );
     ctx.sendEmpty(204);

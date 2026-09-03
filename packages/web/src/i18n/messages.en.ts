@@ -414,6 +414,13 @@ export const en = {
   'you.notifications.contents':
     'A notification email says who did what and on which page, with a link. It ' +
     'never contains the comment itself — a mailbox is not a permission system.',
+  'you.notifications.schedule': 'How often',
+  'you.notifications.schedule.hint':
+    'A daily mail arrives at eight in the morning, in your own timezone, and ' +
+    'only if something is still unread.',
+  'you.notifications.schedule.batched': 'As things happen',
+  'you.notifications.schedule.daily': 'Once a day',
+  'you.notifications.schedule.off': 'Never email me',
   'you.notifications.mentions': 'Email me when somebody mentions me',
   'you.notifications.assignments': 'Email me when somebody gives me a task',
   'you.notifications.replies': 'Email me about replies in comments I am in',

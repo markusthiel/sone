@@ -154,4 +154,61 @@ describe('claiming notifications for email', () => {
       'nobody without an address',
     );
   });
+
+  /*
+   * Last on purpose.
+   *
+   * This suite shares one recipient and its tests run in order, so notifications
+   * left behind by an earlier test are visible to a later one — putting these
+   * first broke "a notification younger than the delay is not claimed", which
+   * was right to fail.
+   */
+  test('a daily reader is claimed at eight in their own timezone, and not otherwise', async () => {
+    /*
+     * The whole of ADR-0061 is in this WHERE clause, so this is where it is
+     * tested. A digest at 07:00 UTC is the middle of the night for somebody,
+     * and a mail arriving at the wrong hour is a mail that gets filed unread.
+     */
+    await db.query(`UPDATE users SET email_schedule = 'daily' WHERE id = $1`, [recipient]);
+    await waiting({ ageMinutes: 120 });
+
+    // The hour the *database* is in decides, so the test asks it rather than
+    // assuming the container is on UTC.
+    const { rows } = await db.query<{ hour: string }>(
+      `SELECT extract(hour from now() AT TIME ZONE 'UTC')::text AS hour`,
+    );
+    const utcHour = Number(rows[0]?.hour ?? 0);
+
+    // A timezone in which it is currently *not* eight: nothing is claimed.
+    const quiet = (utcHour + 3) % 24;
+    await db.query(`UPDATE users SET timezone = $2 WHERE id = $1`, [
+      recipient,
+      `Etc/GMT${quiet > 0 ? '-' : '+'}${Math.abs(quiet)}`,
+    ]);
+    assert.deepEqual(await claimForEmail(db), [], 'not at the wrong hour');
+
+    // And one in which it is: offset so that UTC-now lands on eight.
+    const offset = ((8 - utcHour) % 24 + 24) % 24;
+    await db.query(`UPDATE users SET timezone = $2 WHERE id = $1`, [
+      recipient,
+      // Etc/GMT signs are inverted: Etc/GMT-3 is UTC+3.
+      offset === 0 ? 'UTC' : `Etc/GMT-${offset}`,
+    ]);
+    const claimed = await claimForEmail(db);
+    assert.equal(claimed.length, 1, 'at eight in their own morning');
+
+    await db.query(`UPDATE users SET email_schedule = 'batched', timezone = NULL WHERE id = $1`, [
+      recipient,
+    ]);
+  });
+
+  test('somebody who wants no mail is never claimed', async () => {
+    // Distinct from turning every kind off: this is one answer instead of
+    // three, and it is the one somebody reaches for (ADR-0061).
+    await db.query(`UPDATE users SET email_schedule = 'off' WHERE id = $1`, [recipient]);
+    await waiting({});
+    assert.deepEqual(await claimForEmail(db), []);
+    await db.query(`UPDATE users SET email_schedule = 'batched' WHERE id = $1`, [recipient]);
+  });
+
 });
