@@ -228,6 +228,15 @@ themselves are not lost, because that is the fact that stops somebody hunting.
 Nothing. The record's decisions are all built; what remains is under
 "deliberately not decided" below.
 
+## What this made possible elsewhere
+
+A **password reset by email**, which was impossible while the server had no mail
+path and is now [ADR-0059](0059-password-reset.md). Worth noting here because it
+is the second feature this one enables rather than provides, and because the
+`password_resets` table that had been waiting since `0004_auth` was dropped
+rather than adopted — a table shaped years earlier is not a decision about what
+a token should be.
+
 ## What is deliberately not decided
 
 **Replying by email.** Parsing a reply back into a comment thread means quoting,
