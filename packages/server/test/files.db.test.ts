@@ -58,7 +58,15 @@ describe(
       storageRoot = await mkdtemp(path.join(tmpdir(), 'sone-files-'));
 
       const router = new Router();
-      registerAuthRoutes(router, { pool: db, signupMode: () => Promise.resolve('open' as const), secureCookies: false });
+      registerAuthRoutes(router, {
+        pool: db,
+        signupMode: () => Promise.resolve('open' as const),
+        secureCookies: false,
+        // No relay in these suites: the reset is absent, which is the
+        // ordinary case for an instance without mail (ADR-0059).
+        canSendMail: () => Promise.resolve(false),
+        sendResetMail: () => Promise.resolve(),
+      });
       registerPageRoutes(router, { pool: db });
       registerFileRoutes(router, {
         pool: db,
@@ -853,6 +861,9 @@ describe(
       const session = await setup();
       const failing = new Router();
       registerAuthRoutes(failing, {
+        // No relay here (ADR-0059).
+        canSendMail: () => Promise.resolve(false),
+        sendResetMail: () => Promise.resolve(),
         pool: db,
         signupMode: () => Promise.resolve('open' as const),
         secureCookies: false,

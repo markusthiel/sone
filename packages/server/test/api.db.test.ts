@@ -43,6 +43,8 @@ const PASSWORD = 'correct-horse-battery-staple';
 
 describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not set' : false }, () => {
   let db: Pool;
+  /** Addresses the reset route asked for a mail to, in order (ADR-0059). */
+  const resetMailsTo: string[] = [];
   let server: Server;
   let base: string;
 
@@ -51,6 +53,19 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const router = new Router();
     registerAuthRoutes(router, {
       pool: db,
+      /*
+       * A relay, for this suite only.
+       *
+       * With none the reset route answers the same way for *everything*, which
+       * would make the test below pass for the wrong reason — the interesting
+       * case is a configured instance where the answers must still be
+       * identical (ADR-0059).
+       */
+      canSendMail: () => Promise.resolve(true),
+      sendResetMail: (to) => {
+        resetMailsTo.push(to);
+        return Promise.resolve();
+      },
       signupMode: () => Promise.resolve('invite' as const),
       secureCookies: false,
     });
@@ -212,6 +227,41 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.ok(row.rows[0], 'the workspace should have a default folder');
     return row.rows[0]!.id;
   }
+
+  test('asking for a reset link answers identically for anything', async () => {
+    /*
+     * The decision this record turns on. A real address, an unknown one, a
+     * single sign-on account, an empty string and a number must all be
+     * indistinguishable to whoever is asking — status, body and all.
+     *
+     * An honest "no such account" turns a list of email addresses into a list
+     * of this instance's members, which for a self-hosted wiki can be a list of
+     * who works somewhere (ADR-0059).
+     */
+    const session = await setup();
+    void session;
+
+    const asked = async (email: unknown): Promise<{ status: number; body: string }> => {
+      const res = await fetch(`${base}/api/auth/reset/request`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      return { status: res.status, body: await res.text() };
+    };
+
+    const answers = [
+      await asked('nobody-at-all@example.org'),
+      await asked(''),
+      await asked(42),
+      await asked('also-nobody@example.org'),
+    ];
+    for (const answer of answers) {
+      assert.deepEqual(answer, answers[0], 'every answer is the same answer');
+    }
+    assert.equal(answers[0]?.status, 200);
+    assert.deepEqual(resetMailsTo, [], 'and no mail went anywhere');
+  });
 
   test('a canvas can be created, and comes back as one', async () => {
     // It could not: the database's own check constraint listed the kinds and a
