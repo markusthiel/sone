@@ -13,6 +13,40 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.6.0
+
+Mail in both directions. A notification can now be answered by replying to it,
+and the address it was sent *to* is what identifies the writer — a forged sender
+does nothing, because the `From` header is never consulted. A forgotten password
+can be reset by email. And two mails you can ask for rather than receive: your
+notifications once a day instead of as they happen, and a list of what changed
+in your workspaces.
+
+None of them says more than the notification mail already did: who, where, a
+link, and never what was written. The activity mail additionally never lists a
+page you cannot open — it uses the same visibility rule as the page tree, per
+recipient, rather than a second answer to that question.
+
+**Operator action: optional.** Four migrations apply on start; upgrading from
+0.5.0 has been tested in place and every existing account keeps its current
+behaviour — mail as it happens, no activity digest. Replying by email needs a
+mailbox to poll (IMAP settings beside the SMTP ones, password in
+`SONE_IMAP_PASSWORD`); without one, notifications carry no reply address and the
+feature is absent rather than broken. Same for the password reset, which does not
+appear on the sign-in page unless a mail server is configured.
+
+**Both contract versions are unchanged** — document schema 4, sync protocol 1.
+A comment message gained three optional fields saying it arrived by email; the
+schema's own rule is that an optional field does not warrant a bump, and an
+older client ignores them.
+
+**Also**: password hashing cost is configurable (with a warning and a maintenance
+entry when lowered), search can be narrowed to a folder with `in:`, formulas
+complete column and function names, a commented canvas item finally shows that
+it is commented, and fourteen settings that never reached the container now do.
+
 **A mail about what changed in your workspaces**
 ([ADR-0062](docs/adr/0062-activity-digest.md)), every weekday morning or on
 Mondays — a list of pages with who touched them, never what was written, and
