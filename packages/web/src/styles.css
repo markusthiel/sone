@@ -1685,6 +1685,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .properties-row { display: contents; }
 .properties-row dd { min-inline-size: 0; overflow-wrap: anywhere; }
 
+/* More rows (ADR-0055). Under the table and full width, so it is where reading
+   stopped rather than a control to hunt for. */
+.collection-more { display: block; inline-size: 100%; margin-block-start: var(--sone-space-3); }
+
 /* --- a relation cell (ADR-0054) --- */
 
 .relation-cell { position: relative; }

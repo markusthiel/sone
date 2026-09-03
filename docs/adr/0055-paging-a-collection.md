@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted, and built for the table: the row query, the cell query, the cursor and
+the client's paging. What is not built is named at the end.
 
 ## Context
 
@@ -72,6 +73,19 @@ back a feature for a cost most collections never pay.
 ten thousand rows it is exact; above it the interface says "of many" rather than
 running a count nobody reads carefully. A number that costs a scan to be precise
 about is a number worth being vague about.
+
+### Not yet done, and known
+
+The **total count** is not built: the response says whether there is more, not
+how many there are, so the interface has no "1–50 of 12 431" to be exact or
+vague about. The extra row fetched to answer "is there more" is what a first
+version needs; a count is a second scan and can wait for somebody to want the
+number.
+
+**Select-all, paste, export and trash-all** have not been checked against paging
+yet — the next thing here, and the thing paging usually breaks. Written below as
+a decision because that is what it is; written here as unverified because that is
+what it is.
 
 ### Everything else keeps working, including paste and export
 

@@ -296,6 +296,10 @@ export interface CollectionView {
 }
 
 export interface CollectionData {
+  /** Where the next page starts, or null at the end (ADR-0055). */
+  nextCursor?: string | null;
+  /** True when this view had to fetch every row to sort it. */
+  sortedInMemory?: boolean;
   pageId: string;
   collectionId: string;
   titleFieldId: string;
@@ -827,10 +831,13 @@ export const api = {
     }>(`/api/share/${encodeURIComponent(token)}`),
 
   /** A collection is addressed by its own id: a page may hold several. */
-  collection: (collectionId: string, viewId?: string, query?: string) => {
+  collection: (collectionId: string, viewId?: string, query?: string, after?: string) => {
     const params = new URLSearchParams();
     if (viewId) params.set('view', viewId);
     if (query && query.trim() !== '') params.set('q', query);
+    // Where the previous page stopped (ADR-0055). Opaque: the client passes
+    // back what the server gave it and never builds one.
+    if (after) params.set('after', after);
     const search = params.toString();
     return request<CollectionData>(
       `/api/collections/${collectionId}${search ? `?${search}` : ''}`,

@@ -639,6 +639,10 @@ export const en = {
   'search.matchedTitle': 'title',
 
   // --- a table of entries ------------------------------------------------
+  'table.more': 'Show more rows',
+  'table.sortedWhole':
+    'Sorted by a computed column, so every row was read to order them. Other ' +
+    'sorts load a page at a time.',
   'table.views': 'Views',
   'table.search': 'Search this collection',
   'table.searchPlaceholder': 'Search these entries',

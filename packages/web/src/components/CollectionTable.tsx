@@ -216,6 +216,46 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
     }
   }, [collectionId]);
 
+  /**
+   * The next page, appended (ADR-0055).
+   *
+   * Appended rather than replacing, and only ever forwards: a table that
+   * scrolls is one list somebody is reading, not a sequence of pages they
+   * navigate. There is no "previous" because scrolling up is already that.
+   */
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadMore = useCallback(async () => {
+    const cursor = data?.nextCursor;
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await api.collection(
+        collectionId,
+        viewRef.current ?? undefined,
+        askedRef.current,
+        cursor,
+      );
+      setData((current) =>
+        current
+          ? {
+              ...next,
+              // The rows accumulate; everything else is the newer answer —
+              // including `nextCursor`, which is what ends the scroll.
+              rows: [...current.rows, ...next.rows],
+              // `files` is optional in the response, so both sides are
+              // defaulted rather than spread blindly.
+              files: [...(current.files ?? []), ...(next.files ?? [])],
+            }
+          : next,
+      );
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [collectionId, data?.nextCursor, loadingMore]);
+
   useEffect(() => {
     void load();
   }, [load, viewId, asked]);
@@ -1168,6 +1208,28 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
           </tbody>
         </table>
       </div>
+
+      {/* More rows, on a button rather than on a scroll observer (ADR-0055).
+        *
+        * A button, first, because it is the version that cannot go wrong: an
+        * observer inside a horizontally scrolling table fires on the wrong axis
+        * and loads pages nobody asked for. This says how the table behaves and
+        * can grow an observer later without changing what it means. */}
+      {data.nextCursor && (
+        <button
+          type="button"
+          className="btn subtle collection-more"
+          disabled={loadingMore}
+          onClick={() => void loadMore()}
+        >
+          {loadingMore ? t('panel.loading') : t('table.more')}
+        </button>
+      )}
+
+      {/* Why this view is slower than the others (ADR-0055): sorting by a
+          computed column needs every row's value before the first row can be
+          placed, so this one fetches the collection. Said rather than felt. */}
+      {data.sortedInMemory && <p className="settings-note">{t('table.sortedWhole')}</p>}
 
       {/* Outside the scroller, and positioned against the viewport.
         *

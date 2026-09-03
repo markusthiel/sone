@@ -690,6 +690,10 @@ export const de: Record<keyof typeof en, string> = {
   'search.matchedTitle': 'Name',
 
   // --- eine Tabelle mit Einträgen ----------------------------------------
+  'table.more': 'Mehr Zeilen zeigen',
+  'table.sortedWhole':
+    'Nach einer berechneten Spalte sortiert, dafür wurden alle Zeilen gelesen. ' +
+    'Andere Sortierungen laden seitenweise.',
   'table.views': 'Ansichten',
   'table.search': 'In dieser Sammlung suchen',
   'table.searchPlaceholder': 'Diese Einträge durchsuchen',

@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A collection loads a page of rows at a time** ([ADR-0055](docs/adr/0055-paging-a-collection.md))
+with a "Show more rows" button, instead of sending every row and every cell on
+every load — which was 7 MB of JSON for a collection of twenty thousand rows. A
+view sorted by a computed column still reads the whole collection and says so.
+
 **A view can be sorted by a rollup** — most invoices first, largest total first
 ([ADR-0054](docs/adr/0054-relations.md)). Sorting by a computed column used to be
 silently ignored: the view came back in its ordinary order and nothing said why.
