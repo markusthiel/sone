@@ -233,3 +233,31 @@ test('a thread´s participants are the people who wrote in it', () => {
   const first = thread.messages[0]?.author;
   assert.deepEqual(participants(thread).sort(), [first, 'user-a', 'user-b'].sort());
 });
+
+test('a thread can be about a canvas item instead of a range of text', () => {
+  // ADR-0046 deferred this saying the anchor "is an item id, which is a far
+  // simpler thing", and it was right: no relative position, no mapping through
+  // ProseMirror, no quotation needed to survive a rewrite. The item exists or
+  // it does not.
+  const doc = new Y.Doc();
+  addThread(doc, {
+    id: 't1',
+    from: new Uint8Array(),
+    to: new Uint8Array(),
+    item: 'item-7',
+    quote: 'Ein Kasten',
+    messageId: 'm1',
+    author: 'anna',
+    text: 'Gehört das hierher?',
+  });
+
+  const thread = readThreads(doc)[0];
+  assert.equal(thread?.item, 'item-7');
+});
+
+test('a thread about text says so by saying nothing', () => {
+  // Absence means "about text", which is what every thread written before this
+  // key existed says — so nothing had to be migrated to add it.
+  const { doc } = docWithThread();
+  assert.equal(readThreads(doc)[0]?.item, null);
+});

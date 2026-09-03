@@ -55,7 +55,10 @@ function Thread({
   const [draft, setDraft] = useState('');
 
   return (
-    <li className="comment-thread" data-detached={thread.range === null ? 'true' : undefined}>
+    <li
+      className="comment-thread"
+      data-detached={thread.item === null && thread.range === null ? 'true' : undefined}
+    >
       {/* The words it is about, as they read when it was written. A thread whose
           text has changed is only readable because of this. */}
       <div className="comment-head">
@@ -66,11 +69,25 @@ function Thread({
         <button
           type="button"
           className="comment-quote"
-          disabled={thread.range === null}
-          title={thread.range === null ? t('comment.detached') : t('comment.reveal')}
+          /*
+           * A thread about a canvas item is never "detached".
+           *
+           * `range === null` means the text a comment pointed at is gone. An
+           * item comment has no range by design, so the same test would have
+           * struck through every canvas thread and disabled its button — the
+           * difference between "cannot be found" and "was never text".
+           */
+          disabled={thread.item === null && thread.range === null}
+          title={
+            thread.item !== null
+              ? t('comment.aboutItem')
+              : thread.range === null
+                ? t('comment.detached')
+                : t('comment.reveal')
+          }
           onClick={() => onReveal(thread)}
         >
-          {thread.quote}
+          {thread.item !== null ? t('comment.aboutItem') : thread.quote}
         </button>
         <button
           type="button"
@@ -89,7 +106,9 @@ function Thread({
         </button>
       </div>
 
-      {thread.range === null && <p className="comment-note">{t('comment.detached')}</p>}
+      {thread.item === null && thread.range === null && (
+        <p className="comment-note">{t('comment.detached')}</p>
+      )}
 
       <ul className="comment-messages">
         {/* Closed, the first message stays. A thread showing only its quotation
@@ -201,7 +220,13 @@ export function CommentsPanel({
   canEdit: boolean;
   onReveal: (thread: CommentThread) => void;
   /** A selection waiting for its first message (ADR-0046). */
-  pending: { from: Uint8Array; to: Uint8Array; quote: string } | null;
+  pending: {
+    from: Uint8Array;
+    to: Uint8Array;
+    quote: string;
+    /** A canvas item, when the comment is about one (ADR-0046). */
+    item?: string;
+  } | null;
   onCancelPending: () => void;
   marks: { style: CommentMarkStyle; setStyle: (style: CommentMarkStyle) => void };
   /** Which page's folding is being remembered. */
@@ -235,8 +260,11 @@ export function CommentsPanel({
   const start = pending ? (
     <section className="panel-section">
       <div className="comment-thread" data-pending="true">
-        <p className="comment-quote" aria-hidden="true">
-          {pending.quote}
+        {/* What this will be about. A canvas item has no words to quote, so it
+            says which kind of thing it is instead of showing an empty line
+            where a quotation belongs. */}
+        <p className="comment-quote" aria-hidden={pending.item ? undefined : true}>
+          {pending.item ? t('comment.aboutItem') : pending.quote}
         </p>
         <textarea
           className="comment-draft"

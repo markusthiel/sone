@@ -281,7 +281,24 @@ being more than a highlight.
 **Internal threads, invisible to guests.** Decided above to be the real answer to
 the disclosure hazard, and deferred with its own requirements.
 
-**Comments on a canvas item.** The anchor there is an item id, which is a far
+**Comments on a canvas item.** *Built.* The anchor is the item's id, in a
+`item` key that is simply absent for a comment on prose — so nothing had to be
+migrated, and absence means "about text", which is what every thread written
+before it says by saying nothing.
+
+It was as simple as this deferral predicted, with two things it did not:
+`decodeRelativePosition` throws on the empty anchor bytes an item thread
+carries, which took down the whole read until `resolve` returned null for
+nothing-to-resolve. And **four separate places read `range === null` as "the
+text this pointed at is gone"** — the grouping, the `data-detached` attribute,
+the note, and the quotation button. An item thread has no range by design, so
+every one of them would have filed every canvas comment under "the text is
+gone": an accusation rather than a fact. They all gained the same term
+together.
+
+The original note, kept because it was right about the shape:
+
+**The anchor there is an item id, which is a far
 simpler problem than a text range — deliberately left until the text case is
 working, so the harder one shapes the model rather than the easier one.
 

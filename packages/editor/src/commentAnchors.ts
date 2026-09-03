@@ -32,6 +32,16 @@ export interface CommentAnchor {
   from: Uint8Array;
   to: Uint8Array;
   quote: string;
+  /**
+   * A canvas item, when the comment is about one rather than about text
+   * (ADR-0046).
+   *
+   * Optional and unused by this module: an anchor from the editor never has one.
+   * It lives here because the panel takes *one* anchor type from either surface,
+   * and a second type would mean the panel deciding which of two shapes it has
+   * before it can do anything with it.
+   */
+  item?: string;
 }
 
 /** Every thread the editor should draw, in editor coordinates. */

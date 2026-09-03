@@ -1152,8 +1152,17 @@ test('a detached thread keeps its place and its words', () => {
   );
   // Marked rather than hidden, and the quotation is not a button when there is
   // nowhere to go.
-  assert.match(panel, /data-detached=\{thread\.range === null \? 'true' : undefined\}/);
-  assert.match(panel, /disabled=\{thread\.range === null\}/);
+  // Every one of these gained the item term together: a canvas thread has no
+  // range by design, so each place that read `range === null` as "the text is
+  // gone" would have said that about every comment on a canvas (ADR-0046).
+  assert.match(
+    panel,
+    /data-detached=\{thread\.item === null && thread\.range === null \? 'true' : undefined\}/,
+  );
+  // Gained the item term with everything else: a canvas thread has no range by
+  // design, so this would have disabled the quotation button on every comment
+  // on a canvas (ADR-0046).
+  assert.match(panel, /disabled=\{thread\.item === null && thread\.range === null\}/);
   assert.match(css, /\.comment-thread\[data-detached='true'\] \{ border-style: dashed; \}/);
 });
 
@@ -1777,4 +1786,26 @@ test('a page shows where it sits only while the sidebar is away', () => {
   // were scoped to `.folder-view`, so a page would have shown an unstyled one.
   assert.match(css, /^\.breadcrumb \{/m);
   assert.doesNotMatch(css, /\.folder-view \.breadcrumb/);
+});
+
+test('a canvas item can be commented on, from its own menu', () => {
+  // ADR-0046 deferred this saying the anchor "is an item id, which is a far
+  // simpler thing" — no relative position, no mapping, no quotation needed to
+  // survive a rewrite.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /onCommentItem\(selectedItem\.id\)/);
+  // The icon the comments tab already uses, not a second speech bubble.
+  assert.match(canvas, /<MessageIcon \/>/);
+
+  // One anchor type from either surface: a second would make the panel decide
+  // which of two shapes it has before it can do anything.
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  assert.match(panel, /pending\.item \? t\('comment\.aboutItem'\) : pending\.quote/);
+  // An item has no words to quote, so the panel says which kind of thing it is
+  // rather than showing an empty line where a quotation belongs.
+  assert.match(panel, /thread\.item !== null \? t\('comment\.aboutItem'\) : thread\.quote/);
+  // And it is never "detached": `range === null` means the text a comment
+  // pointed at is gone, while an item comment has no range by design — the same
+  // test would have struck through every canvas thread.
+  assert.match(panel, /disabled=\{thread\.item === null && thread\.range === null\}/);
 });

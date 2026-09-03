@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A canvas item can be commented on** ([ADR-0046](docs/adr/0046-comments.md)) —
+the speech bubble in the item's own handle menu. The thread appears in the
+comments panel like any other, saying it is about an item rather than quoting
+words it does not have.
+
 **`assigned:me` in the search** lists the pages holding your tasks
 ([ADR-0050](docs/adr/0050-search-filters.md)) — the counterpart to being able to
 assign one. `assigned:` with somebody else's id works too, and the syntax line

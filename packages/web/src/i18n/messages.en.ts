@@ -869,6 +869,7 @@ export const en = {
   'comment.mark.underline': 'Underlined',
   'comment.mark.off': 'Not at all',
   'comment.start': 'Comment',
+  'comment.aboutItem': 'About an item on the canvas',
   'comment.startPlaceholder': 'What about this?',
   'panel.guest': 'guest',
   'panel.guestWriting':
@@ -885,6 +886,7 @@ export const en = {
   'canvas.tool.text': 'Text',
   'canvas.remove': 'Remove this',
   'canvas.handle': 'What to do with this',
+  'canvas.comment': 'Comment on this',
   'canvas.duplicate': 'Duplicate',
   'canvas.lock': 'Lock in place',
   'canvas.unlock': 'Unlock',
