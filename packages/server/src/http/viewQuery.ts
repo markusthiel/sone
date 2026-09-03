@@ -76,6 +76,15 @@ export interface BuiltQuery {
   /** Appended to ORDER BY, before the stable tiebreak. Empty when none. */
   orderBy: string;
   /**
+   * The sort expressions, in order, for building a cursor (ADR-0055).
+   *
+   * Handed out rather than only glued into `orderBy`, because a keyset cursor
+   * has to compare *the same* expressions the sort ordered by — a cursor built
+   * from anything else pages a different sequence than the one on screen, which
+   * is the failure that shows a row twice.
+   */
+  orderKeys: Array<{ expr: string; direction: 'asc' | 'desc' }>;
+  /**
    * Sorts the database cannot do: by a derived column (ADR-0054).
    *
    * Reported rather than dropped. A sort on a rollup has no shadow column, so
@@ -186,6 +195,7 @@ export function buildViewQuery(
   }
 
   const orders: string[] = [];
+  const orderKeys: Array<{ expr: string; direction: 'asc' | 'desc' }> = [];
   const derivedSorts: Array<{ fieldId: string; direction: 'asc' | 'desc' }> = [];
   for (const sort of sorts) {
     const fieldType = fieldTypes.get(sort.fieldId);
@@ -204,12 +214,15 @@ export function buildViewQuery(
     const direction = sort.direction === 'desc' ? 'DESC' : 'ASC';
     // NULLS LAST in both directions: a row with no value is not "smallest", it
     // is unanswered, and answered rows are what somebody sorted to see.
-    orders.push(`${property(sort.fieldId, column)} ${direction} NULLS LAST`);
+    const expr = property(sort.fieldId, column);
+    orders.push(`${expr} ${direction} NULLS LAST`);
+    orderKeys.push({ expr, direction: direction === 'DESC' ? 'desc' : 'asc' });
   }
 
   return {
     where: clauses.length > 0 ? clauses.map((clause) => `(${clause})`).join(' AND ') : '',
     orderBy: orders.join(', '),
+    orderKeys,
     derivedSorts,
     params,
   };

@@ -1926,3 +1926,22 @@ test("a row's page shows its own fields, with the table's renderer", () => {
   // reads as a control that did not take.
   assert.match(panel, /values: \{ \.\.\.current\.values, \[field\.id\]: value \?\? undefined \}/);
 });
+
+test('a collection loads a page at a time, forwards only', () => {
+  // The read route had no limit: every row with every cell on every load, which
+  // measured at 7.1 MB of JSON for twenty thousand rows (ADR-0055).
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  assert.match(table, /const cursor = data\?\.nextCursor;/);
+  // Appended, not replacing: a table that scrolls is one list somebody is
+  // reading, so there is no "previous" — scrolling up is already that.
+  assert.match(table, /rows: \[\.\.\.current\.rows, \.\.\.next\.rows\]/);
+  assert.doesNotMatch(table, /previousCursor|prevCursor/);
+
+  // A button rather than a scroll observer: an observer inside a horizontally
+  // scrolling table fires on the wrong axis and loads pages nobody asked for.
+  assert.match(table, /onClick=\{\(\) => void loadMore\(\)\}/);
+
+  // And a view that had to read everything to sort says so, rather than being
+  // quietly slower than its neighbours.
+  assert.match(table, /data\.sortedInMemory && <p className="settings-note">/);
+});

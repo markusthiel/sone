@@ -549,6 +549,41 @@ describe(
       );
     });
 
+    test('rows come a page at a time, and the cursor does not repeat one', async () => {
+      // The route had no limit: every row with every cell on every load, which
+      // measured at 7.1 MB of JSON for twenty thousand rows (ADR-0055).
+      const session = await setup();
+      const collectionId = await collectionOn(
+        session,
+        await create(session, 'Viele Zeilen', 'page', session.rootFolder),
+      );
+      for (let n = 0; n < 7; n += 1) await addRow(session, collectionId, `Z-${n}`);
+
+      const page = (after?: string): Promise<Response> =>
+        fetch(
+          `${base}/api/collections/${collectionId}?limit=3${after ? `&after=${after}` : ''}`,
+          { headers: { cookie: session.cookie } },
+        );
+
+      const seen: string[] = [];
+      let cursor: string | null | undefined;
+      for (let round = 0; round < 4; round += 1) {
+        const body = await expectJson<{
+          rows: Array<{ id: string; title: string }>;
+          nextCursor: string | null;
+        }>(await page(cursor ?? undefined), 200);
+        assert.ok(body.rows.length <= 3, 'a page is at most what was asked for');
+        seen.push(...body.rows.map((row) => row.title));
+        cursor = body.nextCursor;
+        if (!cursor) break;
+      }
+
+      // Every row once: a repeat or a gap is what an offset would have produced
+      // and what the tiebreaker in the cursor exists to prevent.
+      assert.deepEqual(seen, ['Z-0', 'Z-1', 'Z-2', 'Z-3', 'Z-4', 'Z-5', 'Z-6']);
+      assert.equal(cursor, null, 'and it ends');
+    });
+
     test('a page can hold a collection', async () => {
       // Content inside a page, not a folder wearing a different hat
       // (ADR-0021). "A folder should be a folder" was the report that led here.

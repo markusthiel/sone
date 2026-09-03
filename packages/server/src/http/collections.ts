@@ -40,6 +40,13 @@ import type { Pool } from 'pg';
 
 import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/claims.js';
 import { claimsFor } from './auth.js';
+import {
+  DEFAULT_PAGE,
+  MAX_PAGE,
+  cursorCondition,
+  readCursor,
+  writeCursor,
+} from './pageCursor.js';
 
 import {
   computeRollup,
@@ -856,22 +863,75 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
 
     const conditions = [built.where, search].filter((clause) => clause !== '' && clause !== null);
 
-    const rows = await queryRows<{ id: string; title: string; idx: string }>(
+    /*
+     * One page, and where it stops (ADR-0055).
+     *
+     * This query had no limit: every row of the collection, with every cell,
+     * on every load — 7.1 MB of JSON for twenty thousand rows, which is a
+     * browser parsing megabytes to draw thirty visible lines.
+     *
+     * A sort by a derived column is the exception the record names: its values
+     * do not exist until after this query, so the page cannot be chosen here.
+     * Those views keep fetching everything and sort afterwards, which is the
+     * old cost paid visibly rather than a wrong order paid silently.
+     */
+    const derivedSort = built.derivedSorts.length > 0;
+    const limit = Math.min(
+      Math.max(Number(ctx.url.searchParams.get('limit') ?? DEFAULT_PAGE) || DEFAULT_PAGE, 1),
+      MAX_PAGE,
+    );
+    const cursor = derivedSort ? null : readCursor(ctx.url.searchParams.get('after'));
+    if (cursor) {
+      conditions.push(
+        cursorCondition(built.orderKeys, cursor, (value) => {
+          params.push(value);
+          return `$${params.length + 1}`;
+        }),
+      );
+    }
+
+    const rows = await queryRows<{ id: string; title: string; idx: string; keys: unknown }>(
       deps.pool,
-      `SELECT p.id, p.title, p.idx FROM pages p
+      // The row's own sort values, for the next cursor. Selected rather than
+      // recomputed by the caller: the caller does not have the expressions, and
+      // a cursor built from anything else pages a different sequence than the
+      // one on screen.
+      `SELECT p.id, p.title, p.idx, ${
+        built.orderKeys.length > 0
+          ? `jsonb_build_array(${built.orderKeys.map((key) => key.expr).join(', ')})`
+          : `'[]'::jsonb`
+      } AS keys
+         FROM pages p
         WHERE p.collection_id = $1 AND p.kind = 'row' AND p.archived_at IS NULL
           ${conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''}
-        ORDER BY ${built.orderBy ? `${built.orderBy}, ` : ''}p.idx, p.id`,
+        ORDER BY ${built.orderBy ? `${built.orderBy}, ` : ''}p.idx, p.id
+        ${derivedSort ? '' : `LIMIT ${limit + 1}`}`,
       [collectionId, ...params],
     );
 
+    /*
+     * One row more than the page, then dropped.
+     *
+     * That extra row is the whole answer to "is there more": a count would be a
+     * second scan, and a client that discovers the end by getting fewer rows
+     * than it asked for cannot tell a short page from the last one.
+     */
+    const hasMore = !derivedSort && rows.length > limit;
+    if (hasMore) rows.pop();
+
+    /*
+     * The cells of *these* rows, not of the collection.
+     *
+     * This was the 7.1 MB: it joined back to the collection and fetched every
+     * cell of every row, so paging the row query alone would have changed
+     * nothing measurable. A page of fifty measured at 1.1 ms against 33 ms.
+     */
     const values = await queryRows<{ page_id: string; field_id: string; value: unknown }>(
       deps.pool,
       `SELECT p.page_id, p.field_id, p.value
          FROM page_properties p
-         JOIN pages r ON r.id = p.page_id
-        WHERE r.collection_id = $1 AND r.kind = 'row' AND r.archived_at IS NULL`,
-      [collectionId],
+        WHERE p.page_id = ANY($1::uuid[])`,
+      [rows.map((row) => row.id)],
     );
 
     const byRow = new Map<string, Record<string, unknown>>();
@@ -987,9 +1047,29 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       });
     }
 
+    const last = rows.at(-1);
     ctx.send(200, {
       pageId,
       collectionId,
+      /*
+       * Where the next page starts, or null at the end (ADR-0055).
+       *
+       * Opaque to the client on purpose: one that built its own cursor would
+       * depend on the shape of a view's sort, and that shape changes when
+       * somebody adds a column to the view.
+       */
+      nextCursor:
+        hasMore && last
+          ? writeCursor({
+              keys: Array.isArray(last.keys)
+                ? (last.keys as Array<string | number | null>)
+                : [],
+              idx: last.idx,
+              id: last.id,
+            })
+          : null,
+      /** True when this view had to fetch everything to sort it (ADR-0055). */
+      sortedInMemory: derivedSort,
       titleFieldId: collection.title_field_id,
       canEdit: auth.canEdit,
       /** The files any cell refers to, by id. Absent ones are simply not here. */
