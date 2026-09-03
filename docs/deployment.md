@@ -295,6 +295,30 @@ environment**: `SONE_SIGNUP_MODE`, the instance name, and whether members may
 create workspaces. If an environment variable seems to have no effect, check
 that screen — it says which values are overridden.
 
+## Two secrets that cannot live in the database
+
+`SONE_SMTP_PASSWORD` (ADR-0058) and `SONE_OIDC_CLIENT_SECRET` (ADR-0024) are
+read from the environment and nowhere else, and the administration screens
+deliberately have no field for either. A secret in a table is a secret in every
+backup, in every `pg_dump` somebody mails themselves, and in every copy of a
+staging database.
+
+Everything *else* about a mail server — host, port, encryption, user, sender —
+can be set in Settings → Instance, which is where an operator will look. Only
+the password has to be in `.env`.
+
+**And `.env` alone is not enough.** Compose does not forward the host's
+environment: a variable has to be named in the service's `environment:` block to
+reach the container. Both secrets are named there now, along with the S3 settings
+and the workspace retention — fourteen variables were missing, so an operator who
+filled in an SMTP password got a server that never saw it and mail that failed to
+authenticate with no visible cause. `node scripts/check-env-reaches-container.mjs`
+now fails if a variable the server reads is not reachable, and CI runs it.
+
+If you are running SONE some other way — a hand-written unit file, a Kubernetes
+manifest — that check cannot see your deployment. `packages/server/src/config.ts`
+is the list, and `.env.example` documents each one.
+
 ## The first administrator
 
 Whoever created the first workspace administers the instance. On an existing
