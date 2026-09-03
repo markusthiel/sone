@@ -594,6 +594,78 @@ describe(
       assert.equal(cursor, null, 'and it ends');
     });
 
+    test('a formula column computes per row, and refuses to read a formula', async () => {
+      // The rule that removes cycles by construction: a formula may read stored
+      // fields and rollups, never another formula (ADR-0056).
+      const session = await setup();
+      const collectionId = await collectionOn(
+        session,
+        await create(session, 'Rechnungsposten', 'page', session.rootFolder),
+      );
+      const menge = await expectJson<{ id: string }>(
+        await addField(session, collectionId, { name: 'Menge', fieldType: 'number' }),
+        201,
+      );
+      const preis = await expectJson<{ id: string }>(
+        await addField(session, collectionId, { name: 'Preis', fieldType: 'number' }),
+        201,
+      );
+      const total = await expectJson<{ id: string }>(
+        await addField(session, collectionId, {
+          name: 'Summe',
+          fieldType: 'formula',
+          config: { formula: 'Menge * Preis' },
+        }),
+        201,
+      );
+
+      // A formula reading a formula is refused, so nothing downstream needs a
+      // dependency graph.
+      await expectStatus(
+        await addField(session, collectionId, {
+          name: 'Doppelt',
+          fieldType: 'formula',
+          config: { formula: 'Summe * 2' },
+        }),
+        422,
+      );
+      // And one that names a column nobody has.
+      await expectStatus(
+        await addField(session, collectionId, {
+          name: 'Unsinn',
+          fieldType: 'formula',
+          config: { formula: 'Gewicht * 2' },
+        }),
+        422,
+      );
+
+      const filled = await addRow(session, collectionId, 'Mit Preis');
+      const missing = await addRow(session, collectionId, 'Ohne Preis');
+      const setCell = (rowId: string, fieldId: string, value: number): Promise<Response> =>
+        fetch(`${base}/api/pages/${rowId}/properties/${fieldId}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ value: { kind: 'number', value } }),
+        });
+      await setCell(filled, menge.id, 3);
+      await setCell(filled, preis.id, 7);
+      await setCell(missing, menge.id, 3);
+
+      const read = await expectJson<{
+        rows: Array<{ id: string; derived: Record<string, { number?: number | null }> }>;
+      }>(
+        await fetch(`${base}/api/collections/${collectionId}`, {
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+
+      assert.equal(read.rows.find((row) => row.id === filled)?.derived[total.id]?.number, 21);
+      // And the row with no price is empty, not zero: a total over a missing
+      // value is empty rather than a number nobody should trust.
+      assert.equal(read.rows.find((row) => row.id === missing)?.derived[total.id]?.number, null);
+    });
+
     test('a page can hold a collection', async () => {
       // Content inside a page, not a folder wearing a different hat
       // (ADR-0021). "A folder should be a folder" was the report that led here.

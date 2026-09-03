@@ -304,3 +304,33 @@ export function fieldsUsed(expr: Expr): string[] {
   walk(expr);
   return [...found];
 }
+
+/**
+ * Attach the field ids a formula was saved with (ADR-0056).
+ *
+ * The stored text still says `Menge`; the binding is what turns that into a
+ * column that may since have been renamed. A name with no binding is left
+ * unbound, so the evaluator reports it by name rather than treating it as
+ * blank — which is the difference between "no column called Preis" and a
+ * silently wrong total.
+ */
+export function bindFormula(expr: Expr, idOf: (name: string) => string | undefined): Expr {
+  switch (expr.kind) {
+    case 'field': {
+      const fieldId = idOf(expr.name);
+      return fieldId ? { ...expr, fieldId } : expr;
+    }
+    case 'unary':
+      return { ...expr, operand: bindFormula(expr.operand, idOf) };
+    case 'binary':
+      return {
+        ...expr,
+        left: bindFormula(expr.left, idOf),
+        right: bindFormula(expr.right, idOf),
+      };
+    case 'call':
+      return { ...expr, args: expr.args.map((arg) => bindFormula(arg, idOf)) };
+    default:
+      return expr;
+  }
+}

@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted. The language, the validation and the evaluation are built; the column
+type is creatable through the API. What is not built is named at the end.
 
 ## Context
 
@@ -62,11 +63,16 @@ namespace.
 with a space in it is written `[Netto ohne Steuer]`.
 
 Names are resolved to field ids **when the formula is saved**, and the ids are
-what is stored beside the text. So renaming a column does not break a formula,
-and the formula's text is re-rendered from the ids when it is shown — which means
-the text somebody typed is not quite the text they see back. That is the right
-way round: a formula that breaks when a column is renamed is a formula people
-learn not to trust.
+stored beside the text as a binding from name to id. So renaming a column does
+not break a formula: the text still says `Menge` and the binding still points at
+the column.
+
+**Corrected while building it.** This said the text would be *re-rendered* from
+the ids when shown. It is not: the stored text is displayed as it was typed, so
+a renamed column keeps its old name inside the formula while the formula keeps
+working. Re-rendering needs a printer for the syntax tree, which is its own small
+piece of work and not one this slice needed — and claiming it while storing the
+raw text would have been a promise nobody could find in the code.
 
 ### Four types, and no coercion that guesses
 
@@ -106,6 +112,15 @@ computed in the same place for the same rows.
 Sorting by a formula is sorting by a derived column, which ADR-0054 allows and
 ADR-0055 excludes from paging — a view sorted by a formula reads the whole
 collection, and already says so.
+
+## Not built yet
+
+**No interface.** The column is creatable through the API and computes; there is
+no way to type a formula in the application, no error shown in a cell, and no
+editor. That is the next slice, and the cell already carries the error and its
+reason so it has something to draw.
+
+**Re-rendering the text after a rename**, as above: a printer for the tree.
 
 ## What is deliberately not decided
 
