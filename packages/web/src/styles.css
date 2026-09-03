@@ -2121,6 +2121,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   text-decoration: line-through;
 }
 
+/* An internal thread, marked by a word (ADR-0057). Beside the heading, in the
+   heading's own quiet weight: it is a fact about the group, not a warning. */
+.comment-internal { color: var(--sone-text-muted); font-weight: 400; text-transform: none; }
+
 /* --- comments (ADR-0046) --- */
 
 /* A commented passage, marked as much as the reader asked for (ADR-0046).

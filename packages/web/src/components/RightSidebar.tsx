@@ -144,6 +144,8 @@ interface RightSidebarProps {
    * owns the hook and hands it down (ADR-0046).
    */
   comments: CommentActions;
+  /** The internal threads, when this person may have them (ADR-0057). */
+  internalComments: CommentActions | null;
   /** The workspace's people, for naming a comment's author. */
   members: WorkspaceMember[];
   /** Scroll to a thread's text and flash it. */
@@ -167,6 +169,7 @@ export function RightSidebar({
   open,
   onClose,
   comments,
+  internalComments,
   members,
   onRevealComment,
   pendingComment,
@@ -268,6 +271,7 @@ export function RightSidebar({
           {tab === 'comments' && (
             <CommentsPanel
               comments={comments}
+              internal={internalComments}
               members={members}
               canEdit={handle?.canEdit !== false}
               onReveal={onRevealComment}

@@ -207,6 +207,7 @@ function Thread({
 
 export function CommentsPanel({
   comments,
+  internal,
   members,
   canEdit,
   onReveal,
@@ -220,6 +221,14 @@ export function CommentsPanel({
   canEdit: boolean;
   onReveal: (thread: CommentThread) => void;
   /** A selection waiting for its first message (ADR-0046). */
+  /**
+   * The internal threads, in their own document (ADR-0057).
+   *
+   * One list with these marked, not a second tab: somebody discussing a
+   * paragraph wants the discussion, and splitting it by audience makes them
+   * look in two places for one conversation.
+   */
+  internal: CommentActions | null;
   pending: {
     from: Uint8Array;
     to: Uint8Array;
@@ -329,17 +338,27 @@ export function CommentsPanel({
   const group = (
     key: 'comment.open' | 'comment.detachedHeading' | 'comment.resolvedHeading',
     threads: CommentThread[],
+    /** Whose document these came from, and where a reply goes. */
+    source: CommentActions,
+    /** Marked as internal, by a word rather than a colour (ADR-0057). */
+    isInternal = false,
   ): ReactElement | null =>
     threads.length === 0 ? null : (
       <section className="panel-section">
-        <h3 className="panel-heading">{t(key)}</h3>
+        <h3 className="panel-heading">
+          {t(key)}
+          {/* A word, not a colour: a colour is a convention nobody has learnt
+              yet, and this is the one distinction in the panel where being
+              wrong is a disclosure. */}
+          {isInternal && <span className="comment-internal">{t('comment.internal')}</span>}
+        </h3>
         <ul className="comment-list">
           {threads.map((thread) => (
             <Thread
               key={thread.id}
               thread={thread}
               members={members}
-              comments={comments}
+              comments={source}
               canEdit={canEdit}
               onReveal={onReveal}
               open={!closed.has(thread.id)}
@@ -397,11 +416,21 @@ export function CommentsPanel({
       </div>
 
       {start}
-      {group('comment.open', comments.open)}
+      {/* One list, internal threads among them and marked (ADR-0057).
+        *
+        * The actions come from whichever document a thread belongs to, which is
+        * why the group takes the set it came from rather than always
+        * `comments`: a reply to an internal thread has to be written into the
+        * internal document, and passing the wrong one would write it where
+        * everybody can read it. */}
+      {group('comment.open', comments.open, comments)}
+      {internal && group('comment.open', internal.open, internal, true)}
       {/* Between the open threads and the resolved ones, deliberately: a
           detached thread is unfinished business, not a decision. */}
-      {group('comment.detachedHeading', comments.detached)}
-      {group('comment.resolvedHeading', comments.resolved)}
+      {group('comment.detachedHeading', comments.detached, comments)}
+      {internal && group('comment.detachedHeading', internal.detached, internal, true)}
+      {group('comment.resolvedHeading', comments.resolved, comments)}
+      {internal && group('comment.resolvedHeading', internal.resolved, internal, true)}
     </>
   );
 }

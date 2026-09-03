@@ -121,11 +121,28 @@ request came back as a protocol error while I looked for the refusal in the room
 It now splits first and requires the part before the suffix to be a uuid, which
 accepts exactly one more shape than before rather than any string.
 
+**And the panel reads both**, one list with the internal threads marked by a
+word. The group carries the document a thread came from, which is the part that
+matters: a reply to an internal thread has to be written into the internal
+document, and handing the wrong set to the reply box would write it where
+everybody can read it.
+
+The client needed **no change at all** to open a second document — the store
+keys entries by the string it is given and passes it through to the channel
+name, the open message and the persistence. Checked rather than assumed.
+
 ## Still to build
 
-The panel reading two sources, the separate projection table, and export. A
-thread cannot be written internally from the interface yet: the room exists and
-is guarded, and nothing puts a comment in it.
+**Starting an internal thread.** The room exists, is guarded, and is read; the
+comment button still writes into the page's own document, so there is no way to
+put anything in the internal one from the interface. That is the next slice and
+it is where the choice-when-started decision above gets built.
+
+**The separate projection table**, so a mention inside an internal thread does
+not reach an inbox it should not. Until it exists, an internal thread is not
+projected at all — which is the safe direction: no row cannot leak.
+
+**Export.**
 
 ## What is deliberately not decided
 

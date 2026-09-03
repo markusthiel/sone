@@ -996,6 +996,7 @@ export const de: Record<keyof typeof en, string> = {
     'Diese Liste beginnt, als die Seite anfing, Fassungen aufzubewahren. Was ' +
     'älter ist, wurde nicht aufgezeichnet und ist nicht wiederherstellbar.',
   'comment.unknownAuthor': 'Jemand, der nicht mehr dabei ist',
+  'comment.internal': ' · intern',
   'comment.none': 'Noch nichts kommentiert. Markiere ein paar Worte und drücke Kommentieren.',
   'comment.open': 'Offen',
   'comment.detachedHeading': 'Text ist weg',
