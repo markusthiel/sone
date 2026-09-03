@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: a board's column counts were counting only the loaded cards** now that a
+collection loads a page at a time — "Done: 4" with three hundred in the
+collection — and an empty column claimed nothing was in it. A column shows `4+`
+while more may exist, and its three sentences are translated.
+
 **A collection loads a page of rows at a time** ([ADR-0055](docs/adr/0055-paging-a-collection.md))
 with a "Show more rows" button, instead of sending every row and every cell on
 every load — which was 7 MB of JSON for a collection of twenty thousand rows. A
