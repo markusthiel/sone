@@ -1863,3 +1863,16 @@ test('a derived cell cannot be typed into, and says when it is partial', () => {
   assert.match(table, /\.incomingRelations\(collectionId\)/);
   assert.match(table, /t\('rollup\.nothingPointsHere'\)/);
 });
+
+test('a rollup can be changed to sum, min or max — the capability is reachable', () => {
+  // The server has been able to do these since the derived side was built.
+  // Shipping the capability with no control would have been a feature only its
+  // author could use (ADR-0054).
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  assert.match(table, /\['rows', 'count', 'sum', 'min', 'max'\] as const/);
+
+  // The whole config goes back, not a patch of it: `viaFieldId` is what the
+  // rollup is built on, and the server replaces the object rather than merging
+  // — so omitting it would clear the relation the column reads.
+  assert.match(table, /config: \{ \.\.\.field\?\.config, viaFieldId: via, aggregate \}/);
+});

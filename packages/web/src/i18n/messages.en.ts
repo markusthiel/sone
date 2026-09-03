@@ -104,6 +104,12 @@ export const en = {
   'rollup.nothingPointsHere':
     'No relation column points at this collection yet. Add one on the other ' +
     'collection first.',
+  'rollup.aggregate': 'What this counts',
+  'rollup.rows': 'The linked rows',
+  'rollup.count': 'How many',
+  'rollup.sum': 'Their total',
+  'rollup.min': 'The smallest',
+  'rollup.max': 'The largest',
   'rollup.partial':
     'Some linked rows are not shown because you cannot open them, so this ' +
     'number is lower than somebody else may see.',

@@ -1659,6 +1659,19 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .collection-column-name { font-weight: 600; }
 .collection-column-type { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
 
+/* The aggregate select in a rollup's header. Quiet: it is a setting on the
+   column, not part of the data, and a full-height field here would compete with
+   the column's own name. */
+.collection-column-aggregate {
+  max-inline-size: 120px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--sone-text-muted);
+  font: inherit;
+  font-size: var(--sone-text-xs);
+}
+
 /* A derived cell: what the server computed, not what anybody typed. */
 .derived-cell { color: var(--sone-text); font-variant-numeric: tabular-nums; }
 .derived-cell a { color: inherit; }

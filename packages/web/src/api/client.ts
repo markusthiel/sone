@@ -923,6 +923,17 @@ export const api = {
       body: JSON.stringify(field),
     }),
 
+  /** Change a column's config — a rollup's aggregate, for instance (ADR-0054). */
+  updateCollectionField: (
+    collectionId: string,
+    fieldId: string,
+    changes: { name?: string; description?: string | null; config?: Record<string, unknown> },
+  ) =>
+    request<{ id: string }>(`/api/collections/${collectionId}/fields/${fieldId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(changes),
+    }),
+
   renameCollectionField: (collectionId: string, fieldId: string, name: string) =>
     request<{ id: string }>(`/api/collections/${collectionId}/fields/${fieldId}`, {
       method: 'PATCH',

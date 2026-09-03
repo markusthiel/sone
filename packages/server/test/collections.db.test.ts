@@ -366,6 +366,20 @@ describe(
         422,
       );
 
+      // And the same refusal on the *update* path, which had no check at all:
+      // pointing an existing rollup at another rollup was one PATCH away, so
+      // the cycle rule held on one of two paths — which is not a rule.
+      await expectStatus(
+        await fetch(`${base}/api/collections/${clients}/fields/${count.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({
+            config: { viaFieldId: link.id, aggregate: 'sum', fieldId: count.id },
+          }),
+        }),
+        422,
+      );
+
       // A relation that points somewhere else cannot be rolled up here either.
       await expectStatus(
         await addField(session, invoices, {
