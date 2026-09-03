@@ -93,9 +93,22 @@ avoid — and a restored page should find its relations intact.
 
 ## Consequences
 
-The projection gains a table for relation edges rather than reading them out of
-the cell jsonb per query: `(from_row, field_id, to_page)`, which is what makes a
-backlink one indexed lookup instead of a scan over every cell in the workspace.
+**Corrected the day after writing this.** I wrote that the projection "gains a
+table for relation edges". It has had one since `0001_init`: `page_relations`
+with `(from_page_id, field_id, to_page_id, idx)`, an inverse index on
+`(to_page_id, field_id)`, and the materialiser has been filling it all along —
+the shadow-column mapper even keeps a count so a view can sort by "how many
+linked items" without a join.
+
+So the backlink lookup this record depends on is already one indexed query, and
+the reasoning above stands on ground that was there before I described building
+it. What is actually missing is narrower than the record implied: a way to
+*create* a relation column and say which collection it points at, a picker, a
+cell that draws the linked rows, and the derived side. The storage is done.
+
+I checked this only when the implementation began, having asserted it in a
+record the day before. The plumbing being better than I remembered does not
+excuse describing it from memory.
 
 Derived fields mean a row's cells arrive from two places — the document for
 stored ones, the API for derived ones. The interface has to hold both without
