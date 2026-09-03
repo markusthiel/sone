@@ -158,7 +158,24 @@ test('emptying the table archives rather than deletes', () => {
   assert.match(server, /UPDATE pages SET archived_at = now\(\)[\s\S]{0,140}RETURNING id/);
   assert.doesNotMatch(server, /DELETE FROM pages WHERE collection_id/);
   // And it asks in a sentence rather than a dialog dismissed by reflex.
-  assert.match(table, /Move all \{data\?\.rows\.length \?\? 0\} entries to the trash\?/);
+  /*
+   * The sentence names the scope and not a number, which is a change paging
+   * forced (ADR-0055).
+   *
+   * It used to say "move all {loaded} entries" while the button clears the
+   * whole collection — so once rows arrived a page at a time it promised fifty
+   * and did twelve thousand. The count is not known without a second scan, so
+   * the confirmation names what it acts on and the notice afterwards carries
+   * the true number from the server.
+   */
+  assert.match(table, /t\('table\.confirmEmpty'\)/);
+  assert.doesNotMatch(table, /Move all \{data/);
+  const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
+  assert.match(en, /'table\.confirmEmpty':/);
+  // That message's own value, not everything after it: `[^;]*` reached past the
+  // key and found a `{count}` belonging to a different message entirely.
+  const message = en.slice(en.indexOf("'table.confirmEmpty':"));
+  assert.doesNotMatch(message.slice(0, message.indexOf("\n  '")), /\{count\}/);
 });
 
 test('undo and redo are each other, not two implementations', () => {

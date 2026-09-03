@@ -639,6 +639,10 @@ export const en = {
   'search.matchedTitle': 'title',
 
   // --- a table of entries ------------------------------------------------
+  'table.emptyTitle': 'Move every entry in this collection to the trash',
+  'table.confirmEmpty':
+    'Move every entry in this collection to the trash? Each one is a page, so ' +
+    'nothing is destroyed — they can be restored from the trash, or with undo.',
   'table.more': 'Show more rows',
   'table.sortedWhole':
     'Sorted by a computed column, so every row was read to order them. Other ' +

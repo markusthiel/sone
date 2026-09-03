@@ -690,6 +690,11 @@ export const de: Record<keyof typeof en, string> = {
   'search.matchedTitle': 'Name',
 
   // --- eine Tabelle mit Einträgen ----------------------------------------
+  'table.emptyTitle': 'Jeden Eintrag dieser Kollektion in den Papierkorb legen',
+  'table.confirmEmpty':
+    'Jeden Eintrag dieser Kollektion in den Papierkorb legen? Jeder ist eine ' +
+    'Seite, es wird also nichts vernichtet — sie lassen sich aus dem ' +
+    'Papierkorb oder mit Rückgängig zurückholen.',
   'table.more': 'Mehr Zeilen zeigen',
   'table.sortedWhole':
     'Nach einer berechneten Spalte sortiert, dafür wurden alle Zeilen gelesen. ' +
