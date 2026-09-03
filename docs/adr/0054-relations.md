@@ -128,6 +128,12 @@ above avoids by construction and a formula cannot. It is its own record and its
 own body of work, and shipping relations and rollups without it is a coherent
 step where shipping half a formula is not.
 
+**A row's own page showing its cells.** Found while checking whether relations
+reached everywhere: the properties panel shows a page's details — kind, dates —
+and no collection values at all, for *any* field type. So a row opens as a page
+that says nothing about the row it is. That is older and larger than relations
+and wants its own decision; it is named here because this is where I looked.
+
 **Filtering and sorting a view by a derived column.** Wanted, and it means the
 aggregate has to run before the sort rather than after the page of rows is
 chosen. A performance decision that should be made against a real corpus, like

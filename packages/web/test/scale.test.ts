@@ -1876,3 +1876,22 @@ test('a rollup can be changed to sum, min or max — the capability is reachable
   // — so omitting it would clear the relation the column reads.
   assert.match(table, /config: \{ \.\.\.field\?\.config, viaFieldId: via, aggregate \}/);
 });
+
+test('a gallery card can show a rollup, which lives outside row.values', () => {
+  // Without this a rollup could never appear on a card: `chipsOf` reads
+  // `row.values`, and a derived value is in `row.derived`. A column that works
+  // in the table and is invisible in the gallery is exactly the half-state this
+  // session keeps finding (ADR-0054).
+  const gallery = codeOf(new URL('../src/components/CollectionGallery.tsx', import.meta.url));
+  assert.match(gallery, /const derived = row\.derived\?\.\[field\.id\]/);
+  // The derived branch is first, because the value is not in `values` to find.
+  assert.ok(gallery.indexOf('row.derived?.[field.id]') < gallery.indexOf("value.kind === 'text'"));
+  // A relation is counted rather than named: a card has ids and no titles, and
+  // fetching one title per card is a request per row for one word.
+  assert.match(gallery, /value\.pageIds\.length\}`\)/);
+
+  // The board shows only titles, for every type — consistent rather than a gap,
+  // so nothing was added there.
+  const board = codeOf(new URL('../src/components/CollectionBoard.tsx', import.meta.url));
+  assert.doesNotMatch(board, /row\.derived/);
+});
