@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**The mail settings have a section of their own and a test button.** It sends one
+mail to your own address and reports what the server said — "535 authentication
+failed" rather than "sending failed"
+([ADR-0058](docs/adr/0058-email-notifications.md)).
+
 **Fixed: fourteen settings never reached the container.** Compose does not
 forward the host's environment, and the SMTP settings, both secrets
 (`SONE_SMTP_PASSWORD`, `SONE_OIDC_CLIENT_SECRET`), all six S3 values and the

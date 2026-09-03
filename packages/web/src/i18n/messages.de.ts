@@ -145,6 +145,10 @@ export const de: Record<keyof typeof en, string> = {
   'error.export_too_large': 'Dieser Export ist zu groß zum Vorbereiten.',
   'error.too_large': 'Diese Datei ist zu groß.',
   'error.search_needs_a_name': 'Der Suche zuerst einen Namen geben.',
+  'error.no_mail_server': 'Erst einen Mailserver eintragen.',
+  'error.no_address_to_test_with':
+    '{address, select, formal {Ihr Konto hat} other {Dein Konto hat}} keine ' +
+    'E-Mail-Adresse zum Testen.',
   'error.formula_missing': 'Erst eine Formel schreiben.',
   'error.formula_invalid':
     'Diese Formel ist nicht lesbar. Klammern und Operatoren prüfen.',
@@ -299,6 +303,14 @@ export const de: Record<keyof typeof en, string> = {
     'Dieser Durchgang läuft von selbst alle paar Minuten. Der Knopf ist für den Fall, ' +
     'dass Warten nicht in Frage kommt — meist, nachdem behoben wurde, woran eine ' +
     'Projektion gescheitert ist.',
+  'admin.mail': 'Mailserver',
+  'admin.mail.hint':
+    'Für Benachrichtigungs-E-Mails. Ohne Host wird nichts versendet und nichts ' +
+    'angeboten — das ist eine normale Instanz.',
+  'admin.mail.test': 'Test-E-Mail an mich senden',
+  'admin.mail.testing': 'Wird gesendet…',
+  'admin.mail.testSent': 'An {address} gesendet. Kommt sie an, funktioniert Mail.',
+  'admin.mail.testFailed': 'Der Mailserver hat sie abgelehnt: ',
   'admin.smtpHost': 'Mailserver',
   'admin.smtpHost.hint':
     'Leer heißt keine E-Mail: Benachrichtigungen bleiben im Posteingang und es ' +

@@ -35,6 +35,18 @@ describe(
     let settings: SettingsStore;
     /** What the storage check reports. Set per test. */
     let storageProblem: string | null = null;
+    /** What the test button asked the relay to do, and what it may answer. */
+    let mailAsked: { to: string; host: string } | null = null;
+    /*
+     * Read through a call, which defeats the narrowing.
+     *
+     * After `mailAsked = null` the compiler knows the variable *is* null, and
+     * the assignment that fills it happens inside a callback it cannot follow —
+     * so a direct read was `never` and `assert.ok` could not widen it back. A
+     * function's return type is its declared one.
+     */
+    const askedMail = (): { to: string; host: string } | null => mailAsked;
+    let mailRefuses: string | null = null;
 
     before(async () => {
       db = await getTestPool();
@@ -65,6 +77,18 @@ describe(
         // Reports whatever storageProblem currently holds, so a test can decide
         // what the instance's storage looks like.
         checkStorage: () => Promise.resolve(storageProblem),
+        /*
+         * A relay that records rather than connects.
+         *
+         * The test button's value is that it reports what the relay said, so
+         * what these tests need is control over what it says — not a network.
+         */
+        sendTestMail: (relay, to) => {
+          mailAsked = { to, host: relay.host };
+          if (mailRefuses !== null) return Promise.reject(new Error(mailRefuses));
+          return Promise.resolve();
+        },
+        smtpPassword: 'aus der Umgebung',
       });
 
       server = createServer((req, res) => {
@@ -377,6 +401,62 @@ describe(
         200,
       );
       assert.equal(report.counts.failedMail, 1);
+    });
+
+    test('the test button mails the administrator asking, and reports the relay´s words', async () => {
+      // To their own address, never one they type: a form that mails an
+      // arbitrary address is an open relay with a sign-in (ADR-0058).
+      const admin = await setup();
+      await fetch(`${base}/api/admin/settings`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: admin.cookie },
+        body: JSON.stringify({ smtpHost: 'mail.example.org' }),
+      });
+
+      mailAsked = null;
+      mailRefuses = null;
+      const sent = await expectJson<{ sentTo: string | null }>(
+        await fetch(`${base}/api/admin/mail/test`, {
+          method: 'POST',
+          headers: { cookie: admin.cookie },
+        }),
+        200,
+      );
+      // `assert.ok` first, because it narrows: the compiler had reduced
+      // `mailAsked` to `never` after the reset above, since the assignment
+      // happens inside a callback it cannot follow. Asserting it exists is both
+      // the fix and the thing worth asserting.
+      const asked = askedMail();
+      assert.ok(asked, 'the relay was asked');
+      assert.equal(asked.host, 'mail.example.org');
+      assert.equal(sent.sentTo, asked.to, 'to the address it says it used');
+
+      // A refusal comes back as the relay's own words, and as 200: a failed
+      // test is a successful test — it did what it was asked and found
+      // something. "535 authentication failed" is the answer; "sending failed"
+      // costs somebody an hour.
+      mailRefuses = '535 authentication failed';
+      const refused = await expectJson<{ sentTo: string | null; problem?: string }>(
+        await fetch(`${base}/api/admin/mail/test`, {
+          method: 'POST',
+          headers: { cookie: admin.cookie },
+        }),
+        200,
+      );
+      assert.equal(refused.sentTo, null);
+      assert.match(refused.problem ?? '', /535 authentication failed/);
+    });
+
+    test('the test button refuses when no mail server is set', async () => {
+      // Rather than sending nowhere and reporting success.
+      const admin = await setup();
+      await expectStatus(
+        await fetch(`${base}/api/admin/mail/test`, {
+          method: 'POST',
+          headers: { cookie: admin.cookie },
+        }),
+        422,
+      );
     });
 
     test('the mail server can be set without touching the environment', async () => {

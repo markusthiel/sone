@@ -1672,6 +1672,18 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   font-size: var(--sone-text-xs);
 }
 
+/* The mail test's answer (ADR-0058). The relay's text in a monospaced face:
+   it is a machine's answer, reads as one, and somebody will paste it into a
+   search. */
+.mail-test { flex-wrap: wrap; align-items: baseline; }
+.mail-test-reason {
+  display: block;
+  margin-block-start: 2px;
+  font-family: var(--sone-font-mono, ui-monospace, monospace);
+  font-size: var(--sone-text-xs);
+  overflow-wrap: anywhere;
+}
+
 /* What could complete the word being typed (ADR-0056). Under the field, over
    everything, and narrow: it is a list of names, not a panel. */
 .formula-suggestions {

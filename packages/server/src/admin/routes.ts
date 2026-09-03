@@ -33,6 +33,25 @@ import type { RequestContext, Router } from '../http/router.js';
 export interface AdminDeps {
   pool: Pool;
   /**
+   * Hand one mail to the relay, for the test button (ADR-0058).
+   *
+   * Injected rather than imported so this module does not reach into the mail
+   * client, and so a test can watch what it was asked to send without a relay.
+   */
+  sendTestMail: (
+    relay: {
+      host: string;
+      port: number;
+      user: string;
+      password: string;
+      from: string;
+      security: 'starttls' | 'tls' | 'none';
+    },
+    to: string,
+  ) => Promise<void>;
+  /** Read from the environment only (ADR-0024). */
+  smtpPassword: string | null;
+  /**
    * Whether a client secret is configured, not the secret itself.
    *
    * The administration area needs to explain why single sign-on is off; it does
@@ -509,6 +528,73 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
   });
 
   /** Change an instance setting, or clear it back to the environment. */
+  /**
+   * Send one mail to the administrator asking, and report what happened.
+   *
+   * **To their own address, never to one they type.** A form that mails an
+   * arbitrary address is an open relay with a sign-in — worth one afternoon to
+   * somebody who has phished an admin password, and worth nothing to the
+   * operator, who is testing whether *their* relay works and has an address
+   * already.
+   *
+   * Synchronously, not through the job queue: the whole value is an immediate
+   * answer, and a test whose result appears in a queue somewhere is a test
+   * nobody uses twice.
+   *
+   * The relay's own error text is passed back verbatim. "535 authentication
+   * failed" is the answer; "sending failed" is a sentence that costs somebody
+   * an hour.
+   */
+  router.post('/api/admin/mail/test', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    const settings = await deps.settings.resolve();
+    const host = settings.values.smtpHost.trim();
+    if (host === '') {
+      ctx.fail(422, 'no_mail_server');
+      return;
+    }
+
+    const who = await queryOne<{ email: string | null; display_name: string }>(
+      deps.pool,
+      `SELECT email, display_name FROM users WHERE id = $1`,
+      [admin.userId],
+    );
+    if (!who?.email) {
+      // An account with no address — a single sign-on account can be one.
+      ctx.fail(422, 'no_address_to_test_with');
+      return;
+    }
+
+    try {
+      await deps.sendTestMail(
+        {
+          host,
+          port: Number(settings.values.smtpPort) || 587,
+          user: settings.values.smtpUser,
+          password: deps.smtpPassword ?? '',
+          from: settings.values.smtpFrom || `sone@${host}`,
+          security: settings.values.smtpSecurity,
+        },
+        who.email,
+      );
+      ctx.send(200, { sentTo: who.email });
+    } catch (err) {
+      /*
+       * The reason, not a shrug — and 200 rather than 500.
+       *
+       * A failed test is a successful test: it did what it was asked and found
+       * something. A 500 would put it in the browser's error console as a
+       * server fault, which is the wrong story about a mistyped password.
+       */
+      ctx.send(200, {
+        sentTo: null,
+        problem: err instanceof Error ? err.message.slice(0, 300) : 'unknown',
+      });
+    }
+  });
+
   router.patch('/api/admin/settings', async (ctx) => {
     const admin = await requireAdmin(deps.pool, ctx);
     if (!admin) return;

@@ -131,6 +131,8 @@ export const en = {
   'error.export_too_large': 'That export is too large to prepare.',
   'error.too_large': 'That file is too large.',
   'error.search_needs_a_name': 'Give the search a name first.',
+  'error.no_mail_server': 'Set a mail server first.',
+  'error.no_address_to_test_with': 'Your account has no email address to test with.',
   'error.formula_missing': 'Write a formula first.',
   'error.formula_invalid': 'That formula cannot be read. Check the brackets and the operators.',
   'error.formula_unknown_field': 'That formula names a column this collection does not have.',
@@ -277,6 +279,14 @@ export const en = {
   'admin.maintenance.note':
     'This pass runs on its own every few minutes. Pressing it is for when waiting is ' +
     'not acceptable — after fixing whatever made a projection fail, typically.',
+  'admin.mail': 'Mail server',
+  'admin.mail.hint':
+    'For notification emails. Without a host nothing is sent and nothing is ' +
+    'offered — that is a normal instance.',
+  'admin.mail.test': 'Send a test email to myself',
+  'admin.mail.testing': 'Sending…',
+  'admin.mail.testSent': 'Sent to {address}. If it arrives, mail works.',
+  'admin.mail.testFailed': 'The mail server refused it: ',
   'admin.smtpHost': 'Mail server',
   'admin.smtpHost.hint':
     'Empty means no email: notifications stay in the inbox and nothing is sent. ' +
