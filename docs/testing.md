@@ -21,6 +21,12 @@ Node's test runner executes test *files* in parallel, one process per file,
 with concurrency defaulting to the CPU count. Each file therefore creates and
 drops its own database, named after itself.
 
+**So the suite's wall time is mostly a function of cores**, and there is nothing
+to parallelise by hand — I proposed doing exactly that after the database suite
+stopped fitting inside one command, and then found the machine had *one* core.
+The design was already right and the container was the limit. Worth writing down
+so the next person does not spend the same afternoon.
+
 This is not tidiness. Sharing one database across parallel files fails loudly
 and misleadingly: `CREATE EXTENSION IF NOT EXISTS pgcrypto` races itself into a
 duplicate-key error, `TRUNCATE ... CASCADE` deadlocks between files, and a file
@@ -94,7 +100,12 @@ to run against a wrongly collated database.
 ## Why the suite sets a low password cost
 
 `packages/server` runs its tests with `SONE_PASSWORD_COST=12`, in the open in
-its `test` script rather than hidden in a helper.
+**both** its `test` and `test:db` scripts rather than hidden in a helper.
+
+Both, because I first set it only on `test` — and `test:db` is the one this
+document recommends for the database suite. The measurement I reported came from
+a command almost nobody runs. `pnpm -r test` in CI goes through `test`, so CI was
+covered by luck rather than by intent.
 
 Measured: a hash at the production 2^16 costs 216 ms here, and
 `api.db.test.ts` registers an account per test through the real route — 105
