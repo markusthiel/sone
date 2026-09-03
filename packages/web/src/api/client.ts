@@ -885,6 +885,12 @@ export const api = {
       body: JSON.stringify({ title }),
     }),
 
+  /** Collections a relation from this one could point at (ADR-0054). */
+  relationTargets: (collectionId: string) =>
+    request<{ collections: Array<{ id: string; pageId: string; title: string }> }>(
+      `/api/collections/${collectionId}/targets`,
+    ),
+
   addCollectionField: (
     collectionId: string,
     field: { name: string; fieldType: string; config?: Record<string, unknown> },

@@ -35,8 +35,10 @@ import {
   type StoredCellValue,
 } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
+import { RelationCell } from './RelationCell.tsx';
 import { messageFor } from './Auth.tsx';
 import {
+  RelationIcon,
   ArrowDownIcon,
   ArrowUpIcon,
   CalendarIcon,
@@ -130,6 +132,10 @@ const ADDABLE: ReadonlyArray<{
   // spreadsheet are the same decision — attach a thing — and differ in how they
   // are drawn, not in what column they belong in.
   { type: 'files', label: 'field.files', Icon: PaperclipIcon },
+  // Pointing at rows in another collection (ADR-0054). Chosen like any other
+  // type; the collection it points at is asked for immediately afterwards,
+  // because a relation cannot be created without one.
+  { type: 'relation', label: 'field.relation', Icon: RelationIcon },
 ];
 
 /** How long after the last keystroke a text cell is saved. */
@@ -245,10 +251,50 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
     [load],
   );
 
-  const addColumn = async (fieldType: string): Promise<void> => {
+  /** A relation column waiting for the collection it points at (ADR-0054). */
+  const [choosingRelation, setChoosingRelation] = useState(false);
+  const [collections, setCollections] = useState<
+    Array<{ id: string; title: string }> | null
+  >(null);
+
+  useEffect(() => {
+    if (!choosingRelation) return;
+    let cancelled = false;
+    void api
+      .relationTargets(collectionId)
+      .then((result) => {
+        // The server has already excluded this collection: the question it
+        // answers is "what could a relation from here point at".
+        if (!cancelled) setCollections(result.collections);
+      })
+      .catch(() => {
+        if (!cancelled) setCollections([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [choosingRelation, collectionId]);
+
+  const addColumn = async (fieldType: string, target?: string): Promise<void> => {
     setAddingColumn(null);
+    /*
+     * A relation asks where it points before it exists.
+     *
+     * The server refuses one without a target, and it is right to: a column
+     * that can point anywhere gives a picker over the workspace and a rollup
+     * with nothing to aggregate. So the menu hands off to a second step rather
+     * than creating something the server would reject.
+     */
+    if (fieldType === 'relation' && !target) {
+      setChoosingRelation(true);
+      return;
+    }
     try {
-      await api.addCollectionField(collectionId, { name: 'Untitled', fieldType });
+      await api.addCollectionField(collectionId, {
+        name: 'Untitled',
+        fieldType,
+        ...(target ? { config: { collectionId: target } } : {}),
+      });
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -1004,6 +1050,62 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         *
         * Clamped so it cannot open off the right edge of the window, which is
         * the same failure in a different direction. */}
+      {/* Which collection a relation points at (ADR-0054).
+        *
+        * A second step rather than a submenu inside the type list: the list is
+        * one decision per row, and a type that quietly needs another answer
+        * would be the one entry behaving differently from the other ten. */}
+      {/* `dialog-scrim` and a stopped click, which is how every other dialog
+          here is built. I wrote `dialog-backdrop` first — a class that exists
+          nowhere, and the same invented name that once opened the export window
+          at the foot of a menu. */}
+      {choosingRelation && (
+        <div
+          className="dialog-scrim"
+          role="presentation"
+          onClick={() => setChoosingRelation(false)}
+        >
+          <div
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('relation.chooseTarget')}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="dialog-title">{t('relation.chooseTarget')}</h2>
+            {collections === null && <p className="muted">{t('panel.loading')}</p>}
+            {collections?.length === 0 && (
+              <p className="muted">{t('relation.noCollections')}</p>
+            )}
+            <ul className="dialog-list">
+              {(collections ?? []).map((one) => (
+                <li key={one.id}>
+                  <button
+                    type="button"
+                    className="dialog-item"
+                    onClick={() => {
+                      setChoosingRelation(false);
+                      void addColumn('relation', one.id);
+                    }}
+                  >
+                    {one.title || t('page.untitled')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="btn subtle"
+                onClick={() => setChoosingRelation(false)}
+              >
+                {t('action.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {addingColumn && (
         <div
           className="collection-type-menu"
@@ -1396,6 +1498,37 @@ function Cell({
   /** So a newly uploaded file can be named before the next reload. */
   onUploaded: (file: CollectionFile) => void;
 }): ReactElement {
+  if (field.fieldType === 'relation') {
+    /*
+     * Which collection this points at, from the column's own config (ADR-0054).
+     *
+     * A relation cannot be created without it, so absence here means the config
+     * was edited into that state — drawn as nothing rather than as a picker
+     * over everything, which is what the column would have been if the target
+     * were optional.
+     */
+    const target = field.config?.['collectionId'];
+    if (typeof target !== 'string' || target === '') return <span className="muted">—</span>;
+
+    const ids =
+      value?.kind === 'relation' && Array.isArray(value.pageIds)
+        ? value.pageIds.filter((one): one is string => typeof one === 'string')
+        : [];
+
+    return (
+      <RelationCell
+        pageIds={ids}
+        targetCollectionId={target}
+        canEdit={canEdit}
+        onChange={(next) =>
+          // An empty relation is no value rather than an empty list: the same
+          // shape every other cell uses for "nothing here".
+          onChange(next.length > 0 ? { kind: 'relation', pageIds: next } : null)
+        }
+      />
+    );
+  }
+
   if (field.fieldType === 'files') {
     return (
       <FilesCell

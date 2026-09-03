@@ -564,3 +564,33 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
     ctx.sendEmpty(204);
   });
 }
+
+/**
+ * The caller's claims for a workspace, or an answered request and null.
+ *
+ * Moved here from `http/pages.ts`, where it was a local function, when a second
+ * route needed it (ADR-0054's collection list). Here rather than in
+ * `auth/claims.ts`, which is where I put it first by going on the file's name:
+ * `claimsOrNull` and `sessionTokenFrom` are both in *this* file, and a helper
+ * belongs beside the two functions it is made of.
+ *
+ * The two failures are distinguished on purpose. No session at all is 401, so a
+ * client knows to sign in; a session without access to *this* workspace is 403,
+ * because signing in again will not help.
+ */
+export async function claimsFor(
+  pool: Pool,
+  ctx: RequestContext,
+  workspaceId: string,
+): Promise<Claims | null> {
+  if (!sessionTokenFrom(ctx)) {
+    ctx.fail(401, 'not_authenticated');
+    return null;
+  }
+  const claims = await claimsOrNull(pool, ctx, workspaceId);
+  if (!claims) {
+    ctx.fail(403, 'not_authorized');
+    return null;
+  }
+  return claims;
+}

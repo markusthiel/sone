@@ -312,6 +312,17 @@ export function DownloadIcon(props: IconProps): ReactElement {
   );
 }
 
+/** Two things joined: a row pointing at a row in another collection. */
+export function RelationIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M10 7H7a5 5 0 0 0 0 10h3" />
+      <path d="M14 7h3a5 5 0 0 1 0 10h-3" />
+      <path d="M8 12h8" />
+    </svg>
+  );
+}
+
 /** A bell: somebody was addressed and has not seen it yet. */
 export function BellIcon(props: IconProps): ReactElement {
   return (
