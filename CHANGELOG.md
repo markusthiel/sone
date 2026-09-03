@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Removed two things the schema promised and nothing kept**: a `users.avatar_url`
+column superseded three years of migrations ago, and a `password_resets` table no
+code has ever touched. Neither held a single row. A check now asks which columns
+exist that nothing reads, so the next one is noticed.
+
 **A formula completes column and function names as you type**
 ([ADR-0056](docs/adr/0056-formula.md)). Arrow keys and Tab or Enter to accept;
 a column with a space arrives in its brackets and a function with its opening

@@ -150,6 +150,12 @@ it:
   scanned as SQL, and `WITH` is also an English word, so a JSDoc paragraph
   beginning "with no numeric part…" was read as a statement. Fixing both took
   the unchecked references from 76 to 26.
+- The same file asks the **reverse** question — which columns exist that no code
+  names — and that is the one that found something: `users.avatar_url`,
+  superseded in 0026 and never dropped, and the whole `password_resets` table,
+  which no line of server code touched. A table shaped like a security feature
+  that does not exist is worse than an absent one, because the next reader
+  concludes resets are handled.
 - `routePaths.test.ts` checks every path the client asks for against the routes
   the server registers.
 - `errorMessages.test.ts` checks that every refusal code has a message, or is
