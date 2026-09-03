@@ -181,5 +181,64 @@ describe(
       `${unresolved} unchecked references, was 26 — new SQL this reader cannot see into`,
     );
   });
+
+  /*
+   * And the reverse question: which columns exist that no code names?
+   *
+   * The check above catches a column the code invents. This one catches a
+   * column the *schema* invents — and it found two lies rather than dead space:
+   * `users.avatar_url`, superseded by 0026_avatar and never dropped, and the
+   * whole `password_resets` table, which no line of server code touched. A
+   * table shaped like a security feature that does not exist is worse than an
+   * absent one, because the next person to read the schema concludes resets are
+   * handled.
+   *
+   * The allowance below is for columns nothing *names* but something uses: view
+   * columns selected by the view's own definition, and bookkeeping written by a
+   * default. Each one is listed rather than pattern-matched, so adding to it is
+   * a decision somebody makes on purpose.
+   */
+  const UNREAD_ON_PURPOSE = new Set([
+    // Admin views; their columns are produced by the view definition itself.
+    'document_schema_census.newest_edit',
+    'document_schema_census.oldest_edit',
+    'pages_inside_pages.child_id',
+    'pages_inside_pages.child_kind',
+    'pages_inside_pages.child_title',
+    'pages_inside_pages.parent_title',
+    // Written by their column default, read by a human looking at the table.
+    'group_members.added_at',
+    'schema_migrations.applied_at',
+  ]);
+
+  test('the schema names no column the code has forgotten', async () => {
+    const { rows } = await db.query<{ ref: string }>(
+      `SELECT table_name || '.' || column_name AS ref
+         FROM information_schema.columns WHERE table_schema = 'public'`,
+    );
+
+    /*
+     * `.text`, because this file's `sources` returns records rather than
+     * strings — my first version interpolated the object and searched
+     * "[object Object]" 327 times, reporting 312 forgotten columns. A check
+     * that fails wholesale is easier to disbelieve than one that fails once,
+     * which is the only reason I looked instead of adding an allowance.
+     */
+    let code = '';
+    for (const file of sources(new URL('../src/', import.meta.url))) code += `${file.text}\n`;
+    for (const file of sources(new URL('../../core/src/', import.meta.url))) {
+      code += `${file.text}\n`;
+    }
+
+    const forgotten = rows
+      .map((row) => row.ref)
+      .filter((ref) => !UNREAD_ON_PURPOSE.has(ref))
+      .filter((ref) => {
+        const column = ref.split('.')[1] ?? '';
+        return !new RegExp(`\\b${column}\\b`).test(code);
+      });
+
+    assert.deepEqual(forgotten.sort(), []);
+  });
 },
 );
