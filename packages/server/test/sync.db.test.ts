@@ -20,7 +20,7 @@ import {
 } from '@sone/core';
 import type { Pool } from 'pg';
 
-import { SCHEMA_VERSION, asInternalRequest } from '@sone/core';
+import { SCHEMA_VERSION, addThread, asInternalRequest } from '@sone/core';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
 import * as syncProtocol from 'y-protocols/sync';
@@ -359,6 +359,79 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
       [uuid(1)],
     );
     void rows;
+    client.close();
+  });
+
+  test('writing an internal comment does not fail its projection', async () => {
+    // The room projects with its own key as the page id, and an internal room's
+    // key is a derived document id with no page behind it — so the page
+    // projection would run against nothing (ADR-0057).
+    await makePage(uuid(1));
+    const userId = await makeMember('project@example.org');
+    const session = await createSession(db, userId);
+    const client = await connectAs(session.token);
+
+    const internal = await openDoc(client, asInternalRequest(uuid(1)), 1);
+    const doc = new Y.Doc();
+    addThread(doc, {
+      id: 'it1',
+      from: new Uint8Array(),
+      to: new Uint8Array(),
+      quote: 'intern',
+      messageId: 'im1',
+      author: userId,
+      text: 'Nur für uns',
+    });
+    client.send(syncUpdateFrame(internal.handle, Y.encodeStateAsUpdate(doc)));
+
+    // PERSIST_DEBOUNCE_MS is 400; the suite's other persistence test waits
+    // 1500 for the write and the projection. My first version waited exactly
+    // 400 and asserted "no failed projection" — which passed because nothing
+    // had happened yet. A green assertion about failures means nothing if the
+    // flush never ran, which is why the stored-update check below comes first.
+    await sleep(1500);
+
+    // First: did the update actually land? A green assertion about failures
+    // means nothing if the flush never happened.
+    const stored = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM doc_updates WHERE doc_id <> $1`,
+      [uuid(1)],
+    );
+    assert.notEqual(stored.rows[0]?.n, '0', 'the internal update was stored');
+
+    // And no phantom page: the room projects with its own key as the page id,
+    // and `materializeDocument` *inserts* a page row — so an internal document
+    // would appear in the workspace as a page nobody created.
+    const pages = await db.query<{ id: string; title: string }>(
+      `SELECT id, title FROM pages WHERE id <> $1`,
+      [uuid(1)],
+    );
+    assert.deepEqual(pages.rows, [], `no phantom page, got ${JSON.stringify(pages.rows)}`);
+
+    // And it is projected into its own table, keyed by the page: sharing
+    // `page_comments` and filtering everywhere is how an internal thread
+    // reaches somebody who cannot open it (ADR-0057).
+    const internalRows = await db.query<{ page_id: string; thread_id: string }>(
+      `SELECT page_id, thread_id FROM page_comments_internal`,
+    );
+    assert.deepEqual(
+      internalRows.rows,
+      [{ page_id: uuid(1), thread_id: 'it1' }],
+      'projected under the page it belongs to',
+    );
+    const ordinary = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM page_comments`,
+    );
+    assert.equal(ordinary.rows[0]?.n, '0', 'and not into the table everything else reads');
+
+    const failed = await db.query<{ page_id: string; last_error: string }>(
+      `SELECT page_id, last_error FROM materialization_state WHERE status = 'failed'`,
+    );
+    assert.deepEqual(
+      failed.rows,
+      [],
+      `no failed projection, got ${JSON.stringify(failed.rows)}`,
+    );
     client.close();
   });
 

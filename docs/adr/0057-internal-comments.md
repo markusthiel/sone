@@ -139,9 +139,19 @@ name, the open message and the persistence. Checked rather than assumed.
 
 ## Still to build
 
-**The separate projection table**, so a mention inside an internal thread does
-not reach an inbox it should not. Until it exists, an internal thread is not
-projected at all — which is the safe direction: no row cannot leak.
+**Its own projection table exists**, `page_comments_internal`, the same shape as
+`page_comments` — a row is a thread, not a message — so the two can be compared
+and the projection is one idea written twice rather than two.
+
+**And building it found something my previous two commits had shipped broken.**
+The room projects with its own key as the page id, and `materializeDocument`
+*inserts* a page row — so an internal document appeared in the workspace as a
+page nobody created, titled nothing. A room now knows which page's comments it
+holds and projects only those.
+
+Notifications from internal threads are still not written. That is the remaining
+gap and it is the safe direction: a mention nobody is told about is a smaller
+fault than one told to somebody who cannot read the thread.
 
 **Export.**
 
