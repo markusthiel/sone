@@ -126,7 +126,9 @@ somebody has to be able to declare bankruptcy on it.
 Email means SMTP configuration, deliverability, an unsubscribe mechanism, and a
 queue that retries — and it means SONE sending the contents of somebody's
 workspace through a third party. Worth doing, and worth doing on purpose in its
-own record.
+own record. It is now [ADR-0058](0058-email-notifications.md), whose central
+decision is that the mail says *who* and *where* and never *what*: no message
+text, no quoted passage, because a mailbox is not a permission system.
 
 The inbox is in the application, with a count on the account button. What this
 does *not* do is claim otherwise anywhere in the interface.
