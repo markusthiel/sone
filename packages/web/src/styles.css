@@ -1672,6 +1672,34 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   font-size: var(--sone-text-xs);
 }
 
+/* What could complete the word being typed (ADR-0056). Under the field, over
+   everything, and narrow: it is a list of names, not a panel. */
+.formula-suggestions {
+  margin: 2px 0 0;
+  padding: 4px;
+  max-block-size: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius);
+  background: var(--surface-raised);
+  box-shadow: var(--sone-shadow-floating);
+  list-style: none;
+}
+.formula-suggestions button {
+  inline-size: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: inherit;
+  font-family: var(--sone-font-mono, ui-monospace, monospace);
+  font-size: var(--sone-text-sm);
+  text-align: start;
+  cursor: pointer;
+}
+.formula-suggestions button[data-active='true'],
+.formula-suggestions button:hover { background: var(--sone-bg-hover); }
+
 /* A formula that could not be worked out. Marked, and readable: it is a message
    to whoever wrote the formula, not a warning about the data. */
 .derived-error { color: var(--sone-text-muted); font-size: var(--sone-text-xs); font-style: italic; }

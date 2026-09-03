@@ -24,7 +24,12 @@
  * column nobody can fill, and offering one is worse than leaving it out.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+// The first import from core in this file: what a formula may name is the
+// parser's business, and a second list here would be a second answer to it
+// (ADR-0056).
+import { applyCompletion, completions } from '@sone/core';
 
 import {
   type DerivedCellValue,
@@ -324,6 +329,30 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   const [writingFormula, setWritingFormula] = useState<'new' | string | null>(null);
   const [formulaText, setFormulaText] = useState('');
   const [formulaError, setFormulaError] = useState<string | null>(null);
+  /** Where the caret is, which is what decides what a completion replaces. */
+  const [caret, setCaret] = useState(0);
+  /** Which suggestion is chosen; -1 means the list is closed. */
+  const [suggestion, setSuggestion] = useState(-1);
+  const formulaField = useRef<HTMLInputElement | null>(null);
+
+  /*
+   * What could complete the word at the caret (ADR-0056).
+   *
+   * From this collection's own stored columns, so a suggestion cannot be a
+   * column the server would refuse — a formula may not read another formula,
+   * and offering one would be teaching somebody a mistake.
+   */
+  const formulaSuggestions = useMemo(
+    () =>
+      completions(
+        formulaText,
+        caret,
+        (data?.fields ?? [])
+          .filter((one) => one.fieldType !== 'formula')
+          .map((one) => one.name),
+      ),
+    [formulaText, caret, data?.fields],
+  );
   const [incoming, setIncoming] = useState<
     Array<{
       fieldId: string;
@@ -1398,22 +1427,103 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                   .join(', '),
               })}
             </p>
+            {/* Completion, from what this collection actually has (ADR-0056).
+              *
+              * No syntax highlighting: this is an `input`, and colouring text
+              * inside one is not possible without replacing it with a
+              * contenteditable and reimplementing selection, undo and mobile
+              * keyboards. A formula is one line and its errors are named in the
+              * cell — the honest trade is completion, which prevents mistakes,
+              * over colour, which only shows them. */}
             <input
               className="formula-input"
               autoFocus
+              ref={formulaField}
               value={formulaText}
               // A key, not a literal: the guard is right that an attribute
               // somebody reads belongs in the catalogue, and an example formula
               // names columns whose names differ per workspace anyway.
               placeholder={t('formula.example')}
               aria-label={t('formula.write')}
-              onChange={(event) => setFormulaText(event.target.value)}
+              onChange={(event) => {
+                setFormulaText(event.target.value);
+                setSuggestion(0);
+                setCaret(event.target.selectionStart ?? event.target.value.length);
+              }}
+              onKeyUp={(event) =>
+                setCaret(event.currentTarget.selectionStart ?? formulaText.length)
+              }
               onKeyDown={(event) => {
+                const list = formulaSuggestions;
+
+                if (list.length > 0) {
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    setSuggestion(
+                      (at) =>
+                        (at + (event.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length,
+                    );
+                    return;
+                  }
+                  if (event.key === 'Tab' || (event.key === 'Enter' && suggestion > -1)) {
+                    // Enter accepts the suggestion rather than submitting, but
+                    // only while the list is open — otherwise the key that
+                    // finishes a formula would depend on whether a list
+                    // happened to be showing.
+                    event.preventDefault();
+                    const pick = list[suggestion] ?? list[0]!;
+                    const next = applyCompletion(formulaText, caret, pick.value, pick.kind);
+                    setFormulaText(next.text);
+                    setCaret(next.caret);
+                    setSuggestion(-1);
+                    requestAnimationFrame(() => {
+                      formulaField.current?.setSelectionRange(next.caret, next.caret);
+                    });
+                    return;
+                  }
+                  if (event.key === 'Escape') {
+                    // The list first, the dialog second: one Escape that closed
+                    // both would lose a formula somebody had typed because a
+                    // suggestion happened to be open.
+                    event.preventDefault();
+                    setSuggestion(-1);
+                    return;
+                  }
+                }
+
                 if (event.key === 'Enter' && formulaText.trim() !== '') {
                   void addFormula(formulaText.trim());
                 }
               }}
             />
+
+            {formulaSuggestions.length > 0 && suggestion > -1 && (
+              <ul className="formula-suggestions" role="listbox">
+                {formulaSuggestions.map((one, at) => (
+                  <li key={`${one.kind}-${one.value}`}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={at === suggestion}
+                      data-active={at === suggestion ? 'true' : undefined}
+                      onMouseDown={(event) => {
+                        // Mouse *down*, because the field would lose focus on
+                        // a click and the list would be gone before it fired.
+                        event.preventDefault();
+                        const next = applyCompletion(formulaText, caret, one.value, one.kind);
+                        setFormulaText(next.text);
+                        setCaret(next.caret);
+                        setSuggestion(-1);
+                        formulaField.current?.focus();
+                      }}
+                    >
+                      {one.value}
+                      {one.kind === 'function' && <span className="muted">()</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             {formulaError && <p className="error">{messageFor(formulaError)}</p>}
             <div className="dialog-actions">
               <button

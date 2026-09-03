@@ -2191,3 +2191,34 @@ test('a commented canvas item is marked, and an internal one says so in words', 
   // Resolved threads carry no mark: a settled discussion is not a task.
   assert.match(view, /if \(!thread\.item \|\| thread\.resolved\) continue;/);
 });
+
+test('the formula field completes names, and Escape does not lose the formula', () => {
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+
+  // The list comes from core beside the parser, and from this collection's own
+  // stored columns — so a suggestion cannot be something the server would
+  // refuse, like another formula (ADR-0056).
+  assert.match(table, /import \{ applyCompletion, completions \} from '@sone\/core'/);
+  assert.match(table, /\.filter\(\(one\) => one\.fieldType !== 'formula'\)/);
+
+  // Two Escape stages: one that closed the list and the dialog together would
+  // lose a typed formula because a suggestion happened to be open.
+  assert.match(table, /if \(event\.key === 'Escape'\) \{[\s\S]{0,300}setSuggestion\(-1\);/);
+
+  // Enter accepts a suggestion only while the list is open, so the key that
+  // finishes a formula does not depend on what happens to be showing.
+  assert.match(table, /event\.key === 'Enter' && suggestion > -1/);
+
+  // Mouse *down*, because a click would move focus out of the field and the
+  // list would be gone before it fired.
+  assert.match(table, /onMouseDown=\{\(event\) => \{/);
+
+  /*
+   * There is no assertion here about the absence of syntax highlighting.
+   *
+   * I wrote one against the comment that explains it, and `codeOf` strips
+   * comments by design — these guards read code, not prose. A test that asserts
+   * a comment's wording is a test that fails when somebody rewords it, which
+   * teaches people not to improve comments. The decision lives in ADR-0056.
+   */
+});

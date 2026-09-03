@@ -334,3 +334,60 @@ export function bindFormula(expr: Expr, idOf: (name: string) => string | undefin
       return expr;
   }
 }
+
+/**
+ * What could complete the word being typed (ADR-0056).
+ *
+ * In core beside the parser, not in the dialog: the list of what a formula may
+ * name is the parser's business, and a second list in the interface would be a
+ * second answer to "what is allowed" — one that could offer a function the
+ * evaluator does not have.
+ *
+ * The word is taken from the caret backwards, and only letters count. So a
+ * caret after `Menge * Pr` completes `Pr`, and one after `Menge * ` completes
+ * nothing rather than everything: a list that appears when somebody has typed
+ * no word yet is a list they have to dismiss.
+ */
+export function completions(
+  text: string,
+  caret: number,
+  columns: readonly string[],
+): Array<{ value: string; kind: 'column' | 'function' }> {
+  const before = text.slice(0, caret);
+  const word = /[\p{L}_][\p{L}\p{N}_]*$/u.exec(before)?.[0] ?? '';
+  if (word === '') return [];
+
+  const lower = word.toLowerCase();
+  const out: Array<{ value: string; kind: 'column' | 'function' }> = [];
+  for (const name of columns) {
+    if (name.toLowerCase().startsWith(lower)) out.push({ value: name, kind: 'column' });
+  }
+  for (const name of Object.keys(FUNCTIONS)) {
+    if (name.startsWith(lower)) out.push({ value: name, kind: 'function' });
+  }
+  // Columns first: a formula is mostly about this collection's own fields, and
+  // a function list that pushes them below the fold is a list about the
+  // language rather than about the data.
+  return out.slice(0, 8);
+}
+
+/** Replace the word at the caret, and say where the caret goes next. */
+export function applyCompletion(
+  text: string,
+  caret: number,
+  value: string,
+  kind: 'column' | 'function',
+): { text: string; caret: number } {
+  const before = text.slice(0, caret);
+  const word = /[\p{L}_][\p{L}\p{N}_]*$/u.exec(before)?.[0] ?? '';
+  const start = caret - word.length;
+  // A column with a space needs its brackets, and a function needs its
+  // parenthesis — inserting the name alone would leave something that does not
+  // parse, which is a completion that made the formula worse.
+  const inserted =
+    kind === 'function' ? `${value}(` : /\s/.test(value) ? `[${value}]` : value;
+  return {
+    text: text.slice(0, start) + inserted + text.slice(caret),
+    caret: start + inserted.length,
+  };
+}

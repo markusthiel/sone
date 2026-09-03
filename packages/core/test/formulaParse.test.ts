@@ -9,7 +9,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { fieldsUsed, parseFormula, MAX_FORMULA } from '../src/formula/parse.js';
+import {
+  applyCompletion,
+  completions,
+  fieldsUsed,
+  parseFormula,
+  MAX_FORMULA,
+} from '../src/formula/parse.js';
 
 const parsed = (text: string) => {
   const result = parseFormula(text);
@@ -95,4 +101,39 @@ test('the columns a formula names can be listed', () => {
     fieldsUsed(parsed('if(Menge > 0, Menge * [Preis netto], 0)')).sort(),
     ['Menge', 'Preis netto'],
   );
+});
+
+test('completion offers this collection´s columns and the real functions', () => {
+  // In core beside the parser: a second list in the interface would be a second
+  // answer to "what is allowed", and it could offer a function the evaluator
+  // does not have (ADR-0056).
+  const columns = ['Menge', 'Preis netto', 'Projekt'];
+  const at = (text: string) => completions(text, text.length, columns);
+
+  assert.deepEqual(at('Menge * Pr'), [
+    { value: 'Preis netto', kind: 'column' },
+    { value: 'Projekt', kind: 'column' },
+  ]);
+  // Functions too, and columns first: a formula is mostly about this
+  // collection's own fields.
+  assert.deepEqual(at('ro'), [{ value: 'round', kind: 'function' }]);
+  // Nothing when no word has been typed yet: a list somebody has to dismiss is
+  // worse than no list.
+  assert.deepEqual(at('Menge * '), []);
+});
+
+test('accepting a completion leaves something that parses', () => {
+  // A name inserted alone would leave a formula that does not parse, which is a
+  // completion that made things worse.
+  const spaced = applyCompletion('Menge * Pr', 10, 'Preis netto', 'column');
+  assert.equal(spaced.text, 'Menge * [Preis netto]');
+  assert.ok('expr' in parseFormula(spaced.text));
+
+  const called = applyCompletion('ro', 2, 'round', 'function');
+  assert.equal(called.text, 'round(');
+  assert.equal(called.caret, 6, 'the caret sits inside the brackets');
+
+  // And a completion in the middle keeps what came after it.
+  const middle = applyCompletion('Me * Preis', 2, 'Menge', 'column');
+  assert.equal(middle.text, 'Menge * Preis');
 });
