@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Search can be narrowed to a folder**: `in:Projekte Rechnung`, or `ordner:` in
+German ([ADR-0050](docs/adr/0050-search-filters.md)). It searches everything
+beneath that folder, and the chip says how many folders the name matched — two
+with one name reach further than you meant, and a name nothing is called finds
+nothing rather than everything.
+
 **You can choose which notifications reach you by email** under You →
 Notifications — mentions and tasks on, replies off, and the screen says what a
 mail contains before asking whether you want one.

@@ -782,6 +782,9 @@ export const de: Record<keyof typeof en, string> = {
   'search.folders': 'Ordner',
   'search.pages': 'Seiten',
   'search.chip.tag': 'Schlagwort {value}',
+  'search.chip.in': 'In {value}',
+  'search.chip.inMany': 'In {value} · {count} Ordner',
+  'search.chip.inNone': 'In {value} · kein solcher Ordner',
   'search.chip.author': 'Von {value} geschrieben',
   'search.chip.assignedMe': 'Mir zugewiesen',
   'search.chip.assigned': 'Zugewiesen an {value}',
@@ -792,8 +795,8 @@ export const de: Record<keyof typeof en, string> = {
   'search.nameIt': 'Wie soll sie heißen',
   'search.forget': '{name} verwerfen',
   'search.syntax':
-    'Eingrenzen mit tag:name, author:name, assigned:me, after:2026-08-01 oder ' +
-    'before:2026-09-01. Ein Filter allein genügt auch.',
+    'Eingrenzen mit tag:name, in:ordner, author:name, assigned:me, ' +
+    'after:2026-08-01 oder before:2026-09-01. Ein Filter allein genügt auch.',
   'search.nothing': 'Nichts gefunden.',
   'search.didYouMean': 'Vielleicht',
   'search.similar': 'Ähnliche Namen',

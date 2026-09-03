@@ -89,3 +89,17 @@ test('assigned: comes out, and "me" is left for the server', () => {
   assert.equal(hasSearchCriteria(parseSearchQuery('assigned:me')), true);
   assert.deepEqual(parseSearchQuery('zugewiesen:anna').assigned, ['anna']);
 });
+
+test('a folder is named, not identified', () => {
+  // ADR-0050 deferred this believing it needed an id in the query, because a
+  // name does not survive a rename. It does not: `tag:` matches a key rather
+  // than a display name either, and the point of this syntax is that somebody
+  // can type it and paste it to a colleague. An id is not that.
+  assert.deepEqual(parseSearchQuery('in:Projekte Rechnung').in, ['projekte']);
+  assert.equal(parseSearchQuery('in:Projekte Rechnung').text, 'Rechnung');
+  // German too, like every other prefix.
+  assert.deepEqual(parseSearchQuery('ordner:Archiv').in, ['archiv']);
+  // And it counts as a criterion on its own: `in:Projekte` with no words is a
+  // question about a place.
+  assert.ok(hasSearchCriteria(parseSearchQuery('in:Projekte')));
+});
