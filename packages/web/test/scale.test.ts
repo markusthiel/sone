@@ -1945,3 +1945,22 @@ test('a collection loads a page at a time, forwards only', () => {
   // quietly slower than its neighbours.
   assert.match(table, /data\.sortedInMemory && <p className="settings-note">/);
 });
+
+test('the row count is of the filtered set, and vague above the ceiling', () => {
+  // "1–50 of 12 431" has to mean the set being paged, or it is a different
+  // number in the same place (ADR-0055).
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  assert.match(table, /data\.totalIsExact === false/);
+  assert.match(table, /t\('table\.countMany'/);
+  // Only when there is more than is showing: "7 of 7 rows" is noise.
+  assert.match(table, /data\.total > data\.rows\.length/);
+
+  // Counted inside a LIMIT, so the cost is bounded whatever the collection's
+  // size — the count is either exact or "at least ten thousand".
+  const routes = codeOf(new URL('../../server/src/http/collections.ts', import.meta.url));
+  assert.match(routes, /LIMIT \$\{COUNT_CEILING \+ 1\}/);
+  // With the filters and no sorts: a sort binds a parameter that appears in
+  // ORDER BY and not in WHERE, and reusing the row query's parameters made
+  // Postgres refuse the count outright.
+  assert.match(routes, /const countQuery = buildViewQuery\(\s*\n\s*chosen \?/);
+});

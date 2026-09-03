@@ -76,11 +76,16 @@ about is a number worth being vague about.
 
 ### Not yet done, and known
 
-The **total count** is not built: the response says whether there is more, not
-how many there are, so the interface has no "1–50 of 12 431" to be exact or
-vague about. The extra row fetched to answer "is there more" is what a first
-version needs; a count is a second scan and can wait for somebody to want the
-number.
+The **total count** is built, bounded in the query: `count(*)` over a subquery
+with `LIMIT 10 001`, so the cost is the same whatever the collection's size and
+the answer is either exact or "more than ten thousand". It is shown only when
+there are more rows than are on screen — "7 of 7 rows" is noise.
+
+It is its own query with the filters and *no sorts*. Reusing the row query's
+parameters failed outright: a sort binds the field id it orders by, that
+parameter appears in `ORDER BY` and not in `WHERE`, so the count supplied
+parameters it never referenced and Postgres refused it. A count wants the
+filters and nothing else.
 
 **Select-all, paste, export and trash-all — checked**, one at a time, and the
 prediction was right about one of them.
@@ -127,6 +132,7 @@ That is a real difference in behaviour and better said than smoothed over.
 separate optimisation, and the wrong one to reach for first: fifty rows of DOM
 is not a problem, seven megabytes of JSON was.
 
-**Paging the board and the gallery.** Both draw the same rows and will inherit
-the page. Whether a board column loads its own page is a question about columns
+**Paging the board and the gallery.** Both draw the same rows and inherit the
+page — checked: the table is `hidden` rather than unmounted for those views, and
+the "show more" control sits outside it, so all three get it. Whether a board column loads its own page is a question about columns
 rather than about rows, and it can wait until somebody has a board that large.

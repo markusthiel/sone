@@ -578,6 +578,16 @@ describe(
         if (!cursor) break;
       }
 
+      // The count is of the whole filtered set, not of the page and not of
+      // what is left: it has to mean the same thing on page one and page three
+      // (ADR-0055).
+      const first = await expectJson<{ total: number; totalIsExact: boolean }>(
+        await page(),
+        200,
+      );
+      assert.equal(first.total, 7);
+      assert.equal(first.totalIsExact, true);
+
       // Every row once: a repeat or a gap is what an offset would have produced
       // and what the tiebreaker in the cursor exists to prevent.
       assert.deepEqual(seen, ['Z-0', 'Z-1', 'Z-2', 'Z-3', 'Z-4', 'Z-5', 'Z-6']);

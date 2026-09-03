@@ -1047,6 +1047,55 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       });
     }
 
+    /*
+     * How many rows there are, bounded (ADR-0055).
+     *
+     * Counted inside a `LIMIT`, which is the whole trick: the query stops at
+     * ten thousand and one, so the cost is bounded whatever the collection's
+     * size, and the answer is either exact or "at least ten thousand". A
+     * count that scans a hundred thousand rows to be precise about a number
+     * nobody reads carefully is a scan spent on decoration.
+     *
+     * With the filters and the search, not without: "1–50 of 12 431" has to
+     * mean the set being paged, or it is a different number in the same place.
+     */
+    const COUNT_CEILING = 10_000;
+    /*
+     * Its own query, built with the filters and no sorts.
+     *
+     * My first version reused the row query's conditions and parameters, and
+     * Postgres refused it: a sort binds the field id it orders by, that
+     * parameter appears in `ORDER BY` and not in `WHERE`, so the count supplied
+     * parameters it never referenced. A count wants the filters and nothing
+     * else, which is what asking for it without sorts produces.
+     */
+    const countQuery = buildViewQuery(
+      chosen ? readFilters(chosen.definition) : [],
+      [],
+      fieldTypes,
+      2,
+    );
+    const countParams = [...countQuery.params];
+    const countSearch = buildSearchClause(ctx.url.searchParams.get('q') ?? '', (value) => {
+      countParams.push(value);
+      return `$${countParams.length + 1}`;
+    });
+    const countConditions = [countQuery.where, countSearch].filter(
+      (clause) => clause !== '' && clause !== null,
+    );
+
+    const counted = await queryOne<{ n: string }>(
+      deps.pool,
+      `SELECT count(*)::text AS n FROM (
+         SELECT 1 FROM pages p
+          WHERE p.collection_id = $1 AND p.kind = 'row' AND p.archived_at IS NULL
+            ${countConditions.length > 0 ? `AND ${countConditions.join(' AND ')}` : ''}
+          LIMIT ${COUNT_CEILING + 1}
+       ) bounded`,
+      [collectionId, ...countParams],
+    );
+    const total = Number(counted?.n ?? 0);
+
     const last = rows.at(-1);
     ctx.send(200, {
       pageId,
@@ -1070,6 +1119,9 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
           : null,
       /** True when this view had to fetch everything to sort it (ADR-0055). */
       sortedInMemory: derivedSort,
+      /** How many rows match, and whether that number is exact. */
+      total: Math.min(total, COUNT_CEILING),
+      totalIsExact: total <= COUNT_CEILING,
       titleFieldId: collection.title_field_id,
       canEdit: auth.canEdit,
       /** The files any cell refers to, by id. Absent ones are simply not here. */
