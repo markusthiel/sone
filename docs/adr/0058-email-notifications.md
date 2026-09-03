@@ -262,7 +262,11 @@ a token should be.
 
 **Replying by email.** Parsing a reply back into a comment thread means quoting,
 signatures, forwarded chains and HTML, and it means accepting text into a
-workspace from whatever can spoof a From header.
+workspace from whatever can spoof a From header. Now
+[ADR-0060](0060-reply-by-email.md), where the From header turns out to be
+answerable: the credential is the address the mail was sent *to* — a per
+notification `Reply-To` carrying an HMAC over the thread, the message and the
+recipient — and `From` is decoration that is never trusted.
 
 **Digest emails on a schedule** — a daily summary of everything. A different
 feature with a different purpose, and one that needs someone to want it first.
