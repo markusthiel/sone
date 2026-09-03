@@ -941,6 +941,7 @@ export const en = {
   'history.incomplete':
     'This list begins when the page started keeping versions. Anything older ' +
     'than that was not recorded and cannot be recovered.',
+  'comment.startInternal': 'Only for members — a share link cannot read this',
   'comment.internal': ' · internal',
   'comment.none': 'Nothing has been commented on yet. Select some words and press Comment.',
   'comment.open': 'Open',

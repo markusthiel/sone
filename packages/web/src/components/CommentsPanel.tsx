@@ -10,7 +10,7 @@
  * decisions that were made, kept because those are worth being able to find.
  */
 
-import { useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 
 import { guestName, isGuestKey } from '@sone/client';
 import type { CommentThread } from '@sone/core';
@@ -266,6 +266,31 @@ export function CommentsPanel({
    * first message is a highlight over nothing, and it would arrive on somebody
    * else's screen as exactly that.
    */
+  /**
+   * Where the next thread goes (ADR-0057).
+   *
+   * Chosen when it is started and never moved: moving one means copying it into
+   * the other document and deleting it here, and the copy cannot take back what
+   * the guests who already synced the page have. A control that appears to make
+   * a discussion private after the fact is the most dangerous thing this could
+   * offer.
+   *
+   * Remembered per page, because a team that has decided to talk internally
+   * about a draft is going to do it more than once.
+   */
+  const [startInternal, setStartInternal] = useState(false);
+  useEffect(() => {
+    setStartInternal(false);
+  }, [pageId]);
+
+  const startThread = (text: string): void => {
+    if (!pending) return;
+    // The document the choice names, not whichever set the panel was handed:
+    // this is the line that decides who can read what follows.
+    const into = startInternal && internal ? internal : comments;
+    into.start(pending, text);
+  };
+
   const start = pending ? (
     <section className="panel-section">
       <div className="comment-thread" data-pending="true">
@@ -290,19 +315,36 @@ export function CommentsPanel({
             }
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
-              comments.start(pending, draft);
+              startThread(draft);
               setDraft('');
               onCancelPending();
             }
           }}
         />
+        {/* Who will be able to read it, beside the button that starts it.
+          *
+          * Only offered when there is an internal document to write into — for
+          * a share-link visitor there is none, and a choice with one option is
+          * a control that teaches somebody the wrong thing about what they
+          * have. */}
+        {internal && (
+          <label className="checkbox comment-internal-choice">
+            <input
+              type="checkbox"
+              checked={startInternal}
+              onChange={(event) => setStartInternal(event.target.checked)}
+            />
+            {t('comment.startInternal')}
+          </label>
+        )}
+
         <div className="comment-actions">
           <button
             type="button"
             className="btn primary"
             disabled={draft.trim() === ''}
             onClick={() => {
-              comments.start(pending, draft);
+              startThread(draft);
               setDraft('');
               onCancelPending();
             }}

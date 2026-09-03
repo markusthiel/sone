@@ -127,16 +127,17 @@ matters: a reply to an internal thread has to be written into the internal
 document, and handing the wrong set to the reply box would write it where
 everybody can read it.
 
+**Starting one is a tick under the draft**, offered only when there is an
+internal document to write into — a choice with one option teaches somebody the
+wrong thing about what they have. One function decides which document a new
+thread goes into, and it is the line that decides who can read what follows.
+Forgotten when the page changes rather than carried to the next one.
+
 The client needed **no change at all** to open a second document — the store
 keys entries by the string it is given and passes it through to the channel
 name, the open message and the persistence. Checked rather than assumed.
 
 ## Still to build
-
-**Starting an internal thread.** The room exists, is guarded, and is read; the
-comment button still writes into the page's own document, so there is no way to
-put anything in the internal one from the interface. That is the next slice and
-it is where the choice-when-started decision above gets built.
 
 **The separate projection table**, so a mention inside an internal thread does
 not reach an inbox it should not. Until it exists, an internal thread is not

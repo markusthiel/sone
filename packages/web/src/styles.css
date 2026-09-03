@@ -2121,6 +2121,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   text-decoration: line-through;
 }
 
+/* The choice, under the draft. Small: it is a question about the comment being
+   written, not a setting. */
+.comment-internal-choice { margin-block: var(--sone-space-2); font-size: var(--sone-text-xs); }
+
 /* An internal thread, marked by a word (ADR-0057). Beside the heading, in the
    heading's own quiet weight: it is a fact about the group, not a warning. */
 .comment-internal { color: var(--sone-text-muted); font-weight: 400; text-transform: none; }

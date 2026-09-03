@@ -1188,7 +1188,10 @@ test('a thread exists once somebody has written something', () => {
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
   assert.match(app, /setPendingComment\(anchor\);\s*\n\s*setRightOpen\(true\);/);
   const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
-  assert.match(panel, /comments\.start\(pending, draft\)/);
+  // Through `startThread`, which is the one place that decides *which*
+  // document a new thread goes into (ADR-0057) — the assertion's subject is
+  // that a thread appears only once something is written, and that still holds.
+  assert.match(panel, /startThread\(draft\)/);
   assert.match(panel, /disabled=\{draft\.trim\(\) === ''\}/);
 });
 
@@ -1238,8 +1241,18 @@ test('marking a commented passage is the reader’s choice', () => {
   // option are the same decision said twice, and they could disagree — which is
   // why the tick appeared to keep coming back.
   assert.doesNotMatch(hook, /hidden/);
+  /*
+   * Scoped to the marks control, not the whole panel.
+   *
+   * It read "no checkbox anywhere in this file", which was true when the marks
+   * select was the only control here — and then a checkbox arrived for "only
+   * for members", which is a genuinely binary question and correctly a
+   * checkbox (ADR-0057). The assertion was about *this* decision not being
+   * said twice, so it now reads the marks block rather than the file.
+   */
   const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
-  assert.doesNotMatch(panel, /type="checkbox"/);
+  const marks = panel.slice(panel.indexOf("t('comment.marks')"));
+  assert.doesNotMatch(marks.slice(0, marks.indexOf('</label>')), /type="checkbox"/);
 });
 
 test('a thread is not a bullet, and a filled button keeps its colour', () => {
@@ -2078,4 +2091,20 @@ test('internal threads are one list with a word, and a reply goes to their own d
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
   assert.match(app, /const canSeeInternal = !session\.user\.isGuest/);
   assert.match(app, /asInternalRequest\(pageId\)/);
+});
+
+test('a thread is internal or not when it is started, and never moved after', () => {
+  // Moving one means copying it into the other document and deleting it here,
+  // and the copy cannot take back what the guests who already synced the page
+  // have. A control that appears to make a discussion private after the fact is
+  // the most dangerous thing this feature could offer (ADR-0057).
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  assert.match(panel, /const into = startInternal && internal \? internal : comments;/);
+  // No such control on an existing thread.
+  assert.doesNotMatch(panel, /makeInternal|moveToInternal/);
+  // Offered only when there is a document to write into: a choice with one
+  // option teaches somebody the wrong thing about what they have.
+  assert.match(panel, /\{internal && \(\s*\n\s*<label className="checkbox comment-internal-choice">/);
+  // And forgotten when the page changes, rather than carried to another page.
+  assert.match(panel, /setStartInternal\(false\);\s*\n\s*\}, \[pageId\]\)/);
 });
