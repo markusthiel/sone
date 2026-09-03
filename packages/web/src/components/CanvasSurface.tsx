@@ -128,6 +128,7 @@ export function CanvasSurface({
   pageId,
   canEdit,
   onCommentItem,
+  commented,
 }: {
   handle: PageHandle;
   /** Whose files an image on this canvas belongs to (ADR-0029). */
@@ -135,6 +136,16 @@ export function CanvasSurface({
   canEdit: boolean;
   /** Start a thread about one item (ADR-0046). */
   onCommentItem: (itemId: string) => void;
+  /**
+   * Which items have comments, and how many are internal (ADR-0057).
+   *
+   * The canvas received no threads at all until now, so a commented item looked
+   * exactly like an uncommented one and the only way to find a discussion was
+   * the panel. That is a gap in ADR-0046 rather than in the internal-comment
+   * work, and it is why ADR-0057 could defer "the canvas draws its own marks":
+   * there were none.
+   */
+  commented?: ReadonlyMap<string, { total: number; internal: number }>;
 }): ReactElement {
   const { t } = useT();
   const doc = handle.doc;
@@ -1020,6 +1031,49 @@ export function CanvasSurface({
           * says "move" and then waits for a drag is a button that explains a
           * gesture instead of being one.
           */}
+        {/* A mark on every commented item (ADR-0046, ADR-0057).
+          *
+          * Outside the item and over its corner, because an item can be a
+          * drawn shape with no element to put a badge inside. It is drawn for
+          * everybody, not only an editor: reading a page is when somebody wants
+          * to know a thing has been discussed.
+          *
+          * The internal ones are named in the label rather than shown in
+          * another colour — the same rule as the panel, and for the same
+          * reason: a colour is a convention nobody has learnt, and this is the
+          * one distinction where being wrong is a disclosure. */}
+        {[...(commented ?? new Map())].map(([itemId, counts]) => {
+          const item = items.find((one) => one.id === itemId);
+          if (!item) return null;
+          const box = boxOf(item);
+          return (
+            <span
+              key={`comment-${itemId}`}
+              className="canvas-comment-mark"
+              data-internal={counts.internal > 0 ? 'true' : undefined}
+              style={{ left: box.x + box.w - 8, top: box.y - 8 }}
+              title={
+                counts.internal > 0
+                  ? t('canvas.commentedInternal', {
+                      count: counts.total,
+                      internal: counts.internal,
+                    })
+                  : t('canvas.commented', { count: counts.total })
+              }
+              aria-label={
+                counts.internal > 0
+                  ? t('canvas.commentedInternal', {
+                      count: counts.total,
+                      internal: counts.internal,
+                    })
+                  : t('canvas.commented', { count: counts.total })
+              }
+            >
+              {counts.total}
+            </span>
+          );
+        })}
+
         {canEdit && selectedItem && (
           <div
             className="canvas-handle"

@@ -647,6 +647,11 @@ function Workspace({
             handle={handle}
             pageId={routePageId!}
             threads={commentMarksFor(comments.threads)}
+            // The threads themselves, for the canvas's marks: they carry the
+            // item a thread is about, which the editor's drawn shape does not
+            // (ADR-0057).
+            itemThreads={comments.threads}
+            internalItemThreads={canSeeInternal ? internalComments.threads : []}
             markStyle={marks.style}
             viewingVersion={viewingVersion}
             comparingVersion={comparingVersion}

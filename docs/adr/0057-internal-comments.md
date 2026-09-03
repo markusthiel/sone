@@ -172,9 +172,27 @@ the once-per-message rule.
 
 ## What is deliberately not decided
 
-**Internal comments on a canvas item.** The anchor works the same way
-(ADR-0046), but the canvas draws its own marks and that is a second place to get
-the distinction visible.
+**Internal comments on a canvas item.** *Built, and the deferral was resting on
+something that did not exist.* Starting one already worked — an item anchor goes
+through the same pending-thread handover as a text selection, so the tick under
+the draft was already routing it into the internal document.
+
+The marks were the deferred half, and the canvas **had none at all**: it was
+never given the threads, so a commented item looked exactly like an uncommented
+one and the only way to find a discussion was the panel. That is a gap in
+ADR-0046 rather than in this record, and it is what "a second place to get the
+distinction visible" was really pointing at.
+
+There is a count over each commented item's corner now — outside the item,
+because an item can be a drawn shape with nothing to put a badge inside — and
+the internal ones are named in its label rather than shown in another colour.
+The visual difference is a ring, not a hue, so it is not a convention somebody
+has to have learnt. Resolved threads carry no mark: a settled discussion is not
+a task.
+
+Both documents are counted in one place, in the page view, because the canvas
+knows nothing about threads and handing it two lists to reconcile would put this
+distinction in a third place.
 
 **Per-person or per-group visibility.** "Internal" is one line, between members
 and everybody else. Anything finer is a permission system inside a comment

@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A commented canvas item now shows it** — a count over its corner, for
+everybody reading the page, where before a discussion about an item was
+invisible unless you opened the comments panel. Internal comments are named in
+the mark's label and ringed rather than recoloured
+([ADR-0057](docs/adr/0057-internal-comments.md)).
+
 **Search can be narrowed to a folder**: `in:Projekte Rechnung`, or `ordner:` in
 German ([ADR-0050](docs/adr/0050-search-filters.md)). It searches everything
 beneath that folder, and the chip says how many folders the name matched — two

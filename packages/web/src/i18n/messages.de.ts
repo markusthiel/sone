@@ -1080,6 +1080,10 @@ export const de: Record<keyof typeof en, string> = {
     'es geschrieben wird — was vor Beginn dieser Aufzeichnung getippt wurde, steht hier ' +
     'nicht.',
   // --- eine Fläche (ADR-0043) ---------------------------------------------
+  'canvas.commented': '{count, plural, one {Ein Kommentar} other {# Kommentare}}',
+  'canvas.commentedInternal':
+    '{count, plural, one {Ein Kommentar} other {# Kommentare}}, {internal} davon ' +
+    'nur für Mitglieder',
   'canvas.tools': 'Werkzeuge',
   'canvas.tool.select': 'Auswählen',
   'canvas.tool.hand': 'Blatt verschieben',

@@ -2168,3 +2168,26 @@ test('a failed send counts against the all-clear', () => {
   assert.match(en, /'admin\.anomaly\.mail\.explain':[\s\S]{0,400}wrong password/);
   assert.match(en, /'admin\.anomaly\.mail\.explain':[\s\S]{0,400}still have their notifications/);
 });
+
+test('a commented canvas item is marked, and an internal one says so in words', () => {
+  // The canvas received no threads at all, so a commented item looked exactly
+  // like an uncommented one and the only way to find a discussion was the
+  // panel. That is a gap in ADR-0046, and it is why ADR-0057 could defer "the
+  // canvas draws its own marks" — there were none.
+  const canvas = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(canvas, /className="canvas-comment-mark"/);
+  // The count of internal ones is in the label, not only in a colour: the same
+  // rule as the panel, and for the same reason.
+  assert.match(canvas, /t\('canvas\.commentedInternal'/);
+  assert.match(canvas, /aria-label=\{/);
+  // And the internal variant differs by more than colour, so it is not a
+  // convention somebody has to have learnt.
+  assert.match(css, /\.canvas-comment-mark\[data-internal='true'\] \{[^}]*box-shadow/s);
+
+  // Counted in one place from both documents: handing the canvas two lists to
+  // reconcile would put the distinction in a third.
+  const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  assert.match(view, /add\(itemThreads \?\? \[\], false\);\s*\n\s*add\(internalItemThreads \?\? \[\], true\);/);
+  // Resolved threads carry no mark: a settled discussion is not a task.
+  assert.match(view, /if \(!thread\.item \|\| thread\.resolved\) continue;/);
+});
