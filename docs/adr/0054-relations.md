@@ -205,6 +205,7 @@ here: it means a write to every dependent row whenever any source row changes,
 which is the cascade the "no rollup of a rollup" rule was chosen to avoid.
 Materialising the aggregate reintroduces exactly what that rule was protecting.
 
-**Deliberately not decided here: paging a collection.** The 145 ms above, and
-the response that carries twenty thousand rows, are today's cost and not this
-feature's. Its own record.
+**Paging a collection** is now [ADR-0055](0055-paging-a-collection.md), where
+the measurement continued: 7.1 MB of cell payload for a collection of twenty
+thousand rows, against 18 kB for a page of fifty. The milliseconds were
+survivable; the megabytes are not.
