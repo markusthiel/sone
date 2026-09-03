@@ -560,6 +560,7 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       stale_search: string;
       inside_pages: string;
       failed: string;
+      failed_mail: string;
       pending: string;
     }>(
       deps.pool,
@@ -567,6 +568,20 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
          (SELECT count(*) FROM orphaned_pages)::text AS orphaned,
          (SELECT count(*) FROM stale_search_rows)::text AS stale_search,
          (SELECT count(*) FROM pages_inside_pages)::text AS inside_pages,
+         /*
+          * Sends that failed (ADR-0058).
+          *
+          * Here rather than on a screen of its own: a wrong SMTP password is an
+          * anomaly of exactly the kind this panel exists for, and it would
+          * otherwise be a failed job in a queue and nowhere an administrator is
+          * looking.
+          *
+          * Counted across every workspace, because a relay is an instance-wide
+          * thing: one wrong password fails every workspace's mail and an
+          * operator should see one number, not a hunt.
+          */
+         (SELECT count(*) FROM jobs
+           WHERE kind = 'email_notifications' AND state = 'failed')::text AS failed_mail,
          -- Given up on: failed and past the retry limit, which is what the
          -- operator has to act on.
          (SELECT count(*) FROM materialization_state
@@ -606,6 +621,7 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         staleSearchRows: Number(counts?.stale_search ?? 0),
         entriesInsidePages: Number(counts?.inside_pages ?? 0),
         failedMaterialisations: Number(counts?.failed ?? 0),
+        failedMail: Number(counts?.failed_mail ?? 0),
         pendingMaterialisations: Number(counts?.pending ?? 0),
       },
       failures: failures.map((row) => ({

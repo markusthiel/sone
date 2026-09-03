@@ -237,6 +237,8 @@ export interface MaintenanceReport {
     staleSearchRows: number;
     entriesInsidePages: number;
     failedMaterialisations: number;
+    /** Notification emails the relay refused, after their retries (ADR-0058). */
+    failedMail?: number;
     pendingMaterialisations: number;
   };
   failures: Array<{ pageId: string; error: string | null }>;

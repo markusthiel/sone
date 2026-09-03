@@ -20,7 +20,7 @@ import { SettingsStore, validate } from '../src/admin/settings.js';
 import { hashPassword } from '../src/auth/password.js';
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
 import { Router } from '../src/http/router.js';
-import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
+import { closeTestPool, getTestPool, hasDatabase, resetDatabase, seedWorkspace } from './support/db.js';
 import { expectJson, expectStatus } from './support/http.js';
 
 const PASSWORD = 'correct-horse-battery-staple';
@@ -359,6 +359,24 @@ describe(
 
       assert.equal(body.settings.signupMode, 'invite', 'the environment default');
       assert.equal(body.settingSources['signupMode'], 'environment');
+    });
+
+    test('a failed send is an anomaly the operator can see', async () => {
+      // Otherwise a wrong SMTP password is a failed job in a queue and nowhere
+      // an administrator is looking (ADR-0058).
+      const admin = await setup();
+      const fixture = await seedWorkspace(db, 'Mail failures');
+      await db.query(
+        `INSERT INTO jobs (workspace_id, kind, state, error)
+         VALUES ($1, 'email_notifications', 'failed', '535 authentication failed')`,
+        [fixture.workspaceId],
+      );
+
+      const report = await expectJson<{ counts: { failedMail: number } }>(
+        await fetch(`${base}/api/admin/maintenance`, { headers: { cookie: admin.cookie } }),
+        200,
+      );
+      assert.equal(report.counts.failedMail, 1);
     });
 
     test('the mail server can be set without touching the environment', async () => {

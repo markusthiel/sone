@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted. Built: the settings, the storage, the composer, an SMTP client, the
-batching sweep and the send job. What is missing — and one thing the record got
-wrong — is at the end.
+Accepted and built end to end: the settings, the storage, the composer, an SMTP
+client, the batching sweep, the send job, the per-person screen and the failed
+sends an operator can see. Two things the record got wrong on the way are
+recorded where they were wrong.
 
 ## Context
 
@@ -213,10 +214,19 @@ says it. The preferences ride on the existing profile route rather than one of
 their own — they are three fields of a person's own account, and a second route
 would be a second place to authorise the same thing.
 
+**Failed sends are an anomaly in the maintenance panel**, counted across every
+workspace because a relay is an instance-wide thing: one wrong password fails
+every workspace's mail, and an operator should see one number rather than a hunt.
+
+It counts against the panel's all-clear, which is the part that matters — a
+panel saying "nothing is wrong" while mail is failing teaches an operator not to
+read it. The explanation names the likely causes and says the notifications
+themselves are not lost, because that is the fact that stops somebody hunting.
+
 ## Still to build
 
-Failed sends surfaced in the administration area. Until then a wrong password
-shows up as a failed job in the queue and nowhere an administrator is looking.
+Nothing. The record's decisions are all built; what remains is under
+"deliberately not decided" below.
 
 ## What is deliberately not decided
 
