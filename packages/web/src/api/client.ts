@@ -257,6 +257,9 @@ export interface DerivedCellValue {
   texts?: string[];
   /** Something was excluded because the reader may not see it (ADR-0054). */
   partial?: boolean;
+  /** A formula that could not be worked out, by reason (ADR-0056). */
+  error?: string;
+  errorDetail?: string;
 }
 
 /**

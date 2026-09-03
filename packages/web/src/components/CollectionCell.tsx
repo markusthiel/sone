@@ -198,8 +198,32 @@ export function Cell({
    * that is about *stored* kinds — and because an editable cell whose value the
    * server computes would be a lie the moment somebody typed in it.
    */
-  if (field.fieldType === 'rollup') {
+  /*
+   * A derived column: a rollup or a formula (ADR-0056).
+   *
+   * One branch for both, because a cell does not care which computed it — and
+   * two branches would be the beginning of a rollup that draws differently from
+   * a formula for no reason anybody could state.
+   */
+  if (field.fieldType === 'rollup' || field.fieldType === 'formula') {
     if (!derived) return <span className="muted">—</span>;
+
+    /*
+     * A formula that could not be worked out says why, here (ADR-0056).
+     *
+     * Not blank, not zero, and per row: the person reading this cell is the
+     * person who has to fix the formula, and the column they were watching is
+     * the only place they will look.
+     */
+    if (derived.error) {
+      return (
+        <span className="derived-error" title={derived.errorDetail ?? undefined}>
+          {t(`formula.error.${derived.error}` as MessageKey)}
+          {derived.errorDetail ? `: ${derived.errorDetail}` : ''}
+        </span>
+      );
+    }
+
     return (
       <span className="derived-cell">
         {derived.texts

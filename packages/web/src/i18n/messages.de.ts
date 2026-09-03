@@ -116,6 +116,37 @@ export const de: Record<keyof typeof en, string> = {
   'rollup.nothingPointsHere':
     'Noch zeigt keine Relationsspalte auf diese Kollektion. Zuerst eine in ' +
     'der anderen Kollektion anlegen.',
+  'action.create': 'Anlegen',
+  'error.formula_missing': 'Erst eine Formel schreiben.',
+  'error.formula_invalid':
+    'Diese Formel ist nicht lesbar. Klammern und Operatoren prüfen.',
+  'error.formula_unknown_field':
+    'Die Formel nennt eine Spalte, die diese Kollektion nicht hat.',
+  'error.formula_reads_formula':
+    'Eine Formel kann keine andere Formel lesen. Stattdessen den Ausdruck ' +
+    'wiederholen — diese Einschränkung verhindert, dass eine Spalte von sich ' +
+    'selbst abhängt.',
+  'error.relation_without_target':
+    'Eine Relationsspalte muss sagen, auf welche Kollektion sie zeigt.',
+  'error.relation_points_elsewhere': 'Diese Relation zeigt auf eine andere Kollektion.',
+  'error.not_a_relation': 'Diese Spalte ist keine Relation.',
+  'error.not_a_stored_field':
+    'Ein Rollup kann nur eine gespeicherte Spalte aggregieren, keine berechnete.',
+  'error.rollup_needs_a_field': 'Wählen, welche Spalte aggregiert wird.',
+  'error.invalid_rollup': 'Dieses Rollup ist nicht vollständig.',
+  'error.too_many_relations': 'Mehr verknüpfte Zeilen, als eine Zelle hält.',
+  'error.row_not_found': 'Diese Zeile ist nicht in der Kollektion, auf die die Spalte zeigt.',
+  'error.collection_not_found': 'Diese Kollektion existiert nicht mehr.',
+  'field.formula': 'Formel',
+  'formula.example': 'Menge * Preis',
+  'formula.write': 'Eine Formel schreiben',
+  'formula.columns': 'Verwendbare Spalten: {names}',
+  'formula.error.unknown_field': 'Keine solche Spalte',
+  'formula.error.type_mismatch': 'Diese Typen lassen sich nicht verbinden',
+  'formula.error.unknown_function': 'Keine solche Funktion',
+  'formula.error.wrong_arity': 'Falsche Anzahl an Argumenten',
+  'formula.error.divide_by_zero': 'Durch null geteilt',
+  'formula.error.not_a_date': 'Kein Datum',
   'rollup.aggregate': 'Was gezählt wird',
   'rollup.rows': 'Die verknüpften Zeilen',
   'rollup.count': 'Wie viele',
