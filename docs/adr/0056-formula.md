@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted. The language, the validation and the evaluation are built; the column
-type is creatable through the API. What is not built is named at the end.
+Accepted and built: the language, the validation, the evaluation, and a dialog
+to write one in. What is not built is named at the end.
 
 ## Context
 
@@ -115,10 +115,11 @@ collection, and already says so.
 
 ## Not built yet
 
-**No interface.** The column is creatable through the API and computes; there is
-no way to type a formula in the application, no error shown in a cell, and no
-editor. That is the next slice, and the cell already carries the error and its
-reason so it has something to draw.
+**An editor.** A formula is typed into a one-line field with the usable column
+names above it, and validated by the server — one validator, on the side that
+stores it, rather than two that can disagree about what is allowed. There is no
+syntax highlighting, no completion and no way to *edit* a formula after it is
+created: the column has to be removed and made again. That is the next thing.
 
 **Re-rendering the text after a rename**, as above: a printer for the tree.
 

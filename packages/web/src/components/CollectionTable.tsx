@@ -44,6 +44,7 @@ import {
 } from './CollectionCell.tsx';
 import { messageFor } from './Auth.tsx';
 import {
+  FormulaIcon,
   SigmaIcon,
   RelationIcon,
   ArrowDownIcon,
@@ -146,6 +147,9 @@ const ADDABLE: ReadonlyArray<{
   // The derived other side (ADR-0054). Like a relation, it asks a question
   // immediately afterwards: which relation points here, and what to do with it.
   { type: 'rollup', label: 'field.rollup', Icon: SigmaIcon },
+  // An expression over the row's own values (ADR-0056). Like the two above it,
+  // it asks a question straight afterwards — here, which expression.
+  { type: 'formula', label: 'field.formula', Icon: FormulaIcon },
 ];
 
 /** Which aggregates need a field to aggregate (ADR-0054). */
@@ -309,6 +313,10 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   const [choosingRelation, setChoosingRelation] = useState(false);
   /** A rollup waiting for the relation it reads, and what to do with it. */
   const [choosingRollup, setChoosingRollup] = useState(false);
+  /** A formula being written, and what the server said about the last attempt. */
+  const [writingFormula, setWritingFormula] = useState(false);
+  const [formulaText, setFormulaText] = useState('');
+  const [formulaError, setFormulaError] = useState<string | null>(null);
   const [incoming, setIncoming] = useState<
     Array<{
       fieldId: string;
@@ -389,6 +397,10 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       setChoosingRollup(true);
       return;
     }
+    if (fieldType === 'formula' && !target) {
+      setWritingFormula(true);
+      return;
+    }
     try {
       await api.addCollectionField(collectionId, {
         name: 'Untitled',
@@ -398,6 +410,32 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
+
+  /**
+   * Create a formula column, keeping the dialog open if it will not do.
+   *
+   * The server validates: it parses the expression, resolves the column names
+   * to ids and refuses a formula that reads another formula (ADR-0056). So the
+   * dialog does not pre-validate — one validator, on the side that stores it,
+   * rather than two that can disagree about what is allowed.
+   */
+  const addFormula = async (text: string): Promise<void> => {
+    try {
+      await api.addCollectionField(collectionId, {
+        name: 'Untitled',
+        fieldType: 'formula',
+        config: { formula: text },
+      });
+      setWritingFormula(false);
+      setFormulaText('');
+      setFormulaError(null);
+      await load();
+    } catch (err) {
+      // Kept open with the reason: a dialog that closes on a rejected formula
+      // loses what somebody typed, and they will retype it wrong the same way.
+      setFormulaError(err instanceof ApiError ? err.code : 'network_error');
     }
   };
 
@@ -1306,6 +1344,68 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                 type="button"
                 className="btn subtle"
                 onClick={() => setChoosingRelation(false)}
+              >
+                {t('action.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {writingFormula && (
+        <div
+          className="dialog-scrim"
+          role="presentation"
+          onClick={() => setWritingFormula(false)}
+        >
+          <div
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('formula.write')}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="dialog-title">{t('formula.write')}</h2>
+            {/* The columns by name, because a formula names them and somebody
+                has to know what to type. */}
+            <p className="settings-note">
+              {t('formula.columns', {
+                names: (data?.fields ?? [])
+                  .filter((one) => one.fieldType !== 'formula')
+                  .map((one) => one.name)
+                  .join(', '),
+              })}
+            </p>
+            <input
+              className="formula-input"
+              autoFocus
+              value={formulaText}
+              // A key, not a literal: the guard is right that an attribute
+              // somebody reads belongs in the catalogue, and an example formula
+              // names columns whose names differ per workspace anyway.
+              placeholder={t('formula.example')}
+              aria-label={t('formula.write')}
+              onChange={(event) => setFormulaText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && formulaText.trim() !== '') {
+                  void addFormula(formulaText.trim());
+                }
+              }}
+            />
+            {formulaError && <p className="error">{messageFor(formulaError)}</p>}
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="btn primary"
+                disabled={formulaText.trim() === ''}
+                onClick={() => void addFormula(formulaText.trim())}
+              >
+                {t('action.create')}
+              </button>
+              <button
+                type="button"
+                className="btn subtle"
+                onClick={() => setWritingFormula(false)}
               >
                 {t('action.cancel')}
               </button>

@@ -1985,3 +1985,37 @@ test('a board column does not understate its cards in silence', () => {
   assert.match(gallery, /rows\.length === 0/);
   assert.doesNotMatch(gallery, /complete/);
 });
+
+test('a formula is written in a dialog, validated once, and its errors read', () => {
+  // The server parses, resolves the names and refuses a formula that reads
+  // another formula (ADR-0056). So the dialog does not pre-validate: one
+  // validator, on the side that stores it, rather than two that can disagree
+  // about what is allowed.
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  assert.match(table, /config: \{ formula: text \}/);
+  // Kept open with the reason: a dialog that closes on a rejected formula loses
+  // what somebody typed, and they retype it wrong the same way.
+  assert.match(table, /setFormulaError\(err instanceof ApiError \? err\.code : 'network_error'\)/);
+  assert.doesNotMatch(table, /parseFormula/);
+
+  // Every code the server can answer with has a message, or `messageFor` shows
+  // "unknown error" — which was true of the relation and rollup codes too until
+  // this commit.
+  const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
+  for (const code of [
+    'formula_invalid',
+    'formula_unknown_field',
+    'formula_reads_formula',
+    'relation_without_target',
+    'not_a_stored_field',
+    'rollup_needs_a_field',
+  ]) {
+    assert.match(en, new RegExp(`'error\\.${code}':`), `${code} has a message`);
+  }
+
+  // One branch draws both kinds of derived cell: two would be the beginning of
+  // a rollup that looks different from a formula for no stateable reason.
+  const cell = codeOf(new URL('../src/components/CollectionCell.tsx', import.meta.url));
+  assert.match(cell, /fieldType === 'rollup' \|\| field\.fieldType === 'formula'/);
+  assert.match(cell, /t\(`formula\.error\.\$\{derived\.error\}` as MessageKey\)/);
+});

@@ -312,6 +312,17 @@ export function DownloadIcon(props: IconProps): ReactElement {
   );
 }
 
+/** An equals sign with room around it: a column worked out from the others. */
+export function FormulaIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 10h12" />
+      <path d="M6 14h12" />
+      <path d="M9 6l-2 12" />
+    </svg>
+  );
+}
+
 /** A sigma: a column that adds up what other rows say. */
 export function SigmaIcon(props: IconProps): ReactElement {
   return (

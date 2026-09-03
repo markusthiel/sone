@@ -1672,6 +1672,21 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   font-size: var(--sone-text-xs);
 }
 
+/* A formula that could not be worked out. Marked, and readable: it is a message
+   to whoever wrote the formula, not a warning about the data. */
+.derived-error { color: var(--sone-text-muted); font-size: var(--sone-text-xs); font-style: italic; }
+
+.formula-input {
+  inline-size: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius-sm);
+  background: var(--surface);
+  color: inherit;
+  font-family: var(--sone-font-mono, ui-monospace, monospace);
+  font-size: var(--sone-text-sm);
+}
+
 /* A derived cell: what the server computed, not what anybody typed. */
 .derived-cell { color: var(--sone-text); font-variant-numeric: tabular-nums; }
 .derived-cell a { color: inherit; }
