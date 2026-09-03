@@ -58,7 +58,14 @@ interface UserRow {
  * the container, which an attacker cannot do — but a crash-looping instance
  * can, accidentally.
  */
-async function recentFailures(db: Pool | PoolClient, key: string): Promise<number> {
+/*
+ * Exported for the password-reset routes (ADR-0059).
+ *
+ * They reuse this rather than growing a limiter of their own: two limiters are
+ * two answers to "is this too many", and they drift. Private until a second
+ * caller needed them, which is when a helper becomes an interface.
+ */
+export async function recentFailures(db: Pool | PoolClient, key: string): Promise<number> {
   const row = await queryOne<{ n: string }>(
     db,
     `SELECT count(*)::text AS n
@@ -71,7 +78,7 @@ async function recentFailures(db: Pool | PoolClient, key: string): Promise<numbe
   return row ? Number(row.n) : 0;
 }
 
-async function recordAttempt(
+export async function recordAttempt(
   db: Pool | PoolClient,
   key: string,
   succeeded: boolean,

@@ -149,6 +149,9 @@ export const de: Record<keyof typeof en, string> = {
   'error.no_address_to_test_with':
     '{address, select, formal {Ihr Konto hat} other {Dein Konto hat}} keine ' +
     'E-Mail-Adresse zum Testen.',
+  'error.unknown_link': 'Dieser Link ist nicht gültig. Einen neuen anfordern.',
+  'error.expired_link': 'Dieser Link ist abgelaufen. Einen neuen anfordern.',
+  'error.weak_password': 'Ein Passwort braucht mindestens 12 Zeichen.',
   'error.formula_missing': 'Erst eine Formel schreiben.',
   'error.formula_invalid':
     'Diese Formel ist nicht lesbar. Klammern und Operatoren prüfen.',
@@ -1244,7 +1247,6 @@ export const de: Record<keyof typeof en, string> = {
   // --- was schiefgegangen ist --------------------------------------------
   'error.invalid_credentials': 'Diese E-Mail-Adresse und dieses Passwort passen nicht zusammen.',
   'error.rate_limited': 'Zu viele Versuche. Bitte ein paar Minuten warten.',
-  'error.weak_password': 'Ein Passwort braucht mindestens 12 Zeichen.',
   'error.missing_fields': 'Bitte alle Felder ausfüllen.',
   'error.invitation_invalid': 'Diese Einladung ist abgelaufen oder schon benutzt.',
   'error.no_workspace':

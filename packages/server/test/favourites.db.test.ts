@@ -36,7 +36,15 @@ describe(
     before(async () => {
       db = await getTestPool();
       const router = new Router();
-      registerAuthRoutes(router, { pool: db, signupMode: () => Promise.resolve('open' as const), secureCookies: false });
+      registerAuthRoutes(router, {
+        pool: db,
+        signupMode: () => Promise.resolve('open' as const),
+        secureCookies: false,
+        // No relay in these suites: the reset is absent, which is the
+        // ordinary case for an instance without mail (ADR-0059).
+        canSendMail: () => Promise.resolve(false),
+        sendResetMail: () => Promise.resolve(),
+      });
       registerPageRoutes(router, { pool: db });
       registerFavouriteRoutes(router, { pool: db });
 

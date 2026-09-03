@@ -12,7 +12,11 @@
 import type { Pool } from 'pg';
 
 import { AuthError } from '../auth/password.js';
+import { issueReset, redeemReset } from '../auth/reset.js';
 import {
+  LOGIN_ATTEMPT_LIMIT,
+  recentFailures,
+  recordAttempt,
   changePassword,
   listSessions,
   login,
@@ -45,6 +49,16 @@ export type Claims = NonNullable<Awaited<ReturnType<typeof resolveSessionClaims>
 export const SESSION_COOKIE = 'sone_session';
 
 export interface AuthDeps {
+  /**
+   * Whether a relay is configured (ADR-0059).
+   *
+   * A function rather than a boolean, because an administrator can set the mail
+   * server while the process runs — a value captured at startup would leave the
+   * reset absent until a restart.
+   */
+  canSendMail: () => Promise<boolean>;
+  /** Send one reset link. Injected, so this module does not reach into mail. */
+  sendResetMail: (to: string, token: string, expiresAt: Date) => Promise<void>;
   pool: Pool;
   /**
    * Who may create an account.
@@ -549,6 +563,112 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
     } catch (err) {
       if (err instanceof AuthError) ctx.fail(statusFor(err), err.code);
       else throw err;
+    }
+  });
+
+  /**
+   * Ask for a reset link (ADR-0059).
+   *
+   * **The same answer for every input**, always 200 with the same body. Whether
+   * the address has an account, whether it signs in through a provider,
+   * whether a mail actually went out — all of it is the caller's business and
+   * none of it is the internet's. An honest "no such account" turns a list of
+   * email addresses into a list of this instance's members.
+   *
+   * Rate limited on the mechanism sign-in already uses, keyed by address: two
+   * limiters are two answers to "is this too many" and they drift.
+   */
+  router.post('/api/auth/reset/request', async (ctx) => {
+    let body: { email?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+    const email = typeof body.email === 'string' ? body.email.trim().slice(0, 320) : '';
+
+    /*
+     * Answered before anything else, and identically.
+     *
+     * `sent: true` is not a claim that a mail was sent — it is the sentence the
+     * screen shows, and it is the same sentence in every case. Naming the field
+     * `sent` would have been a small lie in a JSON key, which is why it is not
+     * called that.
+     */
+    const answer = (): void => ctx.send(200, { asked: true });
+
+    if (email === '' || !(await deps.canSendMail())) {
+      // No relay means the feature is absent, and the sign-in screen does not
+      // offer it — but a request that arrives anyway is answered the same way
+      // rather than explaining the instance's configuration to a stranger.
+      answer();
+      return;
+    }
+
+    const rateKey = `reset:${email.toLowerCase()}`;
+    if ((await recentFailures(deps.pool, rateKey)) >= LOGIN_ATTEMPT_LIMIT) {
+      // Still the same answer: a rate limit that only appears for real
+      // addresses is an oracle with a delay.
+      answer();
+      return;
+    }
+    await recordAttempt(deps.pool, rateKey, false, null);
+
+    const issued = await issueReset(deps.pool, email);
+    if (issued) {
+      try {
+        await deps.sendResetMail(issued.email, issued.token, issued.expiresAt);
+      } catch {
+        // Logged by the mail path; not reported here, because the report would
+        // differ from the one an unknown address gets.
+      }
+    }
+    answer();
+  });
+
+  /**
+   * Set a new password with a link (ADR-0059).
+   *
+   * This one *does* distinguish its refusals, and that is not a contradiction:
+   * whoever holds a token already knows the account exists. What they learn
+   * here — expired, already used, password too short — is about the link in
+   * their hand, and hiding it would only mean somebody retyping a good password
+   * against a dead link.
+   */
+  router.post('/api/auth/reset', async (ctx) => {
+    let body: { token?: unknown; password?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+    const token = typeof body.token === 'string' ? body.token : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    if (token === '' || password === '') {
+      ctx.fail(422, 'unknown_link');
+      return;
+    }
+
+    const client = await deps.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const outcome = await redeemReset(client, token, password);
+      await client.query('COMMIT');
+
+      if (!outcome.ok) {
+        ctx.fail(422, outcome.reason);
+        return;
+      }
+      // No session: a link in an inbox that signs somebody in is a link in an
+      // inbox that signs somebody in. The screen sends them to sign in.
+      ctx.send(200, { reset: true });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
   });
 

@@ -29,6 +29,10 @@ before(async () => {
 
   const router = new Router();
   registerAuthRoutes(router, {
+        // No relay in these suites: the reset is absent, which is the
+        // ordinary case for an instance without mail (ADR-0059).
+        canSendMail: () => Promise.resolve(false),
+        sendResetMail: () => Promise.resolve(),
     pool: db,
     signupMode: () => Promise.resolve('invite' as const),
     secureCookies: false,

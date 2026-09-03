@@ -274,6 +274,33 @@ async function main(): Promise<void> {
 
   registerAuthRoutes(router, {
     pool,
+    /*
+     * Whether a reset can be offered at all (ADR-0059).
+     *
+     * Read on each call, not captured: an administrator can set the mail server
+     * while the process runs, and a boolean taken at startup would leave the
+     * reset absent until a restart.
+     */
+    // Asked, not cached: a cached host is a third place the truth lives, and
+    // this is one settings read on a route somebody uses twice a year.
+    canSendMail: async () => (await mailSettings()).relay !== null,
+    sendResetMail: async (to, token, expiresAt) => {
+      const current = await mailSettings();
+      if (!current.relay) return;
+      const minutes = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / 60_000));
+      await sendMail(current.relay, {
+        to,
+        subject: 'SONE: set a new password',
+        // Less than a notification says (ADR-0059): a link, how long it works,
+        // and that it can be ignored. Everything else is something an attacker
+        // who guessed an address would get for free.
+        body:
+          `Somebody asked to set a new password for this address.\n\n` +
+          `${config.publicUrl}/reset?token=${token}\n\n` +
+          `The link works for ${minutes} minutes and once. ` +
+          `If this was not you, nothing has changed and you can ignore it.\n`,
+      });
+    },
     // Read per request, not captured at startup: an administrator who changes
     // this in the interface expects the next registration attempt to obey it.
     signupMode: () => settings.get('signupMode'),

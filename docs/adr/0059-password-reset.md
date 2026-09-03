@@ -105,11 +105,28 @@ worse rather than better. The password policy is the existing
 `assertPasswordAcceptable` too, so the sign-up form and this screen cannot
 disagree about what a password must be.
 
+**Both routes and the mail.** The request route answers `200` with the same body
+for every input — a real address, an unknown one, a single sign-on account, an
+empty string, a number — and a test compares the responses to each other rather
+than to an expectation, because "identical" is the property and not any
+particular shape. The rate limit answers the same way too: a limit that appears
+only for real addresses is an oracle with a delay.
+
+The redeem route *does* distinguish its refusals, and that is not a
+contradiction: whoever holds a token already knows the account exists, and what
+they learn — expired, unknown, password too short — is about the link in their
+hand. Hiding it would only mean somebody retyping a good password against a dead
+link.
+
+The reset routes reuse sign-in's rate limiter, which meant exporting two helpers
+that had been private. A helper becomes an interface when it has a second caller,
+and the alternative was a second limiter — two answers to "is this too many",
+drifting apart.
+
 ## Still to build
 
-The request route, the redeem route, the screen with its two states, the mail
-itself, and the "forgot your password?" link that appears on the sign-in page
-only when a relay is configured.
+The screen with its two states, and the "forgot your password?" link that
+appears on the sign-in page only when a relay is configured.
 
 ## What is deliberately not decided
 

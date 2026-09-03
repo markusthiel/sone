@@ -133,6 +133,9 @@ export const en = {
   'error.search_needs_a_name': 'Give the search a name first.',
   'error.no_mail_server': 'Set a mail server first.',
   'error.no_address_to_test_with': 'Your account has no email address to test with.',
+  'error.unknown_link': 'That link is not valid. Ask for a new one.',
+  'error.expired_link': 'That link has expired. Ask for a new one.',
+  'error.weak_password': 'A password needs at least 12 characters.',
   'error.formula_missing': 'Write a formula first.',
   'error.formula_invalid': 'That formula cannot be read. Check the brackets and the operators.',
   'error.formula_unknown_field': 'That formula names a column this collection does not have.',
@@ -1185,7 +1188,6 @@ export const en = {
   // ADR-0041 said when it decided error codes stay codes.
   'error.invalid_credentials': 'That email and password combination did not work.',
   'error.rate_limited': 'Too many attempts. Please wait a few minutes and try again.',
-  'error.weak_password': 'Passwords need to be at least 12 characters.',
   'error.missing_fields': 'Please fill in every field.',
   'error.invitation_invalid': 'This invitation has expired or has already been used.',
   'error.no_workspace': 'Your account is not a member of any workspace yet.',
