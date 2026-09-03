@@ -122,6 +122,14 @@ jobs:
         # instance; it is checked mechanically now.
         run: node scripts/check-migrations.mjs
 
+      - name: Check every setting reaches the container
+        # Compose does not forward the host's environment. Fourteen variables
+        # the server reads were not named in the service's environment block,
+        # including both secrets and the whole S3 backend — so an operator who
+        # set them in .env got a server that never saw them, with no symptom
+        # beyond the feature not working.
+        run: node scripts/check-env-reaches-container.mjs
+
       - name: Check workspace dependency build order
         # A typecheck script that does not build its workspace dependencies
         # passes where a build has already run and fails on a clean checkout.

@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: fourteen settings never reached the container.** Compose does not
+forward the host's environment, and the SMTP settings, both secrets
+(`SONE_SMTP_PASSWORD`, `SONE_OIDC_CLIENT_SECRET`), all six S3 values and the
+workspace retention were not named in its `environment:` block — so an operator
+who set them in `.env` got a server that never saw them. All present now, with a
+check that fails if another one goes missing.
+
 **Removed two things the schema promised and nothing kept**: a `users.avatar_url`
 column superseded three years of migrations ago, and a `password_resets` table no
 code has ever touched. Neither held a single row. A check now asks which columns
