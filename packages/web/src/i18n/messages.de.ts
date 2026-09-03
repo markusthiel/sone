@@ -388,6 +388,23 @@ export const de: Record<keyof typeof en, string> = {
     'Wie SONE {address, select, formal {für Sie} other {für dich}} aussieht',
   'you.landing': '{address, select, formal {Wo Sie landen} other {Wo du landest}}',
   'you.landing.hint': 'Die Seite, mit der jeder Workspace öffnet',
+  'you.notifications': 'Benachrichtigungen',
+  // Beugt sich nach der Anredeform, wie jede Nachricht, die jemanden anspricht
+  // (ADR-0041): eine Instanz, die „Sie" gewählt hat, darf hier nicht duzen.
+  'you.notifications.hint':
+    'Wann SONE {address, select, formal {Ihnen} other {dir}} eine E-Mail schickt.',
+  'you.notifications.contents':
+    'Eine Benachrichtigungsmail sagt, wer was auf welcher Seite getan hat, mit ' +
+    'einem Link. Sie enthält nie den Kommentar selbst — ein Postfach ist kein ' +
+    'Berechtigungssystem.',
+  // Diese drei sprechen von „mich" und „mir" — die eigene Person, nicht die
+  // angesprochene. Das ist in beiden Anredeformen gleich.
+  'you.notifications.mentions': 'Mail, wenn mich jemand erwähnt',
+  'you.notifications.assignments': 'Mail, wenn mir jemand eine Aufgabe gibt',
+  'you.notifications.replies': 'Mail zu Antworten in Kommentaren, in denen ich bin',
+  'you.notifications.replies.hint':
+    'Standardmäßig aus: das ist die Art, die am häufigsten kommt und am ' +
+    'wenigsten verlangt.',
   'you.about': 'Über',
   'you.about.hint': 'Version und Lizenz',
 

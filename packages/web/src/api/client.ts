@@ -102,6 +102,10 @@ export interface SessionInfo {
     email: string | null;
     displayName: string;
     isGuest: boolean;
+    /** Whether to be emailed, per kind (ADR-0058). */
+    emailMentions: boolean;
+    emailAssignments: boolean;
+    emailReplies: boolean;
     locale: string | null;
     timezone: string | null;
     isInstanceAdmin: boolean;
@@ -1383,6 +1387,9 @@ export const api = {
     displayName?: string;
     locale?: string | null;
     timezone?: string | null;
+    emailMentions?: boolean;
+    emailAssignments?: boolean;
+    emailReplies?: boolean;
   }) => request<void>('/api/auth/profile', { method: 'PATCH', body: JSON.stringify(input) }),
 };
 

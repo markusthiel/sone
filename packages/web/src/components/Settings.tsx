@@ -65,6 +65,15 @@ const SECTIONS = [
   { id: 'sign-in', label: 'you.signIn', hint: 'you.signIn.hint' },
   { id: 'appearance', label: 'you.appearance', hint: 'you.appearance.hint' },
   { id: 'landing', label: 'you.landing', hint: 'you.landing.hint' },
+  /*
+   * Where the mail's own link points (ADR-0058).
+   *
+   * It had to exist: the unsubscribe line in every notification email is
+   * `/settings/notifications`, and I wrote that before there was a section
+   * behind it — a link in a message that cannot be recalled, pointing at
+   * nothing.
+   */
+  { id: 'notifications', label: 'you.notifications', hint: 'you.notifications.hint' },
   { id: 'about', label: 'you.about', hint: 'you.about.hint' },
 ] as const;
 
@@ -111,6 +120,7 @@ export function Settings({
       {current === 'sign-in' && <SignIn />}
       {current === 'appearance' && <AppearanceSettings session={session} />}
       {current === 'landing' && <LandingSettings workspaceId={workspaceId} />}
+      {current === 'notifications' && <NotificationSettings session={session} />}
       {current === 'about' && <About />}
     </SettingsShell>
   );
@@ -481,6 +491,87 @@ function AppearanceSettings({ session }: { session: SessionInfo }): ReactElement
           </select>
         </div>
       </div>
+    </section>
+  );
+}
+
+/**
+ * Whether to be emailed, per kind (ADR-0058).
+ *
+ * Three ticks and a sentence about what a mail contains — the part somebody
+ * deciding this actually wants to know, and which no other screen says. Saved
+ * on change rather than behind a button: a tick that needs confirming is a tick
+ * somebody will leave half-set.
+ */
+function NotificationSettings({ session }: { session: SessionInfo }): ReactElement {
+  const { t } = useT();
+  const [mentions, setMentions] = useState(session.user.emailMentions);
+  const [assignments, setAssignments] = useState(session.user.emailAssignments);
+  const [replies, setReplies] = useState(session.user.emailReplies);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = (input: {
+    emailMentions?: boolean;
+    emailAssignments?: boolean;
+    emailReplies?: boolean;
+  }): void => {
+    void api.updateProfile(input).catch((err: unknown) => {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    });
+  };
+
+  return (
+    <section className="settings-section">
+      <h2>{t('you.notifications')}</h2>
+      {/* What a mail says, before the choice about receiving one: somebody
+          deciding this wants to know what leaves the instance, and nothing else
+          in the interface tells them. */}
+      <p className="settings-note">{t('you.notifications.contents')}</p>
+
+      <label className="settings-row">
+        <span className="settings-row-label">
+          <b>{t('you.notifications.mentions')}</b>
+        </span>
+        <input
+          type="checkbox"
+          checked={mentions}
+          onChange={(event) => {
+            setMentions(event.target.checked);
+            save({ emailMentions: event.target.checked });
+          }}
+        />
+      </label>
+
+      <label className="settings-row">
+        <span className="settings-row-label">
+          <b>{t('you.notifications.assignments')}</b>
+        </span>
+        <input
+          type="checkbox"
+          checked={assignments}
+          onChange={(event) => {
+            setAssignments(event.target.checked);
+            save({ emailAssignments: event.target.checked });
+          }}
+        />
+      </label>
+
+      <label className="settings-row">
+        <span className="settings-row-label">
+          <b>{t('you.notifications.replies')}</b>
+          <span>{t('you.notifications.replies.hint')}</span>
+        </span>
+        <input
+          type="checkbox"
+          checked={replies}
+          onChange={(event) => {
+            setReplies(event.target.checked);
+            save({ emailReplies: event.target.checked });
+          }}
+        />
+      </label>
+
+      {error && <p className="error">{messageFor(error)}</p>}
     </section>
   );
 }

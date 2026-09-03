@@ -361,6 +361,16 @@ export const en = {
   'you.appearance.hint': 'How SONE looks to you',
   'you.landing': 'Where you land',
   'you.landing.hint': 'The page each workspace opens on',
+  'you.notifications': 'Notifications',
+  'you.notifications.hint': 'When SONE should email you.',
+  'you.notifications.contents':
+    'A notification email says who did what and on which page, with a link. It ' +
+    'never contains the comment itself — a mailbox is not a permission system.',
+  'you.notifications.mentions': 'Email me when somebody mentions me',
+  'you.notifications.assignments': 'Email me when somebody gives me a task',
+  'you.notifications.replies': 'Email me about replies in comments I am in',
+  'you.notifications.replies.hint':
+    'Off by default: this is the kind that arrives most often and asks least.',
   'you.about': 'About',
   'you.about.hint': 'Version and licence',
 

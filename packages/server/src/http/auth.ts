@@ -458,12 +458,16 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       timezone: string | null;
       is_instance_admin: boolean;
       can_manage_workspaces: boolean;
+      email_mentions: boolean;
+      email_assignments: boolean;
+      email_replies: boolean;
     }>(
       deps.pool,
       // The rights come with the session, so the interface can hide a section
       // somebody cannot reach rather than showing it and failing on arrival
       // (ADR-0027).
-      `SELECT locale, timezone, is_instance_admin, can_manage_workspaces
+      `SELECT locale, timezone, is_instance_admin, can_manage_workspaces,
+              email_mentions, email_assignments, email_replies
          FROM users WHERE id = $1`,
       [auth.userId],
     );
@@ -481,6 +485,16 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         // decides it — one answer, in one place.
         canManageWorkspaces:
           user?.is_instance_admin === true || user?.can_manage_workspaces === true,
+        /*
+         * Whether to be emailed, per kind (ADR-0058).
+         *
+         * In the session because the screen that shows them is already reading
+         * it, and a second request for three booleans would be a second thing
+         * to keep in step with the profile patch that changes them.
+         */
+        emailMentions: user?.email_mentions !== false,
+        emailAssignments: user?.email_assignments !== false,
+        emailReplies: user?.email_replies === true,
       },
       workspaces,
     });
@@ -545,6 +559,20 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       displayName?: string;
       locale?: string | null;
       timezone?: string | null;
+      /*
+       * Whether to be emailed, per kind (ADR-0058).
+       *
+       * On this route rather than one of their own: they are three fields of a
+       * person's own account, like the locale beside them, and a second route
+       * would be a second place to authorise the same thing.
+       *
+       * `coalesce` means absent leaves the value alone, which is what makes it
+       * safe for the appearance screen to patch a locale without carrying
+       * somebody's mail preferences along.
+       */
+      emailMentions?: boolean;
+      emailAssignments?: boolean;
+      emailReplies?: boolean;
     }>(ctx);
     if (!body) return;
 
@@ -552,13 +580,19 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       `UPDATE users
           SET display_name = coalesce($2, display_name),
               locale = coalesce($3, locale),
-              timezone = coalesce($4, timezone)
+              timezone = coalesce($4, timezone),
+              email_mentions = coalesce($5, email_mentions),
+              email_assignments = coalesce($6, email_assignments),
+              email_replies = coalesce($7, email_replies)
         WHERE id = $1`,
       [
         auth.userId,
         body.displayName?.trim().slice(0, 128) || null,
         body.locale ?? null,
         body.timezone ?? null,
+        body.emailMentions ?? null,
+        body.emailAssignments ?? null,
+        body.emailReplies ?? null,
       ],
     );
     ctx.sendEmpty(204);
