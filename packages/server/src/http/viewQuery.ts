@@ -20,7 +20,7 @@
  * operator that is not in the list is refused rather than interpolated.
  */
 
-import type { FieldType } from '@sone/core';
+import { DERIVED_FIELD_TYPES, type FieldType } from '@sone/core';
 
 /** What a filter can say. Closed, and mapped to SQL by name only. */
 export type FilterOperator =
@@ -75,6 +75,15 @@ export interface BuiltQuery {
   where: string;
   /** Appended to ORDER BY, before the stable tiebreak. Empty when none. */
   orderBy: string;
+  /**
+   * Sorts the database cannot do: by a derived column (ADR-0054).
+   *
+   * Reported rather than dropped. A sort on a rollup has no shadow column, so
+   * `columnFor` returned null and the whole sort vanished — the view looked
+   * unsorted and nothing said why, which is worse than either doing it or
+   * refusing it.
+   */
+  derivedSorts: Array<{ fieldId: string; direction: 'asc' | 'desc' }>;
   params: unknown[];
 }
 
@@ -177,9 +186,18 @@ export function buildViewQuery(
   }
 
   const orders: string[] = [];
+  const derivedSorts: Array<{ fieldId: string; direction: 'asc' | 'desc' }> = [];
   for (const sort of sorts) {
     const fieldType = fieldTypes.get(sort.fieldId);
     if (!fieldType) continue;
+    // The map is typed loosely — a field type comes out of a document, so it is
+    // whatever the document says rather than what this expects.
+    if (DERIVED_FIELD_TYPES.has(fieldType as FieldType)) {
+      // Applied by the caller, once the values exist. The measurement says it
+      // costs 45% of a cost already paid, so there is no threshold on it.
+      derivedSorts.push({ fieldId: sort.fieldId, direction: sort.direction === 'desc' ? 'desc' : 'asc' });
+      continue;
+    }
     const column = columnFor(fieldType);
     if (!column) continue;
 
@@ -192,6 +210,7 @@ export function buildViewQuery(
   return {
     where: clauses.length > 0 ? clauses.map((clause) => `(${clause})`).join(' AND ') : '',
     orderBy: orders.join(', '),
+    derivedSorts,
     params,
   };
 }

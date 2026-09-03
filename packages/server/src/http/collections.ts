@@ -952,6 +952,41 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       }
     }
 
+    /*
+     * Sorting by a derived column, after its values exist (ADR-0054).
+     *
+     * In memory rather than in SQL, because the route already has every row and
+     * every computed value by this point — and measured at 45% of a cost
+     * already paid, so there is no threshold to enforce. A row with no value
+     * sorts last in both directions: it is unanswered rather than smallest,
+     * which is the rule the SQL sorts already follow.
+     */
+    if (built.derivedSorts.length > 0 && derivedByRow.size > 0) {
+      const keyOf = (rowId: string, fieldId: string): number | string | null => {
+        const value = derivedByRow.get(rowId)?.[fieldId];
+        if (!value) return null;
+        if (typeof value.number === 'number') return value.number;
+        if (value.texts) return value.texts.join(', ') || null;
+        // A backlink sorts by how many, which is the only ordering a list of
+        // rows has that somebody would mean.
+        if (value.rows) return value.rows.length;
+        return null;
+      };
+
+      rows.sort((left, right) => {
+        for (const sort of built.derivedSorts) {
+          const a = keyOf(left.id, sort.fieldId);
+          const b = keyOf(right.id, sort.fieldId);
+          if (a === b) continue;
+          if (a === null) return 1;
+          if (b === null) return -1;
+          const order = a < b ? -1 : 1;
+          return sort.direction === 'desc' ? -order : order;
+        }
+        return 0;
+      });
+    }
+
     ctx.send(200, {
       pageId,
       collectionId,

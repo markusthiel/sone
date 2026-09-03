@@ -156,3 +156,30 @@ test('a sort direction that is not "desc" reads as ascending', () => {
     { fieldId: 'a', direction: 'asc' },
   ]);
 });
+
+test('a sort on a derived column is reported rather than dropped', () => {
+  // It used to vanish: a rollup has no shadow column, so `columnFor` returned
+  // null and the sort was skipped without a word — the view looked unsorted and
+  // nothing said why, which is worse than either doing it or refusing it
+  // (ADR-0054).
+  const built = buildViewQuery(
+    [],
+    [
+      { fieldId: 'rollup-1', direction: 'desc' },
+      { fieldId: 'number-1', direction: 'asc' },
+    ],
+    new Map([
+      ['rollup-1', 'rollup'],
+      ['number-1', 'number'],
+    ]),
+    2,
+  );
+
+  assert.deepEqual(built.derivedSorts, [{ fieldId: 'rollup-1', direction: 'desc' }]);
+  // And the stored one still becomes SQL: the two kinds of sort coexist rather
+  // than one mode replacing the other.
+  // The column is inside a subquery, so this reads the two facts that matter —
+  // which column and which direction — rather than expecting them adjacent.
+  assert.match(built.orderBy, /pp\.number_value/);
+  assert.match(built.orderBy, /ASC NULLS LAST/);
+});
