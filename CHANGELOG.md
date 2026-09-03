@@ -13,6 +13,30 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.5.0
+
+Two things that leave the instance, decided carefully. Comments can be internal:
+a second document per page that a share link cannot open at all, so a team
+discussing a draft and then sending the link to a client has not published the
+discussion. And notifications can arrive by email, which says who did what and
+on which page and never the comment itself — a mailbox is not a permission
+system.
+
+**Operator action: optional.** Four migrations apply on start; upgrading from
+0.4.0 has been tested in place, and a 0.4.0 comment thread and notification come
+through intact — the notification with no actor, which is a real answer rather
+than a gap. Email is off until a mail server is configured under Instance →
+Settings, and an instance without one is a normal instance: nothing is
+attempted, nothing is offered, no queue fills up. The password is read from
+`SONE_SMTP_PASSWORD` and deliberately cannot be stored in the database.
+
+**Both contract versions are unchanged** — the document schema is still 4 and the
+sync protocol still 1 — so clients and servers across 0.4.0 and 0.5.0 keep
+working together. Internal comments needed no schema version because their
+document id is derived from the page's rather than recorded anywhere.
+
 **A commented canvas item now shows it** — a count over its corner, for
 everybody reading the page, where before a discussion about an item was
 invisible unless you opened the comments panel. Internal comments are named in
