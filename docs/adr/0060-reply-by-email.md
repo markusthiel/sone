@@ -106,6 +106,22 @@ ich das falsch, sorry." is a sentence, not an attribution, so a match only count
 when quoted or indented text follows it. Cutting there would have silently
 deleted the rest of a reply.
 
+**Reading the mail.** A small MIME reader, and it is small *because* the
+decisions above refuse things: plain text only, no attachments, no HTML
+conversion. What remains is headers, one multipart split, two transfer encodings
+and two charsets — six steps, which is the honest reason not to take a
+dependency for it. A general MIME parser is a library; this is what is left once
+the scope is decided.
+
+Deliberately declined rather than guessed at: nested multiparts beyond the first
+level, `message/rfc822` forwards, and charsets beyond UTF-8 and Latin-1. Each
+yields "no text part", which the caller answers with a mail saying to send plain
+text.
+
+`Delivered-To` is read before `To`, and that is a security detail rather than a
+preference: the token lives in the sub-address the *mailbox* saw, and `To` may
+have been rewritten by a list, a forward or somebody's filter.
+
 ## Consequences
 
 An operator gains IMAP settings beside the SMTP ones and a mailbox to dedicate.
