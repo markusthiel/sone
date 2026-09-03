@@ -17,8 +17,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 pointing at rows in another collection — chosen when the column is created,
 because a relation that could point anywhere has nothing to aggregate on the
 other side. The cell shows the linked rows as chips that open them, with a picker
-that searches inside the collection it points at. The derived other side (the
-backlink and rollups) is still to come.
+that searches inside the collection it points at. **The other side is derived**: a rollup
+column on the collection being pointed at says how many rows point here, or lists
+them, or sums a number on them — computed on the server and read-only, because
+nothing is ever written to the other side. It runs with your own visibility, so a
+count says when something was left out rather than quietly differing between two
+people.
 
 **A canvas item can be commented on** ([ADR-0046](docs/adr/0046-comments.md)) —
 the speech bubble in the item's own handle menu. The thread appears in the
