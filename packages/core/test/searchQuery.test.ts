@@ -76,3 +76,16 @@ test('a filter alone is a valid search', () => {
   assert.equal(hasSearchCriteria(parseSearchQuery('a')), false, 'one letter still is not');
   assert.equal(hasSearchCriteria(parseSearchQuery('')), false);
 });
+
+test('assigned: comes out, and "me" is left for the server', () => {
+  // The parser has no idea who is asking, and inventing a way for it to know
+  // would mean passing a session into a pure function. "me" travels as the
+  // word it is and the server resolves it (ADR-0052).
+  const parsed = parseSearchQuery('assigned:me rechnung');
+  assert.deepEqual(parsed.assigned, ['me']);
+  assert.equal(parsed.text, 'rechnung');
+
+  // And it alone is a search, like every other filter.
+  assert.equal(hasSearchCriteria(parseSearchQuery('assigned:me')), true);
+  assert.deepEqual(parseSearchQuery('zugewiesen:anna').assigned, ['anna']);
+});

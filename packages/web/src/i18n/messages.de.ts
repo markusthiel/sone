@@ -651,11 +651,13 @@ export const de: Record<keyof typeof en, string> = {
   'search.pages': 'Seiten',
   'search.chip.tag': 'Schlagwort {value}',
   'search.chip.author': 'Von {value} geschrieben',
+  'search.chip.assignedMe': 'Mir zugewiesen',
+  'search.chip.assigned': 'Zugewiesen an {value}',
   'search.chip.after': 'Bearbeitet am oder nach {value}',
   'search.chip.before': 'Bearbeitet am oder vor {value}',
   'search.chip.notADate': 'Kein Datum. Format JJJJ-MM-TT.',
   'search.syntax':
-    'Eingrenzen mit tag:name, author:name, after:2026-08-01 oder ' +
+    'Eingrenzen mit tag:name, author:name, assigned:me, after:2026-08-01 oder ' +
     'before:2026-09-01. Ein Filter allein genügt auch.',
   'search.nothing': 'Nichts gefunden.',
   'search.didYouMean': 'Vielleicht',
