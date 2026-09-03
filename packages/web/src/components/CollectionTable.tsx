@@ -148,6 +148,10 @@ const ADDABLE: ReadonlyArray<{
   { type: 'rollup', label: 'field.rollup', Icon: SigmaIcon },
 ];
 
+/** Which aggregates need a field to aggregate (ADR-0054). */
+const needsField = (aggregate: string): boolean =>
+  aggregate === 'lookup' || aggregate === 'sum' || aggregate === 'min' || aggregate === 'max';
+
 /** How long after the last keystroke a text cell is saved. */
 
 
@@ -266,11 +270,25 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   /** A rollup waiting for the relation it reads, and what to do with it. */
   const [choosingRollup, setChoosingRollup] = useState(false);
   const [incoming, setIncoming] = useState<
-    Array<{ fieldId: string; fieldName: string; fromCollection: string }> | null
+    Array<{
+      fieldId: string;
+      fieldName: string;
+      fromCollection: string;
+      aggregatable: Array<{ id: string; name: string }>;
+    }> | null
   >(null);
 
+  /*
+   * The incoming relations, also when a rollup column already exists.
+   *
+   * The header's aggregate select needs them: choosing "their total" without
+   * offering a field would send a config the server refuses, and a control that
+   * produces a 422 reads as broken rather than as unfinished.
+   */
+  const hasRollup = (data?.fields ?? []).some((field) => field.fieldType === 'rollup');
+
   useEffect(() => {
-    if (!choosingRollup) return;
+    if (!choosingRollup && !hasRollup) return;
     let cancelled = false;
     void api
       .incomingRelations(collectionId)
@@ -283,7 +301,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
     return () => {
       cancelled = true;
     };
-  }, [choosingRollup, collectionId]);
+  }, [choosingRollup, hasRollup, collectionId]);
   const [collections, setCollections] = useState<
     Array<{ id: string; title: string }> | null
   >(null);
@@ -386,13 +404,37 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
    * relation the column reads — the server replaces the object rather than
    * merging into it.
    */
-  const setAggregate = async (fieldId: string, aggregate: string): Promise<void> => {
+  const setAggregate = async (
+    fieldId: string,
+    aggregate: string,
+    aggregateField?: string,
+  ): Promise<void> => {
     const field = data?.fields.find((one) => one.id === fieldId);
     const via = field?.config?.['viaFieldId'];
     if (typeof via !== 'string') return;
+    /*
+     * An aggregate that needs no field drops the one it had.
+     *
+     * Otherwise switching from "their total" back to "how many" would leave a
+     * `fieldId` behind, and switching forward again would silently reuse a
+     * field somebody chose for a different question.
+     */
+    const keepField = needsField(aggregate);
+    const chosen = aggregateField ?? (keepField ? field?.config?.['fieldId'] : undefined);
+    if (keepField && typeof chosen !== 'string') {
+      // Nothing to send yet: the field select is showing and is the next thing
+      // to answer. Sending now would earn a 422 for a half-made decision.
+      setError(null);
+      return;
+    }
     try {
       await api.updateCollectionField(collectionId, fieldId, {
-        config: { ...field?.config, viaFieldId: via, aggregate },
+        config: {
+          ...field?.config,
+          viaFieldId: via,
+          aggregate,
+          ...(keepField && typeof chosen === 'string' ? { fieldId: chosen } : { fieldId: null }),
+        },
       });
       await load();
     } catch (err) {
@@ -993,7 +1035,14 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                     onRename={(name) => void renameColumn(field.id, name)}
                     onRemove={() => void removeColumn(field.id)}
                     onSaveOptions={(options) => void saveOptions(field.id, options)}
-                    onSetAggregate={(aggregate) => void setAggregate(field.id, aggregate)}
+                    onSetAggregate={(aggregate, fieldId) =>
+                      void setAggregate(field.id, aggregate, fieldId)
+                    }
+                    aggregatable={
+                      incoming?.find(
+                        (relation) => relation.fieldId === field.config?.['viaFieldId'],
+                      )?.aggregatable ?? []
+                    }
                   />
                 </th>
               ))}
@@ -1363,6 +1412,7 @@ function ColumnHeader({
   onRemove,
   onSaveOptions,
   onSetAggregate,
+  aggregatable,
 }: {
   field: CollectionField;
   canEdit: boolean;
@@ -1370,7 +1420,9 @@ function ColumnHeader({
   onRemove: () => void;
   onSaveOptions: (options: EditableOption[]) => void;
   /** Change what a rollup does with what it finds (ADR-0054). */
-  onSetAggregate: (aggregate: string) => void;
+  onSetAggregate: (aggregate: string, fieldId: string | undefined) => void;
+  /** The stored fields on the other side, for an aggregate that needs one. */
+  aggregatable: Array<{ id: string; name: string }>;
 }): ReactElement {
   // The header had no translations of its own until the aggregate select.
   const { t } = useT();
@@ -1423,18 +1475,43 @@ function ColumnHeader({
         * it, and shipping the capability without one would have been a feature
         * only its author could use. */}
       {field.fieldType === 'rollup' && canEdit && (
-        <select
-          className="collection-column-aggregate"
-          aria-label={t('rollup.aggregate')}
-          value={String(field.config?.['aggregate'] ?? 'count')}
-          onChange={(event) => onSetAggregate(event.target.value)}
-        >
-          {(['rows', 'count', 'sum', 'min', 'max'] as const).map((one) => (
-            <option key={one} value={one}>
-              {t(`rollup.${one}` as MessageKey)}
-            </option>
-          ))}
-        </select>
+        <>
+          <select
+            className="collection-column-aggregate"
+            aria-label={t('rollup.aggregate')}
+            value={String(field.config?.['aggregate'] ?? 'count')}
+            onChange={(event) => onSetAggregate(event.target.value, undefined)}
+          >
+            {(['rows', 'count', 'lookup', 'sum', 'min', 'max'] as const).map((one) => (
+              <option key={one} value={one}>
+                {t(`rollup.${one}` as MessageKey)}
+              </option>
+            ))}
+          </select>
+          {/* Which field, for the aggregates that need one. Beside the
+              aggregate rather than in a dialog: the two are one decision, and
+              the server refuses the half of it that names no field. */}
+          {needsField(String(field.config?.['aggregate'] ?? 'count')) && (
+            <select
+              className="collection-column-aggregate"
+              aria-label={t('rollup.field')}
+              value={String(field.config?.['fieldId'] ?? '')}
+              onChange={(event) =>
+                onSetAggregate(
+                  String(field.config?.['aggregate'] ?? 'count'),
+                  event.target.value,
+                )
+              }
+            >
+              <option value="">{t('rollup.pickField')}</option>
+              {aggregatable.map((one) => (
+                <option key={one.id} value={one.id}>
+                  {one.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </>
       )}
       {hasOptions && (
         <button
