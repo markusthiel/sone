@@ -111,6 +111,14 @@ export const de: Record<keyof typeof en, string> = {
   'field.relation': 'Relation',
   'relation.chooseTarget': 'Auf welche Kollektion soll das zeigen?',
   'relation.noCollections': 'Es gibt noch keine andere Kollektion, auf die man zeigen könnte.',
+  'field.rollup': 'Rollup',
+  'rollup.choose': 'Welche Relation soll gezählt werden?',
+  'rollup.nothingPointsHere':
+    'Noch zeigt keine Relationsspalte auf diese Kollektion. Zuerst eine in ' +
+    'der anderen Kollektion anlegen.',
+  'rollup.partial':
+    'Einige verknüpfte Zeilen sind nicht sichtbar, weil sie nicht geöffnet ' +
+    'werden dürfen — diese Zahl ist also niedriger als bei anderen.',
   'relation.aRow': 'Eine Zeile',
   'relation.add': 'Zeile verknüpfen',
   'relation.remove': 'Verknüpfung lösen',

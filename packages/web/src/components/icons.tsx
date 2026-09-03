@@ -312,6 +312,15 @@ export function DownloadIcon(props: IconProps): ReactElement {
   );
 }
 
+/** A sigma: a column that adds up what other rows say. */
+export function SigmaIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <path d="M17 6H7l5 6-5 6h10" />
+    </svg>
+  );
+}
+
 /** Two things joined: a row pointing at a row in another collection. */
 export function RelationIcon(props: IconProps): ReactElement {
   return (

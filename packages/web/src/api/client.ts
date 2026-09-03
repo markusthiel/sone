@@ -238,6 +238,23 @@ export interface CollectionRow {
   title: string;
   /** Keyed by field id. Absent means no value, which is not the same as empty. */
   values: Record<string, StoredCellValue | undefined>;
+  /**
+   * What the server computed, keyed by field id (ADR-0054).
+   *
+   * Separate from `values` on purpose: those come out of the document and can be
+   * written, these are derived and cannot. One bag holding both would be a cell
+   * somebody could type into whose value the server decides.
+   */
+  derived?: Record<string, DerivedCellValue | undefined>;
+}
+
+/** A rollup's answer: rows, or a number, and whether anything was left out. */
+export interface DerivedCellValue {
+  kind: 'derived';
+  rows?: Array<{ id: string; title: string }>;
+  number?: number | null;
+  /** Something was excluded because the reader may not see it (ADR-0054). */
+  partial?: boolean;
 }
 
 /**
@@ -890,6 +907,12 @@ export const api = {
     request<{ collections: Array<{ id: string; pageId: string; title: string }> }>(
       `/api/collections/${collectionId}/targets`,
     ),
+
+  /** Relation columns pointing at this collection, for a rollup (ADR-0054). */
+  incomingRelations: (collectionId: string) =>
+    request<{
+      relations: Array<{ fieldId: string; fieldName: string; fromCollection: string }>;
+    }>(`/api/collections/${collectionId}/incoming`),
 
   addCollectionField: (
     collectionId: string,

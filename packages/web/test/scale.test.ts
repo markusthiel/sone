@@ -1836,3 +1836,30 @@ test('a relation asks where it points, in a second step', () => {
   // And an empty relation is no value, the shape every other cell uses.
   assert.match(table, /next\.length > 0 \? \{ kind: 'relation', pageIds: next \} : null/);
 });
+
+test('a derived cell cannot be typed into, and says when it is partial', () => {
+  // An editable cell whose value the server computes would be a lie the moment
+  // somebody typed in it (ADR-0054). So the derived branch comes first, before
+  // the dispatch that is about stored kinds.
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  const cell = table.slice(table.indexOf('function Cell({'));
+  const derivedAt = cell.indexOf("field.fieldType === 'rollup'");
+  const storedAt = cell.indexOf("field.fieldType === 'files'");
+  assert.ok(derivedAt > -1 && derivedAt < storedAt, 'the derived branch is first');
+  // The rollup branch itself, not everything up to the next landmark: my first
+  // version sliced as far as the files branch, which spans the *relation*
+  // branch — and that one is editable, so the assertion failed on a cell it was
+  // never about.
+  const branch = cell.slice(derivedAt, cell.indexOf("field.fieldType === 'relation'"));
+  assert.doesNotMatch(branch, /onChange/);
+
+  // Two people seeing different numbers on one page is correct, and looks like
+  // a fault when nothing explains it.
+  assert.match(table, /derived\.partial && \(/);
+  assert.match(table, /t\('rollup\.partial'\)/);
+
+  // A rollup is built on a relation that points *here*, which is the only thing
+  // it can be built on — so the dialog offers those and nothing else.
+  assert.match(table, /\.incomingRelations\(collectionId\)/);
+  assert.match(table, /t\('rollup\.nothingPointsHere'\)/);
+});
