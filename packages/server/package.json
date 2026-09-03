@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc -b ../core && tsc -p tsconfig.test.json --noEmit",
-    "test": "tsc -b ../core && tsx --test test/*.test.ts",
+    "test": "tsc -b ../core && SONE_PASSWORD_COST=12 tsx --test test/*.test.ts",
     "migrate": "tsx scripts/migrate.mjs",
     "rematerialize": "tsx scripts/rematerialize.mjs",
     "test:db": "tsx --test test/*.db.test.ts"

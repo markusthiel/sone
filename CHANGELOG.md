@@ -13,7 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Password hashing strength is configurable** as `SONE_PASSWORD_COST`
+([ADR-0010](docs/adr/0010-sessions-and-password-hashing.md)), defaulting to the
+recommended 2^16. Lowering it warns at startup and appears in the maintenance
+panel, and raising it again upgrades existing passwords on their owners' next
+sign-in. Mainly so the test suite stops paying production hashing cost 105 times
+per file.
 
 ## 0.5.0
 

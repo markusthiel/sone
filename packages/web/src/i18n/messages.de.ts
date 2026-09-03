@@ -350,6 +350,11 @@ export const de: Record<keyof typeof en, string> = {
   'admin.anomaly.staleSearch.explain':
     'Mit einer älteren Textkonfiguration indexiert. Die betroffenen Workspaces neu ' +
     'materialisieren.',
+  'admin.anomaly.passwordCost': 'Passwort-Hashing ist niedrig eingestellt',
+  'admin.anomaly.passwordCost.explain':
+    'SONE_PASSWORD_COST steht auf 2^{cost}, unter den empfohlenen 2^16 — jetzt ' +
+    'gehashte Passwörter sind leichter angreifbar. Variable entfernen, dann ' +
+    'werden bestehende Passwörter bei der nächsten Anmeldung aufgewertet.',
   'admin.anomaly.mail': 'E-Mails, die nicht versendet werden konnten',
   'admin.anomaly.mail.explain':
     'Das Relay hat sie abgelehnt, nach mehreren Versuchen. Meist ein falsches ' +

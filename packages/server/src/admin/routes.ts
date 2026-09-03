@@ -26,6 +26,7 @@ import { queryOne, queryRows } from '../db/pool.js';
 import { requireWorkspaceAdministrator } from './rights.js';
 import { requireSession } from '../http/auth.js';
 import { rematerialize } from '../materialize/rematerialize.js';
+import { RECOMMENDED_COST, passwordCost } from '../auth/password.js';
 import { SETTING_KEYS, SettingError, type SettingKey, type SettingsStore } from './settings.js';
 import type { RequestContext, Router } from '../http/router.js';
 
@@ -622,6 +623,15 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         entriesInsidePages: Number(counts?.inside_pages ?? 0),
         failedMaterialisations: Number(counts?.failed ?? 0),
         failedMail: Number(counts?.failed_mail ?? 0),
+        /*
+         * A weakened password cost, where an operator looks (ADR-0010).
+         *
+         * Not a count of anything in the database — a setting. It belongs here
+         * anyway: this panel is the answer to "is anything wrong with my
+         * instance", and a password cost somebody lowered for a benchmark and
+         * forgot is exactly that.
+         */
+        weakPasswordCost: passwordCost() < RECOMMENDED_COST ? passwordCost() : 0,
         pendingMaterialisations: Number(counts?.pending ?? 0),
       },
       failures: failures.map((row) => ({

@@ -91,6 +91,29 @@ tests would fail for reasons unrelated to the code, and — worse — could pass
 while production silently reorders blocks. `verifyDatabaseAssumptions` refuses
 to run against a wrongly collated database.
 
+## Why the suite sets a low password cost
+
+`packages/server` runs its tests with `SONE_PASSWORD_COST=12`, in the open in
+its `test` script rather than hidden in a helper.
+
+Measured: a hash at the production 2^16 costs 216 ms here, and
+`api.db.test.ts` registers an account per test through the real route — 105
+times. Setting the cost to 2^12 took that file from **45.3 s to 20.3 s**, and the
+suite's larger half from 183 s to 108 s.
+
+One honest note on those numbers: the first time I measured the halves I ran
+`tsx` directly, which does *not* pick up the script's environment variable, and
+recorded a slowdown. A benchmark of the wrong command is worse than no benchmark
+— it argues for the opposite of the truth.
+
+It is safe to lower *in a test* only because a stored hash records its own
+parameters and `verifyPassword` compares them with the current setting: nothing
+about the hashing path is skipped or stubbed, and the tests exercise exactly
+what production runs, with a cheaper parameter. Lowering it on a real instance
+warns at startup and shows up as an anomaly in the maintenance panel, which is
+the whole reason this is a configuration value and not a test-only branch on
+`NODE_ENV` (ADR-0010).
+
 ## What the compiler cannot see
 
 TypeScript does not look inside a template literal, so **every column name in

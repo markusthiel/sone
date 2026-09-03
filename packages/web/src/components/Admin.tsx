@@ -652,7 +652,10 @@ export function MaintenancePanel(): ReactElement {
     // A wrong SMTP password belongs in the all-clear too: a panel that says
     // "nothing is wrong" while mail is failing teaches an operator not to read
     // it (ADR-0058).
-    (counts.failedMail ?? 0) === 0;
+    (counts.failedMail ?? 0) === 0 &&
+    // A lowered password cost is not an event but a state, and this panel is
+    // the answer to "is anything wrong with my instance" (ADR-0010).
+    (counts.weakPasswordCost ?? 0) === 0;
 
   return (
     <section className="settings-section">
@@ -718,6 +721,16 @@ export function MaintenancePanel(): ReactElement {
           count={counts.failedMaterialisations}
           explain={t('admin.anomaly.failed.explain')}
         />
+        {(counts.weakPasswordCost ?? 0) > 0 && (
+          <>
+            <dt>{t('admin.anomaly.passwordCost')}</dt>
+            <dd>
+              {t('admin.anomaly.passwordCost.explain', {
+                cost: counts.weakPasswordCost ?? 0,
+              })}
+            </dd>
+          </>
+        )}
         <Anomaly
           label={t('admin.anomaly.mail')}
           count={counts.failedMail ?? 0}

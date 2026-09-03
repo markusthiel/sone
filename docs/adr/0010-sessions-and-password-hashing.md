@@ -51,6 +51,36 @@ Supporting decisions, each with a failure mode behind it:
   achieves nothing — the reset form leaks the same fact — and the ambiguity
   only confuses the legitimate user who forgot they had an account.
 
+## Amendment: the cost is configurable, with a floor and a warning
+
+Measured while asking why the server's test suite no longer finishes inside one
+command. A hash costs **216 ms** on this machine at N=2^16; `api.db.test.ts`
+registers an account per test through the real route, 105 times, so **roughly
+half that file's 45 seconds is password hashing**. N=2^14 is 50 ms and N=2^12 is
+11 ms.
+
+A suite people stop running is worse than a slightly slower one, so the work
+factor comes from configuration now: `SONE_PASSWORD_COST` as the exponent,
+defaulting to 16.
+
+**The safeguard, and why it is not a test-only backdoor.** A knob that weakens
+every password on an instance where somebody set it carelessly is worse than a
+slow test suite. So:
+
+- The stored hash already records N, r and p, and `verifyPassword` already
+  reports `needsRehash` when a stored hash is weaker than the current setting.
+  A cost change therefore upgrades existing passwords on next sign-in rather
+  than stranding them — that was true before this amendment and is what makes it
+  safe.
+- Anything below 16 logs a warning at startup naming the value and the default.
+- And it is an anomaly in the maintenance panel, counted like a failed
+  projection, so it is visible where an operator looks rather than only in a log
+  line they scrolled past three deploys ago.
+
+Not keyed on `NODE_ENV`: a security parameter that changes because of an
+environment variable somebody else set is a parameter nobody can reason about.
+The tests set the cost explicitly, in the open, the same way an operator would.
+
 ## Consequences
 
 Every authenticated request costs one indexed lookup on `sessions`. Acceptable,

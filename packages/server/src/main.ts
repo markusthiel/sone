@@ -51,6 +51,7 @@ import { registerImportRoutes } from './import/routes.js';
 import { WORKSPACE_EXPORT, workspaceExportHandler } from './export/workspaceJob.js';
 import { registerJobRoutes } from './jobs/routes.js';
 import { registerInboxRoutes } from './notifications/routes.js';
+import { RECOMMENDED_COST, passwordCost } from './auth/password.js';
 import { runOneJob, type Job, type JobContext } from './jobs/runner.js';
 import {
   EMAIL_NOTIFICATIONS,
@@ -220,6 +221,21 @@ async function main(): Promise<void> {
   // Settings resolve from the database over the environment, so the few values
   // an administrator changes take effect without a redeploy. Created before the
   // routes that read it.
+  /*
+   * A weakened password cost, said out loud (ADR-0010 amendment).
+   *
+   * Once at startup, and again as an anomaly in the maintenance panel: a
+   * security parameter somebody set carelessly has to be visible where they
+   * look, not only in a log line from three deploys ago.
+   */
+  if (passwordCost() < RECOMMENDED_COST) {
+    console.warn(
+      `SONE_PASSWORD_COST is 2^${passwordCost()}, below the recommended ` +
+        `2^${RECOMMENDED_COST}. Every password hashed now is cheaper to attack. ` +
+        'Raising it again upgrades existing passwords on their next sign-in.',
+    );
+  }
+
   const settings = new SettingsStore(pool, {
     signupMode: config.signupMode,
     instanceName: 'SONE',

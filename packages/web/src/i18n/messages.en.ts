@@ -326,6 +326,11 @@ export const en = {
   'admin.anomaly.staleSearch': 'Stale search rows',
   'admin.anomaly.staleSearch.explain':
     'Indexed with an older text configuration. Re-materialise the affected workspaces.',
+  'admin.anomaly.passwordCost': 'Password hashing is set low',
+  'admin.anomaly.passwordCost.explain':
+    'SONE_PASSWORD_COST is 2^{cost}, below the recommended 2^16 — passwords ' +
+    'hashed now are cheaper to attack. Remove the variable and existing ' +
+    'passwords are upgraded on their next sign-in.',
   'admin.anomaly.mail': 'Emails that could not be sent',
   'admin.anomaly.mail.explain':
     'The relay refused them, after retries. Usually a wrong password, port or ' +
