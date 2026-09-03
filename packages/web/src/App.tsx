@@ -40,6 +40,7 @@ import { useComments } from './hooks/useComments.ts';
 import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
+import { asInternalRequest } from '@sone/core';
 import type { CommentThread } from '@sone/core';
 import type { CommentAnchor, DrawnThread } from '@sone/editor';
 
@@ -329,7 +330,31 @@ function Workspace({
    * moment a thread appeared, and a mark over the wrong words is the failure
    * this whole feature is built to avoid.
    */
+  /*
+   * And the internal ones, in their own document (ADR-0057).
+   *
+   * Opened through the same `usePage` with the suffixed id, because the store
+   * keys entries by the string and passes it through unchanged — the channel
+   * name, the open message and the persistence all take it as it is. So a
+   * second document needed no client change at all, which I checked rather than
+   * assumed.
+   *
+   * Only for a member: a share-link visitor is refused this room by the server,
+   * and asking anyway would produce an error frame on every page they open.
+   */
+  /*
+   * Whether this person could open the internal room at all.
+   *
+   * `isGuest` marks a share-link session, which the server refuses that room —
+   * so asking anyway would produce an error frame on every page a guest opens,
+   * and a console full of refusals is how somebody stops reading them.
+   */
+  const canSeeInternal = !session.user.isGuest;
+  const internalId = canSeeInternal && pageId ? asInternalRequest(pageId) : null;
+  const internalHandle = usePage(client, internalId);
+
   const comments = useComments(handle?.doc ?? null, session.user.id);
+  const internalComments = useComments(internalHandle?.doc ?? null, session.user.id);
   /**
    * A selection somebody has pressed Comment on, before they have written
    * anything.
@@ -753,6 +778,7 @@ function Workspace({
         open={rightOpen}
         onClose={() => setRightOpen(false)}
         comments={comments}
+        internalComments={canSeeInternal ? internalComments : null}
         members={members}
         pendingComment={pendingComment}
         onCancelPendingComment={() => setPendingComment(null)}

@@ -2055,3 +2055,27 @@ test('a search can be kept, and lives where searches are run', () => {
   const migration = codeOf(new URL('../../../db/migrations/0042_saved_searches.sql', import.meta.url));
   assert.match(migration, /UNIQUE \(user_id, workspace_id, name\)/);
 });
+
+test('internal threads are one list with a word, and a reply goes to their own document', () => {
+  // Not two tabs: somebody discussing a paragraph wants the discussion, and
+  // splitting it by audience makes them look in two places for one
+  // conversation (ADR-0057).
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  assert.match(panel, /internal && group\('comment\.open', internal\.open, internal, true\)/);
+  assert.doesNotMatch(panel, /role="tablist"/);
+
+  // The group carries the document a thread came from, because a reply to an
+  // internal thread has to be written into the internal one — passing the
+  // wrong set would write it where everybody can read it.
+  assert.match(panel, /comments=\{source\}/);
+  // Marked by a word, not a colour: a colour is a convention nobody has learnt
+  // yet, and this is the one distinction here where being wrong is a
+  // disclosure.
+  assert.match(panel, /t\('comment\.internal'\)/);
+
+  // Asked for only by a member: the server refuses a share session that room,
+  // and asking anyway is an error frame on every page a guest opens.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /const canSeeInternal = !session\.user\.isGuest/);
+  assert.match(app, /asInternalRequest\(pageId\)/);
+});
