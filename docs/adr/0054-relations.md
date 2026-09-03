@@ -128,11 +128,21 @@ above avoids by construction and a formula cannot. It is its own record and its
 own body of work, and shipping relations and rollups without it is a coherent
 step where shipping half a formula is not.
 
-**A row's own page showing its cells.** Found while checking whether relations
-reached everywhere: the properties panel shows a page's details — kind, dates —
-and no collection values at all, for *any* field type. So a row opens as a page
-that says nothing about the row it is. That is older and larger than relations
-and wants its own decision; it is named here because this is where I looked.
+**A row's own page showing its cells.** *Built.* Found while checking whether
+relations reached everywhere: the properties panel showed a page's kind and
+dates and no collection values at all, for any field type — so a row opened as
+a page that said nothing about the row it is.
+
+Its own route (`GET /api/pages/:pageId/properties`) rather than reading the
+whole collection, because fetching two hundred rows to draw one is the sort of
+thing that works in testing and not in a workspace. An ordinary page answers
+with an empty list rather than a 404: the panel asks this of every page it
+opens, and "no fields" is the truthful answer for most of them.
+
+The fields go *above* the kind and the dates, because on a row page these are
+the page. And they are drawn by the table's own cell renderer, which is why it
+moved into a module of its own first — two renderers would drift, and the one
+that drifted would be the one nobody looks at.
 
 **Filtering and sorting a view by a derived column.** Wanted, and it means the
 aggregate has to run before the sort rather than after the page of rows is

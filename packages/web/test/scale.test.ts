@@ -1902,3 +1902,18 @@ test('a gallery card can show a rollup, which lives outside row.values', () => {
   const board = codeOf(new URL('../src/components/CollectionBoard.tsx', import.meta.url));
   assert.doesNotMatch(board, /row\.derived/);
 });
+
+test("a row's page shows its own fields, with the table's renderer", () => {
+  // A row opened as a page that said nothing about the row it is — the gap
+  // ADR-0054 recorded and this closes.
+  const panel = codeOf(new URL('../src/components/RightSidebar.tsx', import.meta.url));
+  assert.match(panel, /\.rowProperties\(pageId\)/);
+  // The same renderer the table uses, which is why it moved into its own
+  // module: two of them would drift, and the one that drifted would be this.
+  assert.match(panel, /import \{ Cell \} from '\.\/CollectionCell\.tsx'/);
+  // Above the page's kind and dates: on a row page these *are* the page.
+  assert.ok(panel.indexOf('row.fields.map') < panel.indexOf("t('panel.kind')"));
+  // Optimistic, like the table's cells: a value that waits for a round trip
+  // reads as a control that did not take.
+  assert.match(panel, /values: \{ \.\.\.current\.values, \[field\.id\]: value \?\? undefined \}/);
+});

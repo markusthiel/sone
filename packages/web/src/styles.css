@@ -1680,6 +1680,11 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    everything the number would otherwise include. */
 .derived-partial { color: var(--sone-text-muted); cursor: help; }
 
+/* A row's own fields in the properties panel (ADR-0054). The panel is a `dl`,
+   so each field is its own pair rather than a row of a table. */
+.properties-row { display: contents; }
+.properties-row dd { min-inline-size: 0; overflow-wrap: anywhere; }
+
 /* --- a relation cell (ADR-0054) --- */
 
 .relation-cell { position: relative; }

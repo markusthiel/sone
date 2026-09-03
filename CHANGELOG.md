@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A row's own page now shows its fields** in the properties panel, above the
+page's kind and dates — editable, and including relations and rollups. Opening a
+row from a table previously showed a page that said nothing about the row it was.
+
 **A collection can have a relation column** ([ADR-0054](docs/adr/0054-relations.md)),
 pointing at rows in another collection — chosen when the column is created,
 because a relation that could point anywhere has nothing to aggregate on the
