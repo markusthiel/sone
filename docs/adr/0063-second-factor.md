@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted. The arithmetic is built and tested — codes, the sealed secret and the
+recovery codes, all pure. The table, the routes and the screens are not.
 
 ## Context
 
@@ -88,6 +89,25 @@ a wrong clock; five minutes is a longer window for a stolen code.
 
 An open laptop should not be enough to remove somebody's second factor. The same
 goes for regenerating recovery codes, which is the same act with more steps.
+
+## Built so far
+
+The three pure pieces, and the first test is against the vectors published in
+RFC 6238 rather than against the implementation. **An implementation that agrees
+with its own tests and disagrees with every authenticator app is the failure
+this feature could have**, and only a published vector rules it out. It matched
+on the first run.
+
+SHA-1 is not a choice: it is what the apps implement, and a stronger hash would
+produce codes nobody's phone agrees with. The step number comes back from a
+successful check so the caller can refuse to accept the same one twice.
+
+The sealed form is version-prefixed, so a future change of algorithm can be told
+apart from a failure to decrypt — the difference between "this needs upgrading"
+and "something is wrong".
+
+Recovery codes are matched with their dashes and case stripped, because a code
+copied off a screen by hand is copied loosely.
 
 ## Consequences
 
