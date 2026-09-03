@@ -77,7 +77,7 @@ function serverSources(dir: URL): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const child = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, dir);
     if (entry.isDirectory()) out.push(...serverSources(child));
-    else if (entry.name.endsWith('.ts')) out.push(readFileSync(child, 'utf8'));
+    else if (/\.tsx?$/.test(entry.name)) out.push(readFileSync(child, 'utf8'));
   }
   return out;
 }
@@ -109,4 +109,67 @@ test('the German catalogue says the same things as the English one', () => {
   for (const key of keys) {
     assert.ok(de.includes(`'${key}':`), `${key} is translated`);
   }
+});
+
+/**
+ * Every placeholder a message needs is supplied where it is used.
+ *
+ * German needs placeholders English does not — `{werden}` against `{wird}`,
+ * `{ihn}` against `{sie}`, formal against familiar — so this checks against the
+ * *union* of what the two catalogues want rather than asserting they match. A
+ * strict parity check would have called five deliberate differences faults.
+ *
+ * ICU messages are skipped, not read: `{sorted, select, yes {{filters, plural,
+ * =0 {sortiert}}}}` holds the *word* "sortiert" inside a branch, and a naive
+ * brace scan calls that a placeholder. My first version did, and reported it as
+ * a missing argument for a message that is correct.
+ */
+test('a message asks for nothing its callers do not supply', () => {
+  const catalogue = (file: string): Map<string, Set<string> | null> => {
+    const source = readFileSync(new URL(`../src/i18n/${file}`, import.meta.url), 'utf8');
+    const out = new Map<string, Set<string> | null>();
+    for (const match of source.matchAll(/^ {2}'([\w.]+)':((?:.|\n)*?)(?=\n {2}'[\w.]+':|\n\};)/gm)) {
+      const body = match[2] ?? '';
+      if (body.includes(', plural,') || body.includes(', select,')) {
+        out.set(match[1] ?? '', null);
+        continue;
+      }
+      out.set(match[1] ?? '', new Set([...body.matchAll(/\{(\w+)\}/g)].map((one) => one[1] ?? '')));
+    }
+    return out;
+  };
+
+  const en = catalogue('messages.en.ts');
+  const de = catalogue('messages.de.ts');
+  const needed = new Map<string, Set<string>>();
+  for (const key of en.keys()) {
+    const a = en.get(key);
+    const b = de.get(key);
+    if (a === null || b === null || b === undefined) continue;
+    needed.set(key, new Set([...a, ...b]));
+  }
+  assert.ok(needed.size > 500, 'the messages were read');
+
+  let code = '';
+  // The same walker the first test uses, which is named for the server because
+  // that is what it was written for — it takes a directory and does not care.
+  for (const source of serverSources(new URL('../src/', import.meta.url))) {
+    code += `${source}\n`;
+  }
+
+  const missing: string[] = [];
+  for (const call of code.matchAll(/t\(\s*'([\w.]+)'\s*,\s*\{([^{}]*)\}/g)) {
+    const key = call[1] ?? '';
+    const given = new Set(
+      (call[2] ?? '')
+        .split(',')
+        .map((piece) => piece.trim().split(':')[0]?.trim() ?? '')
+        .filter((name) => name !== ''),
+    );
+    for (const name of needed.get(key) ?? []) {
+      if (!given.has(name)) missing.push(`${key} needs ${name}`);
+    }
+  }
+
+  assert.deepEqual([...new Set(missing)], [], 'placeholders no caller supplies');
 });
