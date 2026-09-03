@@ -74,6 +74,24 @@ export const SETTING_KEYS = {
    * the common one, which is why it is not the default (ADR-0058).
    */
   emailDetail: { type: 'enum', values: ['title', 'workspace'] as const },
+
+  /*
+   * Where replies are read from, if anywhere (ADR-0060).
+   *
+   * Empty host means no replies: notifications carry no Reply-To, nothing is
+   * polled, and the feature is absent rather than broken — the same shape as
+   * mail itself.
+   *
+   * `replyMailbox` is the address people will reply *to*, which sub-addressing
+   * turns into one address per notification. It is separate from `smtpFrom`
+   * because a relay usually insists on owning the sender, while the mailbox
+   * being polled is often a different account entirely.
+   */
+  imapHost: { type: 'string', maxLength: 253 },
+  imapPort: { type: 'string', maxLength: 5 },
+  imapUser: { type: 'string', maxLength: 320 },
+  imapFolder: { type: 'string', maxLength: 64 },
+  replyMailbox: { type: 'string', maxLength: 320 },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_KEYS;
@@ -91,6 +109,12 @@ export interface InstanceSettings {
   smtpFrom: string;
   smtpSecurity: 'starttls' | 'tls' | 'none';
   emailDetail: 'title' | 'workspace';
+  /** Empty host means no replies (ADR-0060). */
+  imapHost: string;
+  imapPort: string;
+  imapUser: string;
+  imapFolder: string;
+  replyMailbox: string;
 }
 
 /** Where each value came from, so the interface can say so. */
@@ -114,6 +138,12 @@ export interface SettingsDefaults {
   smtpFrom: string;
   smtpSecurity: 'starttls' | 'tls' | 'none';
   emailDetail: 'title' | 'workspace';
+  /** Empty host means no replies (ADR-0060). */
+  imapHost: string;
+  imapPort: string;
+  imapUser: string;
+  imapFolder: string;
+  replyMailbox: string;
 }
 
 /** How long a resolved set of settings is reused. */

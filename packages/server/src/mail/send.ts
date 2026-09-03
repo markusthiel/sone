@@ -35,6 +35,13 @@ export interface Message {
   subject: string;
   /** Plain text. An HTML part is a second thing to keep true. */
   body: string;
+  /**
+   * Where a reply should go, when one can be accepted (ADR-0060).
+   *
+   * A per-notification address carrying a signed token, so the address a reply
+   * was sent *to* is the credential and the `From` header stays decoration.
+   */
+  replyTo?: string;
 }
 
 /** How long any single exchange may take before the attempt is abandoned. */
@@ -227,7 +234,16 @@ export async function sendMail(relay: Relay, message: Message, now = new Date())
       // For clients that offer the button. It points at the authenticated
       // settings page, which is worse than one click and is the version that
       // cannot be used against the recipient (ADR-0058).
-      'Auto-Submitted: auto-generated',
+      /*
+       * `auto-replied` rather than `auto-generated` when a reply is invited.
+       *
+       * Both tell an out-of-office responder not to answer, which is the point
+       * — a holiday autoresponder replying to a notification would arrive here
+       * as a comment. Announcing it as auto-generated while asking for a reply
+       * would be telling two things at once.
+       */
+      message.replyTo ? 'Auto-Submitted: auto-replied' : 'Auto-Submitted: auto-generated',
+      ...(message.replyTo ? [`Reply-To: ${headerSafe(message.replyTo)}`] : []),
     ].join('\r\n');
 
     session.write(`${headers}\r\n\r\n${forData(message.body)}\r\n.\r\n`);

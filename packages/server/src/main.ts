@@ -53,6 +53,7 @@ import { registerJobRoutes } from './jobs/routes.js';
 import { registerInboxRoutes } from './notifications/routes.js';
 import { RECOMMENDED_COST, passwordCost } from './auth/password.js';
 import { sendMail } from './mail/send.js';
+import { pollReplies, type ReplyDeps } from './jobs/replies.js';
 import { runOneJob, type Job, type JobContext } from './jobs/runner.js';
 import {
   EMAIL_NOTIFICATIONS,
@@ -254,6 +255,12 @@ async function main(): Promise<void> {
     smtpFrom: config.smtpFrom ?? '',
     smtpSecurity: 'starttls',
     emailDetail: 'title',
+    // No mailbox by default, which means no replies (ADR-0060).
+    imapHost: config.imapHost ?? '',
+    imapPort: config.imapPort ?? '993',
+    imapUser: config.imapUser ?? '',
+    imapFolder: 'INBOX',
+    replyMailbox: config.replyMailbox ?? '',
     // "du" unless an instance says otherwise: it is what the interface said
     // before the setting existed, and a running instance should not change its
     // tone because it was upgraded.
@@ -371,6 +378,62 @@ async function main(): Promise<void> {
             },
       detail: resolved.values.emailDetail,
       baseUrl: config.publicUrl,
+      // Only when a mailbox is being polled: inviting a reply nobody reads
+      // would be inviting somebody to write into a void (ADR-0060).
+      replyMailbox: resolved.values.imapHost.trim() === '' ? null : resolved.values.replyMailbox,
+      secret: config.secretKey,
+    };
+  };
+
+  /*
+   * Where replies are read from, and what to say to one we cannot use
+   * (ADR-0060).
+   *
+   * Read fresh like the mail settings, for the same reason: an administrator
+   * can point it at a different mailbox without a restart.
+   */
+  const replySettings = async (): Promise<ReplyDeps | null> => {
+    const resolved = await settings.resolve();
+    const host = resolved.values.imapHost.trim();
+    const mailbox = resolved.values.replyMailbox.trim();
+    if (host === '' || mailbox === '') return null;
+
+    return {
+      pool,
+      mailbox: {
+        host,
+        port: Number(resolved.values.imapPort) || 993,
+        user: resolved.values.imapUser,
+        password: config.imapPassword ?? '',
+        folder: resolved.values.imapFolder || 'INBOX',
+      },
+      secret: config.secretKey,
+      refuse: async (to, reason) => {
+        const current = await mailSettings();
+        if (!current.relay || to === '') return;
+        /*
+         * One short mail, and it says which of the reasons it was.
+         *
+         * Silence would leave somebody believing they had answered a colleague
+         * — which is worse than a bounce, because a bounce at least tells them
+         * something went wrong.
+         */
+        const sentence = {
+          expired_link: 'That reply link had expired. Open the page in SONE to answer.',
+          not_for_us: 'That address is not one SONE recognises.',
+          no_text:
+            'There was no plain text in that reply. Some mail clients send HTML ' +
+            'only; sending as plain text will work.',
+          thread_gone: 'The comment that mail was about is no longer there.',
+          no_access: 'You no longer have access to that page.',
+        }[reason];
+
+        await sendMail(current.relay, {
+          to,
+          subject: 'SONE: your reply was not posted',
+          body: `${sentence}\n\nNothing was posted.\n`,
+        });
+      },
     };
   };
 
@@ -385,6 +448,24 @@ async function main(): Promise<void> {
    * On the same timer as the runner, and doing nothing at all without a relay:
    * no claim, no job, no queue filling up.
    */
+  /*
+   * Reading replies, on its own timer (ADR-0060).
+   *
+   * Two minutes, which is the cost of polling and is stated in the record
+   * rather than hidden: a reply appears in the page up to that late, and
+   * nothing in the interface may suggest otherwise.
+   */
+  const replyTimer = setInterval(() => {
+    void replySettings()
+      .then((current) => (current ? pollReplies(current) : null))
+      .catch(() => {
+        // A mailbox that cannot be reached is tried again in two minutes.
+        // Throwing here would take the process down for somebody else's
+        // outage.
+      });
+  }, 120_000);
+  replyTimer.unref();
+
   const mailTimer = setInterval(() => {
     void mailSettings()
       .then((current) => sweepForEmail(pool, current))

@@ -66,6 +66,15 @@ services:
       SONE_SMTP_PASSWORD: ${SONE_SMTP_PASSWORD:-}
       SONE_SMTP_FROM: ${SONE_SMTP_FROM:-}
 
+      # Reading replies (ADR-0060). Empty host means no replies at all.
+      SONE_IMAP_HOST: ${SONE_IMAP_HOST:-}
+      SONE_IMAP_PORT: ${SONE_IMAP_PORT:-993}
+      SONE_IMAP_USER: ${SONE_IMAP_USER:-}
+      SONE_IMAP_PASSWORD: ${SONE_IMAP_PASSWORD:-}
+      # The address people reply to; sub-addressing makes it one per
+      # notification, so one mailbox serves everything.
+      SONE_REPLY_MAILBOX: ${SONE_REPLY_MAILBOX:-}
+
       # Single sign-on. Env-only for the same reason (ADR-0024).
       SONE_OIDC_CLIENT_SECRET: ${SONE_OIDC_CLIENT_SECRET:-}
 

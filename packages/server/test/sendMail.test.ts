@@ -199,3 +199,34 @@ test('a password is refused over an unencrypted connection', async () => {
     await fake.close();
   }
 });
+
+test('a reply address becomes a Reply-To, and changes what the mail admits to being', async () => {
+  /*
+   * Both headers tell an out-of-office responder not to answer, which is the
+   * point: a holiday autoresponder replying to a notification would arrive back
+   * here as a comment. But announcing a mail as auto-*generated* while asking
+   * for a reply would be telling two things at once (ADR-0060).
+   */
+  const fake = await fakeRelay();
+  try {
+    await sendMail(relay(fake.port), {
+      to: 'anna@example.org',
+      subject: 's',
+      body: 'b',
+      replyTo: 'sone+token@example.org',
+    });
+    assert.match(fake.data, /Reply-To: sone\+token@example\.org/);
+    assert.match(fake.data, /Auto-Submitted: auto-replied/);
+  } finally {
+    await fake.close();
+  }
+
+  const plain = await fakeRelay();
+  try {
+    await sendMail(relay(plain.port), { to: 'a@example.org', subject: 's', body: 'b' });
+    assert.doesNotMatch(plain.data, /Reply-To:/);
+    assert.match(plain.data, /Auto-Submitted: auto-generated/);
+  } finally {
+    await plain.close();
+  }
+});

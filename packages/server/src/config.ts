@@ -31,6 +31,14 @@ export interface Config {
    * a secret in a table is a secret in every backup.
    */
   smtpPassword: string | null;
+  /** Where replies are read from, if anywhere (ADR-0060). */
+  imapHost: string | null;
+  imapPort: string | null;
+  imapUser: string | null;
+  /** The address people reply to, which sub-addressing makes one per notification. */
+  replyMailbox: string | null;
+  /** Never in the database, for the same reason as the SMTP one (ADR-0060). */
+  imapPassword: string | null;
   maxUploadBytes: number;
   /** The provider's client secret, or null. From the environment only. */
   oidcClientSecret: string | null;
@@ -146,6 +154,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     smtpUser: optional(env, 'SONE_SMTP_USER', '') || null,
     smtpFrom: optional(env, 'SONE_SMTP_FROM', '') || null,
     smtpPassword: optional(env, 'SONE_SMTP_PASSWORD', '') || null,
+    imapHost: optional(env, 'SONE_IMAP_HOST', '') || null,
+    imapPort: optional(env, 'SONE_IMAP_PORT', '') || null,
+    imapUser: optional(env, 'SONE_IMAP_USER', '') || null,
+    replyMailbox: optional(env, 'SONE_REPLY_MAILBOX', '') || null,
+    imapPassword: optional(env, 'SONE_IMAP_PASSWORD', '') || null,
     maxUploadBytes: Math.floor(maxUploadMb * 1024 * 1024),
     // Never in the database (ADR-0024): a secret in a table is a secret in
     // every backup. Absent means single sign-on stays off, whatever the
