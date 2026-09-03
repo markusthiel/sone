@@ -567,6 +567,33 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       return;
     }
 
+    /*
+     * What the server is actually about to use (ADR-0058).
+     *
+     * A 535 from a relay means "these credentials are wrong", and an operator
+     * cannot see inside the container to find out *which* credentials arrived.
+     * Every value here is one they set themselves, except the password — and
+     * for that, the length and whether it is wrapped in quotes or padded with
+     * spaces, which is the difference between "I typed it wrong" and "compose
+     * passed the quotes along".
+     *
+     * Never the password. A field that echoes a secret to whoever is signed in
+     * as an administrator is a secret one phished session away from being read.
+     */
+    const password = deps.smtpPassword ?? '';
+    const using = {
+      host,
+      port: Number(settings.values.smtpPort) || 587,
+      security: settings.values.smtpSecurity,
+      user: settings.values.smtpUser,
+      from: settings.values.smtpFrom || `sone@${host}`,
+      passwordLength: password.length,
+      // Each of these has produced a 535 for somebody.
+      passwordLooksQuoted: /^["'].*["']$/.test(password),
+      passwordHasEdgeSpace: password !== password.trim(),
+      passwordMissing: password === '',
+    };
+
     try {
       await deps.sendTestMail(
         {
@@ -579,7 +606,7 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         },
         who.email,
       );
-      ctx.send(200, { sentTo: who.email });
+      ctx.send(200, { sentTo: who.email, using });
     } catch (err) {
       /*
        * The reason, not a shrug — and 200 rather than 500.
@@ -591,6 +618,7 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       ctx.send(200, {
         sentTo: null,
         problem: err instanceof Error ? err.message.slice(0, 300) : 'unknown',
+        using,
       });
     }
   });

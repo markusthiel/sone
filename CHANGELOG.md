@@ -15,7 +15,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 **The mail settings have a section of their own and a test button.** It sends one
 mail to your own address and reports what the server said — "535 authentication
-failed" rather than "sending failed"
+failed" rather than "sending failed" — and, when it fails, which settings the
+server actually used: host, port, encryption, user, sender, and the password's
+*length* plus whether it arrived wrapped in quotes or padded with whitespace.
+Never the password itself
 ([ADR-0058](docs/adr/0058-email-notifications.md)).
 
 **Fixed: fourteen settings never reached the container.** Compose does not
