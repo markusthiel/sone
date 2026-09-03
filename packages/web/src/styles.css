@@ -1879,8 +1879,11 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .version-body hr { border: 0; border-block-start: 1px solid var(--border-subtle); }
 .version-body p,
-.version-body li { margin-block: var(--sone-space-3) 0; line-height: 1.6; }
-.version-body li { margin-inline-start: var(--sone-space-5); }
+.version-body li {
+  margin-block: var(--sone-space-3) 0;
+  margin-inline-start: var(--sone-space-5);
+  line-height: 1.6;
+}
 
 /* --- comments (ADR-0046) --- */
 
@@ -2392,9 +2395,6 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
  * They are in layout at once — animating the height would mean measuring it
  * every frame, and a guessed max-height clips the long branch, which is the one
  * somebody actually has. */
-.tree-children {
-  animation: sone-rise var(--motion-state) var(--motion-ease);
-}
 @keyframes sone-rise {
   from { opacity: 0; transform: translateY(-2px); }
   to { opacity: 1; transform: none; }
@@ -3640,6 +3640,10 @@ select {
   /* One clear step per level. Small enough that six levels still fit a narrow
      sidebar, large enough to read as a step. */
   margin-inline-start: 18px;
+  /* Merged from a second rule 1200 lines above this one, which set only the
+     animation. Nothing between the two touched it, which is why this merge is
+     safe — and why it had to be read rather than scripted. */
+  animation: sone-rise var(--motion-state) var(--motion-ease);
 }
 
 /* No text selection in the tree.

@@ -19,7 +19,19 @@ import { test } from 'node:test';
 
 const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
-/** Selectors that were already declared more than once when this test was written. */
+/**
+ * Selectors that were already declared more than once when this test was written.
+ *
+ * A debt, listed so it can be paid off deliberately. Two have been: `.tree-children`
+ * and `.version-body li`, each read in full first.
+ *
+ * It cannot be paid off by a script, and that is worth saying here. Two rules
+ * for one selector that set *disjoint* properties still cannot be merged
+ * blindly: whichever position the merged rule takes, a rule between the two
+ * that targets the same element at the same specificity may win or lose
+ * differently than it did. Each pair needs somebody to read what sits between
+ * them — which is how the two above were done, and why the rest are still here.
+ */
 const KNOWN_DUPLICATES = new Set([
   '.ProseMirror',
   ".ProseMirror > [data-block]:only-child:empty::after",
@@ -48,12 +60,10 @@ const KNOWN_DUPLICATES = new Set([
   ".switcher-item[data-drop='after']::after",
   '.tag-chip',
   '.tag-chip svg',
-  '.tree-children',
   '.tree-link',
   ".tree-link[aria-current='page']",
   '.tree-row',
   ".tree-row[data-drop='after']::after",
-  '.version-body li',
   '.video-line',
   '.view-rule input',
   '.workspace-table td',
