@@ -2019,3 +2019,20 @@ test('a formula is written in a dialog, validated once, and its errors read', ()
   assert.match(cell, /fieldType === 'rollup' \|\| field\.fieldType === 'formula'/);
   assert.match(cell, /t\(`formula\.error\.\$\{derived\.error\}` as MessageKey\)/);
 });
+
+test('a formula can be edited, in the dialog that writes one', () => {
+  // Until this the column had to be removed and made again (ADR-0056). One
+  // dialog for both, because they are the same decision typed into the same
+  // field — two would drift the moment one gained the column list.
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  assert.match(table, /useState<'new' \| string \| null>\(null\)/);
+  assert.match(table, /writingFormula && writingFormula !== 'new'/);
+  // And it says which of the two it is, in the title and on the button.
+  assert.match(table, /writingFormula === 'new' \? t\('formula\.write'\) : t\('formula\.edit'\)/);
+
+  // The server re-checks on the way in, or the rule that forbids a formula
+  // reading a formula would hold only when a column was created — the hole the
+  // rollup rule had.
+  const routes = codeOf(new URL('../../server/src/http/collections.ts', import.meta.url));
+  assert.match(routes, /existing\?\.field_type === 'formula' &&\s*\n\s*!\(await formulaIsUsable/);
+});

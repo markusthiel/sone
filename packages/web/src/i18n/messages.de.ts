@@ -116,6 +116,7 @@ export const de: Record<keyof typeof en, string> = {
   'rollup.nothingPointsHere':
     'Noch zeigt keine Relationsspalte auf diese Kollektion. Zuerst eine in ' +
     'der anderen Kollektion anlegen.',
+  'action.save': 'Speichern',
   'action.create': 'Anlegen',
   'error.formula_missing': 'Erst eine Formel schreiben.',
   'error.formula_invalid':
@@ -138,6 +139,7 @@ export const de: Record<keyof typeof en, string> = {
   'error.row_not_found': 'Diese Zeile ist nicht in der Kollektion, auf die die Spalte zeigt.',
   'error.collection_not_found': 'Diese Kollektion existiert nicht mehr.',
   'field.formula': 'Formel',
+  'formula.edit': 'Diese Formel bearbeiten',
   'formula.example': 'Menge * Preis',
   'formula.write': 'Eine Formel schreiben',
   'formula.columns': 'Verwendbare Spalten: {names}',
