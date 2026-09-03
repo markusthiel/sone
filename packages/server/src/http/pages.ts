@@ -27,7 +27,12 @@ import {
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
 
-import { hasSearchCriteria, parseSearchQuery, type SearchFilters } from '@sone/core';
+import {
+  diffVersions,
+  hasSearchCriteria,
+  parseSearchQuery,
+  type SearchFilters,
+} from '@sone/core';
 
 import {
   canEdit,
@@ -45,6 +50,7 @@ import {
   VERSION_RETENTION_DAYS,
   listVersions,
   loadVersion,
+  previousVersion,
   restoreInto,
   takeVersion,
 } from '../doc/versions.js';
@@ -769,6 +775,83 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           props: block.props,
         })),
       });
+    } finally {
+      loaded.doc.destroy();
+    }
+  });
+
+  /**
+   * What changed between a version and its neighbour, or between it and now
+   * (ADR-0053).
+   *
+   * `?against=now` compares it with the page as it stands — "what have I
+   * missed"; the default compares it with the version before it — "what did
+   * this edit do". Two questions rather than a matrix of pairs: an arbitrary
+   * pair needs two pickers and answers something nobody asked for.
+   *
+   * Computed here because both states are already open on this side. Sending
+   * two whole documents to the client so it can compare them is, for a hundred
+   * pages, the archive twice.
+   */
+  router.get('/api/pages/:pageId/versions/:versionId/diff', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    if (!(await mayReadPage(ctx, pageId))) return;
+
+    const against = ctx.url.searchParams.get('against') === 'now' ? 'now' : 'previous';
+
+    const loaded = await loadVersion(deps.pool, pageId, ctx.params['versionId'] ?? '');
+    if (!loaded) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const blocksOf = (parsed: ReturnType<typeof readDocument>) =>
+      parsed.blocks.map((block) => ({
+        id: block.id,
+        type: block.type,
+        text: block.plainText,
+      }));
+
+    try {
+      const mine = blocksOf(readDocument(loaded.doc, pageId));
+
+      if (against === 'now') {
+        const live = await loadDoc(deps.pool, pageId);
+        try {
+          // This version on the left, now on the right: the answer to "what has
+          // happened since" reads forwards, like the page does.
+          ctx.send(200, {
+            against,
+            ...diffVersions(mine, blocksOf(readDocument(live.doc, pageId))),
+          });
+        } finally {
+          live.doc.destroy();
+        }
+        return;
+      }
+
+      const earlier = await previousVersion(deps.pool, pageId, loaded.row.id);
+      if (!earlier) {
+        // The first version has nothing before it. Not an error: its whole
+        // content is what it introduced, and saying so is more useful than a
+        // 404 for a question that is simply about the beginning.
+        ctx.send(200, {
+          against,
+          isFirst: true,
+          changes: mine.map((block) => ({ kind: 'added', block })),
+          unmatched: 0,
+        });
+        return;
+      }
+
+      try {
+        ctx.send(200, {
+          against,
+          ...diffVersions(blocksOf(readDocument(earlier.doc, pageId)), mine),
+        });
+      } finally {
+        earlier.doc.destroy();
+      }
     } finally {
       loaded.doc.destroy();
     }

@@ -323,3 +323,33 @@ export function restoreInto(live: Y.Doc, past: Y.Doc): void {
     liveCanvas.set(id, copy);
   });
 }
+
+/**
+ * The version taken before this one, as a document.
+ *
+ * By `taken_at` and then by id, which is the order the list is shown in — so
+ * "the one before" means the one above it on the screen, not merely a smaller
+ * sequence number. Two versions taken in the same second are ordered by id,
+ * which is arbitrary and stable, and better than a comparison that sometimes
+ * returns neither.
+ */
+export async function previousVersion(
+  db: Pool | PoolClient,
+  docId: string,
+  versionId: string,
+): Promise<{ doc: Y.Doc; row: VersionRow } | null> {
+  const row = await queryOne<{ id: string }>(
+    db,
+    `SELECT prev.id
+       FROM page_versions cur
+       JOIN page_versions prev
+         ON prev.doc_id = cur.doc_id
+        AND (prev.taken_at, prev.id) < (cur.taken_at, cur.id)
+      WHERE cur.doc_id = $1 AND cur.id = $2
+      ORDER BY prev.taken_at DESC, prev.id DESC
+      LIMIT 1`,
+    [docId, versionId],
+  );
+  if (!row) return null;
+  return loadVersion(db, docId, row.id);
+}
