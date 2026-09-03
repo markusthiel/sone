@@ -128,9 +128,23 @@ relay — which is the part worth testing. Its first test searches the output fo
 content rather than checking wording, so a future change that adds an excerpt
 "for context" has to make it fail.
 
+**An SMTP client, written rather than depended on.** A trade worth stating:
+sending mail in general is a large problem — queues, bounces, DKIM, dozens of
+servers behaving differently — but handing one message to *one relay an operator
+configured* is EHLO, STARTTLS, AUTH, MAIL FROM, RCPT TO, DATA. The server has six
+runtime dependencies and that is a number worth keeping.
+
+The condition on the trade is that it is tested against something that speaks
+back. There is a fake relay in the tests that answers EHLO across four lines
+(a client reading one line hangs against every real server), undoes dot-stuffing
+so a truncated body is visible as one, and records everything it was told so a
+newline smuggled into a subject can be seen not to have become a header. A
+password is refused outright over an unencrypted connection: a credential in the
+clear is worse than no mail.
+
 ## Still to build
 
-The sending itself: an SMTP client, the batching job on the five-minute delay,
+The batching job on the five-minute delay,
 the read-before-send check, the per-person settings screen, and failed sends in
 the administration area. Until then nothing is offered in the interface and no
 mail is attempted, which is the same state as an instance with no relay.
