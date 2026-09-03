@@ -648,7 +648,11 @@ export function MaintenancePanel(): ReactElement {
     counts.orphanedPages === 0 &&
     counts.staleSearchRows === 0 &&
     counts.entriesInsidePages === 0 &&
-    counts.failedMaterialisations === 0;
+    counts.failedMaterialisations === 0 &&
+    // A wrong SMTP password belongs in the all-clear too: a panel that says
+    // "nothing is wrong" while mail is failing teaches an operator not to read
+    // it (ADR-0058).
+    (counts.failedMail ?? 0) === 0;
 
   return (
     <section className="settings-section">
@@ -713,6 +717,11 @@ export function MaintenancePanel(): ReactElement {
           label={t('admin.anomaly.failed')}
           count={counts.failedMaterialisations}
           explain={t('admin.anomaly.failed.explain')}
+        />
+        <Anomaly
+          label={t('admin.anomaly.mail')}
+          count={counts.failedMail ?? 0}
+          explain={t('admin.anomaly.mail.explain')}
         />
         <dt>{t('admin.waitingToProject')}</dt>
         <dd>

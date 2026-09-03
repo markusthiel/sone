@@ -350,6 +350,12 @@ export const de: Record<keyof typeof en, string> = {
   'admin.anomaly.staleSearch.explain':
     'Mit einer älteren Textkonfiguration indexiert. Die betroffenen Workspaces neu ' +
     'materialisieren.',
+  'admin.anomaly.mail': 'E-Mails, die nicht versendet werden konnten',
+  'admin.anomaly.mail.explain':
+    'Das Relay hat sie abgelehnt, nach mehreren Versuchen. Meist ein falsches ' +
+    'Passwort, ein falscher Port oder eine falsche Absenderadresse — die ' +
+    'Mailserver-Einstellungen oben prüfen. Die Betroffenen haben ihre ' +
+    'Benachrichtigungen weiterhin in der App.',
   'admin.anomaly.failed': 'Gescheiterte Projektionen',
   'admin.anomaly.failed.explain':
     'Ein Dokument, das die Projektion nicht lesen konnte. Die Seite existiert weiter und ' +

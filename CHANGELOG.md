@@ -17,6 +17,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 Notifications — mentions and tasks on, replies off, and the screen says what a
 mail contains before asking whether you want one.
 
+**Notifications can arrive by email** ([ADR-0058](docs/adr/0058-email-notifications.md)).
+One mail per person per workspace, five minutes after the fact, and only for what
+is still unread — so something dealt with in the app produces no mail at all. The
+mail says who did what and on which page, with a link, and never the comment
+itself. Emails the relay refuses show up in the maintenance panel.
+
 **A mail server can be configured in the administration area**
 ([ADR-0058](docs/adr/0058-email-notifications.md)) — host, port, encryption,
 user, sender address, and whether a mail may name the page. An empty host means

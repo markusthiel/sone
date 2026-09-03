@@ -326,6 +326,11 @@ export const en = {
   'admin.anomaly.staleSearch': 'Stale search rows',
   'admin.anomaly.staleSearch.explain':
     'Indexed with an older text configuration. Re-materialise the affected workspaces.',
+  'admin.anomaly.mail': 'Emails that could not be sent',
+  'admin.anomaly.mail.explain':
+    'The relay refused them, after retries. Usually a wrong password, port or ' +
+    'sender address — check the mail server settings above. The people ' +
+    'concerned still have their notifications in the app.',
   'admin.anomaly.failed': 'Failed projections',
   'admin.anomaly.failed.explain':
     'A document the projection could not read. The page still exists and syncs; it is ' +

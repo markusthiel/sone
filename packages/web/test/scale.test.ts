@@ -2154,3 +2154,17 @@ test('the settings section the mail links to exists', () => {
   // this wants to know and which nothing else tells them.
   assert.match(settings, /t\('you\.notifications\.contents'\)/);
 });
+
+test('a failed send counts against the all-clear', () => {
+  // A panel that says "nothing is wrong" while mail is failing teaches an
+  // operator not to read it (ADR-0058).
+  const admin = codeOf(new URL('../src/components/Admin.tsx', import.meta.url));
+  assert.match(admin, /\(counts\.failedMail \?\? 0\) === 0/);
+  assert.match(admin, /t\('admin\.anomaly\.mail'\)/);
+
+  // And the explanation names the likely cause and says the notifications
+  // themselves are not lost — which is the fact that stops somebody hunting.
+  const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
+  assert.match(en, /'admin\.anomaly\.mail\.explain':[\s\S]{0,400}wrong password/);
+  assert.match(en, /'admin\.anomaly\.mail\.explain':[\s\S]{0,400}still have their notifications/);
+});
