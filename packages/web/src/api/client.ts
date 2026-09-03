@@ -908,6 +908,16 @@ export const api = {
       `/api/collections/${collectionId}/targets`,
     ),
 
+  /** One row's own fields and values, for its page (ADR-0054). */
+  rowProperties: (pageId: string) =>
+    request<{
+      collectionId: string | null;
+      canEdit?: boolean;
+      fields: CollectionField[];
+      values: Record<string, StoredCellValue | undefined>;
+      derived: Record<string, DerivedCellValue | undefined>;
+    }>(`/api/pages/${pageId}/properties`),
+
   /** Relation columns pointing at this collection, for a rollup (ADR-0054). */
   incomingRelations: (collectionId: string) =>
     request<{

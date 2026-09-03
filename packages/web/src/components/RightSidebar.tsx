@@ -23,13 +23,17 @@ import type { CommentThread } from '@sone/core';
 import type { WorkspaceMember } from '../api/client.ts';
 import { useEffect, useState, type ReactElement } from 'react';
 
-import { ApiError, api, type PageDetail } from '../api/client.ts';
+import {
+  type CollectionField,
+  type DerivedCellValue,
+  type StoredCellValue, ApiError, api, type PageDetail } from '../api/client.ts';
 import { useOutline, scrollToBlock } from '../hooks/useOutline.ts';
 import { usePageTags } from '../hooks/usePageTags.ts';
 import { useTasks, type Task } from '../hooks/useTasks.ts';
 import { en, type MessageKey } from '../i18n/messages.en.ts';
 import type { CommentMarkStyle } from '../hooks/useCommentMarkStyle.ts';
 import type { CommentActions } from '../hooks/useComments.ts';
+import { Cell } from './CollectionCell.tsx';
 import { useT } from '../i18n/useT.tsx';
 import { TagEditor } from './TagEditor.tsx';
 import { messageFor } from './Auth.tsx';
@@ -600,6 +604,45 @@ function PropertiesPanel({
   const { t } = useT();
   const { tags, known, setTags } = usePageTags(handle?.doc ?? null, pageId, workspaceId);
   const [detail, setDetail] = useState<PageDetail | null>(null);
+  /**
+   * The row's own fields, when this page is one (ADR-0054).
+   *
+   * Asked of every page the panel opens, because "this page has no fields" is
+   * the truthful answer for most of them and one request is cheaper than
+   * deciding here whether to ask.
+   */
+  const [row, setRow] = useState<{
+    canEdit: boolean;
+    fields: CollectionField[];
+    values: Record<string, StoredCellValue | undefined>;
+    derived: Record<string, DerivedCellValue | undefined>;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!pageId) return;
+    let cancelled = false;
+    void api
+      .rowProperties(pageId)
+      .then((result) => {
+        if (cancelled) return;
+        setRow(
+          result.fields.length > 0
+            ? {
+                canEdit: result.canEdit ?? false,
+                fields: result.fields,
+                values: result.values,
+                derived: result.derived,
+              }
+            : null,
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setRow(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pageId]);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -661,6 +704,55 @@ function PropertiesPanel({
 
   return (
     <dl className="properties">
+      {/* The row's own fields, first (ADR-0054).
+        *
+        * Above the page's kind and dates, because on a row page these *are* the
+        * page: somebody opening an invoice wants its amount and its client, not
+        * that it is a row created on Tuesday. The panel's existing contents are
+        * still below, unchanged, for every page including this one. */}
+      {row && (
+        <>
+          {row.fields.map((field) => (
+            <div key={field.id} className="properties-row">
+              <dt>{field.name}</dt>
+              <dd>
+                {/* The same renderer the table uses, which is why it moved into
+                    its own module: two of them would drift, and the one that
+                    drifted would be this one. */}
+                <Cell
+                  field={field}
+                  value={row.values[field.id] ?? null}
+                  derived={row.derived[field.id] ?? null}
+                  canEdit={row.canEdit}
+                  // No file index here: a files cell falls back to naming what
+                  // it has, which is honest, and fetching the workspace's file
+                  // list to draw one row's attachments is not a trade worth
+                  // making in a side panel.
+                  files={new Map()}
+                  pageId={pageId ?? ''}
+                  onChange={(value) => {
+                    if (!pageId) return;
+                    // Optimistic, like the table's cells: the panel is beside
+                    // the page and a value that waits for a round trip reads as
+                    // a control that did not take.
+                    setRow((current) =>
+                      current
+                        ? {
+                            ...current,
+                            values: { ...current.values, [field.id]: value ?? undefined },
+                          }
+                        : current,
+                    );
+                    void api.setCellValue(pageId, field.id, value);
+                  }}
+                  onUploaded={() => {}}
+                />
+              </dd>
+            </div>
+          ))}
+        </>
+      )}
+
       <dt>
         <PageIcon /> {t('panel.kind')}
       </dt>

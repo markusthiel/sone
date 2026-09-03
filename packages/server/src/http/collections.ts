@@ -570,6 +570,84 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
    * Asked from the collection being pointed at, for the same reason — the
    * question is about here.
    */
+  /**
+   * One row's own fields and values (ADR-0054's deferred item).
+   *
+   * A row opens as a page, and until this the page said nothing about the row
+   * it is — the properties panel carried a page's kind and dates and no
+   * collection values at all, for any field type.
+   *
+   * Its own route rather than reading the whole collection: fetching two
+   * hundred rows to draw one is the sort of thing that works in testing and not
+   * in a workspace. The rollups are computed for this row alone, by the same
+   * function the table uses.
+   */
+  router.get('/api/pages/:pageId/properties', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const auth = await authorise(deps.pool, ctx, pageId, 'read');
+    if (!auth) return;
+
+    const row = await queryOne<{ collection_id: string | null }>(
+      deps.pool,
+      `SELECT collection_id FROM pages WHERE id = $1 AND kind = 'row'`,
+      [pageId],
+    );
+    if (!row?.collection_id) {
+      // Not a row. Answered as an empty list rather than a 404: the panel asks
+      // this of every page it opens, and "this page has no fields" is the
+      // truthful answer for most of them.
+      ctx.send(200, { collectionId: null, fields: [], values: {}, derived: {} });
+      return;
+    }
+
+    const fields = await queryRows<{
+      id: string;
+      name: string;
+      field_type: string;
+      config: Record<string, unknown>;
+    }>(
+      deps.pool,
+      `SELECT id, name, field_type, config
+         FROM collection_fields
+        WHERE collection_id = $1
+        ORDER BY idx ASC`,
+      [row.collection_id],
+    );
+
+    const stored = await queryRows<{ field_id: string; value: unknown }>(
+      deps.pool,
+      `SELECT field_id, value FROM page_properties WHERE page_id = $1`,
+      [pageId],
+    );
+
+    const derived: Record<string, DerivedValue> = {};
+    for (const field of fields) {
+      if (field.field_type !== 'rollup') continue;
+      const config = readRollupConfig(field.config ?? null);
+      if (!config) continue;
+      const computed = await computeRollup(deps.pool, {
+        rowIds: [pageId],
+        config,
+        reader: { userId: auth.actorId, isAdmin: false },
+      });
+      const value = computed.get(pageId);
+      if (value) derived[field.id] = value;
+    }
+
+    ctx.send(200, {
+      collectionId: row.collection_id,
+      canEdit: auth.canEdit,
+      fields: fields.map((field) => ({
+        id: field.id,
+        name: field.name,
+        fieldType: field.field_type,
+        config: field.config,
+      })),
+      values: Object.fromEntries(stored.map((one) => [one.field_id, one.value])),
+      derived,
+    });
+  });
+
   router.get('/api/collections/:collectionId/incoming', async (ctx) => {
     const collectionId = ctx.params['collectionId'] ?? '';
     const here = await queryOne<{ workspace_id: string }>(

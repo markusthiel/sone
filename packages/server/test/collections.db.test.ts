@@ -417,6 +417,57 @@ describe(
       assert.equal(row?.derived[count.id]?.number, 2, 'two invoices point at Acme');
     });
 
+    test("a row's page carries its own fields, and an ordinary page carries none", async () => {
+      // A row opens as a page, and until this the page said nothing about the
+      // row it is (ADR-0054).
+      const session = await setup();
+      const collectionId = await collectionOn(
+        session,
+        await create(session, 'Rechnungen 4', 'page', session.rootFolder),
+      );
+      const amount = await expectJson<{ id: string }>(
+        await addField(session, collectionId, { name: 'Betrag', fieldType: 'number' }),
+        201,
+      );
+      const rowId = await addRow(session, collectionId, 'R-100');
+
+      await fetch(`${base}/api/pages/${rowId}/properties/${amount.id}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ value: { kind: 'number', value: 42 } }),
+      });
+
+      const mine = await expectJson<{
+        collectionId: string | null;
+        fields: Array<{ id: string; name: string }>;
+        values: Record<string, { value?: number }>;
+      }>(
+        await fetch(`${base}/api/pages/${rowId}/properties`, {
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+      assert.equal(mine.collectionId, collectionId);
+      assert.ok(
+        mine.fields.some((field) => field.id === amount.id),
+        'the collection´s columns',
+      );
+      assert.equal(mine.values[amount.id]?.value, 42, 'and this row´s value');
+
+      // An ordinary page answers with an empty list rather than a 404: the panel
+      // asks this of every page it opens, and "no fields" is the truthful
+      // answer for most of them.
+      const plain = await create(session, 'Nur eine Seite', 'page', session.rootFolder);
+      const none = await expectJson<{ collectionId: string | null; fields: unknown[] }>(
+        await fetch(`${base}/api/pages/${plain}/properties`, {
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+      assert.equal(none.collectionId, null);
+      assert.deepEqual(none.fields, []);
+    });
+
     test('a page can hold a collection', async () => {
       // Content inside a page, not a folder wearing a different hat
       // (ADR-0021). "A folder should be a folder" was the report that led here.
