@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**`assigned:me` in the search** lists the pages holding your tasks
+([ADR-0050](docs/adr/0050-search-filters.md)) — the counterpart to being able to
+assign one. `assigned:` with somebody else's id works too, and the syntax line
+under the search field now mentions it.
+
 **A task can be assigned to somebody**, who is told in their inbox
 ([ADR-0052](docs/adr/0052-notifications.md)). Choose the person in the task
 block's menu; their name appears at the end of the line. Only tasks can be

@@ -65,6 +65,17 @@ created. Attribution is per character and the projection records who has writing
 in a page, which is the more useful question anyway — "what has Markus been in"
 rather than "what did Markus start".
 
+**`assigned:`** — pages holding a task given to somebody, by id, with `me`
+resolved from the session (ADR-0052). An id rather than a name prefix, unlike
+`author:`: the names come from a picker in the interface, so there is nothing to
+guess at — and a name that is not an id matches nothing, which is the honest
+answer to a filter nobody can resolve rather than quietly matching everybody.
+
+Added after assignments were built, because assigning is useless if nobody can
+list what they were given. The assignment was already projected into
+`blocks.props`, so the question needed a filter and a partial index rather than a
+screen of its own.
+
 **`before:` and `after:`** — the page's last edit, by date. Not creation: the
 question behind a date filter is almost always "what has changed since", and a
 creation date is answered better by the tree's order.

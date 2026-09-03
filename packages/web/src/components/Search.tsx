@@ -143,6 +143,11 @@ export function SearchScreen({
               {t('search.chip.author', { value: author })}
             </span>
           ))}
+          {applied.assigned.map((who) => (
+            <span key={`assigned-${who}`} className="search-chip">
+              {who === 'me' ? t('search.chip.assignedMe') : t('search.chip.assigned', { value: who })}
+            </span>
+          ))}
           {applied.after && (
             <span className="search-chip">{t('search.chip.after', { value: applied.after })}</span>
           )}

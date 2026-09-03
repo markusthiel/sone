@@ -356,6 +356,7 @@ export interface FavouriteEntry {
 export interface AppliedFilters {
   tags: string[];
   authors: string[];
+  assigned: string[];
   after: string | null;
   before: string | null;
   unreadable: Array<{ prefix: string; value: string; reason: 'not_a_date' }>;

@@ -11,6 +11,8 @@
  * an importer would repeat.
  */
 
+import { isUuid } from '../sync/protocol.js';
+
 import {
   readTitleColor,
   readEntryIcon,
@@ -1792,6 +1794,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
   const describeFilters = (filters: SearchFilters) => ({
     tags: filters.tags,
     authors: filters.authors,
+    assigned: filters.assigned,
     after: filters.after,
     before: filters.before,
     unreadable: filters.unreadable,
@@ -1917,6 +1920,17 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
                  WHERE pt.page_id = p.id AND pt.tag_key = ANY($9::text[])
                 HAVING count(*) = cardinality($9::text[])
               ))
+          -- Pages holding a task assigned to one of these people (ADR-0052).
+          --
+          -- An id match rather than a prefix, unlike the author filter: the
+          -- names here come from a picker in the interface and "me" is resolved
+          -- before the query runs, so there is nothing to guess at.
+          AND ($13::uuid[] IS NULL OR EXISTS (
+                SELECT 1 FROM blocks b
+                 WHERE b.page_id = p.id
+                   AND b.type = 'todo'
+                   AND (b.props ->> 'assignee')::uuid = ANY($13::uuid[])
+              ))
           -- A prefix against any of the page's authors: nobody types a whole
           -- name to narrow a list.
           AND ($10::text[] IS NULL OR EXISTS (
@@ -1963,6 +1977,23 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         filters.authors.length > 0 ? filters.authors : null,
         filters.after,
         filters.before,
+        /*
+         * "me" is this session, resolved here.
+         *
+         * The parser cannot know who is asking without being handed a session,
+         * which would make a pure function depend on a request. Anything else
+         * is taken as an id, and a name that is not one matches nothing —
+         * which is the honest answer to a filter nobody can resolve.
+         */
+        filters.assigned.length > 0
+          ? filters.assigned
+              .map((who) =>
+                who === 'me' && claims.principal.kind === 'user'
+                  ? claims.principal.userId
+                  : who,
+              )
+              .filter(isUuid)
+          : null,
       ],
     );
     const visible = rows.filter(

@@ -16,6 +16,14 @@ export interface UnreadableFilter {
 }
 
 export interface SearchFilters {
+  /**
+   * Whose tasks (ADR-0052), lowercased. `assigned:me` resolves on the server.
+   *
+   * Assigning is useless if nobody can list what they were given, and this is
+   * the cheapest honest way there: the assignment is already projected, so the
+   * question needed a filter and an index rather than a screen.
+   */
+  assigned: string[];
   /** Exact tags, lowercased. */
   tags: string[];
   /** Name prefixes, lowercased. */
@@ -37,7 +45,9 @@ export interface SearchFilters {
  * German ones are aliases rather than replacements — somebody typing `autor:`
  * has been perfectly clear, and refusing them would be pedantry.
  */
-const PREFIXES: Record<string, 'tag' | 'author' | 'after' | 'before'> = {
+const PREFIXES: Record<string, 'tag' | 'author' | 'after' | 'before' | 'assigned'> = {
+  assigned: 'assigned',
+  zugewiesen: 'assigned',
   tag: 'tag',
   schlagwort: 'tag',
   author: 'author',
@@ -75,6 +85,7 @@ export function parseSearchQuery(raw: string): SearchFilters {
   const filters: SearchFilters = {
     tags: [],
     authors: [],
+    assigned: [],
     after: null,
     before: null,
     text: '',
@@ -108,7 +119,8 @@ export function parseSearchQuery(raw: string): SearchFilters {
       continue;
     }
 
-    if (kind === 'tag') filters.tags.push(value.toLowerCase());
+    if (kind === 'assigned') filters.assigned.push(value.toLowerCase());
+    else if (kind === 'tag') filters.tags.push(value.toLowerCase());
     else if (kind === 'author') filters.authors.push(value.toLowerCase());
     else {
       const date = readDate(value);
@@ -133,6 +145,7 @@ export function hasSearchCriteria(filters: SearchFilters): boolean {
   return (
     filters.text.length >= 2 ||
     filters.tags.length > 0 ||
+    filters.assigned.length > 0 ||
     filters.authors.length > 0 ||
     filters.after !== null ||
     filters.before !== null

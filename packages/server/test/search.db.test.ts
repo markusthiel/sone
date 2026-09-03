@@ -268,6 +268,54 @@ describe(
       );
     });
 
+    test('assigned:me finds the pages holding my tasks', async () => {
+      // Assigning is useless if nobody can list what they were given, and the
+      // assignment is already projected — so this needed a filter and an index
+      // rather than a screen (ADR-0052).
+      const session = await setup();
+      const folder = await defaultFolder(session);
+      const mine = await create(session, 'Meine Aufgaben', 'page', folder);
+      const other = await create(session, 'Fremde Aufgaben', 'page', folder);
+
+      /*
+       * Whose session this is, read from the database.
+       *
+       * My first version used `session.userId`, which this suite's Session type
+       * does not have — so `JSON.stringify` dropped it and the props went in
+       * without an assignee at all. The test then asserted that a filter found
+       * a task nobody had been given.
+       */
+      const me = await db.query<{ user_id: string }>(
+        `SELECT user_id FROM workspace_members WHERE workspace_id = $1 LIMIT 1`,
+        [session.workspaceId],
+      );
+      const myId = me.rows[0]!.user_id;
+
+      // Straight into the projection: this is a test of the query, and the
+      // block rows are what the query reads.
+      await db.query(
+        `INSERT INTO blocks (id, page_id, type, idx, props, plain_text)
+         VALUES (gen_random_uuid(), $1, 'todo', 'a0', $2, 'Rechnung prüfen'),
+                (gen_random_uuid(), $3, 'todo', 'a0', $4, 'Rechnung prüfen')`,
+        [
+          mine,
+          JSON.stringify({ assignee: myId }),
+          other,
+          JSON.stringify({ assignee: '00000000-0000-4000-8000-000000000001' }),
+        ],
+      );
+
+      assert.deepEqual(
+        (await search(session, 'assigned:me')).map((one) => one.pageId),
+        [mine],
+        'mine, and not the one assigned to somebody else',
+      );
+
+      // A name that is not an id resolves to nobody, which is the honest answer
+      // to a filter that cannot be resolved — not "everybody".
+      assert.deepEqual(await search(session, 'assigned:anna'), []);
+    });
+
     test('a tag filter narrows, and works with no words at all', async () => {
       // "Show me everything tagged X" is a question people ask constantly and
       // could not ask at all (ADR-0050). The two-character minimum is about a
