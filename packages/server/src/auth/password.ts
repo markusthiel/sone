@@ -46,7 +46,39 @@ const scrypt = (
  * for a Raspberry Pi running a family instance — which is a real deployment
  * target, not a hypothetical.
  */
-const SCRYPT_PARAMS = { N: 1 << 16, r: 8, p: 1, keylen: 32 } as const;
+/**
+ * The recommended exponent, and the one anything lower is compared against.
+ *
+ * A hash at 2^16 costs a few hundred milliseconds, which is the point of it.
+ */
+export const RECOMMENDED_COST = 16;
+
+/**
+ * What a new hash costs, as the exponent of N (ADR-0010 amendment).
+ *
+ * Configurable because the server's own test suite registers an account per
+ * test through the real route, and at 2^16 that was about half the runtime of
+ * its largest file — a suite people stop running is worse than a slightly
+ * slower one.
+ *
+ * Safe to lower only because a stored hash records its own parameters and
+ * `verifyPassword` reports `needsRehash` against the *current* setting: raising
+ * the cost again upgrades every password on its owner's next sign-in rather
+ * than stranding it. Anything below the recommendation warns at startup and
+ * appears as an anomaly in the maintenance panel, because a security parameter
+ * somebody set carelessly must be visible where they look and not only in a log
+ * line from three deploys ago.
+ */
+export const passwordCost = (): number => {
+  const asked = Number(process.env['SONE_PASSWORD_COST'] ?? RECOMMENDED_COST);
+  // A floor at 2^10 rather than none: below that scrypt is not slow enough to
+  // be doing anything, and a typo of 1 should not silently produce a hash worth
+  // nothing.
+  if (!Number.isInteger(asked) || asked < 10 || asked > 20) return RECOMMENDED_COST;
+  return asked;
+};
+
+const SCRYPT_PARAMS = { r: 8, p: 1, keylen: 32 } as const;
 const SALT_BYTES = 16;
 
 export class AuthError extends Error {
@@ -75,8 +107,9 @@ export class AuthError extends Error {
 export async function hashPassword(password: string): Promise<string> {
   assertPasswordAcceptable(password);
   const salt = randomBytes(SALT_BYTES);
+  const N = 1 << passwordCost();
   const derived = await scrypt(password.normalize('NFKC'), salt, SCRYPT_PARAMS.keylen, {
-    N: SCRYPT_PARAMS.N,
+    N,
     r: SCRYPT_PARAMS.r,
     p: SCRYPT_PARAMS.p,
     maxmem: 256 * 1024 * 1024,
@@ -84,7 +117,7 @@ export async function hashPassword(password: string): Promise<string> {
 
   return [
     'scrypt',
-    SCRYPT_PARAMS.N,
+    N,
     SCRYPT_PARAMS.r,
     SCRYPT_PARAMS.p,
     salt.toString('base64'),
@@ -135,7 +168,10 @@ export async function verifyPassword(
 
   return {
     valid,
-    needsRehash: valid && (N < SCRYPT_PARAMS.N || r < SCRYPT_PARAMS.r),
+    // Against the *current* setting, which is what makes a lowered cost
+    // recoverable: raising it again upgrades every password on its owner's next
+    // sign-in rather than stranding it (ADR-0010 amendment).
+    needsRehash: valid && (N < 1 << passwordCost() || r < SCRYPT_PARAMS.r),
   };
 }
 

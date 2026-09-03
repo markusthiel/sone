@@ -239,6 +239,8 @@ export interface MaintenanceReport {
     failedMaterialisations: number;
     /** Notification emails the relay refused, after their retries (ADR-0058). */
     failedMail?: number;
+    /** The password cost, when it is below the recommendation (ADR-0010). */
+    weakPasswordCost?: number;
     pendingMaterialisations: number;
   };
   failures: Array<{ pageId: string; error: string | null }>;
