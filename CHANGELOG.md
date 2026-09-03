@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Live HLS streams play in Chromium, Firefox and Brave**
+([ADR-0037](docs/adr/0037-video.md)), not only in Safari. The player is fetched
+only when a page actually shows a stream, so nobody pays for it otherwise. The
+three sentences the video block shows when a stream cannot be played were in
+English regardless of the interface language; they are translated now.
+
 **Two versions of a page can be compared** ([ADR-0053](docs/adr/0053-version-diff.md)):
 "Compare" beside an entry in the History panel shows what that version changed, or
 what has changed since it. A moved paragraph is reported as **moved** rather than

@@ -15,6 +15,7 @@
     "@sone/client": "workspace:*",
     "@sone/core": "workspace:*",
     "@sone/editor": "workspace:*",
+    "hls.js": "1.7.2",
     "lucide-react": "^1.37.0",
     "pdfjs-dist": "6.3.289",
     "prosemirror-commands": "1.7.2",

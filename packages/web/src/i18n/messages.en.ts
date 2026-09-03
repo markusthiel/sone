@@ -92,6 +92,10 @@ export const en = {
     'out.',
   'share.heading': 'Share “{title}”',
   'file.pdfAllPages': 'Open the original',
+  'video.hlsFailed':
+    'This stream could not be played here. ',
+  'video.dashOnly': 'DASH streams play only in browsers with their own support. ',
+  'video.openStream': 'Open the stream',
   'file.pdfDocument': 'Document, scrollable',
   'file.pdfPrevious': 'Previous page',
   'file.pdfNext': 'Next page',
