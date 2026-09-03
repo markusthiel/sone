@@ -17,7 +17,9 @@ import { test } from 'node:test';
 
 import { codeOf } from './helpers/source.ts';
 
-import { optionsOf, textOf } from '../src/components/CollectionTable.tsx';
+// These moved into CollectionCell.tsx when a row's own page needed to draw
+// its cells as well (ADR-0054): one renderer, imported twice.
+import { optionsOf, textOf } from '../src/components/CollectionCell.tsx';
 
 test('text-like kinds are read', () => {
   assert.equal(textOf({ kind: 'text', value: 'hello' }), 'hello');

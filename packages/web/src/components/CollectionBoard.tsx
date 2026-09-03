@@ -29,7 +29,7 @@ import type {
 } from '../api/client.ts';
 import { usePointerDrag } from '../hooks/usePointerDrag.ts';
 import { paths } from '../routes/paths.ts';
-import { optionsOf } from './CollectionTable.tsx';
+import { optionsOf } from './CollectionCell.tsx';
 
 interface BoardProps {
   rows: CollectionRow[];

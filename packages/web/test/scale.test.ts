@@ -1815,6 +1815,9 @@ test('a relation asks where it points, in a second step', () => {
   // second answer would be the one entry behaving differently from the other
   // ten (ADR-0054).
   const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  // The cell itself moved to CollectionCell.tsx so a row's own page can draw it
+  // too; the column-creation steps stayed with the table.
+  const cellFile = codeOf(new URL('../src/components/CollectionCell.tsx', import.meta.url));
   assert.match(table, /if \(fieldType === 'relation' && !target\) \{/);
   assert.match(table, /setChoosingRelation\(true\)/);
 
@@ -1834,14 +1837,16 @@ test('a relation asks where it points, in a second step', () => {
   const cell = codeOf(new URL('../src/components/RelationCell.tsx', import.meta.url));
   assert.match(cell, /href=\{paths\.page\(id, titles\.get\(id\) \?\? ''\)\}/);
   // And an empty relation is no value, the shape every other cell uses.
-  assert.match(table, /next\.length > 0 \? \{ kind: 'relation', pageIds: next \} : null/);
+  assert.match(cellFile, /next\.length > 0 \? \{ kind: 'relation', pageIds: next \} : null/);
 });
 
 test('a derived cell cannot be typed into, and says when it is partial', () => {
   // An editable cell whose value the server computes would be a lie the moment
   // somebody typed in it (ADR-0054). So the derived branch comes first, before
   // the dispatch that is about stored kinds.
-  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  // In CollectionCell.tsx now: the four renderers moved out of the table when a
+  // row's own page needed them (ADR-0054).
+  const table = codeOf(new URL('../src/components/CollectionCell.tsx', import.meta.url));
   const cell = table.slice(table.indexOf('function Cell({'));
   const derivedAt = cell.indexOf("field.fieldType === 'rollup'");
   const storedAt = cell.indexOf("field.fieldType === 'files'");
@@ -1854,14 +1859,16 @@ test('a derived cell cannot be typed into, and says when it is partial', () => {
   assert.doesNotMatch(branch, /onChange/);
 
   // Two people seeing different numbers on one page is correct, and looks like
-  // a fault when nothing explains it.
+  // a fault when nothing explains it. In the cell module with the cell.
   assert.match(table, /derived\.partial && \(/);
   assert.match(table, /t\('rollup\.partial'\)/);
 
   // A rollup is built on a relation that points *here*, which is the only thing
-  // it can be built on — so the dialog offers those and nothing else.
-  assert.match(table, /\.incomingRelations\(collectionId\)/);
-  assert.match(table, /t\('rollup\.nothingPointsHere'\)/);
+  // it can be built on — so the dialog offers those and nothing else. That
+  // dialog stayed with the table, which is what creates columns.
+  const owner = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  assert.match(owner, /\.incomingRelations\(collectionId\)/);
+  assert.match(owner, /t\('rollup\.nothingPointsHere'\)/);
 });
 
 test('a rollup can be changed to sum, min or max — the capability is reachable', () => {

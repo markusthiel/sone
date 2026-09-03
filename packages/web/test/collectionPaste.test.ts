@@ -9,7 +9,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { valueFromText } from '../src/components/CollectionTable.tsx';
+// These moved into CollectionCell.tsx when a row's own page needed to draw
+// its cells as well (ADR-0054): one renderer, imported twice.
+import { valueFromText } from '../src/components/CollectionCell.tsx';
 import { MAX_PASTE_ROWS, looksLikeGrid, parsePastedGrid } from '../src/components/pastedGrid.ts';
 import type { CollectionField } from '../src/api/client.ts';
 import { codeOf, stylesOf } from './helpers/source.ts';
