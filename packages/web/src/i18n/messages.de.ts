@@ -770,6 +770,8 @@ export const de: Record<keyof typeof en, string> = {
   'block.outdent': 'Ausrücken',
   'block.indent': 'Einrücken',
   'block.duplicate': 'Duplizieren',
+  'block.assignee': 'Zugewiesen an',
+  'block.assignee.nobody': 'Niemanden',
   'block.lock': 'Diesen Baustein sperren',
   'block.unlock': 'Diesen Baustein entsperren',
   'block.delete': 'Löschen',
@@ -889,6 +891,7 @@ export const de: Record<keyof typeof en, string> = {
   'history.incomplete':
     'Diese Liste beginnt, als die Seite anfing, Fassungen aufzubewahren. Was ' +
     'älter ist, wurde nicht aufgezeichnet und ist nicht wiederherstellbar.',
+  'comment.unknownAuthor': 'Jemand, der nicht mehr dabei ist',
   'comment.none': 'Noch nichts kommentiert. Markiere ein paar Worte und drücke Kommentieren.',
   'comment.open': 'Offen',
   'comment.detachedHeading': 'Text ist weg',
@@ -901,7 +904,6 @@ export const de: Record<keyof typeof en, string> = {
   'comment.reply': 'Antworten',
   'comment.removeThread': 'Den ganzen Verlauf löschen',
   'comment.removeMessage': 'Diese Nachricht löschen',
-  'comment.unknownAuthor': 'Jemand, der nicht mehr dabei ist',
   'comment.collapse': 'Diesen Verlauf zuklappen',
   'comment.expand': 'Diesen Verlauf öffnen',
   'comment.collapseAll': 'Alle zuklappen',

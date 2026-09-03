@@ -192,3 +192,27 @@ test('an archived page is not a place to be sent', async () => {
   );
   assert.deepEqual(list.notifications, []);
 });
+
+test('an assignment is written once however often the page is projected', async () => {
+  // The fault migration 0040 fixes: an assignment has no thread, so the
+  // original UNIQUE (…, thread_id, …) matched nothing and every projection
+  // wrote the row again. Asserted against the database rather than the rule,
+  // because the rule was right and the constraint was not.
+  const anna = await person('gerda');
+
+  for (let round = 0; round < 3; round += 1) {
+    await db.query(
+      `INSERT INTO notifications
+         (user_id, workspace_id, page_id, kind, thread_id, message_id, excerpt)
+       VALUES ($1, $2, $3, 'assignment', NULL, 'block-1', 'Rechnung prüfen')
+       ON CONFLICT DO NOTHING`,
+      [anna.userId, anna.workspaceId, anna.pageId],
+    );
+  }
+
+  const count = await expectJson<{ unread: number }>(
+    await fetch(`${base}/api/inbox/count`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.equal(count.unread, 1, 'three projections, one notification');
+});

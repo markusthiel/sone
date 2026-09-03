@@ -12,7 +12,7 @@ import { test } from 'node:test';
 
 import type { CommentThread } from '@sone/core';
 
-import { notificationsFor } from '../src/notifications/fromComments.js';
+import { assignmentsFor, notificationsFor } from '../src/notifications/fromComments.js';
 
 const thread = (messages: Array<[string, string, string[]?]>): CommentThread => ({
   id: 't1',
@@ -85,4 +85,33 @@ test('the excerpt is a copy, cut short', () => {
   const long = 'x'.repeat(400);
   const out = notificationsFor([thread([['anna', 'Frage?'], ['bert', long]])]);
   assert.equal(out[0]?.excerpt.length, 140);
+});
+
+test('an assigned task tells the person once, not per edit', () => {
+  // The block id stands in for the message id, which is what makes this
+  // idempotent — and what 0039's constraint failed to enforce, because an
+  // assignment has no thread and two NULLs are distinct in Postgres. Migration
+  // 0040 is the fix; this is the shape of what it protects.
+  const blocks = [
+    { id: 'b1', type: 'todo', props: { assignee: 'anna' }, plainText: 'Rechnung prüfen' },
+    { id: 'b2', type: 'todo', props: {}, plainText: 'Nicht zugewiesen' },
+    { id: 'b3', type: 'paragraph', props: { assignee: 'bert' }, plainText: 'Kein Vorgang' },
+  ];
+  const out = assignmentsFor(blocks);
+  assert.deepEqual(
+    out.map((one) => [one.userId, one.kind, one.messageId, one.threadId]),
+    [['anna', 'assignment', 'b1', null]],
+    'only the assigned task, keyed by its own block',
+  );
+});
+
+test('a guest cannot be given a task', () => {
+  // They have no account and therefore no inbox — the same reason a mention of
+  // them is a label (ADR-0046).
+  assert.deepEqual(
+    assignmentsFor([
+      { id: 'b1', type: 'todo', props: { assignee: 'guest:Anna' }, plainText: 'Etwas' },
+    ]),
+    [],
+  );
 });

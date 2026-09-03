@@ -30,6 +30,8 @@ import {
   toggleBlockType,
   currentBlockStyle,
   isBlockLocked,
+  readAssignee,
+  setAssignee,
   setBlockLocked,
   setBlockStyle,
   setFileDisplay,
@@ -65,6 +67,14 @@ interface BlockMenuProps {
   view: EditorView;
   /** Bumped on every transaction, so the button follows the caret. */
   revision: number;
+  /**
+   * The workspace's people, for assigning a task (ADR-0052).
+   *
+   * Passed in rather than fetched here: the page already has them for the
+   * comments panel, and a second fetch of the same list per menu opening would
+   * be a request for something already in hand.
+   */
+  members: Array<{ userId: string; displayName: string }>;
 }
 
 interface Action {
@@ -124,13 +134,24 @@ const APPEARANCE: Record<string, { width: boolean; color: boolean; align: boolea
 function BlockAppearance({
   view,
   node,
+  members,
   run,
 }: {
   view: EditorView;
   node: PMNodeLike;
+  /** Who a task can be given to: the workspace's people (ADR-0052). */
+  members: Array<{ userId: string; displayName: string }>;
   run: (command: Command) => void;
 }): ReactElement | null {
   const { t } = useT();
+  /*
+   * Read from the node this section is about, not from the document.
+   *
+   * My first version looked the node up again by position in the outer
+   * component — a second lookup of something already in hand, which is one more
+   * place to be wrong about which block the menu belongs to.
+   */
+  const assignedHere = readAssignee(node as never);
   const applies = APPEARANCE[node.type.name] ?? {
     // A block type nobody listed still gets alignment, which is meaningful for
     // anything: better a small default than a section that vanishes when
@@ -145,6 +166,30 @@ function BlockAppearance({
   return (
     <div className="block-menu-group">
       <p className="block-menu-label">{t('block.appearance')}</p>
+
+      {/* Whose task it is (ADR-0052).
+        *
+        * Only for a task: a paragraph assigned to somebody is a note about them
+        * rather than work, and offering it everywhere would make the
+        * notification mean less each time it arrives. */}
+      {node.type.name === 'todo' && members.length > 0 && (
+        <div className="block-menu-group">
+          <p className="block-menu-label">{t('block.assignee')}</p>
+          <select
+            className="block-assignee"
+            aria-label={t('block.assignee')}
+            value={assignedHere ?? ''}
+            onChange={(event) => run(setAssignee(event.target.value || null))}
+          >
+            <option value="">{t('block.assignee.nobody')}</option>
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {applies.align && (
         <div className="block-menu-choices" role="group" aria-label={t('block.alignment')}>
@@ -472,7 +517,7 @@ interface PMNodeLike {
   attrs: Record<string, unknown>;
 }
 
-export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | null {
+export function BlockMenu({ view, revision, members }: BlockMenuProps): ReactElement | null {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -776,7 +821,7 @@ export function BlockMenu({ view, revision }: BlockMenuProps): ReactElement | nu
             <ImageDisplay node={range.node} at={range.from} run={run} />
           )}
 
-          <BlockAppearance view={view} node={range.node} run={run} />
+          <BlockAppearance view={view} node={range.node} members={members} run={run} />
 
           {/* Table actions, only inside a table. prosemirror-tables' commands
               refuse elsewhere, and a menu section full of disabled items is

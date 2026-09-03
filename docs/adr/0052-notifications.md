@@ -50,9 +50,21 @@ and whether it has been read.
 - **`mention`** — somebody wrote your name in a comment.
 - **`reply`** — somebody added to a thread you are in. Being in a thread means
   having written a message in it, which is a definition somebody can predict.
-- **`assignment`** — a task assigned to you. Not built here; the kind exists so
-  that adding it later is not a migration, and because a task block already has
-  somewhere to put a person.
+- **`assignment`** — a task assigned to you. **Built**: `assignee` in a task
+  block's props, chosen from the workspace's people in that block's own menu.
+  Only a task can carry one — a paragraph assigned to somebody is a note about
+  them rather than work, and offering it everywhere would make the notification
+  mean less each time it arrives.
+
+  The block's id stands in for the message id, which makes it idempotent: a page
+  is re-projected on every edit and finds the row already there. **Except that it
+  did not.** The unique key in 0039 includes `thread_id`, an assignment has no
+  thread, and two NULLs are distinct in Postgres — so the constraint matched
+  nothing and somebody with one assigned task would have collected a
+  notification per edit of the page. Migration 0040 makes the key
+  `NULLS NOT DISTINCT` rather than putting a fake thread id in the column: the
+  column means "no thread", and saying that with something shaped like a thread
+  id would push the lie one layer down.
 
 Deliberately not: page changed, page shared, workspace joined. Each is defensible
 alone and together they are the feed.

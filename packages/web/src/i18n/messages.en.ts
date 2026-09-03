@@ -725,6 +725,8 @@ export const en = {
   'block.outdent': 'Outdent',
   'block.indent': 'Indent',
   'block.duplicate': 'Duplicate',
+  'block.assignee': 'Assigned to',
+  'block.assignee.nobody': 'Nobody',
   'block.lock': 'Lock this block',
   'block.unlock': 'Unlock this block',
   'block.delete': 'Delete',

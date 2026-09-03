@@ -614,6 +614,10 @@ function Workspace({
              * opens as a page with a name and no visible parent at all.
              */
             trail={sidebarVisible ? [] : ancestorNodes(tree, selected?.id ?? '')}
+            // Already fetched for the comments panel: assigning a task needs
+            // the same list, and fetching it again per menu opening would be a
+            // request for something in hand (ADR-0052).
+            members={members}
             connectionState={connectionState}
             handle={handle}
             pageId={routePageId!}
@@ -1040,6 +1044,10 @@ function ShareSession({
             // No trail here: this path renders a page outside the tree, so
             // there are no folders above it to name.
             trail={[]}
+            // No member list on this path: it renders a page outside the
+            // workspace shell, which is also why there is no trail. Assigning
+            // needs the list, so the control is simply not offered here.
+            members={[]}
             viewingVersion={null}
             comparingVersion={null}
             onCloseVersion={() => {}}
