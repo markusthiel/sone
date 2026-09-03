@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Notification emails can arrive once a day instead of as things happen**
+([ADR-0061](docs/adr/0061-digest.md)) — at eight in the morning in your own
+timezone, and only when something is still unread. There is a "never" too, which
+is one answer rather than three switches. Under You → Notifications.
+
 **A notification can be answered by replying to it**
 ([ADR-0060](docs/adr/0060-reply-by-email.md)). Configure a mailbox under
 Instance → Settings and every notification carries a reply address; answering it

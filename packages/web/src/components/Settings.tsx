@@ -505,6 +505,7 @@ function AppearanceSettings({ session }: { session: SessionInfo }): ReactElement
  */
 function NotificationSettings({ session }: { session: SessionInfo }): ReactElement {
   const { t } = useT();
+  const [schedule, setSchedule] = useState(session.user.emailSchedule ?? 'batched');
   const [mentions, setMentions] = useState(session.user.emailMentions);
   const [assignments, setAssignments] = useState(session.user.emailAssignments);
   const [replies, setReplies] = useState(session.user.emailReplies);
@@ -512,6 +513,7 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
 
   const save = (input: {
     emailMentions?: boolean;
+    emailSchedule?: 'batched' | 'daily' | 'off';
     emailAssignments?: boolean;
     emailReplies?: boolean;
   }): void => {
@@ -527,6 +529,30 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
           deciding this wants to know what leaves the instance, and nothing else
           in the interface tells them. */}
       <p className="settings-note">{t('you.notifications.contents')}</p>
+
+      {/* How often, before what about (ADR-0061).
+        *
+        * First, because it is the answer to the complaint people actually
+        * have — "not every five minutes" — and because "never" here makes the
+        * three below moot, which is easier to see when it is above them. */}
+      <label className="settings-row">
+        <span className="settings-row-label">
+          <b>{t('you.notifications.schedule')}</b>
+          <span>{t('you.notifications.schedule.hint')}</span>
+        </span>
+        <select
+          value={schedule}
+          onChange={(event) => {
+            const chosen = event.target.value as 'batched' | 'daily' | 'off';
+            setSchedule(chosen);
+            save({ emailSchedule: chosen });
+          }}
+        >
+          <option value="batched">{t('you.notifications.schedule.batched')}</option>
+          <option value="daily">{t('you.notifications.schedule.daily')}</option>
+          <option value="off">{t('you.notifications.schedule.off')}</option>
+        </select>
+      </label>
 
       <label className="settings-row">
         <span className="settings-row-label">

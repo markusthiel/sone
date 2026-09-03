@@ -108,6 +108,8 @@ export interface SessionInfo {
     emailMentions: boolean;
     emailAssignments: boolean;
     emailReplies: boolean;
+    /** How often, as opposed to about what (ADR-0061). */
+    emailSchedule?: 'batched' | 'daily' | 'off';
     locale: string | null;
     timezone: string | null;
     isInstanceAdmin: boolean;
@@ -1429,6 +1431,8 @@ export const api = {
     locale?: string | null;
     timezone?: string | null;
     emailMentions?: boolean;
+    /** How often, as opposed to about what (ADR-0061). */
+    emailSchedule?: 'batched' | 'daily' | 'off';
     emailAssignments?: boolean;
     emailReplies?: boolean;
   }) => request<void>('/api/auth/profile', { method: 'PATCH', body: JSON.stringify(input) }),

@@ -74,7 +74,25 @@ export async function claimForEmail(pool: Pool): Promise<Candidate[]> {
     LEFT JOIN users a ON a.id = n.actor_id
         WHERE n.emailed_at IS NULL
           AND n.read_at IS NULL
-          AND n.created_at < now() - ($1 || ' minutes')::interval
+          -- Two schedules, one query (ADR-0061).
+          --
+          -- batched waits the few minutes it always has. daily waits until
+          -- eight in the reader own timezone: a digest at 07:00 UTC is the
+          -- middle of the night for somebody, and a mail arriving at the wrong
+          -- hour is a mail that gets filed unread.
+          --
+          -- A missing timezone falls back to UTC rather than to no mail: an
+          -- account that never set one should still hear from us.
+          --
+          -- No backticks in here. This is the sixth time a backtick inside a
+          -- template literal has ended the literal in this project.
+          AND CASE u.email_schedule
+                WHEN 'off' THEN false
+                WHEN 'daily' THEN
+                  extract(hour from now() AT TIME ZONE coalesce(u.timezone, 'UTC')) = 8
+                  AND n.created_at < now() - interval '1 hour'
+                ELSE n.created_at < now() - ($1 || ' minutes')::interval
+              END
           -- Deactivated accounts and accounts with no address get no mail, and
           -- neither does a kind somebody has turned off.
           AND u.email IS NOT NULL
