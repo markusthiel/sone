@@ -105,11 +105,10 @@ export interface SessionInfo {
     displayName: string;
     isGuest: boolean;
     /** Whether to be emailed, per kind (ADR-0058). */
-    emailMentions: boolean;
-    emailAssignments: boolean;
-    emailReplies: boolean;
-    /** How often, as opposed to about what (ADR-0061). */
-    emailSchedule?: 'batched' | 'daily' | 'off';
+    /** When each kind is worth a mail (ADR-0061, amended). */
+    mentionsWhen?: 'immediately' | 'daily' | 'off';
+    assignmentsWhen?: 'immediately' | 'daily' | 'off';
+    repliesWhen?: 'immediately' | 'daily' | 'off';
     /** A mail about what changed, off unless chosen (ADR-0062). */
     activityDigest?: 'off' | 'daily' | 'weekly';
     locale: string | null;
@@ -1432,11 +1431,9 @@ export const api = {
     displayName?: string;
     locale?: string | null;
     timezone?: string | null;
-    emailMentions?: boolean;
-    /** How often, as opposed to about what (ADR-0061). */
-    emailSchedule?: 'batched' | 'daily' | 'off';
-    emailAssignments?: boolean;
-    emailReplies?: boolean;
+    mentionsWhen?: 'immediately' | 'daily' | 'off';
+    assignmentsWhen?: 'immediately' | 'daily' | 'off';
+    repliesWhen?: 'immediately' | 'daily' | 'off';
   }) => request<void>('/api/auth/profile', { method: 'PATCH', body: JSON.stringify(input) }),
 };
 

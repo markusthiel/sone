@@ -38,12 +38,27 @@ An activity digest stays deliberately undecided below.
 
 ### It is a choice per person, not per instance
 
-`as it happens`, `once a day`, or `never` — beside the three per-kind ticks that
-already exist, and answering a different question from them. The kinds say *what*
-is worth a mail; the schedule says *how often*. Somebody who wants mentions
+~~`as it happens`, `once a day`, or `never` — beside the three per-kind ticks,
+answering a different question from them. Somebody who wants mentions
 immediately and replies daily is asking for something this deliberately does not
 offer: two schedules is a matrix, and a matrix in a settings screen is a thing
-people abandon halfway.
+people abandon halfway.~~
+
+**Amended: it is one answer per kind, and the objection was to a design nobody
+proposed.**
+
+"Two schedules is a matrix" is true of a schedule *times* a set of ticks. But the
+thing actually wanted is not that: it is one control per kind — immediately, in
+the daily mail, or never — replacing the tick. **Three controls where there were
+four.** Simpler than what I built, not more complex.
+
+And what it makes sayable is the ordinary thing: tell me at once when somebody
+mentions me, let the rest wait until tomorrow. I refused that on the strength of
+an argument against a grid, having never drawn the version without one.
+
+The old columns migrate into the new ones per account, so nobody's mail changes:
+a kind that was off stays off, and one that was on takes whatever schedule the
+account had.
 
 ### It is sent in the person's own morning
 

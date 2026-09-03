@@ -74,33 +74,33 @@ export async function claimForEmail(pool: Pool): Promise<Candidate[]> {
     LEFT JOIN users a ON a.id = n.actor_id
         WHERE n.emailed_at IS NULL
           AND n.read_at IS NULL
-          -- Two schedules, one query (ADR-0061).
+          -- When this kind of thing is worth a mail, for this person
+          -- (ADR-0061, amended).
           --
-          -- batched waits the few minutes it always has. daily waits until
-          -- eight in the reader own timezone: a digest at 07:00 UTC is the
-          -- middle of the night for somebody, and a mail arriving at the wrong
-          -- hour is a mail that gets filed unread.
+          -- One clause, not two. It used to be a schedule column AND'ed with a
+          -- per-kind boolean, which could not express "tell me about mentions
+          -- at once and the rest tomorrow" -- the ordinary thing to want. Each
+          -- kind now carries its own answer, and this is where they meet.
           --
-          -- A missing timezone falls back to UTC rather than to no mail: an
-          -- account that never set one should still hear from us.
+          -- immediately: the few minutes it always waited.
+          -- daily: eight in the reader own timezone, which is why a digest is
+          --   not sent at 07:00 UTC in the middle of somebody night.
+          -- off: never.
           --
-          -- No backticks in here. This is the sixth time a backtick inside a
-          -- template literal has ended the literal in this project.
-          AND CASE u.email_schedule
+          -- No backticks in here. That mistake has ended a template literal six
+          -- times in this project.
+          AND u.email IS NOT NULL
+          AND u.deactivated_at IS NULL
+          AND CASE (CASE n.kind
+                      WHEN 'mention' THEN u.mentions_when
+                      WHEN 'assignment' THEN u.assignments_when
+                      ELSE u.replies_when
+                    END)
                 WHEN 'off' THEN false
                 WHEN 'daily' THEN
                   extract(hour from now() AT TIME ZONE coalesce(u.timezone, 'UTC')) = 8
                   AND n.created_at < now() - interval '1 hour'
                 ELSE n.created_at < now() - ($1 || ' minutes')::interval
-              END
-          -- Deactivated accounts and accounts with no address get no mail, and
-          -- neither does a kind somebody has turned off.
-          AND u.email IS NOT NULL
-          AND u.deactivated_at IS NULL
-          AND CASE n.kind
-                WHEN 'mention' THEN u.email_mentions
-                WHEN 'assignment' THEN u.email_assignments
-                ELSE u.email_replies
               END
         ORDER BY n.created_at
         FOR UPDATE OF n SKIP LOCKED

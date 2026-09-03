@@ -323,6 +323,7 @@ export const de: Record<keyof typeof en, string> = {
     'Woran geantwortet wird. SONE hängt pro Benachrichtigung ein Token an ' +
     '(sone+token@…), damit ein Postfach für alle reicht — es muss diese ' +
     'Adressen in dasselbe Postfach zustellen.',
+  'admin.mail.section.hint': 'Benachrichtigungen senden und Antworten darauf lesen.',
   'admin.mail': 'Mailserver',
   'admin.mail.hint':
     'Für Benachrichtigungs-E-Mails. Ohne Host wird nichts versendet und nichts ' +
@@ -451,6 +452,9 @@ export const de: Record<keyof typeof en, string> = {
     'Berechtigungssystem.',
   // Diese drei sprechen von „mich" und „mir" — die eigene Person, nicht die
   // angesprochene. Das ist in beiden Anredeformen gleich.
+  'you.when.immediately': 'Sofort per E-Mail',
+  'you.when.daily': 'In der Tagesmail',
+  'you.when.off': 'Keine E-Mail',
   'you.activity': 'Eine Mail darüber, was sich geändert hat',
   'you.activity.hint':
     'Eine Liste geänderter Seiten aus den eigenen Workspaces — Titel und Namen, ' +

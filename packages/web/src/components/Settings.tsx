@@ -505,16 +505,18 @@ function AppearanceSettings({ session }: { session: SessionInfo }): ReactElement
  */
 function NotificationSettings({ session }: { session: SessionInfo }): ReactElement {
   const { t } = useT();
-  const [schedule, setSchedule] = useState(session.user.emailSchedule ?? 'batched');
+  const [mentionsWhen, setMentionsWhen] = useState(session.user.mentionsWhen ?? 'immediately');
+  const [assignmentsWhen, setAssignmentsWhen] = useState(
+    session.user.assignmentsWhen ?? 'immediately',
+  );
+  const [repliesWhen, setRepliesWhen] = useState(session.user.repliesWhen ?? 'off');
   const [activity, setActivity] = useState(session.user.activityDigest ?? 'off');
-  const [mentions, setMentions] = useState(session.user.emailMentions);
-  const [assignments, setAssignments] = useState(session.user.emailAssignments);
-  const [replies, setReplies] = useState(session.user.emailReplies);
   const [error, setError] = useState<string | null>(null);
 
   const save = (input: {
-    emailMentions?: boolean;
-    emailSchedule?: 'batched' | 'daily' | 'off';
+    mentionsWhen?: 'immediately' | 'daily' | 'off';
+    assignmentsWhen?: 'immediately' | 'daily' | 'off';
+    repliesWhen?: 'immediately' | 'daily' | 'off';
     activityDigest?: 'off' | 'daily' | 'weekly';
     emailAssignments?: boolean;
     emailReplies?: boolean;
@@ -532,36 +534,15 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
           in the interface tells them. */}
       <p className="settings-note">{t('you.notifications.contents')}</p>
 
-      {/* How often, before what about (ADR-0061).
-        *
-        * First, because it is the answer to the complaint people actually
-        * have — "not every five minutes" — and because "never" here makes the
-        * three below moot, which is easier to see when it is above them. */}
-      <label className="settings-row">
-        <span className="settings-row-label">
-          <b>{t('you.notifications.schedule')}</b>
-          <span>{t('you.notifications.schedule.hint')}</span>
-        </span>
-        <select
-          value={schedule}
-          onChange={(event) => {
-            const chosen = event.target.value as 'batched' | 'daily' | 'off';
-            setSchedule(chosen);
-            save({ emailSchedule: chosen });
-          }}
-        >
-          <option value="batched">{t('you.notifications.schedule.batched')}</option>
-          <option value="daily">{t('you.notifications.schedule.daily')}</option>
-          <option value="off">{t('you.notifications.schedule.off')}</option>
-        </select>
-      </label>
-
       {/* A different mail, and a different question (ADR-0062).
         *
-        * Below the three ticks rather than beside them: those are about mail
-        * addressed to somebody, this is about a list of what everybody did.
-        * Off unless chosen, because an unasked-for list of what colleagues did
-        * is what people mean when they call something spam. */}
+        * Below the per-kind answers rather than among them: those are about
+        * mail addressed to somebody, this is a list of what everybody did. Off
+        * unless chosen.
+        *
+        * Restored after my own edit swallowed it: the range I replaced ran from
+        * the old schedule row to the last tick, and this select sat between
+        * them. The guard for messages defined and never used is what noticed. */}
       <label className="settings-row">
         <span className="settings-row-label">
           <b>{t('you.activity')}</b>
@@ -581,48 +562,38 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
         </select>
       </label>
 
-      <label className="settings-row">
-        <span className="settings-row-label">
-          <b>{t('you.notifications.mentions')}</b>
-        </span>
-        <input
-          type="checkbox"
-          checked={mentions}
-          onChange={(event) => {
-            setMentions(event.target.checked);
-            save({ emailMentions: event.target.checked });
-          }}
-        />
-      </label>
-
-      <label className="settings-row">
-        <span className="settings-row-label">
-          <b>{t('you.notifications.assignments')}</b>
-        </span>
-        <input
-          type="checkbox"
-          checked={assignments}
-          onChange={(event) => {
-            setAssignments(event.target.checked);
-            save({ emailAssignments: event.target.checked });
-          }}
-        />
-      </label>
-
-      <label className="settings-row">
-        <span className="settings-row-label">
-          <b>{t('you.notifications.replies')}</b>
-          <span>{t('you.notifications.replies.hint')}</span>
-        </span>
-        <input
-          type="checkbox"
-          checked={replies}
-          onChange={(event) => {
-            setReplies(event.target.checked);
-            save({ emailReplies: event.target.checked });
-          }}
-        />
-      </label>
+      {/* One answer per kind, replacing a tick plus a separate schedule
+        * (ADR-0061, amended).
+        *
+        * The record refused this, arguing "two schedules is a matrix". The
+        * design that was wanted is not a matrix: it is one control per kind,
+        * and "at once when I am mentioned, the rest tomorrow" is the ordinary
+        * thing to want. Three controls where there were four. */}
+      {(
+        [
+          ['mentions', mentionsWhen, setMentionsWhen, 'mentionsWhen'],
+          ['assignments', assignmentsWhen, setAssignmentsWhen, 'assignmentsWhen'],
+          ['replies', repliesWhen, setRepliesWhen, 'repliesWhen'],
+        ] as const
+      ).map(([kind, value, set, field]) => (
+        <label className="settings-row" key={kind}>
+          <span className="settings-row-label">
+            <b>{t(`you.notifications.${kind}` as const)}</b>
+          </span>
+          <select
+            value={value}
+            onChange={(event) => {
+              const chosen = event.target.value as 'immediately' | 'daily' | 'off';
+              set(chosen);
+              save({ [field]: chosen });
+            }}
+          >
+            <option value="immediately">{t('you.when.immediately')}</option>
+            <option value="daily">{t('you.when.daily')}</option>
+            <option value="off">{t('you.when.off')}</option>
+          </select>
+        </label>
+      ))}
 
       {error && <p className="error">{messageFor(error)}</p>}
     </section>

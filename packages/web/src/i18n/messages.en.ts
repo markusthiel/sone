@@ -298,6 +298,7 @@ export const en = {
     'What people reply to. SONE adds a token to it per notification ' +
     '(sone+token@…), so one mailbox serves them all — the mailbox has to ' +
     'deliver those to the same inbox.',
+  'admin.mail.section.hint': 'Sending notifications, and reading replies to them.',
   'admin.mail': 'Mail server',
   'admin.mail.hint':
     'For notification emails. Without a host nothing is sent and nothing is ' +
@@ -414,6 +415,9 @@ export const en = {
   'you.notifications.contents':
     'A notification email says who did what and on which page, with a link. It ' +
     'never contains the comment itself — a mailbox is not a permission system.',
+  'you.when.immediately': 'Email me at once',
+  'you.when.daily': 'In the daily mail',
+  'you.when.off': 'No email',
   'you.activity': 'A mail about what changed',
   'you.activity.hint':
     'A list of pages that changed in your workspaces — titles and names, never ' +

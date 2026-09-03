@@ -13,7 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Each kind of notification now has its own answer**: at once, in the daily
+mail, or never ([ADR-0061](docs/adr/0061-digest.md)). "Tell me immediately when
+somebody mentions me, let the rest wait until tomorrow" was not sayable before.
+Existing accounts keep exactly what they had.
+
+**Mail is its own area in the administration**, not a heading inside the
+instance settings — it had grown to six SMTP fields, four IMAP fields and a test
+button under a heading about who may sign up.
 
 ## 0.6.0
 
