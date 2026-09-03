@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted. Built so far: the settings, the storage, and the composer — which is
+the part that carries the central decision. The sending is not built; what is
+missing is listed at the end.
 
 ## Context
 
@@ -107,6 +109,31 @@ The `notifications` table gains one column: when its mail was sent, or null. Not
 a second table — the thing being emailed and the thing being shown are the same
 row, and two tables would eventually disagree about whether something had been
 delivered.
+
+## Built so far
+
+The instance settings (`smtpHost`, `smtpPort`, `smtpUser`, `smtpFrom`,
+`smtpSecurity`, `emailDetail`), with the **password only from the environment**
+for the same reason as the OIDC secret (ADR-0024): a secret in a table is a
+secret in every backup.
+
+The storage: `notifications.emailed_at`, a partial index over what is still
+unread and unmailed, and three per-person preferences. `emailed_at` being null
+covers "not yet", "no relay" and "does not want mail" on purpose — the sender
+decides afresh each time, and a column recording *why* would be a second place
+for that decision to live.
+
+And the composer, separate from the sending so the rule can be tested without a
+relay — which is the part worth testing. Its first test searches the output for
+content rather than checking wording, so a future change that adds an excerpt
+"for context" has to make it fail.
+
+## Still to build
+
+The sending itself: an SMTP client, the batching job on the five-minute delay,
+the read-before-send check, the per-person settings screen, and failed sends in
+the administration area. Until then nothing is offered in the interface and no
+mail is attempted, which is the same state as an instance with no relay.
 
 ## What is deliberately not decided
 

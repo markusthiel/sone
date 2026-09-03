@@ -219,6 +219,18 @@ async function main(): Promise<void> {
     instanceName: 'SONE',
     allowWorkspaceCreation: true,
     defaultLocale: 'en',
+    /*
+     * No relay by default, which means no email (ADR-0058).
+     *
+     * From the environment so a deployment can set it without an administrator
+     * filling a form, and overridable in the database so one who has can.
+     */
+    smtpHost: config.smtpHost ?? '',
+    smtpPort: config.smtpPort ?? '587',
+    smtpUser: config.smtpUser ?? '',
+    smtpFrom: config.smtpFrom ?? '',
+    smtpSecurity: 'starttls',
+    emailDetail: 'title',
     // "du" unless an instance says otherwise: it is what the interface said
     // before the setting existed, and a running instance should not change its
     // tone because it was upgraded.
