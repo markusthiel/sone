@@ -1178,6 +1178,10 @@ export const api = {
       }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
 
+  /** Send one test mail to the asking administrator (ADR-0058). */
+  testMail: () =>
+    post<{ sentTo: string | null; problem?: string }>('/api/admin/mail/test', {}),
+
   /** Searches this person has kept in this workspace (ADR-0050). */
   savedSearches: (workspaceId: string) =>
     request<{ searches: Array<{ id: string; name: string; query: string }> }>(

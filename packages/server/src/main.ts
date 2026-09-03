@@ -52,6 +52,7 @@ import { WORKSPACE_EXPORT, workspaceExportHandler } from './export/workspaceJob.
 import { registerJobRoutes } from './jobs/routes.js';
 import { registerInboxRoutes } from './notifications/routes.js';
 import { RECOMMENDED_COST, passwordCost } from './auth/password.js';
+import { sendMail } from './mail/send.js';
 import { runOneJob, type Job, type JobContext } from './jobs/runner.js';
 import {
   EMAIL_NOTIFICATIONS,
@@ -384,6 +385,18 @@ async function main(): Promise<void> {
   registerAdminRoutes(router, {
     pool,
     oidcClientSecret: config.oidcClientSecret,
+    // One mail to the administrator asking, so a wrong password says so
+    // immediately instead of becoming a failed job (ADR-0058).
+    sendTestMail: (relay, to) =>
+      sendMail(relay, {
+        to,
+        subject: 'SONE: mail works',
+        body:
+          'This is the test mail from your SONE instance.\n\n' +
+          'If you are reading it, the mail server settings are correct and ' +
+          'notification emails will reach people.\n',
+      }),
+    smtpPassword: config.smtpPassword,
     settings,
     version: SONE_VERSION,
     commit: SONE_COMMIT,

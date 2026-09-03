@@ -176,7 +176,28 @@ each enqueuing the same batch. The preference is read at claim time rather than
 at write time, so turning mail off stops what is already waiting instead of
 having decided somebody's next week.
 
+### A test button, to the administrator's own address
+
+Added after the settings shipped, because a wrong password otherwise surfaces
+only as a failed job in the maintenance panel — true, and an hour later than
+somebody wanted to know.
+
+**To their own address, never one they type.** A form that mails an arbitrary
+address is an open relay behind a sign-in: worth an afternoon to whoever has
+phished an admin password, and worth nothing to the operator, who is testing
+their own relay and has an address already.
+
+**Synchronously, and it reports the relay's own words.** "535 authentication
+failed" is the answer; "sending failed" is a sentence that costs an hour. A
+refusal comes back as 200, because a failed test is a *successful* test — it did
+what it was asked and found something, and a 500 would tell the browser's
+console a story about a server fault rather than a mistyped password.
+
 ### Set in the administration area, except the password
+
+In a section of its own, under its own heading: they arrived in the middle of the
+general settings, where six mail fields read as a continuation of "who may sign
+up". A heading is what tells somebody where one subject ends and another begins.
 
 The five values that describe a relay — host, port, encryption, user, sender —
 and the detail setting are ordinary instance settings: an administrator changes

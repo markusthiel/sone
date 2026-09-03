@@ -236,6 +236,34 @@ export function InstancePanel(): ReactElement {
             />
           </div>
 
+          <label className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('admin.mayCreateWorkspaces')}</b>
+              <span>
+                {t('admin.mayCreateWorkspaces.hint')}
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.allowWorkspaceCreation}
+              disabled={saving}
+              onChange={(event) =>
+                void update({ allowWorkspaceCreation: event.target.checked })
+              }
+            />
+          </label>
+        </div>
+      </section>
+
+      {/* Mail in a section of its own (ADR-0058).
+        *
+        * It arrived in the middle of the general settings, so six mail
+        * fields read as a continuation of "who may sign up" — a heading is
+        * what tells somebody where one subject ends and another begins. */}
+      <section className="settings-section">
+        <h2>{t('admin.mail')}</h2>
+        <p className="settings-note">{t('admin.mail.hint')}</p>
+
           {/* Where mail goes (ADR-0058).
             *
             * Here rather than only in the environment, which is what they were:
@@ -372,23 +400,8 @@ export function InstancePanel(): ReactElement {
             </select>
           </div>
 
-          <label className="settings-row">
-            <span className="settings-row-label">
-              <b>{t('admin.mayCreateWorkspaces')}</b>
-              <span>
-                {t('admin.mayCreateWorkspaces.hint')}
-              </span>
-            </span>
-            <input
-              type="checkbox"
-              checked={settings.allowWorkspaceCreation}
-              disabled={saving}
-              onChange={(event) =>
-                void update({ allowWorkspaceCreation: event.target.checked })
-              }
-            />
-          </label>
-        </div>
+
+        <MailTest />
       </section>
     </>
   );
@@ -401,6 +414,64 @@ export function InstancePanel(): ReactElement {
  * otherwise an afternoon: a database value silently overriding the environment
  * looks like the environment being ignored.
  */
+/**
+ * Send one test mail, and say what came back (ADR-0058).
+ *
+ * The relay's own words, not a paraphrase: "535 authentication failed" is the
+ * answer, and "sending failed" is a sentence that costs somebody an hour. It
+ * goes to the administrator's own address — a field for an arbitrary one would
+ * make the instance an open relay with a sign-in.
+ */
+function MailTest(): ReactElement {
+  const { t } = useT();
+  const [state, setState] = useState<
+    { kind: 'idle' | 'sending' } | { kind: 'sent'; to: string } | { kind: 'failed'; why: string }
+  >({ kind: 'idle' });
+
+  return (
+    <div className="settings-actions mail-test">
+      <button
+        type="button"
+        className="btn subtle"
+        disabled={state.kind === 'sending'}
+        onClick={() => {
+          setState({ kind: 'sending' });
+          void api
+            .testMail()
+            .then((result) => {
+              setState(
+                result.sentTo
+                  ? { kind: 'sent', to: result.sentTo }
+                  : { kind: 'failed', why: result.problem ?? '' },
+              );
+            })
+            .catch((err: unknown) => {
+              setState({
+                kind: 'failed',
+                why: err instanceof ApiError ? messageFor(err.code) : 'network_error',
+              });
+            });
+        }}
+      >
+        {state.kind === 'sending' ? t('admin.mail.testing') : t('admin.mail.test')}
+      </button>
+
+      {state.kind === 'sent' && (
+        <p className="settings-note">{t('admin.mail.testSent', { address: state.to })}</p>
+      )}
+      {state.kind === 'failed' && (
+        <p className="error">
+          {t('admin.mail.testFailed')}
+          {/* The relay's text, in a monospaced face: it is a machine's answer
+              and reads as one, and somebody is going to paste it into a
+              search. */}
+          <code className="mail-test-reason">{state.why}</code>
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SettingSource({ source }: { source: string | undefined }): ReactElement | null {
   const { t } = useT();
   if (source !== 'database') return null;

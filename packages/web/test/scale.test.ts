@@ -2222,3 +2222,26 @@ test('the formula field completes names, and Escape does not lose the formula', 
    * teaches people not to improve comments. The decision lives in ADR-0056.
    */
 });
+
+test('the mail settings are their own section, with a test that names the relay´s answer', () => {
+  const admin = codeOf(new URL('../src/components/Admin.tsx', import.meta.url));
+
+  // Its own section: the six mail fields arrived in the middle of the general
+  // settings and read as a continuation of "who may sign up" (ADR-0058).
+  assert.match(admin, /<h2>\{t\('admin\.mail'\)\}<\/h2>/);
+  // And the mail fields are inside it rather than above it.
+  assert.ok(
+    admin.indexOf("t('admin.mail')") < admin.indexOf("settings.smtpHost"),
+    'the heading comes before the fields it heads',
+  );
+
+  // The relay's own words, not a paraphrase: "535 authentication failed" is the
+  // answer and "sending failed" costs somebody an hour.
+  assert.match(admin, /className="mail-test-reason">\{state\.why\}/);
+
+  // To the administrator's own address, with no field for another: a form that
+  // mails an arbitrary address is an open relay with a sign-in.
+  const routes = codeOf(new URL('../../server/src/admin/routes.ts', import.meta.url));
+  assert.match(routes, /SELECT email, display_name FROM users WHERE id = \$1/);
+  assert.doesNotMatch(admin, /name="testAddress"|placeholder=\{t\('admin\.mail\.testTo'\)\}/);
+});
