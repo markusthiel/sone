@@ -25,6 +25,26 @@ what a guest has already synced.
 `tag:rechnung assigned:me` a name and it waits under the empty search field.
 Kept per person, because `assigned:me` means something different to everybody.
 
+## 0.4.0
+
+Collections became a database: a column can point at rows in another collection,
+another can count or total what points back, and a third can work out a value
+from the row's own cells. Along the way a collection stopped sending every row it
+has on every load, comments reached the people they were addressed to, and a page
+can be compared with what it said before.
+
+**Operator action: none.** Five migrations apply on start; upgrading from 0.3.0
+has been tested in place, and a collection row written by 0.3.0 comes through
+with its values intact.
+
+**Both contract versions are unchanged** — the document schema is still 4 and the
+sync protocol still 1 — so a client from 0.3.0 keeps working against this server
+and the other way round. That is a quieter release than the last one in the only
+way that matters to an operator.
+
+One setting is new, and optional: nothing. The features below need no
+configuration.
+
 **Two dozen refusals now say what is wrong** instead of "an unknown error
 occurred" — from "a workspace has to keep one owner" to "that value does not fit
 this column". A new check makes sure a refusal the server can send either has a
@@ -155,26 +175,6 @@ per-workspace zone yet, and the record says so.
 
 **Fixed: a workspace's tint reached the menus and not the sidebar.** The sidebar
 sits on its own surface token, which the first version of the tint missed.
-
-## 0.4.0
-
-Collections became a database: a column can point at rows in another collection,
-another can count or total what points back, and a third can work out a value
-from the row's own cells. Along the way a collection stopped sending every row it
-has on every load, comments reached the people they were addressed to, and a page
-can be compared with what it said before.
-
-**Operator action: none.** Five migrations apply on start; upgrading from 0.3.0
-has been tested in place, and a collection row written by 0.3.0 comes through
-with its values intact.
-
-**Both contract versions are unchanged** — the document schema is still 4 and the
-sync protocol still 1 — so a client from 0.3.0 keeps working against this server
-and the other way round. That is a quieter release than the last one in the only
-way that matters to an operator.
-
-One setting is new, and optional: nothing. The features below need no
-configuration.
 
 ## 0.3.0
 

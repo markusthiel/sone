@@ -57,6 +57,15 @@ on pull.
 
 5. Write the CHANGELOG entry. Operator action first.
 
+   **Move the entries into it.** Renaming "Unreleased" to the version, or
+   inserting a version heading *above* the entries, both leave the notes under
+   a heading nobody reads for a version they have installed. 0.4.0 was tagged
+   that way: its section held the summary and the sentence "the features below
+   need no configuration", and below it there was nothing. `pnpm release`
+   refuses both shapes now — a section with fewer than two entries, and
+   anything left under "Unreleased" — but the fix is to write it the right way
+   round, not to be caught.
+
 6. Set the version in the root `package.json`, dropping `-dev`.
 
 7. Tag, annotated:
