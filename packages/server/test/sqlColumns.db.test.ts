@@ -38,25 +38,65 @@ function sources(dir: URL): Array<{ name: string; text: string }> {
   return out;
 }
 
-const STATEMENT = /`([^`]*(?:SELECT|INSERT|UPDATE|DELETE)[^`]*)`/gis;
+/*
+ * A literal that *begins* with SQL, in one of its real forms.
+ *
+ * Two false-positive sources, both found by reading what the check had
+ * collected rather than by trusting its silence:
+ *
+ * - `` `[^`]*` `` matches the text *between* two unrelated template literals,
+ *   so ordinary JavaScript was being scanned as SQL. Anchoring at the start of
+ *   the literal fixes it.
+ * - `WITH` is also an English word, so a JSDoc block beginning "with no numeric
+ *   part…" was read as a statement. The real form is `WITH name AS (`.
+ *
+ * Together those took the unchecked references from 76 to 26.
+ */
+const STATEMENT =
+  /`(\s*(?:--[^\n]*\n\s*)*(?:SELECT\s|INSERT\s+INTO\s|UPDATE\s+[a-z_]+\s|DELETE\s+FROM\s|WITH\s+[a-z_]+\s+AS\s*\()[^`]*)`/gis;
 const TARGET = /(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)(?:\s+(?:AS\s+)?([a-z][a-z_]*))?/gi;
 const REFERENCE = /\b([a-z][a-z_]*)\.([a-z_]+)\b/g;
 
-/** Which columns a statement names, resolved through its own aliases. */
-export function columnsNamed(sql: string, tables: ReadonlySet<string>): string[] {
+/**
+ * Which columns a statement names, resolved through its own aliases — and how
+ * many references it could not resolve.
+ *
+ * The second number is the point. An unresolved prefix means the reference is
+ * *not checked*, and a checker that does not say how much it skipped is a
+ * checker whose silence means nothing.
+ */
+export function columnsNamed(
+  sql: string,
+  tables: ReadonlySet<string>,
+): { named: string[]; unresolved: string[] } {
+  // Comments hold prose and interpolations hold JavaScript; neither is SQL, and
+  // both were producing nonsense before they were stripped — "silently" and
+  // "the" appeared in an earlier version's list of table names.
+  const body = sql.replace(/--[^\n]*/g, '').replace(/\$\{[^}]*\}/g, ' ');
   const alias = new Map<string, string>();
-  for (const [, table, short] of sql.matchAll(TARGET)) {
+  for (const [, table, short] of body.matchAll(TARGET)) {
     if (!table || !tables.has(table)) continue;
     alias.set(short ?? table, table);
     alias.set(table, table);
   }
 
-  const out: string[] = [];
-  for (const [, prefix, column] of sql.matchAll(REFERENCE)) {
-    const table = prefix ? alias.get(prefix) : undefined;
-    if (table && column) out.push(`${table}.${column}`);
+  // Names a statement defines for itself: a CTE, or a subquery's alias. Out of
+  // scope by decision rather than by accident — resolving them means parsing
+  // SQL, and this is a reader, not a parser.
+  const own = new Set([
+    ...[...body.matchAll(/(?:WITH|,)\s*([a-z_][a-z_0-9]*)\s+AS\s*\(/gi)].map((one) => one[1]),
+    ...[...body.matchAll(/\)\s+(?:AS\s+)?([a-z][a-z_0-9]*)/gi)].map((one) => one[1]),
+  ]);
+
+  const named: string[] = [];
+  const unresolved: string[] = [];
+  for (const [, prefix, column] of body.matchAll(REFERENCE)) {
+    if (!prefix || !column) continue;
+    const table = alias.get(prefix);
+    if (table) named.push(`${table}.${column}`);
+    else if (!own.has(prefix)) unresolved.push(`${prefix}.${column}`);
   }
-  return out;
+  return { named, unresolved };
 }
 
 // `hasDatabase` is a boolean, not a function, and the skip goes on the describe
@@ -91,7 +131,7 @@ describe(
       tables,
     );
     assert.ok(
-      wrong.some((one) => !known.has(one)),
+      wrong.named.some((one) => !known.has(one)),
       'a wrong column is noticed',
     );
 
@@ -100,7 +140,7 @@ describe(
       tables,
     );
     assert.deepEqual(
-      right.filter((one) => !known.has(one)),
+      right.named.filter((one) => !known.has(one)),
       [],
       'correct SQL is not flagged',
     );
@@ -111,12 +151,35 @@ describe(
     for (const file of sources(new URL('../src/', import.meta.url))) {
       for (const [, sql] of file.text.matchAll(STATEMENT)) {
         if (!sql) continue;
-        for (const ref of columnsNamed(sql, tables)) {
+        for (const ref of columnsNamed(sql, tables).named) {
           if (!known.has(ref)) missing.push(`${file.name}: ${ref}`);
         }
       }
     }
     assert.deepEqual([...new Set(missing)].sort(), []);
   });
-  },
+  
+  test('and it says how much it did not check', () => {
+    /*
+     * A ratchet on the blind spot, not a pass mark.
+     *
+     * 26 references sit behind a prefix this reader cannot resolve — a CTE's
+     * inner alias, a subquery's name. Those are *not checked*, and a checker
+     * that does not say so has a silence that means nothing. The number may
+     * fall; if it rises, somebody has written SQL this cannot see into, and
+     * that is worth one minute of their attention rather than a surprise later.
+     */
+    let unresolved = 0;
+    for (const file of sources(new URL('../src/', import.meta.url))) {
+      for (const [, sql] of file.text.matchAll(STATEMENT)) {
+        if (!sql) continue;
+        unresolved += columnsNamed(sql, tables).unresolved.length;
+      }
+    }
+    assert.ok(
+      unresolved <= 26,
+      `${unresolved} unchecked references, was 26 — new SQL this reader cannot see into`,
+    );
+  });
+},
 );
