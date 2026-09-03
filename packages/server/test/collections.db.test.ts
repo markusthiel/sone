@@ -236,6 +236,93 @@ describe(
 
     // --- where a collection lives --------------------------------------------
 
+    test('a relation column must say where it points', async () => {
+      // Not defaulted to "anywhere": a column that can point at any page gives
+      // a picker over the whole workspace and a rollup with nothing to
+      // aggregate, because the other side has no fields in common (ADR-0054).
+      const session = await setup();
+      const invoices = await collectionOn(
+        session,
+        await create(session, 'Rechnungen', 'page', session.rootFolder),
+      );
+
+      await expectStatus(
+        await addField(session, invoices, { name: 'Kunde', fieldType: 'relation' }),
+        422,
+      );
+
+      const clients = await collectionOn(
+        session,
+        await create(session, 'Kunden', 'page', session.rootFolder),
+      );
+      await expectJson(
+        await addField(session, invoices, {
+          name: 'Kunde',
+          fieldType: 'relation',
+          config: { collectionId: clients },
+        }),
+        201,
+      );
+    });
+
+    test('a relation cell may only point into the collection it names', async () => {
+      // A relation crosses pages, so an unchecked id is a way to make a cell
+      // point at another collection — and then the rollups on the other side
+      // aggregate fields that are not there (ADR-0054).
+      const session = await setup();
+      const invoices = await collectionOn(
+        session,
+        await create(session, 'Rechnungen 2', 'page', session.rootFolder),
+      );
+      const clients = await collectionOn(
+        session,
+        await create(session, 'Kunden 2', 'page', session.rootFolder),
+      );
+
+      const field = await expectJson<{ id: string }>(
+        await addField(session, invoices, {
+          name: 'Kunde',
+          fieldType: 'relation',
+          config: { collectionId: clients },
+        }),
+        201,
+      );
+
+      const invoice = await addRow(session, invoices, 'R-001');
+      const client = await addRow(session, clients, 'Acme');
+      const wrongSide = await addRow(session, invoices, 'R-002');
+
+      const setCell = (rowId: string, pageIds: string[]): Promise<Response> =>
+        // `/api/pages/:rowId/properties/:fieldId` — the route that exists. My
+        // first version invented `/api/rows/:id/values/:fieldId`, and both
+        // calls 404'd: the one expecting a refusal *passed*, for a reason that
+        // had nothing to do with what it was testing. A test that asserts a
+        // failure can pass because the request never arrived.
+        fetch(`${base}/api/pages/${rowId}/properties/${field.id}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ value: { kind: 'relation', pageIds } }),
+        });
+
+      await expectStatus(await setCell(invoice, [wrongSide]), 404);
+      const good = await setCell(invoice, [client]);
+      assert.ok(
+        good.ok,
+        `pointing at the named collection is allowed, got ${good.status}`,
+      );
+
+      // And the edge is projected, which is what makes the other side one
+      // indexed lookup — from a table that has been there since 0001_init.
+      const edges = await db.query<{ to_page_id: string }>(
+        `SELECT to_page_id FROM page_relations WHERE from_page_id = $1`,
+        [invoice],
+      );
+      assert.deepEqual(
+        edges.rows.map((row) => row.to_page_id),
+        [client],
+      );
+    });
+
     test('a page can hold a collection', async () => {
       // Content inside a page, not a folder wearing a different hat
       // (ADR-0021). "A folder should be a folder" was the report that led here.
