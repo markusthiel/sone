@@ -1672,6 +1672,15 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   font-size: var(--sone-text-xs);
 }
 
+/* What the server used, under a failed test (ADR-0058). A definition list, so
+   each fact has a name beside it rather than being a sentence to parse. */
+.mail-test-using {
+  margin-block-start: var(--sone-space-2);
+  font-size: var(--sone-text-xs);
+}
+.mail-test-using dt { color: var(--sone-text-muted); }
+.mail-test-using dd { margin: 0 0 var(--sone-space-2); overflow-wrap: anywhere; }
+
 /* The mail test's answer (ADR-0058). The relay's text in a monospaced face:
    it is a machine's answer, reads as one, and somebody will paste it into a
    search. */

@@ -444,7 +444,15 @@ describe(
       // something. "535 authentication failed" is the answer; "sending failed"
       // costs somebody an hour.
       mailRefuses = '535 authentication failed';
-      const refused = await expectJson<{ sentTo: string | null; problem?: string }>(
+      const refused = await expectJson<{
+        sentTo: string | null;
+        problem?: string;
+        using?: {
+          host: string;
+          passwordLength: number;
+          passwordLooksQuoted: boolean;
+        };
+      }>(
         await fetch(`${base}/api/admin/mail/test`, {
           method: 'POST',
           headers: { cookie: admin.cookie },
@@ -453,6 +461,21 @@ describe(
       );
       assert.equal(refused.sentTo, null);
       assert.match(refused.problem ?? '', /535 authentication failed/);
+
+      /*
+       * And what it used, so a 535 can be told from a typo (ADR-0058).
+       *
+       * An operator cannot see inside the container. Every value here is one
+       * they set, except the password — for which only the length and two
+       * shapes that have each produced a 535 for somebody: a value that arrived
+       * still wrapped in quotes, and one padded with whitespace.
+       */
+      assert.equal(refused.using?.host, 'mail.example.org');
+      assert.equal(refused.using?.passwordLength, 'aus der Umgebung'.length);
+      assert.equal(refused.using?.passwordLooksQuoted, false);
+      // Never the password itself: a field that echoes a secret to whoever is
+      // signed in as an administrator is one phished session from being read.
+      assert.doesNotMatch(JSON.stringify(refused), /aus der Umgebung/);
     });
 
     test('the test button refuses when no mail server is set', async () => {

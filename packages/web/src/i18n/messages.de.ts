@@ -310,6 +310,15 @@ export const de: Record<keyof typeof en, string> = {
   'admin.mail.hint':
     'Für Benachrichtigungs-E-Mails. Ohne Host wird nichts versendet und nichts ' +
     'angeboten — das ist eine normale Instanz.',
+  'admin.mail.using': 'Was der Server benutzt hat',
+  'admin.mail.usingPassword': 'Passwort',
+  'admin.mail.passwordLength': '{count} Zeichen, aus SONE_SMTP_PASSWORD',
+  'admin.mail.passwordMissing':
+    'keines — SONE_SMTP_PASSWORD ist leer oder hat den Container nie erreicht. ' +
+    'Compose muss es im environment des Dienstes nennen, nicht nur in .env.',
+  'admin.mail.passwordQuoted':
+    'es beginnt und endet mit einem Anführungszeichen, das gehört wohl zum Wert',
+  'admin.mail.passwordSpace': 'es hat ein Leerzeichen oder einen Umbruch am Rand',
   'admin.mail.test': 'Test-E-Mail an mich senden',
   'admin.mail.testing': 'Wird gesendet…',
   'admin.mail.testSent': 'An {address} gesendet. Kommt sie an, funktioniert Mail.',

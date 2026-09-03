@@ -424,8 +424,11 @@ export function InstancePanel(): ReactElement {
  */
 function MailTest(): ReactElement {
   const { t } = useT();
+  type Using = NonNullable<Awaited<ReturnType<typeof api.testMail>>['using']>;
   const [state, setState] = useState<
-    { kind: 'idle' | 'sending' } | { kind: 'sent'; to: string } | { kind: 'failed'; why: string }
+    | { kind: 'idle' | 'sending' }
+    | { kind: 'sent'; to: string }
+    | { kind: 'failed'; why: string; using?: Using }
   >({ kind: 'idle' });
 
   return (
@@ -439,10 +442,17 @@ function MailTest(): ReactElement {
           void api
             .testMail()
             .then((result) => {
+              // Spread rather than assigned: `exactOptionalPropertyTypes`
+              // distinguishes an absent key from one holding undefined, and a
+              // failure with no diagnostics should be the first.
               setState(
                 result.sentTo
                   ? { kind: 'sent', to: result.sentTo }
-                  : { kind: 'failed', why: result.problem ?? '' },
+                  : {
+                      kind: 'failed',
+                      why: result.problem ?? '',
+                      ...(result.using ? { using: result.using } : {}),
+                    },
               );
             })
             .catch((err: unknown) => {
@@ -467,6 +477,33 @@ function MailTest(): ReactElement {
               search. */}
           <code className="mail-test-reason">{state.why}</code>
         </p>
+      )}
+
+      {/* What the server used, when it failed (ADR-0058).
+        *
+        * A 535 means "these credentials are wrong", and an operator cannot see
+        * inside the container to find out which ones arrived. Never the
+        * password — its length, and whether it came wrapped in quotes or padded
+        * with spaces, which is the difference between a typo and compose
+        * passing the quotes along. */}
+      {state.kind === 'failed' && state.using && (
+        <dl className="mail-test-using">
+          <dt>{t('admin.mail.using')}</dt>
+          <dd>
+            <code>
+              {state.using.user || '(no user)'} @ {state.using.host}:{state.using.port} ·{' '}
+              {state.using.security} · from {state.using.from}
+            </code>
+          </dd>
+          <dt>{t('admin.mail.usingPassword')}</dt>
+          <dd>
+            {state.using.passwordMissing
+              ? t('admin.mail.passwordMissing')
+              : t('admin.mail.passwordLength', { count: state.using.passwordLength })}
+            {state.using.passwordLooksQuoted && ` · ${t('admin.mail.passwordQuoted')}`}
+            {state.using.passwordHasEdgeSpace && ` · ${t('admin.mail.passwordSpace')}`}
+          </dd>
+        </dl>
       )}
     </div>
   );

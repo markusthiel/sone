@@ -286,6 +286,15 @@ export const en = {
   'admin.mail.hint':
     'For notification emails. Without a host nothing is sent and nothing is ' +
     'offered — that is a normal instance.',
+  'admin.mail.using': 'What the server used',
+  'admin.mail.usingPassword': 'Password',
+  'admin.mail.passwordLength': '{count} characters, from SONE_SMTP_PASSWORD',
+  'admin.mail.passwordMissing':
+    'none — SONE_SMTP_PASSWORD is empty or never reached the container. ' +
+    'Compose has to name it in the service´s environment, not only in .env.',
+  'admin.mail.passwordQuoted':
+    'it begins and ends with a quote, which is probably part of the value',
+  'admin.mail.passwordSpace': 'it has a space or newline at one end',
   'admin.mail.test': 'Send a test email to myself',
   'admin.mail.testing': 'Sending…',
   'admin.mail.testSent': 'Sent to {address}. If it arrives, mail works.',

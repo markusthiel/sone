@@ -1180,7 +1180,22 @@ export const api = {
 
   /** Send one test mail to the asking administrator (ADR-0058). */
   testMail: () =>
-    post<{ sentTo: string | null; problem?: string }>('/api/admin/mail/test', {}),
+    post<{
+      sentTo: string | null;
+      problem?: string;
+      /** What the server used, so a 535 can be told apart from a typo. */
+      using?: {
+        host: string;
+        port: number;
+        security: string;
+        user: string;
+        from: string;
+        passwordLength: number;
+        passwordLooksQuoted: boolean;
+        passwordHasEdgeSpace: boolean;
+        passwordMissing: boolean;
+      };
+    }>('/api/admin/mail/test', {}),
 
   /** Searches this person has kept in this workspace (ADR-0050). */
   savedSearches: (workspaceId: string) =>
