@@ -161,41 +161,50 @@ corpus, like ADR-0051's was". Measured, on the two tables a rollup reads with
 the indexes the real ones carry, generated without randomness so the numbers can
 be reproduced.
 
-| | 2 000 rows, 40 000 edges | 20 000 rows, 400 000 edges |
-| --- | --- | --- |
-| A page of 50, then its rollups *(today)* | 3.2 ms | **3.3 ms** |
-| Sorted by a count | 14.6 ms | 167 ms |
-| Sorted by a sum | 34.8 ms | **1 050 ms** |
+**The first version of this measurement was of a route that does not exist**, and
+the correction is the interesting part.
 
-The decisive number is not the second in the corner; it is the **3.3 ms that did
-not move**. Choosing the page first bounds the work by the page, so today's cost
-is flat in the size of the collection. Sorting by a derived column removes that
-bound: the aggregate must run for every row before anything can be ordered, so
-the cost is the collection's, and it grows with it — 30× for ten times the data,
-because a full scan and a sort compound.
+I measured "a page of fifty rows, then its rollups" against "every row, then a
+sort", and concluded that sorting removed a bound and cost thirty times more.
+Then I opened the read route to implement it: **there is no page.** It has no
+`LIMIT` and no offset, the client does not paginate, and the rollups already run
+for every row of the collection. The bound I was protecting was never there.
 
-**Decision: allowed, and bounded, and the bound is visible.**
+Measured again, against the shape that exists — 20 000 rows, 400 000 edges:
 
-A view may sort by a rollup while the collection is under two thousand rows,
-which measured at 35 ms — the point where a sort is still a sort rather than a
-wait. Above it the option is offered and disabled, saying why: "this collection
-is too large to sort by a computed column".
+| | |
+| --- | --- |
+| Every row's rollup, unordered *(today)* | 145 ms |
+| The same, ordered by the count | 211 ms |
 
-Three alternatives, and why not:
+So sorting costs **45%, not 3 000%**. The scan is already paid; the sort is the
+only new work, and it is the cheap half.
+
+**Decision: allowed, with no threshold.** A bound justified by numbers that
+described a different program would be a rule nobody could defend later.
+
+**And the real finding is the 145 ms**, which is what a collection of twenty
+thousand rows costs *today*, before any of this — along with sending every one
+of those rows in one response. That is a larger problem than the sorting
+question and it is not this record's: it is paging a collection, which belongs
+in its own decision and wants the same treatment this got — measure the shape
+that exists, not the one I assume.
+
+Three alternatives considered while the numbers were still wrong, kept because
+two of them stay true:
 
 **Refusing it entirely.** "How many invoices does this client have, most first"
 is one of the questions a relation exists to answer, and a database that can
 compute a number it cannot order by is a strange thing to ship.
 
-**Allowing it at any size.** A second per view load, on the path everybody uses,
-for a sort most people will not have asked for. A feature whose cost is paid by
-people not using it.
+**A threshold.** What the wrong numbers argued for, and what the right ones
+remove: 45% of an already-paid cost does not need a rule.
 
 **Caching the aggregate in a column.** The obvious escape and the wrong one
 here: it means a write to every dependent row whenever any source row changes,
 which is the cascade the "no rollup of a rollup" rule was chosen to avoid.
 Materialising the aggregate reintroduces exactly what that rule was protecting.
 
-The threshold is a measured guess and will be wrong for somebody. It is one
-constant in one place, and the numbers above are in this record so the next
-person changing it knows what they are trading.
+**Deliberately not decided here: paging a collection.** The 145 ms above, and
+the response that carries twenty thousand rows, are today's cost and not this
+feature's. Its own record.
