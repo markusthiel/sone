@@ -61,7 +61,13 @@ import { createEntry } from '../pages/createEntry.js';
 import { rematerialize } from '../materialize/rematerialize.js';
 import { moveToWorkspace } from '../pages/moveWorkspace.js';
 import { normaliseTags, writeTags } from '@sone/core';
-import { claimsOrNull, requireSession, sessionTokenFrom, type Claims } from './auth.js';
+import {
+  claimsFor,
+  claimsOrNull,
+  requireSession,
+  sessionTokenFrom,
+  type Claims,
+} from './auth.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
 import { isPathOnlyCondition, visiblePagesCondition } from '../pages/access.js';
 
@@ -99,23 +105,6 @@ async function readBody<T>(ctx: RequestContext): Promise<T | null> {
  * Answers 401 without a cookie and 403 for a non-member. Both are safe here:
  * the caller already knows the workspace id it asked about.
  */
-async function claimsFor(
-  pool: Pool,
-  ctx: RequestContext,
-  workspaceId: string,
-): Promise<Claims | null> {
-  if (!sessionTokenFrom(ctx)) {
-    ctx.fail(401, 'not_authenticated');
-    return null;
-  }
-  const claims = await claimsOrNull(pool, ctx, workspaceId);
-  if (!claims) {
-    ctx.fail(403, 'not_authorized');
-    return null;
-  }
-  return claims;
-}
-
 /**
  * Re-project a document after the server changed it.
  *

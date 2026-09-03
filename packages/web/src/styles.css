@@ -1659,6 +1659,73 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .collection-column-name { font-weight: 600; }
 .collection-column-type { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
 
+/* --- a relation cell (ADR-0054) --- */
+
+.relation-cell { position: relative; }
+.relation-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.relation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  font-size: var(--sone-text-xs);
+}
+.relation-chip a { color: inherit; text-decoration: none; }
+.relation-chip a:hover { text-decoration: underline; }
+.relation-remove,
+.relation-add {
+  border: 0;
+  padding: 0 2px;
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+  font: inherit;
+}
+.relation-remove:hover, .relation-add:hover { color: var(--sone-text); }
+
+/* The picker floats over the row: a cell is too small to hold a list, and
+   pushing the row taller would move every cell beside it. */
+.relation-picker {
+  position: absolute;
+  inset-block-start: calc(100% + 2px);
+  inset-inline-start: 0;
+  z-index: 40;
+  inline-size: 240px;
+  max-block-size: 260px;
+  overflow-y: auto;
+  padding: var(--sone-space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius);
+  background: var(--surface-overlay);
+  box-shadow: var(--sone-shadow-floating);
+}
+.relation-picker ul { margin: 0; padding: 0; list-style: none; }
+.relation-search {
+  inline-size: 100%;
+  margin-block-end: var(--sone-space-2);
+  padding: 4px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius-sm);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+.relation-option {
+  inline-size: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--sone-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.relation-option:hover { background: var(--sone-bg-hover); }
+.relation-option.current { background: var(--sone-bg-hover); font-weight: 600; }
+
 /* --- the inbox (ADR-0052) --- */
 
 /* The count on the account button. Small and filled: this is the one thing in

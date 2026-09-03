@@ -187,7 +187,14 @@ test('the column menu looks like every other menu, and names types by shape', ()
 
   // Every addable type has an icon, or the menu is a mix of shapes and gaps.
   const entries = [...table.matchAll(/\{ type: '[a-zA-Z]+', label: '[^']+', Icon: (\w+) \}/g)];
-  assert.equal(entries.length, 10, 'every addable type, with an icon each');
+  /*
+   * Eleven now: relation joined them (ADR-0054).
+   *
+   * A count rather than a list of names, deliberately — it fails when a type is
+   * added, which is the moment to check that the new one has an icon and that
+   * the menu still holds one decision per row. It did exactly that here.
+   */
+  assert.equal(entries.length, 11, 'every addable type, with an icon each');
   for (const [, icon] of entries) {
     assert.match(
       codeOf(new URL('../src/components/icons.tsx', import.meta.url)),

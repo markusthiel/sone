@@ -38,6 +38,9 @@ import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 
 import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/claims.js';
+import { claimsFor } from './auth.js';
+import { visiblePagesCondition } from '../pages/access.js';
+
 import { queryOne, queryRows } from '../db/pool.js';
 import { applyToDocument } from '../doc/docStore.js';
 import { rematerialize } from '../materialize/rematerialize.js';
@@ -536,6 +539,79 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
    * would be a join fan-out, and grouping in SQL would mean building JSON in
    * the database for no gain.
    */
+  /**
+   * Every collection in the workspace, for choosing what a relation points at
+   * (ADR-0054).
+   *
+   * The page tree cannot answer this: a summary's `collectionId` names the
+   * collection a *row* belongs to, not one a page holds, and rows are not in the
+   * tree at all. So it is one query rather than a field on every page in a
+   * response that is read constantly and needs this once.
+   *
+   * Only collections on pages the reader may see, by the same condition the
+   * tree and search use — a picker that lists a collection somebody cannot open
+   * is a way to learn that it exists.
+   */
+  router.get('/api/collections/:collectionId/targets', async (ctx) => {
+    /*
+     * Asked from a collection rather than from a workspace.
+     *
+     * My first version was `/api/workspaces/:id/collections`, and then the
+     * table that needs it turned out not to know its workspace id — it is
+     * rendered from a node view inside a document. Threading the id down would
+     * have been the wrong fix: the question is "what could a relation from
+     * *here* point at", which names this collection and nothing else, and lets
+     * the server exclude the obvious wrong answer.
+     */
+    const from = await queryOne<{ page_id: string; workspace_id: string }>(
+      deps.pool,
+      `SELECT c.page_id, p.workspace_id
+         FROM collections c JOIN pages p ON p.id = c.page_id
+        WHERE c.id = $1`,
+      [ctx.params['collectionId'] ?? ''],
+    );
+    if (!from) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    // `claimsFor` rather than this file's `authorise`, which is page-scoped:
+    // the visibility condition below wants the same claims the tree and search
+    // resolve.
+    const claims = await claimsFor(deps.pool, ctx, from.workspace_id);
+    if (!claims) return;
+
+    const rows = await queryRows<{ id: string; title: string; page_id: string }>(
+      deps.pool,
+      `SELECT c.id, c.page_id, p.title
+         FROM collections c
+         JOIN pages p ON p.id = c.page_id
+        WHERE p.workspace_id = $1
+          AND p.archived_at IS NULL
+          -- Not this one: a relation pointing at its own collection asks about
+          -- a row's siblings, which the table already answers, and it makes a
+          -- rollup that counts itself.
+          AND c.id <> $4
+          AND ${visiblePagesCondition('p', '$2', '$3')}
+        ORDER BY p.title ASC
+        LIMIT 200`,
+      [
+        claims.workspaceId,
+        claims.principal.kind === 'user' ? claims.principal.userId : null,
+        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
+        ctx.params['collectionId'] ?? '',
+      ],
+    );
+
+    ctx.send(200, {
+      collections: rows.map((row) => ({
+        id: row.id,
+        pageId: row.page_id,
+        title: row.title,
+      })),
+    });
+  });
+
   router.get('/api/collections/:collectionId', async (ctx) => {
     const collectionId = ctx.params['collectionId'] ?? '';
     const collection = await queryOne<{ id: string; page_id: string; title_field_id: string }>(

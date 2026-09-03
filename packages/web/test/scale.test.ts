@@ -1809,3 +1809,30 @@ test('a canvas item can be commented on, from its own menu', () => {
   // test would have struck through every canvas thread.
   assert.match(panel, /disabled=\{thread\.item === null && thread\.range === null\}/);
 });
+
+test('a relation asks where it points, in a second step', () => {
+  // The type list is one decision per row, so a type that quietly needed a
+  // second answer would be the one entry behaving differently from the other
+  // ten (ADR-0054).
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  assert.match(table, /if \(fieldType === 'relation' && !target\) \{/);
+  assert.match(table, /setChoosingRelation\(true\)/);
+
+  // Built like every other dialog here. I wrote `dialog-backdrop` first, which
+  // exists nowhere — the same invented name that once opened the export window
+  // at the foot of a menu.
+  assert.match(table, /className="dialog-scrim"/);
+  assert.doesNotMatch(table, /dialog-backdrop/);
+
+  // Asked from the collection, not from the workspace: the table is rendered
+  // from a node view and does not know its workspace id, and the question is
+  // "what could a relation from *here* point at" anyway.
+  assert.match(table, /\.relationTargets\(collectionId\)/);
+
+  // The cell links to the other row, because a row is a page and getting to it
+  // is the point of a relation.
+  const cell = codeOf(new URL('../src/components/RelationCell.tsx', import.meta.url));
+  assert.match(cell, /href=\{paths\.page\(id, titles\.get\(id\) \?\? ''\)\}/);
+  // And an empty relation is no value, the shape every other cell uses.
+  assert.match(table, /next\.length > 0 \? \{ kind: 'relation', pageIds: next \} : null/);
+});
