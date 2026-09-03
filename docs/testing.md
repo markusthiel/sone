@@ -108,6 +108,14 @@ it:
   `information_schema`. It does not attempt CTEs, subquery aliases or
   concatenated SQL — a checker that argues with you gets turned off, so silence
   means "nothing obviously wrong" and not "correct".
+
+  **And it counts what it could not resolve**, with a ratchet on that number.
+  Both of this check's own false-positive sources were found by reading what it
+  had collected rather than by trusting its silence: `` `[^`]*` `` matches the
+  text *between* two unrelated literals, so ordinary JavaScript was being
+  scanned as SQL, and `WITH` is also an English word, so a JSDoc paragraph
+  beginning "with no numeric part…" was read as a statement. Fixing both took
+  the unchecked references from 76 to 26.
 - `routePaths.test.ts` checks every path the client asks for against the routes
   the server registers.
 - `errorMessages.test.ts` checks that every refusal code has a message, or is
