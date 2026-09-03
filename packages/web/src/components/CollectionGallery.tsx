@@ -61,6 +61,31 @@ function chipsOf(
 ): string[] {
   const chips: string[] = [];
   for (const field of fields) {
+    /*
+     * A derived column first, because its value is not in `values` at all
+     * (ADR-0054).
+     *
+     * Without this a rollup could never appear on a card: this function reads
+     * `row.values`, and a rollup lives in `row.derived`. A column that works in
+     * the table and is invisible in the gallery is the half-state I keep
+     * finding in other people's software and had just built.
+     */
+    const derived = row.derived?.[field.id];
+    if (derived) {
+      if (typeof derived.number === 'number') chips.push(`${field.name}: ${derived.number}`);
+      // The linked rows by name, and only how many when there are several: a
+      // card is not the place for a list.
+      else if (derived.rows && derived.rows.length > 0) {
+        chips.push(
+          derived.rows.length === 1
+            ? (derived.rows[0]?.title ?? field.name)
+            : `${field.name}: ${derived.rows.length}`,
+        );
+      }
+      if (chips.length >= 4) break;
+      continue;
+    }
+
     const value = row.values[field.id];
     if (!value) continue;
     if (
@@ -83,6 +108,11 @@ function chipsOf(
       // "2 files", and the cell itself is one control away.
       const first = value.fileIds.map((id) => files.get(id)?.filename).find(Boolean);
       if (first) chips.push(first);
+    } else if (value.kind === 'relation' && Array.isArray(value.pageIds)) {
+      // Counted, not named: this card has ids and no titles for them, and
+      // fetching a title per card is a request per row for one word. The count
+      // is true and the cell is one control away.
+      if (value.pageIds.length > 0) chips.push(`${field.name}: ${value.pageIds.length}`);
     }
     // Select and multi-select are drawn by the table's own chips, which need the
     // option list; a gallery card showing a raw option id would be worse than
