@@ -20,6 +20,7 @@
  */
 
 import { composeNotificationEmail, type Waiting } from '../mail/compose.js';
+import { replyAddress, replyToken } from '../mail/replyToken.js';
 import { sendMail, type Relay } from '../mail/send.js';
 import { queryRows } from '../db/pool.js';
 import { enqueue, type JobHandler } from './runner.js';
@@ -34,6 +35,14 @@ export interface MailSettings {
   relay: Relay | null;
   detail: 'title' | 'workspace';
   baseUrl: string;
+  /**
+   * Where a reply can be sent, when replies are read at all (ADR-0060).
+   *
+   * Null means no `Reply-To`: with nothing polling a mailbox, inviting a reply
+   * would be inviting somebody to write into a void.
+   */
+  replyMailbox?: string | null;
+  secret?: string;
 }
 
 interface Candidate {
@@ -142,6 +151,9 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
       page_title: string;
       page_id: string;
       actor: string | null;
+      thread_id: string | null;
+      message_id: string | null;
+      internal: boolean;
       workspace_name: string;
       email: string;
       locale: string | null;
@@ -151,6 +163,14 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
               coalesce(p.title, '') AS page_title,
               n.page_id::text AS page_id,
               a.display_name AS actor,
+              n.thread_id,
+              n.message_id,
+              -- Whether the thread lives in the page's internal document, so a
+              -- reply is written where its thread is (ADR-0057).
+              EXISTS (
+                SELECT 1 FROM page_comments_internal i
+                 WHERE i.page_id = n.page_id AND i.thread_id = n.thread_id
+              ) AS internal,
               w.name AS workspace_name,
               u.email,
               u.locale
@@ -191,10 +211,34 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
     });
     if (!composed) return { result: { skipped: 'nothing to say' } };
 
+    /*
+     * One reply address for the batch, naming its first notification.
+     *
+     * A mail can list several things waiting; a reply to it can only be about
+     * one, and the first is the one the subject line names. Honest rather than
+     * clever: the alternative is guessing which of four threads somebody meant.
+     */
+    const replyTo =
+      settings.replyMailbox && settings.secret
+        ? replyAddress(
+            settings.replyMailbox,
+            replyToken(
+              {
+                threadId: first.thread_id ?? '',
+                messageId: first.message_id ?? '',
+                userId,
+                internal: first.internal === true,
+              },
+              settings.secret,
+            ),
+          )
+        : null;
+
     await sendMail(settings.relay, {
       to: first.email,
       subject: composed.subject,
       body: composed.body,
+      ...(replyTo && first.thread_id ? { replyTo } : {}),
     });
 
     return { result: { sent: 1, notifications: rows.length } };

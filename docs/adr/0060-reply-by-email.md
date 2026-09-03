@@ -164,6 +164,22 @@ A mail with no token at all is left unread and *not* answered: replying to every
 stray message in a shared mailbox would make SONE a nuisance in somebody else's
 inbox.
 
+**Wired up**: IMAP settings beside the SMTP ones with the password env-only,
+a poll every two minutes, and a `Reply-To` on the notification mail — only when
+a mailbox is actually being polled, because inviting a reply nobody reads is
+inviting somebody to write into a void.
+
+A mail that invites a reply announces itself `Auto-Submitted: auto-replied`
+rather than `auto-generated`. Both tell an out-of-office responder not to answer,
+which is the point — a holiday autoresponder replying to a notification would
+arrive back here as a comment — but calling a mail auto-*generated* while asking
+for a reply is telling two things at once.
+
+One reply address per batch, naming its first notification. A mail can list
+several things waiting; a reply to it can only be about one, and the first is the
+one the subject line names. The alternative is guessing which of four threads
+somebody meant.
+
 ## Consequences
 
 An operator gains IMAP settings beside the SMTP ones and a mailbox to dedicate.

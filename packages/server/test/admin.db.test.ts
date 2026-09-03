@@ -64,6 +64,12 @@ describe(
         smtpFrom: '',
         smtpSecurity: 'starttls' as const,
         emailDetail: 'title' as const,
+        // No mailbox either: replies are absent in these suites (ADR-0060).
+        imapHost: '',
+        imapPort: '993',
+        imapUser: '',
+        imapFolder: 'INBOX',
+        replyMailbox: '',
       });
 
       const router = new Router();
