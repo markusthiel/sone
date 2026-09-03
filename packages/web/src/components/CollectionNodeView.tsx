@@ -30,7 +30,7 @@ import { createElement } from 'react';
 import { applyBlockAttrs } from './blockAttrs.ts';
 import { CollectionTable } from './CollectionTable.tsx';
 import { fileNodeView, type FileViewLabels } from './FileNodeView.ts';
-import { videoNodeView } from './VideoNodeView.ts';
+import { videoNodeView, type VideoViewLabels } from './VideoNodeView.ts';
 import { protectedSectionView } from './ProtectedSectionView.ts';
 
 /**
@@ -165,7 +165,7 @@ class CollectionNodeView implements NodeView {
 export const soneNodeViews = (
   onOpenContainer: (containerId: string) => void,
   /** The words a node view needs in the reader's language (ADR-0041). */
-  labels: FileViewLabels,
+  labels: FileViewLabels & { video: VideoViewLabels },
 ): EditorView['props']['nodeViews'] => ({
   collectionView: (node, view, getPos) =>
     new CollectionNodeView(node as unknown as PMNodeLike, () => {
@@ -174,6 +174,6 @@ export const soneNodeViews = (
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
     }),
   file: fileNodeView(labels),
-  video: videoNodeView(),
+  video: videoNodeView(labels.video),
   protectedSection: protectedSectionView(onOpenContainer),
 });

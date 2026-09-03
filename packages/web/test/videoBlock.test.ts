@@ -54,13 +54,18 @@ test('an upload asks for metadata, not for the video', () => {
   assert.match(view, /player\.preload = 'none'/, 'and a stream fetches nothing at all');
 });
 
-test('a browser that cannot play HLS is told so, with a way to watch anyway', () => {
-  // Safari and iOS play it natively, Chromium and Firefox do not, and this
-  // application ships no player library. A black rectangle with no reason is the
-  // one thing that must not happen.
+test('a browser that cannot play HLS gets a player, and a reason if that fails', () => {
+  // This used to assert that the block *said* it could not play HLS, which was
+  // the honest answer while no player library was shipped. One is now, so the
+  // assertion changes to what the block does: native where it exists, hls.js
+  // where it does not, and the note only when even that fails (ADR-0037).
   assert.match(view, /playsHlsNatively/);
-  assert.match(view, /cannot play HLS by itself/);
-  assert.match(view, /Open the stream/);
+  assert.match(view, /await import\('hls\.js\/light'\)/);
+  // A black rectangle with no reason is still the one thing that must not
+  // happen: the note survives, for a library that cannot load and for DASH.
+  assert.match(view, /this\.streamNote\('hls', url\)/);
+  assert.match(view, /this\.streamNote\('dash', read\.url\)/);
+  assert.match(view, /this\.labels\.openStream/);
 });
 
 test('a refused address is shown as text and not as a link', () => {

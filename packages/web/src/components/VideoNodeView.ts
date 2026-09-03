@@ -61,11 +61,21 @@ function providerName(provider: string): string {
   }
 }
 
+/** The words this view needs in the reader's language (ADR-0041). */
+export interface VideoViewLabels {
+  hlsFailed: string;
+  dashOnly: string;
+  openStream: string;
+}
+
 class VideoNodeView implements NodeView {
   readonly dom: HTMLElement;
+  /** The player, when one was needed. Released with the view. */
+  private hls: { destroy: () => void } | null = null;
 
   constructor(
     private node: PMNodeLike,
+    private readonly labels: VideoViewLabels,
     private readonly select: () => void,
   ) {
     this.dom = document.createElement('div');
@@ -115,6 +125,18 @@ class VideoNodeView implements NodeView {
   }
 
   /** ProseMirror must not manage what is inside this. */
+  /**
+   * ProseMirror is done with this block.
+   *
+   * The player holds a worker and an open connection to a stream, and a node
+   * view is destroyed and recreated as somebody edits around it — the same leak
+   * the PDF viewer had before it was given this (ADR-0048).
+   */
+  destroy(): void {
+    this.hls?.destroy();
+    this.hls = null;
+  }
+
   ignoreMutation(): boolean {
     return true;
   }
@@ -290,32 +312,83 @@ class VideoNodeView implements NodeView {
     player.className = 'video-player';
     player.controls = true;
     player.preload = 'none';
-    player.src = read.url;
     this.dom.append(player);
 
-    // Said, not hidden.
-    //
-    // A browser plays HLS natively or it does not: Safari and iOS do, Chromium
-    // and Firefox need a player library this application does not ship
-    // (ADR-0037). Somebody watching in the wrong browser gets a black rectangle
-    // and no reason, so the reason is written under it with a way to watch
-    // anyway.
-    if (read.kind === 'dash' || (read.kind === 'hls' && !playsHlsNatively())) {
-      const note = document.createElement('p');
-      note.className = 'video-note';
-      const text = document.createElement('span');
-      text.textContent =
-        read.kind === 'dash'
-          ? 'DASH streams play only in browsers with their own support. '
-          : 'This browser cannot play HLS by itself. Safari and iOS can. ';
-      const open = document.createElement('a');
-      open.href = read.url;
-      open.target = '_blank';
-      open.rel = 'noreferrer';
-      open.textContent = 'Open the stream';
-      note.append(text, open);
-      this.dom.append(note);
+    /*
+     * HLS where the browser cannot do it itself.
+     *
+     * Safari and iOS play HLS natively; Chromium and Firefox do not, and this
+     * block used to say so and offer a link out (ADR-0037). `hls.js` plays it
+     * here instead — the light build, 364 kB minified and 113 kB over the wire,
+     * imported dynamically so a page with no stream on it downloads none of it.
+     * The same bargain as the PDF renderer (ADR-0048), weighed the same way.
+     *
+     * Native first where it exists: Safari's own player is better than a
+     * library reimplementing it, and it is the one that gets AirPlay and
+     * picture-in-picture right.
+     */
+    if (read.kind === 'hls' && !playsHlsNatively()) {
+      void this.playWithHls(player, read.url);
+      return;
     }
+
+    player.src = read.url;
+
+    /*
+     * DASH is left to the browser, deliberately.
+     *
+     * A second player library for a format almost nothing publishes is not a
+     * bargain the way the HLS one is. The note says where to watch instead,
+     * which is what this block did for both cases before.
+     */
+    if (read.kind === 'dash') this.streamNote('dash', read.url);
+  }
+
+  /** Attach a player, or say why there is none. */
+  private async playWithHls(player: HTMLVideoElement, url: string): Promise<void> {
+    try {
+      /*
+       * Through the package's own `light` entry point, not a path into `dist`.
+       *
+       * My first version imported `hls.js/dist/hls.light.min.mjs` directly,
+       * which reaches behind the package's exports — it has no types, and it
+       * would break on any release that renames a file. `hls.js/light` is the
+       * documented name for the same build, and the bundler minifies it for us.
+       */
+      const { default: Hls } = await import('hls.js/light');
+      if (!Hls.isSupported()) {
+        this.streamNote('hls', url);
+        return;
+      }
+      const hls = new Hls({ enableWorker: true });
+      this.hls = hls;
+      hls.loadSource(url);
+      hls.attachMedia(player);
+    } catch {
+      // The library did not load — offline, or blocked. The note this block
+      // showed before is the honest fallback rather than a dead player.
+      this.streamNote('hls', url);
+    }
+  }
+
+  /**
+   * Why a stream is not playing here, and where it will.
+   *
+   * Said rather than hidden: somebody watching in a browser that cannot play it
+   * gets a black rectangle and no reason otherwise.
+   */
+  private streamNote(kind: 'hls' | 'dash', url: string): void {
+    const note = document.createElement('p');
+    note.className = 'video-note';
+    const text = document.createElement('span');
+    text.textContent = kind === 'dash' ? this.labels.dashOnly : this.labels.hlsFailed;
+    const open = document.createElement('a');
+    open.href = url;
+    open.target = '_blank';
+    open.rel = 'noreferrer';
+    open.textContent = this.labels.openStream;
+    note.append(text, open);
+    this.dom.append(note);
   }
 
   // --- the smaller shapes --------------------------------------------------
@@ -368,9 +441,9 @@ class VideoNodeView implements NodeView {
 }
 
 export const videoNodeView =
-  () =>
+  (labels: VideoViewLabels) =>
   (node: unknown, view: EditorView, getPos: () => number | undefined): NodeView =>
-    new VideoNodeView(node as PMNodeLike, () => {
+    new VideoNodeView(node as PMNodeLike, labels, () => {
       const pos = typeof getPos === 'function' ? getPos() : undefined;
       if (pos === undefined) return;
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));

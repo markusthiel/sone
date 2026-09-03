@@ -565,6 +565,11 @@ export function EditorSurface({
             previous: t('file.pdfPrevious'),
             next: t('file.pdfNext'),
           },
+          video: {
+            hlsFailed: t('video.hlsFailed'),
+            dashOnly: t('video.dashOnly'),
+            openStream: t('video.openStream'),
+          },
         },
       ),
     });

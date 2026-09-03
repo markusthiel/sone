@@ -2,12 +2,8 @@
 
 ## Status
 
-Accepted and implemented, with one limitation carried forward: a live HLS stream
-plays only in browsers with native support (Safari and iOS). Chromium and Firefox
-need a player library this application does not ship, and the block says so rather
-than showing a black rectangle. `hls.js` is the answer if that turns out to
-matter; it is a dependency decision worth making deliberately rather than as part
-of this.
+Accepted and implemented. The HLS limitation below was carried for a while and is
+now closed — see the amendment at the end.
 
 ## Context
 
@@ -222,3 +218,39 @@ is a privacy default nobody has.
 right shape if it were being designed from nothing. Rejected because `image` and
 `file` already exist with their own node views and behaviour, and merging them is a
 migration of existing documents for tidiness rather than for a user.
+
+---
+
+## Amendment: `hls.js`, for HLS where the browser cannot
+
+This record said a live HLS stream plays only where the browser supports it, that
+the block says so rather than showing a black rectangle, and that `hls.js` was
+"a dependency decision worth making deliberately". Made, the same way the PDF
+renderer's was (ADR-0048): by measuring it first.
+
+**The light build, 364 kB minified and 113 kB over the wire**, against 580 kB and
+177 kB for the full one. It drops alternate audio, subtitles, DRM, and advanced
+codecs inside MPEG-2 TS. Subtitles are the one of those anybody here might want,
+and switching builds is one import away if that day comes — paying 64 kB per
+reader today against a maybe is the wrong way round.
+
+**Imported dynamically**, so a page with no stream on it downloads none of it. It
+comes out as its own 364 kB chunk beside the PDF one, which is the arrangement
+that made the PDF renderer affordable.
+
+**Native first where it exists.** Safari and iOS play HLS themselves, and their
+player is better than a library reimplementing it — it is also the one that gets
+AirPlay and picture-in-picture right. The library is only reached for when the
+browser cannot.
+
+**DASH is still left to the browser**, and that is now a decision rather than the
+same omission: a second player library for a format almost nothing publishes is
+not the bargain the HLS one is. The note under the block says where to watch
+instead.
+
+The player is destroyed with the node view. It holds a worker and an open
+connection, and a node view is destroyed and recreated as somebody edits around
+it — the leak the PDF viewer had before it was given the same treatment.
+
+While here: the three sentences this block shows were English in a translated
+interface. They come from the labels now, like the file block's.

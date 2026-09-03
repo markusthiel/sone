@@ -1745,3 +1745,22 @@ test('a diff is inline, tells added from removed without colour, and states its 
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
   assert.match(app, /setComparingVersion\(id\);\s*\n\s*setViewingVersion\(null\);/);
 });
+
+test('the stream player is loaded only when a stream needs it, and released', () => {
+  // The same bargain as the PDF renderer: 113 kB over the wire, in its own
+  // chunk, so a page with no stream downloads none of it (ADR-0037).
+  const view = codeOf(new URL('../src/components/VideoNodeView.ts', import.meta.url));
+  assert.match(view, /await import\('hls\.js\/light'\)/);
+  // Through the package's documented entry point rather than a path into its
+  // dist folder, which has no types and breaks when a file is renamed.
+  assert.doesNotMatch(view, /hls\.js\/dist\//);
+  // Native first: Safari's own player is better than a library reimplementing
+  // it, and it is the one that gets AirPlay right.
+  assert.match(view, /read\.kind === 'hls' && !playsHlsNatively\(\)/);
+  // And released with the node view, which holds a worker and an open
+  // connection — the leak the PDF viewer had before it got a destroy.
+  assert.match(view, /destroy\(\): void \{\s*\n\s*this\.hls\?\.destroy\(\)/);
+  // The words are translated now; they were English in a translated interface.
+  assert.match(view, /this\.labels\.dashOnly/);
+  assert.doesNotMatch(view, /'DASH streams play only/);
+});
