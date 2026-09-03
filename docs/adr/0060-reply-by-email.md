@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted. The token and the trimming are built and tested — the two halves that
+are pure functions, and the ones carrying the security decision. IMAP, writing
+the comment and the refusal mail are not.
 
 ## Context
 
@@ -85,6 +87,24 @@ The token identifies the thread, including one in the internal document
 nothing about replying to an internal thread leaks more than the notification
 already did. The reply text goes into the internal document, where only members
 can read it.
+
+## Built so far
+
+**The token**, with the recipient inside the signature — the test that matters
+edits a user id out of a valid token and expects `bad_signature`, which is the
+attack the design exists to stop. The signature is checked before the expiry,
+because an expired token that was never signed by us is a forgery and reporting
+it as "late" would put it in the same bucket as a colleague's slow answer.
+
+Addresses use sub-addressing (`sone+token@…`), so one mailbox serves every
+notification: the difference between asking an operator to configure a mailbox
+and asking them to configure DNS.
+
+**The trimming**, as the stated rules rather than a heuristic — and with the one
+test that keeps it from being clever at somebody's expense: "Am Montag schrieb
+ich das falsch, sorry." is a sentence, not an attribution, so a match only counts
+when quoted or indented text follows it. Cutting there would have silently
+deleted the rest of a reply.
 
 ## Consequences
 
