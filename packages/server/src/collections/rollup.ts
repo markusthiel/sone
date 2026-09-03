@@ -14,6 +14,8 @@
 import type { Pool } from 'pg';
 
 import { queryRows } from '../db/pool.js';
+import type { Value } from '@sone/core';
+
 import { visiblePagesCondition } from '../pages/access.js';
 
 /** What a rollup does with the rows it finds. */
@@ -65,6 +67,15 @@ export interface DerivedValue {
    * is wrong.
    */
   partial?: boolean;
+  /**
+   * A formula that could not be worked out, by reason (ADR-0056).
+   *
+   * In the value rather than instead of it: the cell shows the reason, per row,
+   * because a formula can work for nine rows and fail on the tenth — and the
+   * person reading that cell is the person who has to fix it.
+   */
+  error?: string;
+  errorDetail?: string;
 }
 
 /** How many rows a backlink lists before it stops naming them. */
@@ -243,4 +254,63 @@ export async function computeRollup(
     });
   }
   return out;
+}
+
+/**
+ * A stored cell or a rollup, as a formula sees it (ADR-0056).
+ *
+ * The bridge between two vocabularies: the projection stores `{kind:'number',
+ * value}`-shaped cells and the formula language has its own four types. Written
+ * out rather than shared, because the two are allowed to diverge — a cell can
+ * gain a kind the formula language has no opinion about, and it should then be
+ * blank to a formula rather than a crash.
+ */
+export function formulaValueOf(cell: unknown, derived: DerivedValue | undefined): Value {
+  if (derived) {
+    if (typeof derived.number === 'number') return { kind: 'number', value: derived.number };
+    if (derived.texts) return { kind: 'text', value: derived.texts.join(', ') };
+    if (derived.rows) return { kind: 'number', value: derived.rows.length };
+    return { kind: 'blank' };
+  }
+
+  if (!cell || typeof cell !== 'object') return { kind: 'blank' };
+  const value = cell as Record<string, unknown>;
+  switch (value['kind']) {
+    case 'number':
+      return typeof value['value'] === 'number'
+        ? { kind: 'number', value: value['value'] }
+        : { kind: 'blank' };
+    case 'checkbox':
+      return { kind: 'boolean', value: value['value'] === true };
+    case 'date':
+      return typeof value['start'] === 'string'
+        ? { kind: 'date', value: value['start'] }
+        : { kind: 'blank' };
+    case 'text':
+    case 'url':
+    case 'email':
+    case 'phone':
+      return typeof value['value'] === 'string' && value['value'] !== ''
+        ? { kind: 'text', value: value['value'] }
+        : { kind: 'blank' };
+    default:
+      // A select, a relation, a files cell. Blank to a formula rather than an
+      // invented number: "how many attachments" is a rollup's question.
+      return { kind: 'blank' };
+  }
+}
+
+/** A formula's answer, in the shape a derived cell is sent in. */
+export function formulaResultOf(value: Value): DerivedValue {
+  switch (value.kind) {
+    case 'number':
+      return { kind: 'derived', number: value.value };
+    case 'text':
+    case 'date':
+      return { kind: 'derived', texts: [value.value] };
+    case 'boolean':
+      return { kind: 'derived', texts: [String(value.value)] };
+    default:
+      return { kind: 'derived', number: null };
+  }
 }

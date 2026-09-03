@@ -31,6 +31,10 @@ import {
   updateField,
   updateView,
   DERIVED_FIELD_TYPES,
+  bindFormula,
+  evaluate,
+  fieldsUsed,
+  parseFormula,
   type FieldType,
   type SelectOption,
   type StoredValue,
@@ -50,6 +54,8 @@ import {
 
 import {
   computeRollup,
+  formulaResultOf,
+  formulaValueOf,
   readRollupConfig,
   type DerivedValue,
 } from '../collections/rollup.js';
@@ -97,6 +103,9 @@ const CREATABLE_FIELD_TYPES = new Set<FieldType>([
   // The derived other side: what points *here*, counted or aggregated. Also
   // creatable only with a checked config.
   'rollup',
+  // An expression over the row's own values (ADR-0056). Creatable only with a
+  // formula that parses and names columns that exist.
+  'formula',
   // One media type, not three (ADR-0035). The file itself already says whether
   // it is an image, a PDF or something else — the server classifies every
   // upload — so a column that also declared it would be a second answer to the
@@ -1013,6 +1022,64 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     }
 
     /*
+     * The formulas, after the rollups (ADR-0056).
+     *
+     * After, and that order is the whole reason a formula may read a rollup but
+     * not another formula: with one pass in a fixed order there is no
+     * dependency graph to walk. A formula reading a formula would need one, and
+     * the rule forbidding it is checked when the column is created.
+     *
+     * Parsed once per column rather than once per row: the text does not change
+     * between rows, and a hundred rows should not mean a hundred parses.
+     */
+    const formulas = fields.filter((field) => field.field_type === 'formula');
+    for (const field of formulas) {
+      const text = field.config?.['formula'];
+      if (typeof text !== 'string') continue;
+      const parsed = parseFormula(text);
+      if ('error' in parsed) continue;
+
+      /*
+       * The names, bound to the ids resolved when the formula was saved.
+       *
+       * By name rather than by position: the stored text still says `Menge`,
+       * and the binding turns that into a column that may since have been
+       * renamed.
+       */
+      const map = field.config?.['bindings'] as Record<string, unknown> | undefined;
+      const bound = bindFormula(parsed.expr, (name) => {
+        const id = map?.[name];
+        return typeof id === 'string' ? id : undefined;
+      });
+
+      for (const row of rows) {
+        const cells = byRow.get(row.id) ?? {};
+        const bag = derivedByRow.get(row.id) ?? {};
+        const outcome = evaluate(bound, (fieldId) =>
+          formulaValueOf(cells[fieldId], bag[fieldId]),
+        );
+
+        bag[field.id] =
+          'error' in outcome
+            ? // The reason, in the cell (ADR-0056): not blank, not zero, and per
+              // row — a formula can work for nine rows and fail on the tenth
+              // because that row's cell is text where the others are numbers.
+              {
+                kind: 'derived',
+                error: outcome.error.code,
+                // Spread rather than assigned: `exactOptionalPropertyTypes`
+                // distinguishes "absent" from "present and undefined", and an
+                // error without a detail should be the first.
+                ...(outcome.error.detail === undefined
+                  ? {}
+                  : { errorDetail: outcome.error.detail }),
+              }
+            : formulaResultOf(outcome.value);
+        derivedByRow.set(row.id, bag);
+      }
+    }
+
+    /*
      * Sorting by a derived column, after its values exist (ADR-0054).
      *
      * In memory rather than in SQL, because the route already has every row and
@@ -1227,6 +1294,63 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     return true;
   };
 
+  /**
+   * Whether a formula can be used here, answering the request if not (ADR-0056).
+   *
+   * Three things are checked, and the third is the one that matters: it parses;
+   * every column it names exists in this collection; and **none of them is
+   * another formula**. That last rule is what removes cycles by construction —
+   * no dependency graph, no evaluation order, no cycle to detect — and it is
+   * checked here because here is the only place it can be.
+   *
+   * The names are resolved to ids and stored beside the text, so renaming a
+   * column does not break a formula.
+   */
+  const formulaIsUsable = async (
+    ctx: RequestContext,
+    collectionId: string,
+    raw: Record<string, unknown> | null,
+  ): Promise<boolean> => {
+    const text = raw?.['formula'];
+    if (typeof text !== 'string' || text.trim() === '') {
+      ctx.fail(422, 'formula_missing');
+      return false;
+    }
+
+    const parsed = parseFormula(text);
+    if ('error' in parsed) {
+      ctx.fail(422, 'formula_invalid', { code: parsed.error.code, at: parsed.error.at });
+      return false;
+    }
+
+    const named = fieldsUsed(parsed.expr);
+    const columns = await queryRows<{ id: string; name: string; field_type: string }>(
+      deps.pool,
+      `SELECT id, name, field_type FROM collection_fields WHERE collection_id = $1`,
+      [collectionId],
+    );
+
+    const bindings: Record<string, string> = {};
+    for (const name of named) {
+      const column = columns.find(
+        (one) => one.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (!column) {
+        ctx.fail(422, 'formula_unknown_field', { field: name });
+        return false;
+      }
+      if (column.field_type === 'formula') {
+        ctx.fail(422, 'formula_reads_formula', { field: name });
+        return false;
+      }
+      bindings[name] = column.id;
+    }
+
+    // Written back into the config the caller is about to store.
+    if (raw) raw['bindings'] = bindings;
+    return true;
+  };
+
   /** Add a column. */
   router.post('/api/collections/:collectionId/fields', async (ctx) => {
     const resolved = await collectionPage(deps.pool, ctx, 'edit');
@@ -1271,6 +1395,13 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     }
 
     if (fieldType === 'rollup' && !(await rollupIsUsable(ctx, resolved, body.config ?? null))) {
+      return;
+    }
+
+    if (
+      fieldType === 'formula' &&
+      !(await formulaIsUsable(ctx, resolved.collectionId, body.config ?? null))
+    ) {
       return;
     }
 
