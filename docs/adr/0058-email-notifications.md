@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted. Built so far: the settings, the storage, and the composer — which is
-the part that carries the central decision. The sending is not built; what is
-missing is listed at the end.
+Accepted. Built: the settings, the storage, the composer, an SMTP client, the
+batching sweep and the send job. What is missing — and one thing the record got
+wrong — is at the end.
 
 ## Context
 
@@ -23,7 +23,21 @@ migration, and `notifications` already holds exactly what would be sent.
 
 ## Decisions
 
-### The email says who and where. It never says what
+### The email says where. It never says what — and it cannot yet say who
+
+**Corrected while building the sending.** This section was written promising
+"Anna mentioned you on Q3 Planung". Then the job's query joined an actor and
+Postgres refused the column: `notifications` records the user, the workspace,
+the page, the kind and an excerpt, and **not who caused it**. SQL is not
+typechecked, so that would have shipped and failed on the first mail.
+
+The composer takes a nullable actor and each kind has two wordings — German
+cannot put a name in front of "Du wurdest erwähnt" and stay grammatical, and
+neither can English. So today a mail reads "Du wurdest erwähnt auf 'Q3
+Planung'". Adding `notifications.actor_id` is a small, separate piece of work:
+the write path knows the message's author, an assignment would use the
+materialising actor, and only the wording above changes. It is not done, and the
+mail is not worse than truthful in the meantime.
 
 **No message text, no quoted passage, no excerpt.** "Anna mentioned you on
 Q3 Planung" and a link. Not "Anna wrote: can we drop the Meyer contract".
@@ -142,9 +156,29 @@ newline smuggled into a subject can be seen not to have become a header. A
 password is refused outright over an unencrypted connection: a credential in the
 clear is worse than no mail.
 
+**The batching sweep and the send job.** The runner is row-driven, and there is
+no natural row per person, which forced a decision the record had left open: a
+sweep claims what is ready and enqueues one job per person per workspace, and
+the queue owns the retries because `jobs.attempts` exists for that and a sweep
+of its own would retry a permanently rejected address for ever.
+
+**So `emailed_at` means "claimed for mail", not "delivered".** Set at enqueue,
+not on the relay's acceptance. That is the uncomfortable half and it is the
+right way round: the alternative re-enqueues the same batch every minute while a
+relay is misconfigured, turning one wrong setting into an unbounded queue. A
+send that fails after its retries is a failed job an administrator can see, and
+the person is still told in the inbox — the primary channel.
+
+The claim is one statement, so its `WHERE` is where every rule in this record
+lives: the delay, the read check, the per-person preference, an address that does
+not exist. `FOR UPDATE SKIP LOCKED` is what keeps two overlapping ticks from
+each enqueuing the same batch. The preference is read at claim time rather than
+at write time, so turning mail off stops what is already waiting instead of
+having decided somebody's next week.
+
 ## Still to build
 
-The batching job on the five-minute delay,
+`notifications.actor_id`, so a mail can say who. Then
 the read-before-send check, the per-person settings screen, and failed sends in
 the administration area. Until then nothing is offered in the interface and no
 mail is attempted, which is the same state as an instance with no relay.

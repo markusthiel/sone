@@ -51,7 +51,13 @@ import { registerImportRoutes } from './import/routes.js';
 import { WORKSPACE_EXPORT, workspaceExportHandler } from './export/workspaceJob.js';
 import { registerJobRoutes } from './jobs/routes.js';
 import { registerInboxRoutes } from './notifications/routes.js';
-import { runOneJob } from './jobs/runner.js';
+import { runOneJob, type Job, type JobContext } from './jobs/runner.js';
+import {
+  EMAIL_NOTIFICATIONS,
+  emailNotificationsHandler,
+  sweepForEmail,
+  type MailSettings,
+} from './jobs/emailNotifications.js';
 import { registerAvatarRoutes, registerFileRoutes } from './files/routes.js';
 import { LocalFileStore } from './files/store.js';
 import { createStaticHandler } from './http/static.js';
@@ -297,9 +303,54 @@ async function main(): Promise<void> {
    * a queue drains steadily rather than one tick holding the process for an
    * hour.
    */
+  /*
+   * Where mail goes, read fresh on each tick (ADR-0058).
+   *
+   * From the settings store rather than captured at startup, so an
+   * administrator who corrects a port does not have to restart — the same
+   * reason the settings exist in the database at all.
+   */
+  const mailSettings = async (): Promise<MailSettings> => {
+    const resolved = await settings.resolve();
+    const host = resolved.values.smtpHost.trim();
+    return {
+      relay:
+        host === ''
+          ? null
+          : {
+              host,
+              port: Number(resolved.values.smtpPort) || 587,
+              user: resolved.values.smtpUser,
+              password: config.smtpPassword ?? '',
+              from: resolved.values.smtpFrom || `sone@${host}`,
+              security: resolved.values.smtpSecurity,
+            },
+      detail: resolved.values.emailDetail,
+      baseUrl: config.publicUrl,
+    };
+  };
+
   const jobHandlers = {
     [WORKSPACE_EXPORT]: workspaceExportHandler(pool, fileStore),
+    [EMAIL_NOTIFICATIONS]: async (job: Job, ctx: JobContext) =>
+      emailNotificationsHandler(pool, await mailSettings())(job, ctx),
   };
+  /*
+   * The sweep that turns aged notifications into jobs (ADR-0058).
+   *
+   * On the same timer as the runner, and doing nothing at all without a relay:
+   * no claim, no job, no queue filling up.
+   */
+  const mailTimer = setInterval(() => {
+    void mailSettings()
+      .then((current) => sweepForEmail(pool, current))
+      .catch(() => {
+        // A sweep that cannot reach the database will be tried again in a
+        // minute; throwing here would take the process down for it.
+      });
+  }, 60_000);
+  mailTimer.unref();
+
   const jobTimer = setInterval(() => {
     void runOneJob(pool, jobHandlers).catch(() => {
       // Logged by the job row itself. A throw here would be an unhandled

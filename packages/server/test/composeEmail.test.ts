@@ -41,13 +41,34 @@ test('the mail carries no comment text, whatever it is given', () => {
   assert.match(whole, /absichtlich keinen Kommentartext/);
 });
 
-test('who and where, and a link', () => {
+test('where, and a link — and who when that is known', () => {
   const composed = composeNotificationEmail({ ...base, waiting: [waiting()] });
   assert.ok(composed);
   assert.match(composed.subject, /Anna/);
   assert.match(composed.subject, /Q3 Planung/);
   assert.match(composed.body, /hat dich erwähnt auf/);
   assert.match(composed.body, /https:\/\/sone\.example\.org\/p\/00000000-/);
+});
+
+test('without an actor the page is the subject, and the sentence still reads', () => {
+  /*
+   * Which is the real case today: `notifications` records the user, the
+   * workspace, the page, the kind and an excerpt — and *not* who caused it. I
+   * found that by writing the query that joins an actor and watching Postgres
+   * refuse the column, after the record had already promised "Anna mentioned
+   * you".
+   *
+   * So the composer takes a nullable actor and the wording adapts, rather than
+   * inventing a name or printing an empty one.
+   */
+  const composed = composeNotificationEmail({
+    ...base,
+    waiting: [waiting({ actor: null })],
+  });
+  assert.ok(composed);
+  assert.equal(composed.subject, '“Q3 Planung”');
+  assert.match(composed.body, /Du wurdest erwähnt auf “Q3 Planung”\./);
+  assert.doesNotMatch(composed.body, /^ hat|null|undefined/m);
 });
 
 test('an instance can withhold even the title', () => {
