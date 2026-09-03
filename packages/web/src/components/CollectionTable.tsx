@@ -314,7 +314,14 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
   /** A rollup waiting for the relation it reads, and what to do with it. */
   const [choosingRollup, setChoosingRollup] = useState(false);
   /** A formula being written, and what the server said about the last attempt. */
-  const [writingFormula, setWritingFormula] = useState(false);
+  /**
+   * The formula being written: `new` for a column that does not exist yet, or
+   * the id of one being edited (ADR-0056).
+   *
+   * One dialog for both, because they are the same decision typed into the same
+   * field — and two would drift the moment one of them gained the column list.
+   */
+  const [writingFormula, setWritingFormula] = useState<'new' | string | null>(null);
   const [formulaText, setFormulaText] = useState('');
   const [formulaError, setFormulaError] = useState<string | null>(null);
   const [incoming, setIncoming] = useState<
@@ -398,7 +405,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       return;
     }
     if (fieldType === 'formula' && !target) {
-      setWritingFormula(true);
+      setWritingFormula('new');
       return;
     }
     try {
@@ -423,12 +430,20 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
    */
   const addFormula = async (text: string): Promise<void> => {
     try {
-      await api.addCollectionField(collectionId, {
-        name: 'Untitled',
-        fieldType: 'formula',
-        config: { formula: text },
-      });
-      setWritingFormula(false);
+      if (writingFormula && writingFormula !== 'new') {
+        // Editing: the same validation runs on the way in, which is what keeps
+        // an edited formula from pointing at another formula.
+        await api.updateCollectionField(collectionId, writingFormula, {
+          config: { formula: text },
+        });
+      } else {
+        await api.addCollectionField(collectionId, {
+          name: 'Untitled',
+          fieldType: 'formula',
+          config: { formula: text },
+        });
+      }
+      setWritingFormula(null);
       setFormulaText('');
       setFormulaError(null);
       await load();
@@ -1116,6 +1131,11 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                     onRename={(name) => void renameColumn(field.id, name)}
                     onRemove={() => void removeColumn(field.id)}
                     onSaveOptions={(options) => void saveOptions(field.id, options)}
+                    onEditFormula={(text) => {
+                      setFormulaText(text);
+                      setFormulaError(null);
+                      setWritingFormula(field.id);
+                    }}
                     onSetAggregate={(aggregate, fieldId) =>
                       void setAggregate(field.id, aggregate, fieldId)
                     }
@@ -1352,11 +1372,11 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
         </div>
       )}
 
-      {writingFormula && (
+      {writingFormula !== null && (
         <div
           className="dialog-scrim"
           role="presentation"
-          onClick={() => setWritingFormula(false)}
+          onClick={() => setWritingFormula(null)}
         >
           <div
             className="dialog"
@@ -1365,7 +1385,9 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
             aria-label={t('formula.write')}
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 className="dialog-title">{t('formula.write')}</h2>
+            <h2 className="dialog-title">
+              {writingFormula === 'new' ? t('formula.write') : t('formula.edit')}
+            </h2>
             {/* The columns by name, because a formula names them and somebody
                 has to know what to type. */}
             <p className="settings-note">
@@ -1400,12 +1422,12 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                 disabled={formulaText.trim() === ''}
                 onClick={() => void addFormula(formulaText.trim())}
               >
-                {t('action.create')}
+                {writingFormula === 'new' ? t('action.create') : t('action.save')}
               </button>
               <button
                 type="button"
                 className="btn subtle"
-                onClick={() => setWritingFormula(false)}
+                onClick={() => setWritingFormula(null)}
               >
                 {t('action.cancel')}
               </button>
@@ -1597,6 +1619,7 @@ function ColumnHeader({
   onRename,
   onRemove,
   onSaveOptions,
+  onEditFormula,
   onSetAggregate,
   aggregatable,
 }: {
@@ -1605,6 +1628,8 @@ function ColumnHeader({
   onRename: (name: string) => void;
   onRemove: () => void;
   onSaveOptions: (options: EditableOption[]) => void;
+  /** Open the formula editor for this column (ADR-0056). */
+  onEditFormula: (text: string) => void;
   /** Change what a rollup does with what it finds (ADR-0054). */
   onSetAggregate: (aggregate: string, fieldId: string | undefined) => void;
   /** The stored fields on the other side, for an aggregate that needs one. */
@@ -1660,6 +1685,20 @@ function ColumnHeader({
         * since the derived side was built — this is the control that reaches
         * it, and shipping the capability without one would have been a feature
         * only its author could use. */}
+      {/* Editing the formula, from the column it belongs to (ADR-0056). Until
+          this the column had to be removed and made again. */}
+      {field.fieldType === 'formula' && canEdit && (
+        <button
+          type="button"
+          className="collection-column-options"
+          aria-label={t('formula.edit')}
+          title={String(field.config?.['formula'] ?? '')}
+          onClick={() => onEditFormula(String(field.config?.['formula'] ?? ''))}
+        >
+          <FormulaIcon />
+        </button>
+      )}
+
       {field.fieldType === 'rollup' && canEdit && (
         <>
           <select

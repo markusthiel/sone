@@ -104,6 +104,7 @@ export const en = {
   'rollup.nothingPointsHere':
     'No relation column points at this collection yet. Add one on the other ' +
     'collection first.',
+  'action.save': 'Save',
   'action.create': 'Create',
   'error.formula_missing': 'Write a formula first.',
   'error.formula_invalid': 'That formula cannot be read. Check the brackets and the operators.',
@@ -121,6 +122,7 @@ export const en = {
   'error.row_not_found': 'That row is not in the collection this column points at.',
   'error.collection_not_found': 'That collection no longer exists.',
   'field.formula': 'Formula',
+  'formula.edit': 'Edit this formula',
   'formula.example': 'Quantity * Price',
   'formula.write': 'Write a formula',
   'formula.columns': 'Columns you can use: {names}',

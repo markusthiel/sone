@@ -639,6 +639,27 @@ describe(
         422,
       );
 
+      // Editing goes through the same check, or the cycle rule would hold only
+      // when a column was created — the hole the rollup rule had (ADR-0056).
+      await expectStatus(
+        await fetch(`${base}/api/collections/${collectionId}/fields/${total.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ config: { formula: 'Summe + 1' } }),
+        }),
+        422,
+      );
+      // And a good edit is accepted, re-bound to the columns it names now.
+      const edited = await fetch(
+        `${base}/api/collections/${collectionId}/fields/${total.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ config: { formula: 'Menge * Preis' } }),
+        },
+      );
+      assert.ok(edited.ok, `editing a formula is allowed, got ${edited.status}`);
+
       const filled = await addRow(session, collectionId, 'Mit Preis');
       const missing = await addRow(session, collectionId, 'Ohne Preis');
       const setCell = (rowId: string, fieldId: string, value: number): Promise<Response> =>

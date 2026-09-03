@@ -1475,6 +1475,22 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       ) {
         return;
       }
+      /*
+       * And a formula's config goes through its own check on the way in
+       * (ADR-0056).
+       *
+       * The same hole the rollup rule had: without this, editing a formula
+       * could point it at another formula, and the rule that removes cycles by
+       * construction would hold only when a column was created. It also
+       * re-resolves the names to ids, so an edited formula is bound to the
+       * columns it names *now*.
+       */
+      if (
+        existing?.field_type === 'formula' &&
+        !(await formulaIsUsable(ctx, collectionId, body.config))
+      ) {
+        return;
+      }
     }
 
 

@@ -117,9 +117,13 @@ collection, and already says so.
 
 **An editor.** A formula is typed into a one-line field with the usable column
 names above it, and validated by the server — one validator, on the side that
-stores it, rather than two that can disagree about what is allowed. There is no
-syntax highlighting, no completion and no way to *edit* a formula after it is
-created: the column has to be removed and made again. That is the next thing.
+stores it, rather than two that can disagree about what is allowed. A formula can be
+edited from its own column, in the same dialog — and that edit goes through the
+same validation on the way in, or the rule forbidding a formula from reading a
+formula would hold only when a column was created. That was the hole the rollup
+rule had, met a second time and closed before shipping this time.
+
+There is no syntax highlighting and no completion.
 
 **Re-rendering the text after a rename**, as above: a printer for the tree.
 

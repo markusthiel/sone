@@ -17,7 +17,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 `Menge * Preis`, `if(Menge > 0, …)`, `round(…)`, computed per row. An empty cell
 is empty and not zero, so a total over a row with a missing price is empty rather
 than wrong — `coalesce(Preis, 0)` is how you say you meant zero. A formula that
-cannot be worked out says why in the cell. A formula cannot read another formula,
+cannot be worked out says why in the cell, and can be edited from its own
+column. A formula cannot read another formula,
 which is what stops a column depending on itself.
 
 **Fixed: a board's column counts were counting only the loaded cards** now that a
