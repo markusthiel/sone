@@ -426,3 +426,58 @@ export function addressedBy(message: CommentMessage): string[] {
 export function participants(thread: CommentThread): string[] {
   return [...new Set(thread.messages.map((message) => message.author))];
 }
+
+/**
+ * Where a page's internal comments live (ADR-0057).
+ *
+ * A second document, whose id is *derived* from the page's rather than stored:
+ * nothing to keep in step, and no row that can go missing while its updates
+ * remain. Deterministic, so every process computes the same id without
+ * coordination — which is what lets a sync room open one on demand.
+ *
+ * UUIDv5 over a fixed namespace, by hand: the algorithm is a SHA-1 of the
+ * namespace bytes followed by the name, with the version and variant bits set.
+ * Written out rather than taking a dependency for twenty lines.
+ */
+export const INTERNAL_NAMESPACE = '6f9f6b1e-4a4a-5f6c-8f2e-1d3c5b7a9e01';
+
+export function internalDocId(pageId: string, sha1: (data: Uint8Array) => Uint8Array): string {
+  const bytes = new Uint8Array(16 + pageId.length);
+  const hex = INTERNAL_NAMESPACE.replace(/-/g, '');
+  for (let at = 0; at < 16; at += 1) {
+    bytes[at] = Number.parseInt(hex.slice(at * 2, at * 2 + 2), 16);
+  }
+  for (let at = 0; at < pageId.length; at += 1) bytes[16 + at] = pageId.charCodeAt(at);
+
+  const digest = sha1(bytes);
+  const out = digest.slice(0, 16);
+  // Version 5, and the RFC 4122 variant. Without these two lines the result is
+  // a hash rather than a uuid, and Postgres refuses it as a uuid column value.
+  out[6] = ((out[6] ?? 0) & 0x0f) | 0x50;
+  out[8] = ((out[8] ?? 0) & 0x3f) | 0x80;
+
+  const text = [...out].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${text.slice(0, 8)}-${text.slice(8, 12)}-${text.slice(12, 16)}-${text.slice(16, 20)}-${text.slice(20)}`;
+}
+
+/**
+ * How a client asks for the internal document of a page (ADR-0057).
+ *
+ * A suffix on the page id in the existing open message, rather than a new field
+ * in it. The open message is `[Open, requestId, pageId]` on the wire; adding a
+ * boolean would change that shape and cost a protocol version — which was just
+ * released unchanged, and which every client and server would then have to agree
+ * about for the sake of one bit.
+ *
+ * An older server sees an id it cannot find and refuses, which is the correct
+ * answer from a server that does not have this feature.
+ */
+export const INTERNAL_SUFFIX = '#internal';
+
+export const asInternalRequest = (pageId: string): string => `${pageId}${INTERNAL_SUFFIX}`;
+
+export function readInternalRequest(asked: string): { pageId: string; internal: boolean } {
+  return asked.endsWith(INTERNAL_SUFFIX)
+    ? { pageId: asked.slice(0, -INTERNAL_SUFFIX.length), internal: true }
+    : { pageId: asked, internal: false };
+}

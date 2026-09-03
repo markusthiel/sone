@@ -8,10 +8,12 @@
  * ask for page B.
  */
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { IncomingMessage, Server as HttpServer } from 'node:http';
 
-import { ROLE_ORDER, type Role } from '@sone/core';
+import {
+  internalDocId,
+  readInternalRequest, ROLE_ORDER, type Role } from '@sone/core';
 import type { Pool } from 'pg';
 import { WebSocketServer, type WebSocket } from 'ws';
 
@@ -129,6 +131,15 @@ export interface SyncServerOptions {
   /** Passed through to rooms. Zero tears an empty room down immediately. */
   roomLingerMs?: number;
 }
+
+/**
+ * SHA-1, for deriving an internal document's id (ADR-0057).
+ *
+ * Passed in rather than imported by core: core runs in a browser too, and
+ * `node:crypto` is not there — so the algorithm lives in core and the primitive
+ * comes from whoever is calling.
+ */
+const sha1Of = (data: Uint8Array): Uint8Array => new Uint8Array(createHash('sha1').update(data).digest());
 
 export class SyncServer {
   private readonly wss: WebSocketServer;
@@ -399,8 +410,21 @@ export class SyncServer {
   private async handleOpen(
     conn: Connection,
     requestId: number,
-    pageId: string,
+    asked: string,
   ): Promise<void> {
+    /*
+     * A page, or a page's internal comments (ADR-0057).
+     *
+     * The suffix rather than a field in the open message: the message is
+     * `[Open, requestId, pageId]` on the wire, and a boolean would change that
+     * shape and cost a protocol version for one bit.
+     *
+     * `pageId` below is the *page*, which is what everything authorises
+     * against; `docId` is what the room is keyed by, and the two differ only
+     * for an internal request.
+     */
+    const { pageId, internal } = readInternalRequest(asked);
+
     if (conn.documents.size >= LIMITS.maxDocumentsPerConnection) {
       conn.send(encodeError(requestId, SyncError.TooManyDocuments));
       return;
@@ -408,7 +432,9 @@ export class SyncServer {
 
     // Idempotent: asking twice returns the existing handle rather than
     // creating a second subscription to the same room.
-    const existing = conn.handlesByPage.get(pageId);
+    // Keyed by what was asked for, so a page and its internal comments are two
+    // handles rather than one that returns whichever was opened first.
+    const existing = conn.handlesByPage.get(asked);
     if (existing !== undefined) {
       const doc = conn.documents.get(existing);
       if (doc) {
@@ -423,6 +449,22 @@ export class SyncServer {
       const authorized = await authorizeDocumentOpen(this.pool, conn.claims!, pageId);
       role = authorized.role;
       workspaceId = authorized.page.workspaceId;
+
+      /*
+       * Internal comments require membership, not read access.
+       *
+       * The page's own room accepts anybody with `viewer`, which includes a
+       * share-link visitor — and that is the whole reason this document exists.
+       * Refused rather than served empty: a room that opens and stays empty is
+       * a room somebody spends an afternoon debugging (ADR-0057).
+       */
+      if (
+        internal &&
+        (conn.claims!.principal.kind !== 'user' || conn.claims!.workspaceRole === null)
+      ) {
+        conn.send(encodeError(requestId, SyncError.NotAuthorized));
+        return;
+      }
     } catch (err) {
       if (err instanceof AuthError) {
         // Same response whether the page is missing or forbidden: the
@@ -437,7 +479,10 @@ export class SyncServer {
 
     let room: DocumentRoom;
     try {
-      room = await this.acquireRoom(pageId, workspaceId);
+      room = await this.acquireRoom(
+        internal ? internalDocId(pageId, sha1Of) : pageId,
+        workspaceId,
+      );
     } catch (err) {
       this.log('error', `failed to load room ${pageId}`, err);
       conn.send(encodeError(requestId, SyncError.Internal));
@@ -457,7 +502,7 @@ export class SyncServer {
     });
 
     conn.documents.set(handle, { handle, pageId, role, room, subscriberId });
-    conn.handlesByPage.set(pageId, handle);
+    conn.handlesByPage.set(asked, handle);
 
     conn.send(encodeOpenAck(requestId, handle, role));
     // Sync step 1 immediately: the client cannot compute its delta without the

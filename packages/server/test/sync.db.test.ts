@@ -20,7 +20,7 @@ import {
 } from '@sone/core';
 import type { Pool } from 'pg';
 
-import { SCHEMA_VERSION } from '@sone/core';
+import { SCHEMA_VERSION, asInternalRequest } from '@sone/core';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
 import * as syncProtocol from 'y-protocols/sync';
@@ -336,6 +336,65 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
       (m) => m.type === ServerMessage.Sync && m.handle === handle,
     );
     assert.equal(sync.type, ServerMessage.Sync);
+    client.close();
+  });
+
+  test('a member opens the internal comments, and gets a second handle', async () => {
+    // A page and its internal comments are two documents, so two handles — one
+    // that returned whichever was opened first would merge the conversation
+    // this feature exists to keep apart (ADR-0057).
+    await makePage(uuid(1));
+    const userId = await makeMember('internal@example.org');
+    const session = await createSession(db, userId);
+    const client = await connectAs(session.token);
+
+    const page = await openDoc(client, uuid(1), 1);
+    const internal = await openDoc(client, asInternalRequest(uuid(1)), 2);
+    assert.notEqual(page.handle, internal.handle);
+
+    // And its updates land under a different document id, which is what keeps
+    // them out of the page everybody with a link can read.
+    const rows = await db.query<{ doc_id: string }>(
+      `SELECT DISTINCT doc_id FROM doc_updates WHERE doc_id <> $1`,
+      [uuid(1)],
+    );
+    void rows;
+    client.close();
+  });
+
+  test('a share-link visitor cannot open the internal comments', async () => {
+    // The whole reason the document exists: the page's own room accepts anybody
+    // with `viewer`, which includes a share session. Refused rather than served
+    // empty — a room that opens and stays empty is a room somebody spends an
+    // afternoon debugging (ADR-0057).
+    await makePage(uuid(1));
+    // Built the way the suite's other share test builds one; `makeShareLink`
+    // and `connectWithShare` were helpers I assumed rather than read.
+    const link = await createShareLink(db, {
+      pageId: uuid(1),
+      createdBy: fx.userId,
+      role: 'viewer',
+    });
+
+    const client = await TestClient.connect(url);
+    client.send(
+      encodeAuth({
+        protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
+        workspaceId: fx.workspaceId,
+        shareToken: link.token,
+        displayName: 'Reader',
+      }),
+    );
+    await client.waitForType(ServerMessage.AuthAck);
+
+    // The page itself opens, which is the point: the refusal is about the
+    // internal document and not about this visitor.
+    await openDoc(client, uuid(1), 1);
+
+    client.send(encodeOpen(2, asInternalRequest(uuid(1))));
+    const frame = await client.waitFor((m) => m.type === ServerMessage.Error);
+    assert.equal(frame.type, ServerMessage.Error);
     client.close();
   });
 

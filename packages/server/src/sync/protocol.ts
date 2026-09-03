@@ -21,7 +21,7 @@
 import * as decoding from 'lib0/decoding';
 import * as encoding from 'lib0/encoding';
 
-import { SCHEMA_VERSION, isClientSchemaCompatible } from '@sone/core';
+import { SCHEMA_VERSION, isClientSchemaCompatible, readInternalRequest } from '@sone/core';
 
 export const PROTOCOL_VERSION = 1;
 
@@ -307,7 +307,20 @@ export function decodeClientMessage(data: Uint8Array): DecodedClientMessage {
       case ClientMessage.Open: {
         const requestId = decoding.readVarUint(decoder);
         const pageId = decoding.readVarString(decoder);
-        if (!isUuid(pageId)) throw new ProtocolError('open: pageId is not a uuid');
+        /*
+         * A page id, optionally with the internal-comments suffix (ADR-0057).
+         *
+         * The check was `isUuid` alone, which refused the suffixed form before
+         * anything else saw it — so the room's own authorisation never ran and
+         * the request came back as a protocol error. The reason was readable
+         * here and I did not read it: I added the suffix and then looked for
+         * the refusal in the room.
+         *
+         * Still strict: the part before the suffix must be a uuid, so this
+         * accepts exactly one more shape than before rather than any string.
+         */
+        const asked = readInternalRequest(pageId);
+        if (!isUuid(asked.pageId)) throw new ProtocolError('open: pageId is not a uuid');
         return { type: ClientMessage.Open, requestId, pageId };
       }
 
