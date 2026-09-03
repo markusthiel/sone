@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted. The derived id and the room's authorisation are built; the panel, the
-projection and the export are not. What is done and not done is at the end.
+Accepted and built: the derived document, the room that refuses a share session,
+the panel, the choice when a thread is started, the projection and the
+notifications. The export needed nothing, for a reason worth reading.
 
 ## Context
 
@@ -85,6 +86,19 @@ anything with a share token. Page history versions it alongside the page's own
 document (ADR-0047), since a version of a page that silently loses its internal
 discussion would be a restore that deletes something nobody mentioned.
 
+**Corrected on inspection: the export carries no comments at all.** Not the
+page's own either. So there was nothing to exclude and nothing to build — the
+rule above is what applies *when* comments are exported, and until then it
+describes a decision nobody has had to make.
+
+That is worth more than a shrug, because a share-link visitor **can** export:
+the route requires `canRead`, which a share token grants for the page it was
+made for. So the day somebody adds comments to an export — a reasonable thing to
+want — an anonymous visitor would receive the internal discussion in a file. A
+test now fails when the export path starts reading a comment table, so whoever
+makes it fail decides about the two audiences deliberately instead of finding
+out afterwards.
+
 ### The projection keeps them apart
 
 `page_comments` gains nothing. Internal threads project into their own table,
@@ -104,7 +118,7 @@ A page's internal document is created when the first internal thread is written,
 not with the page. So most pages have one row fewer than they would otherwise,
 and the absence is normal rather than an error.
 
-## Built so far
+## Built, in order, and what each step found
 
 The derived id, the request form, and the room that refuses a share session.
 
@@ -137,8 +151,6 @@ The client needed **no change at all** to open a second document — the store
 keys entries by the string it is given and passes it through to the channel
 name, the open message and the persistence. Checked rather than assumed.
 
-## Still to build
-
 **Its own projection table exists**, `page_comments_internal`, the same shape as
 `page_comments` — a row is a thread, not a message — so the two can be compared
 and the projection is one idea written twice rather than two.
@@ -157,8 +169,6 @@ top. So it is one call from the internal projection rather than a second
 notification path — and the thread ids come from a different document, so they
 cannot collide with the page's own, which is what lets both share the table and
 the once-per-message rule.
-
-**Export.**
 
 ## What is deliberately not decided
 
