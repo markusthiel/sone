@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A formula completes column and function names as you type**
+([ADR-0056](docs/adr/0056-formula.md)). Arrow keys and Tab or Enter to accept;
+a column with a space arrives in its brackets and a function with its opening
+parenthesis, so what is inserted always parses. Escape closes the list without
+closing the dialog.
+
 **Password hashing strength is configurable** as `SONE_PASSWORD_COST`
 ([ADR-0010](docs/adr/0010-sessions-and-password-hashing.md)), defaulting to the
 recommended 2^16. Lowering it warns at startup and appears in the maintenance

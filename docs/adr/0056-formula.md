@@ -123,7 +123,31 @@ same validation on the way in, or the rule forbidding a formula from reading a
 formula would hold only when a column was created. That was the hole the rollup
 rule had, met a second time and closed before shipping this time.
 
-There is no syntax highlighting and no completion.
+**Completion, and deliberately no syntax highlighting.**
+
+The field completes column names and function names from what the collection
+actually has, so a suggestion cannot be something the server would refuse — a
+formula may not read another formula, and offering one would be teaching
+somebody a mistake. The list lives in core beside the parser: what a formula may
+name is the parser's business, and a second list in the interface would be a
+second answer to it, one that could offer a function the evaluator does not
+have.
+
+Accepting a suggestion inserts what parses rather than just the name — brackets
+around a column with a space, an opening parenthesis after a function, with the
+caret inside it. A completion that leaves a formula that does not parse has made
+things worse.
+
+Escape closes the list before it closes the dialog. One Escape that did both
+would lose a typed formula because a suggestion happened to be open. Enter
+accepts a suggestion only while the list is open, so the key that finishes a
+formula does not depend on what is showing.
+
+**No highlighting**, and this is the trade rather than an omission: the field is
+an `input`, and colouring text inside one is impossible without replacing it
+with a contenteditable and reimplementing selection, undo and mobile keyboards.
+A formula is one line, and its errors are already named in the cell — completion
+prevents mistakes, where colour would only show them.
 
 **Re-rendering the text after a rename**, as above: a printer for the tree.
 
