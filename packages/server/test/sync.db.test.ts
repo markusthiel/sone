@@ -435,6 +435,58 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.close();
   });
 
+  test('a mention in an internal thread reaches a member, and only a member', async () => {
+    // The record left this out as the safe direction. Reading the write showed
+    // the fear was already answered: the insert joins `workspace_members`, so
+    // only a member can be a recipient and a share-link visitor has no row
+    // there (ADR-0057).
+    await makePage(uuid(1));
+    const author = await makeMember('mentioner@example.org');
+    const mentioned = await makeMember('mentioned@example.org');
+    const session = await createSession(db, author);
+    const client = await connectAs(session.token);
+
+    const internal = await openDoc(client, asInternalRequest(uuid(1)), 1);
+    const doc = new Y.Doc();
+    addThread(doc, {
+      id: 'it-mention',
+      from: new Uint8Array(),
+      to: new Uint8Array(),
+      quote: 'intern',
+      messageId: 'im-mention',
+      author,
+      text: 'Schau mal drüber',
+      mentions: [mentioned],
+    });
+    client.send(syncUpdateFrame(internal.handle, Y.encodeStateAsUpdate(doc)));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const waiting = await db.query<{ user_id: string; kind: string; thread_id: string }>(
+      `SELECT user_id, kind, thread_id FROM notifications WHERE page_id = $1`,
+      [uuid(1)],
+    );
+    assert.deepEqual(
+      waiting.rows.map((row) => [row.user_id, row.kind, row.thread_id]),
+      [[mentioned, 'mention', 'it-mention']],
+      'the mentioned member, once',
+    );
+
+    // And nothing in the ordinary comment table, which the search and the
+    // inbox list read: sharing one table and filtering everywhere is how this
+    // leaks the first time somebody writes a new query.
+    const ordinary = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM page_comments WHERE page_id = $1`,
+      [uuid(1)],
+    );
+    assert.equal(ordinary.rows[0]?.n, '0', 'not in the page´s own comments');
+    const apart = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM page_comments_internal WHERE page_id = $1`,
+      [uuid(1)],
+    );
+    assert.equal(apart.rows[0]?.n, '1', 'in its own table');
+    client.close();
+  });
+
   test('a share-link visitor cannot open the internal comments', async () => {
     // The whole reason the document exists: the page's own room accepts anybody
     // with `viewer`, which includes a share session. Refused rather than served

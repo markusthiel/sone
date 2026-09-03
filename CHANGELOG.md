@@ -16,7 +16,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 **A comment can be internal** ([ADR-0057](docs/adr/0057-internal-comments.md)):
 tick "only for members" under the draft and the thread goes into a second
 document that a share link cannot open at all — not hidden from it, unreachable.
-Internal threads appear in the same panel, marked. The choice is made when the
+Internal threads appear in the same panel, marked, and a
+mention in one reaches the member's inbox — only ever a member's. The choice is made when the
 thread starts and cannot be changed afterwards, because nothing can take back
 what a guest has already synced.
 
