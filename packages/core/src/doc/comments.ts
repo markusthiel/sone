@@ -18,6 +18,19 @@ import * as Y from 'yjs';
 import { DOC_KEYS } from './docSchema.js';
 
 export const THREAD_KEYS = {
+  /**
+   * What this thread is attached to, when it is not a range of text.
+   *
+   * Absent for a comment on prose, which is the overwhelming majority and which
+   * had this shape before anything else existed — so absence means "text", and
+   * nothing had to be rewritten to add this.
+   *
+   * A canvas item's id (ADR-0043). ADR-0046 deferred this saying the anchor
+   * there "is an item id, which is a far simpler thing", and it was right: an
+   * item id needs no relative position, no mapping through ProseMirror, and no
+   * quotation to survive a rewrite — the item either exists or it does not.
+   */
+  item: 'item',
   /** Encoded Y.RelativePosition for the start of the commented range. */
   from: 'from',
   /** And its end. */
@@ -97,6 +110,8 @@ export interface CommentThread {
    */
   from: Uint8Array;
   to: Uint8Array;
+  /** A canvas item, when the thread is about one rather than about text. */
+  item: string | null;
   quote: string;
   resolved: boolean;
   resolvedBy?: string;
@@ -140,6 +155,16 @@ function asNumber(value: unknown, fallback = 0): number {
  */
 function resolve(doc: Y.Doc, encoded: unknown): number | null {
   if (!(encoded instanceof Uint8Array)) return null;
+  /*
+   * Nothing to resolve.
+   *
+   * A thread about a canvas item carries no position, so its anchor bytes are
+   * empty — and `decodeRelativePosition` on empty bytes throws "Unexpected end
+   * of array", which took down the whole read rather than producing a null. A
+   * test that added a canvas thread found it immediately, which is the argument
+   * for writing the test before the interface that would have hit this.
+   */
+  if (encoded.length === 0) return null;
   const relative = Y.decodeRelativePosition(encoded);
   const absolute = Y.createAbsolutePositionFromRelativePosition(relative, doc);
   return absolute ? absolute.index : null;
@@ -175,6 +200,10 @@ export function readThread(doc: Y.Doc, id: string, entry: Y.Map<unknown>): Comme
     id,
     from: fromBytes instanceof Uint8Array ? fromBytes : new Uint8Array(),
     to: toBytes instanceof Uint8Array ? toBytes : new Uint8Array(),
+    item: (() => {
+      const item = entry.get(THREAD_KEYS.item);
+      return typeof item === 'string' && item !== '' ? item : null;
+    })(),
     quote: asString(entry.get(THREAD_KEYS.quote)),
     resolved: entry.get(THREAD_KEYS.resolved) === true,
     ...(typeof entry.get(THREAD_KEYS.resolvedBy) === 'string'
@@ -221,6 +250,8 @@ export interface NewThread {
   at?: number;
   /** Who was addressed in the first message (ADR-0052). */
   mentions?: string[];
+  /** A canvas item, for a thread about one rather than about text. */
+  item?: string;
 }
 
 /**
@@ -237,6 +268,9 @@ export function addThread(doc: Y.Doc, input: NewThread): void {
     const entry = new Y.Map<unknown>();
     entry.set(THREAD_KEYS.from, input.from);
     entry.set(THREAD_KEYS.to, input.to);
+    // Only when there is one: absence means "about text", which is what every
+    // thread written before this key existed says by saying nothing.
+    if (input.item) entry.set(THREAD_KEYS.item, input.item);
     entry.set(THREAD_KEYS.quote, input.quote.slice(0, MAX_QUOTE));
     entry.set(THREAD_KEYS.createdAt, input.at ?? Date.now());
 

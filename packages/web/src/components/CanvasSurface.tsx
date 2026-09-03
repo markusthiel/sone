@@ -47,6 +47,7 @@ import { api } from '../api/client.ts';
 import { useCanvasHistory } from '../hooks/useCanvasHistory.ts';
 import { useT } from '../i18n/useT.tsx';
 import {
+  MessageIcon,
   ArrowUpIcon,
   ArrowUturnIcon,
   DuplicateIcon,
@@ -126,11 +127,14 @@ export function CanvasSurface({
   handle,
   pageId,
   canEdit,
+  onCommentItem,
 }: {
   handle: PageHandle;
   /** Whose files an image on this canvas belongs to (ADR-0029). */
   pageId: string;
   canEdit: boolean;
+  /** Start a thread about one item (ADR-0046). */
+  onCommentItem: (itemId: string) => void;
 }): ReactElement {
   const { t } = useT();
   const doc = handle.doc;
@@ -1046,6 +1050,21 @@ export function CanvasSurface({
               onClick={() => duplicateItem(doc, selectedItem.id, newId())}
             >
               <DuplicateIcon />
+            </button>
+            {/* Comment on this item (ADR-0046).
+              *
+              * In the item's own menu, because that is where the question "what
+              * about this one" is asked. The anchor is the item's id — no
+              * position, no mapping, no quotation needed to survive a rewrite:
+              * the item exists or it does not. */}
+            <button
+              type="button"
+              className="canvas-handle-action"
+              title={t('canvas.comment')}
+              aria-label={t('canvas.comment')}
+              onClick={() => onCommentItem(selectedItem.id)}
+            >
+              <MessageIcon />
             </button>
             <button
               type="button"

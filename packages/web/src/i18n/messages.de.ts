@@ -915,6 +915,7 @@ export const de: Record<keyof typeof en, string> = {
   'comment.mark.underline': 'Unterstrichen',
   'comment.mark.off': 'Gar nicht',
   'comment.start': 'Kommentieren',
+  'comment.aboutItem': 'Zu einem Element auf der Fläche',
   'comment.startPlaceholder': 'Was ist damit?',
   'panel.guest': 'Gast',
   'panel.guestWriting':
@@ -932,6 +933,7 @@ export const de: Record<keyof typeof en, string> = {
   'canvas.tool.text': 'Text',
   'canvas.remove': 'Das hier entfernen',
   'canvas.handle': 'Was damit geschehen soll',
+  'canvas.comment': 'Dazu kommentieren',
   'canvas.duplicate': 'Duplizieren',
   'canvas.lock': 'Festsetzen',
   'canvas.unlock': 'Lösen',

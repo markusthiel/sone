@@ -90,12 +90,22 @@ export function useComments(doc: Y.Doc | null, author: string): CommentActions {
   }, [doc]);
 
   const start = useCallback(
-    (anchor: { from: Uint8Array; to: Uint8Array; quote: string }, text: string) => {
+    (
+      anchor: {
+        from: Uint8Array;
+        to: Uint8Array;
+        quote: string;
+        /** A canvas item, when the comment is about one (ADR-0046). */
+        item?: string;
+      },
+      text: string,
+    ) => {
       if (!doc || text.trim() === '') return;
       addThread(doc, {
         id: newId(),
         from: anchor.from,
         to: anchor.to,
+        ...(anchor.item ? { item: anchor.item } : {}),
         quote: anchor.quote,
         messageId: newId(),
         author: who.current,
@@ -137,8 +147,21 @@ export function useComments(doc: Y.Doc | null, author: string): CommentActions {
 
   const grouped = useMemo(
     () => ({
-      open: threads.filter((thread) => !thread.resolved && thread.range !== null),
-      detached: threads.filter((thread) => !thread.resolved && thread.range === null),
+      /*
+       * "Detached" means the text a comment pointed at is gone.
+       *
+       * A thread about a canvas item has no range by design (ADR-0046), so
+       * without the first term every canvas comment would have been filed under
+       * "the text is gone" — an accusation rather than a fact. The item's own
+       * existence is what a canvas thread depends on, and an item that is
+       * deleted takes its thread's subject with it visibly.
+       */
+      open: threads.filter(
+        (thread) => !thread.resolved && (thread.item !== null || thread.range !== null),
+      ),
+      detached: threads.filter(
+        (thread) => !thread.resolved && thread.item === null && thread.range === null,
+      ),
       resolved: threads.filter((thread) => thread.resolved),
     }),
     [threads],

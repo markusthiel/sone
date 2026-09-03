@@ -273,7 +273,17 @@ export function PageView({
       ) : (
       <ErrorBoundary where="The editor">
         {isCanvas ? (
-          <CanvasSurface handle={handle} pageId={pageId} canEdit={handle.canEdit !== false} />
+          <CanvasSurface
+            handle={handle}
+            pageId={pageId}
+            canEdit={handle.canEdit !== false}
+            // The panel takes it from here: a pending anchor carrying an item
+            // rather than a text range, which is the shape the prose side
+            // already hands over (ADR-0046).
+            onCommentItem={(itemId) =>
+              onComment({ from: new Uint8Array(), to: new Uint8Array(), quote: '', item: itemId })
+            }
+          />
         ) : (
           <EditorSurface
             handle={handle}
