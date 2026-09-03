@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A collection can have a relation column** ([ADR-0054](docs/adr/0054-relations.md)),
+pointing at rows in another collection named when the column is created. The
+picker and the other side are still to come; the column, its validation and the
+projected edges are in.
+
 **A canvas item can be commented on** ([ADR-0046](docs/adr/0046-comments.md)) —
 the speech bubble in the item's own handle menu. The thread appears in the
 comments panel like any other, saying it is about an item rather than quoting

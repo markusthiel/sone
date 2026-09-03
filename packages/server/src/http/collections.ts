@@ -74,6 +74,9 @@ const CREATABLE_FIELD_TYPES = new Set<FieldType>([
   'url',
   'email',
   'phone',
+  // Pointing at rows in another collection (ADR-0054). Creatable only with a
+  // target: see the check below, which refuses one without.
+  'relation',
   // One media type, not three (ADR-0035). The file itself already says whether
   // it is an image, a PDF or something else — the server classifies every
   // upload — so a column that also declared it would be a second answer to the
@@ -90,6 +93,15 @@ const CREATABLE_FIELD_TYPES = new Set<FieldType>([
  * are folders is a table nobody can read.
  */
 const MAX_CELL_FILES = 8;
+/*
+ * How many rows one relation cell may point at.
+ *
+ * Higher than the file limit because pointing at a dozen tasks is ordinary
+ * where a dozen attachments in a cell is not, and bounded at all because the
+ * cell draws every one of them: a hundred chips in a table cell is not a
+ * relation, it is a page that should exist.
+ */
+const MAX_CELL_RELATIONS = 32;
 
 /** Field types whose options can be edited. */
 const HAS_OPTIONS = new Set<string>(['select', 'multiSelect', 'status']);
@@ -707,6 +719,34 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     }
 
     const fieldType = body.fieldType as FieldType | undefined;
+    /*
+     * A relation has to say where it points, at creation (ADR-0054).
+     *
+     * Not defaulted to "anywhere": a column that can point at any page gives a
+     * picker over the whole workspace and a rollup with nothing to aggregate,
+     * because the other side has no fields in common. And not editable later
+     * without deciding what happens to cells already pointing elsewhere —
+     * which is a question this refuses to create.
+     */
+    if (fieldType === 'relation') {
+      const target = body.config?.['collectionId'];
+      if (typeof target !== 'string' || target === '') {
+        ctx.fail(422, 'relation_without_target');
+        return;
+      }
+      const exists = await queryOne<{ id: string }>(
+        deps.pool,
+        `SELECT c.id FROM collections c
+           JOIN pages p ON p.id = c.page_id
+          WHERE c.id = $1 AND p.workspace_id = $2 AND p.archived_at IS NULL`,
+        [target, auth.workspaceId],
+      );
+      if (!exists) {
+        ctx.fail(404, 'collection_not_found');
+        return;
+      }
+    }
+
     if (!fieldType || !CREATABLE_FIELD_TYPES.has(fieldType)) {
       // Named separately from a malformed body: "that column type is not
       // available yet" is a different thing from "your request was wrong".
@@ -1040,6 +1080,73 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     // was never there. Options already removed are a different matter: those
     // values stay, because a row owns its values and erasing them would make
     // one misclick in the option editor unrecoverable.
+    /*
+     * A relation value must name rows in the collection the column points at
+     * (ADR-0054).
+     *
+     * Checked here for the same reasons a files value is, plus one that is
+     * specific to this: a relation crosses pages, so an unchecked id is a way
+     * to make a cell point into another workspace and have its title drawn
+     * beside somebody's data. The target's collection is checked as well as its
+     * existence — a column that points at Clients must not end up holding an
+     * invoice, or the rollups on the other side aggregate fields that are not
+     * there.
+     */
+    if (value !== null && field.field_type === 'relation') {
+      const ids =
+        value.kind === 'relation' && Array.isArray(value.pageIds)
+          ? value.pageIds.filter((id): id is string => typeof id === 'string')
+          : null;
+      if (ids === null) {
+        ctx.fail(422, 'invalid_value');
+        return;
+      }
+      if (ids.length > MAX_CELL_RELATIONS) {
+        ctx.fail(422, 'too_many_relations', { limit: MAX_CELL_RELATIONS });
+        return;
+      }
+
+      const target =
+        typeof field.config?.['collectionId'] === 'string'
+          ? (field.config['collectionId'] as string)
+          : null;
+      if (!target) {
+        // A relation column with no target is a column nobody can fill. It
+        // cannot be created that way, so reaching here means the config was
+        // edited into that state — refused rather than stored.
+        ctx.fail(422, 'relation_without_target');
+        return;
+      }
+
+      if (ids.length > 0) {
+        const known = await queryRows<{ id: string }>(
+          deps.pool,
+          /*
+           * By `collection_id`, which is how a row belongs to a collection.
+           *
+           * My first version walked up to the parent page and joined
+           * `collections` on it — so a legitimate target came back 404. A row
+           * *is* a child of the collection's page, but the column is what says
+           * which collection it belongs to, and it is the column every other
+           * query here uses. The materialiser carries a comment about being
+           * caught by the same confusion from the other direction.
+           */
+          `SELECT p.id
+             FROM pages p
+            WHERE p.id = ANY($1::uuid[])
+              AND p.workspace_id = $2
+              AND p.collection_id = $3
+              AND p.kind = 'row'
+              AND p.archived_at IS NULL`,
+          [ids, auth.workspaceId, target],
+        );
+        if (known.length !== new Set(ids).size) {
+          ctx.fail(404, 'row_not_found');
+          return;
+        }
+      }
+    }
+
     // A files value must name files that exist, in this workspace.
     //
     // Checked before storing for the same reason a select value is: a cell
