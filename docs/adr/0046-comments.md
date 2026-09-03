@@ -213,7 +213,11 @@ worse one than none, because it would be believed.
 Doing it honestly means internal comments living in a **separate document**,
 synced only to members: a second room per page, its own place in the update log,
 its own authorisation, and a panel that reads two sources and merges them. That is
-a real piece of work and its own record — not a flag.
+a real piece of work and its own record — not a flag. It is now
+[ADR-0057](0057-internal-comments.md), where two things turned out cheaper than
+this paragraph assumed: `doc_updates.doc_id` has no foreign key, so a second
+document needs no migration, and a sync room already authorises by page id, so a
+stricter room can reuse that.
 
 Until then, the warning above is the honest answer: the hazard is named where the
 decision is made.
