@@ -12,3 +12,5 @@ export * from './doc/theme.js';
 export * from './video/links.js';
 export * from './search/query.js';
 export * from './doc/diff.js';
+export * from './formula/parse.js';
+export * from './formula/evaluate.js';
