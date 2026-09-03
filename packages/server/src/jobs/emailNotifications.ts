@@ -62,6 +62,7 @@ export async function claimForEmail(pool: Pool): Promise<Candidate[]> {
        SELECT n.id, n.user_id, n.workspace_id
          FROM notifications n
          JOIN users u ON u.id = n.user_id
+    LEFT JOIN users a ON a.id = n.actor_id
         WHERE n.emailed_at IS NULL
           AND n.read_at IS NULL
           AND n.created_at < now() - ($1 || ' minutes')::interval
@@ -140,6 +141,7 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
       kind: string;
       page_title: string;
       page_id: string;
+      actor: string | null;
       workspace_name: string;
       email: string;
       locale: string | null;
@@ -148,6 +150,7 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
       `SELECT n.kind,
               coalesce(p.title, '') AS page_title,
               n.page_id::text AS page_id,
+              a.display_name AS actor,
               w.name AS workspace_name,
               u.email,
               u.locale
@@ -155,6 +158,7 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
          JOIN pages p ON p.id = n.page_id AND p.archived_at IS NULL
          JOIN workspaces w ON w.id = n.workspace_id
          JOIN users u ON u.id = n.user_id
+    LEFT JOIN users a ON a.id = n.actor_id
         WHERE n.id = ANY($1::uuid[]) AND n.user_id = $2
         ORDER BY n.created_at`,
       [ids, userId],
@@ -167,13 +171,14 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
       pageTitle: row.page_title,
       pageId: row.page_id,
       /*
-       * Null, because a notification does not record who caused it.
+       * The name, when the notification recorded one (ADR-0058).
        *
-       * Found by writing `LEFT JOIN users a ON a.id = n.actor_id` and watching
-       * Postgres say the column does not exist. SQL is not typechecked, so this
-       * would have shipped and failed on the first mail.
+       * Null is a real answer and not a gap: rows written before the column
+       * existed have no actor, and an account since deleted leaves the
+       * reference null. The composer has a wording for each case, because
+       * German cannot prefix "Du wurdest erwähnt" with a subject.
        */
-      actor: null,
+      actor: row.actor,
     }));
 
     const first = rows[0]!;

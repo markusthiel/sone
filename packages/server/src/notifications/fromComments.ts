@@ -22,6 +22,15 @@ const EXCERPT = 140;
 
 interface Candidate {
   userId: string;
+  /**
+   * Who caused it, when that is known (ADR-0058).
+   *
+   * Null for anything whose actor cannot be determined, and for rows written
+   * before the column existed. A name is not content, so there is no reason of
+   * principle to leave it out — it simply was not recorded until the email work
+   * needed it and found it missing.
+   */
+  actorId: string | null;
   kind: 'mention' | 'reply' | 'assignment';
   threadId: string | null;
   messageId: string;
@@ -70,6 +79,7 @@ export function notificationsFor(threads: CommentThread[]): Candidate[] {
         if (who === message.author) continue;
         out.set(`${who}:${message.id}`, {
           userId: who,
+          actorId: message.author,
           kind: 'mention',
           threadId: thread.id,
           messageId: message.id,
@@ -90,6 +100,7 @@ export function notificationsFor(threads: CommentThread[]): Candidate[] {
         if (out.has(key)) continue;
         out.set(key, {
           userId: who,
+          actorId: message.author,
           kind: 'reply',
           threadId: thread.id,
           messageId: message.id,
@@ -117,6 +128,8 @@ export function notificationsFor(threads: CommentThread[]): Candidate[] {
  */
 export function assignmentsFor(
   blocks: Array<{ id: string; type: string; props: Record<string, unknown>; plainText: string }>,
+  /** Whose edit produced this projection, if anybody's (ADR-0058). */
+  assignedBy: string | null = null,
 ): Candidate[] {
   const out: Candidate[] = [];
   for (const block of blocks) {
@@ -125,6 +138,15 @@ export function assignmentsFor(
     if (typeof who !== 'string' || who === '' || isGuestKey(who)) continue;
     out.push({
       userId: who,
+      /*
+       * Whoever's edit produced this projection.
+       *
+       * A todo block records its assignee and not who assigned it, so the
+       * actor here is the person whose write created the row — which is the
+       * same person in every ordinary case and is honestly null when the
+       * projection was not caused by anybody's edit.
+       */
+      actorId: assignedBy,
       kind: 'assignment',
       threadId: null,
       messageId: block.id,
@@ -158,16 +180,18 @@ export async function writeNotifications(
     props: Record<string, unknown>;
     plainText: string;
   }> = [],
+  /** Whose edit produced this projection, for an assignment's actor (ADR-0058). */
+  actorId: string | null = null,
 ): Promise<number> {
-  const candidates = [...notificationsFor(threads), ...assignmentsFor(blocks)];
+  const candidates = [...notificationsFor(threads), ...assignmentsFor(blocks, actorId)];
   if (candidates.length === 0) return 0;
 
   const { rowCount } = await db.query(
     `INSERT INTO notifications
-       (user_id, workspace_id, page_id, kind, thread_id, message_id, excerpt)
-     SELECT c.user_id, $2, $1, c.kind, c.thread_id, c.message_id, c.excerpt
-       FROM unnest($3::uuid[], $4::text[], $5::text[], $6::text[], $7::text[])
-              AS c(user_id, kind, thread_id, message_id, excerpt)
+       (user_id, workspace_id, page_id, kind, thread_id, message_id, excerpt, actor_id)
+     SELECT c.user_id, $2, $1, c.kind, c.thread_id, c.message_id, c.excerpt, c.actor_id
+       FROM unnest($3::uuid[], $4::text[], $5::text[], $6::text[], $7::text[], $8::uuid[])
+              AS c(user_id, kind, thread_id, message_id, excerpt, actor_id)
        JOIN pages p ON p.id = $1
        JOIN workspace_members m
          ON m.workspace_id = p.workspace_id AND m.user_id = c.user_id
@@ -183,6 +207,7 @@ export async function writeNotifications(
       candidates.map((one) => one.threadId),
       candidates.map((one) => one.messageId),
       candidates.map((one) => one.excerpt),
+      candidates.map((one) => one.actorId),
     ],
   );
 

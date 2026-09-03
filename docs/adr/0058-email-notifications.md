@@ -23,21 +23,20 @@ migration, and `notifications` already holds exactly what would be sent.
 
 ## Decisions
 
-### The email says where. It never says what — and it cannot yet say who
+### The email says who and where. It never says what
 
-**Corrected while building the sending.** This section was written promising
-"Anna mentioned you on Q3 Planung". Then the job's query joined an actor and
-Postgres refused the column: `notifications` records the user, the workspace,
-the page, the kind and an excerpt, and **not who caused it**. SQL is not
-typechecked, so that would have shipped and failed on the first mail.
+**This section promised "who" before the data had it.** The job's query joined
+an actor and Postgres refused the column: a notification recorded the user, the
+workspace, the page, the kind and an excerpt, and not who caused it. SQL is not
+typechecked, so it would have shipped and failed on the first mail.
 
-The composer takes a nullable actor and each kind has two wordings — German
-cannot put a name in front of "Du wurdest erwähnt" and stay grammatical, and
-neither can English. So today a mail reads "Du wurdest erwähnt auf 'Q3
-Planung'". Adding `notifications.actor_id` is a small, separate piece of work:
-the write path knows the message's author, an assignment would use the
-materialising actor, and only the wording above changes. It is not done, and the
-mail is not worse than truthful in the meantime.
+`notifications.actor_id` exists now. A mention or a reply takes the message's
+author; an assignment takes whoever's edit produced the projection, because a
+todo block records who it is *for* and not who gave it. Null stays a real
+answer — rows written before the column, and an account since deleted — so the
+composer keeps two wordings per kind rather than a name glued to the front:
+German cannot prefix "Du wurdest erwähnt" with a subject and stay grammatical,
+and neither can English.
 
 **No message text, no quoted passage, no excerpt.** "Anna mentioned you on
 Q3 Planung" and a link. Not "Anna wrote: can we drop the Meyer contract".
@@ -178,10 +177,13 @@ having decided somebody's next week.
 
 ## Still to build
 
-`notifications.actor_id`, so a mail can say who. Then
-the read-before-send check, the per-person settings screen, and failed sends in
-the administration area. Until then nothing is offered in the interface and no
-mail is attempted, which is the same state as an instance with no relay.
+The per-person settings screen, and failed sends surfaced in the administration
+area. The read-before-send check is done — it is a condition in the claim, which
+is where every rule in this record turned out to live.
+
+Until the settings screen exists, the three per-person preferences are columns
+with defaults and no way to change them, which is worth knowing rather than
+discovering: somebody who wants replies emailed cannot say so yet.
 
 ## What is deliberately not decided
 

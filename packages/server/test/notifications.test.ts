@@ -117,3 +117,25 @@ test('a guest cannot be given a task', () => {
     [],
   );
 });
+
+test('a notification records who caused it', () => {
+  // Absent until the email work needed it and found it missing: a notification
+  // said what happened, where and to whom, and not by whom — so "Anna
+  // mentioned you" was a sentence the data could not produce (ADR-0058).
+  // The suite's own `thread` helper, which builds the object directly — I
+  // reached for a Y.Doc and an `addThread` this file does not import.
+  const [mention] = notificationsFor([thread([['anna', 'schau mal', ['bo']]])]);
+  assert.equal(mention?.userId, 'bo');
+  assert.equal(mention?.actorId, 'anna', 'the message´s author');
+});
+
+test('an assignment names whoever´s edit produced it', () => {
+  // A todo block records who it is *for* and not who gave it, so the actor is
+  // the person whose write created the row — the same person in every ordinary
+  // case, and honestly null when no edit caused the projection.
+  const blocks = [
+    { id: 'b1', type: 'todo', props: { assignee: 'bo' }, plainText: 'Rechnung prüfen' },
+  ];
+  assert.equal(assignmentsFor(blocks, 'anna')[0]?.actorId, 'anna');
+  assert.equal(assignmentsFor(blocks)[0]?.actorId, null, 'nobody, rather than a guess');
+});
