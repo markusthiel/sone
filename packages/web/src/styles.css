@@ -2195,6 +2195,15 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
 }
 
+/* How a message arrived, beside its author (ADR-0060). Quiet: it is a fact
+   about the message, not part of what was said. */
+.comment-via {
+  margin-inline-start: var(--sone-space-2);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  font-style: italic;
+}
+
 /* An internal thread, marked by a word (ADR-0057). Beside the heading, in the
    heading's own quiet weight: it is a fact about the group, not a warning. */
 .comment-internal { color: var(--sone-text-muted); font-weight: 400; text-transform: none; }

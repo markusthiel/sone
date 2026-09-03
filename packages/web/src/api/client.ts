@@ -200,6 +200,12 @@ export interface InstanceSettings {
   smtpFrom: string;
   smtpSecurity: 'starttls' | 'tls' | 'none';
   emailDetail: 'title' | 'workspace';
+  /** Where replies are read from — an empty host means none (ADR-0060). */
+  imapHost: string;
+  imapPort: string;
+  imapUser: string;
+  imapFolder: string;
+  replyMailbox: string;
 }
 
 export interface AdminUser {

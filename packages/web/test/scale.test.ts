@@ -2267,3 +2267,33 @@ test('the reset screen shows one answer, and its link appears only with a relay'
     'the reset route is checked first',
   );
 });
+
+test('a comment that arrived by email says so, beside its author', () => {
+  // Quote trimming is guesswork, so a reader should be able to tell that a
+  // machine cut a reply rather than that a colleague wrote something strange
+  // (ADR-0060).
+  const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
+  assert.match(panel, /message\.via === 'email' &&/);
+  // Beside the name, not under the text: it is a fact about the message and not
+  // part of what was said.
+  assert.ok(
+    panel.indexOf("t('comment.viaEmail')") < panel.indexOf('className="comment-text"'),
+    'the mark sits in the author line',
+  );
+  // And the extra marks appear only when they are true, or "trimmed" would be
+  // on every emailed reply and stop meaning anything.
+  assert.match(panel, /message\.trimmed === true &&/);
+  assert.match(panel, /message\.hadAttachments === true &&/);
+
+  // The reply settings sit under the mail ones, in the section that already
+  // exists rather than a screen of their own.
+  const admin = codeOf(new URL('../src/components/Admin.tsx', import.meta.url));
+  assert.match(admin, /t\('admin\.replies'\)/);
+  for (const key of ['imapHost', 'imapPort', 'imapUser', 'replyMailbox']) {
+    assert.match(admin, new RegExp(`settings\\.${key}`), `${key} is on the screen`);
+  }
+  // The IMAP password is not a setting and must not become one.
+  assert.doesNotMatch(admin, /imapPassword/);
+  const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
+  assert.match(en, /SONE_IMAP_PASSWORD/);
+});

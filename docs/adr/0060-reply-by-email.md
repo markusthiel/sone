@@ -2,9 +2,7 @@
 
 ## Status
 
-Accepted. The token and the trimming are built and tested — the two halves that
-are pure functions, and the ones carrying the security decision. IMAP, writing
-the comment and the refusal mail are not.
+Accepted and built end to end.
 
 ## Context
 
@@ -179,6 +177,15 @@ One reply address per batch, naming its first notification. A mail can list
 several things waiting; a reply to it can only be about one, and the first is the
 one the subject line names. The alternative is guessing which of four threads
 somebody meant.
+
+**The mark, and the settings.** A message that arrived by mail says so beside
+its author — a fact about the message rather than part of what was said — with
+`trimmed` and `attachments not kept` only when those are true, or the mark would
+be on every emailed reply and stop meaning anything.
+
+The reply settings sit under the mail ones in the section that already exists,
+because they are the same subject and a screen of their own would separate the
+mailbox from the relay it answers.
 
 ## Consequences
 

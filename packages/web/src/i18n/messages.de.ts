@@ -306,6 +306,23 @@ export const de: Record<keyof typeof en, string> = {
     'Dieser Durchgang läuft von selbst alle paar Minuten. Der Knopf ist für den Fall, ' +
     'dass Warten nicht in Frage kommt — meist, nachdem behoben wurde, woran eine ' +
     'Projektion gescheitert ist.',
+  'admin.replies': 'Antworten per E-Mail',
+  'admin.replies.hint':
+    'Mit einem Postfach hier lässt sich eine Benachrichtigung durch Antworten ' +
+    'beantworten. Ohne eines wird keine Antwortadresse gesendet und nichts ' +
+    'abgefragt.',
+  'admin.imapHost': 'Postfach-Server (IMAP)',
+  'admin.imapHost.hint': 'Leer heißt: Antworten werden gar nicht gelesen.',
+  'admin.imapPort': 'Port',
+  'admin.imapPort.hint': '993 für IMAP über TLS.',
+  'admin.imapUser': 'Postfach-Benutzer',
+  'admin.imapUser.hint':
+    'Das Passwort bleibt in der Umgebung, als SONE_IMAP_PASSWORD.',
+  'admin.replyMailbox': 'Antwortadresse',
+  'admin.replyMailbox.hint':
+    'Woran geantwortet wird. SONE hängt pro Benachrichtigung ein Token an ' +
+    '(sone+token@…), damit ein Postfach für alle reicht — es muss diese ' +
+    'Adressen in dasselbe Postfach zustellen.',
   'admin.mail': 'Mailserver',
   'admin.mail.hint':
     'Für Benachrichtigungs-E-Mails. Ohne Host wird nichts versendet und nichts ' +
@@ -1076,6 +1093,12 @@ export const de: Record<keyof typeof en, string> = {
     'älter ist, wurde nicht aufgezeichnet und ist nicht wiederherstellbar.',
   'comment.unknownAuthor': 'Jemand, der nicht mehr dabei ist',
   'comment.startInternal': 'Nur für Mitglieder — ein Freigabe-Link liest das nicht',
+  'comment.viaEmail': 'per E-Mail',
+  'comment.viaEmail.hint':
+    'Das kam als Antwort auf eine Benachrichtigung. SONE hat den zitierten Teil ' +
+    'entfernt.',
+  'comment.trimmed': 'gekürzt',
+  'comment.attachmentsDropped': 'Anhänge nicht übernommen',
   'comment.internal': ' · intern',
   'comment.none': 'Noch nichts kommentiert. Markiere ein paar Worte und drücke Kommentieren.',
   'comment.open': 'Offen',

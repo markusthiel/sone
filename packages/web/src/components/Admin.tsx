@@ -401,6 +401,94 @@ export function InstancePanel(): ReactElement {
           </div>
 
 
+        {/* `admin-subheading`, which this screen already has for the failure
+            list below — `settings-subheading` was a second name I invented for
+            a thing that exists. */}
+        <h3 className="admin-subheading">{t('admin.replies')}</h3>
+        <p className="settings-note">{t('admin.replies.hint')}</p>
+
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>{t('admin.imapHost')}</b>
+            <span>
+              {t('admin.imapHost.hint')}
+              <SettingSource source={settingSources['imapHost']} />
+            </span>
+          </span>
+          <input
+            id="imap-host"
+            aria-label={t('admin.imapHost')}
+            defaultValue={settings.imapHost}
+            disabled={saving}
+            onBlur={(event) => {
+              const value = event.target.value.trim();
+              if (value !== settings.imapHost) void update({ imapHost: value });
+            }}
+          />
+        </div>
+
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>{t('admin.imapPort')}</b>
+            <span>
+              {t('admin.imapPort.hint')}
+              <SettingSource source={settingSources['imapPort']} />
+            </span>
+          </span>
+          <input
+            id="imap-port"
+            inputMode="numeric"
+            aria-label={t('admin.imapPort')}
+            defaultValue={settings.imapPort}
+            disabled={saving}
+            onBlur={(event) => {
+              const value = event.target.value.trim();
+              if (value !== settings.imapPort) void update({ imapPort: value });
+            }}
+          />
+        </div>
+
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>{t('admin.imapUser')}</b>
+            <span>
+              {t('admin.imapUser.hint')}
+              <SettingSource source={settingSources['imapUser']} />
+            </span>
+          </span>
+          <input
+            id="imap-user"
+            autoComplete="off"
+            aria-label={t('admin.imapUser')}
+            defaultValue={settings.imapUser}
+            disabled={saving}
+            onBlur={(event) => {
+              const value = event.target.value.trim();
+              if (value !== settings.imapUser) void update({ imapUser: value });
+            }}
+          />
+        </div>
+
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>{t('admin.replyMailbox')}</b>
+            <span>
+              {t('admin.replyMailbox.hint')}
+              <SettingSource source={settingSources['replyMailbox']} />
+            </span>
+          </span>
+          <input
+            id="reply-mailbox"
+            aria-label={t('admin.replyMailbox')}
+            defaultValue={settings.replyMailbox}
+            disabled={saving}
+            onBlur={(event) => {
+              const value = event.target.value.trim();
+              if (value !== settings.replyMailbox) void update({ replyMailbox: value });
+            }}
+          />
+        </div>
+
         <MailTest />
       </section>
     </>

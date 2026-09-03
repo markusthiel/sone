@@ -121,6 +121,20 @@ function Thread({
               <span className="comment-author">
                 {who.name || t('comment.unknownAuthor')}
                 {who.guest && <span className="contributor-guest">{t('panel.guest')}</span>}
+                {/* How it arrived, when it did not come from here (ADR-0060).
+                  *
+                  * Beside the name rather than under the text, because it is a
+                  * fact about the message and not part of what was said — and
+                  * because quote trimming is guesswork: a reader should be able
+                  * to tell that a machine cut a reply rather than that a
+                  * colleague wrote something strange. */}
+                {message.via === 'email' && (
+                  <span className="comment-via" title={t('comment.viaEmail.hint')}>
+                    {t('comment.viaEmail')}
+                    {message.trimmed === true && ` · ${t('comment.trimmed')}`}
+                    {message.hadAttachments === true && ` · ${t('comment.attachmentsDropped')}`}
+                  </span>
+                )}
               </span>
               <p className="comment-text">{message.text}</p>
               {canEdit && (
