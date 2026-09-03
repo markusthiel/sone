@@ -134,5 +134,16 @@ is not a problem, seven megabytes of JSON was.
 
 **Paging the board and the gallery.** Both draw the same rows and inherit the
 page — checked: the table is `hidden` rather than unmounted for those views, and
-the "show more" control sits outside it, so all three get it. Whether a board column loads its own page is a question about columns
+the "show more" control sits outside it, so all three get it.
+
+The **board needed a correction**, though: each of its columns shows a count,
+and that count was of the loaded cards — "Done: 4" with three hundred in the
+collection — while an empty column claimed "nothing here yet" when the truth was
+"nothing here yet *of the first fifty*". Both look like data loss. A column shows
+`4+` while more may exist, and an empty one says so.
+
+The **gallery needed nothing**, and the reason is worth writing down rather than
+rechecking later: its only claim is an empty state, which appears when the first
+page is empty — and a page is filled from the start of the set, so an empty first
+page means an empty set. Whether a board column loads its own page is a question about columns
 rather than about rows, and it can wait until somebody has a board that large.

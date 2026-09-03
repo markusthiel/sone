@@ -963,6 +963,9 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       {view?.viewType === 'board' && groupBy && (
         <CollectionBoard
           rows={data.rows}
+          // Whether these are all of them: a board column counting a page is a
+          // count that understates without saying so (ADR-0055).
+          complete={!data.nextCursor}
           groupBy={groupBy}
           canEdit={data.canEdit}
           onSetValue={(rowId, value) => void write(rowId, groupBy.id, value)}

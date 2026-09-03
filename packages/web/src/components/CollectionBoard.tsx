@@ -32,6 +32,16 @@ import { paths } from '../routes/paths.ts';
 import { optionsOf } from './CollectionCell.tsx';
 
 interface BoardProps {
+  /**
+   * Whether these rows are all of them (ADR-0055).
+   *
+   * A board groups the rows it is given. With paging that is one page, so a
+   * column counting its cards was counting the loaded ones — "Done: 4" while
+   * three hundred exist — and an empty column said "nothing here yet" when the
+   * truth was "nothing here yet *of the first fifty*". Both are the kind of
+   * wrong that looks like data loss.
+   */
+  complete: boolean;
   rows: CollectionRow[];
   /** The select column the board groups by. */
   groupBy: CollectionField;
@@ -44,6 +54,7 @@ const UNSET = '\u0000unset';
 
 export function CollectionBoard({
   rows,
+  complete,
   groupBy,
   canEdit,
   onSetValue,
@@ -123,7 +134,11 @@ export function CollectionBoard({
                 aria-hidden="true"
               />
               <span className="board-column-name">{option.name || 'Untitled'}</span>
-              <span className="board-column-count">{entries.length}</span>
+              {/* A plus when there may be more: the number is true as far as
+                  it goes, and the sign says how far that is. */}
+              <span className="board-column-count">
+                {complete ? entries.length : `${entries.length}+`}
+              </span>
             </header>
 
             <ul className="board-cards">
@@ -146,7 +161,11 @@ export function CollectionBoard({
 
             {entries.length === 0 && (
               <p className="muted board-empty">
-                {option.id === UNSET ? 'Everything is sorted.' : 'Nothing here yet.'}
+                {!complete
+                  ? t('board.noneLoaded')
+                  : option.id === UNSET
+                    ? t('board.allSorted')
+                    : t('board.emptyColumn')}
               </p>
             )}
           </section>

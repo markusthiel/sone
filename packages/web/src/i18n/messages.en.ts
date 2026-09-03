@@ -643,6 +643,9 @@ export const en = {
   'table.confirmEmpty':
     'Move every entry in this collection to the trash? Each one is a page, so ' +
     'nothing is destroyed — they can be restored from the trash, or with undo.',
+  'board.allSorted': 'Everything is sorted.',
+  'board.emptyColumn': 'Nothing here yet.',
+  'board.noneLoaded': 'None of the loaded rows. There may be more.',
   'table.countOf': '{shown} of {total} rows',
   'table.countMany': '{shown} rows, of more than 10 000',
   'table.more': 'Show more rows',

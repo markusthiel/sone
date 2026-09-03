@@ -1964,3 +1964,24 @@ test('the row count is of the filtered set, and vague above the ceiling', () => 
   // Postgres refuse the count outright.
   assert.match(routes, /const countQuery = buildViewQuery\(\s*\n\s*chosen \?/);
 });
+
+test('a board column does not understate its cards in silence', () => {
+  // A board groups the rows it is given, which is now one page: a column
+  // counting its cards counted the loaded ones — "Done: 4" while three hundred
+  // exist — and an empty column said "nothing here yet" when the truth was
+  // "nothing here yet of the first fifty" (ADR-0055).
+  const board = codeOf(new URL('../src/components/CollectionBoard.tsx', import.meta.url));
+  assert.match(board, /complete \? entries\.length : `\$\{entries\.length\}\+`/);
+  assert.match(board, /!complete\s*\n?\s*\? t\('board\.noneLoaded'\)/);
+  // And those three sentences were English in the JSX until now.
+  assert.doesNotMatch(board, /'Nothing here yet\.'/);
+
+  const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
+  assert.match(table, /complete=\{!data\.nextCursor\}/);
+
+  // The gallery needed nothing: its empty state only shows when the *first*
+  // page is empty, and an empty first page means an empty set.
+  const gallery = codeOf(new URL('../src/components/CollectionGallery.tsx', import.meta.url));
+  assert.match(gallery, /rows\.length === 0/);
+  assert.doesNotMatch(gallery, /complete/);
+});

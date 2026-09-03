@@ -695,6 +695,9 @@ export const de: Record<keyof typeof en, string> = {
     'Jeden Eintrag dieser Kollektion in den Papierkorb legen? Jeder ist eine ' +
     'Seite, es wird also nichts vernichtet — sie lassen sich aus dem ' +
     'Papierkorb oder mit Rückgängig zurückholen.',
+  'board.allSorted': 'Alles ist einsortiert.',
+  'board.emptyColumn': 'Hier noch nichts.',
+  'board.noneLoaded': 'Keine der geladenen Zeilen. Es kann mehr geben.',
   'table.countOf': '{shown} von {total} Zeilen',
   'table.countMany': '{shown} Zeilen, von mehr als 10 000',
   'table.more': 'Mehr Zeilen zeigen',
