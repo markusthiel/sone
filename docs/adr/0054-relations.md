@@ -154,7 +154,48 @@ the page. And they are drawn by the table's own cell renderer, which is why it
 moved into a module of its own first — two renderers would drift, and the one
 that drifted would be the one nobody looks at.
 
-**Filtering and sorting a view by a derived column.** Wanted, and it means the
-aggregate has to run before the sort rather than after the page of rows is
-chosen. A performance decision that should be made against a real corpus, like
-ADR-0051's was.
+### Sorting a view by a derived column: measured, and bounded
+
+Deferred here originally with the note that it "should be made against a real
+corpus, like ADR-0051's was". Measured, on the two tables a rollup reads with
+the indexes the real ones carry, generated without randomness so the numbers can
+be reproduced.
+
+| | 2 000 rows, 40 000 edges | 20 000 rows, 400 000 edges |
+| --- | --- | --- |
+| A page of 50, then its rollups *(today)* | 3.2 ms | **3.3 ms** |
+| Sorted by a count | 14.6 ms | 167 ms |
+| Sorted by a sum | 34.8 ms | **1 050 ms** |
+
+The decisive number is not the second in the corner; it is the **3.3 ms that did
+not move**. Choosing the page first bounds the work by the page, so today's cost
+is flat in the size of the collection. Sorting by a derived column removes that
+bound: the aggregate must run for every row before anything can be ordered, so
+the cost is the collection's, and it grows with it — 30× for ten times the data,
+because a full scan and a sort compound.
+
+**Decision: allowed, and bounded, and the bound is visible.**
+
+A view may sort by a rollup while the collection is under two thousand rows,
+which measured at 35 ms — the point where a sort is still a sort rather than a
+wait. Above it the option is offered and disabled, saying why: "this collection
+is too large to sort by a computed column".
+
+Three alternatives, and why not:
+
+**Refusing it entirely.** "How many invoices does this client have, most first"
+is one of the questions a relation exists to answer, and a database that can
+compute a number it cannot order by is a strange thing to ship.
+
+**Allowing it at any size.** A second per view load, on the path everybody uses,
+for a sort most people will not have asked for. A feature whose cost is paid by
+people not using it.
+
+**Caching the aggregate in a column.** The obvious escape and the wrong one
+here: it means a write to every dependent row whenever any source row changes,
+which is the cascade the "no rollup of a rollup" rule was chosen to avoid.
+Materialising the aggregate reintroduces exactly what that rule was protecting.
+
+The threshold is a measured guess and will be wrong for somebody. It is one
+constant in one place, and the numbers above are in this record so the next
+person changing it knows what they are trading.
