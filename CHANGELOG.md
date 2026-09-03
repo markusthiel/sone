@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A comment can be internal** ([ADR-0057](docs/adr/0057-internal-comments.md)):
+tick "only for members" under the draft and the thread goes into a second
+document that a share link cannot open at all — not hidden from it, unreachable.
+Internal threads appear in the same panel, marked. The choice is made when the
+thread starts and cannot be changed afterwards, because nothing can take back
+what a guest has already synced.
+
 **A search can be kept** ([ADR-0050](docs/adr/0050-search-filters.md)). Give
 `tag:rechnung assigned:me` a name and it waits under the empty search field.
 Kept per person, because `assigned:me` means something different to everybody.
