@@ -1885,6 +1885,51 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   line-height: 1.6;
 }
 
+/* --- comparing two versions (ADR-0053) --- */
+
+.diff-choice { display: inline-flex; gap: 2px; }
+.history-compare {
+  align-self: flex-start;
+  margin-inline-start: var(--sone-space-3);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--sone-text-xs);
+  cursor: pointer;
+}
+
+.diff-body { display: flex; flex-direction: column; gap: var(--sone-space-4); }
+.diff-block {
+  padding-inline-start: var(--sone-space-4);
+  /* A bar in the margin per kind rather than a background: a coloured
+     background behind prose makes the prose harder to read, which defeats the
+     purpose of showing it. */
+  border-inline-start: 3px solid var(--border-default);
+}
+.diff-block[data-kind='added'] { border-inline-start-color: var(--sone-palette-green, #4f7d6f); }
+.diff-block[data-kind='removed'] { border-inline-start-color: var(--sone-palette-red, #b3261e); }
+.diff-block[data-kind='changed'] { border-inline-start-color: var(--accent); }
+.diff-block[data-kind='removed'] p { color: var(--sone-text-muted); text-decoration: line-through; }
+.diff-label {
+  display: block;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+}
+.diff-detail { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+
+/* Inside a rewritten block. Underline and strike-through rather than colour
+   alone, so the two are told apart without seeing colour. */
+.diff-word.added {
+  background: color-mix(in srgb, var(--sone-palette-green, #4f7d6f) 18%, transparent);
+  text-decoration: underline;
+}
+.diff-word.removed {
+  color: var(--sone-text-muted);
+  text-decoration: line-through;
+}
+
 /* --- comments (ADR-0046) --- */
 
 /* A commented passage, marked as much as the reader asked for (ADR-0046).

@@ -24,6 +24,7 @@ import { scrollToBlock } from '../hooks/useOutline.ts';
 import type { CommentAnchor, DrawnThread } from '@sone/editor';
 
 import { CanvasSurface } from './CanvasSurface.tsx';
+import { VersionDiff } from './VersionDiff.tsx';
 import { VersionView } from './VersionView.tsx';
 import { EditorSurface } from './EditorSurface.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
@@ -42,6 +43,8 @@ interface PageViewProps {
   markStyle: 'highlight' | 'underline' | 'off';
   /** A past version to show instead of the body (ADR-0047). */
   viewingVersion: string | null;
+  /** Or what that version changed (ADR-0053). */
+  comparingVersion: string | null;
   onCloseVersion: () => void;
   /**
    * Called when the title changes, including by another client.
@@ -64,6 +67,7 @@ export function PageView({
   onComment,
   markStyle,
   viewingVersion,
+  comparingVersion,
   onCloseVersion,
   pageId,
   connectionState,
@@ -229,7 +233,9 @@ export function PageView({
         * editor is not rendered at all rather than disabled — an editor that
         * refuses keystrokes is an invitation somebody has already accepted by
         * the time it refuses. */}
-      {viewingVersion ? (
+      {comparingVersion ? (
+        <VersionDiff pageId={pageId} versionId={comparingVersion} onClose={onCloseVersion} />
+      ) : viewingVersion ? (
         <VersionView pageId={pageId} versionId={viewingVersion} onClose={onCloseVersion} />
       ) : (
       <ErrorBoundary where="The editor">

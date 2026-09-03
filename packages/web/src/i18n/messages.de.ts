@@ -856,6 +856,21 @@ export const de: Record<keyof typeof en, string> = {
   'panel.history': 'Verlauf',
   'history.none': 'Von dieser Seite sind noch keine früheren Fassungen aufbewahrt.',
   'history.viewing': 'So stand die Seite am {when}.',
+  'diff.whatThisDid': 'Was diese Fassung geändert hat',
+  'diff.sinceThen': 'Seitdem geändert',
+  'diff.added': 'Hinzugefügt',
+  'diff.removed': 'Entfernt',
+  'diff.changed': 'Neu geschrieben',
+  'diff.moved': 'Verschoben',
+  'diff.movedFrom': 'von Position {from} nach {to}',
+  'diff.empty': '(leer)',
+  'diff.nothing': 'Nichts hat sich geändert.',
+  'diff.compare': 'Vergleichen',
+  'diff.noFormatting':
+    'Fett, kursiv und Links werden nicht verglichen \u2014 nur die Worte.',
+  'diff.approximate':
+    '{count} Bausteine konnten zwischen den Fassungen nicht zugeordnet werden; ' +
+    'für diese ist der Vergleich ungefähr.',
   'history.backToNow': 'Zurück zum Jetzt',
   'history.restore': 'Die Seite wieder so lesen lassen',
   'history.restoreMeans':

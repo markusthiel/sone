@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Two versions of a page can be compared** ([ADR-0053](docs/adr/0053-version-diff.md)):
+"Compare" beside an entry in the History panel shows what that version changed, or
+what has changed since it. A moved paragraph is reported as **moved** rather than
+as a deletion and an insertion somewhere else — blocks carry stable ids, so the
+comparison knows rather than guesses. Formatting is not compared, and the view says
+so.
+
 **Fixed: the administration overview showed a number that was always zero** —
 "waiting to project" counted a state nothing had written since the rebuild path
 was replaced by failure-and-retry. It now counts projections that failed and will

@@ -152,6 +152,8 @@ interface RightSidebarProps {
   /** Which past version is being read, and how to choose one (ADR-0047). */
   viewingVersion: string | null;
   onViewVersion: (versionId: string | null) => void;
+  /** Show what a version changed (ADR-0053). */
+  onCompareVersion: (versionId: string) => void;
 }
 
 export function RightSidebar({
@@ -168,6 +170,7 @@ export function RightSidebar({
   marks,
   viewingVersion,
   onViewVersion,
+  onCompareVersion,
 }: RightSidebarProps): ReactElement {
   const { t } = useT();
   const [tab, setTab] = useState<RightTab>(readTab);
@@ -255,6 +258,7 @@ export function RightSidebar({
               members={members}
               viewing={viewingVersion}
               onView={onViewVersion}
+              onCompare={onCompareVersion}
             />
           )}
           {tab === 'comments' && (
