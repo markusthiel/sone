@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the administration overview showed a number that was always zero** —
+"waiting to project" counted a state nothing had written since the rebuild path
+was replaced by failure-and-retry. It now counts projections that failed and will
+be tried again, and "failed" counts the ones that have been given up on.
+
 **Eight translations that nothing used have been removed**, and two new checks
 keep both from returning: a message defined and never used now fails a test, and
 so does a route module the server never mounts.

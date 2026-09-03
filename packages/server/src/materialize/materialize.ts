@@ -739,20 +739,6 @@ export async function materializeYDoc(
   return materializeDocument(db, pageId, readDocument(doc, pageId), opts);
 }
 
-/** Mark a page's projection stale so the rebuild worker picks it up. */
-export async function markStale(
-  db: PoolClient,
-  pageId: string,
-  reason: string,
-): Promise<void> {
-  await db.query(
-    `INSERT INTO materialization_state (page_id, status, last_error, materialized_at)
-     VALUES ($1, 'stale', $2, now())
-     ON CONFLICT (page_id) DO UPDATE
-       SET status = 'stale', last_error = $2`,
-    [pageId, reason.slice(0, 2000)],
-  );
-}
 
 /** Record a failure without losing the previous projection. */
 export async function markFailed(

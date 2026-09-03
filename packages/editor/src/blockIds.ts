@@ -162,10 +162,6 @@ export function assignMissingIds(
   return rebuild(doc);
 }
 
-/** True when a transaction was produced by this plugin. */
-export const isBlockIdHousekeeping = (tr: Transaction): boolean =>
-  tr.getMeta(blockIdPluginKey) === true;
-
 /** Every block id in a document, in document order. Used by tests. */
 export function collectBlockIds(state: EditorState | PMNode): string[] {
   const doc = 'doc' in state ? state.doc : state;
