@@ -3751,13 +3751,19 @@ select {
 
 /* --- folder view --- */
 
-.folder-view .breadcrumb {
+/* A trail, wherever one is shown.
+ *
+ * These three rules were scoped to `.folder-view`, so the same markup on a page
+ * came out unstyled — which is the case that exists now that a page shows its
+ * location while the sidebar is away. Unscoped rather than duplicated: one
+ * trail, drawn one way, and the folder view keeps exactly what it had. */
+.breadcrumb {
   margin-block-end: 8px;
   font-size: 0.85rem;
   color: var(--sone-text-muted);
 }
-.folder-view .breadcrumb a { color: var(--sone-text-muted); }
-.folder-view .breadcrumb a:hover { color: var(--sone-text); }
+.breadcrumb a { color: var(--sone-text-muted); }
+.breadcrumb a:hover { color: var(--sone-text); }
 
 
 .folder-actions { display: flex; gap: 8px; margin-block: 20px 8px; flex-wrap: wrap; }
