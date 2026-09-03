@@ -277,6 +277,29 @@ export const en = {
   'admin.maintenance.note':
     'This pass runs on its own every few minutes. Pressing it is for when waiting is ' +
     'not acceptable — after fixing whatever made a projection fail, typically.',
+  'admin.smtpHost': 'Mail server',
+  'admin.smtpHost.hint':
+    'Empty means no email: notifications stay in the inbox and nothing is sent. ' +
+    'That is a normal instance.',
+  'admin.smtpPort': 'Port',
+  'admin.smtpPort.hint': '587 for STARTTLS, 465 for TLS.',
+  'admin.smtpSecurity': 'Encryption',
+  'admin.smtpSecurity.hint':
+    'A password is refused over an unencrypted connection — a credential in the ' +
+    'clear is worse than no mail.',
+  'admin.smtpSecurity.none': 'None (no password possible)',
+  'admin.smtpUser': 'Mail server user',
+  'admin.smtpUser.hint':
+    'The password stays in the environment, as SONE_SMTP_PASSWORD: a secret in a ' +
+    'table is a secret in every backup.',
+  'admin.smtpFrom': 'Sender address',
+  'admin.smtpFrom.hint': 'What mail comes from. Most relays insist on owning it.',
+  'admin.emailDetail': 'What a mail may name',
+  'admin.emailDetail.hint':
+    'A notification email never contains comment text. This is whether it may ' +
+    'name the page as well as the workspace.',
+  'admin.emailDetail.title': 'The page title',
+  'admin.emailDetail.workspace': 'Only the workspace',
   'admin.instanceName': 'Instance name',
   'admin.signup': 'Who may create an account',
   'admin.signup.open': 'Anyone with the address',

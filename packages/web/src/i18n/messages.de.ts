@@ -299,6 +299,30 @@ export const de: Record<keyof typeof en, string> = {
     'Dieser Durchgang läuft von selbst alle paar Minuten. Der Knopf ist für den Fall, ' +
     'dass Warten nicht in Frage kommt — meist, nachdem behoben wurde, woran eine ' +
     'Projektion gescheitert ist.',
+  'admin.smtpHost': 'Mailserver',
+  'admin.smtpHost.hint':
+    'Leer heißt keine E-Mail: Benachrichtigungen bleiben im Posteingang und es ' +
+    'wird nichts versendet. Das ist eine normale Instanz.',
+  'admin.smtpPort': 'Port',
+  'admin.smtpPort.hint': '587 für STARTTLS, 465 für TLS.',
+  'admin.smtpSecurity': 'Verschlüsselung',
+  'admin.smtpSecurity.hint':
+    'Über eine unverschlüsselte Verbindung wird ein Passwort abgelehnt — ein ' +
+    'Zugangswort im Klartext ist schlimmer als keine Mail.',
+  'admin.smtpSecurity.none': 'Keine (dann kein Passwort möglich)',
+  'admin.smtpUser': 'Benutzer am Mailserver',
+  'admin.smtpUser.hint':
+    'Das Passwort bleibt in der Umgebung, als SONE_SMTP_PASSWORD: ein Geheimnis ' +
+    'in einer Tabelle ist ein Geheimnis in jedem Backup.',
+  'admin.smtpFrom': 'Absenderadresse',
+  'admin.smtpFrom.hint':
+    'Wovon Mail kommt. Die meisten Relays bestehen darauf, sie zu besitzen.',
+  'admin.emailDetail': 'Was eine Mail nennen darf',
+  'admin.emailDetail.hint':
+    'Eine Benachrichtigungsmail enthält nie Kommentartext. Hier geht es darum, ' +
+    'ob sie außer dem Workspace auch die Seite nennen darf.',
+  'admin.emailDetail.title': 'Den Seitentitel',
+  'admin.emailDetail.workspace': 'Nur den Workspace',
   'admin.instanceName': 'Name der Instanz',
   'admin.signup': 'Wer ein Konto anlegen darf',
   'admin.signup.open': 'Jeder, der die Adresse hat',

@@ -180,6 +180,20 @@ export interface InstanceSettings {
   defaultLocale: string;
   /** "du" or "Sie", where a language distinguishes it (ADR-0041). */
   addressForm: 'informal' | 'formal';
+  /**
+   * Where mail goes, if anywhere (ADR-0058).
+   *
+   * An empty host means no email: notifications stay in the inbox and nothing
+   * is sent. The password is not here and never will be — it stays in the
+   * environment, because a secret in a table is a secret in every backup
+   * (ADR-0024).
+   */
+  smtpHost: string;
+  smtpPort: string;
+  smtpUser: string;
+  smtpFrom: string;
+  smtpSecurity: 'starttls' | 'tls' | 'none';
+  emailDetail: 'title' | 'workspace';
 }
 
 export interface AdminUser {
