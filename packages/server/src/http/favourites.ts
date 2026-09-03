@@ -241,15 +241,3 @@ export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): vo
   });
 }
 
-/** Which of these pages the caller has favourited. */
-export async function favouritedPageIds(
-  pool: Pool,
-  userId: string,
-): Promise<Set<string>> {
-  const rows = await queryRows<{ page_id: string }>(
-    pool,
-    `SELECT page_id FROM favourites WHERE user_id = $1`,
-    [userId],
-  );
-  return new Set(rows.map((row) => row.page_id));
-}

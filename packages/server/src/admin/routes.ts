@@ -20,6 +20,8 @@
 
 import type { Pool } from 'pg';
 
+import { MAX_PROJECTION_ATTEMPTS } from '../maintenance/job.js';
+
 import { queryOne, queryRows } from '../db/pool.js';
 import { requireWorkspaceAdministrator } from './rights.js';
 import { requireSession } from '../http/auth.js';
@@ -565,8 +567,19 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
          (SELECT count(*) FROM orphaned_pages)::text AS orphaned,
          (SELECT count(*) FROM stale_search_rows)::text AS stale_search,
          (SELECT count(*) FROM pages_inside_pages)::text AS inside_pages,
-         (SELECT count(*) FROM materialization_state WHERE status = 'failed')::text AS failed,
-         (SELECT count(*) FROM materialization_state WHERE status = 'stale')::text AS pending`,
+         -- Given up on: failed and past the retry limit, which is what the
+         -- operator has to act on.
+         (SELECT count(*) FROM materialization_state
+           WHERE status = 'failed' AND attempts >= ${MAX_PROJECTION_ATTEMPTS})::text AS failed,
+         -- Retryable failures, not "stale".
+         --
+         -- This counted a "stale" status, which nothing has written since the
+         -- rebuild path was replaced by failure-and-retry: markStale was its
+         -- only writer and had no callers, so the operator was shown a number
+         -- that was structurally always zero and told it was "normal while
+         -- people are editing".
+         (SELECT count(*) FROM materialization_state
+           WHERE status = 'failed' AND attempts < ${MAX_PROJECTION_ATTEMPTS})::text AS pending`,
     );
 
     // The failing pages themselves, capped: a list of thousands helps nobody,

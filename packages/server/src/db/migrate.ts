@@ -136,38 +136,5 @@ export async function migrate(
   return { applied, skipped };
 }
 
-/**
- * Warn when an already-applied migration file has changed on disk.
- *
- * Not fatal — a comment fix is harmless — but it is worth surfacing, because
- * the alternative is discovering that two instances have divergent schemas.
- */
-export async function checkMigrationDrift(
-  db: Pool,
-  migrationsDir: string,
-  log: (msg: string) => void = console.warn,
-): Promise<void> {
-  const { rows } = await db.query<{ exists: boolean }>(
-    `SELECT to_regclass('public.schema_migration_hashes') IS NOT NULL AS exists`,
-  );
-  if (!rows[0]?.exists) return;
-
-  const migrations = await loadMigrations(migrationsDir);
-  const stored = await queryRows<{ version: string; sha256: string }>(
-    db,
-    `SELECT version, sha256 FROM schema_migration_hashes`,
-  );
-  const byVersion = new Map(stored.map((r) => [r.version, r.sha256]));
-
-  for (const m of migrations) {
-    const known = byVersion.get(m.version);
-    if (known && known !== m.sha256) {
-      log(
-        `[migrate] WARNING: ${m.filename} changed after being applied. ` +
-          `Migrations are append-only; write a new migration instead.`,
-      );
-    }
-  }
-}
 
 export { withTransaction };

@@ -621,7 +621,3 @@ export function runSlashItem(view: EditorView, item: SlashItem): boolean {
   return true;
 }
 
-/** Exported so tests can drive the plugin without a view. */
-export function slashCloseTransaction(state: EditorState): Transaction {
-  return state.tr.setMeta(slashMenuPluginKey, { close: true });
-}
