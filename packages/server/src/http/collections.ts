@@ -664,9 +664,14 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     const claims = await claimsFor(deps.pool, ctx, here.workspace_id);
     if (!claims) return;
 
-    const rows = await queryRows<{ id: string; name: string; from_title: string }>(
+    const rows = await queryRows<{
+      id: string;
+      name: string;
+      from_title: string;
+      owner_collection: string;
+    }>(
       deps.pool,
-      `SELECT f.id, f.name, p.title AS from_title
+      `SELECT f.id, f.name, p.title AS from_title, f.collection_id AS owner_collection
          FROM collection_fields f
          JOIN collections c ON c.id = f.collection_id
          JOIN pages p ON p.id = c.page_id
@@ -685,11 +690,34 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       ],
     );
 
+    /*
+     * And what each of those collections has to aggregate.
+     *
+     * With the relations rather than in a second request: choosing an aggregate
+     * and choosing a field are one decision made in one dialog, and a fetch
+     * between the two halves of it would show an empty list for a moment.
+     *
+     * Stored fields only — the rule that keeps rollups acyclic, applied where
+     * somebody chooses rather than only where the server refuses.
+     */
+    const fields = await queryRows<{ collection_id: string; id: string; name: string }>(
+      deps.pool,
+      `SELECT f.collection_id, f.id, f.name
+         FROM collection_fields f
+        WHERE f.collection_id = ANY($1::uuid[])
+          AND f.field_type <> ALL($2::text[])
+        ORDER BY f.idx ASC`,
+      [rows.map((row) => row.owner_collection), [...DERIVED_FIELD_TYPES]],
+    );
+
     ctx.send(200, {
       relations: rows.map((row) => ({
         fieldId: row.id,
         fieldName: row.name,
         fromCollection: row.from_title,
+        aggregatable: fields
+          .filter((field) => field.collection_id === row.owner_collection)
+          .map((field) => ({ id: field.id, name: field.name })),
       })),
     });
   });
@@ -1003,6 +1031,18 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     // do with this collection.
     if (via.config?.['collectionId'] !== resolved.collectionId) {
       ctx.fail(422, 'relation_points_elsewhere');
+      return false;
+    }
+
+    /*
+     * Every aggregate but `rows` and `count` needs a field to aggregate.
+     *
+     * Refused rather than stored as an empty column: a rollup with no field is
+     * one that can never produce a value, and it would look like a bug in the
+     * rollup rather than a config nobody finished.
+     */
+    if (!config.fieldId && config.aggregate !== 'rows' && config.aggregate !== 'count') {
+      ctx.fail(422, 'rollup_needs_a_field');
       return false;
     }
 

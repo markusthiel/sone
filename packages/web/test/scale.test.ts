@@ -1876,12 +1876,21 @@ test('a rollup can be changed to sum, min or max — the capability is reachable
   // Shipping the capability with no control would have been a feature only its
   // author could use (ADR-0054).
   const table = codeOf(new URL('../src/components/CollectionTable.tsx', import.meta.url));
-  assert.match(table, /\['rows', 'count', 'sum', 'min', 'max'\] as const/);
+  assert.match(table, /\['rows', 'count', 'lookup', 'sum', 'min', 'max'\] as const/);
+  // An aggregate that needs a field gets a second select beside it, because the
+  // server refuses the half of the decision that names none — and a control
+  // that earns a 422 reads as broken rather than as unfinished.
+  assert.match(table, /needsField\(String\(field\.config\?\.\['aggregate'\] \?\? 'count'\)\)/);
+  // And switching to one that needs none clears the field, so switching back
+  // does not silently reuse a field chosen for a different question.
+  assert.match(table, /\{ fieldId: chosen \} : \{ fieldId: null \}/);
 
   // The whole config goes back, not a patch of it: `viaFieldId` is what the
   // rollup is built on, and the server replaces the object rather than merging
-  // — so omitting it would clear the relation the column reads.
-  assert.match(table, /config: \{ \.\.\.field\?\.config, viaFieldId: via, aggregate \}/);
+  // — so omitting it would clear the relation the column reads. It carries the
+  // aggregate's field too now, which is why this reads the two lines rather
+  // than one literal object.
+  assert.match(table, /\.\.\.field\?\.config,\s*\n\s*viaFieldId: via,\s*\n\s*aggregate,/);
 });
 
 test('a gallery card can show a rollup, which lives outside row.values', () => {

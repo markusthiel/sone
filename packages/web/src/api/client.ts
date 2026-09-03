@@ -253,6 +253,8 @@ export interface DerivedCellValue {
   kind: 'derived';
   rows?: Array<{ id: string; title: string }>;
   number?: number | null;
+  /** Values from the linked rows, for a lookup. */
+  texts?: string[];
   /** Something was excluded because the reader may not see it (ADR-0054). */
   partial?: boolean;
 }
@@ -921,7 +923,13 @@ export const api = {
   /** Relation columns pointing at this collection, for a rollup (ADR-0054). */
   incomingRelations: (collectionId: string) =>
     request<{
-      relations: Array<{ fieldId: string; fieldName: string; fromCollection: string }>;
+      relations: Array<{
+        fieldId: string;
+        fieldName: string;
+        fromCollection: string;
+        /** The stored fields on that side, for an aggregate that needs one. */
+        aggregatable: Array<{ id: string; name: string }>;
+      }>;
     }>(`/api/collections/${collectionId}/incoming`),
 
   addCollectionField: (

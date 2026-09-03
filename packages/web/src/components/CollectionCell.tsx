@@ -202,7 +202,12 @@ export function Cell({
     if (!derived) return <span className="muted">—</span>;
     return (
       <span className="derived-cell">
-        {derived.rows
+        {derived.texts
+          ? // A lookup: the linked rows' own values, joined. Not links, because
+            // a value is not a page — the rows themselves are one column over
+            // if somebody wants them.
+            derived.texts.join(', ') || '—'
+          : derived.rows
           ? derived.rows.map((row, at) => (
               <span key={row.id}>
                 {at > 0 && ', '}

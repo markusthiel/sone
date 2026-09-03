@@ -74,8 +74,18 @@ changes. A depth of one covers what people actually ask for; the alternative
 is a scheduler.
 
 `lookup` is the same mechanism with no aggregation: show the other row's stored
-field. It falls out of rollup for free and is listed separately because that is
-what people call it.
+field.
+
+**"For free" was nearly true.** Built as a sixth aggregate: the edges, the
+visibility check and the config are shared, and what it actually needed was a
+*shape* for the answer — a list of somebody else's values is neither a list of
+rows nor a number, so `DerivedValue` gained a third form. One field, not free.
+
+Building it also turned up that every aggregate but `rows` and `count` needs a
+field to aggregate, and nothing was requiring one: a rollup with none was
+storable and could never produce a value, which reads as a fault in the rollup
+rather than a config nobody finished. Refused now, and the interface offers the
+field beside the aggregate so the two halves of the decision are made together.
 
 ### A relation is scoped to one collection, chosen when the column is made
 

@@ -17,7 +17,7 @@ import { queryRows } from '../db/pool.js';
 import { visiblePagesCondition } from '../pages/access.js';
 
 /** What a rollup does with the rows it finds. */
-export type Aggregate = 'rows' | 'count' | 'sum' | 'min' | 'max';
+export type Aggregate = 'rows' | 'count' | 'sum' | 'min' | 'max' | 'lookup';
 
 export const AGGREGATES: ReadonlySet<Aggregate> = new Set<Aggregate>([
   'rows',
@@ -25,6 +25,12 @@ export const AGGREGATES: ReadonlySet<Aggregate> = new Set<Aggregate>([
   'sum',
   'min',
   'max',
+  // Show a stored field of the linked rows rather than a number about them
+  // (ADR-0054). The record said this "falls out of rollup for free"; it very
+  // nearly did — the edges, the visibility and the config are the same, and
+  // what it needed was a shape for the answer, because a list of somebody
+  // else's *values* is not a list of rows and not a number.
+  'lookup',
 ]);
 
 export interface RollupConfig {
@@ -47,6 +53,8 @@ export interface DerivedValue {
   rows?: Array<{ id: string; title: string }>;
   /** A number, for count/sum/min/max. */
   number?: number | null;
+  /** Values from the linked rows, for a lookup. */
+  texts?: string[];
   /**
    * Whether anything was left out because the reader may not see it.
    *
@@ -145,6 +153,52 @@ export async function computeRollup(
               ...(partial || readable.length > MAX_BACKLINK_ROWS ? { partial: true } : {}),
             },
       );
+    }
+    return out;
+  }
+
+  /*
+   * A lookup: the linked rows' own values for one stored field.
+   *
+   * Text or number, whichever the shadow column holds — the projection already
+   * writes both, so this needs no knowledge of field types beyond "not
+   * derived", which was checked when the column was created.
+   *
+   * Empty values are dropped rather than shown as gaps: a lookup of six rows of
+   * which two are blank reads better as four values than as "a, , b, , c, d".
+   */
+  if (input.config.aggregate === 'lookup') {
+    const fieldId = input.config.fieldId;
+    if (!fieldId) {
+      for (const rowId of input.rowIds) out.set(rowId, { kind: 'derived', texts: [] });
+      return out;
+    }
+
+    const found = await queryRows<{ to_page_id: string; shown: string | null }>(
+      pool,
+      `SELECT r.to_page_id,
+              coalesce(v.text_value, v.number_value::text) AS shown
+         FROM page_relations r
+         JOIN pages src ON src.id = r.from_page_id
+         JOIN page_properties v ON v.page_id = r.from_page_id AND v.field_id = $5
+        WHERE r.to_page_id = ANY($1::uuid[])
+          AND r.field_id = $2
+          AND src.archived_at IS NULL
+          AND (${visible})
+        ORDER BY src.title ASC`,
+      [input.rowIds, input.config.viaFieldId, input.reader.userId, input.reader.isAdmin, fieldId],
+    );
+
+    for (const rowId of input.rowIds) {
+      const texts = found
+        .filter((row) => row.to_page_id === rowId)
+        .map((row) => row.shown)
+        .filter((shown): shown is string => shown !== null && shown !== '');
+      out.set(rowId, {
+        kind: 'derived',
+        texts: texts.slice(0, MAX_BACKLINK_ROWS),
+        ...(texts.length > MAX_BACKLINK_ROWS ? { partial: true } : {}),
+      });
     }
     return out;
   }
