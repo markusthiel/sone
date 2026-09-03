@@ -155,6 +155,9 @@ addresses have accounts and of what kind.
 That also answers the sub-question this paragraph raised: the mail *may* name the
 provider, for the same reason.
 
-**Second factors.** There are none yet. When there are, a password reset must not
-be a way around them, which is a decision that belongs with the second factor
-rather than here.
+**Second factors.** Now [ADR-0063](0063-second-factor.md), which keeps the
+condition this record attached: **a reset does not clear the second factor.** If
+it did, anybody with access to a mailbox would have access to the account, and
+the factor would protect nothing. Somebody who has lost both their password and
+their phone uses a recovery code, and if those are gone an administrator removes
+the factor — an act by another human, deliberately not self-service.
