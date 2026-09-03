@@ -414,6 +414,13 @@ export const en = {
   'you.notifications.contents':
     'A notification email says who did what and on which page, with a link. It ' +
     'never contains the comment itself — a mailbox is not a permission system.',
+  'you.activity': 'A mail about what changed',
+  'you.activity.hint':
+    'A list of pages that changed in your workspaces — titles and names, never ' +
+    'what was written, and never a page you cannot open. Off unless you choose it.',
+  'you.activity.off': 'No such mail',
+  'you.activity.daily': 'Every weekday morning',
+  'you.activity.weekly': 'Monday mornings',
   'you.notifications.schedule': 'How often',
   'you.notifications.schedule.hint':
     'A daily mail arrives at eight in the morning, in your own timezone, and ' +

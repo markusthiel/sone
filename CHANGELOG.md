@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A mail about what changed in your workspaces**
+([ADR-0062](docs/adr/0062-activity-digest.md)), every weekday morning or on
+Mondays — a list of pages with who touched them, never what was written, and
+never a page you cannot open. Off unless you choose it, under You →
+Notifications.
+
 **Notification emails can arrive once a day instead of as things happen**
 ([ADR-0061](docs/adr/0061-digest.md)) — at eight in the morning in your own
 timezone, and only when something is still unread. There is a "never" too, which
