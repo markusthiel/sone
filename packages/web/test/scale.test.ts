@@ -2036,3 +2036,22 @@ test('a formula can be edited, in the dialog that writes one', () => {
   const routes = codeOf(new URL('../../server/src/http/collections.ts', import.meta.url));
   assert.match(routes, /existing\?\.field_type === 'formula' &&\s*\n\s*!\(await formulaIsUsable/);
 });
+
+test('a search can be kept, and lives where searches are run', () => {
+  // Under the empty field rather than in the sidebar: this is where somebody is
+  // when they want to run one again, and a third sidebar section is a decision
+  // about the sidebar rather than about searches (ADR-0050).
+  const screen = codeOf(new URL('../src/components/Search.tsx', import.meta.url));
+  assert.match(screen, /query === '' && saved\.length > 0 &&/);
+  // Both the name and the query: a name is memorable and a query is readable,
+  // and neither substitutes for the other.
+  assert.match(screen, /className="saved-search-name"/);
+  assert.match(screen, /className="saved-search-query"/);
+  // Offered only when there is something to keep.
+  assert.match(screen, /hasSearchCriteria\(parsed\) && !naming &&/);
+
+  // Per person, and scoped to the workspace whose tags and people the filters
+  // name.
+  const migration = codeOf(new URL('../../../db/migrations/0042_saved_searches.sql', import.meta.url));
+  assert.match(migration, /UNIQUE \(user_id, workspace_id, name\)/);
+});

@@ -13,7 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**A search can be kept** ([ADR-0050](docs/adr/0050-search-filters.md)). Give
+`tag:rechnung assigned:me` a name and it waits under the empty search field.
+Kept per person, because `assigned:me` means something different to everybody.
 
 **Two dozen refusals now say what is wrong** instead of "an unknown error
 occurred" — from "a workspace has to keep one owner" to "that value does not fit

@@ -144,6 +144,7 @@ export const de: Record<keyof typeof en, string> = {
   'error.not_a_member': 'Diese Person ist kein Mitglied dieses Workspace.',
   'error.export_too_large': 'Dieser Export ist zu groß zum Vorbereiten.',
   'error.too_large': 'Diese Datei ist zu groß.',
+  'error.search_needs_a_name': 'Der Suche zuerst einen Namen geben.',
   'error.formula_missing': 'Erst eine Formel schreiben.',
   'error.formula_invalid':
     'Diese Formel ist nicht lesbar. Klammern und Operatoren prüfen.',
@@ -740,6 +741,9 @@ export const de: Record<keyof typeof en, string> = {
   'search.chip.after': 'Bearbeitet am oder nach {value}',
   'search.chip.before': 'Bearbeitet am oder vor {value}',
   'search.chip.notADate': 'Kein Datum. Format JJJJ-MM-TT.',
+  'search.keep': 'Diese Suche behalten',
+  'search.nameIt': 'Wie soll sie heißen',
+  'search.forget': '{name} verwerfen',
   'search.syntax':
     'Eingrenzen mit tag:name, author:name, assigned:me, after:2026-08-01 oder ' +
     'before:2026-09-01. Ein Filter allein genügt auch.',

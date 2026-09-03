@@ -1821,6 +1821,54 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .inbox-excerpt { font-size: var(--sone-text-sm); }
 .inbox-where { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
 
+/* Searches somebody kept (ADR-0050). Under an empty field, where they are
+   about to run one again. */
+.saved-searches { display: flex; flex-direction: column; gap: 2px; margin: var(--sone-space-4) 0; padding: 0; list-style: none; }
+.saved-searches li { display: flex; align-items: center; gap: var(--sone-space-2); }
+.saved-search {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.saved-search:hover { background: var(--sone-bg-hover); }
+.saved-search-name { font-size: var(--sone-text-sm); font-weight: 600; }
+/* The query in a monospaced face: it is syntax, and reads as syntax. */
+.saved-search-query {
+  color: var(--sone-text-muted);
+  font-family: var(--sone-font-mono, ui-monospace, monospace);
+  font-size: var(--sone-text-xs);
+}
+.saved-search-forget {
+  border: 0;
+  padding: 0 var(--sone-space-2);
+  background: transparent;
+  color: var(--sone-text-muted);
+  cursor: pointer;
+}
+.saved-search-forget:hover { color: var(--sone-text); }
+
+.search-naming { display: flex; flex-wrap: wrap; gap: var(--sone-space-2); margin-block: var(--sone-space-3); }
+.search-name {
+  flex: 1;
+  min-inline-size: 160px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius-sm);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+.search-keep { margin-block-start: var(--sone-space-3); }
+
 /* --- what a search was read as (ADR-0050) --- */
 
 .search-chips {

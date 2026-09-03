@@ -130,6 +130,7 @@ export const en = {
   'error.not_a_member': 'That person is not a member of this workspace.',
   'error.export_too_large': 'That export is too large to prepare.',
   'error.too_large': 'That file is too large.',
+  'error.search_needs_a_name': 'Give the search a name first.',
   'error.formula_missing': 'Write a formula first.',
   'error.formula_invalid': 'That formula cannot be read. Check the brackets and the operators.',
   'error.formula_unknown_field': 'That formula names a column this collection does not have.',
@@ -681,6 +682,9 @@ export const en = {
   'search.chip.after': 'Edited on or after {value}',
   'search.chip.before': 'Edited on or before {value}',
   'search.chip.notADate': 'Not a date. Use YYYY-MM-DD.',
+  'search.keep': 'Keep this search',
+  'search.nameIt': 'Call it something',
+  'search.forget': 'Forget {name}',
   'search.syntax':
     'Narrow it by typing tag:name, author:name, assigned:me, after:2026-08-01 ' +
     'or before:2026-09-01. A filter on its own works too.',

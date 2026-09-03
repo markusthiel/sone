@@ -316,6 +316,53 @@ describe(
       assert.deepEqual(await search(session, 'assigned:anna'), []);
     });
 
+    test('a search can be kept, replaced by name, and forgotten', async () => {
+      // Per person: `assigned:me` means something different to everybody, so a
+      // shared saved search would resolve differently per reader (ADR-0050).
+      const session = await setup();
+      const keep = (name: string, query: string): Promise<Response> =>
+        fetch(`${base}/api/workspaces/${session.workspaceId}/searches`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ name, query }),
+        });
+
+      await expectJson(await keep('Offene Rechnungen', 'tag:rechnung'), 201);
+      // Saving over a name replaces it, which is what refining a search and
+      // saving it again means.
+      await expectJson(await keep('Offene Rechnungen', 'tag:rechnung assigned:me'), 201);
+      await expectStatus(await keep('', 'tag:rechnung'), 422);
+
+      const mine = await expectJson<{
+        searches: Array<{ id: string; name: string; query: string }>;
+      }>(
+        await fetch(`${base}/api/workspaces/${session.workspaceId}/searches`, {
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+      assert.deepEqual(
+        mine.searches.map((one) => [one.name, one.query]),
+        [['Offene Rechnungen', 'tag:rechnung assigned:me']],
+        'one entry, with the newer query',
+      );
+
+      await expectJson(
+        await fetch(`${base}/api/searches/${mine.searches[0]!.id}`, {
+          method: 'DELETE',
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+      const after = await expectJson<{ searches: unknown[] }>(
+        await fetch(`${base}/api/workspaces/${session.workspaceId}/searches`, {
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+      assert.deepEqual(after.searches, []);
+    });
+
     test('a tag filter narrows, and works with no words at all', async () => {
       // "Show me everything tagged X" is a question people ask constantly and
       // could not ask at all (ADR-0050). The two-character minimum is about a

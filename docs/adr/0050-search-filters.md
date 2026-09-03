@@ -127,8 +127,18 @@ job: trigrams over every block's text is an index the size of the content, and
 the alternative — `word_similarity` against a per-workspace lexeme list — needs
 measuring before it is chosen.
 
-**Saved searches.** The obvious next thing once a query is a string worth
-keeping, and a feature with its own storage and its own place in the interface.
+**Saved searches.** *Built.* Per person and per workspace, which is the decision
+worth stating: `assigned:me` means something different to everybody, so a shared
+saved search would be a shared string that resolves differently for each reader
+and confuses everyone who did not write it. And the filters name a workspace's
+own tags and people, so the same text elsewhere finds nothing or the wrong thing.
+
+Kept under the empty search field rather than in the sidebar — that is where
+somebody is when they want to run one again, and a third sidebar section is a
+decision about the sidebar rather than about searches. Saving over a name
+replaces it, which is what refining a search and saving it again means. Both the
+name and the query are shown: a name is memorable and a query is readable, and
+neither substitutes for the other.
 
 **`in:` for a folder.** Wanted, and it needs a way to name a folder in a query
 that survives renaming — which is an id in a string, and a string with an id in
