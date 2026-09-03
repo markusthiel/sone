@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted. The derived id and the room's authorisation are built; the panel, the
+projection and the export are not. What is done and not done is at the end.
 
 ## Context
 
@@ -102,6 +103,29 @@ the version and export paths each have to be told.
 A page's internal document is created when the first internal thread is written,
 not with the page. So most pages have one row fewer than they would otherwise,
 and the absence is normal rather than an error.
+
+## Built so far
+
+The derived id, the request form, and the room that refuses a share session.
+
+**The request form is a suffix on the page id**, `<pageId>#internal`, rather than
+a field in the open message. That message is `[Open, requestId, pageId]` on the
+wire, and a new field would change its shape and cost a protocol version — which
+0.4.0 shipped unchanged, and which every client and server would then have to
+agree about for the sake of one bit. An older server sees an id it cannot find
+and refuses, which is the right answer from a server without this feature.
+
+The decoder was the thing that had to be told: it checked `isUuid` on the whole
+string, so it refused the suffixed form before any authorisation ran — and the
+request came back as a protocol error while I looked for the refusal in the room.
+It now splits first and requires the part before the suffix to be a uuid, which
+accepts exactly one more shape than before rather than any string.
+
+## Still to build
+
+The panel reading two sources, the separate projection table, and export. A
+thread cannot be written internally from the interface yet: the room exists and
+is guarded, and nothing puts a comment in it.
 
 ## What is deliberately not decided
 
