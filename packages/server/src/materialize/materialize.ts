@@ -327,7 +327,17 @@ export async function materializeDocument(
     (block) => block.type === 'todo' && typeof block.props['assignee'] === 'string',
   );
   if (parsed.comments.length > 0 || assigned.length > 0) {
-    await writeNotifications(db, pageId, opts.workspaceId, parsed.commentThreads, assigned);
+    // The actor comes along for an assignment: a todo records who it is for and
+    // not who gave it, so the person whose edit produced this projection is the
+    // honest answer (ADR-0058).
+    await writeNotifications(
+      db,
+      pageId,
+      opts.workspaceId,
+      parsed.commentThreads,
+      assigned,
+      opts.actorId ?? null,
+    );
   }
 
   if (parentChanged) {
