@@ -1153,6 +1153,20 @@ export const api = {
       }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
 
+  /** Searches this person has kept in this workspace (ADR-0050). */
+  savedSearches: (workspaceId: string) =>
+    request<{ searches: Array<{ id: string; name: string; query: string }> }>(
+      `/api/workspaces/${workspaceId}/searches`,
+    ),
+
+  saveSearch: (workspaceId: string, name: string, query: string) =>
+    post<{ id: string | null }>(`/api/workspaces/${workspaceId}/searches`, { name, query }),
+
+  forgetSearch: (searchId: string) =>
+    // `request` with a method, which is how every other delete here is written;
+    // `del` was a helper I assumed existed.
+    request<{ deleted: boolean }>(`/api/searches/${searchId}`, { method: 'DELETE' }),
+
   /** How many notifications are waiting, across every workspace (ADR-0052). */
   inboxCount: () => request<{ unread: number }>('/api/inbox/count'),
 

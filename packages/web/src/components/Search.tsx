@@ -15,7 +15,7 @@
  * answer have to be told apart by reading each row.
  */
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { hasSearchCriteria, parseSearchQuery } from '@sone/core';
 
@@ -69,6 +69,24 @@ export function SearchScreen({
   const [applied, setApplied] = useState<AppliedFilters | null>(null);
   /** Spellings that exist here, when the search found little (ADR-0051). */
   const [corrections, setCorrections] = useState<string[]>([]);
+  /** Searches this person has kept here (ADR-0050). */
+  const [saved, setSaved] = useState<Array<{ id: string; name: string; query: string }>>([]);
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState('');
+
+  const reloadSaved = useCallback(() => {
+    void api
+      .savedSearches(workspaceId)
+      .then((result) => setSaved(result.searches))
+      .catch(() => {
+        // A list that cannot be fetched is drawn as no list: it is a
+        // convenience, and an error about it would sit above the search
+        // somebody came to run.
+        setSaved([]);
+      });
+  }, [workspaceId]);
+
+  useEffect(reloadSaved, [reloadSaved]);
   const [searching, setSearching] = useState(false);
   const requestId = useRef(0);
 
@@ -165,6 +183,86 @@ export function SearchScreen({
               {one.prefix}:{one.value}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* What has been kept, under an empty field.
+        *
+        * Here rather than in the sidebar: this is where somebody is when they
+        * want to run one again, and a third sidebar section is a decision about
+        * the sidebar rather than about searches (ADR-0050). */}
+      {query === '' && saved.length > 0 && (
+        <ul className="saved-searches">
+          {saved.map((one) => (
+            <li key={one.id}>
+              <button type="button" className="saved-search" onClick={() => setQuery(one.query)}>
+                <span className="saved-search-name">{one.name}</span>
+                {/* The query as well as the name: a name is memorable and a
+                    query is readable, and neither substitutes for the other. */}
+                <span className="saved-search-query">{one.query}</span>
+              </button>
+              <button
+                type="button"
+                className="saved-search-forget"
+                aria-label={t('search.forget', { name: one.name })}
+                onClick={() => void api.forgetSearch(one.id).then(reloadSaved)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Keeping this one, offered only when there is something to keep. */}
+      {hasSearchCriteria(parsed) && !naming && (
+        <button
+          type="button"
+          className="btn subtle search-keep"
+          onClick={() => {
+            setName(query.trim().slice(0, 80));
+            setNaming(true);
+          }}
+        >
+          {t('search.keep')}
+        </button>
+      )}
+
+      {naming && (
+        <div className="search-naming">
+          <input
+            className="search-name"
+            autoFocus
+            value={name}
+            placeholder={t('search.nameIt')}
+            aria-label={t('search.nameIt')}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setNaming(false);
+              if (event.key === 'Enter' && name.trim() !== '') {
+                void api.saveSearch(workspaceId, name.trim(), query.trim()).then(() => {
+                  setNaming(false);
+                  reloadSaved();
+                });
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="btn primary"
+            disabled={name.trim() === ''}
+            onClick={() =>
+              void api.saveSearch(workspaceId, name.trim(), query.trim()).then(() => {
+                setNaming(false);
+                reloadSaved();
+              })
+            }
+          >
+            {t('action.save')}
+          </button>
+          <button type="button" className="btn subtle" onClick={() => setNaming(false)}>
+            {t('action.cancel')}
+          </button>
         </div>
       )}
 

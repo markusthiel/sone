@@ -1789,6 +1789,85 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     unreadable: filters.unreadable,
   });
 
+  /**
+   * Searches somebody has kept, and keeping one (ADR-0050).
+   *
+   * Per person: `assigned:me` means something different to everybody, so a
+   * shared saved search would be a shared string that resolves differently per
+   * reader.
+   */
+  router.get('/api/workspaces/:workspaceId/searches', async (ctx) => {
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    const claims = await claimsFor(deps.pool, ctx, workspaceId);
+    if (!claims) return;
+    if (claims.principal.kind !== 'user') {
+      // A share-link visitor has nowhere to keep one. An empty list rather than
+      // a refusal: the screen asks this of everybody who opens search.
+      ctx.send(200, { searches: [] });
+      return;
+    }
+
+    const rows = await queryRows<{ id: string; name: string; query: string }>(
+      deps.pool,
+      `SELECT id, name, query FROM saved_searches
+        WHERE user_id = $1 AND workspace_id = $2
+        ORDER BY name ASC`,
+      [claims.principal.userId, workspaceId],
+    );
+    ctx.send(200, { searches: rows });
+  });
+
+  router.post('/api/workspaces/:workspaceId/searches', async (ctx) => {
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    const claims = await claimsFor(deps.pool, ctx, workspaceId);
+    if (!claims) return;
+    if (claims.principal.kind !== 'user') {
+      ctx.fail(403, 'not_authorized');
+      return;
+    }
+
+    let body: { name?: unknown; query?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const name = typeof body.name === 'string' ? body.name.trim().slice(0, 80) : '';
+    const query = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
+    if (name === '' || query === '') {
+      ctx.fail(422, 'search_needs_a_name');
+      return;
+    }
+
+    const row = await queryOne<{ id: string }>(
+      deps.pool,
+      `INSERT INTO saved_searches (user_id, workspace_id, name, query)
+       VALUES ($1, $2, $3, $4)
+       -- Saving over a name replaces it, which is what somebody refining a
+       -- search means by saving it again.
+       ON CONFLICT (user_id, workspace_id, name)
+         DO UPDATE SET query = EXCLUDED.query
+       RETURNING id`,
+      [claims.principal.userId, workspaceId, name, query],
+    );
+    ctx.send(201, { id: row?.id ?? null });
+  });
+
+  router.delete('/api/searches/:searchId', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+    // Scoped to the owner in the statement: an id from somebody else's list
+    // matches nothing rather than being an error, which is the same answer as
+    // an id that never existed.
+    await deps.pool.query(`DELETE FROM saved_searches WHERE id = $1 AND user_id = $2`, [
+      ctx.params['searchId'] ?? '',
+      session.userId,
+    ]);
+    ctx.send(200, { deleted: true });
+  });
+
   router.get('/api/workspaces/:workspaceId/search', async (ctx) => {
     const workspaceId = ctx.params['workspaceId'] ?? '';
     const claims = await claimsFor(deps.pool, ctx, workspaceId);
