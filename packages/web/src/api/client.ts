@@ -110,6 +110,8 @@ export interface SessionInfo {
     emailReplies: boolean;
     /** How often, as opposed to about what (ADR-0061). */
     emailSchedule?: 'batched' | 'daily' | 'off';
+    /** A mail about what changed, off unless chosen (ADR-0062). */
+    activityDigest?: 'off' | 'daily' | 'weekly';
     locale: string | null;
     timezone: string | null;
     isInstanceAdmin: boolean;

@@ -487,13 +487,15 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       email_assignments: boolean;
       email_replies: boolean;
       email_schedule: string;
+      activity_digest: string;
     }>(
       deps.pool,
       // The rights come with the session, so the interface can hide a section
       // somebody cannot reach rather than showing it and failing on arrival
       // (ADR-0027).
       `SELECT locale, timezone, is_instance_admin, can_manage_workspaces,
-              email_mentions, email_assignments, email_replies, email_schedule
+              email_mentions, email_assignments, email_replies, email_schedule,
+              activity_digest
          FROM users WHERE id = $1`,
       [auth.userId],
     );
@@ -519,6 +521,7 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
          * to keep in step with the profile patch that changes them.
          */
         emailSchedule: user?.email_schedule ?? 'batched',
+        activityDigest: user?.activity_digest ?? 'off',
         emailMentions: user?.email_mentions !== false,
         emailAssignments: user?.email_assignments !== false,
         emailReplies: user?.email_replies === true,
@@ -708,6 +711,8 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       emailReplies?: boolean;
       /** How often, as opposed to about what (ADR-0061). */
       emailSchedule?: 'batched' | 'daily' | 'off';
+      /** A mail about what changed, off unless chosen (ADR-0062). */
+      activityDigest?: 'off' | 'daily' | 'weekly';
     }>(ctx);
     if (!body) return;
 
@@ -722,7 +727,8 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
               -- Checked against the three it may be rather than trusted: the
               -- column has a CHECK, and a rejected write there would be a 500
               -- where this is a quiet no-op (ADR-0061).
-              email_schedule = coalesce($8, email_schedule)
+              email_schedule = coalesce($8, email_schedule),
+              activity_digest = coalesce($9, activity_digest)
         WHERE id = $1`,
       [
         auth.userId,
@@ -736,6 +742,11 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         body.emailSchedule === 'daily' ||
         body.emailSchedule === 'off'
           ? body.emailSchedule
+          : null,
+        body.activityDigest === 'off' ||
+        body.activityDigest === 'daily' ||
+        body.activityDigest === 'weekly'
+          ? body.activityDigest
           : null,
       ],
     );

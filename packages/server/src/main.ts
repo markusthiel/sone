@@ -54,6 +54,7 @@ import { registerInboxRoutes } from './notifications/routes.js';
 import { RECOMMENDED_COST, passwordCost } from './auth/password.js';
 import { sendMail } from './mail/send.js';
 import { pollReplies, type ReplyDeps } from './jobs/replies.js';
+import { sendActivityDigests } from './jobs/activityDigest.js';
 import { runOneJob, type Job, type JobContext } from './jobs/runner.js';
 import {
   EMAIL_NOTIFICATIONS,
@@ -465,6 +466,31 @@ async function main(): Promise<void> {
       });
   }, 120_000);
   replyTimer.unref();
+
+  /*
+   * The activity digest, hourly so each timezone's eight o'clock is caught
+   * (ADR-0062).
+   *
+   * The same timer shape as the notification sweep, and the query itself is
+   * what decides whose hour it is — a second schedule kept in JavaScript would
+   * be a second answer to the question the SQL already answers.
+   */
+  const digestTimer = setInterval(() => {
+    void mailSettings()
+      .then((current) =>
+        sendActivityDigests({
+          pool,
+          relay: current.relay,
+          detail: current.detail,
+          baseUrl: current.baseUrl,
+        }),
+      )
+      .catch(() => {
+        // Tried again next hour. A relay that is down must not take the
+        // process with it.
+      });
+  }, 3_600_000);
+  digestTimer.unref();
 
   const mailTimer = setInterval(() => {
     void mailSettings()

@@ -506,6 +506,7 @@ function AppearanceSettings({ session }: { session: SessionInfo }): ReactElement
 function NotificationSettings({ session }: { session: SessionInfo }): ReactElement {
   const { t } = useT();
   const [schedule, setSchedule] = useState(session.user.emailSchedule ?? 'batched');
+  const [activity, setActivity] = useState(session.user.activityDigest ?? 'off');
   const [mentions, setMentions] = useState(session.user.emailMentions);
   const [assignments, setAssignments] = useState(session.user.emailAssignments);
   const [replies, setReplies] = useState(session.user.emailReplies);
@@ -514,6 +515,7 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
   const save = (input: {
     emailMentions?: boolean;
     emailSchedule?: 'batched' | 'daily' | 'off';
+    activityDigest?: 'off' | 'daily' | 'weekly';
     emailAssignments?: boolean;
     emailReplies?: boolean;
   }): void => {
@@ -551,6 +553,31 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
           <option value="batched">{t('you.notifications.schedule.batched')}</option>
           <option value="daily">{t('you.notifications.schedule.daily')}</option>
           <option value="off">{t('you.notifications.schedule.off')}</option>
+        </select>
+      </label>
+
+      {/* A different mail, and a different question (ADR-0062).
+        *
+        * Below the three ticks rather than beside them: those are about mail
+        * addressed to somebody, this is about a list of what everybody did.
+        * Off unless chosen, because an unasked-for list of what colleagues did
+        * is what people mean when they call something spam. */}
+      <label className="settings-row">
+        <span className="settings-row-label">
+          <b>{t('you.activity')}</b>
+          <span>{t('you.activity.hint')}</span>
+        </span>
+        <select
+          value={activity}
+          onChange={(event) => {
+            const chosen = event.target.value as 'off' | 'daily' | 'weekly';
+            setActivity(chosen);
+            save({ activityDigest: chosen });
+          }}
+        >
+          <option value="off">{t('you.activity.off')}</option>
+          <option value="daily">{t('you.activity.daily')}</option>
+          <option value="weekly">{t('you.activity.weekly')}</option>
         </select>
       </label>
 

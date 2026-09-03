@@ -451,6 +451,13 @@ export const de: Record<keyof typeof en, string> = {
     'Berechtigungssystem.',
   // Diese drei sprechen von „mich" und „mir" — die eigene Person, nicht die
   // angesprochene. Das ist in beiden Anredeformen gleich.
+  'you.activity': 'Eine Mail darüber, was sich geändert hat',
+  'you.activity.hint':
+    'Eine Liste geänderter Seiten aus den eigenen Workspaces — Titel und Namen, ' +
+    'nie der Inhalt, und nie eine Seite ohne Zugriff. Aus, bis sie gewählt wird.',
+  'you.activity.off': 'Keine solche Mail',
+  'you.activity.daily': 'Jeden Werktagmorgen',
+  'you.activity.weekly': 'Montagmorgens',
   'you.notifications.schedule': 'Wie oft',
   'you.notifications.schedule.hint':
     'Eine tägliche Mail kommt um acht Uhr morgens in der eigenen Zeitzone — und ' +
