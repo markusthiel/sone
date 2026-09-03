@@ -11,12 +11,13 @@ import { after, before, test } from 'node:test';
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
 
-import { DOC_KEYS, PAGE_KEYS } from '@sone/core';
+import { DOC_KEYS, PAGE_KEYS, diffVersions } from '@sone/core';
 
 import { appendUpdate, compactDoc, loadDoc } from '../src/doc/docStore.js';
 import {
   listVersions,
   loadVersion,
+  previousVersion,
   restoreInto,
   thinVersions,
 } from '../src/doc/versions.js';
@@ -167,4 +168,61 @@ test('restoring writes the old state forward and keeps what happened in between'
   } finally {
     after.doc.destroy();
   }
+});
+
+test('a diff against now says what has happened since', async () => {
+  // The question somebody asks of an old version: what have I missed. And it is
+  // computed from the two projections rather than by sending both documents to
+  // a client (ADR-0053).
+  const pageId = await makePage();
+  await write(pageId, 'Wie es war');
+  await compactDoc(db, pageId);
+  const [version] = await listVersions(db, pageId);
+  assert.ok(version);
+
+  await write(pageId, 'Wie es wurde');
+
+  const past = await loadVersion(db, pageId, version.id);
+  assert.ok(past);
+  try {
+    const live = await loadDoc(db, pageId);
+    try {
+      const mine = [
+        { id: 'title', type: 'page', text: String(past.doc.getMap(DOC_KEYS.page).get(PAGE_KEYS.title)) },
+      ];
+      const now = [
+        { id: 'title', type: 'page', text: String(live.doc.getMap(DOC_KEYS.page).get(PAGE_KEYS.title)) },
+      ];
+      const { changes } = diffVersions(mine, now);
+      assert.equal(changes.length, 1);
+      assert.equal(changes[0]?.kind, 'changed');
+    } finally {
+      live.doc.destroy();
+    }
+  } finally {
+    past.doc.destroy();
+  }
+});
+
+test('the version before this one is the one above it in the list', async () => {
+  const pageId = await makePage();
+  await write(pageId, 'Erste');
+  await compactDoc(db, pageId);
+  await write(pageId, 'Zweite');
+  await compactDoc(db, pageId);
+
+  const versions = await listVersions(db, pageId);
+  assert.equal(versions.length, 2, 'two moments');
+
+  const earlier = await previousVersion(db, pageId, versions[0]!.id);
+  assert.ok(earlier, 'the newest has one before it');
+  try {
+    assert.equal(earlier.row.id, versions[1]!.id, 'and it is the next one down');
+  } finally {
+    earlier.doc.destroy();
+  }
+
+  // The oldest has nothing before it, which is not an error.
+  const none = await previousVersion(db, pageId, versions[1]!.id);
+  assert.equal(none, null);
 });
