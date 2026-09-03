@@ -149,9 +149,14 @@ The room projects with its own key as the page id, and `materializeDocument`
 page nobody created, titled nothing. A room now knows which page's comments it
 holds and projects only those.
 
-Notifications from internal threads are still not written. That is the remaining
-gap and it is the safe direction: a mention nobody is told about is a smaller
-fault than one told to somebody who cannot read the thread.
+**Notifications from internal threads are written**, and the fear that deferred
+them was already answered by code I had written weeks earlier: `writeNotifications`
+joins `workspace_members`, so only a member can ever be a recipient, and a
+share-link visitor has no row there. The page's visibility condition applies on
+top. So it is one call from the internal projection rather than a second
+notification path — and the thread ids come from a different document, so they
+cannot collide with the page's own, which is what lets both share the table and
+the once-per-message rule.
 
 **Export.**
 

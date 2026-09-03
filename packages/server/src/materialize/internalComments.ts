@@ -10,6 +10,7 @@
 
 // In the server, not core: it resolves comment anchors against the document,
 // which is a projection concern rather than a document one.
+import { writeNotifications } from '../notifications/fromComments.js';
 import { readDocument } from './readDocument.js';
 import type { Pool, PoolClient } from 'pg';
 import type * as Y from 'yjs';
@@ -19,10 +20,10 @@ export interface InternalProjectionOptions {
 }
 
 export async function projectInternalComments(
-  db: Pool | PoolClient,
+  db: PoolClient,
   pageId: string,
   doc: Y.Doc,
-  _opts: InternalProjectionOptions,
+  opts: InternalProjectionOptions,
 ): Promise<void> {
   /*
    * Read with the *page's* id, not the document's.
@@ -62,4 +63,20 @@ export async function projectInternalComments(
       parsed.comments.map((thread) => thread.lastMessageAt),
     ],
   );
+
+  /*
+   * And the notifications a mention in one of these deserves (ADR-0057).
+   *
+   * The record left this out as the safe direction — "a mention nobody is told
+   * about is a smaller fault than one told to somebody who cannot read the
+   * thread". Reading the write showed the fear was already answered: the insert
+   * joins `workspace_members`, so only a member can ever be a recipient, and a
+   * share-link visitor has no row there. The visibility condition on the page
+   * applies on top of that.
+   *
+   * So this is one call, not a second notification path. The thread ids come
+   * from a different document and cannot collide with the page's own, which is
+   * what lets both use the same table and the same "once per message" rule.
+   */
+  await writeNotifications(db, pageId, opts.workspaceId, parsed.commentThreads);
 }
