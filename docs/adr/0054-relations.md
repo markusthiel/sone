@@ -132,11 +132,10 @@ note when anything was excluded.
 
 ## What is deliberately not decided here
 
-**Formula.** An expression language: a parser, an evaluation order, a decision
-about what a formula may reference, and cycle detection that the rollup rule
-above avoids by construction and a formula cannot. It is its own record and its
-own body of work, and shipping relations and rollups without it is a coherent
-step where shipping half a formula is not.
+**Formula.** Now [ADR-0056](0056-formula.md) — where two of the three worries
+above turned out to be avoidable by choosing the language: a formula may not
+reference another formula, so there is no dependency graph, no evaluation order
+and no cycle to detect. The same trick as the rollup rule, applied one layer up.
 
 **A row's own page showing its cells.** *Built.* Found while checking whether
 relations reached everywhere: the properties panel showed a page's kind and
