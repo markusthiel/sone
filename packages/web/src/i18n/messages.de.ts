@@ -116,6 +116,12 @@ export const de: Record<keyof typeof en, string> = {
   'rollup.nothingPointsHere':
     'Noch zeigt keine Relationsspalte auf diese Kollektion. Zuerst eine in ' +
     'der anderen Kollektion anlegen.',
+  'rollup.aggregate': 'Was gezählt wird',
+  'rollup.rows': 'Die verknüpften Zeilen',
+  'rollup.count': 'Wie viele',
+  'rollup.sum': 'Deren Summe',
+  'rollup.min': 'Der kleinste Wert',
+  'rollup.max': 'Der größte Wert',
   'rollup.partial':
     'Einige verknüpfte Zeilen sind nicht sichtbar, weil sie nicht geöffnet ' +
     'werden dürfen — diese Zahl ist also niedriger als bei anderen.',

@@ -373,6 +373,28 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
     }
   };
 
+  /**
+   * Change a rollup's aggregate.
+   *
+   * The whole config is sent, not a patch of it: `viaFieldId` is what the
+   * rollup is *built on*, and a config write that omitted it would clear the
+   * relation the column reads — the server replaces the object rather than
+   * merging into it.
+   */
+  const setAggregate = async (fieldId: string, aggregate: string): Promise<void> => {
+    const field = data?.fields.find((one) => one.id === fieldId);
+    const via = field?.config?.['viaFieldId'];
+    if (typeof via !== 'string') return;
+    try {
+      await api.updateCollectionField(collectionId, fieldId, {
+        config: { ...field?.config, viaFieldId: via, aggregate },
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
+
   const renameColumn = async (fieldId: string, name: string): Promise<void> => {
     try {
       await api.renameCollectionField(collectionId, fieldId, name);
@@ -966,6 +988,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                     onRename={(name) => void renameColumn(field.id, name)}
                     onRemove={() => void removeColumn(field.id)}
                     onSaveOptions={(options) => void saveOptions(field.id, options)}
+                    onSetAggregate={(aggregate) => void setAggregate(field.id, aggregate)}
                   />
                 </th>
               ))}
@@ -1334,13 +1357,18 @@ function ColumnHeader({
   onRename,
   onRemove,
   onSaveOptions,
+  onSetAggregate,
 }: {
   field: CollectionField;
   canEdit: boolean;
   onRename: (name: string) => void;
   onRemove: () => void;
   onSaveOptions: (options: EditableOption[]) => void;
+  /** Change what a rollup does with what it finds (ADR-0054). */
+  onSetAggregate: (aggregate: string) => void;
 }): ReactElement {
+  // The header had no translations of its own until the aggregate select.
+  const { t } = useT();
   const [name, setName] = useState(field.name);
   /**
    * Where the option editor sits, or null when it is closed.
@@ -1381,6 +1409,28 @@ function ColumnHeader({
           else setName(field.name);
         }}
       />
+      {/* What a rollup does with what it finds (ADR-0054).
+        *
+        * A select in the header rather than a dialog: the aggregate is one
+        * choice from five, and the column is where somebody is looking when
+        * they want to change it. The server has been able to sum, min and max
+        * since the derived side was built — this is the control that reaches
+        * it, and shipping the capability without one would have been a feature
+        * only its author could use. */}
+      {field.fieldType === 'rollup' && canEdit && (
+        <select
+          className="collection-column-aggregate"
+          aria-label={t('rollup.aggregate')}
+          value={String(field.config?.['aggregate'] ?? 'count')}
+          onChange={(event) => onSetAggregate(event.target.value)}
+        >
+          {(['rows', 'count', 'sum', 'min', 'max'] as const).map((one) => (
+            <option key={one} value={one}>
+              {t(`rollup.${one}` as MessageKey)}
+            </option>
+          ))}
+        </select>
+      )}
       {hasOptions && (
         <button
           type="button"

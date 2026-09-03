@@ -889,6 +889,59 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     });
   });
 
+  /**
+   * Whether a rollup config can be used here, answering the request if not.
+   *
+   * One copy, called from creation *and* from the update: the update path did
+   * not check at all, so a rollup could be pointed at another rollup by editing
+   * the column afterwards — defeating the rule ADR-0054 says removes cycles by
+   * construction. A rule enforced on one of two paths is not a rule.
+   */
+  const rollupIsUsable = async (
+    ctx: RequestContext,
+    resolved: { collectionId: string; auth: { workspaceId: string } },
+    raw: Record<string, unknown> | null,
+  ): Promise<boolean> => {
+    const config = readRollupConfig(raw);
+    if (!config) {
+      ctx.fail(422, 'invalid_rollup');
+      return false;
+    }
+
+    const via = await queryOne<{ field_type: string; config: Record<string, unknown> }>(
+      deps.pool,
+      `SELECT f.field_type, f.config
+         FROM collection_fields f
+         JOIN collections c ON c.id = f.collection_id
+         JOIN pages p ON p.id = c.page_id
+        WHERE f.id = $1 AND p.workspace_id = $2`,
+      [config.viaFieldId, resolved.auth.workspaceId],
+    );
+    if (!via || via.field_type !== 'relation') {
+      ctx.fail(422, 'not_a_relation');
+      return false;
+    }
+    // It must point *here*, or the rollup aggregates rows that have nothing to
+    // do with this collection.
+    if (via.config?.['collectionId'] !== resolved.collectionId) {
+      ctx.fail(422, 'relation_points_elsewhere');
+      return false;
+    }
+
+    if (config.fieldId) {
+      const target = await queryOne<{ field_type: string }>(
+        deps.pool,
+        `SELECT field_type FROM collection_fields WHERE id = $1`,
+        [config.fieldId],
+      );
+      if (!target || DERIVED_FIELD_TYPES.has(target.field_type as FieldType)) {
+        ctx.fail(422, 'not_a_stored_field');
+        return false;
+      }
+    }
+    return true;
+  };
+
   /** Add a column. */
   router.post('/api/collections/:collectionId/fields', async (ctx) => {
     const resolved = await collectionPage(deps.pool, ctx, 'edit');
@@ -932,53 +985,8 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       }
     }
 
-    /*
-     * A rollup names the relation column on the other side, and what to do with
-     * what it finds (ADR-0054).
-     *
-     * The aggregated field must be a *stored* one. That is the rule that
-     * removes cycles by construction: a rollup of a rollup is refused here, so
-     * nothing downstream has to walk a dependency graph, detect a cycle, or
-     * schedule a recomputation.
-     */
-    if (fieldType === 'rollup') {
-      const config = readRollupConfig((body.config ?? null) as Record<string, unknown> | null);
-      if (!config) {
-        ctx.fail(422, 'invalid_rollup');
-        return;
-      }
-
-      const via = await queryOne<{ field_type: string; config: Record<string, unknown> }>(
-        deps.pool,
-        `SELECT f.field_type, f.config
-           FROM collection_fields f
-           JOIN collections c ON c.id = f.collection_id
-           JOIN pages p ON p.id = c.page_id
-          WHERE f.id = $1 AND p.workspace_id = $2`,
-        [config.viaFieldId, resolved.auth.workspaceId],
-      );
-      if (!via || via.field_type !== 'relation') {
-        ctx.fail(422, 'not_a_relation');
-        return;
-      }
-      // And it must point *here*, or the rollup aggregates rows that have
-      // nothing to do with this collection.
-      if (via.config?.['collectionId'] !== resolved.collectionId) {
-        ctx.fail(422, 'relation_points_elsewhere');
-        return;
-      }
-
-      if (config.fieldId) {
-        const target = await queryOne<{ field_type: string }>(
-          deps.pool,
-          `SELECT field_type FROM collection_fields WHERE id = $1`,
-          [config.fieldId],
-        );
-        if (!target || DERIVED_FIELD_TYPES.has(target.field_type as FieldType)) {
-          ctx.fail(422, 'not_a_stored_field');
-          return;
-        }
-      }
+    if (fieldType === 'rollup' && !(await rollupIsUsable(ctx, resolved, body.config ?? null))) {
+      return;
     }
 
     if (!fieldType || !CREATABLE_FIELD_TYPES.has(fieldType)) {
@@ -1033,6 +1041,27 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     }
 
     const fieldId = ctx.params['fieldId'] ?? '';
+    /*
+     * A config change on a rollup goes through the same check as its creation.
+     *
+     * Without this the cycle rule held only on the way in: pointing an existing
+     * rollup at another rollup was one PATCH away.
+     */
+    if (body.config !== undefined) {
+      const existing = await queryOne<{ field_type: string }>(
+        deps.pool,
+        `SELECT field_type FROM collection_fields WHERE id = $1 AND collection_id = $2`,
+        [fieldId, collectionId],
+      );
+      if (
+        existing?.field_type === 'rollup' &&
+        !(await rollupIsUsable(ctx, { collectionId, auth }, body.config))
+      ) {
+        return;
+      }
+    }
+
+
     let ok = false;
     const result = await applyToDocument(
       deps.pool,
@@ -1238,6 +1267,7 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     }
 
     const fieldId = ctx.params['fieldId'] ?? '';
+
     let ok = false;
     const result = await applyToDocument(
       deps.pool,
