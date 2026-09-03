@@ -109,6 +109,19 @@ and "something is wrong".
 Recovery codes are matched with their dashes and case stripped, because a code
 copied off a screen by hand is copied loosely.
 
+**The store**: enrolment that is pending until proved, a code that cannot be
+used twice, a recovery code that gets somebody in without disarming anything,
+and removal that takes the codes with it.
+
+One property fell out of the design rather than being planned, and it is worth
+knowing: **the code somebody enrols with cannot then sign them in.** Confirming
+spends that step like any other use. It has its own test, because it is a thing
+a person will meet within thirty seconds of turning the feature on.
+
+Enrolling again while a factor is confirmed is refused rather than replacing it.
+That is the one thing this must never do silently — replacing a live secret
+would disarm the account for anybody holding a session.
+
 ## Consequences
 
 One table, three routes, two screens, and a branch in sign-in. An administrator
