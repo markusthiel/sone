@@ -255,6 +255,81 @@ export function InstancePanel(): ReactElement {
         </div>
       </section>
 
+    </>
+  );
+}
+
+/**
+ * Where a setting's value came from.
+ *
+ * Shown because "I set this in the compose file and it is not taking effect" is
+ * otherwise an afternoon: a database value silently overriding the environment
+ * looks like the environment being ignored.
+ */
+/**
+ * Send one test mail, and say what came back (ADR-0058).
+ *
+ * The relay's own words, not a paraphrase: "535 authentication failed" is the
+ * answer, and "sending failed" is a sentence that costs somebody an hour. It
+ * goes to the administrator's own address — a field for an arbitrary one would
+ * make the instance an open relay with a sign-in.
+ */
+/**
+ * Everything about mail, as its own area (ADR-0058, ADR-0060).
+ *
+ * Lifted out of the instance panel, where it had grown to six SMTP fields, four
+ * IMAP fields and a test button under a heading about who may sign up. A
+ * subject that fills a screen is a section, not a subsection — and an operator
+ * looking for "why is mail not working" should find a place called Mail rather
+ * than scroll past sign-up policy to reach it.
+ */
+export function MailPanel(): ReactElement {
+  const { t } = useT();
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  /*
+   * The same overview the instance panel loads.
+   *
+   * Its own copy rather than a shared hook: the two panels are never on screen
+   * together, so sharing state between them would be sharing state between a
+   * screen and one it replaced. A hook is the right answer when a third caller
+   * appears.
+   */
+  useEffect(() => {
+    void (async () => {
+      try {
+        setOverview(await api.adminOverview());
+        setError(null);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.code : 'network_error');
+      }
+    })();
+  }, []);
+
+  const update = async (changes: Record<string, unknown>): Promise<void> => {
+    setSaving(true);
+    try {
+      const result = await api.adminUpdateSettings(changes);
+      setOverview((previous) =>
+        previous ? { ...previous, settings: result.settings, settingSources: result.settingSources } : previous,
+      );
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (error) return <p className="error">{messageFor(error)}</p>;
+  if (!overview) return <p className="muted">{t('admin.loading')}</p>;
+
+  const { settings, settingSources } = overview;
+
+  return (
+    <>
       {/* Mail in a section of its own (ADR-0058).
         *
         * It arrived in the middle of the general settings, so six mail
@@ -495,21 +570,6 @@ export function InstancePanel(): ReactElement {
   );
 }
 
-/**
- * Where a setting's value came from.
- *
- * Shown because "I set this in the compose file and it is not taking effect" is
- * otherwise an afternoon: a database value silently overriding the environment
- * looks like the environment being ignored.
- */
-/**
- * Send one test mail, and say what came back (ADR-0058).
- *
- * The relay's own words, not a paraphrase: "535 authentication failed" is the
- * answer, and "sending failed" is a sentence that costs somebody an hour. It
- * goes to the administrator's own address — a field for an arbitrary one would
- * make the instance an open relay with a sign-in.
- */
 function MailTest(): ReactElement {
   const { t } = useT();
   type Using = NonNullable<Awaited<ReturnType<typeof api.testMail>>['using']>;

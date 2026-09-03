@@ -285,6 +285,17 @@ async function readBody<T>(ctx: RequestContext): Promise<T | null> {
 
 // --- routes ----------------------------------------------------------------
 
+/**
+ * One of the three answers, or null for "leave it alone".
+ *
+ * Checked rather than trusted: the columns carry a CHECK, and a rejected write
+ * would be a 500 where this is a quiet no-op (ADR-0061).
+ */
+const when = (
+  value: unknown,
+): 'immediately' | 'daily' | 'off' | null =>
+  value === 'immediately' || value === 'daily' || value === 'off' ? value : null;
+
 export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
   /**
    * Whether the instance needs first-run setup, and which signup mode it uses.
@@ -486,7 +497,9 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       email_mentions: boolean;
       email_assignments: boolean;
       email_replies: boolean;
-      email_schedule: string;
+      mentions_when: string;
+      assignments_when: string;
+      replies_when: string;
       activity_digest: string;
     }>(
       deps.pool,
@@ -494,8 +507,7 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       // somebody cannot reach rather than showing it and failing on arrival
       // (ADR-0027).
       `SELECT locale, timezone, is_instance_admin, can_manage_workspaces,
-              email_mentions, email_assignments, email_replies, email_schedule,
-              activity_digest
+              mentions_when, assignments_when, replies_when, activity_digest
          FROM users WHERE id = $1`,
       [auth.userId],
     );
@@ -520,11 +532,10 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
          * it, and a second request for three booleans would be a second thing
          * to keep in step with the profile patch that changes them.
          */
-        emailSchedule: user?.email_schedule ?? 'batched',
+        mentionsWhen: user?.mentions_when ?? 'immediately',
+        assignmentsWhen: user?.assignments_when ?? 'immediately',
+        repliesWhen: user?.replies_when ?? 'off',
         activityDigest: user?.activity_digest ?? 'off',
-        emailMentions: user?.email_mentions !== false,
-        emailAssignments: user?.email_assignments !== false,
-        emailReplies: user?.email_replies === true,
       },
       workspaces,
     });
@@ -706,11 +717,15 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
        * safe for the appearance screen to patch a locale without carrying
        * somebody's mail preferences along.
        */
-      emailMentions?: boolean;
-      emailAssignments?: boolean;
-      emailReplies?: boolean;
-      /** How often, as opposed to about what (ADR-0061). */
-      emailSchedule?: 'batched' | 'daily' | 'off';
+      /**
+       * When each kind is worth a mail (ADR-0061, amended).
+       *
+       * One answer per kind, replacing the tick plus the separate schedule:
+       * "at once when mentioned, the rest tomorrow" was unsayable before.
+       */
+      mentionsWhen?: 'immediately' | 'daily' | 'off';
+      assignmentsWhen?: 'immediately' | 'daily' | 'off';
+      repliesWhen?: 'immediately' | 'daily' | 'off';
       /** A mail about what changed, off unless chosen (ADR-0062). */
       activityDigest?: 'off' | 'daily' | 'weekly';
     }>(ctx);
@@ -721,28 +736,22 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
           SET display_name = coalesce($2, display_name),
               locale = coalesce($3, locale),
               timezone = coalesce($4, timezone),
-              email_mentions = coalesce($5, email_mentions),
-              email_assignments = coalesce($6, email_assignments),
-              email_replies = coalesce($7, email_replies),
               -- Checked against the three it may be rather than trusted: the
               -- column has a CHECK, and a rejected write there would be a 500
               -- where this is a quiet no-op (ADR-0061).
-              email_schedule = coalesce($8, email_schedule),
-              activity_digest = coalesce($9, activity_digest)
+              mentions_when = coalesce($5, mentions_when),
+              assignments_when = coalesce($6, assignments_when),
+              replies_when = coalesce($7, replies_when),
+              activity_digest = coalesce($8, activity_digest)
         WHERE id = $1`,
       [
         auth.userId,
         body.displayName?.trim().slice(0, 128) || null,
         body.locale ?? null,
         body.timezone ?? null,
-        body.emailMentions ?? null,
-        body.emailAssignments ?? null,
-        body.emailReplies ?? null,
-        body.emailSchedule === 'batched' ||
-        body.emailSchedule === 'daily' ||
-        body.emailSchedule === 'off'
-          ? body.emailSchedule
-          : null,
+        when(body.mentionsWhen),
+        when(body.assignmentsWhen),
+        when(body.repliesWhen),
         body.activityDigest === 'off' ||
         body.activityDigest === 'daily' ||
         body.activityDigest === 'weekly'

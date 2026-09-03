@@ -26,6 +26,7 @@ import {
   MaintenancePanel,
   UsersPanel,
   useIsInstanceAdmin,
+  MailPanel,
 } from './Admin.tsx';
 import { InvitePanel } from './InvitePanel.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
@@ -63,7 +64,26 @@ const SECTIONS: readonly AdminSection[] = [
     hint: 'admin.invitations.hint',
     admin: true,
   },
-  { id: 'sso', label: 'admin.sso', hint: 'admin.sso.hint', admin: true },
+  {
+    id: 'sso',
+    label: 'admin.sso',
+    hint: 'admin.sso.hint',
+    admin: true,
+  },
+  {
+    /*
+     * Its own area, not a heading inside the instance settings (ADR-0058).
+     *
+     * It had grown to six SMTP fields, four IMAP fields and a test button under
+     * a heading about who may sign up. A subject that fills a screen is a
+     * section — and an operator looking for "why is mail not working" should
+     * find a place called Mail rather than scroll past sign-up policy.
+     */
+    id: 'mail',
+    label: 'admin.mail',
+    hint: 'admin.mail.section.hint',
+    admin: true,
+  },
   {
     id: 'workspaces',
     label: 'admin.workspaces',
@@ -146,6 +166,7 @@ export function AdminScreen({
       {current === 'accounts' && <UsersPanel />}
       {current === 'invite' && <InvitePanel />}
       {current === 'sso' && <OidcPanel />}
+      {current === 'mail' && <MailPanel />}
       {current === 'maintenance' && <MaintenancePanel />}
       {current === 'workspaces' &&
         (openWorkspace ? (

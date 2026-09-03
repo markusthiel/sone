@@ -2148,7 +2148,20 @@ test('the settings section the mail links to exists', () => {
 
   // Saved on change rather than behind a button: a tick that needs confirming
   // is a tick somebody leaves half-set.
-  assert.match(settings, /save\(\{ emailMentions: event\.target\.checked \}\)/);
+  /*
+   * That the screen actually offers control over those mails — the *promise*,
+   * not the widget.
+   *
+   * This asserted `save({ emailMentions: event.target.checked })` and failed
+   * when the three ticks and the separate schedule became one select per kind
+   * (ADR-0061 amendment). It was right to fail: it was pinning a shape rather
+   * than a guarantee, which is a test that makes an improvement look like a
+   * regression.
+   */
+  assert.match(settings, /save\(\{ \[field\]: chosen \}\)/);
+  for (const field of ['mentionsWhen', 'assignmentsWhen', 'repliesWhen']) {
+    assert.match(settings, new RegExp(`'${field}'`), `${field} is on the screen`);
+  }
 
   // And the screen says what a mail contains, which is what somebody deciding
   // this wants to know and which nothing else tells them.

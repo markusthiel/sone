@@ -121,7 +121,7 @@ describe('claiming notifications for email', () => {
     // Turned on, it is claimed — and the preference is read at claim time, so
     // changing it applies to what is already waiting rather than having decided
     // somebody's next week when the notification was written.
-    await db.query(`UPDATE users SET email_replies = true WHERE id = $1`, [recipient]);
+    await db.query(`UPDATE users SET replies_when = 'immediately' WHERE id = $1`, [recipient]);
     const claimed = await claimForEmail(db);
     assert.equal(claimed.length, 1);
   });
@@ -155,6 +155,36 @@ describe('claiming notifications for email', () => {
     );
   });
 
+  test('mentions at once and replies tomorrow, which used to be unsayable', async () => {
+    /*
+     * The amendment to ADR-0061 in one test.
+     *
+     * The record refused this, arguing that "two schedules is a matrix". The
+     * design that was wanted is not a matrix: it is one control per kind
+     * replacing the tick, and this combination — tell me at once when I am
+     * mentioned, let the rest wait — is the ordinary thing to want.
+     */
+    await db.query(
+      `UPDATE users SET mentions_when = 'immediately', replies_when = 'daily',
+                        timezone = 'Etc/GMT-14'
+        WHERE id = $1`,
+      [recipient],
+    );
+
+    await waiting({ kind: 'reply' });
+    await waiting({ kind: 'mention' });
+
+    const claimed = await claimForEmail(db);
+    // Only the mention: the reply waits for eight in a timezone it is not
+    // eight in.
+    assert.equal(claimed.length, 1, 'the mention alone');
+
+    await db.query(
+      `UPDATE users SET replies_when = 'off', timezone = NULL WHERE id = $1`,
+      [recipient],
+    );
+  });
+
   /*
    * Last on purpose.
    *
@@ -169,7 +199,7 @@ describe('claiming notifications for email', () => {
      * tested. A digest at 07:00 UTC is the middle of the night for somebody,
      * and a mail arriving at the wrong hour is a mail that gets filed unread.
      */
-    await db.query(`UPDATE users SET email_schedule = 'daily' WHERE id = $1`, [recipient]);
+    await db.query(`UPDATE users SET mentions_when = 'daily' WHERE id = $1`, [recipient]);
     await waiting({ ageMinutes: 120 });
 
     // The hour the *database* is in decides, so the test asks it rather than
@@ -197,18 +227,27 @@ describe('claiming notifications for email', () => {
     const claimed = await claimForEmail(db);
     assert.equal(claimed.length, 1, 'at eight in their own morning');
 
-    await db.query(`UPDATE users SET email_schedule = 'batched', timezone = NULL WHERE id = $1`, [
-      recipient,
-    ]);
+    await db.query(
+      `UPDATE users SET mentions_when = 'immediately', timezone = NULL WHERE id = $1`,
+      [recipient],
+    );
   });
 
   test('somebody who wants no mail is never claimed', async () => {
     // Distinct from turning every kind off: this is one answer instead of
     // three, and it is the one somebody reaches for (ADR-0061).
-    await db.query(`UPDATE users SET email_schedule = 'off' WHERE id = $1`, [recipient]);
+    await db.query(
+      `UPDATE users SET mentions_when = 'off', assignments_when = 'off', replies_when = 'off'
+        WHERE id = $1`,
+      [recipient],
+    );
     await waiting({});
     assert.deepEqual(await claimForEmail(db), []);
-    await db.query(`UPDATE users SET email_schedule = 'batched' WHERE id = $1`, [recipient]);
+    await db.query(
+      `UPDATE users SET mentions_when = 'immediately', assignments_when = 'immediately'
+        WHERE id = $1`,
+      [recipient],
+    );
   });
 
 });
