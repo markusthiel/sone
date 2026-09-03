@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A forgotten password can be reset by email**
+([ADR-0059](docs/adr/0059-password-reset.md)). A link that works for an hour and
+once, a new password of your choosing, and every session signed out — including
+whoever else might have been in the account. The form answers the same way for
+any address, so it cannot be used to find out who has an account here. The link
+on the sign-in page appears only when a mail server is configured.
+
 **The mail settings have a section of their own and a test button.** It sends one
 mail to your own address and reports what the server said — "535 authentication
 failed" rather than "sending failed" — and, when it fails, which settings the

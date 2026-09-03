@@ -46,6 +46,8 @@ export function blockFromHash(hash: string): string | null {
 export const paths = {
   home: () => '/',
   login: () => '/login',
+  /** Where a reset link lands, and where "forgot?" goes (ADR-0059). */
+  reset: (token?: string) => (token ? `/reset?token=${encodeURIComponent(token)}` : '/reset'),
   signup: (invitationToken?: string) =>
     invitationToken ? `/signup?invite=${encodeURIComponent(invitationToken)}` : '/signup',
   setup: () => '/setup',
@@ -114,6 +116,7 @@ export type Route =
   | { kind: 'home' }
   | { kind: 'login' }
   | { kind: 'signup'; invitationToken: string | null }
+  | { kind: 'reset'; token: string | null }
   | { kind: 'setup' }
   | { kind: 'search'; query: string }
   | { kind: 'settings'; section: string }
@@ -146,6 +149,15 @@ export function parseRoute(pathname: string, search = ''): Route {
       return { kind: 'signup', invitationToken: params.get('invite') };
     case 'setup':
       return { kind: 'setup' };
+    /*
+     * Setting a new password (ADR-0059).
+     *
+     * The token in the query rather than the path, so it is not part of a
+     * segment somebody might mistake for a page id — and because the link is
+     * built by the server, which does the same for invitations.
+     */
+    case 'reset':
+      return { kind: 'reset', token: params.get('token') };
     case 'search':
       return { kind: 'search', query: params.get('q') ?? '' };
     case 'settings':

@@ -246,12 +246,157 @@ export function LoginScreen({
           </>
         )}
 
+        {/* Only when a relay is configured (ADR-0059).
+          *
+          * Without one the reset is absent, not broken — and a link to a form
+          * that can only ever say "a link is on its way" about a mail nobody
+          * will send is worse than no link: it teaches somebody to wait. */}
+        {instance.canResetPassword === true && (
+          <p className="muted">
+            <a href={paths.reset()}>{t('reset.forgot')}</a>
+          </p>
+        )}
+
         {instance.signupMode === 'open' && (
           <p className="muted">
             {t('auth.noAccount')} <a href={paths.signup()}>{t('auth.createOne')}</a>.
           </p>
         )}
       </form>
+    </div>
+  );
+}
+
+/**
+ * Asking for a reset link, or setting a new password with one (ADR-0059).
+ *
+ * Two states in one screen, chosen by whether the address carries a token —
+ * because they are two halves of one errand and a person arriving from a mail
+ * should not have to notice which screen they are on.
+ */
+export function ResetScreen({
+  token,
+  navigate,
+}: {
+  token: string | null;
+  navigate: (to: string) => void;
+}): ReactElement {
+  const { t } = useT();
+  const message = useMessage();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [asked, setAsked] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (done) {
+    return (
+      <div className="centered card">
+        <h1>{t('reset.done')}</h1>
+        <p>{t('reset.done.hint')}</p>
+        <button type="button" className="btn primary" onClick={() => navigate(paths.login())}>
+          {t('reset.toSignIn')}
+        </button>
+      </div>
+    );
+  }
+
+  if (token) {
+    return (
+      <div className="centered card">
+        <h1>{t('reset.setTitle')}</h1>
+        <p>{t('reset.setHint')}</p>
+        <label>
+          {t('reset.newPassword')}
+          <input
+            type="password"
+            autoComplete="new-password"
+            autoFocus
+            value={password}
+            disabled={busy}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </label>
+        {error && <p className="error">{message(error)}</p>}
+        <button
+          type="button"
+          className="btn primary"
+          disabled={busy || password === ''}
+          onClick={() => {
+            setBusy(true);
+            setError(null);
+            void api
+              .resetPassword(token, password)
+              .then(() => setDone(true))
+              .catch((err: unknown) => {
+                setError(err instanceof ApiError ? err.code : 'network_error');
+              })
+              .finally(() => setBusy(false));
+          }}
+        >
+          {busy ? t('reset.setting') : t('reset.set')}
+        </button>
+      </div>
+    );
+  }
+
+  /*
+   * The asking half, and the sentence it shows.
+   *
+   * Shown for *any* address, including one with no account: the server answers
+   * identically on purpose, and a screen that said "we sent you a mail" only
+   * for real addresses would put the oracle back that the route removed
+   * (ADR-0059).
+   */
+  if (asked) {
+    return (
+      <div className="centered card">
+        <h1>{t('reset.askedTitle')}</h1>
+        <p>{t('reset.askedHint')}</p>
+        <button type="button" className="btn subtle" onClick={() => navigate(paths.login())}>
+          {t('reset.toSignIn')}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="centered card">
+      <h1>{t('reset.askTitle')}</h1>
+      <p>{t('reset.askHint')}</p>
+      <label>
+        {t('auth.email')}
+        <input
+          type="email"
+          autoComplete="username"
+          autoFocus
+          value={email}
+          disabled={busy}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+      </label>
+      <button
+        type="button"
+        className="btn primary"
+        disabled={busy || email.trim() === ''}
+        onClick={() => {
+          setBusy(true);
+          void api
+            .requestReset(email.trim())
+            // The same next screen whichever way it went, including a network
+            // failure: the alternative tells somebody watching whether the
+            // request reached anything.
+            .then(() => setAsked(true))
+            .catch(() => setAsked(true))
+            .finally(() => setBusy(false));
+        }}
+      >
+        {busy ? t('reset.asking') : t('reset.ask')}
+      </button>
+      <button type="button" className="btn subtle" onClick={() => navigate(paths.login())}>
+        {t('reset.backToSignIn')}
+      </button>
     </div>
   );
 }

@@ -87,6 +87,8 @@ export interface InstanceInfo {
   suggestedLocale: string;
   /** "du" or "Sie", where a language distinguishes it (ADR-0041). */
   addressForm?: 'informal' | 'formal';
+  /** Whether a forgotten password can be reset — false with no relay (ADR-0059). */
+  canResetPassword?: boolean;
 }
 
 /** How a workspace is recognised in a list (ADR-0030). */
@@ -1177,6 +1179,13 @@ export const api = {
         props: Record<string, unknown>;
       }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
+
+  /** Ask for a reset link. Answers the same for any address (ADR-0059). */
+  requestReset: (email: string) => post<{ asked: true }>('/api/auth/reset/request', { email }),
+
+  /** Set a new password with a link's token. */
+  resetPassword: (token: string, password: string) =>
+    post<{ reset: true }>('/api/auth/reset', { token, password }),
 
   /** Send one test mail to the asking administrator (ADR-0058). */
   testMail: () =>

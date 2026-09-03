@@ -305,6 +305,17 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       // Sent with the instance rather than with the session, because the sign-in
       // screen is addressed too and there is nobody to ask yet.
       addressForm: (await deps.addressForm?.()) ?? 'informal',
+      /*
+       * Whether a forgotten password can be reset at all (ADR-0059).
+       *
+       * With no relay the reset is absent rather than broken, and the sign-in
+       * screen must not offer a link to a form that can only ever say "a link
+       * is on its way" about a mail nobody will send.
+       *
+       * Sent with the instance for the same reason as the form of address:
+       * there is nobody to ask yet.
+       */
+      canResetPassword: await deps.canSendMail(),
     });
   });
 

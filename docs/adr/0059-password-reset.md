@@ -2,8 +2,7 @@
 
 ## Status
 
-Accepted. The token, its storage and its rules are built and tested; the two
-routes, the screen and the mail are not. What is left is at the end.
+Accepted and built end to end.
 
 ## Context
 
@@ -123,10 +122,20 @@ that had been private. A helper becomes an interface when it has a second caller
 and the alternative was a second limiter — two answers to "is this too many",
 drifting apart.
 
-## Still to build
+**The screen and the link.** Two states in one screen, chosen by whether the
+address carries a token — they are two halves of one errand, and somebody
+arriving from a mail should not have to notice which screen they are on. The
+reset route is checked *before* the sign-in screen, so a person with a token is
+not shown a form for the password they are about to replace.
 
-The screen with its two states, and the "forgot your password?" link that
-appears on the sign-in page only when a relay is configured.
+The asking half shows the same next screen whichever way the request went,
+**including a network failure**: a screen that said "we sent you a mail" only for
+real addresses would put back the oracle the route removed.
+
+The "forgot your password?" link appears only when a relay is configured, which
+the instance endpoint now reports. Without one the reset is absent rather than
+broken, and a link to a form that can only ever promise a mail nobody will send
+teaches somebody to wait.
 
 ## What is deliberately not decided
 
