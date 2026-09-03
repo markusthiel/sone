@@ -30,6 +30,7 @@ import {
   setPropertyValue,
   updateField,
   updateView,
+  DERIVED_FIELD_TYPES,
   type FieldType,
   type SelectOption,
   type StoredValue,
@@ -39,6 +40,12 @@ import type { Pool } from 'pg';
 
 import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/claims.js';
 import { claimsFor } from './auth.js';
+
+import {
+  computeRollup,
+  readRollupConfig,
+  type DerivedValue,
+} from '../collections/rollup.js';
 import { visiblePagesCondition } from '../pages/access.js';
 
 import { queryOne, queryRows } from '../db/pool.js';
@@ -80,6 +87,9 @@ const CREATABLE_FIELD_TYPES = new Set<FieldType>([
   // Pointing at rows in another collection (ADR-0054). Creatable only with a
   // target: see the check below, which refuses one without.
   'relation',
+  // The derived other side: what points *here*, counted or aggregated. Also
+  // creatable only with a checked config.
+  'rollup',
   // One media type, not three (ADR-0035). The file itself already says whether
   // it is an image, a PDF or something else — the server classifies every
   // upload — so a column that also declared it would be a second answer to the
@@ -746,6 +756,42 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
           [referenced, auth.workspaceId],
         );
 
+    /*
+     * One query per rollup column, not per row.
+     *
+     * A table of two hundred rows with two rollups is two queries. Computed
+     * with the reader's own visibility, so two people can see different numbers
+     * on the same page — correct, and marked as partial when anything was left
+     * out (ADR-0054).
+     */
+    const derivedByRow = new Map<string, Record<string, DerivedValue>>();
+    const rollups = fields.filter((field) => field.field_type === 'rollup');
+    if (rollups.length > 0 && rows.length > 0) {
+      /*
+       * The reader, for the visibility condition inside each rollup.
+       *
+       * `authorise` here yields `actorId` and `canEdit` rather than the full
+       * claims — enough for this: a rollup needs to know whose visibility to
+       * apply, and a share-link visitor has no actor id, which the condition
+       * already treats as "only what is granted".
+       */
+      const reader = { userId: auth.actorId, isAdmin: false };
+      for (const field of rollups) {
+        const config = readRollupConfig(field.config ?? null);
+        if (!config) continue;
+        const computed = await computeRollup(deps.pool, {
+          rowIds: rows.map((row) => row.id),
+          config,
+          reader,
+        });
+        for (const [rowId, value] of computed) {
+          const bag = derivedByRow.get(rowId) ?? {};
+          bag[field.id] = value;
+          derivedByRow.set(rowId, bag);
+        }
+      }
+    }
+
     ctx.send(200, {
       pageId,
       collectionId,
@@ -776,6 +822,15 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
         id: row.id,
         title: row.title,
         values: byRow.get(row.id) ?? {},
+        /*
+         * The derived columns, from the server (ADR-0054).
+         *
+         * Separate from `values` on purpose: those come out of the document and
+         * can be written, these are computed and cannot. One bag holding both
+         * would be a cell somebody could type into whose value the server
+         * decides — a lie the moment they did.
+         */
+        derived: derivedByRow.get(row.id) ?? {},
       })),
     });
   });
@@ -820,6 +875,55 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       if (!exists) {
         ctx.fail(404, 'collection_not_found');
         return;
+      }
+    }
+
+    /*
+     * A rollup names the relation column on the other side, and what to do with
+     * what it finds (ADR-0054).
+     *
+     * The aggregated field must be a *stored* one. That is the rule that
+     * removes cycles by construction: a rollup of a rollup is refused here, so
+     * nothing downstream has to walk a dependency graph, detect a cycle, or
+     * schedule a recomputation.
+     */
+    if (fieldType === 'rollup') {
+      const config = readRollupConfig((body.config ?? null) as Record<string, unknown> | null);
+      if (!config) {
+        ctx.fail(422, 'invalid_rollup');
+        return;
+      }
+
+      const via = await queryOne<{ field_type: string; config: Record<string, unknown> }>(
+        deps.pool,
+        `SELECT f.field_type, f.config
+           FROM collection_fields f
+           JOIN collections c ON c.id = f.collection_id
+           JOIN pages p ON p.id = c.page_id
+          WHERE f.id = $1 AND p.workspace_id = $2`,
+        [config.viaFieldId, resolved.auth.workspaceId],
+      );
+      if (!via || via.field_type !== 'relation') {
+        ctx.fail(422, 'not_a_relation');
+        return;
+      }
+      // And it must point *here*, or the rollup aggregates rows that have
+      // nothing to do with this collection.
+      if (via.config?.['collectionId'] !== resolved.collectionId) {
+        ctx.fail(422, 'relation_points_elsewhere');
+        return;
+      }
+
+      if (config.fieldId) {
+        const target = await queryOne<{ field_type: string }>(
+          deps.pool,
+          `SELECT field_type FROM collection_fields WHERE id = $1`,
+          [config.fieldId],
+        );
+        if (!target || DERIVED_FIELD_TYPES.has(target.field_type as FieldType)) {
+          ctx.fail(422, 'not_a_stored_field');
+          return;
+        }
       }
     }
 

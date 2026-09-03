@@ -323,6 +323,86 @@ describe(
       );
     });
 
+    test('a rollup counts what points here, and refuses a rollup of a rollup', async () => {
+      // The rule that removes cycles by construction: a rollup may aggregate a
+      // stored field, never another derived one — so nothing downstream walks a
+      // dependency graph or schedules a recomputation (ADR-0054).
+      const session = await setup();
+      const clients = await collectionOn(
+        session,
+        await create(session, 'Kunden 3', 'page', session.rootFolder),
+      );
+      const invoices = await collectionOn(
+        session,
+        await create(session, 'Rechnungen 3', 'page', session.rootFolder),
+      );
+
+      const link = await expectJson<{ id: string }>(
+        await addField(session, invoices, {
+          name: 'Kunde',
+          fieldType: 'relation',
+          config: { collectionId: clients },
+        }),
+        201,
+      );
+
+      // On the clients' side: how many invoices point at me.
+      const count = await expectJson<{ id: string }>(
+        await addField(session, clients, {
+          name: 'Rechnungen',
+          fieldType: 'rollup',
+          config: { viaFieldId: link.id, aggregate: 'count' },
+        }),
+        201,
+      );
+
+      // A rollup over that rollup is refused rather than scheduled.
+      await expectStatus(
+        await addField(session, clients, {
+          name: 'Unsinn',
+          fieldType: 'rollup',
+          config: { viaFieldId: link.id, aggregate: 'sum', fieldId: count.id },
+        }),
+        422,
+      );
+
+      // A relation that points somewhere else cannot be rolled up here either.
+      await expectStatus(
+        await addField(session, invoices, {
+          name: 'Falsche Richtung',
+          fieldType: 'rollup',
+          config: { viaFieldId: link.id, aggregate: 'count' },
+        }),
+        422,
+      );
+
+      const acme = await addRow(session, clients, 'Acme');
+      const first = await addRow(session, invoices, 'R-001');
+      const second = await addRow(session, invoices, 'R-002');
+      for (const invoice of [first, second]) {
+        const res = await fetch(`${base}/api/pages/${invoice}/properties/${link.id}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json', cookie: session.cookie },
+          body: JSON.stringify({ value: { kind: 'relation', pageIds: [acme] } }),
+        });
+        assert.ok(res.ok, `linking succeeded, got ${res.status}`);
+      }
+
+      const read = await expectJson<{
+        rows: Array<{ id: string; derived: Record<string, { number?: number }> }>;
+        // This suite passes the cookie inline; `auth(session)` is another
+        // suite's helper, which I reached for from memory.
+      }>(
+        await fetch(`${base}/api/collections/${clients}`, {
+          headers: { cookie: session.cookie },
+        }),
+        200,
+      );
+
+      const row = read.rows.find((one) => one.id === acme);
+      assert.equal(row?.derived[count.id]?.number, 2, 'two invoices point at Acme');
+    });
+
     test('a page can hold a collection', async () => {
       // Content inside a page, not a folder wearing a different hat
       // (ADR-0021). "A folder should be a folder" was the report that led here.
