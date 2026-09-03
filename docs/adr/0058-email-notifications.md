@@ -200,15 +200,23 @@ It is not done because it buys convenience at the cost of a second place where a
 credential lives, and an operator who can set one environment variable can set
 two.
 
+**The per-person screen, at the address the mail already gave out.** The
+unsubscribe line says `/settings/notifications`, and that section did not
+exist when the line was written — a link in a message that cannot be recalled,
+pointing at nothing. It exists now, and a test ties the two together so neither
+can move without the other.
+
+Three ticks, saved on change rather than behind a button, and the screen says
+what a mail contains before asking whether somebody wants one: that is the part
+a person deciding this actually wants to know, and nothing else in the interface
+says it. The preferences ride on the existing profile route rather than one of
+their own — they are three fields of a person's own account, and a second route
+would be a second place to authorise the same thing.
+
 ## Still to build
 
-The per-person settings screen, and failed sends surfaced in the administration
-area. The read-before-send check is done — it is a condition in the claim, which
-is where every rule in this record turned out to live.
-
-Until the settings screen exists, the three per-person preferences are columns
-with defaults and no way to change them, which is worth knowing rather than
-discovering: somebody who wants replies emailed cannot say so yet.
+Failed sends surfaced in the administration area. Until then a wrong password
+shows up as a failed job in the queue and nowhere an administrator is looking.
 
 ## What is deliberately not decided
 

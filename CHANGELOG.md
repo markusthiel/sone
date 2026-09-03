@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**You can choose which notifications reach you by email** under You →
+Notifications — mentions and tasks on, replies off, and the screen says what a
+mail contains before asking whether you want one.
+
 **A mail server can be configured in the administration area**
 ([ADR-0058](docs/adr/0058-email-notifications.md)) — host, port, encryption,
 user, sender address, and whether a mail may name the page. An empty host means

@@ -2133,3 +2133,24 @@ test('the mail server is set in the administration area, and the password is not
   // a broken one, and nobody should learn that by watching a queue.
   assert.match(en, /'admin\.smtpHost\.hint':\s*\n?\s*'Empty means no email/);
 });
+
+test('the settings section the mail links to exists', () => {
+  // The unsubscribe line in every notification email is
+  // `/settings/notifications`, and I wrote that before there was a section
+  // behind it — a link in a message that cannot be recalled, pointing at
+  // nothing (ADR-0058).
+  const settings = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
+  assert.match(settings, /\{ id: 'notifications', label: 'you\.notifications'/);
+  assert.match(settings, /current === 'notifications' && <NotificationSettings/);
+
+  const mail = codeOf(new URL('../../server/src/mail/compose.ts', import.meta.url));
+  assert.match(mail, /\/settings\/notifications/);
+
+  // Saved on change rather than behind a button: a tick that needs confirming
+  // is a tick somebody leaves half-set.
+  assert.match(settings, /save\(\{ emailMentions: event\.target\.checked \}\)/);
+
+  // And the screen says what a mail contains, which is what somebody deciding
+  // this wants to know and which nothing else tells them.
+  assert.match(settings, /t\('you\.notifications\.contents'\)/);
+});
