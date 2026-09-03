@@ -91,6 +91,32 @@ tests would fail for reasons unrelated to the code, and — worse — could pass
 while production silently reorders blocks. `verifyDatabaseAssumptions` refuses
 to run against a wrongly collated database.
 
+## What the compiler cannot see
+
+TypeScript does not look inside a template literal, so **every column name in
+SQL is unchecked**. This session lost twice to that: `n.actor_id` on a table
+that had no such column, and a `GET /api/admin/settings` route that does not
+exist. Both typechecked, and both failed at the moment the code ran — on
+whatever path happened to be exercised, which for the mail job would have been
+the first send on somebody's instance.
+
+Three tests close the ordinary cases, all by reading source rather than running
+it:
+
+- `sqlColumns.db.test.ts` resolves every `alias.column` in the server's SQL
+  through the statement's own `FROM`/`JOIN` and checks it against
+  `information_schema`. It does not attempt CTEs, subquery aliases or
+  concatenated SQL — a checker that argues with you gets turned off, so silence
+  means "nothing obviously wrong" and not "correct".
+- `routePaths.test.ts` checks every path the client asks for against the routes
+  the server registers.
+- `errorMessages.test.ts` checks that every refusal code has a message, or is
+  named as deliberately not having one.
+
+Each of them begins with a test that makes the check **fail on purpose**. A
+guard nobody has seen catch anything is a guard nobody should believe, and the
+one in `sqlColumns` puts back the exact mistake that prompted it.
+
 ## Fixtures
 
 Kept deliberately minimal. `seedWorkspace` creates a workspace and an owner
