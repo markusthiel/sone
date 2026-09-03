@@ -403,6 +403,9 @@ export interface FavouriteEntry {
  * applied — the only one worth showing above a list of results.
  */
 export interface AppliedFilters {
+  /** Folder names, and how many folders they matched (ADR-0050). */
+  in?: string[];
+  inMatched?: number;
   tags: string[];
   authors: string[];
   assigned: string[];

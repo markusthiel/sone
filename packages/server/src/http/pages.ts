@@ -1780,8 +1780,19 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
    * it actually used — which is the only version that can be trusted after the
    * fact (ADR-0050).
    */
-  const describeFilters = (filters: SearchFilters) => ({
+  const describeFilters = (filters: SearchFilters, folderMatches?: number) => ({
     tags: filters.tags,
+    /*
+     * The folder names, and how many folders they matched (ADR-0050).
+     *
+     * The count is the whole reason a name is allowed instead of an id: two
+     * folders called "Projekte" match both, and somebody should see that on
+     * screen rather than wonder why a search reaches further than they meant.
+     * Zero is worth showing too — it says the name is wrong, not that the
+     * folder is empty.
+     */
+    in: filters.in,
+    ...(folderMatches === undefined ? {} : { inMatched: folderMatches }),
     authors: filters.authors,
     assigned: filters.assigned,
     after: filters.after,
@@ -1900,6 +1911,27 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     // markup, and rendering it means innerHTML on a string built from document
     // content — a stored-XSS hole for the sake of two tags. The interface splits
     // on these and builds real elements, so nothing is ever interpreted.
+    /*
+     * The folders `in:` named, by name (ADR-0050).
+     *
+     * One statement, before the search: a name can match several folders, and
+     * the search then wants every one of their ids. Folders only — `in:` means
+     * "under this thing in the tree", and a page is not a place.
+     */
+    const folders =
+      filters.in.length > 0
+        ? await queryRows<{ id: string }>(
+            deps.pool,
+            `SELECT id FROM pages
+              WHERE workspace_id = $1
+                AND kind = 'folder'
+                AND archived_at IS NULL
+                AND lower(title) = ANY($2::text[])`,
+            [workspaceId, filters.in],
+          )
+        : [];
+    const folderIds = folders.map((one) => one.id);
+
     const headline =
       'StartSel=\u0002, StopSel=\u0003, MaxWords=26, MinWords=10, ShortWord=2, MaxFragments=1';
 
@@ -2019,6 +2051,21 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           -- the 31st" is a boundary nobody would guess.
           AND ($11::date IS NULL OR p.last_edited_at::date >= $11::date)
           AND ($12::date IS NULL OR p.last_edited_at::date <= $12::date)
+          -- Under one of the folders the in: filter named (ADR-0050).
+          --
+          -- ancestor_ids rather than the parent: naming a folder means anywhere
+          -- beneath it, which is what somebody narrowing a search by place
+          -- means — a page two levels down is still in that folder.
+          --
+          -- The overlap operator, so several names are "any of these", unlike
+          -- the tag filter which means "all of them". Two tags describe one
+          -- page; two folders describe two places, and a page cannot be in
+          -- both.
+          --
+          -- Written as SQL comments and without backticks: a backtick inside a
+          -- template literal ends the literal, and this project has now made
+          -- that mistake five times.
+          AND ($14::uuid[] IS NULL OR p.ancestor_ids && $14::uuid[])
           -- The same condition the tree uses (ADR-0026).
           --
           -- Filtering after the query would still have been correct here, and
@@ -2062,6 +2109,27 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
               )
               .filter(isUuid)
           : null,
+        /*
+         * Folders named by `in:`, resolved to ids here (ADR-0050).
+         *
+         * By name, at search time, because that is what makes the syntax
+         * shareable: somebody types `in:Projekte` and pastes it to a colleague.
+         * Two folders with one name match both, and the response says how many
+         * matched so the ambiguity is on screen rather than silent.
+         */
+        /*
+         * Null only when no folder was *asked for* (ADR-0050).
+         *
+         * I hung this on whether the names resolved, so a name nothing is
+         * called passed null — the filter was ignored and the search matched
+         * everything. A filter that silently widens a search is the exact
+         * failure this record warns about: somebody typed a narrowing and got
+         * more than they had before.
+         *
+         * An empty array now, which matches nothing, and the reported count of
+         * zero says why.
+         */
+        filters.in.length > 0 ? folderIds : null,
       ],
     );
     const visible = rows.filter(
@@ -2156,7 +2224,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     ctx.send(200, {
       // What was typed, and what was made of it.
       query: typed,
-      filters: describeFilters(filters),
+      // With the count, which only the searching route knows: the early exit
+      // above has not resolved any folders.
+      filters: describeFilters(filters, folderIds.length),
       /** Spellings that exist in this workspace, when the search found little. */
       corrections: corrections.map((row) => row.word),
       results: visible.map((row) => ({

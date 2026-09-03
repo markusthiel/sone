@@ -714,6 +714,9 @@ export const en = {
   'search.folders': 'Folders',
   'search.pages': 'Pages',
   'search.chip.tag': 'Tagged {value}',
+  'search.chip.in': 'in {value}',
+  'search.chip.inMany': 'in {value} · {count} folders',
+  'search.chip.inNone': 'in {value} · no such folder',
   'search.chip.author': 'Written by {value}',
   'search.chip.assignedMe': 'Assigned to me',
   'search.chip.assigned': 'Assigned to {value}',
@@ -724,8 +727,8 @@ export const en = {
   'search.nameIt': 'Call it something',
   'search.forget': 'Forget {name}',
   'search.syntax':
-    'Narrow it by typing tag:name, author:name, assigned:me, after:2026-08-01 ' +
-    'or before:2026-09-01. A filter on its own works too.',
+    'Narrow it by typing tag:name, in:folder, author:name, assigned:me, ' +
+    'after:2026-08-01 or before:2026-09-01. A filter on its own works too.',
   'search.nothing': 'Nothing matched.',
   'search.didYouMean': 'Did you mean',
   'search.similar': 'Similar names',

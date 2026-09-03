@@ -26,6 +26,8 @@ export interface SearchFilters {
   assigned: string[];
   /** Exact tags, lowercased. */
   tags: string[];
+  /** Folder names, lowercased — resolved at search time (ADR-0050). */
+  in: string[];
   /** Name prefixes, lowercased. */
   authors: string[];
   /** Inclusive, as dates in the workspace's own day — `YYYY-MM-DD`. */
@@ -45,9 +47,28 @@ export interface SearchFilters {
  * German ones are aliases rather than replacements — somebody typing `autor:`
  * has been perfectly clear, and refusing them would be pedantry.
  */
-const PREFIXES: Record<string, 'tag' | 'author' | 'after' | 'before' | 'assigned'> = {
+const PREFIXES: Record<
+  string,
+  'tag' | 'author' | 'after' | 'before' | 'assigned' | 'in'
+> = {
   assigned: 'assigned',
   zugewiesen: 'assigned',
+  /*
+   * A folder, by name (ADR-0050).
+   *
+   * ADR-0050 deferred this believing it needed an id in the query, because a
+   * name does not survive a rename. It does not: `tag:` matches a key and not a
+   * display name either, and the whole point of this syntax is that somebody
+   * can type it and paste it to a colleague. A name resolved at search time is
+   * shareable; an id is not.
+   *
+   * The cost is honest and visible: a rename changes what the query finds, and
+   * two folders with one name match both. The chip says how many folders
+   * matched, so ambiguity is on screen rather than silent.
+   */
+  in: 'in',
+  ordner: 'in',
+  folder: 'in',
   tag: 'tag',
   schlagwort: 'tag',
   author: 'author',
@@ -84,6 +105,7 @@ function readDate(value: string): string | null {
 export function parseSearchQuery(raw: string): SearchFilters {
   const filters: SearchFilters = {
     tags: [],
+    in: [],
     authors: [],
     assigned: [],
     after: null,
@@ -119,7 +141,8 @@ export function parseSearchQuery(raw: string): SearchFilters {
       continue;
     }
 
-    if (kind === 'assigned') filters.assigned.push(value.toLowerCase());
+    if (kind === 'in') filters.in.push(value.toLowerCase());
+    else if (kind === 'assigned') filters.assigned.push(value.toLowerCase());
     else if (kind === 'tag') filters.tags.push(value.toLowerCase());
     else if (kind === 'author') filters.authors.push(value.toLowerCase());
     else {
@@ -145,6 +168,7 @@ export function hasSearchCriteria(filters: SearchFilters): boolean {
   return (
     filters.text.length >= 2 ||
     filters.tags.length > 0 ||
+    filters.in.length > 0 ||
     filters.assigned.length > 0 ||
     filters.authors.length > 0 ||
     filters.after !== null ||

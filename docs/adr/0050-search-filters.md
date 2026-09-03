@@ -140,6 +140,26 @@ replaces it, which is what refining a search and saving it again means. Both the
 name and the query are shown: a name is memorable and a query is readable, and
 neither substitutes for the other.
 
-**`in:` for a folder.** Wanted, and it needs a way to name a folder in a query
-that survives renaming — which is an id in a string, and a string with an id in
-it is not shareable in the way the rest of this syntax is.
+**`in:` for a folder.** *Built, and the deferral's reasoning was wrong.* It said
+this needs a way to name a folder that survives renaming, "which is an id in a
+string, and a string with an id in it is not shareable".
+
+The premise was that identity is what a filter needs. It is not — `tag:` matches
+a key rather than a display name either, and the point of this syntax is that
+somebody types it and pastes it to a colleague. So `in:Projekte` resolves the
+name at search time, and the costs are stated instead of avoided:
+
+- A rename changes what the query finds. That is what naming a thing means.
+- Two folders called the same match **both**, and the chip says how many folders
+  the name matched — so a search reaching further than somebody meant is on
+  screen rather than silent.
+- A name nothing is called matches **nothing**, with a chip saying so. My first
+  version made it match *everything*, because I hung the condition on whether
+  the names resolved rather than on whether a folder was asked for. A filter
+  that silently widens a search is the exact failure this record warns about,
+  and the test that found it exists for that reason.
+
+`ancestor_ids`, not the parent: naming a folder means anywhere beneath it.
+Several names are "any of these", unlike `tag:` which means "all of them" — two
+tags describe one page, two folders describe two places, and a page cannot be in
+both.

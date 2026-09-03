@@ -363,6 +363,55 @@ describe(
       assert.deepEqual(after.searches, []);
     });
 
+    test('a folder filter narrows by place, and says how many folders it found', async () => {
+      // ADR-0050 deferred this believing it needed an id in the query. It does
+      // not: a name resolved at search time is what makes the syntax
+      // shareable, and the count on the response is what keeps the ambiguity
+      // visible.
+      const session = await setup();
+      const root = await defaultFolder(session);
+      const projects = await create(session, 'Projekte', 'folder', root);
+      const inside = await create(session, 'Rechnung März', 'page', projects);
+      // Two levels down, because naming a folder means anywhere beneath it.
+      const deeper = await create(session, 'Unterordner', 'folder', projects);
+      const deepPage = await create(session, 'Rechnung April', 'page', deeper);
+      const outside = await create(session, 'Rechnung Mai', 'page', root);
+
+      /*
+       * The route directly, because the suite's `search` helper returns only
+       * the results and this test is about the reported filters as well.
+       * Reaching past a helper is worth a sentence: rebuilding it for every
+       * caller would be a bigger change than the thing being tested.
+       */
+      const ask = async (query: string) =>
+        expectJson<{
+          // `pageId`, which is what a search result calls it — `id` was a
+          // field name I assumed, and it read as two nulls.
+          results: Array<{ pageId: string }>;
+          filters: { inMatched?: number };
+        }>(
+          await fetch(
+            `${base}/api/workspaces/${session.workspaceId}/search?q=${encodeURIComponent(query)}`,
+            auth(session),
+          ),
+          200,
+        );
+
+      const found = await ask('in:Projekte Rechnung');
+      const ids = found.results.map((one) => one.pageId);
+      assert.ok(ids.includes(inside), 'a page directly inside');
+      assert.ok(ids.includes(deepPage), 'and one two levels down');
+      assert.ok(!ids.includes(outside), 'not one elsewhere');
+      assert.equal(found.filters.inMatched, 1, 'one folder matched that name');
+
+      // A name nothing is called matches nothing, and says so with a zero —
+      // which tells somebody the name is wrong rather than that the folder is
+      // empty.
+      const nowhere = await ask('in:Gibtsnicht Rechnung');
+      assert.equal(nowhere.filters.inMatched, 0);
+      assert.deepEqual(nowhere.results, []);
+    });
+
     test('a tag filter narrows, and works with no words at all', async () => {
       // "Show me everything tagged X" is a question people ask constantly and
       // could not ask at all (ADR-0050). The two-character minimum is about a

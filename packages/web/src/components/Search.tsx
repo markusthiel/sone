@@ -156,6 +156,21 @@ export function SearchScreen({
               {t('search.chip.tag', { value: tag })}
             </span>
           ))}
+          {/* A folder, and how many folders that name matched (ADR-0050).
+            *
+            * The count is on the chip and not only in the record: a name that
+            * matched two folders reaches further than somebody meant, and one
+            * that matched none narrows to nothing — both are facts about the
+            * search they are looking at. */}
+          {(applied.in ?? []).map((name) => (
+            <span key={`in-${name}`} className="search-chip">
+              {applied.inMatched === 0
+                ? t('search.chip.inNone', { value: name })
+                : (applied.inMatched ?? 1) > 1
+                  ? t('search.chip.inMany', { value: name, count: applied.inMatched ?? 0 })
+                  : t('search.chip.in', { value: name })}
+            </span>
+          ))}
           {applied.authors.map((author) => (
             <span key={`author-${author}`} className="search-chip">
               {t('search.chip.author', { value: author })}
