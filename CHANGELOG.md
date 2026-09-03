@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Two dozen refusals now say what is wrong** instead of "an unknown error
+occurred" — from "a workspace has to keep one owner" to "that value does not fit
+this column". A new check makes sure a refusal the server can send either has a
+message or is written down as deliberately not having one.
+
 **A collection can have a formula column** ([ADR-0056](docs/adr/0056-formula.md)):
 `Menge * Preis`, `if(Menge > 0, …)`, `round(…)`, computed per row. An empty cell
 is empty and not zero, so a total over a row with a missing price is empty rather
