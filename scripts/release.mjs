@@ -139,6 +139,63 @@ if (!hasEntry) {
 }
 record('changelog entry present');
 
+/*
+ * And that the section has entries in it, not only a heading.
+ *
+ * 0.4.0 was tagged with a section holding its summary, the operator note, and
+ * the sentence "the features below need no configuration" — below which there
+ * was nothing, because all twenty-three entries were still sitting under
+ * "Unreleased" above it. The check above passed, because a heading existed.
+ *
+ * An operator reading the notes for the version they are installing is the one
+ * reader who cannot go and look somewhere else.
+ */
+const sectionBody = (() => {
+  const start = changelog.search(
+    new RegExp(`^##\\s.*\\b${version.replace(/\./g, '\\.')}\\b.*$`, 'm'),
+  );
+  if (start === -1) return '';
+  const after = changelog.slice(start);
+  const next = after.slice(1).search(/^## /m);
+  return next === -1 ? after : after.slice(0, next + 1);
+})();
+
+const entryCount = (sectionBody.match(/^\*\*/gm) ?? []).length;
+if (entryCount < 2) {
+  fail(
+    `CHANGELOG.md's ${version} section has ${entryCount} entr${entryCount === 1 ? 'y' : 'ies'}.\n\n` +
+      `A heading is not notes. Check that the entries are under this version\n` +
+      `rather than still under "Unreleased" — which is what happened to 0.4.0,\n` +
+      `where the section ended on "the features below" and nothing followed.`,
+  );
+}
+record(`changelog section has ${entryCount} entries`);
+
+/*
+ * And that "Unreleased" is empty of entries when a release is cut.
+ *
+ * The same fault seen from the other side: entries left there are entries the
+ * release does not claim, and nobody looks under "Unreleased" for the notes of
+ * a version they have installed.
+ */
+const unreleased = (() => {
+  const start = changelog.search(/^## Unreleased\b.*$/m);
+  if (start === -1) return '';
+  const after = changelog.slice(start);
+  const next = after.slice(1).search(/^## /m);
+  return next === -1 ? after : after.slice(0, next + 1);
+})();
+
+const strays = (unreleased.match(/^\*\*/gm) ?? []).length;
+if (strays > 0) {
+  fail(
+    `CHANGELOG.md still has ${strays} entr${strays === 1 ? 'y' : 'ies'} under "Unreleased".\n\n` +
+      `Move them into the ${version} section. An entry left there is a change\n` +
+      `this release made and does not mention.`,
+  );
+}
+record('nothing stranded under Unreleased');
+
 // --- package version -------------------------------------------------------
 
 const manifestPath = path.join(root, 'package.json');
