@@ -67,6 +67,7 @@ describe(
         // ordinary case for an instance without mail (ADR-0059).
         canSendMail: () => Promise.resolve(false),
         sendResetMail: () => Promise.resolve(),
+        sendProviderMail: () => Promise.resolve(),
         pool: db,
         signupMode: () => Promise.resolve('open' as const),
         secureCookies: false,

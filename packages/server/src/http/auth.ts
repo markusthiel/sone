@@ -59,6 +59,8 @@ export interface AuthDeps {
   canSendMail: () => Promise<boolean>;
   /** Send one reset link. Injected, so this module does not reach into mail. */
   sendResetMail: (to: string, token: string, expiresAt: Date) => Promise<void>;
+  /** Tell an account with no password where it actually signs in (ADR-0059). */
+  sendProviderMail: (to: string) => Promise<void>;
   pool: Pool;
   /**
    * Who may create an account.
@@ -645,7 +647,19 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
     const issued = await issueReset(deps.pool, email);
     if (issued) {
       try {
-        await deps.sendResetMail(issued.email, issued.token, issued.expiresAt);
+        /*
+         * The form answered identically above; the mail may differ (ADR-0059).
+         *
+         * A mail reaches only somebody who controls that mailbox, so it is a
+         * private channel: telling them their account signs in through a
+         * provider costs nothing there, where saying it on screen would tell a
+         * stranger which addresses have accounts and of what kind.
+         *
+         * Without this they got silence — protected into waiting for a mail
+         * that was never coming.
+         */
+        if ('kind' in issued) await deps.sendProviderMail(issued.email);
+        else await deps.sendResetMail(issued.email, issued.token, issued.expiresAt);
       } catch {
         // Logged by the mail path; not reported here, because the report would
         // differ from the one an unknown address gets.
