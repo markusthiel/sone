@@ -15,6 +15,7 @@
 
 import type { Pool } from 'pg';
 
+import { roleIn } from '../auth/claims.js';
 import { queryOne } from '../db/pool.js';
 import type { FileStore } from '../files/store.js';
 import type { Job, JobContext } from '../jobs/runner.js';
@@ -35,11 +36,7 @@ export function workspaceExportHandler(pool: Pool, store: FileStore) {
     // The asker's role now. A job whose creator has left the workspace exports
     // nothing rather than everything, which is the failure direction to choose.
     const membership = job.createdBy
-      ? await queryOne<{ role: string }>(
-          pool,
-          `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-          [job.workspaceId, job.createdBy],
-        )
+      ? await roleIn(pool, job.workspaceId, job.createdBy)
       : null;
     if (!membership) throw new Error('the person who asked is no longer a member');
 
@@ -48,7 +45,7 @@ export function workspaceExportHandler(pool: Pool, store: FileStore) {
       rootId: null,
       viewer: {
         userId: job.createdBy,
-        isWorkspaceAdmin: membership.role === 'owner' || membership.role === 'admin',
+        isWorkspaceAdmin: membership === 'owner' || membership === 'admin',
       },
       withAttachments: job.payload['attachments'] !== false,
       maxPages: MAX_WORKSPACE_PAGES,

@@ -78,7 +78,11 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       secretKey: 'a-test-instance-secret-key-of-sufficient-length',
       instanceName: () => Promise.resolve('SONE'),
         // No requirement in these suites (ADR-0065).
-        secondFactorStanding: () => Promise.resolve({ kind: 'fine' as const }),
+        secondFactorStanding: () =>
+          Promise.resolve({
+            standing: { kind: 'fine' as const },
+            facts: { hasSecondFactor: false, hasPassword: true },
+          }),
       signupMode: () => Promise.resolve('invite' as const),
       secureCookies: false,
     });

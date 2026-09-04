@@ -36,7 +36,7 @@ import { registerGroupRoutes } from './pages/groupRoutes.js';
 import { registerPagePermissionRoutes } from './pages/permissionRoutes.js';
 import { registerOidcRoutes } from './auth/oidcRoutes.js';
 import { installSecondFactorGate, registerAuthRoutes } from './http/auth.js';
-import { reachableWhileBlocked, standingOf } from './auth/requirement.js';
+import { factsFor, reachableWhileBlocked, standingOf } from './auth/requirement.js';
 import { registerHealthRoutes, SONE_COMMIT, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
 import { serveRefusal } from './http/refusal.js';
@@ -297,24 +297,12 @@ async function main(): Promise<void> {
     if (!resolved.values.requireSecondFactor) return null;
     if (reachableWhileBlocked(path)) return null;
 
-    const facts = await queryOne<{ has_password: boolean; has_factor: boolean }>(
-      gatePool,
-      `SELECT u.password_hash IS NOT NULL AS has_password,
-              EXISTS (
-                SELECT 1 FROM second_factors f
-                 WHERE f.user_id = u.id AND f.confirmed_at IS NOT NULL
-              ) AS has_factor
-         FROM users u WHERE u.id = $1`,
-      [userId],
-    );
+    const facts = await factsFor(gatePool, userId);
     if (!facts) return null;
 
     const standing = standingOf(
-      {
-        required: true,
-        since: resolved.values.requireSecondFactorSince,
-      },
-      { hasSecondFactor: facts.has_factor, hasPassword: facts.has_password },
+      { required: true, since: resolved.values.requireSecondFactorSince },
+      facts,
     );
     return standing.kind === 'blocked' ? 'second_factor_required' : null;
   });
@@ -333,28 +321,35 @@ async function main(): Promise<void> {
      * disagree about the deadline.
      */
     secondFactorStanding: async (userId) => {
+      /*
+       * The standing *and* the facts it came from.
+       *
+       * The session needs both — whether an authenticator is enrolled, for the
+       * settings screen, and where the account stands, for the banner — and
+       * they come out of one row. Returning only the standing meant the caller
+       * asked a second time.
+       */
       const resolved = await settings.resolve();
-      if (!resolved.values.requireSecondFactor) return { kind: 'fine' };
+      const facts = (await factsFor(pool, userId)) ?? {
+        hasSecondFactor: false,
+        hasPassword: false,
+      };
 
-      const facts = await queryOne<{ has_password: boolean; has_factor: boolean }>(
-        pool,
-        `SELECT u.password_hash IS NOT NULL AS has_password,
-                EXISTS (
-                  SELECT 1 FROM second_factors f
-                   WHERE f.user_id = u.id AND f.confirmed_at IS NOT NULL
-                ) AS has_factor
-           FROM users u WHERE u.id = $1`,
-        [userId],
-      );
-      if (!facts) return { kind: 'fine' };
+      if (!resolved.values.requireSecondFactor) {
+        return { standing: { kind: 'fine' as const }, facts };
+      }
 
       const standing = standingOf(
         { required: true, since: resolved.values.requireSecondFactorSince },
-        { hasSecondFactor: facts.has_factor, hasPassword: facts.has_password },
+        facts,
       );
-      return standing.kind === 'grace'
-        ? { kind: 'grace', deadline: standing.deadline.toISOString() }
-        : standing;
+      return {
+        standing:
+          standing.kind === 'grace'
+            ? { kind: 'grace' as const, deadline: standing.deadline.toISOString() }
+            : standing,
+        facts,
+      };
     },
     /*
      * Whether a reset can be offered at all (ADR-0059).

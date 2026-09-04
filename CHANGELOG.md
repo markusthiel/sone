@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: the session request asked the database twice for the same thing.** No
+visible change, but it was on the route every page load hits.
+
 **An instance can require two-step sign-in**
 ([ADR-0065](docs/adr/0065-requiring-a-second-factor.md)). Fourteen days of
 grace with a banner and two emails, then setup is the only screen that opens —

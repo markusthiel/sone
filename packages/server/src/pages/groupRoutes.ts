@@ -12,6 +12,7 @@
 
 import type { Pool } from 'pg';
 
+import { roleIn } from '../auth/claims.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { requireSession } from '../http/auth.js';
 import type { RequestContext, Router } from '../http/router.js';
@@ -29,11 +30,7 @@ async function requireWorkspaceAdmin(
   const session = await requireSession(pool, ctx);
   if (!session) return null;
 
-  const membership = await queryOne<{ role: string }>(
-    pool,
-    `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-    [workspaceId, session.userId],
-  );
+  const membership = await roleIn(pool, workspaceId, session.userId);
 
   if (!membership) {
     // Not found rather than forbidden for a workspace somebody is not in:
@@ -41,7 +38,7 @@ async function requireWorkspaceAdmin(
     ctx.fail(404, 'not_found');
     return null;
   }
-  if (membership.role !== 'owner' && membership.role !== 'admin') {
+  if (membership !== 'owner' && membership !== 'admin') {
     ctx.fail(403, 'forbidden');
     return null;
   }
