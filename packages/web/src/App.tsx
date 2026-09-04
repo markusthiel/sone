@@ -7,7 +7,9 @@
 
 import { useEffect, useState , type ReactElement } from 'react';
 
-import { LoginScreen, SetupScreen, SignupScreen, useMessage, ResetScreen } from './components/Auth.tsx';
+import { LoginScreen, SetupScreen, SignupScreen, useMessage, ResetScreen,
+  SecondFactorRequired,
+} from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
 import { MoveDialog } from './components/MoveDialog.tsx';
 import { MoveToWorkspaceDialog } from './components/MoveToWorkspaceDialog.tsx';
@@ -220,6 +222,20 @@ function Routes({
   }
 
   // --- authenticated ------------------------------------------------------
+
+  /*
+   * The requirement, after the grace period (ADR-0065).
+   *
+   * Before the workspace, because the point is that nothing else is reachable
+   * — including reading. A stolen password that grants read access to a
+   * company's notes has granted the thing that mattered.
+   *
+   * The server refuses the requests anyway; this is so somebody sees why
+   * rather than a screen of failures.
+   */
+  if (state.session?.user.secondFactorStanding?.kind === 'blocked') {
+    return <SecondFactorRequired onDone={() => void reload()} />;
+  }
 
   return (
     <Workspace
@@ -637,6 +653,26 @@ function Workspace({
         {/* Said where it cannot be missed rather than in Settings → About, which
             is the last place anybody looks. */}
         <StaleBundleNotice />
+        {/* The requirement, during the grace period (ADR-0065).
+          *
+          * A banner and not a dialog: everything still works, and a modal for
+          * something with a fortnight left is a modal people learn to dismiss
+          * without reading. It is not dismissible either — it disappears when
+          * the thing is done, which is the only honest way for it to go. */}
+        {session.user.secondFactorStanding?.kind === 'grace' && (
+          <p className="stale-bundle" role="status">
+            {t('required.soon', {
+              days: Math.max(
+                1,
+                Math.ceil(
+                  (Date.parse(session.user.secondFactorStanding.deadline) - Date.now()) /
+                    86_400_000,
+                ),
+              ),
+            })}{' '}
+            <a href={paths.settings('sign-in')}>{t('required.setUp')}</a>
+          </p>
+        )}
 
         {route.kind === 'page' && isFolder && selected && (
           <FolderView

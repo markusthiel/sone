@@ -209,6 +209,10 @@ describe(
     // Written by their column default, read by a human looking at the table.
     'group_members.added_at',
     'schema_migrations.applied_at',
+    // Same kind: the code needs only whether a stage was sent, and the
+    // timestamp is for an operator asking "when did this instance start
+    // nagging people" (ADR-0065).
+    'requirement_mails.sent_at',
     // The four superseded mail columns were here, allowed for one release with
     // "drop after 0.7.0" written beside them. 0053 dropped them and these four
     // lines went in the same commit.

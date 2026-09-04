@@ -489,6 +489,121 @@ function SecondFactorStep({
   );
 }
 
+/**
+ * The only screen a blocked account can reach (ADR-0065).
+ *
+ * Not a dialog over the workspace: a dialog implies something behind it that
+ * could be looked at, and the decision is that there is not. Reading is
+ * refused too, because the point of a second factor is that a stolen password
+ * grants nothing — and a stolen password with read access to a company's notes
+ * has granted the thing that mattered.
+ *
+ * Signing out stays reachable, because somebody at a borrowed computer needs a
+ * way out that is not enrolling their phone on somebody else's account.
+ */
+export function SecondFactorRequired({ onDone }: { onDone: () => void }): ReactElement {
+  const { t } = useT();
+  const message = useMessage();
+  const [enrolment, setEnrolment] = useState<{ uri: string; secret: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [codes, setCodes] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (codes) {
+    return (
+      <div className="centered card">
+        <h1>{t('you.secondFactor.codes')}</h1>
+        <p>{t('you.secondFactor.codes.hint')}</p>
+        <ul className="recovery-codes">
+          {codes.map((one) => (
+            <li key={one}>
+              <code>{one}</code>
+            </li>
+          ))}
+        </ul>
+        {/* Only now is the way through opened: somebody who has not seen their
+            recovery codes has not finished, whatever the server thinks. */}
+        <button type="button" className="btn primary" onClick={onDone}>
+          {t('you.secondFactor.codes.kept')}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="centered card">
+      <h1>{t('required.title')}</h1>
+      <p>{t('required.hint')}</p>
+
+      {enrolment ? (
+        <>
+          <p className="settings-note">{t('you.secondFactor.byHand')}</p>
+          <code className="totp-secret">
+            {(enrolment.secret.match(/.{1,4}/g) ?? []).join(' ')}
+          </code>
+          <p>
+            <a href={enrolment.uri}>{t('you.secondFactor.open')}</a>
+          </p>
+          <label>
+            {t('auth.code')}
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn primary"
+            disabled={code.trim() === ''}
+            onClick={() => {
+              void api
+                .confirmSecondFactor(code.trim())
+                .then((result) => setCodes(result.recoveryCodes))
+                .catch((err: unknown) => {
+                  setError(err instanceof ApiError ? err.code : 'network_error');
+                });
+            }}
+          >
+            {t('you.secondFactor.finish')}
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className="btn primary"
+          onClick={() => {
+            void api
+              .startSecondFactor()
+              .then(setEnrolment)
+              .catch((err: unknown) => {
+                setError(err instanceof ApiError ? err.code : 'network_error');
+              });
+          }}
+        >
+          {t('you.secondFactor.start')}
+        </button>
+      )}
+
+      {error && <p className="error">{message(error)}</p>}
+
+      <p className="muted">
+        <button
+          type="button"
+          className="btn subtle"
+          onClick={() => {
+            void api.logout().then(onDone);
+          }}
+        >
+          {t('account.signOut')}
+        </button>
+      </p>
+    </div>
+  );
+}
+
 export function SignupScreen({
   onDone,
   invitationToken,

@@ -420,6 +420,16 @@ export const en = {
   'you.when.immediately': 'Email me at once',
   'you.when.daily': 'In the daily mail',
   'you.when.off': 'No email',
+  'required.title': 'Two-step sign-in is now required here',
+  'required.hint':
+    'Whoever runs this instance has made two-step sign-in a requirement, and the ' +
+    'time to set it up has passed. Add an authenticator to carry on — nothing ' +
+    'else is reachable until you do.',
+  'required.soon':
+    '{days, plural, one {Two-step sign-in becomes required tomorrow.} ' +
+    'other {Two-step sign-in becomes required in # days.}} Set up an ' +
+    'authenticator in your settings.',
+  'required.setUp': 'Set it up',
   'you.secondFactor': 'Two-step sign-in',
   'you.secondFactor.hint':
     'An app on your phone produces a six-digit code that is asked for after your ' +

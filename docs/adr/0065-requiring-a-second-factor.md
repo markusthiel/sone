@@ -2,8 +2,7 @@
 
 ## Status
 
-Accepted. The rule, the gate and the setting are built; the banner, the two
-mails and the enrolment-only screen are not.
+Accepted and built end to end.
 
 ## Context
 
@@ -106,6 +105,26 @@ string.
 stamped only on the transition from off to on, and a `requireSecondFactorSince`
 sent by a client is discarded. Otherwise every settings save would quietly hand
 everybody another fortnight.
+
+**The banner, the screen and the two mails.**
+
+The banner is a banner and not a dialog: everything still works during the
+grace period, and a modal for something with a fortnight left is a modal people
+learn to dismiss without reading. It is not dismissible either — it goes when the
+thing is done, which is the only honest way for it to go.
+
+The blocked screen is a screen and not an overlay, because an overlay implies
+something behind it that could be looked at and the decision is that there is
+not. **Signing out stays reachable**: somebody at a borrowed computer needs a way
+out that is not enrolling their phone on somebody else's account. And the way
+through opens only after the recovery codes have been shown — somebody who has
+not seen them has not finished, whatever the server thinks.
+
+Which of the two mails an account has had is a **recorded fact** rather than
+something inferred from dates, so a sweep that runs twice in an hour sends
+nothing the second time. The row is written *before* the mail: a relay that
+accepts and then times out costs one missed mail rather than a duplicate every
+minute.
 
 ## What is deliberately not decided
 
