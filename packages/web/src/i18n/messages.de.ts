@@ -26,6 +26,8 @@ export const de: Record<keyof typeof en, string> = {
   'account.inbox': 'Posteingang',
   'account.label.waiting': '{name}, {count} Benachrichtigungen wartend',
   'inbox.title': 'Posteingang',
+  'settings.title': 'Einstellungen',
+  'settings.scope': 'Persönlich · Workspace · Instanz',
   'inbox.group.state': 'Posteingang',
   'inbox.group.kind': 'Nach Art',
   'inbox.group.workspace': 'Nach Workspace',
@@ -447,10 +449,7 @@ export const de: Record<keyof typeof en, string> = {
 
   // --- die Einstellungsbereiche und ihre Hülle ---------------------------
   'area.you': '{address, select, formal {Ihre Einstellungen} other {Deine Einstellungen}}',
-  'area.workspace': 'Dieser Workspace',
   'area.instance': 'Verwaltung',
-  'settings.navLabel': 'Einstellungen: {area}',
-  'settings.back': '‹ Zurück zu den Notizen',
 
   // --- die eigenen Einstellungen -----------------------------------------
   'you.profile': 'Profil',
@@ -677,7 +676,6 @@ export const de: Record<keyof typeof en, string> = {
   'workspaces.pages': 'Seiten',
   'workspaces.lastEdited': 'Zuletzt bearbeitet',
   'workspaces.area': 'Workspaces',
-  'workspaces.area.hint': 'Die eigenen — und die, um die man sich kümmert.',
   'workspaces.delete': 'Diesen Workspace löschen',
   'workspaces.confirmName': 'Zum Bestätigen den Namen eintippen',
   'workspaces.nameField': 'Name des Workspace',

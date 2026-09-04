@@ -50,10 +50,10 @@ test('a mode is in one list, not in the menu as well', () => {
   }
 });
 
-test('every entry carries a mark, and the areas share theirs with the switcher', () => {
-  // Icons to break the wall of text up, and the same three symbols the settings
-  // switcher uses for the same three areas: one subject, one symbol, or somebody
-  // learns two of them for the same thing.
+test('every entry carries a mark', () => {
+  // Icons to break the wall of text up. The settings switcher that used to
+  // share three of them is gone (ADR-0069) — the three areas are three groups
+  // in one list now, and a group's title is a word rather than a symbol.
   /*
    * `WorkspacesIcon` where `SettingsIcon` was (ADR-0067 amendment).
    *
@@ -78,10 +78,6 @@ test('every entry carries a mark, and the areas share theirs with the switcher',
   assert.match(tree, /className="sidebar-search"/);
   assert.doesNotMatch(places, /paths\.search\(\)/);
 
-  const shell = codeOf(new URL('../src/components/SettingsShell.tsx', import.meta.url));
-  assert.match(shell, /Icon: PersonIcon/);
-  assert.match(shell, /Icon: SettingsIcon/);
-  assert.match(shell, /Icon: SlidersIcon/);
 
   // A person, not people: "your settings" and "the people in this workspace" are
   // different subjects.
