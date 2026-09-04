@@ -40,6 +40,8 @@ export function useInbox(): {
   setRead: (ids: string[], read: boolean) => void;
   /** Aside until a moment, or back now with null (ADR-0075). */
   snooze: (ids: string[], until: Date | null) => void;
+  /** Answer where you are (ADR-0076). Resolves when the server has it. */
+  reply: (id: string, text: string) => Promise<void>;
 } {
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,5 +104,30 @@ export function useInbox(): {
     void api.snoozeInbox(ids, until).catch(() => {});
   }, []);
 
-  return { items, error, markRead, setRead, snooze };
+  /*
+   * Not optimistic, and that is the difference.
+   *
+   * Marking read and putting aside are decisions about a row in a list, and the
+   * worst a failed one costs is a row in the wrong view. A reply is a sentence
+   * addressed to somebody: showing it as sent when it was not is the one
+   * failure here nobody could recover from, because the box that held the words
+   * would already be empty. So this waits, and the box keeps the text until the
+   * server has it.
+   *
+   * The row is marked read on the way, because the server does the same.
+   */
+  const reply = useCallback(async (id: string, text: string): Promise<void> => {
+    await api.replyToNotification(id, text);
+    setItems((current) => {
+      const answered = (current ?? []).find((one) => one.id === id);
+      const thread = answered?.threadId ?? null;
+      return (current ?? []).map((one) =>
+        one.id === id || (thread !== null && one.threadId === thread)
+          ? { ...one, read: true }
+          : one,
+      );
+    });
+  }, []);
+
+  return { items, error, markRead, setRead, snooze, reply };
 }
