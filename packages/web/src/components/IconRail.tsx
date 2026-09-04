@@ -1,57 +1,69 @@
 /**
- * The rail: where you are in the instance, not where you are in a workspace.
+ * The rail: the mode switcher, and the outermost frame of the window (ADR-0069).
  *
- * The sidebar answers "which page", and it changes when you switch workspace.
- * The places on the rail answer "which part of SONE", and they do not.
+ * Four modes and an account. The mark is the tree's own mode — where you are
+ * when you are not anywhere else — so it sits at the top and the three named
+ * ones follow it. Workspaces first of those, because it is the largest
+ * container: it decides what the tree below it even contains.
  *
- * They are on the rail *instead of* in the account menu, not as well as — the
- * list lives in places.tsx and is drawn here above 800px and at the foot of the
- * sidebar's drawer below it, and the two are never on screen together. ADR-0067
- * was amended because three ways into one subject made a menu worse rather than
- * better; a rail that repeated the menu would be that mistake with a column
- * around it.
+ * The account is at the foot, set apart by the gap above it, because it is not
+ * a mode. It is you, and the server.
  *
- * The mark lives here because this is the outermost frame of the window. It had
- * nowhere to live before: the top of the sidebar is a column that collapses.
- *
- * Destinations only — never an action, never a document. The moment something
- * here creates or changes anything, the rail stops being a map.
+ * Always drawn above 800px, whatever the sidebar is doing — a mode switcher
+ * that can be collapsed is a mode switcher somebody loses. Below 800px it is
+ * not drawn at all and its contents sit at the foot of the panel instead; the
+ * two are never on screen at once.
  */
 
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { paths } from '../routes/paths.ts';
 import { useT } from '../i18n/useT.tsx';
 import { SoneMark } from './Logo.tsx';
-import { usePlaces, type Place } from './places.tsx';
+import { useModes, type Mode } from './modes.tsx';
 
-export function IconRail({ here }: { here: Place | null }): ReactElement {
+export function IconRail({
+  here,
+  account,
+}: {
+  here: Mode;
+  /** The account menu, which is not a mode and is drawn apart from them.
+   *  Null below the breakpoint, where the panel's foot draws it instead. */
+  account: ReactNode;
+}): ReactElement {
   const { t } = useT();
-  const places = usePlaces();
+  const modes = useModes();
 
   return (
     <nav className="icon-rail" aria-label={t('sidebar.places')}>
-      <a className="rail-brand" href={paths.home()} title="SONE">
+      <a
+        className="rail-brand"
+        href={paths.home()}
+        title="SONE"
+        aria-current={here === 'tree' ? 'page' : undefined}
+      >
         <SoneMark size={26} title="SONE" />
       </a>
 
       <div className="rail-nav">
-        {places.map(({ place, href, label, icon }) => (
-          // aria-current="page" and not a class: the state is "this is the page
-          // you are on", which the browser and a screen reader both already know
+        {modes.map(({ mode, href, label, icon }) => (
+          // aria-current="page" and not a class: the state is "this is where
+          // you are", which the browser and a screen reader both already know
           // how to say. The stylesheet reads the same attribute.
           <a
             className="rail-item"
-            key={place}
+            key={mode}
             href={href}
             title={label}
             aria-label={label}
-            aria-current={here === place ? 'page' : undefined}
+            aria-current={here === mode ? 'page' : undefined}
           >
             {icon}
           </a>
         ))}
       </div>
+
+      <div className="rail-account">{account}</div>
     </nav>
   );
 }
