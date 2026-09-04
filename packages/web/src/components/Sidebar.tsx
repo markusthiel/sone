@@ -66,6 +66,15 @@ interface SidebarProps {
   panelTitle?: ReactNode | undefined;
   /** What the mode is looking at — a workspace, or how long the trash keeps. */
   panelScope?: string | undefined;
+  /*
+   * A control belonging to the head rather than to the body (ADR-0070).
+   *
+   * The Workspaces mode's chooser is the one: it has to be outside the body,
+   * because the body scrolls and a menu dropping out of a scrolling box is
+   * clipped at its edge. Which is the same reason the tree's switcher is the
+   * head and not the first row of the tree.
+   */
+  panelChooser?: ReactNode | undefined;
   /** One action belonging to the whole mode, never to a row inside it. */
   panelAction?: ReactNode | undefined;
   /** The mode's menu. Ignored in the tree's mode. */
@@ -112,10 +121,14 @@ interface SidebarProps {
   onToggleWatch?: (pageId: string, watching: boolean) => void;
   /** Reloads the tree after an entry's icon or colour changed. */
   onReloadTree: () => void;
-  /** Whether to offer the way into the workspace administration. */
-  canManageWorkspaces: boolean;
-  /** Whether to offer the way into the instance administration (ADR-0032). */
-  isInstanceAdmin: boolean;
+  /*
+   * Neither right is asked for here any more (ADR-0070).
+   *
+   * They were passed down so the switcher could offer a way into the
+   * administration; the switcher answers "which workspace" and nothing else
+   * now, so both props were being threaded through two components to reach
+   * code that had been deleted.
+   */
   /** The mark for the workspace you are in (ADR-0030). */
   currentIcon: WorkspaceIcon | null;
   onLogout: () => void;
@@ -236,8 +249,6 @@ export function Sidebar({
   // should draw no bell rather than crash on a click that cannot happen.
   onToggleWatch = () => {},
   onReloadTree,
-  canManageWorkspaces,
-  isInstanceAdmin,
   currentIcon,
   onLogout,
   displayName,
@@ -245,6 +256,7 @@ export function Sidebar({
   mode,
   panelTitle,
   panelScope,
+  panelChooser,
   panelAction,
   children,
   account,
@@ -393,7 +405,6 @@ export function Sidebar({
           <div className="sidebar-head">
             {mode === 'tree' ? (
               <WorkspaceMenu
-                canManageWorkspaces={canManageWorkspaces}
                 currentIcon={currentIcon}
                 currentId={workspaceId}
                 currentName={workspaceName}
@@ -422,6 +433,12 @@ export function Sidebar({
             </div>
           </div>
           {panelScope !== undefined && <div className="panel-scope">{panelScope}</div>}
+          {/* Its own positioning context: the switcher's menu is anchored to
+              whatever is positioned above it, and without this it would be the
+              sidebar — so the menu would drop from the foot of the column. */}
+          {panelChooser !== undefined && (
+            <div className="panel-chooser">{panelChooser}</div>
+          )}
         </div>
 
         {/* The body navigates and never holds content (ADR-0069): the tree

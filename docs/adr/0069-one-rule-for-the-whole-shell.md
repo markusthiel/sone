@@ -105,11 +105,16 @@ rather than being designed:
 
 **The area switcher is gone.** It existed because the settings covered the
 application: a screen with no rail beside it needs its own way of saying "here
-are the other two areas". With the rail always there, the three areas are three
-groups in one list — the same information, without a menu you have to open to
-discover that the other two exist. The workspace's group is titled with the
-workspace's *name*, which also retires the second line under the area name: an
-administrator opening somebody else's reads which one on the only line there is.
+are the other two areas". With the rail always there, the areas are groups in
+one list — the same information, without a menu you have to open to discover
+that the others exist. The workspace's group is titled with the workspace's
+*name*, which also retires the second line under the area name: an administrator
+opening somebody else's reads which one on the only line there is.
+
+> Amended by [ADR-0070](0070-a-menu-answers-for-one-subject.md). Two groups, not
+> three: the workspace's is a mode of its own with a chooser at its head. A
+> heading naming one of several workspaces cannot say *which*, and the list it
+> headed went on to offer the instance's mail server three rows further down.
 
 **The way out is gone**, because there is nothing to get out of. Each screen had
 its own "back", at the top of its own navigation, for the same reason each had
