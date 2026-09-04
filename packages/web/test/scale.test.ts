@@ -1616,12 +1616,17 @@ test('a workspace tint is mixed into the ramp, not set per surface', () => {
     const surfaces = [...body.matchAll(/^\s+(--surface[a-z-]*): (.+);$/gm)];
     assert.ok(surfaces.length >= 7, `${block} declares its surfaces`);
     for (const [, name, value] of surfaces) {
-      assert.match(value, /color-mix\(in srgb, var\(--sone-theme-tint, transparent\)/, `${name} in ${block}`);
+      // The fallback is the surface's own base rather than `transparent`, which
+      // is a correctness fix and not a style one: `transparent` is
+      // rgb(0 0 0 / 0), so an untinted workspace was mixing in 16% of nothing
+      // at all and every surface came out see-through. brand.test.ts holds the
+      // rule; this one only cares that the mix is there at all.
+      assert.match(value, /color-mix\(in srgb, var\(--sone-theme-tint,/, `${name} in ${block}`);
     }
   }
   // The chrome takes the most, because it is what somebody means by "the colour
   // of the interface"; the page almost none.
-  assert.match(css, /--surface-chrome: color-mix\(in srgb, var\(--sone-theme-tint, transparent\) 16%/);
+  assert.match(css, /--surface-chrome: color-mix\(in srgb, var\(--sone-theme-tint, [^)]*\)? ?\)? 16%/);
   // A fallback at every use rather than a default declared once, which is the
   // rule this stylesheet already follows — `clearTheme` removes these from the
   // root, and a value living in a rule would survive its own deletion.

@@ -127,11 +127,23 @@
    * where the ramp's relationships live: the sunken surface takes the most hue,
    * the page almost none, and the dark theme takes less than the light one
    * because a hue reads stronger against black. */
-  --surface-sunken: color-mix(in srgb, var(--sone-theme-tint, transparent) 14%, var(--ink-050));
-  --surface: color-mix(in srgb, var(--sone-theme-tint, transparent) 3%, var(--ink-000));
-  --surface-raised: color-mix(in srgb, var(--sone-theme-tint, transparent) 3%, var(--ink-000));
-  --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, transparent) 5%, var(--ink-000));
-  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, transparent) 14%, #f0eee8);
+  /* The fallback is the base colour, not `transparent`.
+   *
+   * It was `transparent`, and `transparent` is rgb(0 0 0 / 0) — so a workspace
+   * with no tint set was not mixing in nothing, it was mixing in 16% of
+   * *nothing at all* and coming out at 0.84 alpha. Every surface in the
+   * interface was slightly see-through, which is invisible on a column against
+   * the page and unmistakable on the sidebar's drawer, where the page showed
+   * through the navigation.
+   *
+   * A colour mixed with itself is itself, so the untinted case is now exactly
+   * the base and the tinted case is unchanged — checked both ways, the computed
+   * value with a tint set is identical to what it was. */
+  --surface-sunken: color-mix(in srgb, var(--sone-theme-tint, var(--ink-050)) 14%, var(--ink-050));
+  --surface: color-mix(in srgb, var(--sone-theme-tint, var(--ink-000)) 3%, var(--ink-000));
+  --surface-raised: color-mix(in srgb, var(--sone-theme-tint, var(--ink-000)) 3%, var(--ink-000));
+  --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, var(--ink-000)) 5%, var(--ink-000));
+  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, #f0eee8) 14%, #f0eee8);
   /* The writing surface, and the furniture around it.
    *
    * These two were the other way round: the page was the sunken surface and the
@@ -148,14 +160,14 @@
    * field or a code block inside the chrome keeps standing out from it. Reusing
    * one value for both would have made every input in the sidebar disappear
    * into the sidebar. */
-  --surface-page: color-mix(in srgb, var(--sone-theme-tint, transparent) 3%, var(--ink-000));
+  --surface-page: color-mix(in srgb, var(--sone-theme-tint, var(--ink-000)) 3%, var(--ink-000));
   /* The furniture: the sidebar, the panels, the bars.
    *
    * The tint's strongest place, because this is what somebody means by "the
    * colour of the interface" — I tinted the surfaces and missed this one, so a
    * workspace set to blue got a blue menu highlight and a beige sidebar. It is
    * the token the sidebar actually sits on. */
-  --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, transparent) 16%, #faf8f4);
+  --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, #faf8f4) 16%, #faf8f4);
 
   --text-primary: var(--ink-900);
   --text-secondary: var(--ink-600);
@@ -200,20 +212,20 @@
   /* Less of it here: a hue reads stronger against black, and the same 14% that
      looks like paper in the light theme looks like a coloured screen in this
      one. */
-  --surface-sunken: color-mix(in srgb, var(--sone-theme-tint, transparent) 8%, var(--ink-950));
-  --surface: color-mix(in srgb, var(--sone-theme-tint, transparent) 4%, var(--ink-900));
-  --surface-raised: color-mix(in srgb, var(--sone-theme-tint, transparent) 4%, var(--ink-850));
-  --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, transparent) 5%, var(--ink-800));
-  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, transparent) 8%, #262623);
+  --surface-sunken: color-mix(in srgb, var(--sone-theme-tint, var(--ink-950)) 8%, var(--ink-950));
+  --surface: color-mix(in srgb, var(--sone-theme-tint, var(--ink-900)) 4%, var(--ink-900));
+  --surface-raised: color-mix(in srgb, var(--sone-theme-tint, var(--ink-850)) 4%, var(--ink-850));
+  --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, var(--ink-800)) 5%, var(--ink-800));
+  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, #262623) 8%, #262623);
   /* Unchanged here, and that is the point: dark already had the relationship
      the light theme was missing. The page is the darkest surface and the chrome
      a step nearer, because nearer means lighter in the dark. Naming the two
      roles makes both themes say the same thing rather than one describing the
      other. */
-  --surface-page: color-mix(in srgb, var(--sone-theme-tint, transparent) 4%, var(--ink-950));
+  --surface-page: color-mix(in srgb, var(--sone-theme-tint, var(--ink-950)) 4%, var(--ink-950));
   /* Less again, for the reason the other dark surfaces take less: a hue reads
      stronger against black. */
-  --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, transparent) 9%, var(--ink-900));
+  --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, var(--ink-900)) 9%, var(--ink-900));
 
   --text-primary: var(--ink-100);
   --text-secondary: var(--ink-300);
@@ -340,13 +352,20 @@
    it — a media query cannot be overridden from CSS, only replaced. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --surface-sunken: var(--ink-950);
-    --surface: var(--ink-900);
-    --surface-raised: var(--ink-850);
-    --surface-overlay: var(--ink-800);
-    --surface-hover: #262623;
-    --surface-page: var(--ink-950);
-    --surface-chrome: var(--ink-900);
+    /* Mixed, exactly as the chosen dark theme mixes them.
+     *
+     * These were the flat primitives, so a workspace tint reached somebody who
+     * had chosen dark and vanished for somebody whose system had chosen it for
+     * them — the same interface by two routes, and only one of them tinted. The
+     * proportions are the dark theme's, not the light one's: a hue reads
+     * stronger against black. */
+    --surface-sunken: color-mix(in srgb, var(--sone-theme-tint, var(--ink-950)) 8%, var(--ink-950));
+    --surface: color-mix(in srgb, var(--sone-theme-tint, var(--ink-900)) 4%, var(--ink-900));
+    --surface-raised: color-mix(in srgb, var(--sone-theme-tint, var(--ink-850)) 4%, var(--ink-850));
+    --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, var(--ink-800)) 5%, var(--ink-800));
+    --surface-hover: color-mix(in srgb, var(--sone-theme-tint, #262623) 8%, #262623);
+    --surface-page: color-mix(in srgb, var(--sone-theme-tint, var(--ink-950)) 4%, var(--ink-950));
+    --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, var(--ink-900)) 9%, var(--ink-900));
 
     --text-primary: var(--ink-100);
     --text-secondary: var(--ink-300);

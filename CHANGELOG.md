@@ -50,6 +50,14 @@ Three fixes that were found along the way:
 - A sidebar you had dragged wider snapped back to its default width whenever the
   right-hand panel opened, and returned when it closed.
 - Two floating elements were drawn without their shadow.
+- The sidebars were see-through. Not by much and not on purpose — a workspace
+  with no colour set was having "nothing" mixed into its surfaces, and CSS reads
+  that as an instruction to be sixteen per cent transparent. On a phone, where
+  the sidebar slides over the page, the page was visible through the navigation.
+  Every surface is solid now. A workspace that has set a colour looks exactly as
+  it did.
+- A workspace colour reached people who had chosen the dark theme and was
+  ignored for people whose device had chosen it for them. Both now.
 
 ## 0.10.0
 
