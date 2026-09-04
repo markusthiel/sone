@@ -100,7 +100,16 @@ test('the profile and signing in are two sections', () => {
   // their display name reads as being asked to authenticate for no reason.
   assert.match(you, /id: 'profile', label: 'you\.profile'/);
   assert.match(you, /id: 'sign-in', label: 'you\.signIn'/);
-  assert.match(you, /current === 'sign-in' && <SignIn \/>/);
+  /*
+   * The promise, not the exact expression.
+   *
+   * This pinned `current === 'sign-in' && <SignIn />` and failed when the
+   * second factor joined that section (ADR-0063) — the second guard this week
+   * to fail on an improvement because it asserted a shape rather than a
+   * guarantee.
+   */
+  assert.match(you, /current === 'sign-in' &&/);
+  assert.match(you, /<SignIn \/>/);
 
   // Two components, so neither carries the other's state. The password form
   // holding a display name in scope is how a rename ends up in a password

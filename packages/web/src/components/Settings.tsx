@@ -117,7 +117,12 @@ export function Settings({
       onClose={onClose}
     >
       {current === 'profile' && <Profile session={session} workspaceId={workspaceId} />}
-      {current === 'sign-in' && <SignIn />}
+      {current === 'sign-in' && (
+        <>
+          <SignIn />
+          <SecondFactorSettings session={session} />
+        </>
+      )}
       {current === 'appearance' && <AppearanceSettings session={session} />}
       {current === 'landing' && <LandingSettings workspaceId={workspaceId} />}
       {current === 'notifications' && <NotificationSettings session={session} />}
@@ -279,6 +284,166 @@ function Profile({
  * where it can be found by looking for it — which is also where single sign-on
  * and a second factor would go.
  */
+/**
+ * Turning a second factor on and off (ADR-0063).
+ *
+ * **No QR image, and that is a decision rather than an omission.** Generating
+ * one is a real algorithm — Reed-Solomon, masking, version selection — and
+ * unlike the MIME reader, nothing about SONE's scope makes it smaller. The
+ * options were a dependency or a third-party image service, and the second is
+ * out of the question: it would send the shared secret to somebody else.
+ *
+ * So: the secret in groups of four, which every authenticator app accepts by
+ * hand, and an `otpauth://` link, which on a phone opens the app directly and
+ * is better than a QR code there. A QR image for the desktop case is worth a
+ * dependency and is offered as one.
+ */
+function SecondFactorSettings({ session }: { session: SessionInfo }): ReactElement {
+  const { t } = useT();
+  const [enrolment, setEnrolment] = useState<{ uri: string; secret: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [codes, setCodes] = useState<string[] | null>(null);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [on, setOn] = useState(session.user.hasSecondFactor === true);
+
+  // Shown once, and the server could not show them again if asked: they are
+  // stored hashed (ADR-0063).
+  if (codes) {
+    return (
+      <section className="settings-section">
+        <h2>{t('you.secondFactor.codes')}</h2>
+        <p className="settings-note">{t('you.secondFactor.codes.hint')}</p>
+        <ul className="recovery-codes">
+          {codes.map((one) => (
+            <li key={one}>
+              <code>{one}</code>
+            </li>
+          ))}
+        </ul>
+        <button type="button" className="btn primary" onClick={() => setCodes(null)}>
+          {t('you.secondFactor.codes.kept')}
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="settings-section">
+      <h2>{t('you.secondFactor')}</h2>
+      <p className="settings-note">{t('you.secondFactor.hint')}</p>
+
+      {on ? (
+        <>
+          <p>{t('you.secondFactor.isOn')}</p>
+          <label className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('you.secondFactor.removePassword')}</b>
+              {/* The password, not just this session: an open laptop is the
+                  exact situation a second factor exists for. */}
+              <span>{t('you.secondFactor.removePassword.hint')}</span>
+            </span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn"
+            disabled={password === ''}
+            onClick={() => {
+              void api
+                .removeSecondFactor(password)
+                .then(() => {
+                  setOn(false);
+                  setPassword('');
+                  setError(null);
+                })
+                .catch((err: unknown) => {
+                  setError(err instanceof ApiError ? err.code : 'network_error');
+                });
+            }}
+          >
+            {t('you.secondFactor.remove')}
+          </button>
+        </>
+      ) : enrolment ? (
+        <>
+          <p>{t('you.secondFactor.scan')}</p>
+          {/* On a phone this opens the authenticator app; on a desktop it is
+              inert, which is why the typed secret is below it. */}
+          <p>
+            <a href={enrolment.uri}>{t('you.secondFactor.open')}</a>
+          </p>
+          <p className="settings-note">{t('you.secondFactor.byHand')}</p>
+          <code className="totp-secret">
+            {(enrolment.secret.match(/.{1,4}/g) ?? []).join(' ')}
+          </code>
+
+          <label className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('auth.code')}</b>
+              {/* Proving one is what makes the enrolment count: a mis-scanned
+                  secret must not lock somebody out of their own account. */}
+              <span>{t('you.secondFactor.prove')}</span>
+            </span>
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn primary"
+            disabled={code.trim() === ''}
+            onClick={() => {
+              void api
+                .confirmSecondFactor(code.trim())
+                .then((result) => {
+                  setCodes(result.recoveryCodes);
+                  setEnrolment(null);
+                  setCode('');
+                  setOn(true);
+                  setError(null);
+                })
+                .catch((err: unknown) => {
+                  setError(err instanceof ApiError ? err.code : 'network_error');
+                });
+            }}
+          >
+            {t('you.secondFactor.finish')}
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className="btn primary"
+          onClick={() => {
+            void api
+              .startSecondFactor()
+              .then((started) => {
+                setEnrolment(started);
+                setError(null);
+              })
+              .catch((err: unknown) => {
+                setError(err instanceof ApiError ? err.code : 'network_error');
+              });
+          }}
+        >
+          {t('you.secondFactor.start')}
+        </button>
+      )}
+
+      {error && <p className="error">{messageFor(error)}</p>}
+    </section>
+  );
+}
+
 function SignIn(): ReactElement {
   const { t } = useT();
   const [current, setCurrent] = useState('');

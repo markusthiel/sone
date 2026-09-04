@@ -418,6 +418,29 @@ export const en = {
   'you.when.immediately': 'Email me at once',
   'you.when.daily': 'In the daily mail',
   'you.when.off': 'No email',
+  'you.secondFactor': 'Two-step sign-in',
+  'you.secondFactor.hint':
+    'An app on your phone produces a six-digit code that is asked for after your ' +
+    'password. It protects the case that matters: a password reused somewhere ' +
+    'that was breached.',
+  'you.secondFactor.isOn': 'Two-step sign-in is on for this account.',
+  'you.secondFactor.start': 'Set up an authenticator',
+  'you.secondFactor.scan': 'Add this account to your authenticator app.',
+  'you.secondFactor.open': 'Open in an authenticator app',
+  'you.secondFactor.byHand': 'Or type this secret into the app by hand:',
+  'you.secondFactor.prove':
+    'Enter a code from the app. Nothing is switched on until one works — so a ' +
+    'secret that was typed wrong cannot lock you out.',
+  'you.secondFactor.finish': 'Turn it on',
+  'you.secondFactor.remove': 'Turn it off',
+  'you.secondFactor.removePassword': 'Your password',
+  'you.secondFactor.removePassword.hint':
+    'Needed to turn it off, so an open laptop is not enough.',
+  'you.secondFactor.codes': 'Your recovery codes',
+  'you.secondFactor.codes.hint':
+    'Keep these somewhere safe. Each works once, and they are the way back in if ' +
+    'you lose the app. They will not be shown again.',
+  'you.secondFactor.codes.kept': 'I have kept them',
   'you.activity': 'A mail about what changed',
   'you.activity.hint':
     'A list of pages that changed in your workspaces — titles and names, never ' +

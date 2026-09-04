@@ -2195,6 +2195,29 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
 }
 
+/* The shared secret and the recovery codes (ADR-0063). Monospaced and spaced
+   out, because both are copied by hand and a proportional face makes a 1 and an
+   l the same problem. */
+.totp-secret,
+.recovery-codes code {
+  font-family: var(--sone-font-mono, ui-monospace, monospace);
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+.totp-secret {
+  display: block;
+  margin-block: var(--sone-space-2);
+  font-size: var(--sone-text-lg);
+}
+.recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sone-space-2);
+  margin-block: var(--sone-space-3);
+  padding: 0;
+  list-style: none;
+}
+
 /* How a message arrived, beside its author (ADR-0060). Quiet: it is a fact
    about the message, not part of what was said. */
 .comment-via {

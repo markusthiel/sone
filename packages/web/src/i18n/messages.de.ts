@@ -455,6 +455,29 @@ export const de: Record<keyof typeof en, string> = {
   'you.when.immediately': 'Sofort per E-Mail',
   'you.when.daily': 'In der Tagesmail',
   'you.when.off': 'Keine E-Mail',
+  'you.secondFactor': 'Anmeldung in zwei Schritten',
+  'you.secondFactor.hint':
+    'Eine App auf dem Telefon erzeugt einen sechsstelligen Code, der nach dem ' +
+    'Passwort abgefragt wird. Das schützt den Fall, der zählt: ein Passwort, das ' +
+    'anderswo wiederverwendet wurde und dort abhandenkam.',
+  'you.secondFactor.isOn': 'Für dieses Konto ist die Anmeldung zweistufig.',
+  'you.secondFactor.start': 'Authenticator einrichten',
+  'you.secondFactor.scan': 'Dieses Konto in der Authenticator-App hinzufügen.',
+  'you.secondFactor.open': 'In einer Authenticator-App öffnen',
+  'you.secondFactor.byHand': 'Oder dieses Geheimnis von Hand eintippen:',
+  'you.secondFactor.prove':
+    'Einen Code aus der App eingeben. Nichts wird eingeschaltet, bevor einer ' +
+    'stimmt — ein falsch eingetragenes Geheimnis kann also nicht aussperren.',
+  'you.secondFactor.finish': 'Einschalten',
+  'you.secondFactor.remove': 'Ausschalten',
+  'you.secondFactor.removePassword': 'Das eigene Passwort',
+  'you.secondFactor.removePassword.hint':
+    'Zum Ausschalten nötig, damit ein offener Laptop nicht genügt.',
+  'you.secondFactor.codes': 'Die Wiederherstellungscodes',
+  'you.secondFactor.codes.hint':
+    'Sicher aufbewahren. Jeder gilt einmal, und sie sind der Weg zurück, wenn ' +
+    'die App verloren geht. Sie werden nicht noch einmal gezeigt.',
+  'you.secondFactor.codes.kept': 'Aufbewahrt',
   'you.activity': 'Eine Mail darüber, was sich geändert hat',
   'you.activity.hint':
     'Eine Liste geänderter Seiten aus den eigenen Workspaces — Titel und Namen, ' +
