@@ -236,6 +236,34 @@ export function InstancePanel(): ReactElement {
             />
           </div>
 
+          {/* The requirement (ADR-0065).
+            *
+            * There was no control at all: the setting existed, the gate
+            * enforced it and the mails sent, and an operator could only switch
+            * it on through the API. A feature reachable only by curl is not a
+            * feature, and the record claimed it was built end to end.
+            *
+            * The exemption is said next to it, because an administrator who
+            * turns it on and sees half their people unaffected will otherwise
+            * assume it is broken. */}
+          <label className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('admin.requireSecondFactor')}</b>
+              <span>
+                {t('admin.requireSecondFactor.hint')}
+                <SettingSource source={settingSources['requireSecondFactor']} />
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.requireSecondFactor}
+              disabled={saving}
+              onChange={(event) =>
+                void update({ requireSecondFactor: event.target.checked })
+              }
+            />
+          </label>
+
           <label className="settings-row">
             <span className="settings-row-label">
               <b>{t('admin.mayCreateWorkspaces')}</b>
@@ -687,6 +715,28 @@ export function UsersPanel(): ReactElement {
     void load();
   }, [load]);
 
+  /**
+   * Remove somebody else's second factor (ADR-0065).
+   *
+   * Confirmed first, because it is the one action here that lowers somebody
+   * else's security — and the confirmation names them, since a list of twenty
+   * rows is a list somebody clicks the wrong line of.
+   *
+   * The person is told by mail, naming whoever did it. That is not a courtesy:
+   * there is no audit table in SONE, and the person whose account was disarmed
+   * is exactly who needs to know.
+   */
+  const liftFactor = async (userId: string, name: string): Promise<void> => {
+    if (!window.confirm(t('admin.liftSecondFactor.confirm', { name }))) return;
+    try {
+      await api.adminLiftSecondFactor(userId);
+      setError(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  };
+
   const change = async (
     userId: string,
     changes: {
@@ -760,6 +810,28 @@ export function UsersPanel(): ReactElement {
                   />{' '}
                   Manages workspaces
                 </label>
+              )}
+
+              {/* The only way back for somebody who has lost both their
+                * phone and their recovery codes (ADR-0065).
+                *
+                * The route, the mail and its test existed and there was no
+                * button — so the "only way back" was reachable by curl and
+                * nowhere else. That is the failure this whole audit was
+                * looking for.
+                *
+                * Deliberately not offered for yourself: your own is under
+                * You → Signing in, where it asks for your password. An
+                * administrator disarming their own account from the user list
+                * would skip that. */}
+              {!user.isSelf && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => void liftFactor(user.id, user.displayName)}
+                >
+                  {t('admin.liftSecondFactor')}
+                </button>
               )}
 
               <button

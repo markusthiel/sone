@@ -346,6 +346,11 @@ export const en = {
   'admin.signup.open': 'Anyone with the address',
   'admin.signup.invite': 'Only with an invitation',
   'admin.signup.closed': 'Nobody — no new accounts',
+  'admin.requireSecondFactor': 'Require two-step sign-in',
+  'admin.requireSecondFactor.hint':
+    'Everybody gets fourteen days and two emails, then setup is the only screen ' +
+    'that opens. Single sign-on accounts are exempt — their provider is where a ' +
+    'second factor belongs. You need one yourself before you can require it.',
   'admin.mayCreateWorkspaces': 'Members may create workspaces',
   'admin.addressForm': 'How the interface addresses people',
   'admin.addressForm.informal': 'Informally — “du”',
@@ -372,6 +377,10 @@ export const en = {
     'SONE_PASSWORD_COST is 2^{cost}, below the recommended 2^16 — passwords ' +
     'hashed now are cheaper to attack. Remove the variable and existing ' +
     'passwords are upgraded on their next sign-in.',
+  'admin.liftSecondFactor': 'Remove two-step sign-in',
+  'admin.liftSecondFactor.confirm':
+    'Remove two-step sign-in from {name}? They will be able to sign in with ' +
+    'their password alone, and will be emailed that you did this.',
   'admin.anomaly.mail': 'Emails that could not be sent',
   'admin.anomaly.mail.explain':
     'The relay refused them, after retries. Usually a wrong password, port or ' +

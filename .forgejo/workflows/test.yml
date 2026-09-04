@@ -130,6 +130,12 @@ jobs:
         # beyond the feature not working.
         run: node scripts/check-env-reaches-container.mjs
 
+      - name: Check every route is reachable from the interface
+        # Two features were built, tested and recorded as done while being
+        # reachable only with curl — including the only way back for somebody
+        # who has lost both their phone and their recovery codes.
+        run: node scripts/check-routes-reachable.mjs
+
       - name: Check every cited record exists
         # I cited a record that did not exist, twice, with a wrong number. A
         # citation is a promise that somebody can go and read the reasoning,

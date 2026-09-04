@@ -212,6 +212,9 @@ export interface InstanceSettings {
   smtpFrom: string;
   smtpSecurity: 'starttls' | 'tls' | 'none';
   emailDetail: 'title' | 'workspace';
+  /** Whether everybody needs a second factor, and since when (ADR-0065). */
+  requireSecondFactor: boolean;
+  requireSecondFactorSince: string;
   /** Where replies are read from — an empty host means none (ADR-0060). */
   imapHost: string;
   imapPort: string;
@@ -1246,6 +1249,15 @@ export const api = {
   /** Set a new password with a link's token. */
   resetPassword: (token: string, password: string) =>
     post<{ reset: true }>('/api/auth/reset', { token, password }),
+
+  /**
+   * Remove somebody's second factor, as an administrator (ADR-0065).
+   *
+   * The only way back for a person who has lost both their phone and their
+   * recovery codes. They are told by mail, naming whoever did it.
+   */
+  adminLiftSecondFactor: (userId: string) =>
+    post<{ removed: boolean }>(`/api/admin/users/${userId}/second-factor/remove`, {}),
 
   /** Send one test mail to the asking administrator (ADR-0058). */
   testMail: () =>

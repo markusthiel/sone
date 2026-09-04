@@ -372,6 +372,11 @@ export const de: Record<keyof typeof en, string> = {
   'admin.signup.open': 'Jeder, der die Adresse hat',
   'admin.signup.invite': 'Nur mit Einladung',
   'admin.signup.closed': 'Niemand — keine neuen Konten',
+  'admin.requireSecondFactor': 'Anmeldung in zwei Schritten verlangen',
+  'admin.requireSecondFactor.hint':
+    'Alle bekommen vierzehn Tage und zwei E-Mails, danach öffnet nur noch die ' +
+    'Einrichtung. Single-Sign-on-Konten sind ausgenommen — dort gehört ein ' +
+    'zweiter Faktor zum Anbieter. Vorher braucht man selbst einen.',
   'admin.mayCreateWorkspaces': 'Mitglieder dürfen Workspaces anlegen',
   'admin.addressForm': 'Wie die Oberfläche die Leute anspricht',
   'admin.addressForm.informal': 'Vertraut — „du"',
@@ -399,6 +404,13 @@ export const de: Record<keyof typeof en, string> = {
     'SONE_PASSWORD_COST steht auf 2^{cost}, unter den empfohlenen 2^16 — jetzt ' +
     'gehashte Passwörter sind leichter angreifbar. Variable entfernen, dann ' +
     'werden bestehende Passwörter bei der nächsten Anmeldung aufgewertet.',
+  'admin.liftSecondFactor': 'Zwei-Schritt-Anmeldung entfernen',
+  // Ohne Anrede formuliert, damit sie in beiden Formen stimmt: „wer das war"
+  // statt „dass du das warst".
+  'admin.liftSecondFactor.confirm':
+    'Zwei-Schritt-Anmeldung für {name} entfernen? Die Anmeldung geht dann mit ' +
+    'dem Passwort allein, und {name} bekommt eine E-Mail mit dem Namen der ' +
+    'Person, die das getan hat.',
   'admin.anomaly.mail': 'E-Mails, die nicht versendet werden konnten',
   'admin.anomaly.mail.explain':
     'Das Relay hat sie abgelehnt, nach mehreren Versuchen. Meist ein falsches ' +
