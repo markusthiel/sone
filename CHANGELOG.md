@@ -13,6 +13,39 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.10.0
+
+Workspaces, in one place.
+
+A workspace's settings were split between two screens with no line between them
+— one for the workspace you were in, one inside the administration for anybody
+else's — and each had sections the other lacked. So an administrator could not
+change another workspace's typography, and an owner could not delete their own.
+There is one screen now, with the workspace in the address, reached from the
+account menu and from the list alike.
+
+And there is a list for everybody: it existed only for administrators, which is
+why a member could only ever edit the workspace they happened to be looking at.
+It shows the ones you are in, or every one if you look after them — the same list
+at a different length, decided by the server.
+
+**Operator action: none.** `docker compose pull && docker compose up -d`. No
+migrations, no settings, no contract changes — document schema 4, sync protocol
+1, and the migration set is identical to 0.9.1's.
+
+Two rights faults came out of the same work and are fixed: somebody who manages
+workspaces could not edit one they were a *member* of, because the right was only
+consulted for workspaces they were not in — so joining a workspace took away the
+ability to administer it. And the settings screen disabled its controls for
+anybody without a role in the workspace, even where the server would have
+accepted the change.
+
+A workspace's settings have their own address now, `/workspace/<id>/<section>`.
+The old form still works and means the workspace you are in, so a bookmark from
+before lands somewhere useful.
+
 **Fixed: somebody who manages workspaces could not edit one they were a member
 of.** The right was only consulted for workspaces they were *not* in, so joining
 a workspace took away the ability to administer it. And the settings screen
