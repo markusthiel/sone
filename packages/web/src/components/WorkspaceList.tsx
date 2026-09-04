@@ -61,8 +61,21 @@ export function WorkspaceList({
   if (error) return <p className="error">{messageFor(error)}</p>;
   if (!rows) return <p className="muted">Loading…</p>;
 
-  const shared = rows.filter((row) => !row.personal);
-  const personal = rows.filter((row) => row.personal);
+  /*
+   * The one being looked at first (ADR-0067 amendment).
+   *
+   * The menu lost its "this workspace" shortcut, because two entries for one
+   * subject was the complaint. Putting the current workspace at the top of its
+   * table is what keeps the shortcut short: it is the row somebody came here
+   * for, and it was already marked — it just was not where they would look.
+   *
+   * Only within its own table, so the shared/personal split still reads as
+   * itself.
+   */
+  const currentFirst = (a: Row, b: Row): number =>
+    Number(b.id === currentWorkspaceId) - Number(a.id === currentWorkspaceId);
+  const shared = rows.filter((row) => !row.personal).sort(currentFirst);
+  const personal = rows.filter((row) => row.personal).sort(currentFirst);
 
   const table = (list: Row[]): ReactElement => (
     <table className="workspace-table">

@@ -20,7 +20,10 @@ test('one mark opens a menu instead of four icons in a row', () => {
   assert.match(sidebar, /aria-haspopup="menu"/);
   // The entries by key rather than by sentence, since this menu is translated
   // (ADR-0041). What is asserted is unchanged: one mark, four names behind it.
-  for (const key of ['yourSettings', 'thisWorkspace', 'trash', 'signOut']) {
+  // `workspaces` where `thisWorkspace` was: one entry for the subject, and the
+  // workspace being looked at is the first row of the list it opens
+  // (ADR-0067 amendment).
+  for (const key of ['yourSettings', 'workspaces', 'trash', 'signOut']) {
     assert.match(sidebar, new RegExp(`t\\('account\\.${key}'\\)`));
   }
 });
@@ -29,7 +32,15 @@ test('every entry carries a mark, and the areas share theirs with the switcher',
   // Icons to break the wall of text up, and the same three symbols the settings
   // switcher uses for the same three areas: one subject, one symbol, or somebody
   // learns two of them for the same thing.
-  for (const icon of ['PersonIcon', 'SettingsIcon', 'SlidersIcon', 'TrashIcon', 'SignOutIcon']) {
+  /*
+   * `WorkspacesIcon` where `SettingsIcon` was (ADR-0067 amendment).
+   *
+   * The menu's workspace entry is the list rather than one workspace's
+   * settings, so a cog is the wrong mark for it — and `FolderIcon` means a
+   * folder in the tree while `UsersIcon` means people, which is why this is its
+   * own four-square mark rather than a borrowed one.
+   */
+  for (const icon of ['PersonIcon', 'WorkspacesIcon', 'SlidersIcon', 'TrashIcon', 'SignOutIcon']) {
     assert.match(sidebar, new RegExp(`<${icon} />`), `${icon} is in the menu`);
   }
 
@@ -49,15 +60,26 @@ test('every entry carries a mark, and the areas share theirs with the switcher',
 });
 
 test('the three areas are three entries, and one of them is conditional', () => {
+  /*
+   * The workspace entry is the list now, not "this workspace" (ADR-0067
+   * amendment).
+   *
+   * There were briefly both, which made the menu worse rather than better while
+   * a duplicate screen was being removed — two entries for one subject is the
+   * thing the record set out to end. The list is the way in and the workspace
+   * being looked at is first in it.
+   */
   // "Edit your profile" and "Settings" both landed on the same page — a choice
   // that is not one (ADR-0032). And administration is absent rather than
   // present and refusing.
   // Translated now (ADR-0041), so the entries are keys rather than sentences.
   assert.doesNotMatch(sidebar, /Edit your profile/);
   assert.match(sidebar, /t\('account\.yourSettings'\)/);
-  assert.match(sidebar, /t\('account\.thisWorkspace'\)/);
+  assert.match(sidebar, /t\('account\.workspaces'\)/);
   assert.match(sidebar, /href=\{paths\.settings\(\)\}/);
-  assert.match(sidebar, /href=\{paths\.workspaceSettings\(\)\}/);
+  assert.match(sidebar, /href=\{paths\.workspaces\(\)\}/);
+  // And not both: the shortcut is the first row of the list.
+  assert.doesNotMatch(sidebar, /href=\{paths\.workspaceSettings\(\)\}/);
   // One flag now, decided by whoever renders the menu: the sidebar combines the
   // two rights, and a settings column passes the one it already computed.
   assert.match(sidebar, /\{canAdminister && \(/);

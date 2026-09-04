@@ -169,9 +169,18 @@ test('the administration area is filtered by two rights, not one', () => {
   // Somebody granted the right to administer workspaces is not an instance
   // administrator, and the point of the right is that they should not have to
   // be (ADR-0027).
+  /*
+   * One right, because the administration is the instance now (ADR-0067
+   * amendment).
+   *
+   * The workspaces section was the only one that answered to the
+   * workspace-management right, and it has moved to its own area which
+   * everybody reaches. What is left here — accounts, single sign-on, mail,
+   * maintenance — is the server, and being an instance administrator is the
+   * question for all of it.
+   */
   assert.match(instance, /if \(entry\.admin\) return isAdmin === true;/);
-  assert.match(instance, /if \(entry\.manager\) return canManageWorkspaces;/);
-  assert.match(instance, /session\.user\.canManageWorkspaces/);
+  assert.doesNotMatch(instance, /entry\.manager/);
 });
 
 test('an area with nothing in it renders nothing', () => {

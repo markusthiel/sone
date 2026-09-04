@@ -860,50 +860,6 @@ export function UsersPanel(): ReactElement {
 
 // --- workspaces -------------------------------------------------------------
 
-export function WorkspacesPanel(): ReactElement {
-  const { t } = useT();
-  const [workspaces, setWorkspaces] = useState<AdminWorkspace[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void api
-      .adminWorkspaces()
-      .then((result) => setWorkspaces(result.workspaces))
-      .catch((err: unknown) =>
-        setError(err instanceof ApiError ? err.code : 'network_error'),
-      );
-  }, []);
-
-  if (error) return <p className="error">{messageFor(error)}</p>;
-  if (!workspaces) return <p className="muted">{t('admin.loading')}</p>;
-
-  return (
-    <section className="settings-section">
-      <h2>{t('admin.workspaces')}</h2>
-
-      <div className="admin-table">
-        {workspaces.map((workspace) => (
-          <div className="admin-row" key={workspace.id}>
-            <div className="admin-row-main">
-              <span className="admin-name">{workspace.name}</span>
-              <span className="admin-meta">
-                {workspace.owner ? `created by ${workspace.owner}` : 'no owner recorded'}
-                {` · ${workspace.memberCount} member${workspace.memberCount === 1 ? '' : 's'}`}
-                {` · ${workspace.pageCount} entr${workspace.pageCount === 1 ? 'y' : 'ies'}`}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <p className="muted settings-note">
-        {t('admin.sizesOnly')}
-      </p>
-    </section>
-  );
-}
-
-// --- maintenance ------------------------------------------------------------
 
 export function MaintenancePanel(): ReactElement {
   const { t } = useT();

@@ -164,17 +164,16 @@ export function AccountMenu({
             <PersonIcon />
             {t('account.yourSettings')}
           </a>
-          {/* The shortcut stays (ADR-0067): it is how people reach the settings
-              for what they are looking at, and removing it to prove a point
-              about structure would remove the useful thing. It goes to the same
-              screen as the list below, with the current workspace's id. */}
-          <a role="menuitem" href={paths.workspaceSettings()} onClick={() => setOpen(false)}>
-            <SettingsIcon />
-            {t('account.thisWorkspace')}
-          </a>
-          {/* And the list, which everybody may open — the answer's length is
-              the right. It was inside the administration, which is why a member
-              had no list at all. */}
+          {/* One entry, not two (ADR-0067 amendment).
+              *
+              * There were both: "this workspace" and "workspaces". Two entries
+              * for one subject is the thing this record set out to remove, and
+              * adding a second one while removing a duplicate screen made the
+              * menu worse rather than better — which is what the report said.
+              *
+              * The list is the way in, and the workspace being looked at is
+              * first in it and marked. One click more than before to reach it,
+              * and one concept instead of two. */}
           <a role="menuitem" href={paths.workspaces()} onClick={() => setOpen(false)}>
             <WorkspacesIcon />
             {t('account.workspaces')}
