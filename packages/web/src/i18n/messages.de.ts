@@ -70,6 +70,7 @@ export const de: Record<keyof typeof en, string> = {
 
   // --- Seitenleiste und Baum ---------------------------------------------
   'sidebar.label': 'Seiten',
+  'sidebar.resize': 'Ziehen macht die Leiste breiter, Doppelklick setzt zurück',
   'sidebar.close': 'Navigation schließen',
   'sidebar.hide': 'Seitenleiste ausblenden',
   'sidebar.search': 'Suchen',

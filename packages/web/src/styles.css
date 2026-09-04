@@ -468,7 +468,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 
 @media (min-width: 800px) {
   .app.with-sidebar {
-    grid-template-columns: 260px minmax(0, 1fr);
+    /* The width is a variable the person sets by dragging the sidebar's edge
+       (see useSidebarWidth). 260px stays the default, and the fallback matters:
+       a browser that refused local storage still gets a sidebar. */
+    grid-template-columns: var(--sidebar-width, 260px) minmax(0, 1fr);
   }
 }
 
@@ -533,6 +536,36 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   border-radius: var(--sone-radius);
 }
 .sidebar-toggle svg { inline-size: 1.05em; block-size: 1.05em; }
+
+/* The handle on the sidebar's right edge.
+ *
+ * Four pixels wide with a wider invisible reach, because a four-pixel target is
+ * a target somebody misses — and on the border itself, so it reads as the edge
+ * moving rather than a control being operated.
+ *
+ * Absent below the breakpoint: there the sidebar is an overlay at full width,
+ * and dragging its edge would resize something that is not a column. */
+.sidebar-resize {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: -3px;
+  inline-size: 7px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: col-resize;
+  /* Above the tree's rows so a drag beginning on the edge is a resize, not a
+     click on whatever row happens to be under it. */
+  z-index: 2;
+}
+.sidebar-resize:hover,
+.sidebar-resize:focus-visible {
+  background: var(--accent);
+  opacity: 0.5;
+}
+@media (max-width: 799px) {
+  .sidebar-resize { display: none; }
+}
 
 /* Hidden as a column: the grid loses the track entirely.
  *

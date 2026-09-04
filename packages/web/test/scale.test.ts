@@ -2392,3 +2392,36 @@ test('several files are packed into one archive, so one plan is confirmed', () =
   // unzip is what reads it, and that round trip has its own test.
   assert.match(dialog, /from '@sone\/core'/);
 });
+
+test('the sidebar can be made wider, and remembers it', () => {
+  /*
+   * Because the tree's problem is space, not text. A title like
+   * "02.03.2026 - 09:05 - Notiz" needs about 200px of label, and three levels
+   * of nesting inside a 260px sidebar leave it 180.
+   *
+   * The clever alternatives are all worse and the reasons are in the hook: a
+   * middle ellipsis throws away the date, which for date-prefixed titles is the
+   * half that matters; wrapping doubles the height of a list of thirty of them;
+   * and less indent per level makes the nesting unreadable, which is why the
+   * notes are in a folder at all.
+   */
+  const hook = codeOf(new URL('../src/hooks/useSidebarWidth.ts', import.meta.url));
+  assert.match(hook, /sone\.sidebarWidth/);
+  // Bounded, and a stored value outside them is clamped rather than honoured.
+  assert.match(hook, /MIN_SIDEBAR = 200/);
+  assert.match(hook, /MAX_SIDEBAR = 520/);
+  assert.match(hook, /clamp\(stored\)/);
+  // Storage that refuses must not stop the sidebar rendering.
+  assert.match(hook, /catch \{[\s\S]{0,200}return DEFAULT_SIDEBAR/);
+
+  // The width is a variable the grid reads, with the default as its fallback.
+  assert.match(css, /grid-template-columns: var\(--sidebar-width, 260px\)/);
+
+  // The handle is a button, so it can be focused, and double-click resets —
+  // which is what somebody will try.
+  const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+  assert.match(sidebar, /className="sidebar-resize"/);
+  assert.match(sidebar, /onDoubleClick=\{resetWidth\}/);
+  // And it is absent where the sidebar is an overlay rather than a column.
+  assert.match(css, /@media \(max-width: 799px\) \{\s*\.sidebar-resize \{ display: none; \}/);
+});
