@@ -1325,6 +1325,8 @@ export const api = {
         excerpt: string;
         createdAt: string;
         read: boolean;
+        /** When it comes back, or null for awake (ADR-0075). */
+        snoozedUntil: string | null;
         pageId: string;
         pageTitle: string;
         threadId: string | null;
@@ -1345,6 +1347,19 @@ export const api = {
    */
   markInboxUnread: (ids: string[]) =>
     post<{ marked: number }>('/api/inbox/read', { ids, read: false }),
+
+  /**
+   * Put notifications aside until a moment, or bring them back (ADR-0075).
+   *
+   * The moment is worked out here and sent whole: "tomorrow morning" is a
+   * question about the clock on this desk, and the server would have to
+   * reconstruct the answer from a stored timezone that can be wrong or stale.
+   */
+  snoozeInbox: (ids: string[], until: Date | null) =>
+    post<{ snoozed: number }>('/api/inbox/snooze', {
+      ids,
+      until: until === null ? null : until.toISOString(),
+    }),
 
   /** Ask for the whole workspace as an archive. It becomes a job (ADR-0044). */
   startWorkspaceExport: (workspaceId: string, attachments: boolean) =>

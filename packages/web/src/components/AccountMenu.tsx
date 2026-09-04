@@ -12,10 +12,11 @@
  * these entries are actually distinguished by.
  */
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { WEB_VERSION } from '../buildInfo.ts';
 import { api } from '../api/client.ts';
+import { useDismiss } from '../hooks/useDismiss.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import {
@@ -90,29 +91,18 @@ export function AccountMenu({
    * Closing it.
    *
    * The sidebar's copy had none of this: the menu stayed open until something
-   * inside it was pressed, so it sat over the tree after a stray click. Written
-   * once here, like the switcher's, rather than twice.
+   * inside it was pressed, so it sat over the tree after a stray click. It is
+   * a hook now — three menus had the same effect written out, and a fourth copy
+   * is where one of them quietly loses the Escape key.
    */
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent): void => {
-      if (panel.current?.contains(event.target as Node)) return;
-      if (button.current?.contains(event.target as Node)) return;
+  useDismiss({
+    open,
+    inside: [panel, button],
+    onDismiss: useCallback((reason: 'outside' | 'escape') => {
       setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        button.current?.focus();
-      }
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+      if (reason === 'escape') button.current?.focus();
+    }, []),
+  });
 
   return (
     <div className="sidebar-footer">
