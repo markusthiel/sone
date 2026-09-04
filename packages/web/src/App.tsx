@@ -39,6 +39,7 @@ import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
 import { WorkspaceListScreen } from './components/WorkspaceListScreen.tsx';
+import { ModeBar } from './components/ModeBar.tsx';
 import { WorkspaceChooser, WorkspacePanel } from './components/WorkspacePanel.tsx';
 import { WorkspaceSettingsScreen } from './components/WorkspaceSettingsScreen.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -435,12 +436,15 @@ function Workspace({
 
   /*
    * Built once and given to exactly one place: the rail above the breakpoint,
-   * the panel's foot below it. Two mounted copies would be two requests for the
-   * same unread count and two answers that can disagree for a moment.
+   * the mode bar below it (ADR-0074). Two mounted copies would be two requests
+   * for the same unread count and two answers that can disagree for a moment.
    */
   const accountMenu = (
     <AccountMenu
       displayName={session.user.displayName}
+      // A word rather than a name below the breakpoint: the bar gives this a
+      // fifth of a phone's width, where a name is an ellipsis (ADR-0074).
+      label={isColumn ? undefined : t('mode.you')}
       userId={session.user.id}
       canAdminister={session.user.isInstanceAdmin || session.user.canManageWorkspaces}
       onLogout={onLogout}
@@ -669,7 +673,6 @@ function Workspace({
 
       <Sidebar
         mode={mode}
-        account={isColumn ? null : accountMenu}
         panelTitle={
           mode === 'inbox'
             ? t('inbox.title')
@@ -724,8 +727,6 @@ function Workspace({
         currentIcon={
           session.workspaces.find((w) => w.id === workspaceId)?.icon ?? null
         }
-        displayName={session.user.displayName}
-        userId={session.user.id}
         workspaceId={workspaceId}
         workspaceName={workspaceName}
         onSwitchWorkspace={onSwitchWorkspace}
@@ -766,7 +767,6 @@ function Workspace({
             if (route.kind === 'page' && route.pageId === id) navigate(paths.home());
           });
         }}
-        onLogout={onLogout}
       >
         {/* The menu, never the content (ADR-0069). Both are computed from the
             list the shell already holds, so the counts beside the names cost
@@ -1109,6 +1109,15 @@ function Workspace({
           }
         }}
       />
+
+      {/* Last in the DOM as well as last on screen (ADR-0074).
+        *
+        * The rail is first because it is the outermost frame of a window; the
+        * bar is the same list of modes at the foot of a phone, and a screen
+        * reader reading the shell in source order should meet it where the eye
+        * does. Drawn only below 800px, by the stylesheet — the breakpoint has
+        * one owner and it is the thing that draws it. */}
+      <ModeBar here={mode} account={isColumn ? null : accountMenu} />
     </div>
   );
 }

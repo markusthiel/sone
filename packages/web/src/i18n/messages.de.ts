@@ -89,6 +89,7 @@ export const de: Record<keyof typeof en, string> = {
   'sidebar.search': 'Suchen',
   'sidebar.places': 'Bereiche',
   'mode.pages': 'Seiten',
+  'mode.you': '{address, select, formal {Sie} other {Du}}',
   'sidebar.favourites': 'Favoriten',
   'sidebar.folders': 'Ordner',
   'sidebar.emptyFolders': 'Noch keine Ordner. Drücke +, um einen anzulegen.',

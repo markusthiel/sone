@@ -113,7 +113,7 @@ test('the three areas are three entries, and one of them is conditional', () => 
   // two rights, and a settings column passes the one it already computed.
   assert.match(sidebar, /\{canAdminister && \(/);
   // Decided by whoever renders the menu. The shell builds it once in App and
-  // hands it to the rail or to the panel's foot (ADR-0069), so the flag is
+  // hands it to the rail or to the mode bar (ADR-0074), so the flag is
   // computed there rather than inside the column.
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
   assert.match(

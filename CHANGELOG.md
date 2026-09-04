@@ -15,6 +15,20 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 No operator action. Pull and restart.
 
+**SONE has a bar along the bottom on a phone.** Seiten, Workspaces, Posteingang,
+Papierkorb and you — the same places the rail holds on a wide screen, where a
+thumb can reach them. They were at the foot of the drawer before, which meant
+every place on a phone was one tap further away than the same place on a
+desktop.
+
+It moves out of the way when the keyboard opens, so it never sits between you
+and the line you are writing, and it leaves room for the home indicator on the
+phones that have one. What it covers is given back: the page you are reading
+ends above it, and the drawer stops above it.
+
+The inbox's line about the keyboard shortcuts is not shown on a phone any more —
+there is no keyboard there to press them on.
+
 **A workspace gives access; the instance invites.** The workspace's
 **Einladungen** section is gone. It made a link that let whoever opened it join
 — creating an account on the server if they had none — which meant any workspace
