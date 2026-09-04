@@ -13,6 +13,21 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.9.1
+
+Two controls that were missing.
+
+Requiring two-step sign-in had no switch in the administration, and lifting
+somebody's second factor — the only way back for a person who has lost both
+their phone and their recovery codes — had no button. Both worked over the API
+and nowhere else, which means neither was usable.
+
+**Operator action: none.** `docker compose pull && docker compose up -d`. No
+migrations, no settings, no contract changes — document schema 4 and sync
+protocol 1, and the migration set is identical to 0.9.0's.
+
 **Fixed: two things you could not actually do.** Requiring two-step sign-in had
 no switch in the administration, and lifting somebody's second factor — the only
 way back for a person who has lost both their phone and their recovery codes —

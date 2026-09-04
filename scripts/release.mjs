@@ -149,6 +149,15 @@ record('changelog entry present');
  *
  * An operator reading the notes for the version they are installing is the one
  * reader who cannot go and look somewhere else.
+ *
+ * The threshold is **zero**, not two. It was two, and that was wrong: a release
+ * fixing one thing has one entry, and this would have refused it — which is a
+ * guard telling somebody their honest release notes are malformed.
+ *
+ * Two was over-fitting to 0.4.0, where the count was zero. The case where
+ * entries exist but sit under the wrong heading is caught from the other side by
+ * the "nothing stranded under Unreleased" check below, which is the pair that
+ * actually covers it.
  */
 const sectionBody = (() => {
   const start = changelog.search(
@@ -161,7 +170,7 @@ const sectionBody = (() => {
 })();
 
 const entryCount = (sectionBody.match(/^\*\*/gm) ?? []).length;
-if (entryCount < 2) {
+if (entryCount < 1) {
   fail(
     `CHANGELOG.md's ${version} section has ${entryCount} entr${entryCount === 1 ? 'y' : 'ies'}.\n\n` +
       `A heading is not notes. Check that the entries are under this version\n` +
