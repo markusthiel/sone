@@ -667,6 +667,22 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   padding: 4px 8px;
 }
 
+/* The Workspaces mode's chooser, under the mode's own name (ADR-0070).
+ *
+ * Positioned, because the switcher's menu hangs from the nearest positioned
+ * ancestor and without this that is `.sidebar` — the menu would drop from the
+ * foot of the whole column. Anchored here it spans the column and lines up with
+ * the rows below, which is the same rule `.sidebar-head` follows.
+ *
+ * In the head rather than at the top of the body, because the body scrolls and
+ * a menu dropping out of a scrolling box is clipped at its edge. Pulled back to
+ * the head's own inset so the mark sits over the marks in the menu beneath it. */
+.panel-chooser {
+  position: relative;
+  margin-block-start: 6px;
+  margin-inline: -4px;
+}
+
 .panel-body {
   flex-grow: 1;
   overflow-y: auto;

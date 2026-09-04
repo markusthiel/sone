@@ -21,7 +21,8 @@ export const en = {
   'account.label.waiting': '{name}, {count} notifications waiting',
   'inbox.title': 'Inbox',
   'settings.title': 'Settings',
-  'settings.scope': 'Personal · Workspace · Instance',
+  // Two areas, not three: a workspace has one of its own (ADR-0070).
+  'settings.scope': 'Personal · Instance',
   'inbox.group.state': 'Inbox',
   'inbox.group.kind': 'By kind',
   'inbox.group.workspace': 'By workspace',
@@ -622,6 +623,7 @@ export const en = {
   'workspaces.nameField': 'Workspace name',
   'workspaces.new': 'New workspace',
   'workspaces.all': 'All workspaces',
+  'workspaces.chosen': 'This workspace',
 
   // --- the longer explanations ------------------------------------------
   'landing.note':

@@ -15,6 +15,26 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 No operator action. Pull and restart.
 
+**Workspace settings are their own area, and you pick which workspace.**
+
+They used to sit in the middle of the settings menu, between your own settings
+and the server's — so three rows under a workspace's name came "This instance",
+"Accounts" and "Mail server", as though a workspace could have its own mail
+server. It cannot. Settings are yours and the server's now, and nothing else.
+
+A workspace's settings are in **Workspaces**, the second icon on the rail. The
+column there names the workspace at the top, with the same switcher the page
+tree has: pick one and its sections — name and mark, typography, people, groups,
+export, invitations, deletion — are the ones underneath. Picking also switches
+you into that workspace, so the mark takes you to its pages afterwards; picking
+while reading a section keeps you on that section, in the workspace you just
+chose.
+
+Two smaller repairs came with it. A workspace with no name reads "Ohne Namen" in
+the switcher rather than the English "Untitled". And the account menu in the
+rail is the round picture alone — the name and version line beside it belonged
+to a column, and the menu it opened was being cut off at the rail's edge.
+
 **One way to workspace settings, not three.** 0.10.0 shipped a workspace list
 alongside the "this workspace" entry it was meant to replace, and left the same
 list in the administration as well. The account menu has a single **Workspaces**

@@ -39,6 +39,7 @@ import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
 import { WorkspaceListScreen } from './components/WorkspaceListScreen.tsx';
+import { WorkspaceChooser, WorkspacePanel } from './components/WorkspacePanel.tsx';
 import { WorkspaceSettingsScreen } from './components/WorkspaceSettingsScreen.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
@@ -260,12 +261,24 @@ function Routes({
       session={state.session}
       route={route}
       navigate={navigate}
-      onSwitchWorkspace={(id) => {
+      onSwitchWorkspace={(id, to = paths.home()) => {
         selectWorkspace(id);
-        // Back to the root: a page id from the previous workspace is not
-        // reachable in the new one, and leaving it in the URL would show a
-        // not-found for a page that exists.
-        navigate(paths.home());
+        /*
+         * Home unless somewhere else is asked for.
+         *
+         * A page id from the previous workspace is not reachable in the new
+         * one, and leaving it in the URL would show a not-found for a page that
+         * exists. The Workspaces mode passes its own destination instead
+         * (ADR-0070): choosing a workspace there is choosing what to configure,
+         * so it stays in the section it was reading rather than walking out of
+         * the area it was just used in.
+         *
+         * A destination that is already the address is not navigated to. The
+         * list looks the same before and after — only the chooser under it
+         * changed — and a history entry that changes nothing makes Back do
+         * nothing.
+         */
+        if (to !== window.location.pathname) navigate(to);
         // The session response carries the workspace list, so a freshly created
         // workspace has to be picked up before it can be selected.
         void reload();
@@ -292,7 +305,8 @@ function Workspace({
   route: ReturnType<typeof useRoute>['route'];
   /** With `replace`, for the redirect of an old settings URL (ADR-0032). */
   navigate: (to: string, options?: { replace?: boolean }) => void;
-  onSwitchWorkspace: (workspaceId: string) => void;
+  /** Switch, and land where the caller says — home when it says nothing. */
+  onSwitchWorkspace: (workspaceId: string, to?: string) => void;
   onLogout: () => void;
   /* Null while an old settings URL is being replaced: rendering the wrong area
      for one frame would flash a heading nobody asked for. */
@@ -361,29 +375,24 @@ function Workspace({
   const [trashView, setTrashView] = useState<TrashView>('recent');
 
   /*
-   * The settings menu, as three groups in one list rather than three screens
-   * behind a switcher (ADR-0069). Whose settings they are is what the group
-   * titles say; the workspace's group names the workspace, because an
-   * administrator opening somebody else's needs to see which one.
+   * The settings menu: you, and the server (ADR-0070).
+   *
+   * It held a third group — the workspace you were in — and that is what made
+   * it wrong. Both of these have exactly one subject; a workspace's settings
+   * have one per workspace, so the first question there is *which*, and a
+   * question with an answer per row is a chooser. It has one, in the Workspaces
+   * mode, which is the mode whose subject a workspace already is.
+   *
+   * What that fixes is concrete: this list offered "Mailserver" and "Konten"
+   * three rows under a workspace's name, as though a workspace could have its
+   * own SMTP server. It cannot, and a menu that reads as if it could is one
+   * people stop trusting.
    */
-  const settingsWorkspaceId =
-    route.kind === 'workspaceSettings' ? (route.workspaceId ?? workspaceId) : workspaceId;
-  const settingsWorkspaceName =
-    session.workspaces.find((one) => one.id === settingsWorkspaceId)?.name ?? workspaceName;
   const settingsGroups: SectionGroup[] = [
     {
       title: t('area.you'),
       sections: YOU_SECTIONS.map((e) => ({ id: e.id, label: t(e.label), hint: t(e.hint) })),
       hrefFor: (id) => paths.settings(id),
-    },
-    {
-      title: settingsWorkspaceName || t('workspace.untitled'),
-      sections: WORKSPACE_SECTIONS.map((e) => ({
-        id: e.id,
-        label: t(e.label),
-        hint: t(e.hint),
-      })),
-      hrefFor: (id) => paths.workspaceSettings(id, settingsWorkspaceId),
     },
   ];
   if (session.user.isInstanceAdmin) {
@@ -394,16 +403,30 @@ function Workspace({
     });
   }
   const settingsCurrentHref =
+    route.kind === 'admin'
+      ? paths.admin(resolveSection(ADMIN_SECTIONS, route.section))
+      : paths.settings(
+          resolveSection(YOU_SECTIONS, route.kind === 'settings' ? route.section : ''),
+        );
+
+  /*
+   * The workspace the Workspaces mode is talking about.
+   *
+   * The one in the address while a section is open — an administrator may be
+   * configuring one they are not in — and otherwise the one you are in, which
+   * is what the chooser should already be showing when you arrive at the list.
+   */
+  const chosenWorkspaceId =
+    route.kind === 'workspaceSettings' ? (route.workspaceId ?? workspaceId) : workspaceId;
+  const chosenWorkspaceName =
+    session.workspaces.find((one) => one.id === chosenWorkspaceId)?.name ?? workspaceName;
+  const workspaceCurrentHref =
     route.kind === 'workspaceSettings'
       ? paths.workspaceSettings(
           resolveSection(WORKSPACE_SECTIONS, route.section),
-          settingsWorkspaceId,
+          chosenWorkspaceId,
         )
-      : route.kind === 'admin'
-        ? paths.admin(resolveSection(ADMIN_SECTIONS, route.section))
-        : paths.settings(
-            resolveSection(YOU_SECTIONS, route.kind === 'settings' ? route.section : ''),
-          );
+      : paths.workspaces();
 
   /*
    * Built once and given to exactly one place: the rail above the breakpoint,
@@ -638,6 +661,22 @@ function Workspace({
               ? t('settings.scope')
               : undefined
         }
+        /* The Workspaces mode says its scope with a control rather than a line:
+           which workspace is not a fact to read here, it is the choice the rest
+           of the column depends on (ADR-0070). */
+        panelChooser={
+          mode === 'workspaces' ? (
+            <WorkspaceChooser
+              chosenId={chosenWorkspaceId}
+              chosenName={chosenWorkspaceName}
+              chosenIcon={
+                session.workspaces.find((one) => one.id === chosenWorkspaceId)?.icon ?? null
+              }
+              current={workspaceCurrentHref}
+              onChoose={onSwitchWorkspace}
+            />
+          ) : undefined
+        }
         panelAction={
           mode === 'inbox' && (inbox.items ?? []).some((one) => !one.read) ? (
             <button
@@ -651,8 +690,6 @@ function Workspace({
         }
         onStartExport={setExportingId}
         onStartImport={setImportingId}
-        canManageWorkspaces={session.user.canManageWorkspaces}
-        isInstanceAdmin={session.user.isInstanceAdmin}
         currentIcon={
           session.workspaces.find((w) => w.id === workspaceId)?.icon ?? null
         }
@@ -713,28 +750,7 @@ function Workspace({
           <SectionNav groups={settingsGroups} current={settingsCurrentHref} />
         )}
         {mode === 'workspaces' && (
-          <div className="panel-menu-group">
-            <div className="sidebar-label">{t('workspaces.area')}</div>
-            {/* The table in the content area is not this list repeated: six
-                workspaces are read down a column — role, size, deleted ones —
-                and one workspace is opened from here (ADR-0067). */}
-            <a
-              className="settings-nav-item"
-              href={paths.workspaces()}
-              {...(route.kind === 'workspaceList' ? { 'aria-current': 'page' as const } : {})}
-            >
-              {t('workspaces.all')}
-            </a>
-            {session.workspaces.map((one) => (
-              <a
-                className="settings-nav-item"
-                key={one.id}
-                href={paths.workspaceSettings('general', one.id)}
-              >
-                {one.name}
-              </a>
-            ))}
-          </div>
+          <WorkspacePanel chosenId={chosenWorkspaceId} current={workspaceCurrentHref} />
         )}
       </Sidebar>
 
