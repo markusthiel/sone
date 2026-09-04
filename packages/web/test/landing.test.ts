@@ -15,7 +15,25 @@ test('the landing page replaces "the first page in the tree"', () => {
   // Arbitrary: the first page is rarely the one anybody works in, and it moves
   // when somebody reorders the sidebar.
   assert.match(app, /api\s*\n?\s*\.landing\(workspaceId\)/);
-  assert.match(app, /landing\.landOn \?\? pages\[0\]\?\.id/);
+  assert.match(app, /landing\.landOn \?\? first/);
+});
+
+test('arriving and pressing the mark are different questions', () => {
+  /*
+   * One setting answered both, and the difference only showed once the mark was
+   * a button somebody presses on purpose (ADR-0072). Arriving means the setting
+   * in full, "the page I was last on" included. Pressing the mark cannot mean
+   * that — you are *on* that page — so it went nowhere, which read as broken.
+   *
+   * A later press goes to the top of the tree. A fixed landing page is honoured
+   * either way: somebody who named a page meant that page.
+   */
+  assert.match(app, /const arrived = useRef<string \| null>\(null\);/);
+  assert.match(app, /const again = arrived\.current === workspaceId;/);
+  assert.match(app, /again && landing\.mode !== 'fixed' \? first : \(landing\.landOn \?\? first\)/);
+  // Per workspace, not per session: switching is an arrival in the new one, and
+  // "the page I was last on" is the whole reason somebody switches back.
+  assert.match(app, /arrived\.current = workspaceId;/);
 });
 
 test('a failed lookup still opens something', () => {

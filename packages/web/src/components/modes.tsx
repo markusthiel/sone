@@ -28,10 +28,11 @@ import type { ReactElement } from 'react';
 
 import { paths } from '../routes/paths.ts';
 import { useT } from '../i18n/useT.tsx';
+import { SoneMark } from './Logo.tsx';
 import { BellIcon, TrashIcon, WorkspacesIcon } from './icons.tsx';
 
 /** A mode is a place you stay, never an action you take. */
-export type Mode = 'tree' | 'workspaces' | 'inbox' | 'trash' | 'settings';
+export type Mode = 'tree' | 'workspaces' | 'inbox' | 'trash' | 'settings' | 'admin';
 
 export type ModeEntry = {
   mode: Mode;
@@ -41,15 +42,30 @@ export type ModeEntry = {
 };
 
 /**
- * The rail's entries, in order.
+ * Every mode with a place of its own, in order.
  *
- * Workspaces first, because it is the largest container: it decides what the
- * tree below it even contains. Then what is waiting for you, then what you
- * threw away.
+ * Your pages first, because that is where you are when you are not anywhere
+ * else. Then workspaces, the largest container — it decides what the tree even
+ * contains — then what is waiting for you, then what you threw away.
+ *
+ * Your pages are in this list, and that is the fix for a dead end (ADR-0072).
+ * Above 800px the rail draws this first entry as the mark and the rest as
+ * icons; below it there is no rail, the list is drawn at the foot of the panel,
+ * and it was drawn *without* the first entry — so from settings on a phone
+ * there was no way back to your own pages at all. One list, two drawings, and
+ * neither may leave a mode out.
  */
 export function useModes(): ModeEntry[] {
   const { t } = useT();
   return [
+    {
+      mode: 'tree',
+      href: paths.home(),
+      label: t('mode.pages'),
+      // The mark, at the size of the icons beside it: the same glyph the rail
+      // draws large, so the two read as the same place rather than as two.
+      icon: <SoneMark size={17} />,
+    },
     {
       mode: 'workspaces',
       href: paths.workspaces(),
@@ -82,10 +98,18 @@ export function modeOf(kind: string): Mode {
    */
   if (kind === 'workspaceList' || kind === 'workspaceSettings') return 'workspaces';
   /*
-   * Settings has no icon on the rail, on purpose: it is reached from the
-   * account menu, which is where you already are when you are thinking about
-   * yourself and your server. It is a mode like any other once you are in it.
+   * Your settings and the server's are two modes, not one (ADR-0072).
+   *
+   * They were two groups in one list, and the list was already long enough that
+   * "Mailserver" and "Wo du landest" sat six rows apart in the same column —
+   * with more to come on both sides. Two subjects, two areas, and the account
+   * menu was already offering them as two entries.
+   *
+   * Neither has an icon on the rail: both are reached from the account menu,
+   * which is where you already are when you are thinking about yourself or your
+   * server. They are modes like any other once you are in one.
    */
-  if (kind === 'settings' || kind === 'admin') return 'settings';
+  if (kind === 'settings') return 'settings';
+  if (kind === 'admin') return 'admin';
   return 'tree';
 }

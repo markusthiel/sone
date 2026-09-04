@@ -15,6 +15,22 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 No operator action. Pull and restart.
 
+**Your settings and the administration are two separate areas.** They were one
+column with two headings, which put "Wo du landest" and "Mailserver" six rows
+apart — and both halves are going to grow. The account menu opens each into its
+own column now, and each says whose it is: yours, or everyone's on this server.
+
+**On a phone there is a way back to your pages again.** The bar of areas at the
+foot of the drawer had Workspaces, Posteingang and Papierkorb but not the pages
+themselves, so from settings or from a workspace's sections there was no route
+back at all. **Seiten** is the first entry there now.
+
+**The logo always takes you somewhere.** It goes where "Wo du landest" points.
+With the default setting — the page you were last on — that is the page you are
+already standing on, so pressing it did nothing; it goes to the top of your tree
+in that case. Signing in, reloading and switching workspace are unchanged: they
+still put you on the page you were last reading.
+
 **The inbox reads like an inbox now.**
 
 Several replies in one conversation are one row, saying the newest thing and how

@@ -28,7 +28,8 @@ export const de: Record<keyof typeof en, string> = {
   'inbox.title': 'Posteingang',
   'settings.title': 'Einstellungen',
   // Zwei Bereiche, nicht drei: der Workspace hat einen eigenen (ADR-0070).
-  'settings.scope': 'Persönlich · Instanz',
+  'settings.scope': '{address, select, formal {Nur für Sie} other {Nur für dich}}',
+  'admin.scope': 'Für alle auf diesem Server',
   'inbox.group.state': 'Posteingang',
   'inbox.group.kind': 'Nach Art',
   'inbox.group.workspace': 'Nach Workspace',
@@ -87,6 +88,7 @@ export const de: Record<keyof typeof en, string> = {
   'sidebar.hide': 'Seitenleiste ausblenden',
   'sidebar.search': 'Suchen',
   'sidebar.places': 'Bereiche',
+  'mode.pages': 'Seiten',
   'sidebar.favourites': 'Favoriten',
   'sidebar.folders': 'Ordner',
   'sidebar.emptyFolders': 'Noch keine Ordner. Drücke +, um einen anzulegen.',

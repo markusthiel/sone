@@ -22,7 +22,8 @@ export const en = {
   'inbox.title': 'Inbox',
   'settings.title': 'Settings',
   // Two areas, not three: a workspace has one of its own (ADR-0070).
-  'settings.scope': 'Personal · Instance',
+  'settings.scope': 'Just yours',
+  'admin.scope': 'Everyone on this server',
   'inbox.group.state': 'Inbox',
   'inbox.group.kind': 'By kind',
   'inbox.group.workspace': 'By workspace',
@@ -77,6 +78,7 @@ export const en = {
   'sidebar.hide': 'Hide the sidebar',
   'sidebar.search': 'Search',
   'sidebar.places': 'Parts of SONE',
+  'mode.pages': 'Pages',
   'sidebar.favourites': 'Favourites',
   'sidebar.folders': 'Folders',
   'sidebar.emptyFolders': 'No folders yet. Press + to make one.',

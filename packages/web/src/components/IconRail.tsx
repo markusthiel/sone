@@ -32,21 +32,28 @@ export function IconRail({
   account: ReactNode;
 }): ReactElement {
   const { t } = useT();
-  const modes = useModes();
+  /*
+   * The first entry is your pages, and here it is the mark (ADR-0072).
+   *
+   * Taken from the same list the panel's foot draws below 800px rather than
+   * named again here: a mode left out of one of the two drawings is a mode
+   * somebody cannot reach, which is exactly what happened on a phone.
+   */
+  const [tree, ...rest] = useModes();
 
   return (
     <nav className="icon-rail" aria-label={t('sidebar.places')}>
       <a
         className="rail-brand"
-        href={paths.home()}
-        title="SONE"
+        href={tree?.href ?? paths.home()}
+        title={tree?.label ?? 'SONE'}
         aria-current={here === 'tree' ? 'page' : undefined}
       >
         <SoneMark size={26} title="SONE" />
       </a>
 
       <div className="rail-nav">
-        {modes.map(({ mode, href, label, icon }) => (
+        {rest.map(({ mode, href, label, icon }) => (
           // aria-current="page" and not a class: the state is "this is where
           // you are", which the browser and a screen reader both already know
           // how to say. The stylesheet reads the same attribute.
