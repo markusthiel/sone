@@ -56,7 +56,17 @@ export const paths = {
   /** Your own settings (ADR-0032). */
   settings: (section = 'profile') => `/settings/${section}`,
   /** The workspace you are in. */
-  workspaceSettings: (section = 'general') => `/workspace/${section}`,
+  /**
+   * A workspace's settings (ADR-0067).
+   *
+   * With no id it means the one you are in — the shortcut the account menu
+   * uses. With one it is that workspace, which is how the administration's list
+   * opens it.
+   */
+  workspaceSettings: (section = 'general', workspaceId?: string) =>
+    workspaceId
+      ? `/workspace/${encodeURIComponent(workspaceId)}/${section}`
+      : `/workspace/${section}`,
   /** The instance everybody shares. Only offered with the right. */
   admin: (section = 'instance') => `/admin/${section}`,
   trash: () => '/trash',
@@ -120,7 +130,7 @@ export type Route =
   | { kind: 'setup' }
   | { kind: 'search'; query: string }
   | { kind: 'settings'; section: string }
-  | { kind: 'workspaceSettings'; section: string }
+  | { kind: 'workspaceSettings'; workspaceId: string | null; section: string }
   | { kind: 'admin'; section: string }
   | { kind: 'trash' }
   | { kind: 'inbox' }
@@ -163,7 +173,29 @@ export function parseRoute(pathname: string, search = ''): Route {
     case 'settings':
       return { kind: 'settings', section: segments[1] ?? 'profile' };
     case 'workspace':
-      return { kind: 'workspaceSettings', section: segments[1] ?? 'general' };
+      /*
+       * The workspace is named in the address (ADR-0067).
+       *
+       * `/workspace/general` used to mean "the one I am in", which is why there
+       * had to be a second screen for any other one. With the id in the path
+       * there is one screen and one URL, reachable from the administration's
+       * list and from the account menu alike — and linkable, which the old form
+       * was not.
+       *
+       * The one-segment form is still understood, so a link somebody kept means
+       * "the workspace I am in" rather than nothing.
+       */
+      return segments.length > 2
+        ? {
+            kind: 'workspaceSettings',
+            workspaceId: segments[1] ?? null,
+            section: segments[2] ?? 'general',
+          }
+        : {
+            kind: 'workspaceSettings',
+            workspaceId: null,
+            section: segments[1] ?? 'general',
+          };
     case 'admin':
       return { kind: 'admin', section: segments[1] ?? 'instance' };
     case 'trash':

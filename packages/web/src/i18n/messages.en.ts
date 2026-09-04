@@ -188,6 +188,12 @@ export const en = {
   'file.pdfPageOf': 'Page {page} of {total}',
   'file.pdfLoading': 'Opening the document\u2026',
   'file.pdfFailed': 'This document could not be shown here.',
+  'workspace.invitations': 'Invitations',
+  'workspace.invitations.hint': 'Links that let somebody join this workspace.',
+  'workspace.delete.hint': 'Remove this workspace, reversibly, for a while.',
+  'workspace.delete.notYours':
+    'Only an owner of this workspace, or somebody who manages workspaces, can ' +
+    'delete it.',
   'workspace.export': 'Export this workspace',
   'workspace.export.hint':
     'Every page you can read, as Markdown files with their attachments, in one ' +
@@ -608,7 +614,6 @@ export const en = {
   'workspaces.people': 'People',
   'workspaces.pages': 'Pages',
   'workspaces.lastEdited': 'Last edited',
-  'workspaces.appearance': 'Appearance',
   'workspaces.delete': 'Delete this workspace',
   'workspaces.confirmName': 'Type the name to confirm',
   'workspaces.nameField': 'Workspace name',

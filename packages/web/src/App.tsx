@@ -535,7 +535,9 @@ function Workspace({
       <WorkspaceSettingsScreen
         section={route.section}
         session={session}
-        workspaceId={workspaceId}
+        // The one named in the address, or the one being looked at when the
+        // address names none (ADR-0067).
+        workspaceId={route.workspaceId ?? workspaceId}
         onClose={() => navigate(paths.home())}
         onLogout={onLogout}
       />

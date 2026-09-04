@@ -25,6 +25,9 @@ import { ThemeSettings } from './ThemeSettings.tsx';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { WorkspaceExport } from './WorkspaceExport.tsx';
 import { WorkspaceInvite } from './WorkspaceInvite.tsx';
+// `WorkspaceInvite` was already imported here — the screen had the component
+// and no section that rendered it, which is its own small version of the drift.
+import { WorkspaceDeletion } from './WorkspaceDeletion.tsx';
 import { WorkspaceMembers } from './WorkspaceMembers.tsx';
 
 const SECTIONS = [
@@ -40,6 +43,16 @@ const SECTIONS = [
   // to a page's ⋮ menu and not to the administration area — it is not a backup
   // (ADR-0044).
   { id: 'export', label: 'workspace.export', hint: 'workspace.export.hint' },
+  /*
+   * The two the administration had and this screen did not (ADR-0067).
+   *
+   * Which is the other half of the drift ADR-0027 predicted: an owner looking
+   * after their own workspace could not invite to it from here, and could not
+   * delete it at all. Both sections are the same components the administration
+   * was rendering — moved, not rewritten.
+   */
+  { id: 'invitations', label: 'workspace.invitations', hint: 'workspace.invitations.hint' },
+  { id: 'delete', label: 'workspaces.delete', hint: 'workspace.delete.hint' },
 ] as const;
 
 interface WorkspaceSettingsProps {
@@ -101,6 +114,18 @@ export function WorkspaceSettingsScreen({
           canEdit={canEdit}
         />
       )}
+      {current === 'invitations' && <WorkspaceInvite workspaceId={workspaceId} />}
+
+      {current === 'delete' && (
+        <WorkspaceDeletion
+          workspaceId={workspaceId}
+          name={workspace?.name ?? ''}
+          // The rights decide whether it can be used, not whether it is there.
+          canDelete={canEdit}
+          onDeleted={onClose}
+        />
+      )}
+
       {current === 'typography' && (
         <ThemeSettings workspaceId={workspaceId} canEdit={canEdit} />
       )}

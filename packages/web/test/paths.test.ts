@@ -78,13 +78,29 @@ test('auth and utility routes parse', () => {
     kind: 'settings',
     section: 'appearance',
   });
+  /*
+   * The short forms still mean "the workspace I am in" (ADR-0067).
+   *
+   * Kept understood on purpose: a link somebody bookmarked before the id was in
+   * the address should land somewhere useful rather than nowhere.
+   */
   assert.deepEqual(parseRoute('/workspace'), {
     kind: 'workspaceSettings',
+    workspaceId: null,
     section: 'general',
   });
   assert.deepEqual(parseRoute('/workspace/typography'), {
     kind: 'workspaceSettings',
+    workspaceId: null,
     section: 'typography',
+  });
+  // And with an id it is that workspace, whichever one it is — which is what
+  // makes one screen reachable from the administration's list and from the
+  // account menu alike.
+  assert.deepEqual(parseRoute('/workspace/abc-123/people'), {
+    kind: 'workspaceSettings',
+    workspaceId: 'abc-123',
+    section: 'people',
   });
   assert.deepEqual(parseRoute('/admin'), { kind: 'admin', section: 'instance' });
   assert.deepEqual(parseRoute('/admin/sso'), { kind: 'admin', section: 'sso' });

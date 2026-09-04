@@ -209,6 +209,11 @@ export const de: Record<keyof typeof en, string> = {
   'file.pdfPageOf': 'Seite {page} von {total}',
   'file.pdfLoading': 'Dokument wird geöffnet\u2026',
   'file.pdfFailed': 'Dieses Dokument kann hier nicht gezeigt werden.',
+  'workspace.invitations': 'Einladungen',
+  'workspace.invitations.hint': 'Links, mit denen jemand diesem Workspace beitritt.',
+  'workspace.delete.hint': 'Diesen Workspace entfernen — eine Zeit lang umkehrbar.',
+  'workspace.delete.notYours':
+    'Löschen kann nur, wer diesen Workspace besitzt oder Workspaces verwaltet.',
   'workspace.export': 'Diesen Workspace exportieren',
   'workspace.export.hint':
     'Jede lesbare Seite als Markdown-Dateien mit ihren Anhängen, in einem ' +
@@ -668,7 +673,6 @@ export const de: Record<keyof typeof en, string> = {
   'workspaces.people': 'Leute',
   'workspaces.pages': 'Seiten',
   'workspaces.lastEdited': 'Zuletzt bearbeitet',
-  'workspaces.appearance': 'Aussehen',
   'workspaces.delete': 'Diesen Workspace löschen',
   'workspaces.confirmName': 'Zum Bestätigen den Namen eintippen',
   'workspaces.nameField': 'Name des Workspace',

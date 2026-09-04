@@ -218,7 +218,8 @@ const MIGRATED = [
   'src/components/SlashMenu.tsx',
   'src/components/TableToolbar.tsx',
   'src/components/VideoDialog.tsx',
-  'src/components/WorkspaceDetail.tsx',
+  // WorkspaceDetail.tsx was here; it is gone (ADR-0067) and its sections live in
+  // WorkspaceSettingsScreen, which is on this list already.
   'src/components/WorkspaceList.tsx',
   'src/components/WorkspaceMenu.tsx',
   'src/components/CanvasSurface.tsx',
