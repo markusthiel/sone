@@ -2,9 +2,17 @@
 
 ## Status
 
-Accepted and implemented; the single-screen arrangement it describes is
-superseded by ADR-0032, which keeps its reasoning about naming the subject and
-makes the subject the boundary.
+Accepted; the single-screen arrangement it describes is superseded by ADR-0032,
+which keeps its reasoning about naming the subject and makes the subject the
+boundary.
+
+**And "implemented" was wrong about the middle area.** This record decided that
+the workspace you are in is one row in the list, and explicitly rejected having
+both a current-workspace screen and a list — "two interfaces for one job", where
+"the one nobody uses is the one that drifts". What was built is the sketch this
+paragraph rejected, and both halves then drifted exactly as predicted: neither
+can do the whole job. [ADR-0067](0067-one-place-to-edit-a-workspace.md) finishes
+what this one decided.
 
 ## Context
 
