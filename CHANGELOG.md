@@ -13,8 +13,40 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.7.0
+
+Two-step sign-in, and the settings that go with it. An authenticator app can now
+be required after your password — and a password reset deliberately does *not*
+remove it, because otherwise anybody with your mailbox would have your account.
+If both the app and your recovery codes are gone, an administrator can lift it,
+and you are told by mail who did.
+
+Notification email also stops being all-or-nothing: each kind now has its own
+answer — at once, in the daily mail, or never. "Tell me immediately when
+somebody mentions me, let the rest wait until tomorrow" was not sayable before.
+
+**Operator action: optional.** Two migrations apply on start; upgrading from
+0.6.0 has been tested in place with four accounts carrying different mail
+settings, and every one keeps exactly the behaviour it had. Nobody has a second
+factor until they set one up, and nothing about single sign-on changes — an OIDC
+account authenticates at its provider, which is the right place for its own
+second factor.
+
+The four superseded mail-preference columns are still present and unused. They
+go in 0.8.0, so a rollback from this release to 0.6.0 still finds them.
+
+**Both contract versions are unchanged** — document schema 4, sync protocol 1.
+
+**Also**: mail has its own area in the administration rather than a heading
+under the instance settings, and asking to reset a single sign-on account's
+password now gets a mail explaining where it signs in, instead of the silence
+that left people waiting for a link that was never coming.
+
 **Sign-in can ask for a code from an authenticator app**
-([ADR-0063](docs/adr/0063-second-factor.md)). Set it up under You → Signing in;
+([ADR-0063](docs/adr/0063-second-factor.md)). Scan the QR code under You →
+Signing in, or type the secret in by hand;
 ten recovery codes come with it, shown once. A password reset does *not* remove
 it — otherwise anybody with your mailbox would have your account. If both the
 app and the codes are gone, an administrator can remove it, and you are told by
