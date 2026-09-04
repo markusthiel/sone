@@ -50,10 +50,9 @@ export type ModeEntry = {
  *
  * Your pages are in this list, and that is the fix for a dead end (ADR-0072).
  * Above 800px the rail draws this first entry as the mark and the rest as
- * icons; below it there is no rail, the list is drawn at the foot of the panel,
- * and it was drawn *without* the first entry — so from settings on a phone
- * there was no way back to your own pages at all. One list, two drawings, and
- * neither may leave a mode out.
+ * icons; below it the mode bar draws all of them along the foot of the screen
+ * (ADR-0074). One list, two drawings, and neither may leave a mode out — the
+ * drawing that did left a phone with no way back to its own pages.
  */
 export function useModes(): ModeEntry[] {
   const { t } = useT();

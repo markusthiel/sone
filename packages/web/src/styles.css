@@ -289,6 +289,10 @@
   --sone-marker: 16px;
   --sone-control: 26px;
   --sone-control-lg: 34px;
+  /* The mode bar on a phone (ADR-0074). Its own measurement because three
+     rules give space back for it: the reading column, the drawer, and the
+     account menu that opens above it. */
+  --sone-bar: 56px;
   --sone-tap: 44px;
 
   /* Spacing, in one geometric-ish run. Anything between these is a decision
@@ -864,22 +868,125 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   inset-inline-start: calc(100% + var(--sone-space-3));
 }
 
-/* The same list as the rail's, at the width where the rail is not drawn.
- *
- * Hidden above the breakpoint by the stylesheet rather than by a media query in
- * JavaScript, so the breakpoint has one owner and it is the thing that draws
- * it. The two are never on screen together, which is what makes this one list
- * in two places rather than two ways in (modes.tsx). */
-.panel-modes {
-  display: flex;
-  flex-direction: column;
-  flex: none;
-  padding: 8px 12px;
-  border-block-start: 1px solid var(--border-subtle);
-}
+/* --- the mode bar: the rail, laid on its side, for a phone (ADR-0074) --- */
 
-@media (min-width: 800px) {
-  .panel-modes { display: none; }
+/* Not drawn above the breakpoint, by the stylesheet rather than by a media
+ * query in JavaScript: the breakpoint has one owner and it is the thing that
+ * draws it. The bar and the rail are never on screen together, which is what
+ * makes this one list in two drawings rather than two ways in (modes.tsx). */
+.mode-bar { display: none; }
+
+@media (max-width: 799px) {
+  .mode-bar {
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 30;
+    display: flex;
+    align-items: stretch;
+    block-size: var(--sone-bar);
+    /* The home indicator's strip, on the phones that have one. Padding rather
+       than a taller bar, so the row of icons keeps its own height and the
+       colour runs to the bottom of the screen behind the strip. */
+    padding-block-end: env(safe-area-inset-bottom, 0px);
+    border-block-start: 1px solid var(--sone-border);
+    background: var(--surface-chrome);
+  }
+
+  /* Out of the way while somebody is writing: a bar above an open keyboard
+     takes the last line of the editor (useKeyboardOpen). */
+  .mode-bar[data-hidden='true'] { display: none; }
+
+  .bar-item,
+  .bar-account {
+    flex: 1 1 0;
+    min-inline-size: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding-block: 6px;
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+
+  .bar-item svg {
+    inline-size: 20px;
+    block-size: 20px;
+    flex: none;
+  }
+
+  /* The name under the icon, and small. An icon nobody can name is an icon
+     nobody presses; five of them with no labels is a puzzle. */
+  .bar-label {
+    font-size: 10px;
+    line-height: 1;
+    max-inline-size: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .bar-item[aria-current='page'] {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  /* The face at the end, in the space one item would take. Everything the
+     column's footer adds around it — the name, the version — belongs to a
+     column and is not drawn here. */
+  .bar-account .sidebar-footer {
+    gap: 0;
+    padding: 0;
+    border-block-start: 0;
+    margin-block-start: 0;
+  }
+  /* The name is a word here — "Du" — passed in by the shell, because a name in
+     a fifth of a phone's width is an ellipsis. Styled like every other label,
+     so the face reads as the fifth item and not as a stray control. */
+  .bar-account .sidebar-account-name {
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 400;
+    max-inline-size: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .bar-account .sidebar-version { display: none; }
+  .bar-account .sidebar-account {
+    position: relative;
+    flex-direction: column;
+    gap: 3px;
+    inline-size: 100%;
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .bar-account .sidebar-avatar { inline-size: 20px; block-size: 20px; }
+  /* On the corner of the face rather than beside it: the face is centred in a
+     column that is much wider than it, so "beside" would put the badge in
+     empty space. */
+  .bar-account .sidebar-unread {
+    position: absolute;
+    inset-block-start: 3px;
+    inset-inline-start: calc(50% + 3px);
+    margin-inline-start: 0;
+  }
+  /* Upwards, because there is nothing below it. Pinned to both edges of the
+     screen rather than to the button, which is a fifth of it wide. */
+  .bar-account .sidebar-account-menu {
+    position: fixed;
+    inset-block-end: calc(var(--sone-bar) + env(safe-area-inset-bottom, 0px) + 4px);
+    inset-inline: 8px;
+    inset-block-start: auto;
+  }
+
+  /* What the bar covers, given back: content that ends underneath it is
+     content somebody cannot finish reading. The drawer's own share is given in
+     the overlay rule further down, which is where its insets are set — two
+     rules for one element's position is how they come to disagree. */
+  .main { padding-block-end: calc(var(--sone-bar) + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* The clock on a deleted entry, and louder in its last week. */
@@ -916,32 +1023,6 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
    first. */
 .trash-preview p[data-block='heading'] { font-weight: 600; color: var(--sone-text); }
 .trash-preview p[data-block='code'] { font-family: var(--sone-font-mono); }
-
-.panel-mode[aria-current='page'] {
-  background: var(--surface-hover);
-  font-weight: 600;
-}
-
-.panel-mode {
-  display: flex;
-  align-items: center;
-  gap: var(--sone-space-4);
-  min-block-size: var(--sone-tap);
-  padding-inline: var(--sone-space-4);
-  border-radius: var(--sone-radius);
-  color: var(--text-secondary);
-}
-
-.panel-mode svg {
-  inline-size: 1.15em;
-  block-size: 1.15em;
-  flex: none;
-}
-
-.panel-mode:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
 
 .rail-item[aria-current='page'] {
   color: var(--text-primary);
@@ -1058,7 +1139,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      its scroll position and collapse state survive being closed. */
   .sidebar {
     position: fixed;
-    inset-block: 0;
+    inset-block-start: 0;
+    /* Stops above the mode bar, which is fixed below it (ADR-0074). Running
+       under it would hide the drawer's last row behind five icons. */
+    inset-block-end: calc(var(--sone-bar) + env(safe-area-inset-bottom, 0px));
     inset-inline-start: 0;
     width: min(300px, 85vw);
     z-index: 20;
@@ -2413,8 +2497,14 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   color: var(--sone-text-muted);
 }
 
-/* The keys, said once above the list rather than repeated on every row. */
+/* The keys, said once above the list rather than repeated on every row.
+ *
+ * Not on a phone: there is no keyboard to press them on, and two lines
+ * explaining shortcuts nobody has is two lines of the list gone (ADR-0074). */
 .inbox-keys { font-family: var(--sone-font-mono); font-size: var(--sone-text-xs); }
+@media (max-width: 799px) {
+  .inbox-keys { display: none; }
+}
 
 /* Searches somebody kept (ADR-0050). Under an empty field, where they are
    about to run one again. */

@@ -36,8 +36,7 @@ import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
 import { AddEntryMenu } from './AddEntryMenu.tsx';
-import { AccountMenu } from './AccountMenu.tsx';
-import { useModes, type Mode } from './modes.tsx';
+import type { Mode } from './modes.tsx';
 import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
@@ -79,8 +78,6 @@ interface SidebarProps {
   panelAction?: ReactNode | undefined;
   /** The mode's menu. Ignored in the tree's mode. */
   children?: ReactNode | undefined;
-  /** The account menu, drawn at this foot only below the breakpoint. */
-  account?: ReactNode | undefined;
   workspaceId: string;
   workspaceName: string;
   onSwitchWorkspace: (workspaceId: string) => void;
@@ -131,11 +128,14 @@ interface SidebarProps {
    */
   /** The mark for the workspace you are in (ADR-0030). */
   currentIcon: WorkspaceIcon | null;
-  onLogout: () => void;
-  /** For the account entry at the foot of the sidebar. */
-  displayName: string;
-  /** Whose picture to show at the foot of the sidebar. */
-  userId: string;
+  /*
+   * No account here any more (ADR-0074).
+   *
+   * The face used to be at this foot below the breakpoint, because the rail is
+   * not drawn there. The mode bar is, and it carries the account like the rail
+   * does — so the three props that fed it were being threaded through the
+   * sidebar to reach a component it no longer draws.
+   */
 }
 
 const COLLAPSED_KEY = 'sone.collapsedPages';
@@ -250,19 +250,14 @@ export function Sidebar({
   onToggleWatch = () => {},
   onReloadTree,
   currentIcon,
-  onLogout,
-  displayName,
-  userId,
   mode,
   panelTitle,
   panelScope,
   panelChooser,
   panelAction,
   children,
-  account,
 }: SidebarProps): ReactElement {
   const { t } = useT();
-  const modes = useModes();
 
   /**
    * Which sections are open, remembered per browser.
@@ -555,35 +550,6 @@ export function Sidebar({
           )}
         </div>
 
-        {/* The foot, below the breakpoint only.
-          *
-          * The rail is not drawn there, so its modes and the account menu would
-          * be unreachable; they sit here instead, in every mode, until the
-          * mobile bar takes the job over. Hidden above 800px by the stylesheet
-          * rather than by a media query in JavaScript, so the breakpoint has
-          * one owner and it is the thing that draws it — and the two copies are
-          * never on screen at once, which is what makes this one list in two
-          * places rather than two ways in. */}
-        <nav className="panel-modes" aria-label={t('sidebar.places')}>
-          {modes.map((entry) => (
-            <a
-              className="panel-mode"
-              key={entry.mode}
-              href={entry.href}
-              aria-current={mode === entry.mode ? 'page' : undefined}
-            >
-              {entry.icon} {entry.label}
-            </a>
-          ))}
-        </nav>
-
-        {/* The face, given rather than built here.
-          *
-          * It is drawn in exactly one place at a time — the rail above the
-          * breakpoint, this foot below it — and which one is decided by
-          * whoever renders the shell. Two mounted copies would be two requests
-          * for the same unread count and two answers that can disagree. */}
-        {account}
         {/* The edge, draggable (see useSidebarWidth).
           *
           * Because the tree's problem is space rather than text: a title like

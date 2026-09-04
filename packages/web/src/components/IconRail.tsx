@@ -11,8 +11,8 @@
  *
  * Always drawn above 800px, whatever the sidebar is doing — a mode switcher
  * that can be collapsed is a mode switcher somebody loses. Below 800px it is
- * not drawn at all and its contents sit at the foot of the panel instead; the
- * two are never on screen at once.
+ * not drawn at all and the mode bar carries the same list along the foot of the
+ * screen instead (ADR-0074); the two are never on screen at once.
  */
 
 import type { ReactElement, ReactNode } from 'react';
@@ -28,16 +28,16 @@ export function IconRail({
 }: {
   here: Mode;
   /** The account menu, which is not a mode and is drawn apart from them.
-   *  Null below the breakpoint, where the panel's foot draws it instead. */
+   *  Null below the breakpoint, where the mode bar draws it instead. */
   account: ReactNode;
 }): ReactElement {
   const { t } = useT();
   /*
    * The first entry is your pages, and here it is the mark (ADR-0072).
    *
-   * Taken from the same list the panel's foot draws below 800px rather than
-   * named again here: a mode left out of one of the two drawings is a mode
-   * somebody cannot reach, which is exactly what happened on a phone.
+   * Taken from the same list the mode bar draws below 800px rather than named
+   * again here: a mode left out of one of the two drawings is a mode somebody
+   * cannot reach, which is exactly what happened on a phone (ADR-0072).
    */
   const [tree, ...rest] = useModes();
 
