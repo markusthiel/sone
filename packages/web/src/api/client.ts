@@ -1070,10 +1070,26 @@ export const api = {
   trash: (workspaceId: string) =>
     request<{ entries: TrashEntry[] }>(`/api/workspaces/${workspaceId}/trash`),
 
-  restoreEntry: (pageId: string) =>
+  /**
+   * Put an archived entry back, optionally somewhere else (ADR-0071).
+   *
+   * With no target it goes where it was, and a page whose folder is gone is
+   * refused with `parent_missing` rather than put somewhere plausible. With one,
+   * that folder is where it lands — which is the answer to that refusal.
+   */
+  restoreEntry: (pageId: string, parentPageId?: string) =>
     request<{ id: string; restoredToRoot: boolean }>(`/api/pages/${pageId}/restore`, {
       method: 'POST',
+      ...(parentPageId ? { body: JSON.stringify({ parentPageId }) } : {}),
     }),
+
+  /** What an entry says, as text, without opening it (ADR-0071). */
+  pagePreview: (pageId: string) =>
+    request<{
+      id: string;
+      blocks: Array<{ type: string; text: string }>;
+      truncated: boolean;
+    }>(`/api/pages/${pageId}/preview`),
 
   deleteEntryPermanently: (pageId: string) =>
     request<{ id: string; deleted: number }>(`/api/pages/${pageId}/permanently`, {
@@ -1315,6 +1331,15 @@ export const api = {
   /** Mark things read. With no ids, everything (ADR-0052). */
   markInboxRead: (ids?: string[]) =>
     post<{ marked: number }>('/api/inbox/read', ids ? { ids } : {}),
+
+  /**
+   * Put notifications back to waiting (ADR-0071).
+   *
+   * Only by id: "mark everything unread" answers no question anybody has, and
+   * it would undo a bankruptcy somebody declared on purpose.
+   */
+  markInboxUnread: (ids: string[]) =>
+    post<{ marked: number }>('/api/inbox/read', { ids, read: false }),
 
   /** Ask for the whole workspace as an archive. It becomes a job (ADR-0044). */
   startWorkspaceExport: (workspaceId: string, attachments: boolean) =>

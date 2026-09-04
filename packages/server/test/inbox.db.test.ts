@@ -194,6 +194,66 @@ test('a read notification stays in the list', async () => {
   assert.deepEqual(unread.notifications, [], 'and can be filtered out');
 });
 
+test('a notification can be put back to waiting', async () => {
+  /*
+   * Opened by accident, or read and not dealt with (ADR-0071).
+   *
+   * Without this, "unread" is a one-way door — and a list you cannot undo a
+   * click in is one people stop clicking in at all.
+   */
+  const anna = await person('gerda');
+  const id = await notify(anna, 'Versehentlich geöffnet');
+  const read = async (ids: string[], value?: boolean): Promise<Response> =>
+    fetch(`${base}/api/inbox/read`, {
+      method: 'POST',
+      headers: { cookie: anna.cookie, 'content-type': 'application/json' },
+      body: JSON.stringify(value === undefined ? { ids } : { ids, read: value }),
+    });
+
+  await read([id]);
+  await read([id], false);
+
+  const count = await expectJson<{ unread: number }>(
+    await fetch(`${base}/api/inbox/count`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.equal(count.unread, 1, 'waiting again');
+
+  // Only by id. "Mark everything unread" answers no question anybody has, and
+  // it would resurrect a bankruptcy somebody declared on purpose.
+  const all = await fetch(`${base}/api/inbox/read`, {
+    method: 'POST',
+    headers: { cookie: anna.cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ read: false }),
+  });
+  assert.equal(all.status, 422);
+});
+
+test('putting back somebody else’s notification does nothing', async () => {
+  // The same rule marking read follows: an id from another inbox matches
+  // nothing rather than being an error.
+  const anna = await person('hanna');
+  const bert = await person('ingo');
+  const theirs = await notify(bert, 'Fremd');
+  await fetch(`${base}/api/inbox/read`, {
+    method: 'POST',
+    headers: { cookie: bert.cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ ids: [theirs] }),
+  });
+
+  await fetch(`${base}/api/inbox/read`, {
+    method: 'POST',
+    headers: { cookie: anna.cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ ids: [theirs], read: false }),
+  });
+
+  const his = await expectJson<{ unread: number }>(
+    await fetch(`${base}/api/inbox/count`, { headers: { cookie: bert.cookie } }),
+    200,
+  );
+  assert.equal(his.unread, 0, 'still read, by the only person who may say so');
+});
+
 test('an archived page is not a place to be sent', async () => {
   const anna = await person('frida');
   await notify(anna, 'Zu einer Seite im Papierkorb');
