@@ -281,6 +281,16 @@ const SIMILAR_LIMIT = 5;
  */
 const SIMILARITY_FLOOR = 0.4;
 
+/**
+ * How much of an entry the preview says (ADR-0071).
+ *
+ * Forty blocks is a screen or two — enough to recognise a page and to see
+ * whether the part that mattered is in it. More would be the page, and the
+ * preview is deliberately not the page: it exists so somebody can decide
+ * whether to restore a thing, not so they can read it in the trash.
+ */
+const PREVIEW_BLOCKS = 40;
+
 export function registerPageRoutes(router: Router, deps: PageDeps): void {
   /**
    * The page tree for a workspace.
@@ -997,6 +1007,62 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
   });
 
   /**
+   * What an entry says, as text, without opening it (ADR-0071).
+   *
+   * For the trash: restoring is a decision, and "Notizen" as a title is not
+   * enough to make it — somebody has to be able to see what is in a thing
+   * before deciding whether to bring it back or destroy it. Opening it is not
+   * an option, because an archived page is not in the tree and the editor
+   * cannot reach it.
+   *
+   * Read from the projection the materialiser already writes for search:
+   * `blocks.plain_text`, in document order. Nothing new is stored, and nothing
+   * is computed here — this is a read of a table that exists.
+   *
+   * Text only, never marks or attachments. A preview that tried to be the page
+   * would be a second renderer to keep in step with the first, and this one has
+   * one job: enough to recognise the thing.
+   */
+  router.get('/api/pages/:pageId/preview', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const page = await loadPageLocation(deps.pool, pageId);
+    if (!page) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (!sessionTokenFrom(ctx)) {
+      ctx.fail(401, 'not_authenticated');
+      return;
+    }
+    const claims = await claimsOrNull(deps.pool, ctx, page.workspaceId);
+    // Reading is enough. Every role that may read the page may read what it
+    // says, which is the same rule the page itself follows.
+    if (!claims || effectiveRole(claims, page) === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    // One more than the limit, so "there is more" is known rather than guessed.
+    const rows = await queryRows<{ type: string; plain_text: string }>(
+      deps.pool,
+      `SELECT type, plain_text FROM blocks
+        WHERE page_id = $1 AND plain_text <> ''
+        ORDER BY idx
+        LIMIT $2`,
+      [pageId, PREVIEW_BLOCKS + 1],
+    );
+
+    ctx.send(200, {
+      id: pageId,
+      blocks: rows.slice(0, PREVIEW_BLOCKS).map((row) => ({
+        type: row.type,
+        text: row.plain_text,
+      })),
+      truncated: rows.length > PREVIEW_BLOCKS,
+    });
+  });
+
+  /**
    * Rename an entry.
    *
    * Writes the CRDT document, not the projection. The title lives in the
@@ -1639,7 +1705,78 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       return;
     }
 
+    /*
+     * Where to put it back, when the caller knows (ADR-0071).
+     *
+     * This route used to have exactly one answer for a page whose folder is
+     * gone: refuse. That was right — silently putting a page somewhere else is
+     * how somebody loses track of it a second time — but it left no way to say
+     * where it *should* go, so the only route out of the trash was blocked for
+     * the entries most likely to be in it.
+     *
+     * A body is optional here: no body at all is the old call, and it still
+     * means "put it back where it was".
+     */
+    let target: string | null = null;
+    try {
+      const body: { parentPageId?: unknown } = await ctx.json();
+      if (typeof body.parentPageId === 'string' && body.parentPageId !== '') {
+        target = body.parentPageId;
+      }
+    } catch {
+      // No body, or one that is not JSON. Both mean "where it was".
+    }
+
+    if (target !== null) {
+      if (target === pageId) {
+        // Its own parent. Refused here rather than left to the projection,
+        // which would produce a subtree that contains itself.
+        ctx.fail(422, 'invalid_parent');
+        return;
+      }
+      const folder = await queryOne<{
+        id: string;
+        kind: string;
+        workspace_id: string;
+        ancestor_ids: string[];
+      }>(
+        deps.pool,
+        `SELECT id, kind, workspace_id, ancestor_ids FROM pages
+          WHERE id = $1 AND archived_at IS NULL`,
+        [target],
+      );
+      // A folder, alive, in this workspace, that this person may write in. The
+      // same answer for every failure: a target somebody may not see must not
+      // be distinguishable from one that does not exist.
+      const targetRole =
+        folder && folder.workspace_id === page.workspaceId
+          ? effectiveRole(claims!, {
+              id: folder.id,
+              workspaceId: folder.workspace_id,
+              ancestorIds: folder.ancestor_ids,
+              restricted: false,
+            })
+          : null;
+      if (
+        !folder ||
+        folder.kind !== 'folder' ||
+        targetRole === null ||
+        targetRole === 'viewer' ||
+        targetRole === 'commenter'
+      ) {
+        ctx.fail(404, 'not_found');
+        return;
+      }
+      // Its own descendant would be a cycle: restoring into a folder that is
+      // inside the thing being restored.
+      if (folder.ancestor_ids.includes(pageId)) {
+        ctx.fail(422, 'invalid_parent');
+        return;
+      }
+    }
+
     const parentAlive =
+      target !== null ||
       row.parent_page_id === null ||
       (await queryOne(
         deps.pool,
@@ -1647,10 +1784,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         [row.parent_page_id],
       )) !== null;
 
-    if (!parentAlive) {
-      if (row.kind !== 'folder') {
-        // Reported rather than guessed at. Silently putting a page somewhere
-        // else is how somebody loses track of it a second time.
+    if (!parentAlive || target !== null) {
+      if (!parentAlive && row.kind !== 'folder') {
+        // Reported rather than guessed at, exactly as before: without a target
+        // this is still a refusal, and the interface asks where instead.
         ctx.fail(409, 'parent_missing');
         return;
       }
@@ -1660,7 +1797,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         deps.pool,
         pageId,
         (doc) => {
-          doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.parentPageId, null);
+          doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.parentPageId, target);
         },
         actorId,
       );
@@ -1676,7 +1813,9 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       [pageId],
     );
 
-    ctx.send(200, { id: pageId, restoredToRoot: !parentAlive });
+    // "To the root" only when nowhere was asked for: a caller that named a
+    // folder knows where its entry went.
+    ctx.send(200, { id: pageId, restoredToRoot: !parentAlive && target === null });
   });
 
   /**

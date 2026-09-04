@@ -692,6 +692,16 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   gap: 4px;
 }
 
+/* Looking for something in a menu of thirty deletions (ADR-0071).
+ *
+ * In the body rather than the head: it narrows the views below it and belongs
+ * with them, and the head is for what the mode *is*. */
+.panel-search {
+  inline-size: 100%;
+  min-block-size: var(--sone-control);
+  margin-block-end: var(--sone-space-3);
+}
+
 .panel-menu-group {
   display: flex;
   flex-direction: column;
@@ -874,6 +884,38 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 
 /* The clock on a deleted entry, and louder in its last week. */
 .trash-left[data-soon='true'] { color: var(--danger); }
+
+/* The row keeps its two halves side by side (ADR-0071).
+ *
+ * `.admin-row` wraps, and wrapping is decided on an item's *natural* width
+ * rather than by shrinking it — so a trash row, whose left half carries a long
+ * line of prose and whose right half carries three buttons, put the buttons on
+ * a line of their own, left-aligned under the title. Letting the left half
+ * shrink keeps them where every other row in the table has them. */
+/* Basis zero, not auto: with `auto` the base size is the content's own
+   width, which is what made the row wrap in the first place. */
+.trash-row .admin-row-main { flex: 1 1 0; min-inline-size: 12rem; }
+
+/* Reading a deleted entry before deciding about it (ADR-0071).
+ *
+ * Under the row and inside it, because it belongs to that row and to no other.
+ * Full width: it is prose, and prose in the width left over beside two buttons
+ * is unreadable. Set apart by a rule at its start rather than a box, so it does
+ * not read as a second table inside the first. */
+.trash-preview {
+  flex-basis: 100%;
+  margin-block-start: var(--sone-space-3);
+  padding-inline-start: var(--sone-space-4);
+  border-inline-start: 2px solid var(--sone-border);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.trash-preview p { margin-block: var(--sone-space-2); }
+/* Enough shape to recognise the page by. Not the page: a preview that tried to
+   render the document would be a second renderer to keep in step with the
+   first. */
+.trash-preview p[data-block='heading'] { font-weight: 600; color: var(--sone-text); }
+.trash-preview p[data-block='code'] { font-family: var(--sone-font-mono); }
 
 .panel-mode[aria-current='page'] {
   background: var(--surface-hover);
@@ -2322,6 +2364,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* The row is a link and a button side by side (ADR-0071), so the link takes
+     the width that is left and the button sits at its end. */
+  flex: 1 1 auto;
+  min-inline-size: 0;
   padding: var(--sone-space-3);
   border-radius: var(--sone-radius);
   color: inherit;
@@ -2334,6 +2380,41 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .inbox-list li[data-read='true'] .inbox-what { font-weight: 400; color: var(--sone-text-muted); }
 .inbox-excerpt { font-size: var(--sone-text-sm); }
 .inbox-where { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+
+/* --- a row is a conversation (ADR-0071) --- */
+
+/* The row is a link and a button side by side, so the link takes the width and
+   the button sits at its end rather than under it. */
+.inbox-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  border-radius: var(--sone-radius);
+}
+.inbox-list li:has(a:focus-visible) { background: var(--sone-bg-hover); }
+
+/* How many times this conversation spoke, beside what kind of thing it is.
+   Mono and small, like every other count in the interface. */
+.inbox-times {
+  margin-inline-start: var(--sone-space-2);
+  font-family: var(--sone-font-mono);
+  font-size: var(--sone-text-xs);
+  font-weight: 400;
+  color: var(--sone-text-muted);
+}
+
+/* The same two acts the keys perform, for everybody not using them. Always
+   drawn, never on hover: a control that appears when a pointer is near it does
+   not exist on a phone (ADR-0016). */
+.inbox-mark {
+  flex: none;
+  padding: 4px 8px;
+  font-size: var(--sone-text-xs);
+  color: var(--sone-text-muted);
+}
+
+/* The keys, said once above the list rather than repeated on every row. */
+.inbox-keys { font-family: var(--sone-font-mono); font-size: var(--sone-text-xs); }
 
 /* Searches somebody kept (ADR-0050). Under an empty field, where they are
    about to run one again. */

@@ -14,8 +14,8 @@ import { FolderView } from './components/FolderView.tsx';
 import { IconRail } from './components/IconRail.tsx';
 import { modeOf } from './components/modes.tsx';
 import { AccountMenu } from './components/AccountMenu.tsx';
-import { InboxPanel, itemsIn, type InboxView } from './components/InboxPanel.tsx';
-import { TrashPanel, entriesIn, type TrashView } from './components/TrashPanel.tsx';
+import { InboxPanel, type InboxView } from './components/InboxPanel.tsx';
+import { TrashPanel, type TrashView } from './components/TrashPanel.tsx';
 import { useInbox } from './hooks/useInbox.ts';
 import { SectionNav, resolveSection, type SectionGroup } from './components/SectionNav.tsx';
 import { SECTIONS as YOU_SECTIONS } from './components/Settings.tsx';
@@ -373,6 +373,14 @@ function Workspace({
   const [inboxView, setInboxView] = useState<InboxView>({ of: 'unread' });
   const [trashEntries, setTrashEntries] = useState<TrashEntry[] | null>(null);
   const [trashView, setTrashView] = useState<TrashView>('recent');
+  /*
+   * What is being looked for in the trash (ADR-0071).
+   *
+   * Held here rather than in the panel, for the same reason the view is: the
+   * menu counts what the list shows, and a query the panel kept to itself would
+   * be a filter the counts did not know about.
+   */
+  const [trashQuery, setTrashQuery] = useState('');
 
   /*
    * The settings menu: you, and the server (ADR-0070).
@@ -744,7 +752,13 @@ function Workspace({
           <InboxPanel items={inbox.items} view={inboxView} onPick={setInboxView} />
         )}
         {mode === 'trash' && (
-          <TrashPanel entries={trashEntries} view={trashView} onPick={setTrashView} />
+          <TrashPanel
+            entries={trashEntries}
+            view={trashView}
+            query={trashQuery}
+            onPick={setTrashView}
+            onSearch={setTrashQuery}
+          />
         )}
         {mode === 'settings' && (
           <SectionNav groups={settingsGroups} current={settingsCurrentHref} />
@@ -883,8 +897,10 @@ function Workspace({
           <Trash
             workspaceId={workspaceId}
             view={trashView}
+            query={trashQuery}
             entries={trashEntries}
             onEntries={setTrashEntries}
+            tree={tree}
             onChanged={() => void reloadPages()}
           />
         )}
@@ -939,9 +955,13 @@ function Workspace({
 
         {route.kind === 'inbox' && (
           <InboxScreen
-            items={inbox.items === null ? null : itemsIn(inbox.items, inboxView)}
+            /* Everything, and the view with it: the rows are conversations
+               rather than notifications now, and grouping has to happen after
+               filtering or a thread would be split across views (ADR-0071). */
+            items={inbox.items}
+            view={inboxView}
             error={inbox.error}
-            onRead={inbox.markRead}
+            onRead={inbox.setRead}
           />
         )}
 
