@@ -11,10 +11,21 @@
 
 import type { Pool } from 'pg';
 
-import { AuthError } from '../auth/password.js';
+import { AuthError, verifyPassword } from '../auth/password.js';
 import { issueReset, redeemReset } from '../auth/reset.js';
 import {
+  checkSecondFactor,
+  confirmEnrolment,
+  hasSecondFactor,
+  readTicket,
+  recoveryCodesLeft,
+  removeSecondFactor,
+  signTicket,
+  startEnrolment,
+} from '../auth/secondFactor.js';
+import {
   LOGIN_ATTEMPT_LIMIT,
+  createSession,
   recentFailures,
   recordAttempt,
   changePassword,
@@ -61,6 +72,10 @@ export interface AuthDeps {
   sendResetMail: (to: string, token: string, expiresAt: Date) => Promise<void>;
   /** Tell an account with no password where it actually signs in (ADR-0059). */
   sendProviderMail: (to: string) => Promise<void>;
+  /** For signing the half-finished sign-in ticket, and sealing TOTP secrets. */
+  secretKey: string;
+  /** What an authenticator app calls this instance (ADR-0063). */
+  instanceName: () => Promise<string>;
   pool: Pool;
   /**
    * Who may create an account.
@@ -392,6 +407,32 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         userAgent: ctx.req.headers['user-agent'] ?? null,
         ipPrefix: ipPrefix(ctx),
       });
+
+      /*
+       * The password was checked in full before we got here (ADR-0063).
+       *
+       * Including its scrypt cost, which is the point: the second step must not
+       * be usable to learn whether a password was right. A wrong password never
+       * reaches this line at all.
+       */
+      if (await hasSecondFactor(deps.pool, session.userId)) {
+        /*
+         * The session exists but its cookie is not set. Instead the caller gets
+         * a ticket naming the account, signed and good for five minutes.
+         *
+         * Signed rather than stored, like the reply and reset tokens: no table,
+         * nothing to sweep, and nothing that can go missing between two
+         * requests a few seconds apart. Five minutes because that is somebody
+         * reaching for their phone, not somebody leaving for lunch.
+         */
+        await revokeSession(deps.pool, session.sessionId);
+        ctx.send(200, {
+          needsSecondFactor: true,
+          ticket: signTicket(session.userId, deps.secretKey),
+        });
+        return;
+      }
+
       setSessionCookie(ctx, session.token, deps.secureCookies);
       ctx.sendEmpty(204);
     } catch (err) {
@@ -607,6 +648,145 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
    * Rate limited on the mechanism sign-in already uses, keyed by address: two
    * limiters are two answers to "is this too many" and they drift.
    */
+  /**
+   * The second step of signing in (ADR-0063).
+   *
+   * The ticket proves a password was accepted a moment ago; it grants nothing
+   * on its own. A wrong code here is rate limited on the same mechanism as the
+   * password, keyed by account, so a stolen password plus a code generator gets
+   * ten tries rather than unlimited ones.
+   */
+  router.post('/api/auth/login/second', async (ctx) => {
+    const body = await readBody<{ ticket?: string; code?: string }>(ctx);
+    if (!body) return;
+
+    const userId = readTicket(body.ticket ?? '', deps.secretKey);
+    if (!userId) {
+      // Expired or forged: the same answer, because there is nothing useful to
+      // tell either one.
+      ctx.fail(401, 'ticket_expired');
+      return;
+    }
+
+    const rateKey = `second:${userId}`;
+    if ((await recentFailures(deps.pool, rateKey)) >= LOGIN_ATTEMPT_LIMIT) {
+      ctx.fail(429, 'rate_limited');
+      return;
+    }
+
+    const client = await deps.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const found = await checkSecondFactor(client, userId, body.code ?? '', deps.secretKey);
+      await client.query('COMMIT');
+
+      if (!found.ok) {
+        await recordAttempt(deps.pool, rateKey, false, ipPrefix(ctx));
+        ctx.fail(401, found.reason === 'replayed' ? 'code_already_used' : 'wrong_code');
+        return;
+      }
+
+      const session = await createSession(deps.pool, userId, {
+        userAgent: ctx.req.headers['user-agent'] ?? null,
+        ipPrefix: ipPrefix(ctx),
+      });
+      setSessionCookie(ctx, session.token, deps.secureCookies);
+      ctx.send(200, {
+        // So somebody who has just spent their ninth code hears about it.
+        ...(found.usedRecovery ? { usedRecovery: true } : {}),
+        recoveryCodesLeft: await recoveryCodesLeft(deps.pool, userId),
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  });
+
+  /** Begin enrolling. The secret is shown here and stored pending. */
+  router.post('/api/auth/second-factor/start', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    const started = await startEnrolment(
+      deps.pool,
+      auth.userId,
+      auth.email ?? auth.userId,
+      await deps.instanceName(),
+      deps.secretKey,
+    );
+    if (!started) {
+      // One is already confirmed. Replacing it silently would disarm the
+      // account for anybody holding a session (ADR-0063).
+      ctx.fail(409, 'already_enrolled');
+      return;
+    }
+    ctx.send(200, started);
+  });
+
+  /** Finish enrolling by proving a code, and hand over the recovery codes. */
+  router.post('/api/auth/second-factor/confirm', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+    const body = await readBody<{ code?: string }>(ctx);
+    if (!body) return;
+
+    const client = await deps.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const done = await confirmEnrolment(
+        client,
+        auth.userId,
+        body.code ?? '',
+        deps.secretKey,
+      );
+      await client.query('COMMIT');
+
+      if (!done.ok) {
+        ctx.fail(422, done.reason);
+        return;
+      }
+      // Once, and never again: they are stored hashed, so the server could not
+      // show them a second time even if somebody asked.
+      ctx.send(200, { recoveryCodes: done.recoveryCodes });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  });
+
+  /**
+   * Turn it off, which needs the password (ADR-0063).
+   *
+   * An open laptop must not be enough to remove somebody's second factor —
+   * that is the exact situation it exists for.
+   */
+  router.post('/api/auth/second-factor/remove', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+    const body = await readBody<{ password?: string }>(ctx);
+    if (!body) return;
+
+    const row = await queryOne<{ password_hash: string | null }>(
+      deps.pool,
+      `SELECT password_hash FROM users WHERE id = $1`,
+      [auth.userId],
+    );
+    const check = row?.password_hash
+      ? await verifyPassword(body.password ?? '', row.password_hash)
+      : { valid: false, needsRehash: false };
+    if (!check.valid) {
+      ctx.fail(403, 'wrong_password');
+      return;
+    }
+
+    await removeSecondFactor(deps.pool, auth.userId);
+    ctx.sendEmpty(204);
+  });
+
   router.post('/api/auth/reset/request', async (ctx) => {
     let body: { email?: unknown };
     try {

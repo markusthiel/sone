@@ -122,6 +122,21 @@ Enrolling again while a factor is confirmed is refused rather than replacing it.
 That is the one thing this must never do silently — replacing a live secret
 would disarm the account for anybody holding a session.
 
+**The routes**, including the half-finished sign-in.
+
+Between the two steps there is a **ticket**: signed, five minutes, naming the
+account. Signed rather than stored, like the reply and reset tokens — no table,
+nothing to sweep, nothing that can go missing between two requests seconds
+apart. It proves a password was accepted a moment ago and grants nothing on its
+own.
+
+The first step sets **no cookie**, and the session it created is revoked before
+the ticket is handed over: a half-finished sign-in must not leave a usable
+session lying about if somebody closes the tab.
+
+Second-step attempts are rate limited on `auth_attempts` keyed by account, so a
+stolen password plus a code generator gets ten tries rather than unlimited ones.
+
 ## Consequences
 
 One table, three routes, two screens, and a branch in sign-in. An administrator
