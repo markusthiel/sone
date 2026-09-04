@@ -130,6 +130,12 @@ jobs:
         # beyond the feature not working.
         run: node scripts/check-env-reaches-container.mjs
 
+      - name: Check no record claims to be unbuilt
+        # ADR-0054 said "nothing built yet" for two sessions after the feature
+        # shipped. A status that lies is worse than none: the next reader takes
+        # the whole record for a plan rather than a description.
+        run: node scripts/check-adr-status.mjs
+
       - name: Check workspace dependency build order
         # A typecheck script that does not build its workspace dependencies
         # passes where a build has already run and fails on a clean checkout.
