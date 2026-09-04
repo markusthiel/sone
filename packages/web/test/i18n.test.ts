@@ -203,7 +203,6 @@ const MIGRATED = [
   'src/components/MoveDialog.tsx',
   'src/components/InvitePanel.tsx',
   'src/components/PendingInvitations.tsx',
-  'src/components/WorkspaceInvite.tsx',
   'src/components/GroupsPanel.tsx',
   'src/components/PagePermissions.tsx',
   'src/components/OidcPanel.tsx',
