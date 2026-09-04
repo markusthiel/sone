@@ -13,7 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Fixed: two things you could not actually do.** Requiring two-step sign-in had
+no switch in the administration, and lifting somebody's second factor — the only
+way back for a person who has lost both their phone and their recovery codes —
+had no button. Both worked over the API and nowhere else. There is now a check
+that every route the server offers is one the interface can reach.
 
 ## 0.9.0
 

@@ -2,7 +2,18 @@
 
 ## Status
 
-Accepted and built end to end.
+Accepted and built end to end — **after a correction.**
+
+This record said "built end to end" for three releases while two of its parts
+had no control in the interface at all: switching the requirement on, and an
+administrator lifting somebody's factor. The setting existed, the gate enforced
+it, the mails sent, the tests passed — and an operator could only do either
+through the API.
+
+Found by an audit of every server route against the URLs the interface builds,
+now `scripts/check-routes-reachable.mjs`. **A feature reachable only with curl
+is not a feature, and a record that says otherwise is worse than one that says
+nothing.**
 
 ## Context
 
