@@ -537,9 +537,6 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       timezone: string | null;
       is_instance_admin: boolean;
       can_manage_workspaces: boolean;
-      email_mentions: boolean;
-      email_assignments: boolean;
-      email_replies: boolean;
       mentions_when: string;
       assignments_when: string;
       replies_when: string;
