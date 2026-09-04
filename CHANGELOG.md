@@ -36,6 +36,15 @@ server like everything else — no request leaves the instance to fetch them.
 Section labels and counts are set in the monospaced face, which is what tells a
 label naming a place apart from a title naming a page.
 
+A page's title is set firm and tight now instead of large and thin. Headings
+*inside* a note are unchanged and stay light — the two had been sharing one
+setting, so a decision made about writing was being applied to the label on the
+window as well.
+
+Anything technical is set in the monospaced face: the path above a title, the
+column headers in a table, a file's size and date, version numbers, the counts
+beside a section. A table's header is a firm line now rather than a grey band.
+
 A narrow rail down the left edge holds the mark and three places: your inbox,
 your workspaces, the trash. They have moved out of the account menu rather than
 being repeated there — the menu is you and the server now, which is what it is
