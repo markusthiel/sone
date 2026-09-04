@@ -25,6 +25,14 @@ export interface DigestReader {
   email: string;
   isAdmin: boolean;
   since: Date;
+  /**
+   * Everything visible, or only what this person watches (ADR-0064).
+   *
+   * `all` is what the digest has always done and stays the default: a release
+   * that silently narrows what somebody receives is as bad as one that widens
+   * it.
+   */
+  scope?: 'all' | 'watched';
 }
 
 export interface ChangedPage {
@@ -83,9 +91,30 @@ export async function changedFor(
             ))
         -- The same condition the tree and search use, per recipient (ADR-0062).
         AND ${visiblePagesCondition('p', '$1', '$3')}
+        -- Watched, when that is the scope (ADR-0064).
+        --
+        -- The page itself, or anything under a watched folder: somebody who
+        -- watches Projekte means the project pages, and a folder that only
+        -- changes when it is renamed would be a subscription to nothing. The
+        -- overlap operator over ancestor_ids, the same expansion the in: search
+        -- filter uses -- recording the descendants instead would mean a set
+        -- that goes stale the moment somebody moves a page.
+        --
+        -- A page watched and also under a watched folder appears once. That is
+        -- a set, not a count.
+        -- Aliased watch, not w: this statement already joins workspaces as w,
+        -- and shadowing it inside a subquery made the SQL column guard resolve
+        -- the outer w.id and w.name against watched_pages. It was right to
+        -- complain -- a reader who has to track which w is which is a reader
+        -- who will misread one of them.
+        AND ($4::boolean IS NOT TRUE OR EXISTS (
+              SELECT 1 FROM watched_pages watch
+               WHERE watch.user_id = $1
+                 AND (watch.page_id = p.id OR watch.page_id = ANY(p.ancestor_ids))
+            ))
       ORDER BY p.last_edited_at DESC
       LIMIT ${MAX_LINES + 1}`,
-    [reader.userId, reader.since, reader.isAdmin],
+    [reader.userId, reader.since, reader.isAdmin, reader.scope === 'watched'],
   );
 }
 
@@ -174,6 +203,7 @@ export async function sendActivityDigests(
     email: string;
     is_instance_admin: boolean;
     activity_digest: 'daily' | 'weekly';
+    digest_scope: 'all' | 'watched';
     since: Date;
   }>(
     deps.pool,
@@ -181,6 +211,7 @@ export async function sendActivityDigests(
             u.email,
             u.is_instance_admin,
             u.activity_digest,
+            u.digest_scope,
             -- Since the last one, or since the period implies. Null would
             -- otherwise mean "everything ever", which is a first mail nobody
             -- reads.
@@ -215,6 +246,7 @@ export async function sendActivityDigests(
       email: reader.email,
       isAdmin: reader.is_instance_admin,
       since: reader.since,
+      scope: reader.digest_scope,
     });
 
     const composed = composeDigest(

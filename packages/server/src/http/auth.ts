@@ -544,13 +544,15 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       assignments_when: string;
       replies_when: string;
       activity_digest: string;
+      digest_scope: string;
     }>(
       deps.pool,
       // The rights come with the session, so the interface can hide a section
       // somebody cannot reach rather than showing it and failing on arrival
       // (ADR-0027).
       `SELECT locale, timezone, is_instance_admin, can_manage_workspaces,
-              mentions_when, assignments_when, replies_when, activity_digest
+              mentions_when, assignments_when, replies_when, activity_digest,
+              digest_scope
          FROM users WHERE id = $1`,
       [auth.userId],
     );
@@ -582,6 +584,7 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         assignmentsWhen: user?.assignments_when ?? 'immediately',
         repliesWhen: user?.replies_when ?? 'off',
         activityDigest: user?.activity_digest ?? 'off',
+        digestScope: user?.digest_scope ?? 'all',
       },
       workspaces,
     });
@@ -925,6 +928,8 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       repliesWhen?: 'immediately' | 'daily' | 'off';
       /** A mail about what changed, off unless chosen (ADR-0062). */
       activityDigest?: 'off' | 'daily' | 'weekly';
+      /** Everything visible, or only what is watched (ADR-0064). */
+      digestScope?: 'all' | 'watched';
     }>(ctx);
     if (!body) return;
 
@@ -939,7 +944,8 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
               mentions_when = coalesce($5, mentions_when),
               assignments_when = coalesce($6, assignments_when),
               replies_when = coalesce($7, replies_when),
-              activity_digest = coalesce($8, activity_digest)
+              activity_digest = coalesce($8, activity_digest),
+              digest_scope = coalesce($9, digest_scope)
         WHERE id = $1`,
       [
         auth.userId,
@@ -953,6 +959,9 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         body.activityDigest === 'daily' ||
         body.activityDigest === 'weekly'
           ? body.activityDigest
+          : null,
+        body.digestScope === 'all' || body.digestScope === 'watched'
+          ? body.digestScope
           : null,
       ],
     );

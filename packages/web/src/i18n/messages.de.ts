@@ -483,6 +483,12 @@ export const de: Record<keyof typeof en, string> = {
   'you.activity.hint':
     'Eine Liste geänderter Seiten aus den eigenen Workspaces — Titel und Namen, ' +
     'nie der Inhalt, und nie eine Seite ohne Zugriff. Aus, bis sie gewählt wird.',
+  'you.activity.scope': 'Was sie umfasst',
+  'you.activity.scope.hint':
+    'Einen Ordner zu beobachten umfasst alles darunter. Was ohne Zugriff ist, ' +
+    'steht so oder so nie darin.',
+  'you.activity.scope.all': 'Alles Sichtbare',
+  'you.activity.scope.watched': 'Nur beobachtete Seiten',
   'you.activity.off': 'Keine solche Mail',
   'you.activity.daily': 'Jeden Werktagmorgen',
   'you.activity.weekly': 'Montagmorgens',
@@ -1334,6 +1340,7 @@ export const de: Record<keyof typeof en, string> = {
     'App verloren? Dann einen der Wiederherstellungscodes benutzen. Sind auch ' +
     'die weg, kann die Betreiberin dieser Instanz den zweiten Faktor entfernen.',
   'error.unknown_account': 'Dieses Konto gibt es nicht.',
+  'error.page_not_found': 'Diese Seite gibt es nicht.',
   'error.wrong_code': 'Dieser Code stimmt nicht.',
   'error.code_already_used':
     'Dieser Code wurde bereits benutzt. Auf den nächsten warten.',
