@@ -27,7 +27,8 @@ export const de: Record<keyof typeof en, string> = {
   'account.label.waiting': '{name}, {count} Benachrichtigungen wartend',
   'inbox.title': 'Posteingang',
   'settings.title': 'Einstellungen',
-  'settings.scope': 'Persönlich · Workspace · Instanz',
+  // Zwei Bereiche, nicht drei: der Workspace hat einen eigenen (ADR-0070).
+  'settings.scope': 'Persönlich · Instanz',
   'inbox.group.state': 'Posteingang',
   'inbox.group.kind': 'Nach Art',
   'inbox.group.workspace': 'Nach Workspace',
@@ -681,6 +682,7 @@ export const de: Record<keyof typeof en, string> = {
   'workspaces.nameField': 'Name des Workspace',
   'workspaces.new': 'Neuer Workspace',
   'workspaces.all': 'Alle Workspaces',
+  'workspaces.chosen': 'Dieser Workspace',
 
   // --- die längeren Erklärungen ------------------------------------------
   'landing.note':
