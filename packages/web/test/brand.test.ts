@@ -83,3 +83,37 @@ test('the rail is absent below the breakpoint rather than empty', () => {
   assert.match(css, /\.icon-rail \{[^}]*display: none/);
   assert.match(css, /@media \(min-width: 800px\) \{\s*\.icon-rail \{ display: flex; \}/);
 });
+
+test('a surface with no tint set is opaque', () => {
+  /*
+   * `transparent` is rgb(0 0 0 / 0), so mixing 16% of it into the chrome did
+   * not mix in nothing — it mixed in 16% of nothing at all and came out at 0.84
+   * alpha. Every surface was slightly see-through. Invisible on a column
+   * against the page, and unmistakable on the sidebar's drawer, where the page
+   * showed through the navigation.
+   *
+   * A colour mixed with itself is itself, so the fallback is the base and the
+   * tinted case is untouched.
+   */
+  assert.doesNotMatch(css, /--sone-theme-tint, transparent/);
+  for (const mix of css.match(/color-mix\(in srgb, var\(--sone-theme-tint[^;]*/g) ?? []) {
+    const parsed = /var\(--sone-theme-tint, (.+?)\) \d+%, (.+?)\)\s*;?$/.exec(mix.trim());
+    assert.ok(parsed, `a tint mix names its fallback: ${mix}`);
+    assert.equal(parsed?.[1], parsed?.[2], `the fallback is the base: ${mix}`);
+  }
+});
+
+test('the tint reaches both ways into dark', () => {
+  // It reached somebody who chose dark and vanished for somebody whose system
+  // chose it for them — the same interface by two routes, one of them tinted.
+  const automatic =
+    /:root:not\(\[data-theme='light'\]\)\s*\{([\s\S]*?)\n {2}\}/.exec(css)?.[1] ?? '';
+  assert.ok(automatic.length > 0, 'the automatic dark theme was found');
+  for (const name of ['--surface-chrome', '--surface-page', '--surface-hover']) {
+    assert.match(
+      automatic,
+      new RegExp(`${name}: color-mix\\(in srgb, var\\(--sone-theme-tint`),
+      `${name} mixes the tint in the automatic dark theme too`,
+    );
+  }
+});

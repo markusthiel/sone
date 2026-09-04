@@ -7,6 +7,17 @@ Accepted and implemented.
 Extended since: the page and the chrome are separate surface roles, which is what
 puts the writing on white and the furniture a step away from it.
 
+Corrected since: the tint's fallback is each surface's own base colour, not
+`transparent`. `transparent` is rgb(0 0 0 / 0), so a workspace with no tint set
+was not mixing in nothing — it was mixing in 3-16% of *nothing at all*, and every
+surface in the interface came out translucent, the chrome at 0.84 alpha. It was
+invisible on a column against the page and unmistakable on the sidebar's drawer,
+where the page showed through the navigation. A colour mixed with itself is
+itself, so the untinted case is now exactly the base and the tinted case is
+unchanged. The automatic dark theme was not mixing the tint at all, which meant a
+workspace tint reached somebody who chose dark and vanished for somebody whose
+system chose it for them; it mixes now, in the dark theme's proportions.
+
 ## Context
 
 Light and dark already exist: six variables, declared once under
