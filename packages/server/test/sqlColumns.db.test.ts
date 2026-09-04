@@ -209,19 +209,9 @@ describe(
     // Written by their column default, read by a human looking at the table.
     'group_members.added_at',
     'schema_migrations.applied_at',
-    /*
-     * Superseded by the per-kind columns in 0050, kept for one release
-     * (ADR-0061 amendment).
-     *
-     * A rollback to 0.6.0 must find them, and dropping a column is the one
-     * migration that running the next one cannot undo. **Drop after 0.7.0**,
-     * and delete these four lines with them — an allowance nobody removes is
-     * how a guard becomes decoration.
-     */
-    'users.email_mentions',
-    'users.email_assignments',
-    'users.email_replies',
-    'users.email_schedule',
+    // The four superseded mail columns were here, allowed for one release with
+    // "drop after 0.7.0" written beside them. 0053 dropped them and these four
+    // lines went in the same commit.
   ]);
 
   test('the schema names no column the code has forgotten', async () => {

@@ -13,6 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Removed the four mail-preference columns** that 0.7.0 superseded and kept for
+one release. Nothing read them; the preferences themselves are untouched.
+
 **Pages can be watched**, with a bell beside the star in an entry's menu
 ([ADR-0064](docs/adr/0064-watching.md)) — watching a folder covers everything
 under it. The mail about what changed can then be narrowed to only what you

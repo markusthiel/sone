@@ -60,6 +60,11 @@ The old columns migrate into the new ones per account, so nobody's mail changes:
 a kind that was off stays off, and one that was on takes whatever schedule the
 account had.
 
+They were kept for one release and **dropped in 0053**, once 0.7.0 had shipped
+and a rollback could no longer reach a version that read them. The allowance
+naming them in the SQL column guard went in the same commit — an allowance
+nobody removes is how a guard becomes decoration.
+
 ### It is sent in the person's own morning
 
 The account already carries a timezone, used for dates in the interface. A digest
