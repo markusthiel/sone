@@ -16,7 +16,6 @@ export const en = {
   'account.label': '{name} — account and settings',
   'account.yourSettings': 'Your settings',
   'account.workspaces': 'Workspaces',
-  'account.thisWorkspace': 'This workspace',
   'account.administration': 'Administration',
   'account.inbox': 'Inbox',
   'account.inbox.waiting': 'Inbox, {count} waiting',
@@ -261,14 +260,13 @@ export const en = {
   // --- the administration area -------------------------------------------
   'admin.instance': 'This instance',
   'admin.instance.hint': 'Name, sign-up and defaults',
+  'admin.workspaces': 'Workspaces',
   'admin.accounts': 'Accounts',
   'admin.accounts.hint': 'Everybody with an account here',
   'admin.accounts.note':
     'Deactivating keeps the account and its work, and signs it out immediately. ' +
     'Accounts are never deleted from here: removing one would take every page it ' +
     'created with it, and “this person has left” is not “their work never happened”.',
-  'admin.workspaces': 'All workspaces',
-  'admin.workspaces.hint': 'Every workspace here, and who is in them',
   'admin.invitations': 'Invitations',
   'admin.invitations.hint': 'An account and a workspace of their own — no team',
   'admin.sso': 'Single sign-on',
@@ -285,10 +283,6 @@ export const en = {
   'admin.mayCreateWorkspaces.hint':
     'Off means only administrators make them. Everybody keeps their own personal one ' +
     'either way — it is not a team.',
-  'admin.sizesOnly':
-    'Sizes only. Administering the instance does not include reading what is in a ' +
-    'workspace — that needs membership, which is a decision somebody takes rather than ' +
-    'a button here.',
   'admin.maintenance.run': 'Run maintenance now',
   'admin.maintenance.running': 'Running…',
   'admin.maintenance.note':

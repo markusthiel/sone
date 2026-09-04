@@ -33,7 +33,6 @@ import { OidcPanel } from './OidcPanel.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { SettingsShell, resolveSection, type ShellSection } from './SettingsShell.tsx';
-import { WorkspaceList } from './WorkspaceList.tsx';
 
 /**
  * A section, before it is translated.
@@ -83,14 +82,6 @@ const SECTIONS: readonly AdminSection[] = [
     hint: 'admin.mail.section.hint',
     admin: true,
   },
-  {
-    id: 'workspaces',
-    label: 'admin.workspaces',
-    // Distinct from the workspace area: that one is the workspace you are in,
-    // this is every workspace here including ones you are not a member of.
-    hint: 'admin.workspaces.hint',
-    manager: true,
-  },
   { id: 'maintenance', label: 'admin.maintenance', hint: 'admin.maintenance.hint', admin: true },
 ];
 
@@ -113,12 +104,16 @@ export function AdminScreen({
   const { t } = useT();
   const { isAdmin } = useIsInstanceAdmin();
   const [listOpen, setListOpen] = useState(false);
-  // Which workspace is open in the list, if any. State rather than a route,
-  // because it is a step inside one section and not a place to link to.
-  const canManageWorkspaces = isAdmin === true || session.user.canManageWorkspaces;
+  /*
+   * Every section here is the instance now (ADR-0067 amendment).
+   *
+   * The workspaces section is gone, and with it the only one that answered to
+   * the workspace-management right rather than to being an instance
+   * administrator. Workspaces are not instance settings — they have their own
+   * area, which everybody reaches.
+   */
   const available = SECTIONS.filter((entry) => {
     if (entry.admin) return isAdmin === true;
-    if (entry.manager) return canManageWorkspaces;
     return true;
   });
 
@@ -161,28 +156,6 @@ export function AdminScreen({
       {current === 'sso' && <OidcPanel />}
       {current === 'mail' && <MailPanel />}
       {current === 'maintenance' && <MaintenancePanel />}
-      {/* The list opens the one workspace screen, rather than a second one
-        * beside it (ADR-0067).
-        *
-        * `WorkspaceDetail` used to be rendered here and had drifted from the
-        * screen at `/workspace/…`: four sections overlapped and each had one
-        * the other lacked, so neither could do the whole job. Navigating means
-        * there is one screen, one URL, and nothing left to drift. */}
-      {current === 'workspaces' && (
-          <WorkspaceList
-            currentWorkspaceId={workspaceId}
-            onOpen={(id) => {
-              window.location.assign(paths.workspaceSettings('general', id));
-            }}
-            onRestore={(id) => {
-              // Restoring is one click, unlike deleting: putting something back
-              // is not the action that needs slowing down.
-              void api
-                .setWorkspaceDeletion(id, { restore: true })
-                .then(() => window.location.reload());
-            }}
-          />
-      )}
     </SettingsShell>
   );
 }

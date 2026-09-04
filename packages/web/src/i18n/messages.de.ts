@@ -22,7 +22,6 @@ export const de: Record<keyof typeof en, string> = {
   'account.yourSettings':
     '{address, select, formal {Ihre Einstellungen} other {Deine Einstellungen}}',
   'account.workspaces': 'Workspaces',
-  'account.thisWorkspace': 'Dieser Workspace',
   'account.administration': 'Verwaltung',
   'account.inbox': 'Posteingang',
   'account.inbox.waiting': 'Posteingang, {count} wartend',
@@ -283,14 +282,13 @@ export const de: Record<keyof typeof en, string> = {
   // --- der Verwaltungsbereich --------------------------------------------
   'admin.instance': 'Diese Instanz',
   'admin.instance.hint': 'Name, Registrierung und Vorgaben',
+  'admin.workspaces': 'Workspaces',
   'admin.accounts': 'Konten',
   'admin.accounts.hint': 'Alle, die hier ein Konto haben',
   'admin.accounts.note':
     'Deaktivieren behält das Konto und seine Arbeit und meldet es sofort ab. Konten ' +
     'werden hier nie gelöscht: eines zu entfernen nähme jede Seite mit, die es angelegt ' +
     'hat — und „diese Person ist gegangen" ist nicht „ihre Arbeit hat nie stattgefunden".',
-  'admin.workspaces': 'Alle Workspaces',
-  'admin.workspaces.hint': 'Jeder Workspace hier, und wer darin ist',
   'admin.invitations': 'Einladungen',
   'admin.invitations.hint': 'Ein Konto und ein eigener Workspace — kein Team',
   'admin.sso': 'Single Sign-on',
@@ -307,10 +305,6 @@ export const de: Record<keyof typeof en, string> = {
   'admin.mayCreateWorkspaces.hint':
     'Aus heißt: nur Administratoren legen welche an. Seinen persönlichen behält so oder ' +
     'so jeder — der ist kein Team.',
-  'admin.sizesOnly':
-    'Nur Größen. Die Instanz zu verwalten heißt nicht, lesen zu dürfen, was in einem ' +
-    'Workspace steht — dafür braucht es eine Mitgliedschaft, und die ist eine ' +
-    'Entscheidung von jemandem, kein Knopf hier.',
   'admin.maintenance.run': 'Wartung jetzt ausführen',
   'admin.maintenance.running': 'Läuft…',
   'admin.maintenance.note':

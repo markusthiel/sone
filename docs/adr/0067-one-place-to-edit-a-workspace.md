@@ -83,12 +83,30 @@ One list of different lengths rather than two screens — the same shape the
 second-factor work settled on, and for the same reason: a screen whose existence
 depends on a right is a screen somebody has to be told about.
 
-### "This workspace" stays, as a link
+### ~~"This workspace" stays, as a link~~
 
-It is how people reach the settings for what they are looking at, and removing it
-to prove a point about structure would be removing the useful thing. It navigates
-to the same screen with the current workspace's id — a shortcut, not a second
-interface.
+*Amended: it does not, and keeping it was the mistake.*
+
+The reasoning above is sound in isolation and was wrong in company. With the
+list added, the account menu had **both** entries — "this workspace" and
+"workspaces" — and the administration still had the list as well. So a record
+about removing two interfaces for one subject produced three ways in, and the
+operator's verdict was that it had not been improved. That was correct.
+
+One entry now: **Workspaces**, opening the list, with the workspace being looked
+at first in its table and marked. That costs one click more than the shortcut
+did, and it buys one concept instead of two.
+
+### The administration gives workspaces up entirely
+
+Not a section there at all. An instance is the server — accounts, single sign-on,
+mail, maintenance — and a workspace is not one of its settings. Leaving the list
+in both places was the same duplication in a new coat, and its section's own
+comment still claimed a distinction that had stopped being true.
+
+With it goes the only administration section that answered to the
+workspace-management right rather than to being an instance administrator, so
+that filter is gone too.
 
 ## Built so far
 

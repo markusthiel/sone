@@ -2432,17 +2432,25 @@ test('the workspace list is one list, and the server decides its length', () => 
    * list at all and could edit only the workspace they happened to be looking
    * at (ADR-0067).
    */
-  const admin = codeOf(new URL('../src/components/AdminScreen.tsx', import.meta.url));
   const menu = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
+  const list = codeOf(new URL('../src/components/WorkspaceListScreen.tsx', import.meta.url));
+  const admin = codeOf(new URL('../src/components/AdminScreen.tsx', import.meta.url));
 
-  // Reachable without any right, from the account menu.
+  // Reachable without any right, from the account menu — as one entry.
   assert.match(menu, /href=\{paths\.workspaces\(\)\}/);
-  // And the shortcut to the current one stays: removing it to prove a point
-  // about structure would remove the useful thing.
-  assert.match(menu, /href=\{paths\.workspaceSettings\(\)\}/);
+  /*
+   * And *not* also as a second entry for the current one.
+   *
+   * I wrote the opposite assertion yesterday, on the strength of the record
+   * saying the shortcut stays. Both entries at once made the menu worse rather
+   * than better, which is what the report said — so the shortcut is the first
+   * row of the list instead, and the record is amended.
+   */
+  assert.doesNotMatch(menu, /href=\{paths\.workspaceSettings\(\)\}/);
 
-  // Both entry points open the same screen, by id.
-  assert.match(admin, /paths\.workspaceSettings\('general', id\)/);
+  // The list opens a workspace, and the administration no longer holds one.
+  assert.match(list, /paths\.workspaceSettings\('general', id\)/);
+  assert.doesNotMatch(admin, /WorkspaceList/);
 
   // Sections carry the workspace. Without this, opening somebody else's and
   // clicking a section would quietly jump to your own.

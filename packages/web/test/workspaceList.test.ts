@@ -82,7 +82,12 @@ test('opening one is a place to link to', () => {
    * decision: the id is in the address, so there is one URL for a workspace's
    * settings whichever direction it is reached from, and nothing left to drift.
    */
-  assert.match(admin, /paths\.workspaceSettings\('general', id\)/);
+  // In the list's own screen now: the administration has given workspaces up
+  // entirely, because they are not instance settings (ADR-0067 amendment).
+  const listScreen = codeOf(
+    new URL('../src/components/WorkspaceListScreen.tsx', import.meta.url),
+  );
+  assert.match(listScreen, /paths\.workspaceSettings\('general', id\)/);
   assert.doesNotMatch(admin, /useState<\{\s*\n?\s*id: string;/);
 });
 
@@ -161,5 +166,9 @@ test('the panel says nothing is removed yet', () => {
 test('restoring is one click', () => {
   // Putting something back is not the action that needs slowing down.
   assert.match(list, /onRestore\(row\.id\)/);
-  assert.match(admin, /restore: true/);
+  // In the list's screen: the administration no longer holds the list at all.
+  assert.match(
+    codeOf(new URL('../src/components/WorkspaceListScreen.tsx', import.meta.url)),
+    /restore: true/,
+  );
 });
