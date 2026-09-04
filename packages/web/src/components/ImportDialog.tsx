@@ -35,13 +35,21 @@ interface Result {
 }
 
 /** Send the archive, either to be planned or to be carried out. */
-async function send<T>(url: string, file: File): Promise<T> {
+async function send<T>(url: string, file: File, filename?: string): Promise<T> {
   const response = await fetch(url, {
     method: 'POST',
     // The bytes, not a form: the route reads a body, and multipart would mean a
     // parser on the server for a request that carries exactly one thing.
     body: file,
-    headers: { 'content-type': 'application/zip' },
+    headers: {
+      // Left as zip whatever the file is: the server decides from the content,
+      // because a content type is a claim the browser makes and a ZIP always
+      // starts `PK`.
+      'content-type': 'application/zip',
+      // A body has no filename, and a bare Markdown upload has to become a page
+      // called something.
+      ...(filename ? { 'x-sone-filename': filename } : {}),
+    },
     credentials: 'same-origin',
   });
   const body: unknown = await response.json().catch(() => ({}));
@@ -101,7 +109,20 @@ export function ImportDialog({
             <input
               ref={fileRef}
               type="file"
-              accept=".zip,application/zip"
+              // Markdown as well as archives, and several at once: asking
+              // somebody to zip a single note before SONE will read it is
+              // asking them to do work on our behalf.
+              /*
+               * Markdown as well as archives: asking somebody to zip a single
+               * note before SONE will read it is asking them to do work on our
+               * behalf.
+               *
+               * Not `multiple` yet, deliberately. Several files means several
+               * plans to look at and confirm, and this dialog shows one — the
+               * attribute alone would have accepted four files and silently
+               * imported the first, which is worse than not offering it.
+               */
+              accept=".zip,application/zip,.md,.markdown,text/markdown"
               onChange={(event) => {
                 const chosen = event.target.files?.[0] ?? null;
                 setFile(chosen);
@@ -111,7 +132,10 @@ export function ImportDialog({
                 // Straight to the plan: choosing the file is the request. A
                 // second button between them would only ask somebody to confirm
                 // that they meant the file they just picked.
-                void send<Plan>(`/api/pages/${pageId}/import/plan`, chosen)
+                // The name travels in a header, because a POST body has none
+                // and a bare Markdown upload has to become a page called
+                // something.
+                void send<Plan>(`/api/pages/${pageId}/import/plan`, chosen, chosen.name)
                   .then((planned) => {
                     setPlan(planned);
                     setBusy(false);

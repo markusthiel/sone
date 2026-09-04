@@ -1360,6 +1360,12 @@ export const de: Record<keyof typeof en, string> = {
   'error.enrol_yourself_first':
     'Erst auf dem eigenen Konto einen Authenticator einrichten, bevor er von ' +
     'allen verlangt wird.',
+  'error.too_many_entries':
+    'Dieses Archiv enthält mehr Dateien, als der Import auf einmal liest. ' +
+    'Aufteilen, oder einen Ordner nach dem anderen importieren.',
+  'error.zip64_unsupported':
+    'Dieses Archiv liegt im Zip64-Format, das der Import nicht lesen kann. ' +
+    'Neu erstellen mit gewöhnlichem zip hilft meist.',
   'error.wrong_code': 'Dieser Code stimmt nicht.',
   'error.code_already_used':
     'Dieser Code wurde bereits benutzt. Auf den nächsten warten.',

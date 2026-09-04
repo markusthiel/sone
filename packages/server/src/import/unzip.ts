@@ -27,6 +27,7 @@ export class ArchiveError extends Error {
       | 'not_an_archive'
       | 'unsupported'
       | 'too_many_entries'
+      | 'zip64_unsupported'
       | 'too_large'
       | 'unsafe_name',
   ) {
@@ -34,6 +35,9 @@ export class ArchiveError extends Error {
     this.name = 'ArchiveError';
   }
 }
+
+/** The Zip64 central-directory end record, which this reader does not read. */
+const ZIP64_END = Buffer.from([0x50, 0x4b, 0x06, 0x06]);
 
 /** Bounds, because the input is somebody else's file. */
 export const MAX_ENTRIES = 5000;
@@ -65,8 +69,33 @@ function safeName(name: string): string {
 export function unzip(archive: Buffer): ArchiveEntry[] {
   const end = findEndRecord(archive);
   const count = archive.readUInt16LE(end + 10);
+
+  /*
+   * Zip64, told apart from a genuinely large archive.
+   *
+   * The count in the end record is sixteen bits. An archive that needs more —
+   * or a writer that chose Zip64 anyway — sets it to 0xFFFF and puts the real
+   * numbers in a separate record this reader does not understand. Reported as
+   * unsupported rather than as "too many entries", which is what it said
+   * before: a refusal that names the wrong reason sends somebody off to delete
+   * files that were never the problem.
+   */
+  if (count === 0xffff || archive.lastIndexOf(ZIP64_END) !== -1) {
+    throw new ArchiveError('the archive is in the Zip64 format', 'zip64_unsupported');
+  }
+
   if (count > MAX_ENTRIES) {
-    throw new ArchiveError(`archive holds ${count} entries`, 'too_many_entries');
+    /*
+     * The count and the limit, both in the message.
+     *
+     * "too_many_entries" on its own is a dead end — somebody cannot tell
+     * whether they are over by one file or by four thousand, and the interface
+     * had no message for the code at all, so it showed the code.
+     */
+    throw new ArchiveError(
+      `archive holds ${count} entries, and this reads at most ${MAX_ENTRIES}`,
+      'too_many_entries',
+    );
   }
 
   let at = archive.readUInt32LE(end + 16);

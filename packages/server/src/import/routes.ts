@@ -144,7 +144,31 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
     }
 
     try {
-      const entries = unzip(body);
+      /*
+       * A ZIP, or plain Markdown (ADR-0068 pending — see below).
+       *
+       * `planImport` takes a list of entries, and a Markdown file is a list of
+       * one: there is no reason the import should have demanded an archive, and
+       * asking somebody to zip a single note before SONE will read it is asking
+       * them to do work on our behalf.
+       *
+       * Which it is comes from the *content*, not the file name: a name is what
+       * the browser sent and a ZIP always starts `PK`.
+       *
+       * Anything that is not an archive and not text is still refused. My first
+       * version read everything-but-a-zip as Markdown, and a test written for
+       * the old behaviour caught it: a JPEG somebody dropped on the import
+       * would have become a page of binary nonsense with a plausible title,
+       * which is worse than a refusal because it looks like it worked.
+       */
+      let entries;
+      if (looksLikeZip(body)) {
+        entries = unzip(body);
+      } else if (looksLikeText(body)) {
+        entries = [{ name: markdownNameFor(ctx), body }];
+      } else {
+        throw new ArchiveError('not an archive and not text', 'not_an_archive');
+      }
       const attachments = new Map<string, Buffer>();
       for (const entry of entries) {
         if (!entry.name.startsWith('attachments/')) continue;
@@ -227,4 +251,37 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
       failed: result.failed,
     });
   });
+}
+
+/**
+ * Whether this is text somebody could have written.
+ *
+ * A NUL byte is the signal: it appears in every common binary format and in no
+ * text file. Checking a prefix rather than the whole upload, because a
+ * megabyte of Markdown is text by its first kilobyte, and reading all of it to
+ * decide would be reading it twice.
+ *
+ * Deliberately not a UTF-8 validation: a note written in Latin-1 is still a
+ * note, and refusing it would be stricter than the editor that will hold it.
+ */
+const looksLikeText = (body: Buffer): boolean =>
+  body.length > 0 && !body.subarray(0, 1024).includes(0);
+
+/** A ZIP starts with its local file header signature, whatever it is called. */
+const looksLikeZip = (body: Buffer): boolean =>
+  body.length >= 4 && body[0] === 0x50 && body[1] === 0x4b;
+
+/**
+ * What to call a page made from a bare Markdown upload.
+ *
+ * From the `X-Sone-Filename` header the client sends, because a POST body has
+ * no name of its own. Falls back to a title the planner will replace with the
+ * document's own first heading if it has one — so the worst case is a page
+ * called "Import" rather than a failure.
+ */
+function markdownNameFor(ctx: { req: { headers: Record<string, unknown> } }): string {
+  const sent = ctx.req.headers['x-sone-filename'];
+  const name = typeof sent === 'string' ? sent : '';
+  const cleaned = name.replace(/[^\p{L}\p{N} ._-]/gu, '').trim();
+  return cleaned.endsWith('.md') ? cleaned : `${cleaned || 'Import'}.md`;
 }

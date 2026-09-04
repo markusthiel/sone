@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { zip } from '../src/export/zip.js';
-import { ArchiveError, unzip } from '../src/import/unzip.js';
+import { ArchiveError, MAX_ENTRIES, unzip } from '../src/import/unzip.js';
 
 const at = new Date('2026-09-02T10:30:00Z');
 
@@ -100,4 +100,44 @@ test('an archive written by something else reads too', (t) => {
     ['Seite.md'],
   );
   assert.equal(entries[0]?.body.toString('utf8'), '# Seite\n\nInhalt.\n');
+});
+
+test('a Zip64 archive is named as such, not as too many entries', () => {
+  /*
+   * The refusal that sent somebody looking for files to delete.
+   *
+   * The count in the end record is sixteen bits; an archive that needs more —
+   * or a writer that chose Zip64 anyway — sets it to 0xFFFF, which is larger
+   * than any sane limit. The old code compared that to MAX_ENTRIES and said
+   * "too many entries" about an archive that might hold three files.
+   */
+  const archive = Buffer.alloc(22);
+  archive.writeUInt32LE(0x06054b50, 0);
+  archive.writeUInt16LE(0xffff, 10);
+
+  const failure = (): unknown => unzip(archive);
+  assert.throws(failure, (error: unknown) => {
+    assert.ok(error instanceof ArchiveError);
+    assert.equal(error.code, 'zip64_unsupported');
+    return true;
+  });
+});
+
+test('too many entries says how many, and how many are allowed', () => {
+  // "too_many_entries" alone is a dead end: somebody cannot tell whether they
+  // are over by one file or by four thousand.
+  const archive = Buffer.alloc(22);
+  archive.writeUInt32LE(0x06054b50, 0);
+  archive.writeUInt16LE(MAX_ENTRIES + 1, 10);
+
+  assert.throws(
+    () => unzip(archive),
+    (error: unknown) => {
+      assert.ok(error instanceof ArchiveError);
+      assert.equal(error.code, 'too_many_entries');
+      assert.match(error.message, new RegExp(String(MAX_ENTRIES + 1)));
+      assert.match(error.message, new RegExp(String(MAX_ENTRIES)));
+      return true;
+    },
+  );
 });
