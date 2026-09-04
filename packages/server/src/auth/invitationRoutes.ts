@@ -106,20 +106,33 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
   });
 
   /**
-   * Invite somebody to a workspace.
+   * Give an account that already exists access to a workspace (ADR-0073).
    *
-   * Owners and admins only. A member who could invite could add somebody with
-   * more rights than themselves, and a workspace where anybody can widen the
-   * membership is not one whose membership means anything.
+   * This replaces inviting somebody to a workspace, and the two were being
+   * confused because one form did both jobs. They are different jobs. An
+   * invitation makes an *account* — a person who is not on this server yet — and
+   * that belongs to whoever runs the server. Access says which of the people
+   * already here may work in this workspace, and that belongs to whoever owns
+   * the workspace.
+   *
+   * By address rather than from a list of everybody. An owner adding a
+   * colleague knows their address; a picker of every account on the server
+   * would turn every workspace owner into a reader of the instance's directory,
+   * which is a right the administration keeps on purpose (ADR-0032).
+   *
+   * Owners and admins only, like every other change to who is here: a member
+   * who could add people could add somebody with more rights than themselves,
+   * and a workspace where anybody can widen the membership is not one whose
+   * membership means anything.
    */
-  router.post('/api/workspaces/:workspaceId/invitations', async (ctx) => {
+  router.post('/api/workspaces/:workspaceId/members', async (ctx) => {
     const user = await requireSession(deps.pool, ctx);
     if (!user) return;
 
     const workspaceId = ctx.params['workspaceId'] ?? '';
     if (!(await mayAdminister(deps.pool, ctx, workspaceId, user.userId))) return;
 
-    let body: { email?: unknown; role?: unknown; maxUses?: unknown };
+    let body: { email?: unknown; role?: unknown };
     try {
       body = await ctx.json();
     } catch {
@@ -127,30 +140,50 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       return;
     }
 
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    if (email === '') {
+      ctx.fail(422, 'invalid_email');
+      return;
+    }
     const role = typeof body.role === 'string' && ROLES.includes(body.role)
       ? (body.role as WorkspaceRole)
       : 'member';
 
-    try {
-      const invitation = await createInvitation(deps.pool, {
-        workspaceId,
-        invitedBy: user.userId,
-        email: typeof body.email === 'string' ? body.email : null,
-        role,
-        ...(typeof body.maxUses === 'number' ? { maxUses: body.maxUses } : {}),
-      });
-      ctx.send(201, {
-        token: invitation.token,
-        invitationId: invitation.invitationId,
-        expiresAt: invitation.expiresAt,
-      });
-    } catch (error: unknown) {
-      if (error instanceof AuthError) {
-        ctx.fail(422, error.code);
-        return;
-      }
-      throw error;
+    /*
+     * A real account, in use.
+     *
+     * `is_guest` marks somebody who arrived through a share link and has no
+     * account of their own; a disabled one is an account that has been turned
+     * off, and turning it off must not be undone by adding it somewhere.
+     */
+    const account = await queryOne<{ id: string }>(
+      deps.pool,
+      `SELECT id FROM users
+        WHERE lower(email) = $1 AND NOT is_guest AND disabled_at IS NULL`,
+      [email],
+    );
+    if (!account) {
+      // Said plainly rather than hidden. The alternative — the same answer for
+      // "no such account" and "added" — would leave an owner unable to tell a
+      // typo from a success, and the people who can ask this question are the
+      // ones already trusted with who is in the workspace.
+      ctx.fail(404, 'no_such_account');
+      return;
     }
+
+    const already = await roleIn(deps.pool, workspaceId, account.id);
+    if (already) {
+      // Not a silent role change: "add" and "promote" are different acts, and
+      // the second one has a control of its own in the same table.
+      ctx.fail(409, 'already_member');
+      return;
+    }
+
+    await deps.pool.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,$3)`,
+      [workspaceId, account.id, role],
+    );
+    ctx.send(201, { userId: account.id, role });
   });
 
   /**

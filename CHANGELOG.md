@@ -15,6 +15,22 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 No operator action. Pull and restart.
 
+**A workspace gives access; the instance invites.** The workspace's
+**Einladungen** section is gone. It made a link that let whoever opened it join
+— creating an account on the server if they had none — which meant any workspace
+owner could add people to the server itself. Two different jobs in one form.
+
+Under **Leute** there is now **Zugriff geben**: type the address of somebody who
+already has an account here, choose what they come in as, done. No link, nothing
+to send, nothing outstanding. Somebody who has no account yet is invited under
+**Verwaltung → Einladungen**, which is where making an account belongs.
+
+Invitations sent before this still work and are still listed under Leute, so
+they can be withdrawn; no new ones can be made there.
+
+The roles in the members table are in your language now — they read "owner",
+"admin", "member", "guest" in every language before this.
+
 **Your settings and the administration are two separate areas.** They were one
 column with two headings, which put "Wo du landest" and "Mailserver" six rows
 apart — and both halves are going to grow. The account menu opens each into its

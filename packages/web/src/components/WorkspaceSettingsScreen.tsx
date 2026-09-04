@@ -24,9 +24,6 @@ import { resolveSection } from './SectionNav.tsx';
 import { ThemeSettings } from './ThemeSettings.tsx';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { WorkspaceExport } from './WorkspaceExport.tsx';
-import { WorkspaceInvite } from './WorkspaceInvite.tsx';
-// `WorkspaceInvite` was already imported here — the screen had the component
-// and no section that rendered it, which is its own small version of the drift.
 import { WorkspaceDeletion } from './WorkspaceDeletion.tsx';
 import { WorkspaceMembers } from './WorkspaceMembers.tsx';
 
@@ -44,14 +41,15 @@ export const SECTIONS = [
   // (ADR-0044).
   { id: 'export', label: 'workspace.export', hint: 'workspace.export.hint' },
   /*
-   * The two the administration had and this screen did not (ADR-0067).
+   * Deleting, which the administration had and this screen did not (ADR-0067) —
+   * the drift ADR-0027 predicted: an owner looking after their own workspace
+   * could not delete it at all.
    *
-   * Which is the other half of the drift ADR-0027 predicted: an owner looking
-   * after their own workspace could not invite to it from here, and could not
-   * delete it at all. Both sections are the same components the administration
-   * was rendering — moved, not rewritten.
+   * Inviting was the other one, and it is gone (ADR-0073). A workspace does not
+   * invite: it gives access to accounts that already exist, and that belongs in
+   * "Leute" beside the people it is about. Making an account is the instance's
+   * job and has its own section in the administration.
    */
-  { id: 'invitations', label: 'workspace.invitations', hint: 'workspace.invitations.hint' },
   { id: 'delete', label: 'workspaces.delete', hint: 'workspace.delete.hint' },
 ] as const;
 
@@ -132,8 +130,6 @@ export function WorkspaceSettingsScreen({
           canEdit={canEdit}
         />
       )}
-      {current === 'invitations' && <WorkspaceInvite workspaceId={workspaceId} />}
-
       {current === 'delete' && (
         <WorkspaceDeletion
           workspaceId={workspaceId}
@@ -153,13 +149,11 @@ export function WorkspaceSettingsScreen({
             * section exists: the server has always let a workspace's owners and
             * administrators manage their own members, and only the interface
             * required the instance-wide right for it (ADR-0032). */}
+          {/* Giving access lives inside the table now (ADR-0073), offered
+            * only to those who may: the server refuses either way, and a form
+            * that lets somebody fill it in and then refuses is worse than one
+            * that is not there. */}
           <WorkspaceMembers workspaceId={workspaceId} canAdminister={canEdit} />
-
-          {/* Inviting is offered only to those who may. The server refuses
-            * either way; a form that lets somebody fill it in and then refuses
-            * is worse than one that is not there — and unlike a role, an
-            * invitation has nothing to read when you cannot make one. */}
-          {canEdit && <WorkspaceInvite workspaceId={workspaceId} />}
         </section>
       )}
       {current === 'groups' && <GroupsPanel workspaceId={workspaceId} />}
