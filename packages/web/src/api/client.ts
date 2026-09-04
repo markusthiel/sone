@@ -1349,6 +1349,17 @@ export const api = {
     post<{ marked: number }>('/api/inbox/read', { ids, read: false }),
 
   /**
+   * Answer a notification where it is (ADR-0076).
+   *
+   * By notification rather than by page and thread: the inbox spans workspaces
+   * and holds no page open, and the row is what says which conversation this
+   * is about. Answering also marks the conversation read — somebody who has
+   * just written a sentence about it has dealt with it.
+   */
+  replyToNotification: (id: string, text: string) =>
+    post<{ ok: true }>(`/api/inbox/${id}/reply`, { text }),
+
+  /**
    * Put notifications aside until a moment, or bring them back (ADR-0075).
    *
    * The moment is worked out here and sent whole: "tomorrow morning" is a

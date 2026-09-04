@@ -1,7 +1,8 @@
 /**
- * SONE server — reading an inbox (ADR-0052).
+ * SONE server — reading an inbox, and acting on it (ADR-0052).
  *
- * Three routes: the count, the list, and marking things read.
+ * The count, the list, marking things read, putting them aside until a time
+ * (ADR-0075), and answering one without leaving (ADR-0076).
  *
  * The count is separate from the list on purpose. It is on a button somebody
  * sees on every page, so it has to be one indexed count rather than a list
@@ -10,9 +11,11 @@
 
 import type { Pool } from 'pg';
 
+import { postReply } from '../comments/postReply.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { requireSession } from '../http/auth.js';
 import type { Router } from '../http/router.js';
+import { atLeast, resolvePageAccess } from '../pages/access.js';
 
 export interface InboxDeps {
   pool: Pool;
@@ -245,5 +248,102 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
     );
 
     ctx.send(200, { snoozed: rowCount ?? 0 });
+  });
+
+  /**
+   * Answer a notification without leaving the inbox (ADR-0076).
+   *
+   * By notification rather than by thread. The inbox is the one place in SONE
+   * that spans workspaces, and it holds no page open: a route taking a page and
+   * a thread would make the browser tell the server which conversation a row is
+   * about, when the row *is* the answer to that and the server wrote it. It
+   * also means the reply can only go where somebody was actually written to —
+   * the notification is the proof of that, and it is theirs.
+   *
+   * The right is checked again here, not taken from the notification: somebody
+   * removed from a workspace since being mentioned must not be able to post
+   * from a row still sitting in their inbox. That is the same rule the email
+   * replies follow, for the same reason.
+   */
+  router.post('/api/inbox/:id/reply', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    let body: { text?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+    const text = typeof body.text === 'string' ? body.text.trim() : '';
+    if (text === '') {
+      ctx.fail(422, 'no_text');
+      return;
+    }
+
+    const notice = await queryOne<{
+      page_id: string;
+      workspace_id: string;
+      thread_id: string | null;
+    }>(
+      deps.pool,
+      `SELECT n.page_id, n.workspace_id, n.thread_id
+         FROM notifications n
+         JOIN pages p ON p.id = n.page_id
+         JOIN workspaces w ON w.id = n.workspace_id
+        WHERE n.id = $1 AND n.user_id = $2
+          -- A page in the trash and a workspace on its way out are not places
+          -- to write to, and the listing already refuses to show them.
+          AND p.archived_at IS NULL AND w.deleted_at IS NULL`,
+      [ctx.params['id'] ?? '', session.userId],
+    );
+    // One answer for "not yours", "not there" and "nothing to answer": the
+    // difference would say whose inbox holds what.
+    if (!notice || notice.thread_id === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const access = await resolvePageAccess(deps.pool, {
+      pageId: notice.page_id,
+      userId: session.userId,
+    });
+    if (!atLeast(access.access, 'commenter')) {
+      ctx.fail(access.access === null ? 404 : 403, access.access === null ? 'not_found' : 'forbidden');
+      return;
+    }
+
+    const written = await postReply(deps.pool, {
+      docId: notice.page_id,
+      pageId: notice.page_id,
+      workspaceId: notice.workspace_id,
+      threadId: notice.thread_id,
+      authorId: session.userId,
+      text,
+    });
+    if (!written) {
+      // The thread is gone from the document. The row in the inbox still
+      // remembers it, which is the point of the row — but there is nothing left
+      // to answer.
+      ctx.fail(409, 'thread_gone');
+      return;
+    }
+
+    /*
+     * Answering is reading (ADR-0076).
+     *
+     * Somebody who has just written a sentence about a notification has dealt
+     * with it, and leaving the row bold afterwards is the inbox disagreeing
+     * with what the person just did. Marked here rather than by the browser, so
+     * it holds for any caller.
+     */
+    await deps.pool.query(
+      `UPDATE notifications SET read_at = now()
+        WHERE user_id = $1 AND thread_id = $2 AND read_at IS NULL`,
+      [session.userId, notice.thread_id],
+    );
+
+    ctx.send(201, { ok: true });
   });
 }
