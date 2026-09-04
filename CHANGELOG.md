@@ -13,6 +13,36 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.8.0
+
+Watching, and the requirement.
+
+Pages can be watched — a bell beside the star, and watching a folder covers
+everything under it. The mail about what changed can then be narrowed to only
+what you watch, which is what makes it usable in a workspace of three thousand
+pages rather than thirty. Favouriting still means only "I come here often" and
+never sends anything.
+
+And an instance can now require two-step sign-in: fourteen days of grace with a
+banner and two emails, then setup is the only screen that opens — reading
+included, because a stolen password that grants read access to a company's notes
+has granted the thing that mattered. An administrator cannot switch it on
+without having one themselves.
+
+**Operator action: optional.** Three migrations apply on start; upgrading from
+0.7.0 has been tested in place with a confirmed second factor, a spent recovery
+code and a set of mail preferences, all of which come through untouched. Nobody
+is watching anything until they say so, and the digest keeps covering everything
+you can see unless you narrow it: a release that silently narrows what somebody
+receives is as bad as one that widens it.
+
+This release also **drops the four mail-preference columns** 0.7.0 superseded and
+kept for one release, as `0050` said it would. Nothing read them.
+
+**Both contract versions are unchanged** — document schema 4, sync protocol 1.
+
 **Fixed: the session request asked the database twice for the same thing.** No
 visible change, but it was on the route every page load hits.
 
