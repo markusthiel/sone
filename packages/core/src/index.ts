@@ -14,3 +14,7 @@ export * from './search/query.js';
 export * from './doc/diff.js';
 export * from './formula/parse.js';
 export * from './formula/evaluate.js';
+
+// Packing a few files into an archive, so the browser can send several as one
+// upload (import).
+export { MAX_STORED_ENTRIES, PackError, packStored, type StoredEntry } from './archive/packStored.js';

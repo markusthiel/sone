@@ -14,6 +14,7 @@
  * a token, expiring on a timer.
  */
 
+import { PackError, packStored } from '@sone/core';
 import { useRef, useState, type ReactElement } from 'react';
 
 import { ApiError } from '../api/client.ts';
@@ -117,16 +118,78 @@ export function ImportDialog({
                * note before SONE will read it is asking them to do work on our
                * behalf.
                *
-               * Not `multiple` yet, deliberately. Several files means several
-               * plans to look at and confirm, and this dialog shows one — the
-               * attribute alone would have accepted four files and silently
-               * imported the first, which is worse than not offering it.
+               * Several at once, packed here into one archive.
+               *
+               * That keeps the dialog's one-plan shape honest: four files
+               * become one upload, and the plan somebody confirms is the plan
+               * for all of them. The alternative was four plans to approve, or
+               * a multipart parser on the server — and packing is a hundred
+               * lines that both sides already have to agree about anyway.
                */
               accept=".zip,application/zip,.md,.markdown,text/markdown"
+              multiple
               onChange={(event) => {
-                const chosen = event.target.files?.[0] ?? null;
-                setFile(chosen);
+                const picked = [...(event.target.files ?? [])];
+                const chosen = picked.length > 1 ? null : (picked[0] ?? null);
                 setError(null);
+
+                /*
+                 * Several files: pack them, then take the same path as an
+                 * archive somebody made themselves.
+                 *
+                 * A ZIP among them is refused rather than nested — an archive
+                 * inside an archive is not something the import unpacks, and
+                 * quietly dropping it would be worse than saying so.
+                 */
+                if (picked.length > 1) {
+                  if (picked.some((one) => one.name.toLowerCase().endsWith('.zip'))) {
+                    setError('one_archive_at_a_time');
+                    return;
+                  }
+                  setBusy(true);
+                  void Promise.all(
+                    picked.map(async (one) => ({
+                      name: one.name,
+                      body: new Uint8Array(await one.arrayBuffer()),
+                    })),
+                  )
+                    .then((entries) => {
+                      // `.slice()` for the type: a Uint8Array over a generic
+                      // ArrayBufferLike is not a BlobPart, and copying a few
+                      // kilobytes is cheaper than arguing with it.
+                      const archive = new File([packStored(entries).slice()], 'auswahl.zip', {
+                        type: 'application/zip',
+                      });
+                      setFile(archive);
+                      return send<Plan>(`/api/pages/${pageId}/import/plan`, archive);
+                    })
+                    .then((planned) => {
+                      setPlan(planned);
+                      setBusy(false);
+                    })
+                    .catch((err: unknown) => {
+                      setError(
+                        /*
+                         * `too_many_files` was already taken, by files in a
+                         * collection cell. Two meanings under one key is the
+                         * mistake this codebase keeps having removed from it,
+                         * so the packing error gets its own message rather
+                         * than borrowing one that says something else.
+                         */
+                        err instanceof PackError
+                          ? err.code === 'too_many_files'
+                            ? 'too_many_to_pack'
+                            : err.code
+                          : err instanceof ApiError
+                            ? err.code
+                            : 'network_error',
+                      );
+                      setBusy(false);
+                    });
+                  return;
+                }
+
+                setFile(chosen);
                 if (!chosen) return;
                 setBusy(true);
                 // Straight to the plan: choosing the file is the request. A
