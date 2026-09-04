@@ -35,6 +35,7 @@ export const de: Record<keyof typeof en, string> = {
   'inbox.group.workspace': 'Nach Workspace',
   'inbox.view.unread': 'Ungelesen',
   'inbox.view.all': 'Alles',
+  'inbox.view.snoozed': 'Später',
   'inbox.emptyView': 'In dieser Ansicht ist nichts.',
   'inbox.empty':
     'Nichts wartet. Hier erscheint es, wenn jemand einen Namen in einem ' +
@@ -43,9 +44,15 @@ export const de: Record<keyof typeof en, string> = {
   'inbox.unreadOnly': 'Nur Ungelesenes',
   'inbox.markAll': 'Alles als gelesen markieren',
   'inbox.times': '{count, plural, one {# Mal} other {# Mal}}',
-  'inbox.keys': 'j/k bewegen · Enter öffnet · e gelesen · u ungelesen',
+  'inbox.keys': 'j/k bewegen · Enter öffnet · e gelesen · u ungelesen · s später',
   'inbox.markRead': 'Gelesen',
   'inbox.markUnread': 'Ungelesen',
+  'inbox.snooze': 'Später',
+  'inbox.snooze.later': 'In drei Stunden',
+  'inbox.snooze.tomorrow': 'Morgen früh',
+  'inbox.snooze.nextWeek': 'Nächste Woche',
+  'inbox.wake': 'Zurückholen',
+  'inbox.backOn': 'wieder am {when}',
   'inbox.mention': 'Namensnennung',
   'inbox.reply': 'Antwort im Verlauf',
   'inbox.assignment': 'Zuweisung',
@@ -1467,6 +1474,9 @@ export const de: Record<keyof typeof en, string> = {
   'error.invalid_role': 'Ein Freigabe-Link kann diese Rolle nicht vergeben.',
   'error.too_many_rows': 'Das sind mehr als fünfzig Einträge. Bitte in kleineren Stücken einfügen.',
   'error.not_archived': 'Dieser Eintrag ist nicht im Papierkorb.',
+  'error.invalid_time':
+    'Dieser Zeitpunkt geht nicht: er muss in der Zukunft liegen und höchstens ein ' +
+    'Jahr entfernt sein.',
   'error.invalid_parent':
     'Dorthin kann dieser Eintrag nicht: ein Ordner kann nicht in sich selbst liegen.',
   'error.parent_missing':

@@ -22,6 +22,8 @@ export interface InboxItem {
   excerpt: string;
   createdAt: string;
   read: boolean;
+  /** When it comes back, or null for "awake" (ADR-0075). */
+  snoozedUntil: string | null;
   pageId: string;
   pageTitle: string;
   threadId: string | null;
@@ -36,6 +38,8 @@ export function useInbox(): {
   markRead: (ids?: string[]) => void;
   /** One row, either way round (ADR-0071). Ids are required to put back. */
   setRead: (ids: string[], read: boolean) => void;
+  /** Aside until a moment, or back now with null (ADR-0075). */
+  snooze: (ids: string[], until: Date | null) => void;
 } {
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,5 +86,21 @@ export function useInbox(): {
     void (read ? api.markInboxRead(ids) : api.markInboxUnread(ids)).catch(() => {});
   }, []);
 
-  return { items, error, markRead, setRead };
+  /*
+   * Optimistic, like the other two, and for the same reason: the row leaves the
+   * view it was in, and a row that only left once the server answered would
+   * read as a button that sometimes does nothing.
+   */
+  const snooze = useCallback((ids: string[], until: Date | null) => {
+    setItems((current) =>
+      (current ?? []).map((one) =>
+        ids.includes(one.id)
+          ? { ...one, snoozedUntil: until === null ? null : until.toISOString() }
+          : one,
+      ),
+    );
+    void api.snoozeInbox(ids, until).catch(() => {});
+  }, []);
+
+  return { items, error, markRead, setRead, snooze };
 }

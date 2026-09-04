@@ -23,6 +23,7 @@ import { useT } from '../i18n/useT.tsx';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceSummary } from '../api/client.ts';
+import { useDismiss } from '../hooks/useDismiss.ts';
 import { useListDrag } from '../hooks/useListDrag.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
@@ -70,28 +71,18 @@ export function WorkspaceMenu({
       );
   }, [open, workspaces]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent): void => {
-      if (panelRef.current?.contains(event.target as Node)) return;
-      if (buttonRef.current?.contains(event.target as Node)) return;
+  // The same closing as every other menu, from one place rather than copied.
+  useDismiss({
+    open,
+    inside: [panelRef, buttonRef],
+    onDismiss: useCallback((reason: 'outside' | 'escape') => {
       setOpen(false);
+      // The half-typed name of a new workspace goes with it: a form left open
+      // behind a closed menu reappears with somebody's abandoned typing in it.
       setCreating(false);
-    };
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        setCreating(false);
-        buttonRef.current?.focus();
-      }
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+      if (reason === 'escape') buttonRef.current?.focus();
+    }, []),
+  });
 
   /**
    * Dragging a workspace into place.
