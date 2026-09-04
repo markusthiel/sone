@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**An instance can require two-step sign-in**
+([ADR-0065](docs/adr/0065-requiring-a-second-factor.md)). Fourteen days of
+grace with a banner and two emails, then setup is the only screen that opens —
+reading included. An administrator cannot switch it on without having one
+themselves, and single sign-on accounts are exempt because their provider is
+where a second factor belongs.
+
 **Removed the four mail-preference columns** that 0.7.0 superseded and kept for
 one release. Nothing read them; the preferences themselves are untouched.
 

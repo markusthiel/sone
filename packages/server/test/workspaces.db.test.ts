@@ -48,6 +48,8 @@ describe(
         sendProviderMail: () => Promise.resolve(),
         secretKey: 'a-test-instance-secret-key-of-sufficient-length',
         instanceName: () => Promise.resolve('SONE'),
+        // No requirement in these suites (ADR-0065).
+        secondFactorStanding: () => Promise.resolve({ kind: 'fine' as const }),
       });
       registerPageRoutes(router, { pool: db });
       registerWorkspaceRoutes(router, { pool: db });

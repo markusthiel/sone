@@ -56,6 +56,7 @@ import { RECOMMENDED_COST, passwordCost } from './auth/password.js';
 import { sendMail } from './mail/send.js';
 import { pollReplies, type ReplyDeps } from './jobs/replies.js';
 import { sendActivityDigests } from './jobs/activityDigest.js';
+import { sendRequirementMails } from './jobs/requirementMails.js';
 import { runOneJob, type Job, type JobContext } from './jobs/runner.js';
 import {
   EMAIL_NOTIFICATIONS,
@@ -325,6 +326,37 @@ async function main(): Promise<void> {
     // SONE instances can tell them apart (ADR-0063).
     instanceName: async () => (await settings.resolve()).values.instanceName,
     /*
+     * Where an account stands (ADR-0065).
+     *
+     * The same two facts the gate reads, and the same function deciding — one
+     * answer to "does this person still need to enrol", not two that can
+     * disagree about the deadline.
+     */
+    secondFactorStanding: async (userId) => {
+      const resolved = await settings.resolve();
+      if (!resolved.values.requireSecondFactor) return { kind: 'fine' };
+
+      const facts = await queryOne<{ has_password: boolean; has_factor: boolean }>(
+        pool,
+        `SELECT u.password_hash IS NOT NULL AS has_password,
+                EXISTS (
+                  SELECT 1 FROM second_factors f
+                   WHERE f.user_id = u.id AND f.confirmed_at IS NOT NULL
+                ) AS has_factor
+           FROM users u WHERE u.id = $1`,
+        [userId],
+      );
+      if (!facts) return { kind: 'fine' };
+
+      const standing = standingOf(
+        { required: true, since: resolved.values.requireSecondFactorSince },
+        { hasSecondFactor: facts.has_factor, hasPassword: facts.has_password },
+      );
+      return standing.kind === 'grace'
+        ? { kind: 'grace', deadline: standing.deadline.toISOString() }
+        : standing;
+    },
+    /*
      * Whether a reset can be offered at all (ADR-0059).
      *
      * Read on each call, not captured: an administrator can set the mail server
@@ -533,6 +565,32 @@ async function main(): Promise<void> {
    * what decides whose hour it is — a second schedule kept in JavaScript would
    * be a second answer to the question the SQL already answers.
    */
+  /*
+   * The two requirement mails, on the same hourly beat (ADR-0065).
+   *
+   * Which stage is due is decided from the deadline, and which accounts have
+   * had it is a recorded fact — so a sweep running twice in an hour sends
+   * nothing the second time.
+   */
+  const requirementTimer = setInterval(() => {
+    void mailSettings()
+      .then(async (current) => {
+        const resolved = await settings.resolve();
+        return sendRequirementMails({
+          pool,
+          relay: current.relay,
+          baseUrl: current.baseUrl,
+          required: resolved.values.requireSecondFactor,
+          since: resolved.values.requireSecondFactorSince,
+        });
+      })
+      .catch(() => {
+        // Tried again next hour. A relay that is down must not take the
+        // process with it.
+      });
+  }, 3_600_000);
+  requirementTimer.unref();
+
   const digestTimer = setInterval(() => {
     void mailSettings()
       .then((current) =>

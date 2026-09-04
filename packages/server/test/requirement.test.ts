@@ -7,6 +7,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
@@ -80,4 +81,32 @@ test('reading is not reachable while blocked, and enrolling is', () => {
   for (const path of ['/api/pages', '/api/workspaces', '/api/search', '/api/favourites']) {
     assert.equal(reachableWhileBlocked(path), false, path);
   }
+});
+
+test('the mail stages are two, and which one is due comes from the deadline', () => {
+  /*
+   * Two mails and not five: a feature that mails somebody daily about a thing
+   * they intend to do at the weekend has taught them to filter it (ADR-0065).
+   *
+   * Read from the module rather than exercised against a relay, because what
+   * is worth pinning here is the count and the boundary — the sending itself is
+   * the same `sendMail` every other job uses.
+   */
+  const source = readFileSync(
+    new URL('../src/jobs/requirementMails.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /'announced'/);
+  assert.match(source, /'warned'/);
+  assert.doesNotMatch(source, /'reminded'|'final'/, 'still only two stages');
+
+  // Recorded before sending, so a relay that accepts and then times out costs
+  // one missed mail rather than a duplicate every minute.
+  const insertAt = source.indexOf('INSERT INTO requirement_mails');
+  const sendAt = source.indexOf('await sendMail(');
+  assert.ok(insertAt > 0 && sendAt > insertAt, 'the row is written first');
+
+  // And only accounts that can act: a provider account is exempt, so telling
+  // it to enrol would be telling somebody to do something inapplicable.
+  assert.match(source, /u\.password_hash IS NOT NULL/);
 });

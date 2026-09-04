@@ -457,6 +457,17 @@ export const de: Record<keyof typeof en, string> = {
   'you.when.immediately': 'Sofort per E-Mail',
   'you.when.daily': 'In der Tagesmail',
   'you.when.off': 'Keine E-Mail',
+  'required.title': 'Hier ist die Anmeldung in zwei Schritten jetzt Pflicht',
+  'required.hint':
+    'Die Betreiberin dieser Instanz hat die Anmeldung in zwei Schritten zur ' +
+    'Pflicht gemacht, und die Zeit zum Einrichten ist vorbei. Einen ' +
+    'Authenticator hinzufügen, um weiterzumachen — vorher ist nichts anderes ' +
+    'erreichbar.',
+  'required.soon':
+    '{days, plural, one {Ab morgen ist die Anmeldung in zwei Schritten Pflicht.} ' +
+    'other {In # Tagen ist die Anmeldung in zwei Schritten Pflicht.}} Einen ' +
+    'Authenticator in den Einstellungen einrichten.',
+  'required.setUp': 'Einrichten',
   'you.secondFactor': 'Anmeldung in zwei Schritten',
   'you.secondFactor.hint':
     'Eine App auf dem Telefon erzeugt einen sechsstelligen Code, der nach dem ' +

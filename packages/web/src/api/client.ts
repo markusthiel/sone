@@ -107,6 +107,11 @@ export interface SessionInfo {
     /** Whether to be emailed, per kind (ADR-0058). */
     /** Whether an authenticator is enrolled and confirmed (ADR-0063). */
     hasSecondFactor?: boolean;
+    /** Where this account stands against the requirement (ADR-0065). */
+    secondFactorStanding?:
+      | { kind: 'fine' }
+      | { kind: 'grace'; deadline: string }
+      | { kind: 'blocked' };
     /** Everything visible, or only what is watched (ADR-0064). */
     digestScope?: 'all' | 'watched';
     /** When each kind is worth a mail (ADR-0061, amended). */

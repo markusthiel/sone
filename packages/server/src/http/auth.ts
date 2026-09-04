@@ -76,6 +76,15 @@ export interface AuthDeps {
   secretKey: string;
   /** What an authenticator app calls this instance (ADR-0063). */
   instanceName: () => Promise<string>;
+  /**
+   * Where an account stands against the requirement (ADR-0065).
+   *
+   * Injected, for the same reason the gate is installed rather than imported:
+   * this module must not depend on the settings store.
+   */
+  secondFactorStanding: (
+    userId: string,
+  ) => Promise<{ kind: 'fine' } | { kind: 'grace'; deadline: string } | { kind: 'blocked' }>;
   pool: Pool;
   /**
    * Who may create an account.
@@ -618,6 +627,19 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         // So the settings screen knows which half of itself to show, without a
         // second request (ADR-0063).
         hasSecondFactor: await hasSecondFactor(deps.pool, auth.userId),
+        /*
+         * Where this account stands against the requirement (ADR-0065).
+         *
+         * Sent with the session because the banner and the enrolment-only
+         * screen both need it, and asking separately would mean a request that
+         * the gate itself might refuse.
+         *
+         * `blocked` never reaches here in practice — the gate refuses the
+         * request that would return it — but it is in the type because the
+         * session route is reachable while blocked *by design*, so the
+         * interface can find out why it is stuck.
+         */
+        secondFactorStanding: await deps.secondFactorStanding(auth.userId),
         mentionsWhen: user?.mentions_when ?? 'immediately',
         assignmentsWhen: user?.assignments_when ?? 'immediately',
         repliesWhen: user?.replies_when ?? 'off',
