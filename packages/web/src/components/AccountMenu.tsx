@@ -27,6 +27,15 @@ import {
 
 interface AccountMenuProps {
   displayName: string;
+  /**
+   * A word under the face instead of the name (ADR-0074).
+   *
+   * The mode bar gives each item a fifth of a phone's width, where a name is
+   * an ellipsis. Every other item there is labelled, and an unlabelled face
+   * beside four labelled icons reads as an accident rather than a choice — so
+   * the bar passes "Du", and a column passes nothing and keeps the name.
+   */
+  label?: string | undefined;
   /** Whose picture. */
   userId: string;
   /** Whether to offer the way into the instance administration (ADR-0032). */
@@ -37,6 +46,7 @@ interface AccountMenuProps {
 
 export function AccountMenu({
   displayName,
+  label,
   userId,
   canAdminister,
   onLogout,
@@ -130,7 +140,7 @@ export function AccountMenu({
             />
           )}
         </span>
-        <span className="sidebar-account-name">{displayName}</span>
+        <span className="sidebar-account-name">{label ?? displayName}</span>
         {/* What is waiting (ADR-0052).
           *
           * On the button rather than beside it, because this is the one thing
