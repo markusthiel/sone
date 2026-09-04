@@ -87,6 +87,19 @@ export const SETTING_KEYS = {
    * because a relay usually insists on owning the sender, while the mailbox
    * being polled is often a different account entirely.
    */
+  /*
+   * Whether everybody needs a second factor, and since when (ADR-0065).
+   *
+   * Two settings rather than one, because the grace period is counted from the
+   * moment it was switched on — stored rather than derived, so it cannot move
+   * when somebody edits an unrelated setting and the store rewrites its row.
+   *
+   * `requireSecondFactorSince` is an ISO timestamp as text. Empty means it has
+   * never been on.
+   */
+  requireSecondFactor: { type: 'boolean' },
+  requireSecondFactorSince: { type: 'string', maxLength: 40 },
+
   imapHost: { type: 'string', maxLength: 253 },
   imapPort: { type: 'string', maxLength: 5 },
   imapUser: { type: 'string', maxLength: 320 },
@@ -110,6 +123,8 @@ export interface InstanceSettings {
   smtpSecurity: 'starttls' | 'tls' | 'none';
   emailDetail: 'title' | 'workspace';
   /** Empty host means no replies (ADR-0060). */
+  requireSecondFactor: boolean;
+  requireSecondFactorSince: string;
   imapHost: string;
   imapPort: string;
   imapUser: string;
@@ -139,6 +154,8 @@ export interface SettingsDefaults {
   smtpSecurity: 'starttls' | 'tls' | 'none';
   emailDetail: 'title' | 'workspace';
   /** Empty host means no replies (ADR-0060). */
+  requireSecondFactor: boolean;
+  requireSecondFactorSince: string;
   imapHost: string;
   imapPort: string;
   imapUser: string;

@@ -35,7 +35,8 @@ import { registerInvitationRoutes } from './auth/invitationRoutes.js';
 import { registerGroupRoutes } from './pages/groupRoutes.js';
 import { registerPagePermissionRoutes } from './pages/permissionRoutes.js';
 import { registerOidcRoutes } from './auth/oidcRoutes.js';
-import { registerAuthRoutes } from './http/auth.js';
+import { installSecondFactorGate, registerAuthRoutes } from './http/auth.js';
+import { reachableWhileBlocked, standingOf } from './auth/requirement.js';
 import { registerHealthRoutes, SONE_COMMIT, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
 import { serveRefusal } from './http/refusal.js';
@@ -68,7 +69,7 @@ import { createStaticHandler } from './http/static.js';
 import { Maintenance } from './maintenance/job.js';
 import { PROTOCOL_VERSION } from './sync/protocol.js';
 import { SyncServer } from './sync/server.js';
-import { queryRows } from './db/pool.js';
+import { queryOne, queryRows } from './db/pool.js';
 
 /** Time allowed for a graceful shutdown before the process is forced down. */
 const SHUTDOWN_GRACE_MS = 20_000;
@@ -257,6 +258,9 @@ async function main(): Promise<void> {
     smtpSecurity: 'starttls',
     emailDetail: 'title',
     // No mailbox by default, which means no replies (ADR-0060).
+    // Off, and never having been on (ADR-0065).
+    requireSecondFactor: false,
+    requireSecondFactorSince: '',
     imapHost: config.imapHost ?? '',
     imapPort: config.imapPort ?? '993',
     imapUser: config.imapUser ?? '',
@@ -278,6 +282,40 @@ async function main(): Promise<void> {
     publicUrl: config.publicUrl,
     // Decided the same way as everywhere else here, rather than a new setting.
     secureCookies: config.publicUrl.startsWith('https://'),
+  });
+
+  /*
+   * The requirement gate (ADR-0065).
+   *
+   * Installed once, and it returns null immediately when the requirement is
+   * off — a check on every authenticated request has to be free when the
+   * feature is not in use.
+   */
+  installSecondFactorGate(async (gatePool, userId, path) => {
+    const resolved = await settings.resolve();
+    if (!resolved.values.requireSecondFactor) return null;
+    if (reachableWhileBlocked(path)) return null;
+
+    const facts = await queryOne<{ has_password: boolean; has_factor: boolean }>(
+      gatePool,
+      `SELECT u.password_hash IS NOT NULL AS has_password,
+              EXISTS (
+                SELECT 1 FROM second_factors f
+                 WHERE f.user_id = u.id AND f.confirmed_at IS NOT NULL
+              ) AS has_factor
+         FROM users u WHERE u.id = $1`,
+      [userId],
+    );
+    if (!facts) return null;
+
+    const standing = standingOf(
+      {
+        required: true,
+        since: resolved.values.requireSecondFactorSince,
+      },
+      { hasSecondFactor: facts.has_factor, hasPassword: facts.has_password },
+    );
+    return standing.kind === 'blocked' ? 'second_factor_required' : null;
   });
 
   registerAuthRoutes(router, {

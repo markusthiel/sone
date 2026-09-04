@@ -686,6 +686,34 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
       return;
     }
 
+    /*
+     * An administrator cannot require what they do not have (ADR-0065).
+     *
+     * Not paternalism: a policy imposed by somebody exempt from it is a policy
+     * that gets rolled back the first time it inconveniences the person who set
+     * it. It also means whoever switches it on has walked the enrolment path
+     * they are asking everybody else to walk.
+     */
+    if (body['requireSecondFactor'] === true) {
+      if (!(await hasSecondFactor(deps.pool, admin.userId))) {
+        ctx.fail(422, 'enrol_yourself_first');
+        return;
+      }
+      /*
+       * The clock starts here, and only on the transition.
+       *
+       * Stamped by the server rather than accepted from the request, and left
+       * alone if it is already on — otherwise saving any other setting would
+       * silently give everybody another fourteen days.
+       */
+      const current = await deps.settings.resolve();
+      if (!current.values.requireSecondFactor) {
+        body['requireSecondFactorSince'] = new Date().toISOString();
+      } else {
+        delete body['requireSecondFactorSince'];
+      }
+    }
+
     const unknown = Object.keys(body).filter((key) => !(key in SETTING_KEYS));
     if (unknown.length > 0) {
       // Rejected rather than ignored: a typo silently stored is a setting

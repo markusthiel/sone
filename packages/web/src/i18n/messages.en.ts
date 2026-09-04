@@ -1276,6 +1276,12 @@ export const en = {
     'too, whoever runs this instance can remove the second factor for you.',
   'error.unknown_account': 'No such account.',
   'error.page_not_found': 'That page is not there.',
+  'error.second_factor_required':
+    'This instance now requires two-step sign-in. Set up an authenticator to ' +
+    'carry on.',
+  'error.enrol_yourself_first':
+    'Set up an authenticator on your own account before requiring one of ' +
+    'everybody.',
   'error.wrong_code': 'That code is not right.',
   'error.code_already_used':
     'That code has been used already. Wait for the next one.',
