@@ -2,9 +2,8 @@
 
 ## Status
 
-Accepted. The one screen exists and the administration's list opens it; what
-remains is the list showing a member their own workspaces, and the per-section
-rights beyond the `canEdit` the screen already had.
+Accepted and built, except for per-section rights finer than the single
+`canEdit` the screen already had.
 
 ## Context
 
@@ -113,6 +112,22 @@ gone. One found a message nothing used any more.
 
 They were right to fail. A guard that survives a reversal of the thing it guards
 is a guard that was checking the wrong layer.
+
+**The list, for everybody.** It was administrator-only, and the scoping is now
+in the server: every workspace for somebody with the right, the ones they are a
+member of for everybody else. Filtering in the interface as well would have been
+a second answer to one question — which is how the two screens this record
+merges drifted apart in the first place.
+
+It has its own route at `/workspaces`, reached from the account menu beside the
+shortcut to the current one.
+
+**And loosening that route nearly removed the deletion guard beside it.** The
+replacement matched twice, and the second site was `POST
+/api/admin/workspaces/:id/deletion` — which would have let any member mark any
+workspace deleted. The compiler caught it only because a variable went unused.
+There is a test for it now, in the same test as the loosening, because the
+loosening is not safe without it.
 
 ## Consequences
 

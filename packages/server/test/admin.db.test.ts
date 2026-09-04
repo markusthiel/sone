@@ -223,6 +223,40 @@ describe(
       await expectStatus(res, 200);
     });
 
+    test('anybody may list workspaces, but only the right may delete one', async () => {
+      /*
+       * One list of different lengths (ADR-0067): it was administrator-only,
+       * which is why a member had no list at all.
+       *
+       * And the second half is the check that would have caught the worst
+       * mistake in this change. Loosening the list route, my text replacement
+       * also hit the deletion route below it and removed *its* guard — which
+       * would have let any member mark any workspace deleted. Nothing about the
+       * loosening is safe without this assertion beside it.
+       */
+      const admin = await setup();
+      const member = await ordinaryUser('lister@example.org');
+
+      const listed = await expectJson<{ workspaces: Array<{ id: string }> }>(
+        await fetch(`${base}/api/admin/workspaces`, { headers: { cookie: member.cookie } }),
+        200,
+      );
+      const all = await expectJson<{ workspaces: Array<{ id: string }> }>(
+        await fetch(`${base}/api/admin/workspaces`, { headers: { cookie: admin.cookie } }),
+        200,
+      );
+      assert.ok(all.workspaces.length >= listed.workspaces.length, 'the admin sees at least as many');
+
+      await expectStatus(
+        await fetch(`${base}/api/admin/workspaces/${all.workspaces[0]!.id}/deletion`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', cookie: member.cookie },
+          body: JSON.stringify({ confirmName: 'whatever' }),
+        }),
+        404,
+      );
+    });
+
     test('an account created afterwards is not an administrator', async () => {
       // Only the person who set the instance up, not everybody who signs up.
       await setup();
@@ -249,7 +283,16 @@ describe(
       await setup();
       const member = await ordinaryUser('member@example.org');
 
-      for (const path of ['overview', 'users', 'workspaces', 'maintenance']) {
+      /*
+       * `workspaces` is no longer in this list, deliberately (ADR-0067).
+       *
+       * Listing workspaces is open to everybody now and the answer's length is
+       * the right — one list of different lengths rather than a screen whose
+       * existence depends on a permission. The routes below are still
+       * administration, and still answer "not there" rather than "not allowed"
+       * for the reason this test was written.
+       */
+      for (const path of ['overview', 'users', 'maintenance']) {
         const res = await fetch(`${base}/api/admin/${path}`, {
           headers: { cookie: member.cookie },
         });

@@ -28,6 +28,7 @@ import { requireSession } from '../http/auth.js';
 import { rematerialize } from '../materialize/rematerialize.js';
 import { RECOMMENDED_COST, passwordCost } from '../auth/password.js';
 import { hasSecondFactor, removeSecondFactor } from '../auth/secondFactor.js';
+import { administratorRights } from './rights.js';
 import { SETTING_KEYS, SettingError, type SettingKey, type SettingsStore } from './settings.js';
 import type { RequestContext, Router } from '../http/router.js';
 
@@ -458,8 +459,23 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
     // The workspace right, not the instance one: the point of granting it
     // separately is that somebody holding it can do this without being an
     // instance administrator (ADR-0027).
-    const admin = await requireWorkspaceAdministrator(deps.pool, ctx);
-    if (!admin) return;
+    /*
+     * Everybody may ask; the answer's length is the right (ADR-0067).
+     *
+     * This was administrator-only, which is why a member had no list at all and
+     * the only workspace they could edit was the one they were looking at. One
+     * list of different lengths rather than two screens — a screen whose
+     * existence depends on a right is a screen somebody has to be told about.
+     *
+     * The scoping is here rather than in the interface: two callers filtering
+     * the same list their own way is how the last two workspace screens
+     * drifted apart.
+     */
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+    // `administratorRights` rather than a new check: the same function the
+    // refusing guard uses, without the refusal.
+    const seesAll = (await administratorRights(deps.pool, auth.userId)).workspaces;
 
     const rows = await queryRows<{
       id: string;
@@ -488,7 +504,16 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
         -- Shared first, then personal. Everybody has a personal workspace now
         -- (ADR-0025), so an instance of forty people has forty of them, and a
         -- list sorted only by name reads as forty teams (ADR-0027).
+        -- Every workspace, or the ones this person is in.
+        WHERE $1::boolean OR EXISTS (
+          SELECT 1 FROM workspace_members m
+           WHERE m.workspace_id = w.id AND m.user_id = $2
+        )
+        -- Shared first, then personal. Everybody has a personal workspace now
+        -- (ADR-0025), so an instance of forty people has forty of them, and a
+        -- list sorted only by name reads as forty teams (ADR-0027).
         ORDER BY (w.personal_for IS NOT NULL), w.name COLLATE "und-x-icu"`,
+      [seesAll, auth.userId],
     );
 
     ctx.send(200, {
@@ -521,6 +546,8 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
    * does (ADR-0027).
    */
   router.post('/api/admin/workspaces/:workspaceId/deletion', async (ctx) => {
+    // Deleting is still the right, not the list: my edit to the route above
+    // matched here too, which would have let anybody mark a workspace deleted.
     const admin = await requireWorkspaceAdministrator(deps.pool, ctx);
     if (!admin) return;
 

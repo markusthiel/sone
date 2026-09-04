@@ -15,6 +15,7 @@ export const en = {
   // --- the account menu at the foot of a column ---------------------------
   'account.label': '{name} — account and settings',
   'account.yourSettings': 'Your settings',
+  'account.workspaces': 'Workspaces',
   'account.thisWorkspace': 'This workspace',
   'account.administration': 'Administration',
   'account.inbox': 'Inbox',
@@ -194,6 +195,8 @@ export const en = {
   'workspace.delete.notYours':
     'Only an owner of this workspace, or somebody who manages workspaces, can ' +
     'delete it.',
+  'workspace.area': 'Workspace',
+  'workspace.untitled': 'Untitled',
   'workspace.export': 'Export this workspace',
   'workspace.export.hint':
     'Every page you can read, as Markdown files with their attachments, in one ' +
@@ -614,6 +617,8 @@ export const en = {
   'workspaces.people': 'People',
   'workspaces.pages': 'Pages',
   'workspaces.lastEdited': 'Last edited',
+  'workspaces.area': 'Workspaces',
+  'workspaces.area.hint': 'The ones you are in, and the ones you look after.',
   'workspaces.delete': 'Delete this workspace',
   'workspaces.confirmName': 'Type the name to confirm',
   'workspaces.nameField': 'Workspace name',

@@ -2425,3 +2425,29 @@ test('the sidebar can be made wider, and remembers it', () => {
   // And it is absent where the sidebar is an overlay rather than a column.
   assert.match(css, /@media \(max-width: 799px\) \{\s*\.sidebar-resize \{ display: none; \}/);
 });
+
+test('the workspace list is one list, and the server decides its length', () => {
+  /*
+   * The list lived inside the administration, which is why a member had no
+   * list at all and could edit only the workspace they happened to be looking
+   * at (ADR-0067).
+   */
+  const admin = codeOf(new URL('../src/components/AdminScreen.tsx', import.meta.url));
+  const menu = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
+
+  // Reachable without any right, from the account menu.
+  assert.match(menu, /href=\{paths\.workspaces\(\)\}/);
+  // And the shortcut to the current one stays: removing it to prove a point
+  // about structure would remove the useful thing.
+  assert.match(menu, /href=\{paths\.workspaceSettings\(\)\}/);
+
+  // Both entry points open the same screen, by id.
+  assert.match(admin, /paths\.workspaceSettings\('general', id\)/);
+
+  // Sections carry the workspace. Without this, opening somebody else's and
+  // clicking a section would quietly jump to your own.
+  const screen = codeOf(
+    new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
+  );
+  assert.match(screen, /hrefFor=\{\(id\) => paths\.workspaceSettings\(id, workspaceId\)\}/);
+});

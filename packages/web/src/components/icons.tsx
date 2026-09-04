@@ -839,3 +839,22 @@ export function DividerIcon(props: IconProps): ReactElement {
     </svg>
   );
 }
+
+/**
+ * Several workspaces.
+ *
+ * Four squares rather than a box or a folder: `FolderIcon` already means a
+ * folder in the tree and `UsersIcon` means people, and borrowing either would
+ * make one of the three ambiguous. A grid reads as "more than one place"
+ * without claiming to be any of them.
+ */
+export function WorkspacesIcon(props: IconProps): ReactElement {
+  return (
+    <svg {...base(props)}>
+      <rect x="4.5" y="4.5" width="6" height="6" rx="1.2" />
+      <rect x="13.5" y="4.5" width="6" height="6" rx="1.2" />
+      <rect x="4.5" y="13.5" width="6" height="6" rx="1.2" />
+      <rect x="13.5" y="13.5" width="6" height="6" rx="1.2" />
+    </svg>
+  );
+}

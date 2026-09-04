@@ -56,6 +56,9 @@ export const paths = {
   /** Your own settings (ADR-0032). */
   settings: (section = 'profile') => `/settings/${section}`,
   /** The workspace you are in. */
+  /** Every workspace this person may see (ADR-0067). */
+  workspaces: () => '/workspaces',
+
   /**
    * A workspace's settings (ADR-0067).
    *
@@ -130,6 +133,7 @@ export type Route =
   | { kind: 'setup' }
   | { kind: 'search'; query: string }
   | { kind: 'settings'; section: string }
+  | { kind: 'workspaceList' }
   | { kind: 'workspaceSettings'; workspaceId: string | null; section: string }
   | { kind: 'admin'; section: string }
   | { kind: 'trash' }
@@ -172,6 +176,9 @@ export function parseRoute(pathname: string, search = ''): Route {
       return { kind: 'search', query: params.get('q') ?? '' };
     case 'settings':
       return { kind: 'settings', section: segments[1] ?? 'profile' };
+    case 'workspaces':
+      // The list, which everybody may open — the answer's length is the right.
+      return { kind: 'workspaceList' };
     case 'workspace':
       /*
        * The workspace is named in the address (ADR-0067).

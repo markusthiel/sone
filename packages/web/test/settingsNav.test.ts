@@ -78,7 +78,15 @@ test('the administration area is absent from the switcher without the right', ()
 
 test('three areas, and each names whose settings it holds', () => {
   assert.match(you, /area="You"/);
-  assert.match(workspace, /area="This workspace"/);
+  /*
+   * Translated, and no longer claiming to be *this* workspace.
+   *
+   * It was `area="This workspace"` — hardcoded English, and true only while
+   * there was one workspace anybody could edit. An administrator opening
+   * somebody else's now reads a heading that is about a workspace rather than
+   * about theirs (ADR-0067).
+   */
+  assert.match(workspace, /area=\{t\('workspace\.area'\)\}/);
   assert.match(instance, /area=\{t\('area\.instance'\)\}/);
 });
 
@@ -86,7 +94,9 @@ test('the workspace area says which workspace, under the area name', () => {
   // "This workspace" is true of five workspaces. Somebody with five needs to see
   // which one they are editing before they change its typography — and as a
   // quieter second line, because it is a fact rather than a choice.
-  assert.match(workspace, /subtitle=\{workspace\?\.name \|\| 'Untitled'\}/);
+  // The name below the area still says which one — translated now, since the
+  // fallback was English too.
+  assert.match(workspace, /subtitle=\{workspace\?\.name \|\| t\('workspace\.untitled'\)\}/);
   assert.match(shell, /className="switcher-sub"/);
   // And the heading that used to repeat the area name is gone, or the column says
   // the same thing twice in two lines.

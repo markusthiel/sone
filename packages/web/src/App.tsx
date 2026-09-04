@@ -27,6 +27,7 @@ import { LocaleProvider, resolveLocale, useT } from './i18n/useT.tsx';
 import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
+import { WorkspaceListScreen } from './components/WorkspaceListScreen.tsx';
 import { WorkspaceSettingsScreen } from './components/WorkspaceSettingsScreen.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
@@ -522,6 +523,24 @@ function Workspace({
     return (
       <Settings
         section={route.section}
+        session={session}
+        workspaceId={workspaceId}
+        onClose={() => navigate(paths.home())}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  /*
+   * The list of workspaces, for everybody (ADR-0067).
+   *
+   * Outside the administration, because it was inside it — which is why a
+   * member had no list at all and could only edit the workspace they happened
+   * to be looking at. The server decides its length.
+   */
+  if (route.kind === 'workspaceList') {
+    return (
+      <WorkspaceListScreen
         session={session}
         workspaceId={workspaceId}
         onClose={() => navigate(paths.home())}
