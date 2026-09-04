@@ -13,7 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**The sidebar can be dragged wider**, and remembers it. Long page titles in a
+nested folder had nowhere to go: a name like `02.03.2026 - 09:05 - Notiz` needs
+about 200px, and three levels of nesting inside a 260px sidebar leave it 180.
+Double-click the edge to put it back.
 
 ## 0.9.1
 

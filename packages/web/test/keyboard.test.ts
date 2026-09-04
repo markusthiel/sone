@@ -87,10 +87,41 @@ test('both drawers slide, with the same duration', () => {
   // The right panel appeared and vanished while the left one slid, which is the
   // difference somebody notices without being able to name it. Same duration
   // and easing, so the two sides behave alike rather than nearly alike.
-  const left = css.slice(css.indexOf('.sidebar {', css.indexOf('max-width: 799px')));
-  assert.match(left.slice(0, 500), /transition: transform 160ms ease/);
-  const right = css.slice(css.indexOf('.right-panel {', css.indexOf('max-width: 1099px')));
-  assert.match(right.slice(0, 700), /transition: transform 160ms ease/);
+  /*
+   * Found by the rule's own content, not by counting from the first
+   * `max-width: 799px` in the file.
+   *
+   * That is what this did, and it broke the day a *different* narrow-screen
+   * rule was added above it — the slice then started at the wrong `.sidebar {`
+   * and the window no longer held the transition. The assertion was right and
+   * its aim was borrowed from whatever happened to come first.
+   *
+   * The drawer is the rule that translates the sidebar off-screen, so that is
+   * what to look for.
+   */
+  const left = css.slice(css.indexOf('transform: translateX(-102%)'));
+  assert.match(left.slice(0, 200), /transition: transform 160ms ease/);
+  /*
+   * The last `.right-panel {` rather than a computed one.
+   *
+   * There are two rules for that selector alone: the column, and the drawer
+   * inside the narrow-screen media query. The drawer is the one that slides and
+   * it is the later of the two.
+   *
+   * Matched at the start of a line, because `.right-panel {` as a plain
+   * substring also occurs inside
+   * `.app[data-right-panel='closed'] .right-panel { display: flex; }` — which
+   * is where `lastIndexOf` landed.
+   *
+   * Three wrong anchors before this one: proximity to the first
+   * `max-width: 799px`, then `translateX(102%)` (which matches the sidebar's
+   * right-to-left variant first), then `lastIndexOf`. Each was unique on the
+   * day it was written. A rule is found by being a rule.
+   */
+  const rules = [...css.matchAll(/^\s*\.right-panel \{/gm)];
+  const drawer = rules[rules.length - 1];
+  assert.ok(drawer?.index !== undefined, 'the drawer rule is there to read');
+  assert.match(css.slice(drawer.index).slice(0, 700), /transition: transform 160ms ease/);
   // And a closed drawer keeps its box, or there is nothing to animate.
   assert.match(css, /\.app\[data-right-panel='closed'\] \.right-panel \{ display: flex; \}/);
 });

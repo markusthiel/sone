@@ -60,6 +60,7 @@ export const en = {
 
   // --- the sidebar and the tree ------------------------------------------
   'sidebar.label': 'Pages',
+  'sidebar.resize': 'Drag to make the sidebar wider, double-click to reset',
   'sidebar.close': 'Close navigation',
   'sidebar.hide': 'Hide the sidebar',
   'sidebar.search': 'Search',

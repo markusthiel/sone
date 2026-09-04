@@ -22,6 +22,7 @@ import {
 } from 'react';
 
 import type { FavouriteEntry, PageNode } from '../api/client.ts';
+import { useSidebarWidth } from '../hooks/useSidebarWidth.ts';
 import {
   canMoveInto,
   canReorderInto,
@@ -233,6 +234,10 @@ export function Sidebar({
    * (ADR-0046). Not on the account, because a sidebar on a phone is not a
    * sidebar at a desk.
    */
+  // How wide this is, remembered locally: a preference about this screen rather
+  // than a fact about the account (see useSidebarWidth).
+  const { startResize, reset: resetWidth } = useSidebarWidth();
+
   const [sectionsOpen, setSectionsOpen] = useState<{ favourites: boolean; folders: boolean }>(
     () => {
       try {
@@ -490,6 +495,25 @@ export function Sidebar({
           canAdminister={isInstanceAdmin || canManageWorkspaces}
           onLogout={onLogout}
         />
+        {/* The edge, draggable (see useSidebarWidth).
+          *
+          * Because the tree's problem is space rather than text: a title like
+          * "02.03.2026 - 09:05 - Notiz" needs about 200px of label, and three
+          * levels of nesting inside 260px leave it 180. Every clever
+          * alternative is worse — a middle ellipsis throws away the date, which
+          * for date-prefixed titles is the half that matters, and wrapping
+          * doubles the height of a list of thirty of them.
+          *
+          * A button rather than a bare div so it can be focused, and
+          * double-click puts it back — which is what somebody will try. */}
+        <button
+          type="button"
+          className="sidebar-resize"
+          aria-label={t('sidebar.resize')}
+          onMouseDown={startResize}
+          onDoubleClick={resetWidth}
+        />
+
       </nav>
 
       {/* The entry under the pointer.
