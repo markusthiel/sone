@@ -22,6 +22,7 @@ import {
   BellIcon,
   PersonIcon,
   SettingsIcon,
+  WorkspacesIcon,
   SignOutIcon,
   SlidersIcon,
   TrashIcon,
@@ -163,9 +164,20 @@ export function AccountMenu({
             <PersonIcon />
             {t('account.yourSettings')}
           </a>
+          {/* The shortcut stays (ADR-0067): it is how people reach the settings
+              for what they are looking at, and removing it to prove a point
+              about structure would remove the useful thing. It goes to the same
+              screen as the list below, with the current workspace's id. */}
           <a role="menuitem" href={paths.workspaceSettings()} onClick={() => setOpen(false)}>
             <SettingsIcon />
             {t('account.thisWorkspace')}
+          </a>
+          {/* And the list, which everybody may open — the answer's length is
+              the right. It was inside the administration, which is why a member
+              had no list at all. */}
+          <a role="menuitem" href={paths.workspaces()} onClick={() => setOpen(false)}>
+            <WorkspacesIcon />
+            {t('account.workspaces')}
           </a>
           {/* Absent rather than present and refusing, for the reason ADR-0027
               gives: an entry that answers "not found" teaches people to distrust

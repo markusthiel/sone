@@ -21,6 +21,7 @@ export const de: Record<keyof typeof en, string> = {
   'account.label': '{name} — Konto und Einstellungen',
   'account.yourSettings':
     '{address, select, formal {Ihre Einstellungen} other {Deine Einstellungen}}',
+  'account.workspaces': 'Workspaces',
   'account.thisWorkspace': 'Dieser Workspace',
   'account.administration': 'Verwaltung',
   'account.inbox': 'Posteingang',
@@ -214,6 +215,8 @@ export const de: Record<keyof typeof en, string> = {
   'workspace.delete.hint': 'Diesen Workspace entfernen — eine Zeit lang umkehrbar.',
   'workspace.delete.notYours':
     'Löschen kann nur, wer diesen Workspace besitzt oder Workspaces verwaltet.',
+  'workspace.area': 'Workspace',
+  'workspace.untitled': 'Ohne Namen',
   'workspace.export': 'Diesen Workspace exportieren',
   'workspace.export.hint':
     'Jede lesbare Seite als Markdown-Dateien mit ihren Anhängen, in einem ' +
@@ -673,6 +676,8 @@ export const de: Record<keyof typeof en, string> = {
   'workspaces.people': 'Leute',
   'workspaces.pages': 'Seiten',
   'workspaces.lastEdited': 'Zuletzt bearbeitet',
+  'workspaces.area': 'Workspaces',
+  'workspaces.area.hint': 'Die eigenen — und die, um die man sich kümmert.',
   'workspaces.delete': 'Diesen Workspace löschen',
   'workspaces.confirmName': 'Zum Bestätigen den Namen eintippen',
   'workspaces.nameField': 'Name des Workspace',

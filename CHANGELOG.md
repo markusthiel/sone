@@ -13,6 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Everybody has a workspace list.** It existed only for administrators, so a
+member could only ever edit the workspace they happened to be looking at. It is
+under Workspaces in the account menu now, showing the ones you are in — or every
+one, if you look after them.
+
 **A workspace is edited in one place.** Its settings were split between
 `/workspace/…` and the administration, each with sections the other lacked — so
 an administrator could not change another workspace's typography and an owner

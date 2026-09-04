@@ -84,10 +84,16 @@ export function WorkspaceSettingsScreen({
 
   return (
     <SettingsShell
-      // The area names the subject; the name below it says which workspace.
-      area="This workspace"
+      /*
+       * The area names the subject; the name below says which workspace.
+       *
+       * It said "This workspace", hardcoded and in English — which was true
+       * while there was only ever one, and is wrong the moment an
+       * administrator opens somebody else's (ADR-0067).
+       */
+      area={t('workspace.area')}
       areaId="workspace"
-      subtitle={workspace?.name || 'Untitled'}
+      subtitle={workspace?.name || t('workspace.untitled')}
       canAdminister={canAdminister}
       sections={SECTIONS.map((entry) => ({
         id: entry.id,
@@ -95,7 +101,15 @@ export function WorkspaceSettingsScreen({
         hint: t(entry.hint),
       }))}
       current={current}
-      hrefFor={(id) => paths.workspaceSettings(id)}
+      /*
+       * Carrying the workspace, which this dropped.
+       *
+       * With the id in the address, a section link built without it means "the
+       * workspace I am in" — so opening somebody else's and clicking a section
+       * would have quietly jumped to your own. Introduced by putting the id in
+       * the path and found by reading the props rather than by a test.
+       */
+      hrefFor={(id) => paths.workspaceSettings(id, workspaceId)}
       listOpen={listOpen}
       onListOpen={setListOpen}
       account={{
