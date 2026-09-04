@@ -5,7 +5,7 @@
  * about all of those at once; everything else takes what it needs as props.
  */
 
-import { useEffect, useState , type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { LoginScreen, SetupScreen, SignupScreen, useMessage, ResetScreen,
   SecondFactorRequired,
@@ -383,33 +383,30 @@ function Workspace({
   const [trashQuery, setTrashQuery] = useState('');
 
   /*
-   * The settings menu: you, and the server (ADR-0070).
+   * Two menus, not one list with two headings (ADR-0072).
    *
-   * It held a third group — the workspace you were in — and that is what made
-   * it wrong. Both of these have exactly one subject; a workspace's settings
-   * have one per workspace, so the first question there is *which*, and a
-   * question with an answer per row is a chooser. It has one, in the Workspaces
-   * mode, which is the mode whose subject a workspace already is.
+   * ADR-0070 took the workspace out of the settings list, leaving you and the
+   * server as two groups in one column. Two is still two subjects, and the
+   * column was already long enough that "Wo du landest" and "Mailserver" sat
+   * six rows apart in it — with more to come on both sides. So they are two
+   * areas, which is what the account menu has been calling them all along.
    *
-   * What that fixes is concrete: this list offered "Mailserver" and "Konten"
-   * three rows under a workspace's name, as though a workspace could have its
-   * own SMTP server. It cannot, and a menu that reads as if it could is one
-   * people stop trusting.
+   * One group each, and no group heading: the panel's own title says which area
+   * this is, and repeating it over the only group in the column would be the
+   * heading saying nothing.
    */
   const settingsGroups: SectionGroup[] = [
     {
-      title: t('area.you'),
       sections: YOU_SECTIONS.map((e) => ({ id: e.id, label: t(e.label), hint: t(e.hint) })),
       hrefFor: (id) => paths.settings(id),
     },
   ];
-  if (session.user.isInstanceAdmin) {
-    settingsGroups.push({
-      title: t('area.instance'),
+  const adminGroups: SectionGroup[] = [
+    {
       sections: ADMIN_SECTIONS.map((e) => ({ id: e.id, label: t(e.label), hint: t(e.hint) })),
       hrefFor: (id) => paths.admin(id),
-    });
-  }
+    },
+  ];
   const settingsCurrentHref =
     route.kind === 'admin'
       ? paths.admin(resolveSection(ADMIN_SECTIONS, route.section))
@@ -546,7 +543,22 @@ function Workspace({
     };
   }, [workspaceId]);
 
-  // The root redirects to the first page rather than showing an empty shell.
+  /*
+   * Whether this workspace has already been arrived at (ADR-0072).
+   *
+   * "Where you land" answers two different questions with one setting, and the
+   * difference only shows once the mark is a button somebody presses on
+   * purpose. Arriving — a fresh load, a sign-in, a switch of workspace — means
+   * the setting in full, including "the page I was last on". Pressing the mark
+   * later cannot mean that: you are *on* that page, so the mark would do
+   * nothing, which is how it read as broken.
+   *
+   * So a later press goes to the top of the tree instead. A fixed landing page
+   * is honoured either way — somebody who named a page meant that page.
+   */
+  const arrived = useRef<string | null>(null);
+
+  // The root redirects to a page rather than showing an empty shell.
   useEffect(() => {
     if (route.kind !== 'home') return;
     // Not while the tree is being fetched.
@@ -564,7 +576,11 @@ function Workspace({
         if (cancelled) return;
         // Where they were, or the page they chose — the server has already
         // checked it is still reachable, so this is a page or nothing.
-        const target = landing.landOn ?? pages[0]?.id ?? null;
+        const first = pages[0]?.id ?? null;
+        const again = arrived.current === workspaceId;
+        arrived.current = workspaceId;
+        const target =
+          again && landing.mode !== 'fixed' ? first : (landing.landOn ?? first);
         if (!target) return;
         const node = pages.find((page) => page.id === target);
         navigate(paths.page(target, node?.title ?? ''));
@@ -572,6 +588,7 @@ function Workspace({
       .catch(() => {
         // The first page, as before. A landing preference that cannot be read
         // should cost somebody a good guess, not a blank screen.
+        arrived.current = workspaceId;
         const first = pages[0];
         if (first) navigate(paths.page(first.id, first.title));
       });
@@ -660,14 +677,20 @@ function Workspace({
               ? t('trash.title')
               : mode === 'settings'
                 ? t('settings.title')
-                : t('workspaces.area')
+                : mode === 'admin'
+                  ? t('area.instance')
+                  : t('workspaces.area')
         }
         panelScope={
           mode === 'trash'
             ? t('trash.scope', { workspace: workspaceName })
             : mode === 'settings'
               ? t('settings.scope')
-              : undefined
+              : mode === 'admin'
+                ? // Said where the changes are made, because this is the one
+                  // area where a setting is somebody else's problem too.
+                  t('admin.scope')
+                : undefined
         }
         /* The Workspaces mode says its scope with a control rather than a line:
            which workspace is not a fact to read here, it is the choice the rest
@@ -762,6 +785,9 @@ function Workspace({
         )}
         {mode === 'settings' && (
           <SectionNav groups={settingsGroups} current={settingsCurrentHref} />
+        )}
+        {mode === 'admin' && (
+          <SectionNav groups={adminGroups} current={settingsCurrentHref} />
         )}
         {mode === 'workspaces' && (
           <WorkspacePanel chosenId={chosenWorkspaceId} current={workspaceCurrentHref} />
