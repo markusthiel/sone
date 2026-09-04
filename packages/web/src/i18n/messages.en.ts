@@ -1292,6 +1292,12 @@ export const en = {
   'error.enrol_yourself_first':
     'Set up an authenticator on your own account before requiring one of ' +
     'everybody.',
+  'error.too_many_entries':
+    'That archive holds more files than the import reads at once. Split it, or ' +
+    'import a folder at a time.',
+  'error.zip64_unsupported':
+    'That archive is in the Zip64 format, which the import cannot read. ' +
+    'Re-creating it with ordinary zip usually works.',
   'error.wrong_code': 'That code is not right.',
   'error.code_already_used':
     'That code has been used already. Wait for the next one.',

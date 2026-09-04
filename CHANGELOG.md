@@ -13,7 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**A single Markdown file can be imported without zipping it first.** Pick a
+`.md` and it becomes a page — the import demanded an archive for no reason other
+than that nothing had made it not.
+
+**Fixed: an archive the import could not read said the wrong thing about why.**
+A Zip64 archive was reported as holding too many entries, which sent people
+looking for files to delete; it now says it is Zip64. And "too many entries" now
+says how many it found and how many it reads, instead of showing a bare error
+code — which had no message at all.
 
 ## 0.8.0
 

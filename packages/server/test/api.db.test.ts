@@ -245,6 +245,43 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     return row.rows[0]!.id;
   }
 
+  test('a single Markdown file imports without being zipped first', async () => {
+    /*
+     * Asked for, and the reason the import demanded an archive was that
+     * nothing had ever made it not: `planImport` takes a list of entries, and
+     * one Markdown file is a list of one. Asking somebody to zip a single note
+     * before SONE will read it is asking them to do work on our behalf.
+     *
+     * Which it is comes from the *content*, not the name or the content type: a
+     * ZIP always starts `PK`, and a content type is a claim the browser makes.
+     */
+    const session = await setup();
+    const folder = await createFolder(session, 'Import hierher');
+
+    const planned = await expectJson<{
+      pages: Array<{ path: string[]; title: string; isFolder: boolean }>;
+      totals: { pages: number; folders: number };
+    }>(
+      await fetch(`${base}/api/pages/${folder}/import/plan`, {
+        method: 'POST',
+        headers: {
+          ...auth(session).headers,
+          // The content type the client always sends, deliberately unchanged.
+          'content-type': 'application/zip',
+          'x-sone-filename': 'Eine Notiz.md',
+        },
+        body: '# Eine Notiz\n\nMit etwas Text.\n',
+      }),
+      200,
+    );
+
+    assert.equal(planned.totals.pages, 1);
+    assert.equal(planned.totals.folders, 0);
+    assert.equal(planned.pages[0]?.isFolder, false);
+    // The name from the header, because a POST body has none of its own.
+    assert.match(planned.pages[0]?.title ?? '', /Eine Notiz/);
+  });
+
   test('a second factor makes sign-in two steps, and the first sets no cookie', async () => {
     /*
      * The property that matters: the password is verified in full before the
@@ -731,7 +768,16 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const res = await fetch(`${base}/api/pages/${folder}/import/plan`, {
       method: 'POST',
       headers: { ...auth(session).headers, 'content-type': 'application/zip' },
-      body: Buffer.from('Not a zip at all.'),
+      /*
+       * Binary, not text.
+       *
+       * This used to send "Not a zip at all." — which is now imported as a
+       * note, correctly: plain text is a thing somebody wrote. What must still
+       * be refused is a file that is neither an archive nor text, because a
+       * JPEG that became a page of binary nonsense with a plausible title
+       * would look like it had worked (ADR-0068 pending).
+       */
+      body: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00]),
     });
     assert.equal(res.status, 422);
     // The parser's own code, so the interface can say why: "not an archive" and
