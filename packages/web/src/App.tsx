@@ -11,6 +11,8 @@ import { LoginScreen, SetupScreen, SignupScreen, useMessage, ResetScreen,
   SecondFactorRequired,
 } from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
+import { IconRail } from './components/IconRail.tsx';
+import { placeOf } from './components/places.tsx';
 import { MoveDialog } from './components/MoveDialog.tsx';
 import { MoveToWorkspaceDialog } from './components/MoveToWorkspaceDialog.tsx';
 import { ShareDialog } from './components/ShareDialog.tsx';
@@ -584,6 +586,11 @@ function Workspace({
       data-right-panel={rightOpen ? 'open' : 'closed'}
       data-sidebar={sidebarVisible ? 'shown' : 'hidden'}
     >
+      {/* First in the DOM as well as first in the grid. It is the outermost
+          frame of the window, and a screen reader reading the shell in source
+          order should meet the map before the tree. */}
+      <IconRail here={placeOf(route.kind)} />
+
       <Sidebar
         onStartExport={setExportingId}
         onStartImport={setImportingId}

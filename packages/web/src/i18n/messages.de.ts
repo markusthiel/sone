@@ -24,7 +24,6 @@ export const de: Record<keyof typeof en, string> = {
   'account.workspaces': 'Workspaces',
   'account.administration': 'Verwaltung',
   'account.inbox': 'Posteingang',
-  'account.inbox.waiting': 'Posteingang, {count} wartend',
   'account.label.waiting': '{name}, {count} Benachrichtigungen wartend',
   'inbox.title': 'Posteingang',
   'inbox.empty':
@@ -74,6 +73,7 @@ export const de: Record<keyof typeof en, string> = {
   'sidebar.close': 'Navigation schließen',
   'sidebar.hide': 'Seitenleiste ausblenden',
   'sidebar.search': 'Suchen',
+  'sidebar.places': 'Bereiche',
   'sidebar.favourites': 'Favoriten',
   'sidebar.folders': 'Ordner',
   'sidebar.emptyFolders': 'Noch keine Ordner. Drücke +, um einen anzulegen.',

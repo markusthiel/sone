@@ -19,13 +19,10 @@ import { api } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import {
-  BellIcon,
   PersonIcon,
   SettingsIcon,
-  WorkspacesIcon,
   SignOutIcon,
   SlidersIcon,
-  TrashIcon,
 } from './icons.tsx';
 
 interface AccountMenuProps {
@@ -164,20 +161,15 @@ export function AccountMenu({
             <PersonIcon />
             {t('account.yourSettings')}
           </a>
-          {/* One entry, not two (ADR-0067 amendment).
+          {/* Workspaces, the inbox and the trash are not here.
               *
-              * There were both: "this workspace" and "workspaces". Two entries
-              * for one subject is the thing this record set out to remove, and
-              * adding a second one while removing a duplicate screen made the
-              * menu worse rather than better — which is what the report said.
+              * They are places, and places are on the rail — and at the foot of
+              * the sidebar's drawer at the width where the rail is not drawn
+              * (places.tsx). Both here and there would be the fault this record
+              * was amended over: one subject, two ways in, and the report said
+              * the menu had got worse rather than better.
               *
-              * The list is the way in, and the workspace being looked at is
-              * first in it and marked. One click more than before to reach it,
-              * and one concept instead of two. */}
-          <a role="menuitem" href={paths.workspaces()} onClick={() => setOpen(false)}>
-            <WorkspacesIcon />
-            {t('account.workspaces')}
-          </a>
+              * What is left is what the menu is for: you, and the server. */}
           {/* Absent rather than present and refusing, for the reason ADR-0027
               gives: an entry that answers "not found" teaches people to distrust
               the menu. */}
@@ -187,16 +179,6 @@ export function AccountMenu({
               {t('account.administration')}
             </a>
           )}
-          {/* Above the trash: it is the thing somebody came to the menu for
-              when the count is showing. */}
-          <a role="menuitem" href={paths.inbox()} onClick={() => setOpen(false)}>
-            <BellIcon />
-            {unread > 0 ? t('account.inbox.waiting', { count: unread }) : t('account.inbox')}
-          </a>
-          <a role="menuitem" href={paths.trash()} onClick={() => setOpen(false)}>
-            <TrashIcon />
-            {t('account.trash')}
-          </a>
           {/* Last and set apart: the one entry here somebody cannot undo by
               pressing it again. */}
           <button type="button" role="menuitem" onClick={onLogout}>
