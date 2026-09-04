@@ -282,6 +282,10 @@ async function main(): Promise<void> {
 
   registerAuthRoutes(router, {
     pool,
+    secretKey: config.secretKey,
+    // What an authenticator app lists the entry under, so somebody with three
+    // SONE instances can tell them apart (ADR-0063).
+    instanceName: async () => (await settings.resolve()).values.instanceName,
     /*
      * Whether a reset can be offered at all (ADR-0059).
      *

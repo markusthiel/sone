@@ -37,6 +37,15 @@ export interface CreatedSession {
   token: string;
   sessionId: string;
   expiresAt: Date;
+  /**
+   * Whose it is.
+   *
+   * Added for the second factor (ADR-0063): the caller has to ask whether this
+   * account has one, and looking the id up again from the email it just
+   * authenticated would be a second query answering a question this object
+   * already knows.
+   */
+  userId: string;
 }
 
 interface UserRow {
@@ -189,7 +198,7 @@ export async function createSession(
   );
   if (!row) throw new Error('failed to create session');
 
-  return { token, sessionId: row.id, expiresAt };
+  return { token, sessionId: row.id, expiresAt, userId };
 }
 
 /**

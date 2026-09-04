@@ -12,6 +12,8 @@
  * - Removing one needs the password, not just an open session.
  */
 
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
 import { queryOne, queryRows } from '../db/pool.js';
 import {
   checkCode,
@@ -209,4 +211,48 @@ export async function recoveryCodesLeft(db: Pool, userId: string): Promise<numbe
 export async function removeSecondFactor(db: Pool | PoolClient, userId: string): Promise<void> {
   await db.query(`DELETE FROM second_factors WHERE user_id = $1`, [userId]);
   await db.query(`DELETE FROM recovery_codes WHERE user_id = $1`, [userId]);
+}
+
+/**
+ * A ticket that carries a half-finished sign-in between two requests
+ * (ADR-0063).
+ *
+ * Signed, not stored: no table, nothing to sweep, and nothing that can go
+ * missing between two requests seconds apart. Five minutes, because that is
+ * somebody reaching for their phone rather than somebody leaving for lunch.
+ *
+ * It proves only that a password was accepted for this account a moment ago. On
+ * its own it grants nothing — the code is still required, and the ticket cannot
+ * be turned into a session without one.
+ */
+const TICKET_MINUTES = 5;
+
+export function signTicket(userId: string, secretKey: string, now: Date = new Date()): string {
+  const expires = Math.floor(now.getTime() / 1000) + TICKET_MINUTES * 60;
+  const payload = `${userId}~${expires}`;
+  const mac = createHmac('sha256', secretKey).update(payload, 'utf8').digest('base64url');
+  return `${Buffer.from(payload, 'utf8').toString('base64url')}.${mac.slice(0, 27)}`;
+}
+
+export function readTicket(
+  ticket: string,
+  secretKey: string,
+  now: Date = new Date(),
+): string | null {
+  const at = ticket.lastIndexOf('.');
+  if (at < 1) return null;
+
+  const payload = Buffer.from(ticket.slice(0, at), 'base64url').toString('utf8');
+  const expected = createHmac('sha256', secretKey)
+    .update(payload, 'utf8')
+    .digest('base64url')
+    .slice(0, 27);
+  const given = Buffer.from(ticket.slice(at + 1), 'utf8');
+  const want = Buffer.from(expected, 'utf8');
+  if (given.length !== want.length || !timingSafeEqual(given, want)) return null;
+
+  const [userId, expires] = payload.split('~');
+  if (!userId || !expires) return null;
+  if (Number(expires) * 1000 <= now.getTime()) return null;
+  return userId;
 }

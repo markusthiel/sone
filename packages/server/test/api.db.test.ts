@@ -22,6 +22,7 @@ import { registerExportRoutes } from '../src/export/routes.js';
 import { registerImportRoutes } from '../src/import/routes.js';
 import { registerPageRoutes } from '../src/http/pages.js';
 import { Router } from '../src/http/router.js';
+import { codeAt, fromBase32 } from '../src/auth/totp.js';
 import { hashPassword } from '../src/auth/password.js';
 import { createInvitation } from '../src/auth/registration.js';
 import { createShareLink } from '../src/auth/share.js';
@@ -74,6 +75,8 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
         providerMailsTo.push(to);
         return Promise.resolve();
       },
+      secretKey: 'a-test-instance-secret-key-of-sufficient-length',
+      instanceName: () => Promise.resolve('SONE'),
       signupMode: () => Promise.resolve('invite' as const),
       secureCookies: false,
     });
@@ -235,6 +238,78 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.ok(row.rows[0], 'the workspace should have a default folder');
     return row.rows[0]!.id;
   }
+
+  test('a second factor makes sign-in two steps, and the first sets no cookie', async () => {
+    /*
+     * The property that matters: the password is verified in full before the
+     * code is asked for, so the second step cannot be used to learn whether a
+     * password was right — and no session exists until the code is given
+     * (ADR-0063).
+     */
+    const session = await setup();
+
+    // Enrol, through the routes rather than the store, because the routes are
+    // what a person meets.
+    const started = await expectJson<{ secret: string }>(
+      await fetch(`${base}/api/auth/second-factor/start`, {
+        method: 'POST',
+        headers: { cookie: session.cookie },
+      }),
+      200,
+    );
+    const secret = fromBase32(started.secret);
+    const step = (): number => Math.floor(Date.now() / 1000 / 30);
+    await expectJson<{ recoveryCodes: string[] }>(
+      await fetch(`${base}/api/auth/second-factor/confirm`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ code: codeAt(secret, step()) }),
+      }),
+      200,
+    );
+
+    // Now signing in stops half way.
+    const first = await fetch(`${base}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      // The suite's own account: `setup` returns a cookie and ids, not the
+      // credentials it used, which is why this names them directly.
+      body: JSON.stringify({ email: 'owner@example.org', password: PASSWORD }),
+    });
+    const half = await expectJson<{ needsSecondFactor: boolean; ticket: string }>(first, 200);
+    assert.equal(half.needsSecondFactor, true);
+    assert.equal(first.headers.get('set-cookie'), null, 'no session yet');
+
+    // A wrong code does not finish it.
+    await expectStatus(
+      await fetch(`${base}/api/auth/login/second`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ticket: half.ticket, code: '000000' }),
+      }),
+      401,
+    );
+
+    // And a right one does, with a cookie this time.
+    const second = await fetch(`${base}/api/auth/login/second`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ticket: half.ticket, code: codeAt(secret, step() + 1) }),
+    });
+    assert.equal(second.status, 200);
+    assert.match(second.headers.get('set-cookie') ?? '', /sone_session=/);
+
+    // Turning it off needs the password, not just the session: an open laptop
+    // must not be enough.
+    await expectStatus(
+      await fetch(`${base}/api/auth/second-factor/remove`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ password: 'das falsche Passwort' }),
+      }),
+      403,
+    );
+  });
 
   test('asking for a reset link answers identically for anything', async () => {
     /*

@@ -45,6 +45,8 @@ describe(
         canSendMail: () => Promise.resolve(false),
         sendResetMail: () => Promise.resolve(),
         sendProviderMail: () => Promise.resolve(),
+        secretKey: 'a-test-instance-secret-key-of-sufficient-length',
+        instanceName: () => Promise.resolve('SONE'),
       });
       registerPageRoutes(router, { pool: db });
       registerFavouriteRoutes(router, { pool: db });
