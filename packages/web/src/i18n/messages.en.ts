@@ -1292,6 +1292,9 @@ export const en = {
   'error.enrol_yourself_first':
     'Set up an authenticator on your own account before requiring one of ' +
     'everybody.',
+  'error.one_archive_at_a_time':
+    'Pick either one archive or several Markdown files, not both at once.',
+  'error.too_many_to_pack': 'That is more files than the import packs at once.',
   'error.too_many_entries':
     'That archive holds more files than the import reads at once. Split it, or ' +
     'import a folder at a time.',

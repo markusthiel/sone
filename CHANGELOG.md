@@ -13,9 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**A single Markdown file can be imported without zipping it first.** Pick a
-`.md` and it becomes a page — the import demanded an archive for no reason other
-than that nothing had made it not.
+**Markdown files can be imported without zipping them first** — pick one, or
+several, and each becomes a page. The import demanded an archive for no reason
+other than that nothing had made it not; several files are packed into one
+archive in the browser, so there is still a single plan to look at before
+anything is created.
 
 **Fixed: an archive the import could not read said the wrong thing about why.**
 A Zip64 archive was reported as holding too many entries, which sent people

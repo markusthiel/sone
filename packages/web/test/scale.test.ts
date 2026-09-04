@@ -2372,3 +2372,23 @@ test('the bell sits beside the star and is not the same act', () => {
   assert.match(settings, /activity !== 'off' &&/);
   assert.match(settings, /save\(\{ digestScope: chosen \}\)/);
 });
+
+test('several files are packed into one archive, so one plan is confirmed', () => {
+  /*
+   * The dialog shows one plan, and that shape is what makes the confirmation
+   * mean something. Four files become one upload rather than four plans to
+   * approve — and rather than a multipart parser on the server.
+   */
+  const dialog = codeOf(new URL('../src/components/ImportDialog.tsx', import.meta.url));
+  assert.match(dialog, /packStored\(entries\)/);
+  assert.match(dialog, /multiple/);
+
+  // A ZIP among several is refused rather than nested: an archive inside an
+  // archive is not something the import unpacks, and dropping it quietly would
+  // be worse than saying so.
+  assert.match(dialog, /one_archive_at_a_time/);
+
+  // And the packing is in core, where both sides can see it — the server's own
+  // unzip is what reads it, and that round trip has its own test.
+  assert.match(dialog, /from '@sone\/core'/);
+});

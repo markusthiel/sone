@@ -1360,6 +1360,9 @@ export const de: Record<keyof typeof en, string> = {
   'error.enrol_yourself_first':
     'Erst auf dem eigenen Konto einen Authenticator einrichten, bevor er von ' +
     'allen verlangt wird.',
+  'error.one_archive_at_a_time':
+    'Entweder ein Archiv oder mehrere Markdown-Dateien wählen, nicht beides.',
+  'error.too_many_to_pack': 'Das sind mehr Dateien, als der Import auf einmal packt.',
   'error.too_many_entries':
     'Dieses Archiv enthält mehr Dateien, als der Import auf einmal liest. ' +
     'Aufteilen, oder einen Ordner nach dem anderen importieren.',
