@@ -1869,8 +1869,21 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     return (await expectJson<{ entries: Array<Record<string, unknown>> }>(res)).entries;
   };
 
-  const restore = (session: Session, pageId: string): Promise<Response> =>
-    fetch(`${base}/api/pages/${pageId}/restore`, auth(session, { method: 'POST' }));
+  const restore = (
+    session: Session,
+    pageId: string,
+    parentPageId?: string,
+  ): Promise<Response> =>
+    fetch(
+      `${base}/api/pages/${pageId}/restore`,
+      parentPageId === undefined
+        ? auth(session, { method: 'POST' })
+        : auth(session, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ parentPageId }),
+          }),
+    );
 
   const destroy = (session: Session, pageId: string): Promise<Response> =>
     fetch(
@@ -1978,6 +1991,190 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const entries = await trash(session);
     const orphan = entries.find((entry) => entry['id'] === pageId);
     assert.equal(orphan?.['parentMissing'], true);
+  });
+
+  test('a page whose folder is gone can be restored somewhere else', async () => {
+    /*
+     * The other half of the refusal above (ADR-0071).
+     *
+     * Refusing was right — a page put back silently in a different place is a
+     * page lost a second time — but with no way to say where, the entries most
+     * likely to be in the trash were the ones that could not leave it.
+     */
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const elsewhere = await createFolder(session, 'Elsewhere');
+    const pageId = await createPage(session, 'Orphan', folder);
+
+    await archive(session, pageId);
+    await archive(session, folder);
+
+    const res = await restore(session, pageId, elsewhere);
+    const body = await expectJson<{ restoredToRoot: boolean }>(res);
+    // Not "to the root": a caller that named a folder knows where its entry
+    // went, and saying otherwise would be a report about a different act.
+    assert.equal(body.restoredToRoot, false);
+
+    const row = await db.query<{ parent_page_id: string | null; archived_at: Date | null }>(
+      `SELECT parent_page_id, archived_at FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.equal(row.rows[0]!.parent_page_id, elsewhere);
+    assert.equal(row.rows[0]!.archived_at, null);
+  });
+
+  test('a live entry can be restored into a different folder too', async () => {
+    // The target is not a special case of the parent being gone: it says where
+    // this should end up, and that answer does not depend on where it was.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const elsewhere = await createFolder(session, 'Elsewhere');
+    const pageId = await createPage(session, 'Page', folder);
+
+    await archive(session, pageId);
+    await restore(session, pageId, elsewhere);
+
+    const row = await db.query<{ parent_page_id: string | null }>(
+      `SELECT parent_page_id FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.equal(row.rows[0]!.parent_page_id, elsewhere);
+  });
+
+  test('a target that is not a folder, or not here, is not found', async () => {
+    // One answer for every failure: a target somebody may not see must not be
+    // distinguishable from one that does not exist.
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const other = await createPage(session, 'Not a folder', folder);
+    const pageId = await createPage(session, 'Page', folder);
+    await archive(session, pageId);
+
+    assert.equal((await restore(session, pageId, other)).status, 404);
+
+    const foreign = await db.query<{ id: string }>(
+      `INSERT INTO workspaces (name) VALUES ('Somewhere else') RETURNING id`,
+    );
+    const outside = await db.query<{ id: string }>(
+      `INSERT INTO pages (id, workspace_id, idx, title, kind)
+       VALUES (gen_random_uuid(), $1, 'a0', 'Theirs', 'folder') RETURNING id`,
+      [foreign.rows[0]!.id],
+    );
+    assert.equal((await restore(session, pageId, outside.rows[0]!.id)).status, 404);
+
+    // Still archived after both refusals: a rejected target must not half-work.
+    const row = await db.query<{ archived_at: Date | null }>(
+      `SELECT archived_at FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    assert.notEqual(row.rows[0]!.archived_at, null);
+  });
+
+  test('an entry cannot be restored into itself or into what it holds', async () => {
+    // Both would produce a subtree that contains itself, which the projection
+    // has no way to draw and no way to get out of.
+    const session = await setup();
+    const outer = await createFolder(session, 'Outer');
+    const inner = await createFolder(session, 'Inner', outer);
+    await archive(session, outer);
+
+    assert.equal((await restore(session, outer, outer)).status, 422);
+    assert.equal((await restore(session, outer, inner)).status, 404, 'archived with it');
+  });
+
+  // --- reading before deciding (ADR-0071) ----------------------------------
+
+  const importMarkdown = async (
+    session: Session,
+    folder: string,
+    name: string,
+    body: string,
+  ): Promise<string> => {
+    await expectJson(
+      await fetch(`${base}/api/pages/${folder}/import`, {
+        method: 'POST',
+        headers: { ...auth(session).headers, 'content-type': 'application/zip' },
+        body: zip([{ name, body: Buffer.from(body), at: new Date() }]),
+      }),
+      200,
+    );
+    const row = await db.query<{ id: string }>(
+      `SELECT id FROM pages WHERE workspace_id = $1 AND title = $2`,
+      [session.workspaceId, name.replace(/\.md$/, '')],
+    );
+    return row.rows[0]!.id;
+  };
+
+  test('an archived entry says what is in it, without being opened', async () => {
+    /*
+     * Restoring is a decision, and a title is not enough to make it — "Notizen"
+     * could be anything. Opening it is not an option: an archived page is not
+     * in the tree and the editor cannot reach it.
+     */
+    const session = await setup();
+    const folder = await createFolder(session, 'Ordner');
+    const pageId = await importMarkdown(
+      session,
+      folder,
+      'Notiz.md',
+      // No `#` heading: the importer takes one as the page's title, and the
+      // preview is about what is left in the body.
+      '## Zwischentitel\n\nErster Absatz.\n\nZweiter Absatz.\n',
+    );
+    await archive(session, pageId);
+
+    const preview = await expectJson<{
+      blocks: Array<{ type: string; text: string }>;
+      truncated: boolean;
+    }>(await fetch(`${base}/api/pages/${pageId}/preview`, auth(session)), 200);
+
+    // In document order, and text only — a preview that tried to be the page
+    // would be a second renderer to keep in step with the first.
+    assert.deepEqual(
+      preview.blocks.map((one) => one.text),
+      ['Zwischentitel', 'Erster Absatz.', 'Zweiter Absatz.'],
+    );
+    assert.equal(preview.truncated, false);
+  });
+
+  test('a long entry says that there is more of it', async () => {
+    // Rather than showing forty paragraphs and letting somebody assume that is
+    // the whole thing — which is exactly the wrong impression before a decision
+    // about whether to destroy it.
+    const session = await setup();
+    const folder = await createFolder(session, 'Ordner');
+    const long = Array.from({ length: 60 }, (_, at) => `Absatz ${at + 1}.`).join('\n\n');
+    const pageId = await importMarkdown(session, folder, 'Lang.md', `${long}\n`);
+
+    const preview = await expectJson<{
+      blocks: unknown[];
+      truncated: boolean;
+    }>(await fetch(`${base}/api/pages/${pageId}/preview`, auth(session)), 200);
+
+    assert.equal(preview.blocks.length, 40);
+    assert.equal(preview.truncated, true);
+  });
+
+  test('a preview is refused to somebody who may not read the page', async () => {
+    // The same answer as a page that does not exist: a 403 would confirm it.
+    const session = await setup();
+    const folder = await createFolder(session, 'Ordner');
+    const pageId = await importMarkdown(session, folder, 'Geheim.md', 'Etwas.\n');
+
+    const hash = await hashPassword(PASSWORD);
+    await db.query(
+      `INSERT INTO users (email, display_name, password_hash, is_guest)
+       VALUES ('reader@example.org','R',$1,true)`,
+      [hash],
+    );
+    const login = await fetch(
+      `${base}/api/auth/login`,
+      json({ email: 'reader@example.org', password: PASSWORD }),
+    );
+    const res = await fetch(`${base}/api/pages/${pageId}/preview`, {
+      headers: { cookie: cookieFrom(login) },
+    });
+    assert.equal(res.status, 404);
   });
 
   test('restoring something that is not archived is refused', async () => {

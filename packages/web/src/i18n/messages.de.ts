@@ -41,6 +41,10 @@ export const de: Record<keyof typeof en, string> = {
     'Person beteiligt ist.',
   'inbox.unreadOnly': 'Nur Ungelesenes',
   'inbox.markAll': 'Alles als gelesen markieren',
+  'inbox.times': '{count, plural, one {# Mal} other {# Mal}}',
+  'inbox.keys': 'j/k bewegen · Enter öffnet · e gelesen · u ungelesen',
+  'inbox.markRead': 'Gelesen',
+  'inbox.markUnread': 'Ungelesen',
   'inbox.mention': 'Namensnennung',
   'inbox.reply': 'Antwort im Verlauf',
   'inbox.assignment': 'Zuweisung',
@@ -910,6 +914,23 @@ export const de: Record<keyof typeof en, string> = {
   'trash.keep': 'Behalten',
   'trash.confirm': 'Endgültig vernichten? Das lässt sich nicht zurücknehmen.',
   'trash.loading': 'Wird geladen…',
+  'trash.search': 'Im Papierkorb suchen',
+  'trash.emptyView': 'In dieser Ansicht ist nichts.',
+  'trash.noMatch': 'Nichts heißt „{query}".',
+  'trash.deletedAt': 'gelöscht am {at}',
+  'trash.withInside':
+    '{count, plural, one {mit # Eintrag darin} other {mit # Einträgen darin}}',
+  'trash.folderGone': 'der Ordner darüber ist weg',
+  'trash.read': 'Hineinschauen',
+  'trash.hide': 'Zuklappen',
+  'trash.unreadable': 'Der Inhalt lässt sich gerade nicht lesen.',
+  'trash.nothingInIt': 'Kein Text darin.',
+  'trash.andMore': '… und weiter.',
+  'trash.restoreTo': 'Wiederherstellen nach…',
+  'trash.restoreTitle': '„{title}" wiederherstellen nach',
+  'trash.parentGone':
+    'Der Ordner, in dem das lag, wurde ebenfalls gelöscht. Wähle, wo es wieder ' +
+    'auftauchen soll.',
 
   // --- Suche -------------------------------------------------------------
   'search.title': 'Suche',
@@ -1436,6 +1457,8 @@ export const de: Record<keyof typeof en, string> = {
   'error.invalid_role': 'Ein Freigabe-Link kann diese Rolle nicht vergeben.',
   'error.too_many_rows': 'Das sind mehr als fünfzig Einträge. Bitte in kleineren Stücken einfügen.',
   'error.not_archived': 'Dieser Eintrag ist nicht im Papierkorb.',
+  'error.invalid_parent':
+    'Dorthin kann dieser Eintrag nicht: ein Ordner kann nicht in sich selbst liegen.',
   'error.parent_missing':
     'Der Ordner, in dem das lag, ist weg. Erst diesen Ordner wiederherstellen, oder das ' +
     'hier woandershin verschieben.',

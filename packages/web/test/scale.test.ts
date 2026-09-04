@@ -1730,15 +1730,20 @@ test('an inbox spans workspaces, so its route carries none', () => {
   // The screen takes the filtered list and no workspace: the filtering is the
   // panel's view (ADR-0069), and the scope is deliberately absent.
   assert.match(app, /route\.kind === 'inbox' && \(/);
-  assert.match(app, /<InboxScreen\n\s+items=\{inbox\.items/);
+  assert.match(app, /items=\{inbox\.items\}/);
   assert.doesNotMatch(app, /<InboxScreen[^>]*workspaceId/);
 
   const screen = codeOf(new URL('../src/components/InboxScreen.tsx', import.meta.url));
-  // Read on opening, not on looking: an inbox that empties itself when glanced
-  // at is one that loses things.
-  // The call goes through the shell's hook now — one fetch and one truth for
-  // the menu's counts and the list alike — but the moment is unchanged.
-  assert.match(screen, /if \(!item\.read\) onRead\(\[item\.id\]\)/);
+  /*
+   * Read on opening, not on looking: an inbox that empties itself when glanced
+   * at is one that loses things.
+   *
+   * The call goes through the shell's hook — one fetch and one truth for the
+   * menu's counts and the list alike — and it now settles the whole
+   * conversation, because a row is a conversation (ADR-0071). The moment is
+   * unchanged, which is what this asserts.
+   */
+  assert.match(screen, /if \(group\.unread > 0\) onRead\(group\.items\.map/);
   // And it says there is no email, rather than letting somebody assume one.
   assert.match(screen, /t\('inbox\.noEmail'\)/);
 });

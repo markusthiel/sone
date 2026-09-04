@@ -34,6 +34,10 @@ export const en = {
     'a comment, or replies in a thread you are part of.',
   'inbox.unreadOnly': 'Only what is unread',
   'inbox.markAll': 'Mark everything read',
+  'inbox.times': '{count, plural, one {# time} other {# times}}',
+  'inbox.keys': 'j/k to move · Enter opens · e read · u unread',
+  'inbox.markRead': 'Read',
+  'inbox.markUnread': 'Unread',
   'inbox.mention': 'You were named',
   'inbox.reply': 'A reply in a thread',
   'inbox.assignment': 'Assigned to you',
@@ -836,6 +840,22 @@ export const en = {
   'trash.keep': 'Keep',
   'trash.confirm': 'Destroy permanently? This cannot be undone.',
   'trash.loading': 'Loading…',
+  'trash.search': 'Search the trash',
+  'trash.emptyView': 'Nothing in this view.',
+  'trash.noMatch': 'Nothing is called “{query}”.',
+  'trash.deletedAt': 'deleted {at}',
+  'trash.withInside':
+    '{count, plural, one {with # entry inside} other {with # entries inside}}',
+  'trash.folderGone': 'the folder it was in is gone',
+  'trash.read': 'Look inside',
+  'trash.hide': 'Close',
+  'trash.unreadable': 'Its contents cannot be read just now.',
+  'trash.nothingInIt': 'No text in it.',
+  'trash.andMore': '… and more.',
+  'trash.restoreTo': 'Restore to…',
+  'trash.restoreTitle': 'Restore “{title}” to',
+  'trash.parentGone':
+    'The folder this was in was deleted as well. Choose where it should come back.',
 
   // --- search ------------------------------------------------------------
   'search.title': 'Search',
@@ -1367,6 +1387,8 @@ export const en = {
   'error.invalid_role': 'A share link cannot grant that role.',
   'error.too_many_rows': 'That is more than fifty entries. Paste them in smaller pieces.',
   'error.not_archived': 'That entry is not in the trash.',
+  'error.invalid_parent':
+    'It cannot go there: a folder cannot sit inside itself.',
   'error.parent_missing':
     'The folder this was in is gone. Restore that folder first, or move this ' +
     'somewhere else.',

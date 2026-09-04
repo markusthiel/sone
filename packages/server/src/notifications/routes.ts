@@ -103,19 +103,25 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
   });
 
   /**
-   * Mark things read.
+   * Mark things read, or put them back.
    *
    * By id, because read means "opened the thing it points at" — an inbox that
    * empties itself because somebody glanced at it is one that loses things.
    *
    * With no ids, everything: after a week away the list is long and somebody has
    * to be able to declare bankruptcy on it.
+   *
+   * `read: false` undoes one. A row opened by accident, or read and then not
+   * dealt with, has to be able to go back to waiting — otherwise "unread" is a
+   * one-way door and people stop trusting the list enough to click anything in
+   * it. Only by id: "mark everything unread" answers no question anybody has,
+   * and it would resurrect a bankruptcy somebody declared on purpose.
    */
   router.post('/api/inbox/read', async (ctx) => {
     const session = await requireSession(deps.pool, ctx);
     if (!session) return;
 
-    let body: { ids?: unknown };
+    let body: { ids?: unknown; read?: unknown };
     try {
       body = await ctx.json();
     } catch {
@@ -126,16 +132,27 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
     const ids = Array.isArray(body.ids)
       ? body.ids.filter((one): one is string => typeof one === 'string')
       : null;
+    const read = body.read !== false;
+    if (!read && ids === null) {
+      ctx.fail(422, 'ids_required');
+      return;
+    }
 
     const { rowCount } = await deps.pool.query(
-      `UPDATE notifications
-          SET read_at = now()
-        WHERE user_id = $1
-          AND read_at IS NULL
-          -- Scoped to this person either way: an id from somebody else's inbox
-          -- matches nothing rather than being an error, which is the same
-          -- answer as an id that never existed.
-          AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))`,
+      read
+        ? `UPDATE notifications
+              SET read_at = now()
+            WHERE user_id = $1
+              AND read_at IS NULL
+              -- Scoped to this person either way: an id from somebody else's
+              -- inbox matches nothing rather than being an error, which is the
+              -- same answer as an id that never existed.
+              AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))`
+        : `UPDATE notifications
+              SET read_at = NULL
+            WHERE user_id = $1
+              AND read_at IS NOT NULL
+              AND id = ANY($2::uuid[])`,
       [session.userId, ids],
     );
 
