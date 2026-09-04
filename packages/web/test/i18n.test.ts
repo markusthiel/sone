@@ -183,7 +183,7 @@ const MIGRATED = [
   'src/components/MoveToWorkspaceDialog.tsx',
   'src/components/EntryMenu.tsx',
   'src/components/Sidebar.tsx',
-  'src/components/SettingsShell.tsx',
+  'src/components/SectionNav.tsx',
   'src/components/Settings.tsx',
   'src/components/WorkspaceSettingsScreen.tsx',
   'src/components/Trash.tsx',

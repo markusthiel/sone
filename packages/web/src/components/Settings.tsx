@@ -41,7 +41,7 @@ import { LANGUAGE_NAMES, LOCALES, useT, type Locale } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import { LandingSettings } from './LandingSettings.tsx';
-import { SettingsShell, resolveSection, type ShellSection } from './SettingsShell.tsx';
+import { resolveSection, type ShellSection } from './SectionNav.tsx';
 import { AVATAR_BOUND, webVariant } from '../lib/imageVariant.ts';
 
 interface SettingsProps {
@@ -61,7 +61,7 @@ interface SettingsProps {
  * module-level because `resolveSection` needs it before anything renders, and a
  * module cannot call a hook (ADR-0041).
  */
-const SECTIONS = [
+export const SECTIONS = [
   { id: 'profile', label: 'you.profile', hint: 'you.profile.hint' },
   { id: 'sign-in', label: 'you.signIn', hint: 'you.signIn.hint' },
   { id: 'appearance', label: 'you.appearance', hint: 'you.appearance.hint' },
@@ -89,7 +89,6 @@ export function Settings({
   // Which of the two a phone is showing. Starts on the section, because
   // arriving at a list of settings when you asked for one setting is a step
   // nobody wanted.
-  const [listOpen, setListOpen] = useState(false);
   const current = resolveSection(SECTIONS, section);
   // Read from the session rather than probed: the switcher only has to decide
   // whether to offer the entry, and the area behind it asks the server itself.
@@ -97,26 +96,8 @@ export function Settings({
     session.user.isInstanceAdmin || session.user.canManageWorkspaces;
 
   return (
-    <SettingsShell
-      area="You"
-      areaId="settings"
-      canAdminister={canAdminister}
-      sections={SECTIONS.map((entry) => ({
-        id: entry.id,
-        label: t(entry.label),
-        hint: t(entry.hint),
-      }))}
-      current={current}
-      hrefFor={(id) => paths.settings(id)}
-      listOpen={listOpen}
-      onListOpen={setListOpen}
-      account={{
-        displayName: session.user.displayName,
-        userId: session.user.id,
-        onLogout,
-      }}
-      onClose={onClose}
-    >
+    <div className="settings-body">
+      <h1 className="page-title">{t(SECTIONS.find((e) => e.id === current)?.label ?? 'area.you')}</h1>
       {current === 'profile' && <Profile session={session} workspaceId={workspaceId} />}
       {current === 'sign-in' && (
         <>
@@ -128,7 +109,7 @@ export function Settings({
       {current === 'landing' && <LandingSettings workspaceId={workspaceId} />}
       {current === 'notifications' && <NotificationSettings session={session} />}
       {current === 'about' && <About />}
-    </SettingsShell>
+    </div>
   );
 }
 

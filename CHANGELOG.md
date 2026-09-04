@@ -52,6 +52,16 @@ notifications themselves fill the page. Open the trash and it becomes the
 trash's: recently deleted, going soon, pages, folders. Your pages are the mark
 at the top, and that column is the tree, exactly as before.
 
+Settings, your workspaces and the administration are no longer separate screens
+that replace everything. They open in the same frame as the rest, with the rail
+still there — so getting back is one click on the mark rather than a "back"
+button that only exists inside settings.
+
+Their three areas — yours, this workspace, the instance — used to be a menu at
+the top of the settings column that you had to open to find out the other two
+existed. They are three groups in one list now, and the workspace's group is
+titled with the workspace's own name.
+
 The menu that used to hang above the tree is gone. What is left in its place is
 the workspace switcher alone, as the column's title — which is what most people
 were using it for.
