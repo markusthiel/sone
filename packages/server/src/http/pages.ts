@@ -69,6 +69,7 @@ import {
   type Claims,
 } from './auth.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
+import { roleIn } from '../auth/claims.js';
 import { isPathOnlyCondition, visiblePagesCondition } from '../pages/access.js';
 
 export interface PageDeps {
@@ -1565,12 +1566,8 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       ctx.fail(403, 'not_authorized');
       return;
     }
-    const membership = await queryOne<{ role: string }>(
-      deps.pool,
-      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-      [target, actorId],
-    );
-    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
+    const membership = await roleIn(deps.pool, target, actorId);
+    if (!membership || (membership !== 'owner' && membership !== 'admin')) {
       // The same answer as a workspace that does not exist: the difference would
       // say whether one does.
       ctx.fail(404, 'not_found');

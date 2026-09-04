@@ -77,6 +77,27 @@ const workspaceRoleToPageRole = (role: WorkspaceRole): Role => {
  * guest with no page grants resolves to claims that authorise nothing — which
  * is correct and must not be mistaken for an error.
  */
+/**
+ * What somebody is in a workspace, or null if they are not in it.
+ *
+ * Exported from here because this is the module about who somebody is, and the
+ * same three lines had been written five times across four files — one of them
+ * already a private helper called `roleIn`. Five copies of a membership lookup
+ * is five places to forget a condition the day one is added.
+ */
+export async function roleIn(
+  db: Pool | PoolClient,
+  workspaceId: string,
+  userId: string,
+): Promise<WorkspaceRole | null> {
+  const row = await queryOne<{ role: WorkspaceRole }>(
+    db,
+    `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+    [workspaceId, userId],
+  );
+  return row?.role ?? null;
+}
+
 export async function resolveSessionClaims(
   db: Pool | PoolClient,
   sessionToken: string,
@@ -85,12 +106,9 @@ export async function resolveSessionClaims(
   const session = await resolveSession(db, sessionToken);
   if (!session) return null;
 
-  const membership = await queryOne<{ role: WorkspaceRole }>(
-    db,
-    `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-    [workspaceId, session.user.userId],
-  );
-  if (!membership) return null;
+  const role = await roleIn(db, workspaceId, session.user.userId);
+  if (!role) return null;
+  const membership = { role };
 
   const explicit = await queryRows<{
     page_id: string;

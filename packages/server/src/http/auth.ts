@@ -82,9 +82,11 @@ export interface AuthDeps {
    * Injected, for the same reason the gate is installed rather than imported:
    * this module must not depend on the settings store.
    */
-  secondFactorStanding: (
-    userId: string,
-  ) => Promise<{ kind: 'fine' } | { kind: 'grace'; deadline: string } | { kind: 'blocked' }>;
+  secondFactorStanding: (userId: string) => Promise<{
+    standing: { kind: 'fine' } | { kind: 'grace'; deadline: string } | { kind: 'blocked' };
+    /** The facts it was decided from, so the caller need not ask again. */
+    facts: { hasSecondFactor: boolean; hasPassword: boolean };
+  }>;
   pool: Pool;
   /**
    * Who may create an account.
@@ -582,6 +584,15 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       [auth.userId],
     );
 
+    /*
+     * The requirement facts, once, before the reply is assembled.
+     *
+     * `deps.secondFactorStanding` now returns both the standing and the facts
+     * it was decided from, so the two things the session needs cost one query
+     * rather than two.
+     */
+    const standing = await deps.secondFactorStanding(auth.userId);
+
     const user = await queryOne<{
       locale: string | null;
       timezone: string | null;
@@ -624,22 +635,24 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
          * it, and a second request for three booleans would be a second thing
          * to keep in step with the profile patch that changes them.
          */
-        // So the settings screen knows which half of itself to show, without a
-        // second request (ADR-0063).
-        hasSecondFactor: await hasSecondFactor(deps.pool, auth.userId),
         /*
-         * Where this account stands against the requirement (ADR-0065).
+         * One question, one query (ADR-0063, ADR-0065).
          *
-         * Sent with the session because the banner and the enrolment-only
-         * screen both need it, and asking separately would mean a request that
-         * the gate itself might refuse.
+         * This asked twice: `hasSecondFactor` for the settings screen, and then
+         * a standing that read the same fact plus whether the account has a
+         * password of its own. Two queries, on the route every page load hits,
+         * for facts that come out of one row — the exact "two answers to one
+         * question" this codebase keeps having removed from it, written by me
+         * two commits earlier.
          *
-         * `blocked` never reaches here in practice — the gate refuses the
-         * request that would return it — but it is in the type because the
-         * session route is reachable while blocked *by design*, so the
-         * interface can find out why it is stuck.
+         * The standing is sent with the session because the banner and the
+         * enrolment-only screen both need it. `blocked` rarely reaches here —
+         * the gate refuses the request that would return it — but it is in the
+         * type because this route stays reachable while blocked *by design*, so
+         * the interface can find out why it is stuck.
          */
-        secondFactorStanding: await deps.secondFactorStanding(auth.userId),
+        hasSecondFactor: standing.facts.hasSecondFactor,
+        secondFactorStanding: standing.standing,
         mentionsWhen: user?.mentions_when ?? 'immediately',
         assignmentsWhen: user?.assignments_when ?? 'immediately',
         repliesWhen: user?.replies_when ?? 'off',

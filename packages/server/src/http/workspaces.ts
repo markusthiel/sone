@@ -13,6 +13,7 @@
 import type { Pool } from 'pg';
 
 import { sanitiseTheme } from '@sone/core';
+import { roleIn } from '../auth/claims.js';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { createDefaultFolder } from '../pages/createEntry.js';
 import { requireSession } from './auth.js';
@@ -37,19 +38,8 @@ async function readBody<T>(ctx: RequestContext): Promise<T | null> {
 }
 
 /** The caller's role in a workspace, or null if they are not a member. */
-async function roleIn(
-  pool: Pool,
-  workspaceId: string,
-  userId: string,
-): Promise<string | null> {
-  const row = await queryOne<{ role: string }>(
-    pool,
-    `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-    [workspaceId, userId],
-  );
-  return row?.role ?? null;
-}
-
+// `roleIn` now comes from `claims.ts`, which is the module about who somebody
+// is. The private copy that was here was one of five.
 export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): void {
   /** Workspaces the caller belongs to, with counts for the switcher. */
   router.get('/api/workspaces', async (ctx) => {

@@ -13,6 +13,7 @@
 import type { Pool } from 'pg';
 
 import type { Router } from '../http/router.js';
+import { roleIn } from './claims.js';
 import { queryOne } from '../db/pool.js';
 import { requireSession } from '../http/auth.js';
 import { administratorRights } from '../admin/rights.js';
@@ -46,12 +47,8 @@ async function mayAdminister(
   workspaceId: string,
   userId: string,
 ): Promise<boolean> {
-  const membership = await queryOne<{ role: WorkspaceRole }>(
-    pool,
-    `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-    [workspaceId, userId],
-  );
-  if (membership && (membership.role === 'owner' || membership.role === 'admin')) {
+  const membership = await roleIn(pool, workspaceId, userId);
+  if (membership && (membership === 'owner' || membership === 'admin')) {
     return true;
   }
 
@@ -264,11 +261,7 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       return;
     }
 
-    const current = await queryOne<{ role: WorkspaceRole }>(
-      deps.pool,
-      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-      [workspaceId, target],
-    );
+    const current = await roleIn(deps.pool, workspaceId, target);
     if (!current) {
       ctx.fail(404, 'not_found');
       return;
@@ -278,7 +271,7 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     //
     // Demoting the last one leaves a workspace nobody can transfer or delete,
     // and the person who did it is usually the person who then cannot undo it.
-    if (current.role === 'owner' && role !== 'owner') {
+    if (current === 'owner' && role !== 'owner') {
       const others = await queryOne<{ n: number }>(
         deps.pool,
         `SELECT count(*)::int AS n FROM workspace_members
@@ -307,17 +300,13 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     if (!(await mayAdminister(deps.pool, ctx, workspaceId, user.userId))) return;
 
     const target = ctx.params['userId'] ?? '';
-    const current = await queryOne<{ role: WorkspaceRole }>(
-      deps.pool,
-      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-      [workspaceId, target],
-    );
+    const current = await roleIn(deps.pool, workspaceId, target);
     if (!current) {
       ctx.fail(404, 'not_found');
       return;
     }
 
-    if (current.role === 'owner') {
+    if (current === 'owner') {
       const others = await queryOne<{ n: number }>(
         deps.pool,
         `SELECT count(*)::int AS n FROM workspace_members
@@ -386,6 +375,10 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     const allowed = invitation.workspace_id
       ? await queryOne<{ role: WorkspaceRole }>(
           deps.pool,
+          // Left as its own statement, not `roleIn`: this asks whether
+          // somebody is one of two roles, which is a different question from
+          // which role they are — and it answers it in the database rather than
+          // fetching a value to compare in JavaScript.
           `SELECT role FROM workspace_members
             WHERE workspace_id = $1 AND user_id = $2 AND role IN ('owner','admin')`,
           [invitation.workspace_id, user.userId],

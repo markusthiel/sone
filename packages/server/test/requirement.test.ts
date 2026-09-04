@@ -7,7 +7,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
@@ -109,4 +109,66 @@ test('the mail stages are two, and which one is due comes from the deadline', ()
   // And only accounts that can act: a provider account is exempt, so telling
   // it to enrol would be telling somebody to do something inapplicable.
   assert.match(source, /u\.password_hash IS NOT NULL/);
+});
+
+test('one query answers both questions the session asks', () => {
+  /*
+   * The consolidation this file's neighbour needed.
+   *
+   * The session route asked twice — `hasSecondFactor` for the settings screen,
+   * then a standing that read the same fact plus whether the account has a
+   * password. Two queries on the route every page load hits, for facts that
+   * come out of one row. I wrote that two commits before removing it, which is
+   * why the assertion is here rather than in a comment.
+   */
+  const rule = readFileSync(new URL('../src/auth/requirement.ts', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8');
+  const auth = readFileSync(new URL('../src/http/auth.ts', import.meta.url), 'utf8');
+
+  // The SQL lives once, in the module that owns the rule.
+  const sql = /SELECT u\.password_hash IS NOT NULL AS has_password/g;
+  assert.equal((rule.match(sql) ?? []).length, 1, 'once in the rule module');
+  assert.equal((main.match(sql) ?? []).length, 0, 'and nowhere in main');
+
+  // And the session takes both answers from the one call.
+  assert.match(auth, /hasSecondFactor: standing\.facts\.hasSecondFactor/);
+  assert.match(auth, /secondFactorStanding: standing\.standing/);
+  assert.doesNotMatch(
+    auth,
+    /hasSecondFactor: await hasSecondFactor\(deps\.pool, auth\.userId\)/,
+    'not asked a second time',
+  );
+});
+
+test('a membership lookup lives in one place', () => {
+  /*
+   * The rest of the consolidation round. `SELECT role FROM workspace_members`
+   * was written five times across four files — one of them already a private
+   * helper called `roleIn`, which is the tell: somebody had noticed and made a
+   * local answer instead of a shared one.
+   *
+   * Five copies of a membership lookup is five places to forget a condition the
+   * day one is added, and membership is exactly the kind of thing that grows a
+   * condition.
+   */
+  const server = new URL('../src/', import.meta.url);
+  let copies = 0;
+  const walk = (dir: URL): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const at = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, dir);
+      if (entry.isDirectory()) walk(at);
+      else if (entry.name.endsWith('.ts')) {
+        const text = readFileSync(at, 'utf8');
+        copies += (text.match(/SELECT role FROM workspace_members/g) ?? []).length;
+      }
+    }
+  };
+  walk(server);
+
+  /*
+   * Two: the shared helper, and one statement that asks a genuinely different
+   * question — whether somebody is one of two roles, answered in the database
+   * rather than by fetching a value to compare in JavaScript.
+   */
+  assert.equal(copies, 2, 'the helper, and the one that asks something else');
 });

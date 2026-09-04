@@ -13,6 +13,9 @@
  * - **What then**: everything except enrolment is refused, reading included.
  */
 
+import { queryOne } from '../db/pool.js';
+import type { Pool, PoolClient } from 'pg';
+
 /** How long somebody has after the requirement appears. */
 export const GRACE_DAYS = 14;
 
@@ -87,3 +90,29 @@ const ALLOWED_WHILE_BLOCKED = [
 
 export const reachableWhileBlocked = (path: string): boolean =>
   ALLOWED_WHILE_BLOCKED.includes(path);
+
+/**
+ * The two facts the rule needs, from one query.
+ *
+ * Here rather than at each caller because there were two callers with the same
+ * query 39 lines apart — the gate and the session's standing — which is a
+ * second answer to one question waiting to drift. Whether an account is exempt
+ * is a decision this module owns, and so is the SQL that establishes it.
+ */
+export async function factsFor(
+  db: Pool | PoolClient,
+  userId: string,
+): Promise<AccountFacts | null> {
+  const row = await queryOne<{ has_password: boolean; has_factor: boolean }>(
+    db,
+    `SELECT u.password_hash IS NOT NULL AS has_password,
+            EXISTS (
+              SELECT 1 FROM second_factors f
+               WHERE f.user_id = u.id AND f.confirmed_at IS NOT NULL
+            ) AS has_factor
+       FROM users u WHERE u.id = $1`,
+    [userId],
+  );
+  if (!row) return null;
+  return { hasSecondFactor: row.has_factor, hasPassword: row.has_password };
+}
