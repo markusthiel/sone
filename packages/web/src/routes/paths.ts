@@ -116,8 +116,17 @@ export const MOVED_SETTINGS: Record<string, string> = {
   // the URL. Redirected anyway: somebody following an old note is exactly who
   // would have typed one.
   'workspaces-legacy': '/workspace/general',
-  'workspaces-old': '/admin/workspaces',
-  workspaces: '/admin/workspaces',
+  /*
+   * The list, not the administration.
+   *
+   * These pointed at /admin/workspaces, and the administration gave workspaces
+   * up when ADR-0067 was amended — so the section was gone and the redirect
+   * landed on the instance's first section instead, or on nothing at all for
+   * somebody who is not an instance administrator. The list is where that URL's
+   * content actually went, and everybody may open it.
+   */
+  'workspaces-old': '/workspaces',
+  workspaces: '/workspaces',
   instance: '/admin/instance',
   accounts: '/admin/accounts',
   invite: '/admin/invite',

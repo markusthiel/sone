@@ -21,7 +21,7 @@ import { ApiError, api, type WorkspaceSummary } from '../api/client.ts';
 import { useListDrag } from '../hooks/useListDrag.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
-import { ChevronRightIcon, FolderPlusIcon, PlusIcon, SettingsIcon } from './icons.tsx';
+import { ChevronRightIcon, PlusIcon } from './icons.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
 import { WorkspaceMark } from './WorkspaceMark.tsx';
 import { titleColorStyle } from './EntryIconView.tsx';
@@ -330,32 +330,22 @@ export function WorkspaceMenu({
               </button>
             )}
 
-            {/* Straight to this workspace's row in the one list (ADR-0027).
+            {/* Nothing else. This menu answers one question — which workspace —
+              * and the two entries that used to sit here answer different ones
+              * (ADR-0069).
               *
-              * The section it points at is where every workspace is
-              * administered, including this one — the shortcut saves the walk
-              * through the list, it is not a second place to do the same thing.
+              * "This workspace's settings" is a destination, and destinations
+              * are modes: it is the middle group of the settings list, titled
+              * with the workspace's own name. "All workspaces" is the rail's
+              * Workspaces mode.
               *
-              * Absent for somebody who may not administer workspaces, rather
-              * than present and refusing: a menu entry that answers "not found"
-              * teaches people to distrust the menu. */}
-            {/* The settings of the workspace you are in — where somebody
-                already is when they think about it (ADR-0032). Offered to every
-                member; what they may not change is disabled rather than
-                hidden. */}
-            <a
-              className="switcher-item"
-              href={paths.workspaceSettings()}
-              role="menuitem"
-            >
-              <SettingsIcon /> {t('workspaces.settings')}
-            </a>
-
-            {canManageWorkspaces && (
-              <a className="switcher-item" href={paths.admin('workspaces')} role="menuitem">
-                <FolderPlusIcon /> {t('workspaces.all')}
-              </a>
-            )}
+              * That second one had also been broken since ADR-0067 was amended.
+              * It pointed at /admin/workspaces, and the administration gave
+              * workspaces up entirely in that amendment — so the section was
+              * gone and the link fell through to the instance's first section,
+              * or to a blank screen for anybody who is not an instance
+              * administrator. A link that lands somewhere plausible but wrong,
+              * which is the failure that record named. */}
           </div>
         </div>
       )}

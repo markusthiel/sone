@@ -226,7 +226,16 @@ test('an old settings URL is redirected, not answered', () => {
   assert.equal(MOVED_SETTINGS['theme'], '/workspace/typography');
   assert.equal(MOVED_SETTINGS['groups'], '/workspace/groups');
   assert.equal(MOVED_SETTINGS['sso'], '/admin/sso');
-  assert.equal(MOVED_SETTINGS['workspaces'], '/admin/workspaces');
+  /*
+   * The list, not the administration.
+   *
+   * This said '/admin/workspaces', and the administration gave workspaces up
+   * when ADR-0067 was amended — so the section was gone and the redirect landed
+   * on the instance's first section, or on nothing at all for somebody who is
+   * not an instance administrator. A URL is a public contract, and this one had
+   * been quietly pointing at a screen that no longer exists.
+   */
+  assert.equal(MOVED_SETTINGS['workspaces'], '/workspaces');
 
   // Every target is a real route, or the redirect sends somebody nowhere.
   for (const target of Object.values(MOVED_SETTINGS)) {
