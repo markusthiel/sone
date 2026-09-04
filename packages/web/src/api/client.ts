@@ -1200,6 +1200,12 @@ export const api = {
       }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
 
+  /** Which pages are watched here. Ids only — the tree has the titles. */
+  watched: (workspaceId: string) =>
+    request<{ watched: string[] }>(
+      `/api/watched?workspace=${encodeURIComponent(workspaceId)}`,
+    ),
+
   /**
    * Watch a page, or stop (ADR-0064).
    *

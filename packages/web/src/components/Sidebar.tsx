@@ -87,6 +87,9 @@ interface SidebarProps {
   favourites: FavouriteEntry[];
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
+  /** Which entries are watched, and how to change that (ADR-0064). */
+  watchedIds?: Set<string>;
+  onToggleWatch?: (pageId: string, watching: boolean) => void;
   /** Reloads the tree after an entry's icon or colour changed. */
   onReloadTree: () => void;
   /** Whether to offer the way into the workspace administration. */
@@ -181,6 +184,9 @@ function SidebarSection({
   );
 }
 
+/** Shared empty set, so a default is not a new object each render. */
+const NOTHING_WATCHED: Set<string> = new Set();
+
 export function Sidebar({
   workspaceId,
   workspaceName,
@@ -201,6 +207,14 @@ export function Sidebar({
   favourites,
   favouriteIds,
   onToggleFavourite,
+  // Defaulted here so everything below sees a Set rather than a maybe — and to
+  // a module constant rather than `new Set()`, which would be a fresh object
+  // every render and defeat any memo comparing it.
+  watchedIds = NOTHING_WATCHED,
+  // Defaulted to a no-op for the same reason: the tree below wants a function,
+  // not a maybe, and a sidebar rendered without watching (a share link, say)
+  // should draw no bell rather than crash on a click that cannot happen.
+  onToggleWatch = () => {},
   onReloadTree,
   canManageWorkspaces,
   isInstanceAdmin,
@@ -455,6 +469,8 @@ export function Sidebar({
             onStartShare={onStartShare}
             favouriteIds={favouriteIds}
             onToggleFavourite={onToggleFavourite}
+            watchedIds={watchedIds}
+            onToggleWatch={onToggleWatch}
             onReloadTree={onReloadTree}
             tree={tree}
             onMove={onMove}
@@ -515,6 +531,8 @@ function TreeLevel({
   onStartShare,
   favouriteIds,
   onToggleFavourite,
+  watchedIds,
+  onToggleWatch,
   onReloadTree,
   tree,
   onMove,
@@ -545,6 +563,9 @@ function TreeLevel({
   onStartShare: (pageId: string) => void;
   favouriteIds: Set<string>;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
+  /** Which entries are watched, and how to change that (ADR-0064). */
+  watchedIds: Set<string>;
+  onToggleWatch: (pageId: string, watching: boolean) => void;
   /** Reloads the tree after an entry's icon or colour changed. */
   onReloadTree: () => void;
   /** Whether to offer the way into the workspace administration. */
@@ -679,6 +700,8 @@ function TreeLevel({
                     canMoveDown={canStep(tree, node.id, 'down')}
                     isFavourite={favouriteIds.has(node.id)}
                     onToggleFavourite={onToggleFavourite}
+                    isWatched={watchedIds.has(node.id)}
+                    onToggleWatch={onToggleWatch}
                   />
                 </>
               )}
@@ -709,6 +732,8 @@ function TreeLevel({
                   onStartShare={onStartShare}
                   favouriteIds={favouriteIds}
                   onToggleFavourite={onToggleFavourite}
+                  watchedIds={watchedIds}
+                  onToggleWatch={onToggleWatch}
                   onReloadTree={onReloadTree}
                   tree={tree}
                   onMove={onMove}

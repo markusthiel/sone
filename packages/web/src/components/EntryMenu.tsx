@@ -42,6 +42,7 @@ import {
   PencilIcon,
   PlusIcon,
   ShareIcon,
+  BellIcon,
   StarIcon,
   TrashIcon,
 } from './icons.tsx';
@@ -294,6 +295,9 @@ interface EntryMenuProps {
   canMoveDown: boolean;
   isFavourite: boolean;
   onToggleFavourite: (pageId: string, favourite: boolean) => void;
+  /** Whether this entry is watched, and how to change that (ADR-0064). */
+  isWatched?: boolean;
+  onToggleWatch?: (pageId: string, watching: boolean) => void;
 }
 
 /** Descendant count, for telling someone what a delete will take with it. */
@@ -317,6 +321,8 @@ export function EntryMenu({
   canMoveDown,
   isFavourite,
   onToggleFavourite,
+  isWatched,
+  onToggleWatch,
 }: EntryMenuProps): ReactElement {
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -397,6 +403,29 @@ export function EntryMenu({
             */}
           <div className="entry-menu-band">
           <div className="entry-menu-actions" role="group" aria-label={t('entry.actions')}>
+            {/* Beside the star, and not the same act (ADR-0064).
+              *
+              * A favourite is "I come here often"; watching is "tell me when
+              * this changes". The two sit together because they are the same
+              * shape of mark, and their titles are what keep them apart —
+              * somebody who wanted a bookmark must not end up with mail. */}
+            {onToggleWatch && (
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={isWatched === true}
+                className={isWatched ? 'entry-menu-action current' : 'entry-menu-action'}
+                title={isWatched ? t('entry.unwatch') : t('entry.watch')}
+                aria-label={isWatched ? t('entry.unwatch') : t('entry.watch')}
+                onClick={() => {
+                  setOpen(false);
+                  onToggleWatch(node.id, isWatched !== true);
+                }}
+              >
+                <BellIcon data-filled={isWatched ? 'true' : 'false'} />
+              </button>
+            )}
+
             <button
               type="button"
               role="menuitem"

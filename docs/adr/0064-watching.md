@@ -2,8 +2,7 @@
 
 ## Status
 
-Accepted. The table, the routes and the digest's scope are built; the control on
-the page itself is not.
+Accepted and built.
 
 ## Context
 
@@ -75,6 +74,18 @@ One table, two routes, a control on the page, and one branch in the digest
 query. The digest's visibility clause is unchanged and still per recipient: a
 watched page nobody may see is still invisible, and watching cannot be used to
 learn a title.
+
+**The control** is a bell in the entry menu, beside the star. They sit together
+because they are the same shape of mark — a per-person note on a page — and
+their titles are what keep them apart: "Watch for changes" against "Favourite".
+Two handlers, so no click can mean both.
+
+Its state is a hook of its own beside `useFavourites`, mirroring it rather than
+joining it. Two hooks that look alike are cheaper than one control meaning two
+things.
+
+The scope control appears only when the digest is on, because a scope for a mail
+nobody receives is a question about nothing.
 
 ## What was found building it
 

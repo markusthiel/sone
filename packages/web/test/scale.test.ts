@@ -2346,3 +2346,29 @@ test('the QR code encodes the enrolment URI, and the drawing is ours', async () 
   // only way in.
   assert.match(settings, /className="totp-secret"/);
 });
+
+test('the bell sits beside the star and is not the same act', () => {
+  /*
+   * The decision ADR-0064 turns on: a favourite is "I come here often",
+   * watching is "tell me when this changes". They sit together because they are
+   * the same shape of mark, and their titles are what keep them apart —
+   * somebody who wanted a bookmark must not end up with mail.
+   */
+  const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
+  assert.match(menu, /t\('entry\.watch'\)/);
+  assert.match(menu, /t\('entry\.unwatch'\)/);
+  // Two separate handlers, so no click can mean both.
+  assert.match(menu, /onToggleFavourite\(node\.id, !isFavourite\)/);
+  assert.match(menu, /onToggleWatch\(node\.id, isWatched !== true\)/);
+
+  // Separate state too, rather than one hook answering two questions.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /useWatching\(workspaceId\)/);
+  assert.match(app, /useFavourites\(workspaceId\)/);
+
+  // The scope control only appears when the mail is on: a scope for a mail
+  // nobody receives is a question about nothing.
+  const settings = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
+  assert.match(settings, /activity !== 'off' &&/);
+  assert.match(settings, /save\(\{ digestScope: chosen \}\)/);
+});
