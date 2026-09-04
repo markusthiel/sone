@@ -32,6 +32,7 @@ import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
 import { useWorkspaceTheme } from './hooks/useWorkspaceTheme.ts';
 import { useFavourites } from './hooks/useFavourites.ts';
+import { useWatching } from './hooks/useWatching.ts';
 import { useCommentMarkStyle } from './hooks/useCommentMarkStyle.ts';
 import { ExportDialog } from './components/ExportDialog.tsx';
 import { ImportDialog } from './components/ImportDialog.tsx';
@@ -307,6 +308,13 @@ function Workspace({
     ids: favouriteIds,
     toggle: toggleFavourite,
   } = useFavourites(workspaceId);
+  /*
+   * Which pages are watched (ADR-0064).
+   *
+   * A separate hook from favourites, because they are separate acts — the star
+   * and the bell sit beside each other and mean different things.
+   */
+  const { ids: watchedIds, toggle: toggleWatching } = useWatching(workspaceId);
   const {
     visible: sidebarVisible,
     toggle: toggleSidebar,
@@ -563,6 +571,8 @@ function Workspace({
         onStartShare={setSharingId}
         onMove={(id, parent, after) => void moveEntry(id, parent, after)}
         favourites={favourites}
+        watchedIds={watchedIds}
+        onToggleWatch={(pageId, watching) => void toggleWatching(pageId, watching)}
         favouriteIds={favouriteIds}
         onReloadTree={() => void reloadPages()}
         onToggleFavourite={(id, on) => void toggleFavourite(id, on)}

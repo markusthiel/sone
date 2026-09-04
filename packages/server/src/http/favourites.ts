@@ -137,6 +137,29 @@ export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): vo
    * expands it through `ancestor_ids`. Recording the descendants would mean a
    * set that goes stale the moment somebody moves a page.
    */
+  /**
+   * Which pages this person watches, in one workspace (ADR-0064).
+   *
+   * Ids only, no titles. The tree already has the titles, and a second source
+   * for them is a second thing to keep in step — and one that would have to
+   * repeat the visibility check to be safe.
+   */
+  router.get('/api/watched', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+    const workspaceId = ctx.url.searchParams.get('workspace') ?? '';
+
+    const rows = await queryRows<{ pageId: string }>(
+      deps.pool,
+      `SELECT w.page_id::text AS "pageId"
+         FROM watched_pages w
+         JOIN pages p ON p.id = w.page_id
+        WHERE w.user_id = $1 AND p.workspace_id = $2 AND p.archived_at IS NULL`,
+      [auth.userId, workspaceId],
+    );
+    ctx.send(200, { watched: rows.map((one) => one.pageId) });
+  });
+
   router.put('/api/pages/:pageId/watch', async (ctx) => {
     const auth = await requireSession(deps.pool, ctx);
     if (!auth) return;

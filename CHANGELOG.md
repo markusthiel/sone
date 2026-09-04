@@ -13,7 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Pages can be watched**, with a bell beside the star in an entry's menu
+([ADR-0064](docs/adr/0064-watching.md)) — watching a folder covers everything
+under it. The mail about what changed can then be narrowed to only what you
+watch, which is what makes it usable in a workspace of three thousand pages.
+Favouriting still means only "I come here often" and never sends anything.
 
 ## 0.7.0
 

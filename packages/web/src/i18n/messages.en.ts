@@ -76,6 +76,8 @@ export const en = {
   // --- an entry's own menu -----------------------------------------------
   'entry.menu': 'More for {title}',
   'entry.rename': 'Rename',
+  'entry.watch': 'Watch for changes',
+  'entry.unwatch': 'Stop watching',
   'entry.favourite': 'Add to favourites',
   'entry.unfavourite': 'Remove from favourites',
   'entry.share': 'Share…',

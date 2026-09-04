@@ -86,6 +86,8 @@ export const de: Record<keyof typeof en, string> = {
   // --- das Menü eines Eintrags -------------------------------------------
   'entry.menu': 'Mehr zu {title}',
   'entry.rename': 'Umbenennen',
+  'entry.watch': 'Änderungen beobachten',
+  'entry.unwatch': 'Nicht mehr beobachten',
   'entry.favourite': 'Zu Favoriten hinzufügen',
   'entry.unfavourite': 'Aus Favoriten entfernen',
   'entry.share': 'Teilen…',
