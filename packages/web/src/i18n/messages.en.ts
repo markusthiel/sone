@@ -425,6 +425,7 @@ export const en = {
     'that was breached.',
   'you.secondFactor.isOn': 'Two-step sign-in is on for this account.',
   'you.secondFactor.start': 'Set up an authenticator',
+  'you.secondFactor.qrLabel': 'QR code for your authenticator app',
   'you.secondFactor.scan': 'Add this account to your authenticator app.',
   'you.secondFactor.open': 'Open in an authenticator app',
   'you.secondFactor.byHand': 'Or type this secret into the app by hand:',

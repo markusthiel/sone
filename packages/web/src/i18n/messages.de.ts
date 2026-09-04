@@ -462,6 +462,7 @@ export const de: Record<keyof typeof en, string> = {
     'anderswo wiederverwendet wurde und dort abhandenkam.',
   'you.secondFactor.isOn': 'Für dieses Konto ist die Anmeldung zweistufig.',
   'you.secondFactor.start': 'Authenticator einrichten',
+  'you.secondFactor.qrLabel': 'QR-Code für die Authenticator-App',
   'you.secondFactor.scan': 'Dieses Konto in der Authenticator-App hinzufügen.',
   'you.secondFactor.open': 'In einer Authenticator-App öffnen',
   'you.secondFactor.byHand': 'Oder dieses Geheimnis von Hand eintippen:',
