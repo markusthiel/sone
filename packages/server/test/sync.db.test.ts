@@ -29,6 +29,7 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 
 import { withTransaction } from '../src/db/pool.js';
+import { applyToDocument } from '../src/doc/docStore.js';
 import { materializeYDoc } from '../src/materialize/materialize.js';
 import { createSession } from '../src/auth/session.js';
 import { hashPassword } from '../src/auth/password.js';
@@ -44,10 +45,10 @@ import {
   type DecodedServerMessage,
 } from '../src/sync/protocol.js';
 import {
-  TEST_DATABASE_URL,
   closeTestPool,
   getTestPool,
   hasDatabase,
+  testDatabaseUrl,
   resetDatabase,
   seedWorkspace,
   uuid,
@@ -135,7 +136,17 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     http = createServer();
     sync = new SyncServer({
       pool: db,
-      databaseUrl: TEST_DATABASE_URL!,
+      /*
+       * This file's own database, not the one in the environment (ADR-0076).
+       *
+       * Every test file gets a database of its own so the files can run in
+       * parallel, and this passed the base URL instead — so the update bus
+       * LISTENed on `sone_test` while every write went to `sone_t_sync_*`. The
+       * notifications went nowhere, and the whole cross-instance mechanism has
+       * therefore never been exercised by a test: the fan-out tests pass on the
+       * in-process path, which does not go through the bus at all.
+       */
+      databaseUrl: testDatabaseUrl(),
       server: http,
       path: '/sync',
       // Tear rooms down immediately so state does not leak between tests.
@@ -604,6 +615,90 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     assert.equal(readBlockTree(localB).blocks[0]?.text, 'hello from A');
     clientA.close();
     clientB.close();
+  });
+
+  test('a write made outside a room reaches the people in it', async () => {
+    /*
+     * The guarantee the whole bus exists for, and the one nothing tested
+     * (ADR-0076).
+     *
+     * A room loads its document once and keeps it in memory. Something that
+     * appends to `doc_updates` without going through that room — a REST route
+     * restoring an entry, or answering a comment — would otherwise land in the
+     * store and be invisible until somebody reloaded. The trigger on
+     * `doc_updates` notifies, the bus hears it, and the room fetches what it
+     * has not applied.
+     *
+     * Written as a test because "it should work" and "it works" are different
+     * claims, and a mechanism nobody exercises is a mechanism that quietly
+     * stops working.
+     */
+    await makePage(uuid(1));
+    const userId = await makeMember('outside@example.org');
+    const client = await connectAs((await createSession(db, userId)).token);
+    const { handle } = await openDoc(client, uuid(1));
+    await client.waitFor((m) => m.type === ServerMessage.Sync && m.handle === handle);
+
+    // Not through the socket: straight into the document, the way a route does.
+    await applyToDocument(
+      db,
+      uuid(1),
+      (doc) => {
+        doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.title, 'Renamed from outside');
+      },
+      userId,
+    );
+
+    const local = new Y.Doc();
+    const seen = (): string | undefined => {
+      for (const frame of client.frames) {
+        if (frame.type === ServerMessage.Sync && frame.handle === handle) {
+          applyServerSync(local, frame.payload);
+        }
+      }
+      return local.getMap(DOC_KEYS.page).get(PAGE_KEYS.title) as string | undefined;
+    };
+
+    // The notification is asynchronous: the trigger fires on commit, the bus
+    // hears it on its own connection, and the room then reads the row.
+    for (let tries = 0; tries < 20 && seen() !== 'Renamed from outside'; tries++) {
+      await sleep(100);
+    }
+    assert.equal(seen(), 'Renamed from outside', 'the open client was told');
+    client.close();
+  });
+
+  test('an outside write is not written back a second time', async () => {
+    /*
+     * Applied with the origin 'remote-bus', which the room's update handler
+     * skips when deciding what to persist: whoever appended it already stored
+     * it. Without that, every outside write would come back through the room
+     * as a second row saying the same thing — and on two instances, forever.
+     */
+    await makePage(uuid(1));
+    const userId = await makeMember('once@example.org');
+    const client = await connectAs((await createSession(db, userId)).token);
+    const { handle } = await openDoc(client, uuid(1));
+    await client.waitFor((m) => m.type === ServerMessage.Sync && m.handle === handle);
+
+    await applyToDocument(
+      db,
+      uuid(1),
+      (doc) => {
+        doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.title, 'Once');
+      },
+      userId,
+    );
+    // Long enough for the bus, and for the room's own debounce to have fired
+    // if it were going to.
+    await sleep(1500);
+
+    const rows = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM doc_updates WHERE doc_id = $1`,
+      [uuid(1)],
+    );
+    assert.equal(Number(rows.rows[0]!.n), 1, 'one write, one row');
+    client.close();
   });
 
   test('an edit is persisted and materialised after the debounce', async () => {

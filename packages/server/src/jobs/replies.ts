@@ -14,10 +14,10 @@
  *   silence would leave somebody believing they had answered a colleague.
  */
 
-import { addMessage, internalDocId } from '@sone/core';
+import { internalDocId } from '@sone/core';
 import { createHash } from 'node:crypto';
 
-import { applyToDocument } from '../doc/docStore.js';
+import { postReply } from '../comments/postReply.js';
 import { queryOne } from '../db/pool.js';
 import { fetchUnread, type Mailbox } from '../mail/imap.js';
 import { deliveredAddresses, readMail } from '../mail/readMail.js';
@@ -153,26 +153,39 @@ export async function pollReplies(deps: ReplyDeps): Promise<{
       ? internalDocId(where.pageId, sha1)
       : where.pageId;
 
-    await applyToDocument(
-      deps.pool,
+    /*
+     * Written *and projected*, which it was not (ADR-0076).
+     *
+     * This appended the message to the document and stopped. Notifications are
+     * written by the materialiser from the comments it finds, so a reply that
+     * arrived by mail told the person being answered nothing at all — until
+     * somebody happened to edit that page and the projection ran for another
+     * reason. The two halves live together now, in one place, where a caller
+     * cannot take one and forget the other.
+     */
+    const written = await postReply(deps.pool, {
       docId,
-      (doc) => {
-        addMessage(doc, read.target.threadId, {
-          // An id of our own: the message is new here, and the mail's
-          // Message-ID belongs to the mail rather than to the comment.
-          id: `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-          author: read.target.userId,
-          // Marked, because quote trimming is guesswork and a reader should be
-          // able to tell that a machine cut a reply rather than that a
-          // colleague wrote something strange (ADR-0060).
-          text: body.text,
-          via: 'email',
-          trimmed: body.trimmed,
-          hadAttachments: mail.hadAttachments,
-        });
-      },
-      read.target.userId,
-    );
+      pageId: where.pageId,
+      workspaceId: where.workspaceId,
+      threadId: read.target.threadId,
+      authorId: read.target.userId,
+      text: body.text,
+      ...(read.target.internal ? { internal: true } : {}),
+      via: 'email',
+      // Marked, because quote trimming is guesswork and a reader should be able
+      // to tell that a machine cut a reply rather than that a colleague wrote
+      // something strange (ADR-0060).
+      ...(body.trimmed ? { trimmed: true } : {}),
+      ...(mail.hadAttachments ? { hadAttachments: true } : {}),
+    });
+
+    if (!written) {
+      // The thread is not in the document any more: deleted while the mail was
+      // in flight. The same answer as a thread that was never there.
+      await deps.refuse(sender, 'thread_gone');
+      refused += 1;
+      return 'read';
+    }
 
     posted += 1;
     return 'read';

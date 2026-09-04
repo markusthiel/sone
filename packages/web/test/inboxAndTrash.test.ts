@@ -20,7 +20,7 @@ import { snoozeUntil } from '../src/components/snoozeTimes.ts';
 import { entriesIn } from '../src/components/TrashPanel.tsx';
 import type { InboxItem } from '../src/hooks/useInbox.ts';
 import type { TrashEntry } from '../src/api/client.ts';
-import { codeOf } from './helpers/source.ts';
+import { codeOf, stylesOf } from './helpers/source.ts';
 
 // Newest first, as the server sends them.
 function item(over: Partial<InboxItem> & { id: string }): InboxItem {
@@ -245,6 +245,56 @@ test('a sleeping row offers one act, and it is waking', () => {
   // shortcut that opens a menu has saved nobody anything.
   assert.match(screen, /event\.key === 's'/);
   assert.match(screen, /isAsleep\(group\.latest\) \? null : snoozeUntil\('tomorrow'\)/);
+});
+
+// --- answering where you are (ADR-0076) ------------------------------------
+
+test('only a conversation can be answered', () => {
+  /*
+   * An assignment is a task rather than a question — there is nobody to answer
+   * — and a notification with no thread is about a page rather than about
+   * something somebody said.
+   */
+  const screen = codeOf(new URL('../src/components/InboxScreen.tsx', import.meta.url));
+  assert.match(
+    screen,
+    /item\.kind !== 'assignment' && item\.threadId !== null/,
+  );
+  assert.match(screen, /\{answerable && \(/);
+});
+
+test('the box is under the row, not over it', () => {
+  // The passage being answered is the line above it, and a dialog would cover
+  // the one thing somebody needs to read while writing.
+  const screen = codeOf(new URL('../src/components/InboxScreen.tsx', import.meta.url));
+  assert.doesNotMatch(screen, /dialog-scrim/);
+  const css = stylesOf(new URL('../src/styles.css', import.meta.url));
+  assert.match(css, /\.inbox-reply \{[\s\S]*?flex-basis: 100%/);
+});
+
+test('the words are kept until the server has them', () => {
+  /*
+   * Marking read and putting aside are optimistic, because the worst a failed
+   * one costs is a row in the wrong view. A reply is a sentence addressed to
+   * somebody: showing it as sent when it was not is the one failure here
+   * nobody could recover from, because the box would already be empty.
+   */
+  const hook = codeOf(new URL('../src/hooks/useInbox.ts', import.meta.url));
+  assert.match(hook, /reply: \(id: string, text: string\) => Promise<void>/);
+  assert.match(hook, /await api\.replyToNotification\(id, text\)/);
+  const screen = codeOf(new URL('../src/components/InboxScreen.tsx', import.meta.url));
+  // Cleared only after the promise resolves, and an error keeps both the text
+  // and the box.
+  assert.match(screen, /\.then\(\(\) => \{\s*\n\s*setText\(''\);/);
+  assert.match(screen, /\.catch\(\(\) => setFailed\(true\)\)/);
+});
+
+test('every reply box belongs to its own row', () => {
+  // A single box held by the list would carry a half-written sentence to
+  // whichever row was opened next.
+  const screen = codeOf(new URL('../src/components/InboxScreen.tsx', import.meta.url));
+  assert.match(screen, /function ReplyBox\(\{/);
+  assert.match(screen, /const \[answering, setAnswering\] = useState\(false\);/);
 });
 
 // --- the trash ------------------------------------------------------------

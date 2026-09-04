@@ -13,7 +13,10 @@ import type { AddressInfo } from 'node:net';
 import type { Pool } from 'pg';
 
 import { Router } from '../src/http/router.js';
+import { addThread, readThreads } from '@sone/core';
+
 import { createSession } from '../src/auth/session.js';
+import { applyToDocument, loadDoc } from '../src/doc/docStore.js';
 import { registerAuthRoutes } from '../src/http/auth.js';
 import { registerInboxRoutes } from '../src/notifications/routes.js';
 import { closeTestPool, getTestPool, resetDatabase, seedWorkspace } from './support/db.js';
@@ -366,6 +369,133 @@ test('putting aside somebody else’s notification does nothing', async () => {
     200,
   );
   assert.equal(his.unread, 1, 'still waiting for the only person it is for');
+});
+
+// --- answering without leaving (ADR-0076) ----------------------------------
+
+/** A thread in the page's document, so there is something to answer. */
+async function withThread(who: Awaited<ReturnType<typeof person>>): Promise<string> {
+  await applyToDocument(
+    db,
+    who.pageId,
+    (doc) => {
+      addThread(doc, {
+        id: 't1',
+        messageId: 'm0',
+        author: who.userId,
+        text: 'Was meinst du?',
+        // Empty anchors, like the suite's other thread fixtures: a real
+        // anchor is an encoded relative position from the editor, and a made-up
+        // byte or two is not one — the projection tries to decode it.
+        from: new Uint8Array(),
+        to: new Uint8Array(),
+        quote: 'etwas',
+      });
+    },
+    who.userId,
+  );
+  return 't1';
+}
+
+const reply = (
+  who: Awaited<ReturnType<typeof person>>,
+  id: string,
+  text: unknown,
+): Promise<Response> =>
+  fetch(`${base}/api/inbox/${id}/reply`, {
+    method: 'POST',
+    headers: { cookie: who.cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+
+test('a notification can be answered from the inbox, and the answer is in the page', async () => {
+  /*
+   * The inbox is the one place in SONE that spans workspaces and holds no page
+   * open. Answering used to mean going to the page, finding the thread and
+   * typing there — three steps for a sentence.
+   */
+  const anna = await person('olga');
+  await withThread(anna);
+  const id = await notify(anna, 'Frage');
+
+  await expectJson(await reply(anna, id, 'Ja, passt so.'), 201);
+
+  const loaded = await loadDoc(db, anna.pageId);
+  const thread = readThreads(loaded.doc).find((one) => one.id === 't1');
+  loaded.doc.destroy();
+  assert.equal(thread?.messages.at(-1)?.text, 'Ja, passt so.');
+  assert.equal(thread?.messages.at(-1)?.author, anna.userId);
+});
+
+test('the answer is projected, not only written', async () => {
+  /*
+   * Notifications are written by the materialiser from the comments it finds.
+   * A reply that is only appended to the document notifies nobody — which is
+   * what answering by email did for as long as it existed (ADR-0076).
+   */
+  const anna = await person('petra');
+  await withThread(anna);
+  const id = await notify(anna, 'Frage');
+  await reply(anna, id, 'Antwort im Faden.');
+
+  const projected = await db.query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM page_comments WHERE page_id = $1`,
+    [anna.pageId],
+  );
+  assert.ok(Number(projected.rows[0]!.n) > 0, 'the projection ran');
+});
+
+test('answering is reading', async () => {
+  // Somebody who has just written a sentence about a notification has dealt
+  // with it, and leaving the row bold afterwards is the inbox disagreeing with
+  // what the person just did.
+  const anna = await person('rita');
+  await withThread(anna);
+  const id = await notify(anna, 'Frage');
+
+  await reply(anna, id, 'Erledigt.');
+
+  const count = await expectJson<{ unread: number }>(
+    await fetch(`${base}/api/inbox/count`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.equal(count.unread, 0);
+});
+
+test('an empty answer is refused, and nothing is written', async () => {
+  const anna = await person('sonja');
+  await withThread(anna);
+  const id = await notify(anna, 'Frage');
+
+  assert.equal((await reply(anna, id, '   ')).status, 422);
+  assert.equal((await reply(anna, id, 42)).status, 422);
+
+  const loaded = await loadDoc(db, anna.pageId);
+  const thread = readThreads(loaded.doc).find((one) => one.id === 't1');
+  loaded.doc.destroy();
+  assert.equal(thread?.messages.length, 1, 'only the question');
+});
+
+test('somebody else’s notification cannot be answered', async () => {
+  // One answer for "not yours", "not there" and "nothing to answer": the
+  // difference would say whose inbox holds what.
+  const anna = await person('tanja');
+  const bert = await person('udo');
+  await withThread(anna);
+  const id = await notify(anna, 'Frage');
+
+  assert.equal((await reply(bert, id, 'Ich auch!')).status, 404);
+});
+
+test('a thread that has gone is reported rather than recreated', async () => {
+  // The row in the inbox still remembers the conversation, which is the point
+  // of the row — but there is nothing left to answer.
+  const anna = await person('vera');
+  const id = await notify(anna, 'Frage');
+
+  const res = await reply(anna, id, 'Hallo?');
+  assert.equal(res.status, 409);
+  assert.deepEqual(await res.json(), { error: 'thread_gone' });
 });
 
 test('an archived page is not a place to be sent', async () => {

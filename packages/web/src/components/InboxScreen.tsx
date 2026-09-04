@@ -22,6 +22,12 @@
  * `s` takes the commonest of the three times rather than opening the menu. A
  * shortcut that opens a menu has saved nobody anything, and the other two times
  * are a click away on the same row.
+ *
+ * A conversation can be answered here (ADR-0076). Not every row: an assignment
+ * is a task and not a question, and a notification whose thread has gone has
+ * nothing to answer. The box appears on the row rather than in a dialog,
+ * because the passage being answered is the line above it and a dialog would
+ * cover the one thing somebody needs to read while writing.
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
@@ -42,6 +48,7 @@ export function InboxScreen({
   error,
   onRead,
   onSnooze,
+  onReply,
 }: {
   /** Everything; the view below decides what this shows. Null while loading. */
   items: InboxItem[] | null;
@@ -50,6 +57,8 @@ export function InboxScreen({
   onRead: (ids: string[], read: boolean) => void;
   /** Aside until a moment, or back now with null (ADR-0075). */
   onSnooze: (ids: string[], until: Date | null) => void;
+  /** Answer the conversation a row is about (ADR-0076). */
+  onReply: (id: string, text: string) => Promise<void>;
 }): ReactElement {
   const { t } = useT();
   const groups = items === null ? null : groupsIn(items, view);
@@ -164,6 +173,7 @@ export function InboxScreen({
                 group={group}
                 onRead={onRead}
                 onSnooze={onSnooze}
+                onReply={onReply}
                 ref={(element) => {
                   rows.current[at] = element;
                 }}
@@ -180,17 +190,28 @@ function Row({
   group,
   onRead,
   onSnooze,
+  onReply,
   ref,
 }: {
   group: InboxGroup;
   onRead: (ids: string[], read: boolean) => void;
   onSnooze: (ids: string[], until: Date | null) => void;
+  onReply: (id: string, text: string) => Promise<void>;
   ref: (element: HTMLAnchorElement | null) => void;
 }): ReactElement {
   const { t } = useT();
   const item = group.latest;
   const asleep = isAsleep(item);
   const ids = group.items.map((one) => one.id);
+  const [answering, setAnswering] = useState(false);
+  /*
+   * A conversation to answer.
+   *
+   * An assignment is a task rather than a question — there is nobody to answer
+   * — and a notification with no thread is one about a page rather than about
+   * something somebody said.
+   */
+  const answerable = item.kind !== 'assignment' && item.threadId !== null;
 
   return (
     <li
@@ -252,8 +273,25 @@ function Row({
           >
             {group.unread > 0 ? t('inbox.markRead') : t('inbox.markUnread')}
           </button>
+          {answerable && (
+            <button
+              className="quiet inbox-mark"
+              type="button"
+              aria-expanded={answering}
+              onClick={() => setAnswering((previous) => !previous)}
+            >
+              {t('inbox.answer')}
+            </button>
+          )}
           <SnoozeMenu onChoose={(choice) => onSnooze(ids, snoozeUntil(choice))} />
         </>
+      )}
+
+      {answering && (
+        <ReplyBox
+          onSend={(text) => onReply(item.id, text)}
+          onDone={() => setAnswering(false)}
+        />
       )}
     </li>
   );
@@ -327,6 +365,81 @@ function SnoozeMenu({ onChoose }: { onChoose: (choice: SnoozeChoice) => void }):
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Writing the answer.
+ *
+ * Its own component so the text belongs to the row it is under and nothing
+ * else: a single box held by the list would carry a half-written sentence to
+ * whichever row was opened next.
+ *
+ * The box keeps what was typed until the server has it. A reply is a sentence
+ * addressed to somebody, and showing it as sent when it was not is the one
+ * failure here nobody could recover from — the words would already be gone.
+ */
+function ReplyBox({
+  onSend,
+  onDone,
+}: {
+  onSend: (text: string) => Promise<void>;
+  onDone: () => void;
+}): ReactElement {
+  const { t } = useT();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const send = (): void => {
+    const said = text.trim();
+    if (said === '' || busy) return;
+    setBusy(true);
+    setFailed(false);
+    void onSend(said)
+      .then(() => {
+        setText('');
+        onDone();
+      })
+      .catch(() => setFailed(true))
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <div className="inbox-reply">
+      <textarea
+        className="inbox-reply-text"
+        value={text}
+        autoFocus
+        rows={2}
+        placeholder={t('inbox.answer.placeholder')}
+        aria-label={t('inbox.answer')}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          // Enter sends, Shift+Enter breaks the line: the box is two lines
+          // tall and holds a sentence, not a document.
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            send();
+          }
+          if (event.key === 'Escape') onDone();
+        }}
+      />
+      <div className="inbox-reply-actions">
+        {failed && <span className="error small">{t('inbox.answer.failed')}</span>}
+        <button type="button" className="btn" onClick={onDone}>
+          {t('action.cancel')}
+        </button>
+        <button
+          type="button"
+          className="btn primary"
+          disabled={busy || text.trim() === ''}
+          onClick={send}
+        >
+          {busy ? t('inbox.answer.sending') : t('inbox.answer.send')}
+        </button>
+      </div>
     </div>
   );
 }

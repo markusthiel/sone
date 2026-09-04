@@ -52,6 +52,11 @@ export const de: Record<keyof typeof en, string> = {
   'inbox.snooze.tomorrow': 'Morgen früh',
   'inbox.snooze.nextWeek': 'Nächste Woche',
   'inbox.wake': 'Zurückholen',
+  'inbox.answer': 'Antworten',
+  'inbox.answer.placeholder': 'Antwort schreiben… Enter sendet, Umschalt+Enter macht eine Zeile.',
+  'inbox.answer.send': 'Senden',
+  'inbox.answer.sending': 'Wird gesendet…',
+  'inbox.answer.failed': 'Konnte nicht gesendet werden.',
   'inbox.backOn': 'wieder am {when}',
   'inbox.mention': 'Namensnennung',
   'inbox.reply': 'Antwort im Verlauf',
@@ -1474,6 +1479,9 @@ export const de: Record<keyof typeof en, string> = {
   'error.invalid_role': 'Ein Freigabe-Link kann diese Rolle nicht vergeben.',
   'error.too_many_rows': 'Das sind mehr als fünfzig Einträge. Bitte in kleineren Stücken einfügen.',
   'error.not_archived': 'Dieser Eintrag ist nicht im Papierkorb.',
+  'error.no_text': 'Da steht nichts zum Senden.',
+  'error.thread_gone':
+    'Dieses Gespräch gibt es nicht mehr — es wurde gelöscht, während die Zeile hier stand.',
   'error.invalid_time':
     'Dieser Zeitpunkt geht nicht: er muss in der Zukunft liegen und höchstens ein ' +
     'Jahr entfernt sein.',

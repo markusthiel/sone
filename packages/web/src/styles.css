@@ -2471,6 +2471,10 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    the button sits at its end rather than under it. */
 .inbox-list li {
   display: flex;
+  /* Wrapping, so the reply box takes a line of its own under the row rather
+     than a column beside it — where it would squeeze the passage somebody is
+     answering into three words a line (ADR-0076). */
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sone-space-2);
   border-radius: var(--sone-radius);
@@ -2534,6 +2538,32 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 /* The name on one line: "Morgen früh" broken across two makes the moment
    beside it look like it belongs to something else. */
 .inbox-snooze-menu button > span:first-child { white-space: nowrap; }
+
+/* Writing the answer, under the row it answers (ADR-0076).
+ *
+ * Full width and below, because the passage being answered is the line above
+ * it: a dialog would cover the one thing somebody needs to read while
+ * writing. */
+.inbox-reply {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-2);
+  margin-block-start: var(--sone-space-2);
+  padding-inline-start: var(--sone-space-3);
+  border-inline-start: 2px solid var(--sone-border);
+}
+.inbox-reply-text {
+  inline-size: 100%;
+  resize: vertical;
+  font: inherit;
+}
+.inbox-reply-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sone-space-3);
+}
 
 /* A sleeping row steps back, like a read one: it is here on purpose and is not
    asking for anything until it comes back. */
