@@ -18,7 +18,6 @@ export const en = {
   'account.workspaces': 'Workspaces',
   'account.administration': 'Administration',
   'account.inbox': 'Inbox',
-  'account.inbox.waiting': 'Inbox, {count} waiting',
   'account.label.waiting': '{name}, {count} notifications waiting',
   'inbox.title': 'Inbox',
   'inbox.empty':
@@ -64,6 +63,7 @@ export const en = {
   'sidebar.close': 'Close navigation',
   'sidebar.hide': 'Hide the sidebar',
   'sidebar.search': 'Search',
+  'sidebar.places': 'Parts of SONE',
   'sidebar.favourites': 'Favourites',
   'sidebar.folders': 'Folders',
   'sidebar.emptyFolders': 'No folders yet. Press + to make one.',

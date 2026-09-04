@@ -8,6 +8,45 @@
     <meta name="color-scheme" content="light dark" />
     <title>SONE</title>
 
+    <!--
+      The mark, at three sizes for three consumers. An SVG for the tab, because
+      it stays sharp at whatever the browser asks for; a PNG for iOS, which
+      ignores SVG and rounds the corners itself; and two for an installed icon.
+
+      theme-color is given per scheme rather than once: a single value paints
+      the address bar the wrong colour in one of the two themes, and the phone
+      is where anybody notices.
+    -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)" />
+
+    <!--
+      The two faces, asked for before the stylesheet is parsed.
+
+      Same origin, so this costs one connection that is already open and no DNS
+      lookup to anybody. Only the two Latin files: latin-ext is real but rarer,
+      and preloading a file most pages never draw from would spend the budget on
+      the wrong one. `crossorigin` is required even same-origin — a font is
+      fetched in CORS mode, and a preload without it downloads the file twice.
+    -->
+    <link
+      rel="preload"
+      href="/fonts/archivo-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/jetbrains-mono-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
     <script>
       /*
        * Last-resort error reporting, before any application code runs.

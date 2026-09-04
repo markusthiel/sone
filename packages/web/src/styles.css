@@ -13,6 +13,53 @@
  */
 
 /* ---------------------------------------------------------------------------
+ * The faces, served from here.
+ *
+ * Archivo for text and Jetbrains Mono for anything technical — a label, a
+ * count, a path, a duration. Both under the SIL Open Font License; the licences
+ * ride along in public/fonts/ beside the files.
+ *
+ * Served from this origin and never from a font service, which is the same
+ * decision as before rather than a new one: a stylesheet that reaches out to
+ * Google tells Google who opened somebody's notes and when. Self-hosting is
+ * what makes a brand face compatible with that at all.
+ *
+ * Variable weight axes, so four weights of Archivo cost one file. `swap` rather
+ * than `block`: the system face shows immediately and is replaced when the
+ * download lands, because text you can read in the wrong font beats no text.
+ * ------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Archivo Var';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/archivo-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Archivo Var';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/archivo-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Jetbrains Mono Var';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('/fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------------------------------------------------------------------------
  * Primitives — what a value *is* (ADR-0028).
  *
  * Nothing outside the theme blocks below refers to one of these. They exist so
@@ -29,6 +76,14 @@
   --ink-800: #232320;
   --ink-700: #302f2c;
   --ink-600: #45443f;
+  /* The step the ramp was missing.
+   *
+   * Secondary text in the light theme used --ink-400, which is 3.6:1 on white
+   * and 3.3:1 on the sunken surface — under AA, on every quiet label in the
+   * interface. The same value is fine in dark (5.1:1 on --ink-900), so this is
+   * a light-theme problem and gets a light-theme value rather than a darker
+   * --ink-400 that would wash out the dark theme to fix it. 5.7:1 on white. */
+  --ink-500: #6a675f;
   --ink-400: #8a8880;
   --ink-300: #a9a79f;
   --ink-200: #d4d2ca;
@@ -104,7 +159,8 @@
 
   --text-primary: var(--ink-900);
   --text-secondary: var(--ink-600);
-  --text-muted: var(--ink-400);
+  /* One step darker than dark's, on purpose: see --ink-500. */
+  --text-muted: var(--ink-500);
 
   --border-subtle: #eae7df;
   --border-default: #ddd9d0;
@@ -114,6 +170,27 @@
   --accent-quiet: var(--accent-050);
   --accent-contrast: var(--ink-000);
   --danger: var(--danger-500);
+
+  /* Depth, named rather than typed out.
+   *
+   * Three heights and one alias. They were about thirty literals scattered
+   * through this file, two of which had drifted apart while describing the same
+   * height — and --sone-shadow-floating was being *used* in two places without
+   * ever being declared, so a popover and a tooltip rendered flat and looked
+   * like a rendering bug in the browser.
+   *
+   * Dark gets its own values rather than the same ones: a shadow on a dark
+   * background reads as dirt, so the light theme leans on the shadow and the
+   * dark theme leans on the surface step and keeps only enough to separate an
+   * overlay from what it covers. */
+  --sone-shadow-sm: 0 1px 3px rgb(0 0 0 / 12%);
+  --sone-shadow-md: 0 4px 16px rgb(0 0 0 / 14%), 0 1px 3px rgb(0 0 0 / 8%);
+  --sone-shadow-lg: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+  --sone-shadow-floating: var(--sone-shadow-md);
+
+  /* Used at three call sites with two different fallbacks, and declared at
+     none. Warm amber: not danger, but not nothing either. */
+  --sone-warning: #a86a12;
 }
 
 [data-theme='dark'] {
@@ -150,6 +227,12 @@
   --accent-quiet: var(--accent-950);
   --accent-contrast: var(--ink-950);
   --danger: var(--danger-300);
+
+  --sone-shadow-sm: 0 1px 3px rgb(0 0 0 / 30%);
+  --sone-shadow-md: 0 4px 16px rgb(0 0 0 / 40%);
+  --sone-shadow-lg: 0 12px 32px rgb(0 0 0 / 48%);
+  --sone-shadow-floating: var(--sone-shadow-md);
+  --sone-warning: #d8a33a;
 }
 
 :root {
@@ -208,9 +291,9 @@
 
   /* Radii follow the control they sit on: a small control with a large radius
      reads as a pill by accident. */
-  --sone-radius-sm: 4px;
-  --sone-radius: 6px;
-  --sone-radius-lg: 8px;
+  --sone-radius-sm: 2px;
+  --sone-radius: 2px;
+  --sone-radius-lg: 4px;
 
   /* Text sizes for the interface. The editor has its own scale, set per person
      (see Appearance), because reading prose and scanning a sidebar are
@@ -227,9 +310,10 @@
    * software, and a stylesheet that reaches out to Google tells Google who
    * opened somebody's notes and when.
    * ------------------------------------------------------------------- */
-  --sone-font: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
-    sans-serif;
-  --sone-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sone-font: 'Archivo Var', Inter, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', system-ui, sans-serif;
+  --sone-font-mono: 'Jetbrains Mono Var', ui-monospace, SFMono-Regular, Menlo,
+    monospace;
 
   /* Headings are thin and set tight. Size carries the weight, not stroke
      width — a bold heading over a note shouts at the thing it introduces.
@@ -276,6 +360,12 @@
     --accent-quiet: var(--accent-950);
     --accent-contrast: var(--ink-950);
     --danger: var(--danger-300);
+
+    --sone-shadow-sm: 0 1px 3px rgb(0 0 0 / 30%);
+    --sone-shadow-md: 0 4px 16px rgb(0 0 0 / 40%);
+    --sone-shadow-lg: 0 12px 32px rgb(0 0 0 / 48%);
+    --sone-shadow-floating: var(--sone-shadow-md);
+    --sone-warning: #d8a33a;
   }
 }
 
@@ -464,6 +554,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      wide screen behaves like a narrow screen (ADR-0016). */
   grid-template-columns: minmax(0, 1fr);
   height: 100%;
+  /* The rail's track. Fixed, and narrow enough that it reads as an edge of the
+     window rather than a third panel — it holds destinations, never content. */
+  --rail-width: 56px;
 }
 
 @media (min-width: 800px) {
@@ -471,7 +564,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
     /* The width is a variable the person sets by dragging the sidebar's edge
        (see useSidebarWidth). 260px stays the default, and the fallback matters:
        a browser that refused local storage still gets a sidebar. */
-    grid-template-columns: var(--sidebar-width, 260px) minmax(0, 1fr);
+    grid-template-columns:
+      var(--rail-width) var(--sidebar-width, 260px) minmax(0, 1fr);
   }
 }
 
@@ -493,6 +587,115 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   border-inline-end: 1px solid var(--border-subtle);
   background: var(--surface-chrome);
   overflow-y: auto;
+}
+
+/* --- the rail ---
+ *
+ * Hidden by default and shown at the breakpoint, rather than the other way
+ * round: below 800px the sidebar is an overlay and the rail's destinations are
+ * in it, so a fixed strip there would take 56px of a phone to repeat things
+ * that are one tap away. `display: none` and not a zero-width column — a column
+ * with no width still draws its border, which is the same reason the sidebar
+ * changes the grid template rather than its own width. */
+.icon-rail {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sone-space-3);
+  padding-block: var(--sone-space-3);
+  border-inline-end: 1px solid var(--border-subtle);
+  background: var(--surface-chrome);
+  overflow: hidden;
+}
+
+@media (min-width: 800px) {
+  .icon-rail { display: flex; }
+}
+
+.rail-brand,
+.rail-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  inline-size: var(--sone-tap);
+  block-size: var(--sone-tap);
+  border-radius: var(--sone-radius);
+  color: var(--text-muted);
+}
+
+.rail-brand { color: var(--text-primary); }
+
+.rail-brand:hover,
+.rail-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.icon-rail svg {
+  inline-size: 1.2em;
+  block-size: 1.2em;
+}
+
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sone-space-1);
+}
+
+/* The same list as the rail's, at the width where the rail is not drawn.
+ *
+ * Hidden above the breakpoint by the stylesheet rather than by a media query in
+ * JavaScript, so the breakpoint has one owner and it is the thing that draws
+ * it. The two are never on screen together, which is what makes this one list
+ * in two places rather than two ways in (places.tsx). */
+.sidebar-places {
+  display: flex;
+  flex-direction: column;
+  margin-block-start: var(--sone-space-4);
+}
+
+@media (min-width: 800px) {
+  .sidebar-places { display: none; }
+}
+
+.sidebar-place {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-4);
+  min-block-size: var(--sone-tap);
+  padding-inline: var(--sone-space-4);
+  border-radius: var(--sone-radius);
+  color: var(--text-secondary);
+}
+
+.sidebar-place svg {
+  inline-size: 1.15em;
+  block-size: 1.15em;
+  flex: none;
+}
+
+.sidebar-place:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.rail-item[aria-current='page'] {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+/* The accent on the edge and not under the icon: it marks the side of the
+   window you are on, which is what the sidebar's own current row does. Logical
+   inset, so it moves to the other edge in a right-to-left interface. */
+.rail-item[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  inset-block: 25%;
+  inset-inline-start: 0;
+  inline-size: 2px;
+  background: var(--accent);
 }
 
 /* The scrim is positioned and hidden OUTSIDE any media query.
@@ -574,9 +777,17 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .app.with-sidebar[data-sidebar='hidden'] { grid-template-columns: minmax(0, 1fr); }
 .app[data-sidebar='hidden'] .sidebar { display: none; }
 
+/* After the rule above rather than inside the earlier block, and deliberately:
+   the two have the same specificity, so the one that wins is the later one. */
+@media (min-width: 800px) {
+  .app.with-sidebar[data-sidebar='hidden'] {
+    grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  }
+}
+
 @media (min-width: 1100px) {
   .app.with-sidebar[data-sidebar='hidden'][data-right-panel='open'] {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: var(--rail-width) minmax(0, 1fr) 300px;
   }
 }
 
@@ -1408,7 +1619,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   border-radius: var(--sone-radius-lg);
   background: var(--sone-bg);
   /* Enough elevation to read as floating above text without a heavy shadow. */
-  box-shadow: 0 6px 24px rgb(0 0 0 / 14%), 0 1px 3px rgb(0 0 0 / 8%);
+  box-shadow: var(--sone-shadow-md);
   /* The menu is driven from the keyboard; a stray tap should not scroll it
      under the thumb on a phone. */
   overscroll-behavior: contain;
@@ -2721,7 +2932,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius);
   background: var(--surface-overlay);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 14%);
+  box-shadow: var(--sone-shadow-md);
   z-index: 5;
 }
 .canvas-handle-action {
@@ -3076,7 +3287,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius-lg);
   background: var(--sone-bg);
-  box-shadow: 0 6px 24px rgb(0 0 0 / 14%), 0 1px 3px rgb(0 0 0 / 8%);
+  box-shadow: var(--sone-shadow-md);
   overscroll-behavior: contain;
 }
 
@@ -3285,7 +3496,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-lg);
   background: var(--surface-overlay);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+  box-shadow: var(--sone-shadow-lg);
 }
 
 /* A line between groups.
@@ -3566,7 +3777,7 @@ select {
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-lg);
   background: var(--surface-overlay);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+  box-shadow: var(--sone-shadow-lg);
 }
 
 .switcher-item {
@@ -3623,7 +3834,7 @@ select {
 .switcher-item[data-dragging='true'] {
   opacity: 0.5;
   background: var(--sone-bg-hover);
-  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+  box-shadow: var(--sone-shadow-sm);
 }
 /* A row being carried must not swallow the pointer events its own children would
    receive, and must not be found by elementFromPoint before the row under it. */
@@ -3705,7 +3916,12 @@ select {
 
 @media (min-width: 1100px) {
   .app.with-sidebar[data-right-panel='open'] {
-    grid-template-columns: 260px minmax(0, 1fr) 300px;
+    /* var(), not 260px. This rule out-specifies the one above it, so writing the
+       default here meant a sidebar somebody had dragged wider snapped back to
+       260 the moment they opened the right panel — and returned to their width
+       when they closed it, which reads as the panel resizing the sidebar. */
+    grid-template-columns:
+      var(--rail-width) var(--sidebar-width, 260px) minmax(0, 1fr) 300px;
   }
 }
 
@@ -4157,7 +4373,7 @@ select {
   border: 1px solid var(--sone-border);
   border-radius: 8px;
   background: var(--sone-bg);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 16%), 0 1px 3px rgb(0 0 0 / 8%);
+  box-shadow: var(--sone-shadow-md);
 }
 
 .toolbar-button {
@@ -4468,7 +4684,7 @@ select {
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius-lg);
   background: var(--sone-bg);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 22%);
+  box-shadow: var(--sone-shadow-lg);
 }
 
 .dialog-title { margin: 0; font-size: 1rem; }
@@ -4566,6 +4782,9 @@ select {
 .sidebar-section-toggle[aria-expanded='true'] svg { transform: rotate(90deg); }
 /* What is behind a closed section, so it does not read as an empty one. */
 .sidebar-section-count {
+  /* A count is a number you compare, not a word you read. Mono keeps 8 and 88
+     the same shape in the same column when a section grows. */
+  font-family: var(--sone-font-mono);
   color: var(--sone-text-muted);
   font-size: var(--sone-text-xs);
   font-variant-numeric: tabular-nums;
@@ -4593,9 +4812,17 @@ select {
 .sidebar-label {
   margin: 0 0 var(--sone-space-1);
   padding-inline: var(--sone-space-4);
+  /* Mono, and set wider than it reads comfortably as a word.
+   *
+   * A label names a place; it is not something you read, it is something you
+   * find. The monospaced face and the tracking are what separate it from the
+   * page titles under it without spending a colour or a rule on the job — the
+   * same distinction the document type makes between what you wrote and what
+   * the application says, applied one level down. */
+  font-family: var(--sone-font-mono);
   font-size: var(--sone-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--sone-text-muted);
 }
@@ -4656,7 +4883,7 @@ select {
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius);
   background: var(--surface-overlay);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+  box-shadow: var(--sone-shadow-lg);
 }
 
 .tag-suggestion {
@@ -4928,7 +5155,7 @@ select {
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius);
   background: var(--sone-bg);
-  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
+  box-shadow: var(--sone-shadow-sm);
 }
 
 .table-toolbar-button {
@@ -4962,7 +5189,7 @@ select {
   opacity: 0.5;
   /* Lifted, so it is clear which row is travelling. */
   background: var(--sone-bg-hover);
-  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+  box-shadow: var(--sone-shadow-sm);
 }
 
 /* Inside this folder, drawn as a filled row. The line above and below means
@@ -5141,7 +5368,7 @@ select {
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-lg);
   background: var(--surface-raised);
-  box-shadow: var(--sone-shadow-lg, 0 12px 32px rgb(0 0 0 / 18%));
+  box-shadow: var(--sone-shadow-lg);
 }
 .video-dialog-or { margin: 0; color: var(--sone-text-muted); font-size: var(--sone-text-sm); }
 .video-dialog-url { inline-size: 100%; }
@@ -5166,7 +5393,7 @@ select {
   margin: 0;
   padding: var(--sone-space-3) var(--sone-space-5);
   border-block-end: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--sone-warning, #b8860b) 12%, var(--surface-chrome));
+  background: color-mix(in srgb, var(--sone-warning) 12%, var(--surface-chrome));
   font-size: var(--sone-text-sm);
 }
 .stale-bundle span { flex: 1 1 20rem; min-inline-size: 0; }
@@ -5628,7 +5855,7 @@ select {
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-lg);
   background: var(--surface-overlay);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+  box-shadow: var(--sone-shadow-lg);
   /* Its own type size. It inherited the page's when it moved out of the table,
      which is why it read as belonging to a different application — the table set
      a smaller size and the menu used to be inside it. */
@@ -5681,7 +5908,7 @@ select {
   padding: var(--sone-space-2) var(--sone-space-3);
   border-radius: var(--sone-radius);
   background: var(--sone-bg);
-  box-shadow: 0 6px 20px rgb(0 0 0 / 24%);
+  box-shadow: var(--sone-shadow-lg);
   font-size: var(--sone-text-sm);
   white-space: nowrap;
   overflow: hidden;
@@ -5719,7 +5946,7 @@ select {
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius);
   background: var(--sone-bg);
-  box-shadow: 0 6px 24px rgb(0 0 0 / 16%);
+  box-shadow: var(--sone-shadow-md);
   font-weight: 400;
   white-space: normal;
 }
@@ -5896,7 +6123,7 @@ select {
   padding: var(--sone-space-2) var(--sone-space-3);
   border-radius: var(--sone-radius-sm);
   background: var(--sone-bg);
-  box-shadow: 0 6px 20px rgb(0 0 0 / 24%);
+  box-shadow: var(--sone-shadow-lg);
   font-size: var(--sone-text-sm);
   white-space: nowrap;
   overflow: hidden;
@@ -6383,7 +6610,7 @@ select {
    does not move the scroll position under somebody's thumb. */
 .pdf-page {
   background: var(--surface);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  box-shadow: var(--sone-shadow-sm);
 }
 .pdf-page canvas { display: block; }
 .pdf-status,
@@ -6464,7 +6691,7 @@ select {
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius);
   background: var(--surface-overlay);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+  box-shadow: var(--sone-shadow-lg);
 }
 .file-menu-label {
   margin: var(--sone-space-2) var(--sone-space-2) var(--sone-space-1);
@@ -6888,9 +7115,12 @@ body {
    one names a place, the other names a passage. */
 .settings-heading {
   margin-block: var(--sone-space-5) var(--sone-space-1);
+  /* The same treatment as a sidebar label, because it is the same thing: a
+     name for a group, not a heading over prose. */
+  font-family: var(--sone-font-mono);
   font-size: var(--sone-text-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--sone-text-muted);
 }
@@ -6970,9 +7200,9 @@ body {
  */
 .warning {
   padding: var(--sone-space-3) var(--sone-space-4);
-  border: 1px solid color-mix(in srgb, var(--sone-warning, #d97706) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sone-warning) 40%, transparent);
   border-radius: var(--sone-radius);
-  background: color-mix(in srgb, var(--sone-warning, #d97706) 10%, transparent);
+  background: color-mix(in srgb, var(--sone-warning) 10%, transparent);
   font-size: var(--sone-text-sm);
 }
 .warning code {
@@ -7177,7 +7407,7 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-lg);
   background: var(--surface-overlay);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 10%);
+  box-shadow: var(--sone-shadow-lg);
   z-index: 60;
 }
 .sidebar-account-menu a,

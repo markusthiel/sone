@@ -2415,7 +2415,12 @@ test('the sidebar can be made wider, and remembers it', () => {
   assert.match(hook, /catch \{[\s\S]{0,200}return DEFAULT_SIDEBAR/);
 
   // The width is a variable the grid reads, with the default as its fallback.
-  assert.match(css, /grid-template-columns: var\(--sidebar-width, 260px\)/);
+  // The rail's fixed track sits before it in the template; what this checks is
+  // that the sidebar's own track is still the variable and not the number.
+  assert.match(
+    css,
+    /grid-template-columns:\s*var\(--rail-width\) var\(--sidebar-width, 260px\)/,
+  );
 
   // The handle is a button, so it can be focused, and double-click resets —
   // which is what somebody will try.
@@ -2436,8 +2441,12 @@ test('the workspace list is one list, and the server decides its length', () => 
   const list = codeOf(new URL('../src/components/WorkspaceListScreen.tsx', import.meta.url));
   const admin = codeOf(new URL('../src/components/AdminScreen.tsx', import.meta.url));
 
-  // Reachable without any right, from the account menu — as one entry.
-  assert.match(menu, /href=\{paths\.workspaces\(\)\}/);
+  // Reachable without any right — as one entry, now among the places rather
+  // than in the account menu (ADR-0068). The right it does not need is what
+  // this asserts; which list it is in is not the point.
+  const places = codeOf(new URL('../src/components/places.tsx', import.meta.url));
+  assert.match(places, /href: paths\.workspaces\(\)/);
+  assert.doesNotMatch(menu, /href=\{paths\.workspaces\(\)\}/);
   /*
    * And *not* also as a second entry for the current one.
    *

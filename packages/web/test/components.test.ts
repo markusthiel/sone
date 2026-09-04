@@ -50,7 +50,9 @@ test('there are three button weights and no fourth', () => {
 test('everything that floats shares one treatment', () => {
   // Height is expressed by the overlay surface, because a shadow on a dark
   // background reads as dirt.
-  const lifts = css.match(/box-shadow: 0 8px 28px/g) ?? [];
+  // Counted on the token rather than the literal it used to be: the treatment
+  // being shared is now a named one, which is the point of the count.
+  const lifts = css.match(/box-shadow: var\(--sone-shadow-lg\)/g) ?? [];
   assert.ok(lifts.length >= 3, `only ${lifts.length} panels share the lift`);
   assert.match(css, /background: var\(--surface-overlay\)/);
 });

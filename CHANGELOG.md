@@ -13,11 +13,43 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+No operator action. Pull and restart.
+
 **One way to workspace settings, not three.** 0.10.0 shipped a workspace list
 alongside the "this workspace" entry it was meant to replace, and left the same
 list in the administration as well. The account menu has a single **Workspaces**
 entry now, the workspace you are in is first in the list, and the
 administration is the instance only — accounts, sign-in, mail, maintenance.
+
+SONE looks like something now.
+
+There was no logo, no favicon and no installed icon — a tab in a row of tabs was
+a blank sheet. There is a mark: an indented stack of bars, the page tree drawn as
+a glyph, and the bar that carries the accent takes the workspace's own accent
+colour, so a workspace set to blue has a blue mark. It is the tab icon, the icon
+iOS puts on a home screen, and the icon an install uses. Adding SONE to a phone's
+home screen works; it is still not offline, which needs a service worker and is
+not here yet.
+
+Two typefaces come with it, Archivo and Jetbrains Mono, served from your own
+server like everything else — no request leaves the instance to fetch them.
+Section labels and counts are set in the monospaced face, which is what tells a
+label naming a place apart from a title naming a page.
+
+A narrow rail down the left edge holds the mark and three places: your inbox,
+your workspaces, the trash. They have moved out of the account menu rather than
+being repeated there — the menu is you and the server now, which is what it is
+for. On a phone the rail is not drawn and the same three sit at the foot of the
+sidebar's drawer, so there is one way to each of them at any width.
+
+Three fixes that were found along the way:
+
+- Quiet text in the light theme was too pale to meet the contrast standard — 3.6
+  against white where 4.5 is the minimum. Every secondary label is darker now.
+  The dark theme was already correct and is unchanged.
+- A sidebar you had dragged wider snapped back to its default width whenever the
+  right-hand panel opened, and returned when it closed.
+- Two floating elements were drawn without their shadow.
 
 ## 0.10.0
 
