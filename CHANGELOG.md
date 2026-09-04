@@ -13,7 +13,24 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Correction to the 0.11.0 notes: there is a container image, and there always
+was.** Those notes say no image could be produced. That was wrong — it came from
+a page in this repository that described the image workflow as something it is
+not, and the runner published `0.11.0`, `0.11` and `latest` while the release
+was being written. They are on `forgejo.thiel.tools/thiel/sone` and can be
+pulled without credentials. A released tag's notes are not rewritten
+(ADR-0013), so the correction lives here.
+
+**The test pipeline had not run a test in five days.** It failed on 295
+consecutive runs — through eight merges and the 0.11.0 release — on one line
+asking for a tool the project never installed at its root. Every run stopped
+thirteen steps in, before typecheck and before the suite, and showed twelve
+green ticks on the way there. Nothing shipped broken because of it: the same
+checks ran on every change, in full, elsewhere. But for five days the thing
+whose job is to say so was not saying anything, and that is worth an operator
+knowing about a project they run. The tool is installed now, a check refuses any
+workflow that reaches for one that is not, and ADR-0077 records the rest —
+including the part that is about a habit rather than a line of YAML.
 
 ## 0.11.0
 
