@@ -34,6 +34,8 @@ export function useInbox(): {
   error: string | null;
   /** Given ids, or nothing at all for "declare bankruptcy on the list". */
   markRead: (ids?: string[]) => void;
+  /** One row, either way round (ADR-0071). Ids are required to put back. */
+  setRead: (ids: string[], read: boolean) => void;
 } {
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,5 +67,20 @@ export function useInbox(): {
     void api.markInboxRead(ids).catch(() => {});
   }, []);
 
-  return { items, error, markRead };
+  /*
+   * The same act, either direction (ADR-0071).
+   *
+   * Optimistic for the same reason, and it matters more here: putting a row
+   * back to waiting has no navigation to hide a round trip behind, so a row
+   * that only changed once the server answered would read as a key that
+   * sometimes does nothing.
+   */
+  const setRead = useCallback((ids: string[], read: boolean) => {
+    setItems((current) =>
+      (current ?? []).map((one) => (ids.includes(one.id) ? { ...one, read } : one)),
+    );
+    void (read ? api.markInboxRead(ids) : api.markInboxUnread(ids)).catch(() => {});
+  }, []);
+
+  return { items, error, markRead, setRead };
 }

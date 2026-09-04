@@ -15,6 +15,27 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 No operator action. Pull and restart.
 
+**The inbox reads like an inbox now.**
+
+Several replies in one conversation are one row, saying the newest thing and how
+many there were — three people talking on one page no longer fills the list.
+Opening the row settles all of them. You can work down the list from the
+keyboard: **j** and **k** move, **Enter** opens, **e** marks a row read and **u**
+puts it back to waiting, which was not possible before at all — reading
+something was a one-way door. Every row also carries the two as buttons.
+
+**The trash lets you look before you decide.** There is a search field over it,
+and any entry can be opened for a read without being restored — the first page
+or two of its text, which is the only way to see inside something that is no
+longer in the tree. An entry whose folder was deleted as well now asks where it
+should go instead of refusing: its button says "Wiederherstellen nach…" and
+offers the folders that still exist.
+
+Two things that were only visible in German: the trash wrote four of its lines
+in English ("deleted", "with 12 entries inside", "the folder it was in is gone",
+"Untitled folder"), and a workspace with no name read "Untitled" in the
+switcher. Both say it in your language now.
+
 **Workspace settings are their own area, and you pick which workspace.**
 
 They used to sit in the middle of the settings menu, between your own settings

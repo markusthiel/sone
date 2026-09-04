@@ -47,6 +47,10 @@ const UNMESSAGED = new Set([
   'invalid_kind',
   'invalid_options',
   'invalid_state',
+  // The client never sends this shape: "put everything back to unread" is not
+  // an act the interface offers, and the route refuses it so that a caller
+  // typing the request by hand gets an answer rather than a surprise.
+  'ids_required',
   'issuer_not_https',
   'maintenance_not_available',
   'method_not_allowed',
