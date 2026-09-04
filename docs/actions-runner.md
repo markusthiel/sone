@@ -1,25 +1,44 @@
 # Forgejo Actions runner
 
-Two workflows exist and they have very different requirements:
+Two workflows exist and they have different requirements:
 
-| Workflow | Needs | Status |
+| Workflow | Needs | Triggers |
 |---|---|---|
-| `test.yml` | a runner. No Docker daemon. | Works with a plain runner |
-| `build-image.yml` | a runner. No Docker daemon. | Works with a plain runner |
+| `test.yml` | a runner, and a job container plus a Postgres service | push to `main`, every pull request |
+| `build-image.yml` | a runner **with Docker daemon access** | push to `main`, tags `v*`, manual |
 
-Neither needs Docker daemon access any more. `build-image.yml` builds with
-buildah, which produces OCI/Docker images without a daemon — so the runner needs
-no socket, and no workflow gets root-equivalent access to the host's daemon.
+**This page described a state that never shipped.** It said `build-image.yml`
+built with buildah, needed no daemon, and had its push trigger disabled. None of
+that is true of the file in this repository: it uses `docker/setup-buildx-action`
+and `docker/build-push-action`, it runs `docker inspect` and `docker run` to
+verify the image before publishing, and it fires on every push to `main` and
+every version tag. A document that is confidently wrong about what a workflow
+needs costs somebody an afternoon; this one cost a release being cut with
+"no image is possible here" written in the notes, while the runner was building
+one at that moment.
 
-`test.yml` is the one worth having: typecheck, the full suite including the
-database tests, the migration chain from an empty database, and a check that the
-server actually boots and shuts down cleanly. It runs on any runner.
+`test.yml` is the one worth having: fourteen mechanical checks, typecheck, the
+full suite including the database tests, the migration chain from an empty
+database, and a check that the server actually boots and shuts down cleanly.
 
 `build-image.yml` publishes container images. It is an optimisation, not a
 requirement — `docker-compose.build.yml` builds on the deployment host and needs
-no CI at all. Its push trigger is deliberately disabled until a runner can
-provide a daemon, so it does not paint every commit red for a capability nothing
-depends on yet. Run it manually or push a version tag.
+no CI at all.
+
+## A red pipeline is only useful if somebody looks at it
+
+`test.yml` failed on **two hundred and ninety-five consecutive runs**, over five
+days, through eight merged pull requests and a release, on one line:
+`npx tsx scripts/check-version.mts` with no `tsx` at the workspace root. The
+failure was thirteen steps in, so every check before it went green and the job
+took twenty seconds instead of two and a half minutes — which is the only signal
+anybody would have seen without opening it.
+
+Two things came of that, and they are both in the repository rather than here:
+`scripts/check-ci-tools.mjs` makes that class of mistake fail loudly and
+immediately, and ADR-0077 records why the review habit has to change too. **The
+duration is the tell.** A `test.yml` run that finishes in well under two minutes
+did not run the tests.
 
 ## What it is
 
@@ -107,12 +126,10 @@ do not take.
 
 ## The Docker daemon inside a job
 
-**No longer required.** `build-image.yml` uses buildah with chroot isolation and
-the vfs storage driver, which needs no daemon and no privileges. This section is
-kept for the case where a workflow genuinely needs `docker` — none currently
-does.
-
-There are two reasons a job might not reach a daemon, and they need different
+**Required by `build-image.yml`.** It builds with buildx and then runs the image
+it built, so the job needs a reachable daemon. The runner on this instance has
+one, and the image workflow has been publishing successfully — but if it ever
+reports "no daemon reachable", there are two causes and they need different
 fixes:
 
 **The runner container has no socket at all.** If the runner itself was started
@@ -136,11 +153,12 @@ container:
     - /var/run/docker.sock
 ```
 
-The workflow deliberately does **not** mount the socket itself with `options:`.
-Runner rejects volume mounts that are not whitelisted, so a workflow requiring
-one would depend on configuration the project cannot see. A preflight step
-checks for a reachable daemon and prints both fixes, so this fails in the first
-seconds with an explanation rather than midway through with a cryptic error.
+The workflow deliberately does **not** mount the socket itself with `options:`,
+and sets no `container:` at all. Runner rejects volume mounts that are not
+whitelisted, so a workflow requiring one would depend on configuration the
+project cannot see — and overriding the job image is what removed the daemon in
+every earlier attempt here, since the runner's default job image is the one that
+has it.
 
 ## Verifying it works
 
@@ -157,11 +175,22 @@ first pushed while the repository was private stays private afterwards — and
 then `docker compose up` fails for everyone except you, with an
 authentication error rather than anything informative.
 
-## Once images publish
+Publishing works and has since 0.5.0. Anonymous pull works too, which is the
+part that is easy to get wrong — checked without credentials:
 
-Switch the deployment from `docker-compose.build.yml` to `docker-compose.yml`
-and change the image tag to `:main` while there is no release yet. That trades a
-multi-minute build on the deployment host for a pull.
+```sh
+tok=$(curl -s "https://github.com/markusthiel/v2/token?service=container_registry&scope=repository:thiel/sone:pull" \
+        | sed 's/.*"token":"\([^"]*\)".*/\1/')
+curl -s -H "Authorization: Bearer $tok" https://github.com/markusthiel/v2/thiel/sone/tags/list
+```
+
+## Deploying from an image
+
+Use `docker-compose.yml` rather than `docker-compose.build.yml` and set
+`SONE_IMAGE` to a released tag — `ghcr.io/markusthiel/sone:0.11.0`. That
+trades a multi-minute build on the deployment host for a pull. `:main` is the
+development branch and is not for production; `:latest` never points at a
+pre-release.
 
 ## If it stays queued
 
