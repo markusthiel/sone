@@ -49,19 +49,26 @@ test('every settings column carries the same account menu', () => {
   assert.doesNotMatch(sidebar, /className="sidebar-account-menu"/);
 });
 
-test('the areas that have one subject each are groups in one list', () => {
+test('your settings and the server are two areas, and stay two', () => {
   /*
-   * The switcher is gone (ADR-0069).
+   * The switcher is gone (ADR-0069): it existed because the settings covered
+   * the application, and a screen with no rail beside it needs its own way of
+   * saying "here are the other areas".
    *
-   * It existed because the settings covered the application: a screen with no
-   * rail beside it needs its own way of saying "here are the other two areas".
-   * With the rail always there, the three are three groups in one list, which
-   * is the same information without a menu you have to open to find out that
-   * the other two exist.
+   * What replaced it was one column with two headings, and that was one column
+   * too few (ADR-0072). "Wo du landest" and "Mailserver" sat six rows apart in
+   * it, with more to come on both sides, and the account menu was already
+   * calling them two things. Two subjects, two modes.
    */
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
-  assert.match(app, /title: t\('area\.you'\)/);
-  assert.match(app, /title: t\('area\.instance'\)/);
+  const modes = codeOf(new URL('../src/components/modes.tsx', import.meta.url));
+  assert.match(modes, /if \(kind === 'settings'\) return 'settings';/);
+  assert.match(modes, /if \(kind === 'admin'\) return 'admin';/);
+  assert.match(app, /\{mode === 'settings' && \(\s*\n\s*<SectionNav groups=\{settingsGroups\}/);
+  assert.match(app, /\{mode === 'admin' && \(\s*\n\s*<SectionNav groups=\{adminGroups\}/);
+  // And each column says which area it is, so the two are told apart by more
+  // than what is in them.
+  assert.match(app, /mode === 'admin'\s*\n?\s*\? t\('area\.instance'\)/);
   assert.doesNotMatch(nav, /switcher-button/, 'no switcher, and none reimplemented');
 
   // Never in the workspace switcher's own menu: "which workspace" and "whose
@@ -73,10 +80,21 @@ test('the areas that have one subject each are groups in one list', () => {
   assert.doesNotMatch(workspaceMenu, /Your settings|Administration/);
 });
 
-test('the administration group is absent without the right', () => {
-  // Absent rather than present and refusing, as the entry into it is.
-  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
-  assert.match(app, /if \(session\.user\.isInstanceAdmin\) \{\s*\n\s*settingsGroups\.push/);
+test('the administration is absent without the right', () => {
+  /*
+   * Absent rather than present and refusing, as the entry into it is (ADR-0027).
+   *
+   * It is the account menu that decides now, not a conditional push into a
+   * shared list: with the administration a mode of its own, the question "may
+   * this person go there" is asked exactly where the way in is drawn.
+   */
+  const menu = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
+  assert.match(menu, /\{canAdminister && \(/);
+  assert.match(menu, /href=\{paths\.admin\(\)\}/);
+  // And the area itself refuses too, rather than trusting the menu: the list of
+  // sections is filtered by the right, and an empty one renders nothing.
+  assert.match(instance, /if \(entry\.admin\) return isAdmin === true;/);
+  assert.match(instance, /if \(available\.length === 0\) return null;/);
   // And the right comes from the session, since the list only decides whether
   // to offer the entry — the area behind it asks the server.
   for (const [name, source] of [

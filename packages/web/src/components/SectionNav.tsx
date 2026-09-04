@@ -24,8 +24,14 @@ export interface ShellSection {
 }
 
 export interface SectionGroup {
-  /** What the group is about: you, a workspace by name, the instance. */
-  title: string;
+  /**
+   * What the group is about, where a column holds more than one.
+   *
+   * Omitted where it holds one (ADR-0072): the panel's own title already says
+   * which area this is, and a heading repeating it over the only group in the
+   * column is a heading that says nothing.
+   */
+  title?: string;
   sections: readonly ShellSection[];
   hrefFor: (section: string) => string;
 }
@@ -45,12 +51,12 @@ export function SectionNav({
 }): ReactElement {
   return (
     <>
-      {groups.map((group) => (
-        <div className="panel-menu-group" key={group.title}>
-          <div className="sidebar-label">{group.title}</div>
+      {groups.map((group, at) => (
+        <div className="panel-menu-group" key={group.title ?? at}>
+          {group.title !== undefined && <div className="sidebar-label">{group.title}</div>}
           {group.sections.map((entry) => (
             <a
-              key={`${group.title}-${entry.id}`}
+              key={`${group.title ?? at}-${entry.id}`}
               className="settings-nav-item"
               href={group.hrefFor(entry.id)}
               title={entry.hint}
