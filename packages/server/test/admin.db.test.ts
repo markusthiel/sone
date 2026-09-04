@@ -75,6 +75,8 @@ describe(
         smtpSecurity: 'starttls' as const,
         emailDetail: 'title' as const,
         // No mailbox either: replies are absent in these suites (ADR-0060).
+        requireSecondFactor: false,
+        requireSecondFactorSince: '',
         imapHost: '',
         imapPort: '993',
         imapUser: '',
@@ -572,6 +574,63 @@ describe(
       );
       assert.equal(again.removed, false);
       assert.equal(toldAbout(), null);
+    });
+
+    test('an administrator cannot require a second factor without having one', async () => {
+      /*
+       * The decision this exists for: a policy imposed by somebody exempt from
+       * it gets rolled back the first time it inconveniences the person who set
+       * it (ADR-0065).
+       */
+      const admin = await setup();
+      await expectStatus(
+        await fetch(`${base}/api/admin/settings`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: admin.cookie },
+          body: JSON.stringify({ requireSecondFactor: true }),
+        }),
+        422,
+      );
+
+      // With one in place it goes through, and the clock is stamped by the
+      // server rather than taken from the request.
+      const me = await db.query<{ id: string }>(
+        `SELECT user_id::text AS id FROM sessions ORDER BY created_at DESC LIMIT 1`,
+      );
+      await db.query(
+        `INSERT INTO second_factors (user_id, secret, confirmed_at)
+         VALUES ($1, 'v1.a.b.c', now())
+         ON CONFLICT (user_id) DO UPDATE SET confirmed_at = now()`,
+        [me.rows[0]!.id],
+      );
+
+      const saved = await expectJson<{ settings: { requireSecondFactorSince: string } }>(
+        await fetch(`${base}/api/admin/settings`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: admin.cookie },
+          body: JSON.stringify({
+            requireSecondFactor: true,
+            // Ignored: the clock is the server's to set.
+            requireSecondFactorSince: '1999-01-01T00:00:00.000Z',
+          }),
+        }),
+        200,
+      );
+      assert.notEqual(saved.settings.requireSecondFactorSince, '1999-01-01T00:00:00.000Z');
+      assert.ok(Date.parse(saved.settings.requireSecondFactorSince) > Date.now() - 60_000);
+
+      // And saving something else does not restart the grace period, which
+      // would silently give everybody another fortnight.
+      const stamped = saved.settings.requireSecondFactorSince;
+      const again = await expectJson<{ settings: { requireSecondFactorSince: string } }>(
+        await fetch(`${base}/api/admin/settings`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: admin.cookie },
+          body: JSON.stringify({ requireSecondFactor: true, instanceName: 'Anders' }),
+        }),
+        200,
+      );
+      assert.equal(again.settings.requireSecondFactorSince, stamped, 'the clock did not move');
     });
 
     test('the mail server can be set without touching the environment', async () => {

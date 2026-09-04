@@ -251,6 +251,25 @@ export interface AuthenticatedRequest {
  * Returning null rather than throwing keeps the happy path in each route free
  * of try/catch, and the 401 shape identical everywhere.
  */
+/**
+ * The requirement check, installed by the server rather than imported here.
+ *
+ * `requireSession` is used by every module, and having it reach into the
+ * settings store would make half the codebase depend on it. The server sets
+ * this once at startup; without it — in a test that registers routes by hand —
+ * the gate is simply absent, which is the behaviour of an instance that does
+ * not require anything.
+ */
+let secondFactorGate:
+  | ((pool: Pool, userId: string, path: string) => Promise<string | null>)
+  | null = null;
+
+export function installSecondFactorGate(
+  gate: (pool: Pool, userId: string, path: string) => Promise<string | null>,
+): void {
+  secondFactorGate = gate;
+}
+
 export async function requireSession(
   pool: Pool,
   ctx: RequestContext,
@@ -265,6 +284,28 @@ export async function requireSession(
     ctx.fail(401, 'not_authenticated');
     return null;
   }
+
+  /*
+   * The requirement, checked at the one gate every authenticated request goes
+   * through (ADR-0065).
+   *
+   * Here rather than in each route, because a rule enforced route by route is a
+   * rule with a hole in it the day somebody adds a route. The cost is one
+   * settings read and one small query per request, and only when the
+   * requirement is actually switched on — a check that runs on every request
+   * has to be free when the feature is off.
+   */
+  if (secondFactorGate) {
+    const refusal = await secondFactorGate(pool, resolved.user.userId, ctx.url.pathname);
+    if (refusal) {
+      // 403 and a named code, not 401: the session is valid and signing in
+      // again would change nothing. The interface reads the code and shows the
+      // enrolment screen.
+      ctx.fail(403, refusal);
+      return null;
+    }
+  }
+
   return {
     userId: resolved.user.userId,
     sessionId: resolved.sessionId,

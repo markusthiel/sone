@@ -1343,6 +1343,12 @@ export const de: Record<keyof typeof en, string> = {
     'die weg, kann die Betreiberin dieser Instanz den zweiten Faktor entfernen.',
   'error.unknown_account': 'Dieses Konto gibt es nicht.',
   'error.page_not_found': 'Diese Seite gibt es nicht.',
+  'error.second_factor_required':
+    'Diese Instanz verlangt jetzt die Anmeldung in zwei Schritten. Zum ' +
+    'Weitermachen einen Authenticator einrichten.',
+  'error.enrol_yourself_first':
+    'Erst auf dem eigenen Konto einen Authenticator einrichten, bevor er von ' +
+    'allen verlangt wird.',
   'error.wrong_code': 'Dieser Code stimmt nicht.',
   'error.code_already_used':
     'Dieser Code wurde bereits benutzt. Auf den nächsten warten.',

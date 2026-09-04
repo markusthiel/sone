@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted. The rule, the gate and the setting are built; the banner, the two
+mails and the enrolment-only screen are not.
 
 ## Context
 
@@ -80,6 +81,31 @@ a banner, two mails, and a screen that refuses to be anything but enrolment.
 
 The check runs on every authenticated request, so it has to be cheap: it is a
 boolean on the instance settings and one already-loaded fact about the account.
+
+## Built so far
+
+The rule as one function taking facts the caller already has, and the gate at
+`requireSession` — the one place every authenticated request passes. **Route by
+route it would be a rule with a hole in it the day somebody adds a route**, and
+the gate returns immediately when the requirement is off, because a check on
+every request has to be free when the feature is not in use.
+
+It is *installed* by the server rather than imported by the auth module: every
+module uses `requireSession`, and having it reach into the settings store would
+make half the codebase depend on it. A test that registers routes by hand gets
+no gate, which is the behaviour of an instance that requires nothing.
+
+Two things the tests pinned down that would otherwise have gone wrong:
+
+**A broken `since` gives grace, not a lockout.** An unparseable timestamp is
+read as *now*, so the worst a corrupted setting costs is fourteen more days —
+where reading it as "long ago" would lock out an entire instance over a bad
+string.
+
+**Saving an unrelated setting does not restart the clock.** The timestamp is
+stamped only on the transition from off to on, and a `requireSecondFactorSince`
+sent by a client is discarded. Otherwise every settings save would quietly hand
+everybody another fortnight.
 
 ## What is deliberately not decided
 
