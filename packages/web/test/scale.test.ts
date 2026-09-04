@@ -2472,19 +2472,20 @@ test('the workspace list is one list, and the server decides its length', () => 
   assert.match(list, /paths\.workspaceSettings\('general', id\)/);
   assert.doesNotMatch(admin, /WorkspaceList/);
 
-  // Sections carry the workspace. Without this, opening somebody else's and
-  // clicking a section would quietly jump to your own.
-  const screen = codeOf(
-    new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
-  );
-  // Built by the shell now, which is where the settings menu lives (ADR-0069).
-  // The guarantee is unchanged: a section link carries the workspace in the
-  // address, or opening somebody else's and clicking a section jumps to yours.
-  const shellApp = codeOf(new URL('../src/App.tsx', import.meta.url));
-  assert.match(
-    shellApp,
-    /hrefFor: \(id\) => paths\.workspaceSettings\(id, settingsWorkspaceId\)/,
-  );
+  /*
+   * Sections carry the workspace. Without this, opening somebody else's and
+   * clicking a section would quietly jump to your own.
+   *
+   * The menu that draws them has moved twice: into the shell (ADR-0069), and
+   * then out of the settings list into the Workspaces mode, where the chooser
+   * above it says which workspace the rows are about (ADR-0070). The guarantee
+   * is the same one either way, so it is asserted where the rows are built.
+   */
+  const panel = codeOf(new URL('../src/components/WorkspacePanel.tsx', import.meta.url));
+  assert.match(panel, /paths\.workspaceSettings\(section, workspaceId\)/);
+  // And never the id-less form, which means "whichever one I am in" — a row
+  // whose destination changes under it.
+  assert.doesNotMatch(panel, /paths\.workspaceSettings\(\)/);
 });
 
 test('the workspace screen is exactly as strict as the route it mirrors', () => {

@@ -1,11 +1,15 @@
 /**
- * The settings navigation (ADR-0032, and ADR-0069 for where it now lives).
+ * The settings navigation (ADR-0032; ADR-0069 for where it lives, ADR-0070 for
+ * what belongs in it).
  *
- * Three areas, three groups, one list in the panel. The tests worth having are about the
- * boundary between them — whose settings these are — and about the two things
- * that went wrong with one list of everything: two menu entries landing on the
- * same page, and two sections falling out of the list while the code below it
- * went on rendering them.
+ * Two subjects in the panel — you, and the server — because those are the two
+ * that have exactly one each. A workspace's settings have one subject per
+ * workspace, so they are a mode with a chooser rather than a group in a list.
+ *
+ * The tests worth having are about that boundary, and about the two things that
+ * went wrong with one list of everything: two menu entries landing on the same
+ * page, and two sections falling out of the list while the code below it went
+ * on rendering them.
  */
 
 import assert from 'node:assert/strict';
@@ -45,7 +49,7 @@ test('every settings column carries the same account menu', () => {
   assert.doesNotMatch(sidebar, /className="sidebar-account-menu"/);
 });
 
-test('the three areas are three groups in one list', () => {
+test('the areas that have one subject each are groups in one list', () => {
   /*
    * The switcher is gone (ADR-0069).
    *
@@ -87,18 +91,53 @@ test('the administration group is absent without the right', () => {
   }
 });
 
-test('the workspace group is named after the workspace', () => {
+test('a workspace is chosen, not titled', () => {
   /*
-   * "This workspace" is true of five workspaces, and an administrator opening
-   * somebody else's has to see which one before changing its typography. The
-   * group's title is the name itself now rather than an area name with the
-   * workspace as a second line under it — one line, and it says the thing.
+   * It was the middle group of this list, titled with the workspace's name —
+   * which read as though everything under the name belonged to that workspace,
+   * and three rows further down the same list offered the instance's mail
+   * server. A menu that changes scope halfway down is one people stop trusting
+   * (ADR-0070).
+   *
+   * The difference is not presentational. You have one self and one server;
+   * you have several workspaces. A subject you have to pick needs a picker, and
+   * the picker belongs in the mode whose subject a workspace already is.
    */
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
-  assert.match(app, /title: settingsWorkspaceName \|\| t\('workspace\.untitled'\)/);
+  assert.doesNotMatch(app, /settingsWorkspaceName/, 'no workspace group is titled here');
+  assert.doesNotMatch(
+    app,
+    /settingsGroups\.push\(\{\s*\n\s*title: settingsWorkspaceName/,
+  );
+
+  const panel = codeOf(new URL('../src/components/WorkspacePanel.tsx', import.meta.url));
+  // The chooser is the switcher, not a second list of names beside it: two
+  // lists of workspaces are two orders, and the order is the person's own
+  // (ADR-0031).
+  assert.match(panel, /<WorkspaceMenu/);
   // And it is the workspace in the address when there is one, not the one being
-  // looked at — otherwise opening somebody else's names yours.
+  // looked at — otherwise opening somebody else's shows yours.
   assert.match(app, /route\.workspaceId \?\? workspaceId/);
+});
+
+test('choosing a workspace switches into it', () => {
+  /*
+   * Configuring a workspace you are not in is a way to change the wrong one's
+   * name and not notice. Choosing is one act: the menu below the chooser is
+   * that workspace's, and so is the tree behind the mark.
+   *
+   * The destination is the caller's, because the switcher is also the tree's
+   * head, where switching means leaving for the other workspace's pages —
+   * choosing in the Workspaces mode means staying in the section you were
+   * reading.
+   */
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /onSwitchWorkspace=\{\(id, to = paths\.home\(\)\) => \{/);
+  assert.match(app, /selectWorkspace\(id\);/);
+  // A destination that is already the address is not navigated to: Back would
+  // have nothing to undo.
+  assert.match(app, /if \(to !== window\.location\.pathname\) navigate\(to\);/);
+  assert.match(app, /onChoose=\{onSwitchWorkspace\}/);
 });
 
 test('the profile and signing in are two sections', () => {
@@ -264,6 +303,12 @@ test('the switcher answers one question, and it is which workspace', () => {
   // What is left is the list itself, and the way to add one to it.
   assert.match(menu, /className="switcher-item"/);
   assert.match(menu, /t\('workspaces\.new'\)/);
+  // Which is why it can be drawn twice — the tree's head and the Workspaces
+  // mode's chooser (ADR-0070). A menu that answered three questions could not
+  // be: two of the three would have been wrong in one of the two places.
+  const panel = codeOf(new URL('../src/components/WorkspacePanel.tsx', import.meta.url));
+  const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+  for (const source of [panel, sidebar]) assert.match(source, /<WorkspaceMenu/);
 });
 
 test('the phone has one mechanism for this, not a second one', () => {

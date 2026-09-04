@@ -15,10 +15,13 @@
  * are when you are not anywhere else, so it hangs off the logo at the top.
  *
  * Your settings, the administration and signing out stay in the account menu at
- * the foot of the rail. A cog here would have to mean three things at once —
- * yours, the workspace's, the instance's — and at that moment the rail answers
- * "what do I want to do" rather than "where am I", which is where a rail like
- * this starts collecting icons.
+ * the foot of the rail. A cog here would answer "what do I want to do" rather
+ * than "where am I", which is where a rail like this starts collecting icons.
+ *
+ * Settings means yours and the server's, and nothing else (ADR-0070). A
+ * workspace's own settings are the Workspaces mode: that is the mode whose
+ * subject is a workspace, and putting them anywhere else means a menu that
+ * changes scope halfway down.
  */
 
 import type { ReactElement } from 'react';
@@ -68,16 +71,21 @@ export function useModes(): ModeEntry[] {
 export function modeOf(kind: string): Mode {
   if (kind === 'inbox') return 'inbox';
   if (kind === 'trash') return 'trash';
-  if (kind === 'workspaceList') return 'workspaces';
   /*
-   * Settings has no icon on the rail, on purpose: a cog would have to mean
-   * three things at once — yours, the workspace's, the instance's — and at that
-   * moment the rail answers "what do I want to do" rather than "where am I".
-   * It is reached from the account menu and is a mode like any other once you
-   * are in it.
+   * A workspace's settings are the Workspaces mode (ADR-0070).
+   *
+   * They were the settings mode, which made that one menu answer for three
+   * different subjects — you, one workspace, the whole server — and the middle
+   * one is not like the others: there are several workspaces and only ever one
+   * of you and one server. A subject you have to *choose* needs a chooser, and
+   * the chooser belongs in the mode whose subject it is.
    */
-  if (kind === 'settings' || kind === 'workspaceSettings' || kind === 'admin') {
-    return 'settings';
-  }
+  if (kind === 'workspaceList' || kind === 'workspaceSettings') return 'workspaces';
+  /*
+   * Settings has no icon on the rail, on purpose: it is reached from the
+   * account menu, which is where you already are when you are thinking about
+   * yourself and your server. It is a mode like any other once you are in it.
+   */
+  if (kind === 'settings' || kind === 'admin') return 'settings';
   return 'tree';
 }

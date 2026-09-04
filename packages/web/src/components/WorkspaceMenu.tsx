@@ -1,8 +1,13 @@
 /**
  * SONE web — the workspace switcher.
  *
- * Opens from the workspace name, which is where people look for it and where
- * the settings and admin entries will belong once they exist.
+ * Opens from the workspace name, which is where people look for it.
+ *
+ * Drawn in two places and written once: the head of the tree's panel, where it
+ * says which workspace you are reading, and the top of the Workspaces mode's
+ * menu, where it says which workspace you are configuring (ADR-0070). Both are
+ * the same question, and a second implementation of it would be a second order
+ * for a list whose order is the person's own.
  *
  * Switching workspaces changes the sync credentials, so it tears down the
  * connection and rebuilds it. That is handled by keying the client on the
@@ -31,8 +36,6 @@ interface WorkspaceMenuProps {
   currentName: string;
   /** The mark for the workspace you are in (ADR-0030). */
   currentIcon: WorkspaceIcon | null;
-  /** Whether to offer the way into the workspace administration (ADR-0027). */
-  canManageWorkspaces: boolean;
   onSwitch: (workspaceId: string) => void;
   onCreated: (workspaceId: string) => void;
 }
@@ -41,7 +44,6 @@ export function WorkspaceMenu({
   currentId,
   currentName,
   currentIcon,
-  canManageWorkspaces,
   onSwitch,
   onCreated,
 }: WorkspaceMenuProps): ReactElement {
@@ -218,7 +220,7 @@ export function WorkspaceMenu({
             return (
               <>
                 <WorkspaceMark name={moving.name} icon={moving.icon ?? null} />
-                {moving.name || 'Untitled'}
+                {moving.name || t('workspace.untitled')}
               </>
             );
           })()}
@@ -281,7 +283,9 @@ export function WorkspaceMenu({
                 className="switcher-item-name"
                 style={titleColorStyle(workspace.icon ?? null)}
               >
-                {workspace.name || 'Untitled'}
+                {/* Translated, which it was not: two English words in a German
+                    menu, on the one row that has no name to read instead. */}
+                {workspace.name || t('workspace.untitled')}
               </span>
               {workspace.memberCount > 1 && (
                 <span className="switcher-item-meta">
