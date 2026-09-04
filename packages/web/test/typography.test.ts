@@ -13,7 +13,24 @@ test('headings are thin and set tight', () => {
   // Size carries the weight, not stroke width. A bold heading over a note
   // shouts at the thing it introduces.
   assert.match(css, /--sone-heading-weight: 300/);
-  assert.match(css, /\.page-title \{[^}]*font-weight: var\(--sone-heading-weight\)/);
+  assert.match(css, /\.ProseMirror h1\[data-block\][^{]*\{[^}]*font-weight: var\(--sone-heading-weight\)/);
+});
+
+test('the page title is furniture, and furniture may be firm', () => {
+  /*
+   * It used to take --sone-heading-weight, so the rule above — which is an
+   * argument about prose — was being applied to something that is not prose.
+   *
+   * A heading inside a document introduces the paragraph under it, and a bold
+   * one shouts at the thing it introduces. A page title is the label on the
+   * thing you have open, in a row with the sidebar's labels and the breadcrumb.
+   * Two jobs, two tokens; the shared one was the accident.
+   */
+  assert.match(css, /--sone-title-weight: 700/);
+  assert.match(css, /\.page-title \{[^}]*font-weight: var\(--sone-title-weight\)/);
+  assert.match(css, /\.page-title \{[^}]*letter-spacing: var\(--sone-title-tracking\)/);
+  // And the document's own headings did not follow it.
+  assert.doesNotMatch(css, /--sone-heading-weight: 700/);
 });
 
 test('a folder is titled exactly like a page', () => {

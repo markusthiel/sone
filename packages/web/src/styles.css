@@ -339,6 +339,17 @@
   --sone-heading-weight: 300;
   --sone-heading-tracking: -0.02em;
 
+  /* The page's *name* is not one of those headings.
+   *
+   * The rule above is about a heading inside a document: size carries the
+   * weight, and a bold h2 over a paragraph shouts at the thing it introduces.
+   * That argument is right, and it is about prose. A page title is the label on
+   * the thing you have open — furniture, like the sidebar's labels — and
+   * furniture is allowed to be firm. The two shared a token, so the reasoning
+   * for one was being applied to the other without anybody deciding it. */
+  --sone-title-weight: 700;
+  --sone-title-tracking: -0.035em;
+
   --sone-text-xs: 0.75rem;
   --sone-text-sm: 0.85rem;
   --sone-text-md: 0.9rem;
@@ -1146,8 +1157,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   flex: 1 1 auto;
   min-inline-size: 0;
   font-size: 2.5rem;
-  font-weight: var(--sone-heading-weight);
-  letter-spacing: var(--sone-heading-tracking);
+  /* Its own weight and tracking — see --sone-title-weight. */
+  font-weight: var(--sone-title-weight);
+  letter-spacing: var(--sone-title-tracking);
   line-height: 1.15;
   border: 0;
   /* Declared and transparent, so showing it changes nothing but its colour. A
@@ -2014,6 +2026,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 /* How many rows, under the table. */
 .collection-count {
+  font-family: var(--sone-font-mono);
   margin-block: var(--sone-space-3) 0;
   color: var(--sone-text-muted);
   font-size: var(--sone-text-xs);
@@ -2336,6 +2349,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    cannot receive it. */
 .version-view { display: flex; flex-direction: column; gap: var(--sone-space-4); }
 .version-bar {
+  font-family: var(--sone-font-mono);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2606,7 +2620,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .comment-fold:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
 /* How many are behind a closed thread, so it still says whether anybody
    answered. */
-.comment-count { font-size: var(--sone-text-xs); font-variant-numeric: tabular-nums; }
+.comment-count { font-family: var(--sone-font-mono); font-size: var(--sone-text-xs); font-variant-numeric: tabular-nums; }
 
 .comment-fold-all { margin-inline-start: auto; font-size: var(--sone-text-xs); }
 
@@ -4137,6 +4151,7 @@ select {
 }
 .asset-sub,
 .asset-meta {
+  font-family: var(--sone-font-mono);
   display: block;
   color: var(--sone-text-muted);
   font-size: var(--sone-text-xs);
@@ -4342,8 +4357,13 @@ select {
  * location while the sidebar is away. Unscoped rather than duplicated: one
  * trail, drawn one way, and the folder view keeps exactly what it had. */
 .breadcrumb {
+  /* Mono and a step smaller than it was. A monospaced face sets wider than a
+     proportional one at the same size, so keeping 0.85rem would have made the
+     path louder than the sentence under the title rather than quieter. */
+  font-family: var(--sone-font-mono);
   margin-block-end: 8px;
-  font-size: 0.85rem;
+  font-size: var(--sone-text-xs);
+  letter-spacing: 0.06em;
   color: var(--sone-text-muted);
 }
 .breadcrumb a { color: var(--sone-text-muted); }
@@ -4378,7 +4398,7 @@ select {
 .folder-list a:hover { background: var(--sone-bg-hover); text-decoration: none; }
 .folder-list svg { flex: none; inline-size: 1.05em; block-size: 1.05em; color: var(--sone-text-muted); }
 .folder-list-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.folder-list-meta { flex: none; font-size: 0.78rem; color: var(--sone-text-muted); }
+.folder-list-meta { font-family: var(--sone-font-mono); flex: none; font-size: 0.78rem; color: var(--sone-text-muted); }
 
 /* --- selection toolbar --- */
 
@@ -4987,7 +5007,7 @@ select {
 
 .admin-row-main { display: flex; flex-direction: column; gap: var(--sone-space-1); min-inline-size: 0; }
 .admin-name { font-weight: 500; }
-.admin-meta { font-size: var(--sone-text-xs); color: var(--sone-text-muted); }
+.admin-meta { font-family: var(--sone-font-mono); font-size: var(--sone-text-xs); color: var(--sone-text-muted); }
 
 .admin-row-actions {
   display: flex;
@@ -5349,8 +5369,23 @@ select {
 .collection-table td:last-child { border-inline-end: 0; }
 
 .collection-table thead th {
-  background: var(--sone-bg-subtle);
-  font-weight: 600;
+  /* A rule, not a fill.
+   *
+   * The subtle background made the header a second surface inside something
+   * that is already a grid of lines — two devices doing one job, and the fill
+   * is the weaker of the two. A firm rule under it says "everything below is
+   * the data" in the vocabulary the table already speaks.
+   *
+   * Monospaced and set small, like every other name-of-a-thing in the
+   * interface. Not uppercased, though: a column's name is something somebody
+   * typed, and shouting it back at them is a liberty a static label can take
+   * and this cannot. */
+  border-block-end: 2px solid var(--text-primary);
+  font-family: var(--sone-font-mono);
+  font-size: var(--sone-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -5458,7 +5493,7 @@ select {
   border-radius: var(--sone-radius);
   background: var(--surface-chrome);
 }
-.collection-selection-count { font-size: var(--sone-text-sm); font-weight: 600; }
+.collection-selection-count { font-family: var(--sone-font-mono); font-size: var(--sone-text-sm); font-weight: 600; }
 .collection-selection-clear { margin-inline-start: auto; }
 
 /* --- a collection drawn as covers (ADR-0039) ---
@@ -6112,7 +6147,7 @@ select {
   font-weight: 600;
 }
 .board-column-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.board-column-count { color: var(--sone-text-muted); font-weight: 400; }
+.board-column-count { font-family: var(--sone-font-mono); color: var(--sone-text-muted); font-weight: 400; }
 
 .board-cards { display: flex; flex-direction: column; gap: var(--sone-space-2); margin: 0; padding: 0; list-style: none; }
 
@@ -6655,7 +6690,7 @@ select {
 .file-line:hover { background: var(--sone-bg-hover); }
 
 .file-name { color: var(--sone-text); font-weight: 500; }
-.file-meta { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
+.file-meta { font-family: var(--sone-font-mono); color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
 
 /* Its own scrollbar, so a long document does not stretch the page to its
    length — the point of a viewer is that the page stays readable around it. */
@@ -7498,6 +7533,7 @@ body {
 
 /* Pushed to the end: it is a fact about the build, not a tool. */
 .sidebar-version {
+  font-family: var(--sone-font-mono);
   margin-inline-start: auto;
   color: var(--sone-text-muted);
   font-size: var(--sone-text-xs);
