@@ -20,6 +20,8 @@ export const en = {
   'account.inbox': 'Inbox',
   'account.label.waiting': '{name}, {count} notifications waiting',
   'inbox.title': 'Inbox',
+  'settings.title': 'Settings',
+  'settings.scope': 'Personal · Workspace · Instance',
   'inbox.group.state': 'Inbox',
   'inbox.group.kind': 'By kind',
   'inbox.group.workspace': 'By workspace',
@@ -417,10 +419,7 @@ export const en = {
 
   // --- the settings areas and their shell --------------------------------
   'area.you': 'Your settings',
-  'area.workspace': 'This workspace',
   'area.instance': 'Administration',
-  'settings.navLabel': '{area} settings',
-  'settings.back': '‹ Back to your notes',
 
   // --- your own settings -------------------------------------------------
   'you.profile': 'Profile',
@@ -618,7 +617,6 @@ export const en = {
   'workspaces.pages': 'Pages',
   'workspaces.lastEdited': 'Last edited',
   'workspaces.area': 'Workspaces',
-  'workspaces.area.hint': 'The ones you are in, and the ones you look after.',
   'workspaces.delete': 'Delete this workspace',
   'workspaces.confirmName': 'Type the name to confirm',
   'workspaces.nameField': 'Workspace name',

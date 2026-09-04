@@ -2477,7 +2477,14 @@ test('the workspace list is one list, and the server decides its length', () => 
   const screen = codeOf(
     new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
   );
-  assert.match(screen, /hrefFor=\{\(id\) => paths\.workspaceSettings\(id, workspaceId\)\}/);
+  // Built by the shell now, which is where the settings menu lives (ADR-0069).
+  // The guarantee is unchanged: a section link carries the workspace in the
+  // address, or opening somebody else's and clicking a section jumps to yours.
+  const shellApp = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(
+    shellApp,
+    /hrefFor: \(id\) => paths\.workspaceSettings\(id, settingsWorkspaceId\)/,
+  );
 });
 
 test('the workspace screen is exactly as strict as the route it mirrors', () => {

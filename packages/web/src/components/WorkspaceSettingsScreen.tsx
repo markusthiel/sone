@@ -20,7 +20,7 @@ import { api, type SessionInfo, type WorkspaceIcon } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
 import { GroupsPanel } from './GroupsPanel.tsx';
 import { useT } from '../i18n/useT.tsx';
-import { SettingsShell, resolveSection } from './SettingsShell.tsx';
+import { resolveSection } from './SectionNav.tsx';
 import { ThemeSettings } from './ThemeSettings.tsx';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { WorkspaceExport } from './WorkspaceExport.tsx';
@@ -30,7 +30,7 @@ import { WorkspaceInvite } from './WorkspaceInvite.tsx';
 import { WorkspaceDeletion } from './WorkspaceDeletion.tsx';
 import { WorkspaceMembers } from './WorkspaceMembers.tsx';
 
-const SECTIONS = [
+export const SECTIONS = [
   { id: 'general', label: 'workspace.nameAndMark', hint: 'workspace.nameAndMark.hint' },
   // Unreachable until now. It was rendered by the old screen and had been
   // removed from that screen's list, so the per-workspace heading sizes and text
@@ -72,7 +72,6 @@ export function WorkspaceSettingsScreen({
   onLogout,
 }: WorkspaceSettingsProps): ReactElement {
   const { t } = useT();
-  const [listOpen, setListOpen] = useState(false);
   const current = resolveSection(SECTIONS, section);
   /*
    * From the session, or fetched when this is not one of mine.
@@ -122,42 +121,8 @@ export function WorkspaceSettingsScreen({
   const canEdit = workspace?.role === 'owner' || workspace?.role === 'admin' || manages;
 
   return (
-    <SettingsShell
-      /*
-       * The area names the subject; the name below says which workspace.
-       *
-       * It said "This workspace", hardcoded and in English — which was true
-       * while there was only ever one, and is wrong the moment an
-       * administrator opens somebody else's (ADR-0067).
-       */
-      area={t('workspace.area')}
-      areaId="workspace"
-      subtitle={workspace?.name || t('workspace.untitled')}
-      canAdminister={canAdminister}
-      sections={SECTIONS.map((entry) => ({
-        id: entry.id,
-        label: t(entry.label),
-        hint: t(entry.hint),
-      }))}
-      current={current}
-      /*
-       * Carrying the workspace, which this dropped.
-       *
-       * With the id in the address, a section link built without it means "the
-       * workspace I am in" — so opening somebody else's and clicking a section
-       * would have quietly jumped to your own. Introduced by putting the id in
-       * the path and found by reading the props rather than by a test.
-       */
-      hrefFor={(id) => paths.workspaceSettings(id, workspaceId)}
-      listOpen={listOpen}
-      onListOpen={setListOpen}
-      account={{
-        displayName: session.user.displayName,
-        userId: session.user.id,
-        onLogout,
-      }}
-      onClose={onClose}
-    >
+    <div className="settings-body">
+      <h1 className="page-title">{t(SECTIONS.find((e) => e.id === current)?.label ?? 'workspace.area')}</h1>
       {current === 'general' && (
         <General
           workspaceId={workspaceId}
@@ -199,7 +164,7 @@ export function WorkspaceSettingsScreen({
       )}
       {current === 'groups' && <GroupsPanel workspaceId={workspaceId} />}
       {current === 'export' && <WorkspaceExport workspaceId={workspaceId} />}
-    </SettingsShell>
+    </div>
   );
 }
 

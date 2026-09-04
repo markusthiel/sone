@@ -32,7 +32,7 @@ import { InvitePanel } from './InvitePanel.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
-import { SettingsShell, resolveSection, type ShellSection } from './SettingsShell.tsx';
+import { resolveSection, type ShellSection } from './SectionNav.tsx';
 
 /**
  * A section, before it is translated.
@@ -51,7 +51,7 @@ interface AdminSection extends Omit<ShellSection, 'label' | 'hint'> {
   manager?: true;
 }
 
-const SECTIONS: readonly AdminSection[] = [
+export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { id: 'instance', label: 'admin.instance', hint: 'admin.instance.hint', admin: true },
   { id: 'accounts', label: 'admin.accounts', hint: 'admin.accounts.hint', admin: true },
   {
@@ -103,7 +103,6 @@ export function AdminScreen({
 }: AdminScreenProps): ReactElement | null {
   const { t } = useT();
   const { isAdmin } = useIsInstanceAdmin();
-  const [listOpen, setListOpen] = useState(false);
   /*
    * Every section here is the instance now (ADR-0067 amendment).
    *
@@ -112,7 +111,7 @@ export function AdminScreen({
    * administrator. Workspaces are not instance settings — they have their own
    * area, which everybody reaches.
    */
-  const available = SECTIONS.filter((entry) => {
+  const available = ADMIN_SECTIONS.filter((entry) => {
     if (entry.admin) return isAdmin === true;
     return true;
   });
@@ -125,37 +124,14 @@ export function AdminScreen({
   const current = resolveSection(available, section);
 
   return (
-    <SettingsShell
-      area={t('area.instance')}
-      areaId="admin"
-      canAdminister
-      // Translated here, where they are handed over: the list is module-level
-      // because the filter above needs it before anything renders, so the labels
-      // in it are keys (ADR-0041). My earlier edit translated `SECTIONS` and this
-      // renders `available`, which is the filtered copy — so every heading in the
-      // administration area read `admin.instance` back at you.
-      sections={available.map((entry) => ({
-        id: entry.id,
-        label: t(entry.label),
-        hint: t(entry.hint),
-      }))}
-      current={current}
-      hrefFor={(id) => paths.admin(id)}
-      listOpen={listOpen}
-      onListOpen={setListOpen}
-      account={{
-        displayName: session.user.displayName,
-        userId: session.user.id,
-        onLogout,
-      }}
-      onClose={onClose}
-    >
+    <div className="settings-body">
+      <h1 className="page-title">{t(available.find((e) => e.id === current)?.label ?? 'area.instance')}</h1>
       {current === 'instance' && <InstancePanel />}
       {current === 'accounts' && <UsersPanel />}
       {current === 'invite' && <InvitePanel />}
       {current === 'sso' && <OidcPanel />}
       {current === 'mail' && <MailPanel />}
       {current === 'maintenance' && <MaintenancePanel />}
-    </SettingsShell>
+    </div>
   );
 }
