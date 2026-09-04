@@ -989,6 +989,7 @@ function Workspace({
             error={inbox.error}
             onRead={inbox.setRead}
             onSnooze={inbox.snooze}
+            onReply={inbox.reply}
           />
         )}
 

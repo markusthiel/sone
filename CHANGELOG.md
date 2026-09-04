@@ -15,6 +15,18 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 Pull and restart; one migration runs by itself.
 
+**You can answer a notification without leaving the inbox.** Every row about a
+conversation has an **Antworten** button; the box opens under the row, so the
+passage you are answering stays on screen while you write. Enter sends,
+Shift+Enter makes a line. Answering marks the conversation read, because you
+have dealt with it — and the reply appears immediately for anybody who has that
+page open.
+
+**A repair that came with it: replies that arrive by email now notify the
+person being answered.** They were written into the page correctly and then not
+projected, so nobody was told about them until somebody happened to edit that
+page for another reason. Both ways of replying go through one piece of code now.
+
 **A notification can be put aside until later.** Every row in the inbox has a
 **Später** button with three times — in drei Stunden, morgen früh, nächste
 Woche — and each shows the moment it means, so you can see what you are agreeing

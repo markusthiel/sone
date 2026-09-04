@@ -45,6 +45,11 @@ export const en = {
   'inbox.snooze.tomorrow': 'Tomorrow morning',
   'inbox.snooze.nextWeek': 'Next week',
   'inbox.wake': 'Bring it back',
+  'inbox.answer': 'Reply',
+  'inbox.answer.placeholder': 'Write a reply… Enter sends, Shift+Enter makes a line.',
+  'inbox.answer.send': 'Send',
+  'inbox.answer.sending': 'Sending…',
+  'inbox.answer.failed': 'It could not be sent.',
   'inbox.backOn': 'back on {when}',
   'inbox.mention': 'You were named',
   'inbox.reply': 'A reply in a thread',
@@ -1404,6 +1409,9 @@ export const en = {
   'error.invalid_role': 'A share link cannot grant that role.',
   'error.too_many_rows': 'That is more than fifty entries. Paste them in smaller pieces.',
   'error.not_archived': 'That entry is not in the trash.',
+  'error.no_text': 'There is nothing there to send.',
+  'error.thread_gone':
+    'That conversation is gone — it was deleted while this row was sitting here.',
   'error.invalid_time':
     'That moment will not do: it has to be in the future and at most a year away.',
   'error.invalid_parent':
