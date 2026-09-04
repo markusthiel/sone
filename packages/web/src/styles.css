@@ -602,8 +602,18 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px;
+  /* The positioning context for its own draggable edge.
+   *
+   * There was none, so `position: absolute` on the handle resolved against the
+   * initial containing block: measured at 1440px the sidebar ended at 316 and
+   * the handle sat at 1436 — a strip at the right edge of the *window*, eleven
+   * hundred pixels from the edge it moves. The feature has a test for its
+   * markup and has never been where anybody would reach for it. */
+  position: relative;
+  /* No padding and no scrolling here any more: the head names the mode and
+     stays put, the body scrolls under it, the foot holds what the rail holds
+     at wider sizes (ADR-0069). */
+  padding: 0;
   /* The sidebar sits on its own surface, and the line between it and the
      content is the faintest one available.
      *
@@ -616,7 +626,102 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      * nearer means lighter there — one role, and each theme fills it. */
   border-inline-end: 1px solid var(--border-subtle);
   background: var(--surface-chrome);
+  overflow: hidden;
+}
+
+/* --- the panel: head, body, foot (ADR-0069) --- */
+.panel-head {
+  flex: none;
+  padding: 10px 12px 9px;
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.panel-title {
+  flex-grow: 1;
+  min-inline-size: 0;
+  font-size: var(--sone-text-md);
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* What the mode is looking at. Mono and small, like every other label that
+   names a place rather than saying something. */
+.panel-scope {
+  margin-block-start: 5px;
+  font-family: var(--sone-font-mono);
+  font-size: var(--sone-text-xs);
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.panel-action {
+  font-size: var(--sone-text-xs);
+  font-weight: 600;
+  padding: 4px 8px;
+}
+
+.panel-body {
+  flex-grow: 1;
   overflow-y: auto;
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.panel-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-block-end: 10px;
+}
+
+.panel-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-4);
+  min-block-size: 32px;
+  padding-inline: var(--sone-space-4);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--sone-text-md);
+  text-align: start;
+  cursor: pointer;
+}
+
+.panel-menu-item:hover { background: var(--surface-hover); }
+
+.panel-menu-item[aria-current='page'] {
+  background: var(--surface-hover);
+  font-weight: 600;
+}
+
+.panel-menu-item svg {
+  flex: none;
+  inline-size: 1.05em;
+  block-size: 1.05em;
+  color: var(--text-muted);
+}
+
+.panel-menu-label {
+  flex-grow: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* A count you compare, so mono — and absent at nought, because a zero on every
+   quiet row is noise saying what the empty space already says. */
+.panel-menu-count {
+  font-family: var(--sone-font-mono);
+  font-size: var(--sone-text-xs);
+  color: var(--text-muted);
 }
 
 /* --- the rail ---
@@ -674,23 +779,41 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   gap: var(--sone-space-1);
 }
 
+/* Pushed to the bottom, and apart: the account is not a mode. */
+.rail-account {
+  margin-block-start: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* The same list as the rail's, at the width where the rail is not drawn.
  *
  * Hidden above the breakpoint by the stylesheet rather than by a media query in
  * JavaScript, so the breakpoint has one owner and it is the thing that draws
  * it. The two are never on screen together, which is what makes this one list
- * in two places rather than two ways in (places.tsx). */
-.sidebar-places {
+ * in two places rather than two ways in (modes.tsx). */
+.panel-modes {
   display: flex;
   flex-direction: column;
-  margin-block-start: var(--sone-space-4);
+  flex: none;
+  padding: 8px 12px;
+  border-block-start: 1px solid var(--border-subtle);
 }
 
 @media (min-width: 800px) {
-  .sidebar-places { display: none; }
+  .panel-modes { display: none; }
 }
 
-.sidebar-place {
+/* The clock on a deleted entry, and louder in its last week. */
+.trash-left[data-soon='true'] { color: var(--danger); }
+
+.panel-mode[aria-current='page'] {
+  background: var(--surface-hover);
+  font-weight: 600;
+}
+
+.panel-mode {
   display: flex;
   align-items: center;
   gap: var(--sone-space-4);
@@ -700,13 +823,13 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   color: var(--text-secondary);
 }
 
-.sidebar-place svg {
+.panel-mode svg {
   inline-size: 1.15em;
   block-size: 1.15em;
   flex: none;
 }
 
-.sidebar-place:hover {
+.panel-mode:hover {
   background: var(--surface-hover);
   color: var(--text-primary);
 }
@@ -851,7 +974,6 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      workspace button from nothing, and the button came out 8px narrower than the
      panel that drops out of it. The spacing belongs to the control that needs
      it, which takes no space when it is not there. */
-  margin-block-end: 8px;
   /* The positioning context for the workspace panel, which hangs from this row.
      *
      * It used to hang from the name button, which is only part of the row — the

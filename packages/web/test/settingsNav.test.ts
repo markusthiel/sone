@@ -27,9 +27,19 @@ test('every settings column carries the same account menu', () => {
   assert.match(shell, /<AccountMenu/);
   const account = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
   assert.match(account, /className="sidebar-footer"/, 'the same footer, not a copy of it');
-  // One component, used from both places rather than reimplemented in the shell.
+  /*
+   * One component, used from both places rather than reimplemented — and in
+   * the shell it is built once by App and handed to whichever of the two can
+   * draw it: the rail above 800px, the panel's foot below (ADR-0069). Two
+   * mounted copies would be two requests for the same unread count and two
+   * answers that can disagree for a moment.
+   */
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /const accountMenu = \(\s*<AccountMenu/);
+  assert.match(app, /account=\{isColumn \? accountMenu : null\}/, 'the rail, when there is one');
+  assert.match(app, /account=\{isColumn \? null : accountMenu\}/, 'the panel otherwise');
   const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
-  assert.match(sidebar, /<AccountMenu/);
+  assert.doesNotMatch(sidebar, /<AccountMenu/, 'given to the panel, not built by it');
   assert.doesNotMatch(sidebar, /className="sidebar-account-menu"/);
 });
 

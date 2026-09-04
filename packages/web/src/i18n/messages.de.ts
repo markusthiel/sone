@@ -26,6 +26,12 @@ export const de: Record<keyof typeof en, string> = {
   'account.inbox': 'Posteingang',
   'account.label.waiting': '{name}, {count} Benachrichtigungen wartend',
   'inbox.title': 'Posteingang',
+  'inbox.group.state': 'Posteingang',
+  'inbox.group.kind': 'Nach Art',
+  'inbox.group.workspace': 'Nach Workspace',
+  'inbox.view.unread': 'Ungelesen',
+  'inbox.view.all': 'Alles',
+  'inbox.emptyView': 'In dieser Ansicht ist nichts.',
   'inbox.empty':
     'Nichts wartet. Hier erscheint es, wenn jemand einen Namen in einem ' +
     'Kommentar nennt oder in einem Verlauf antwortet, an dem die eigene ' +
@@ -887,6 +893,14 @@ export const de: Record<keyof typeof en, string> = {
 
   // --- der Papierkorb ----------------------------------------------------
   'trash.title': 'Papierkorb',
+  'trash.group.when': 'Ansicht',
+  'trash.group.kind': 'Nach Art',
+  'trash.view.recent': 'Zuletzt gelöscht',
+  'trash.view.expiring': 'Bald endgültig weg',
+  'trash.view.pages': 'Seiten',
+  'trash.view.folders': 'Ordner',
+  'trash.scope': '{workspace} · 30 Tage',
+  'trash.daysLeft': '{count, plural, one {noch # Tag} other {noch # Tage}}',
   'trash.note':
     'Gelöschte Einträge bleiben hier, bis sie vernichtet werden. Nichts wird nach einem ' +
     'Zeitplan entfernt — eine Instanz, die ihren Papierkorb still leert, ist eine, die ' +
