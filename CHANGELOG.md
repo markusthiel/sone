@@ -13,7 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**One way to workspace settings, not three.** 0.10.0 shipped a workspace list
+alongside the "this workspace" entry it was meant to replace, and left the same
+list in the administration as well. The account menu has a single **Workspaces**
+entry now, the workspace you are in is first in the list, and the
+administration is the instance only — accounts, sign-in, mail, maintenance.
 
 ## 0.10.0
 
