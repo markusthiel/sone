@@ -104,26 +104,42 @@ test('accepting with an account already lands there too', () => {
   assert.match(app, /onJoined=\{\(workspaceId\) => \{/);
 });
 
-// --- inviting to a workspace ------------------------------------------------
+// --- access to a workspace, which is not an invitation (ADR-0073) -----------
 
-const wsInvite = codeOf(new URL('../src/components/WorkspaceInvite.tsx', import.meta.url));
+const members = codeOf(new URL('../src/components/WorkspaceMembers.tsx', import.meta.url));
 
-test('a workspace invitation names a role', () => {
-  // Unlike an instance invitation, which places nobody: this one decides what
-  // somebody can do the moment they arrive.
-  assert.match(wsInvite, /inviteToWorkspace\(workspaceId, \{ email: email\.trim\(\) \|\| null, role \}\)/);
+test('a workspace gives access to accounts that exist, and invites nobody', () => {
+  /*
+   * One form was doing two jobs. An invitation makes an *account* for somebody
+   * who is not on this server, which is whoever runs the server's business.
+   * Access says which of the people already here may work in this workspace,
+   * which is the owner's. Conflating them meant a workspace owner could quietly
+   * create people on the instance.
+   */
+  assert.match(members, /api\s*\n?\s*\.addMember\(workspaceId, \{ email: address, role \}\)/);
+  const client = codeOf(new URL('../src/api/client.ts', import.meta.url));
+  assert.doesNotMatch(client, /inviteToWorkspace/, 'and the way to do it is gone');
+  const screen = codeOf(
+    new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
+  );
+  assert.doesNotMatch(screen, /id: 'invitations'/, 'and so is the section');
 });
 
-test('it says it works with or without an account', () => {
-  // The question somebody actually has when they already invited a person to
-  // the instance and now wants them in a team.
-  assert.match(wsInvite, /t\('invite\.workspace\.note'\)/);
+test('access is given by address, not from a list of everybody', () => {
+  // A picker of every account on the server would make every workspace owner a
+  // reader of the instance's directory, which the administration keeps on
+  // purpose (ADR-0032).
+  assert.match(members, /t\('access\.address'\)/);
+  assert.doesNotMatch(members, /adminUsers/);
 });
 
-test('an address-bound invitation says only that person can accept it', () => {
-  // The server enforces it; saying so is what stops somebody forwarding the
-  // link and wondering why it failed.
-  assert.match(wsInvite, /t\('invite\.workspace\.address'\)/);
+test('a workspace cannot let somebody in as an owner in one step', () => {
+  // A second owner is a decision about who can delete the workspace, and it is
+  // one to take deliberately in the table rather than in the same breath as
+  // "add this person".
+  assert.match(members, /const ADDABLE:[\s\S]{0,200}?\];/);
+  const addable = /const ADDABLE:[\s\S]*?\];/.exec(members)?.[0] ?? '';
+  assert.doesNotMatch(addable, /'owner'/);
 });
 
 // --- seeing and withdrawing what was sent (ADR-0025) -------------------------
@@ -138,9 +154,11 @@ test('an invitation can be seen and withdrawn after it is created', () => {
   // One component for both scopes: null asks for the invitations that name no
   // workspace.
   assert.match(pending, /workspaceId === null\s*\?\s*api\.instanceInvitations\(\)/);
-  const workspace = codeOf(new URL('../src/components/WorkspaceInvite.tsx', import.meta.url));
+  // Both scopes still list what is outstanding. A workspace makes no new ones
+  // (ADR-0073), but one sent last week is still a way in, and something that
+  // cannot be seen cannot be withdrawn.
   const instance = codeOf(new URL('../src/components/InvitePanel.tsx', import.meta.url));
-  assert.match(workspace, /<PendingInvitations workspaceId=\{workspaceId\}/);
+  assert.match(members, /<PendingInvitations workspaceId=\{workspaceId\}/);
   assert.match(instance, /<PendingInvitations workspaceId=\{null\}/);
 });
 
@@ -154,9 +172,8 @@ test('the list never reprints the link', () => {
 test('creating one refreshes the list beside the form', () => {
   // Otherwise the thing just created is the one thing missing from the list of
   // what is outstanding.
-  for (const name of ['WorkspaceInvite', 'InvitePanel']) {
-    const source = codeOf(new URL(`../src/components/${name}.tsx`, import.meta.url));
-    assert.match(source, /setCreated\(\(previous\) => previous \+ 1\)/, name);
-    assert.match(source, /reloadToken=\{created\}/, name);
-  }
+  // The instance's form, which is the only one that creates invitations now.
+  const source = codeOf(new URL('../src/components/InvitePanel.tsx', import.meta.url));
+  assert.match(source, /setCreated\(\(previous\) => previous \+ 1\)/);
+  assert.match(source, /reloadToken=\{created\}/);
 });

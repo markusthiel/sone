@@ -224,8 +224,6 @@ export const de: Record<keyof typeof en, string> = {
   'file.pdfPageOf': 'Seite {page} von {total}',
   'file.pdfLoading': 'Dokument wird geöffnet\u2026',
   'file.pdfFailed': 'Dieses Dokument kann hier nicht gezeigt werden.',
-  'workspace.invitations': 'Einladungen',
-  'workspace.invitations.hint': 'Links, mit denen jemand diesem Workspace beitritt.',
   'workspace.delete.hint': 'Diesen Workspace entfernen — eine Zeit lang umkehrbar.',
   'workspace.delete.notYours':
     'Löschen kann nur, wer diesen Workspace besitzt oder Workspaces verwaltet.',
@@ -708,13 +706,6 @@ export const de: Record<keyof typeof en, string> = {
     'Optional. Mit Adresse gilt die Einladung für diese Person und lässt sich einmal ' +
     'benutzen. Ohne Adresse ist sie ein Link, den jeder benutzen darf, der ihn hat — so ' +
     'lädt man eine Gruppe ein, ohne jede Adresse zu tippen.',
-  'invite.workspace.note':
-    'Funktioniert, ob die Person schon ein Konto hat oder nicht. Mit Konto fragt der Link ' +
-    'nach dem Beitritt und ihr eigener Workspace bleibt unberührt. Ohne Konto registriert ' +
-    'sie sich zuerst und landet in beiden.',
-  'invite.workspace.address':
-    'Mit einer Adresse gilt die Einladung für diese Person und lässt sich einmal ' +
-    'benutzen — und nur sie kann sie annehmen, selbst wenn jemand anderes den Link öffnet.',
   'group.note':
     'Eine Gruppe ist eine Liste von Leuten. Gib einer Gruppe einmal Zugriff auf eine ' +
     'Seite, und jeder darin hat ihn — auch wer später dazukommt. Das ist es, was das ' +
@@ -752,8 +743,6 @@ export const de: Record<keyof typeof en, string> = {
   'invite.email': 'E-Mail-Adresse',
   'invite.emailPlaceholder': 'jemand@example.org',
   'invite.link': 'Einladungslink',
-  'invite.here': 'Jemanden hierher einladen',
-  'invite.joinAs': 'Tritt bei als',
   'invite.outstanding': 'Offene Einladungen',
   'invite.anybodyWithLink': 'Jeder mit dem Link',
   'invite.role': 'Rolle',
@@ -1041,6 +1030,24 @@ export const de: Record<keyof typeof en, string> = {
   'tableAction.delete-table': 'Tabelle löschen',
 
   // --- was eine Rolle darf ----------------------------------------------
+  'role.owner': 'Eigentümer',
+  'role.owner.hint': 'Darf den Workspace übertragen und löschen',
+  'access.add': 'Zugriff geben',
+  'access.note':
+    'Für Leute, die auf diesem Server schon ein Konto haben. Wer noch keines ' +
+    'hat, wird in der Verwaltung eingeladen — das legt ein Konto an und ist ' +
+    'eine andere Sache.',
+  'access.example': 'jemand@example.org',
+  'access.address': 'E-Mail-Adresse',
+  'access.address.hint': 'Die Adresse, mit der sich die Person hier anmeldet.',
+  'access.as': 'Kommt herein als',
+  'access.give': 'Zugriff geben',
+  'access.given': '{email} hat jetzt Zugriff.',
+  'error.no_such_account':
+    'Mit dieser Adresse gibt es hier kein Konto. Neue Leute lädt die Verwaltung ein.',
+  'error.already_member': 'Diese Person ist bereits in diesem Workspace.',
+  'error.invalid_email': 'Bitte eine E-Mail-Adresse eintragen.',
+  'member.roleFor': 'Rolle von {name}',
   'role.member': 'Mitglied',
   'role.member.hint': 'Darf alles lesen und schreiben, was nicht beschränkt ist',
   'role.admin': 'Admin',
