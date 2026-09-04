@@ -92,10 +92,12 @@ caught something in new code rather than in a review of old code.
 
 ## What is deliberately not decided
 
-**Which pages somebody cares about.** No "watching", no per-page subscriptions,
-no ranking by whether they have edited it before. Everything visible in the
-workspace is listed. Watching is a real feature and would deserve a record; it is
-not a thing to smuggle in as a digest heuristic.
+**Which pages somebody cares about.** Now [ADR-0064](0064-watching.md), which
+adds watching as its own act — deliberately not a side effect of favouriting,
+because a favourite is "I come here often" and watching is "tell me when this
+changes". The digest gains a scope, and *everything I can see* stays the default
+for anybody who already has it on: a release that silently narrows what somebody
+receives is as bad as one that widens it.
 
 **Comments and collection rows as activity.** A comment already reaches the
 people it names. What a digest would add is "people are talking on a page you
