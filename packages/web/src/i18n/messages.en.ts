@@ -29,6 +29,7 @@ export const en = {
   'inbox.group.workspace': 'By workspace',
   'inbox.view.unread': 'Unread',
   'inbox.view.all': 'Everything',
+  'inbox.view.snoozed': 'Later',
   'inbox.emptyView': 'Nothing here in this view.',
   'inbox.empty':
     'Nothing is waiting. This is where it appears when somebody names you in ' +
@@ -36,9 +37,15 @@ export const en = {
   'inbox.unreadOnly': 'Only what is unread',
   'inbox.markAll': 'Mark everything read',
   'inbox.times': '{count, plural, one {# time} other {# times}}',
-  'inbox.keys': 'j/k to move · Enter opens · e read · u unread',
+  'inbox.keys': 'j/k to move · Enter opens · e read · u unread · s later',
   'inbox.markRead': 'Read',
   'inbox.markUnread': 'Unread',
+  'inbox.snooze': 'Later',
+  'inbox.snooze.later': 'In three hours',
+  'inbox.snooze.tomorrow': 'Tomorrow morning',
+  'inbox.snooze.nextWeek': 'Next week',
+  'inbox.wake': 'Bring it back',
+  'inbox.backOn': 'back on {when}',
   'inbox.mention': 'You were named',
   'inbox.reply': 'A reply in a thread',
   'inbox.assignment': 'Assigned to you',
@@ -1397,6 +1404,8 @@ export const en = {
   'error.invalid_role': 'A share link cannot grant that role.',
   'error.too_many_rows': 'That is more than fifty entries. Paste them in smaller pieces.',
   'error.not_archived': 'That entry is not in the trash.',
+  'error.invalid_time':
+    'That moment will not do: it has to be in the future and at most a year away.',
   'error.invalid_parent':
     'It cannot go there: a folder cannot sit inside itself.',
   'error.parent_missing':

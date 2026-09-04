@@ -988,6 +988,7 @@ function Workspace({
             view={inboxView}
             error={inbox.error}
             onRead={inbox.setRead}
+            onSnooze={inbox.snooze}
           />
         )}
 

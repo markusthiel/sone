@@ -15,7 +15,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { groupsIn, itemsIn } from '../src/components/InboxPanel.tsx';
+import { groupsIn, isAsleep, itemsIn } from '../src/components/InboxPanel.tsx';
+import { snoozeUntil } from '../src/components/snoozeTimes.ts';
 import { entriesIn } from '../src/components/TrashPanel.tsx';
 import type { InboxItem } from '../src/hooks/useInbox.ts';
 import type { TrashEntry } from '../src/api/client.ts';
@@ -31,6 +32,7 @@ function item(over: Partial<InboxItem> & { id: string }): InboxItem {
     pageId: 'p1',
     pageTitle: 'Seite',
     threadId: null,
+    snoozedUntil: null,
     workspaceId: 'w1',
     workspaceName: 'natec',
     ...over,
@@ -143,6 +145,106 @@ test('marking read has an undo, and it is the same act', () => {
   // hide a round trip behind, so a row that waited would read as a key that
   // sometimes does nothing.
   assert.match(hook, /setItems\(\(current\) =>[\s\S]{0,200}\{ \.\.\.one, read \}/);
+});
+
+// --- putting something aside (ADR-0075) ------------------------------------
+
+const soon = new Date(Date.now() + 3_600_000).toISOString();
+const past = new Date(Date.now() - 3_600_000).toISOString();
+
+test('a moment that has passed is not asleep', () => {
+  // Nothing wakes a notification: the clock passing the moment is the whole
+  // mechanism, so "asleep" has to be a comparison and not a flag.
+  assert.equal(isAsleep(item({ id: 'a', snoozedUntil: soon })), true);
+  assert.equal(isAsleep(item({ id: 'b', snoozedUntil: past })), false);
+  assert.equal(isAsleep(item({ id: 'c' })), false);
+});
+
+test('something asleep is absent everywhere except Später and Alles', () => {
+  /*
+   * One rule, stated once, because the counts beside the view names come from
+   * this same function. "Unread" means waiting for you and something asleep is
+   * not; "Alles" is called Alles.
+   */
+  const items = [
+    item({ id: 'awake' }),
+    item({ id: 'asleep', snoozedUntil: soon }),
+  ];
+  assert.deepEqual(itemsIn(items, { of: 'unread' }).map((o) => o.id), ['awake']);
+  assert.deepEqual(itemsIn(items, { of: 'all' }).map((o) => o.id), ['awake', 'asleep']);
+  assert.deepEqual(itemsIn(items, { of: 'snoozed' }).map((o) => o.id), ['asleep']);
+  assert.deepEqual(
+    itemsIn(items, { of: 'kind', kind: 'reply' }).map((o) => o.id),
+    ['awake'],
+    'and out of the way in the views that ask what kind and where',
+  );
+  assert.deepEqual(
+    itemsIn(items, { of: 'workspace', workspaceId: 'w1' }).map((o) => o.id),
+    ['awake'],
+  );
+});
+
+test('the Später view is offered only when something is asleep', () => {
+  // An empty row every day, for the many people who never put anything off, is
+  // a row that says nothing.
+  const panel = codeOf(new URL('../src/components/InboxPanel.tsx', import.meta.url));
+  assert.match(panel, /all\.some\(\(one\) => isAsleep\(one\)\) &&/);
+});
+
+test('three hours is three hours, whatever time it is', () => {
+  // Not "this evening": somebody clearing an inbox at nine at night does not
+  // mean eight tonight, and a choice that lands in the past for half the day is
+  // a choice that has to be explained.
+  const night = new Date('2026-09-04T21:40:00');
+  assert.equal(snoozeUntil('later', night).getTime() - night.getTime(), 3 * 3600 * 1000);
+});
+
+test('tomorrow morning is always tomorrow, even at two in the morning', () => {
+  /*
+   * "Tomorrow" said at 02:00 means the day that has not started yet in every
+   * sense except the calendar's. Coming back seven hours later would be a
+   * surprise, and a surprise from a control whose whole promise is "not now".
+   */
+  const twoAm = new Date('2026-09-04T02:00:00');
+  const when = snoozeUntil('tomorrow', twoAm);
+  assert.equal(when.getDate(), 5);
+  assert.equal(when.getHours(), 9);
+  assert.equal(when.getMinutes(), 0);
+
+  const evening = new Date('2026-09-04T23:30:00');
+  assert.equal(snoozeUntil('tomorrow', evening).getDate(), 5);
+});
+
+test('next week is the Monday after this one, never today', () => {
+  // The whole point of the choice is that the week in front of you is spoken
+  // for, so "next week" on a Monday cannot mean this morning.
+  const monday = new Date('2026-09-07T10:00:00');
+  assert.equal(monday.getDay(), 1, 'the fixture is a Monday');
+  const from = snoozeUntil('nextWeek', monday);
+  assert.equal(from.getDay(), 1);
+  assert.equal(from.getDate(), 14, 'the Monday after');
+  assert.equal(from.getHours(), 9);
+
+  // And from a Friday it is the Monday three days later.
+  const friday = new Date('2026-09-04T10:00:00');
+  assert.equal(friday.getDay(), 5, 'the fixture is a Friday');
+  assert.equal(snoozeUntil('nextWeek', friday).getDate(), 7);
+});
+
+test('a sleeping row offers one act, and it is waking', () => {
+  /*
+   * Reading or unreading something you deliberately put off until Tuesday is a
+   * decision about a row you stopped looking at. The row says when it comes
+   * back in place of when it arrived, because that is what it is about now.
+   */
+  const screen = codeOf(new URL('../src/components/InboxScreen.tsx', import.meta.url));
+  assert.match(screen, /\{asleep \? \(/);
+  assert.match(screen, /onClick=\{\(\) => onSnooze\(ids, null\)\}/);
+  assert.match(screen, /t\('inbox\.backOn', \{ when:/);
+  // And `s` takes the commonest of the three rather than opening the menu: a
+  // shortcut that opens a menu has saved nobody anything.
+  assert.match(screen, /event\.key === 's'/);
+  assert.match(screen, /isAsleep\(group\.latest\) \? null : snoozeUntil\('tomorrow'\)/);
 });
 
 // --- the trash ------------------------------------------------------------

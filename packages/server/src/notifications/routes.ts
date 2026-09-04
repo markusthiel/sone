@@ -33,7 +33,11 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
     const row = await queryOne<{ n: string }>(
       deps.pool,
       `SELECT count(*)::text AS n FROM notifications
-        WHERE user_id = $1 AND read_at IS NULL`,
+        WHERE user_id = $1 AND read_at IS NULL
+          -- Asleep does not count (ADR-0075). A badge that keeps counting what
+          -- somebody deliberately put aside is a badge they stop believing,
+          -- which is the one thing this number must not become.
+          AND (snoozed_until IS NULL OR snoozed_until <= now())`,
       [session.userId],
     );
 
@@ -63,6 +67,7 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
       excerpt: string;
       created_at: Date;
       read_at: Date | null;
+      snoozed_until: Date | null;
       page_id: string;
       page_title: string;
       workspace_id: string;
@@ -70,7 +75,7 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
       thread_id: string | null;
     }>(
       deps.pool,
-      `SELECT n.id, n.kind, n.excerpt, n.created_at, n.read_at,
+      `SELECT n.id, n.kind, n.excerpt, n.created_at, n.read_at, n.snoozed_until,
               n.page_id, p.title AS page_title, n.thread_id,
               n.workspace_id, w.name AS workspace_name
          FROM notifications n
@@ -80,7 +85,12 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
           AND p.archived_at IS NULL
           -- A workspace on its way out is not a place to be sent (ADR-0027).
           AND w.deleted_at IS NULL
-          AND ($2::boolean IS NOT TRUE OR n.read_at IS NULL)
+          -- "Unread" means waiting for you, and something asleep is not
+          -- (ADR-0075). The full listing keeps it: the views are computed in
+          -- the browser and one of them is the list of what is asleep.
+          AND ($2::boolean IS NOT TRUE
+               OR (n.read_at IS NULL
+                   AND (n.snoozed_until IS NULL OR n.snoozed_until <= now())))
         ORDER BY n.created_at DESC
         LIMIT 100`,
       [session.userId, onlyUnread],
@@ -93,6 +103,13 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
         excerpt: row.excerpt,
         createdAt: row.created_at,
         read: row.read_at !== null,
+        /** When it comes back, or null. Past moments are sent as null: a
+         *  notification that has woken is simply awake, and leaving the moment
+         *  in would make every reader repeat the comparison. */
+        snoozedUntil:
+          row.snoozed_until && row.snoozed_until.getTime() > Date.now()
+            ? row.snoozed_until
+            : null,
         pageId: row.page_id,
         pageTitle: row.page_title,
         threadId: row.thread_id,
@@ -157,5 +174,76 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
     );
 
     ctx.send(200, { marked: rowCount ?? 0 });
+  });
+
+  /**
+   * Put something aside until a time (ADR-0075).
+   *
+   * The moment is decided by the browser and sent whole, rather than named
+   * ("tomorrow") and worked out here. "Tomorrow morning" is a question about a
+   * clock on a desk, and the browser is standing next to it; the server would
+   * have to reconstruct the same answer from a stored timezone that can be
+   * wrong, absent, or a week out of date because somebody travelled.
+   *
+   * `until: null` wakes it now, which is the undo. Only by id, like putting
+   * something back to unread: "snooze everything" is not a thing anybody means.
+   */
+  router.post('/api/inbox/snooze', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    let body: { ids?: unknown; until?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const ids = Array.isArray(body.ids)
+      ? body.ids.filter((one): one is string => typeof one === 'string')
+      : null;
+    if (ids === null || ids.length === 0) {
+      ctx.fail(422, 'ids_required');
+      return;
+    }
+
+    let until: Date | null = null;
+    if (body.until !== null && body.until !== undefined) {
+      if (typeof body.until !== 'string') {
+        ctx.fail(422, 'invalid_time');
+        return;
+      }
+      const when = new Date(body.until);
+      /*
+       * In the future, and not absurdly far into it.
+       *
+       * A moment in the past would be a notification that is asleep and awake
+       * at once, and a year is where "put this aside" stops meaning that and
+       * starts meaning "delete it without saying so".
+       */
+      const YEAR = 365 * 24 * 60 * 60 * 1000;
+      if (
+        Number.isNaN(when.getTime()) ||
+        when.getTime() <= Date.now() ||
+        when.getTime() > Date.now() + YEAR
+      ) {
+        ctx.fail(422, 'invalid_time');
+        return;
+      }
+      until = when;
+    }
+
+    const { rowCount } = await deps.pool.query(
+      `UPDATE notifications SET snoozed_until = $3
+        WHERE user_id = $1
+          -- Scoped to this person: an id from somebody else's inbox matches
+          -- nothing rather than being an error, which is the same answer as an
+          -- id that never existed.
+          AND id = ANY($2::uuid[])`,
+      [session.userId, ids, until],
+    );
+
+    ctx.send(200, { snoozed: rowCount ?? 0 });
   });
 }

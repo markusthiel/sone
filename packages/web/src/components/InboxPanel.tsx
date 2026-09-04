@@ -28,8 +28,15 @@ import type { InboxItem } from '../hooks/useInbox.ts';
 export type InboxView =
   | { of: 'unread' }
   | { of: 'all' }
+  /** What is asleep, and when it comes back (ADR-0075). */
+  | { of: 'snoozed' }
   | { of: 'kind'; kind: InboxItem['kind'] }
   | { of: 'workspace'; workspaceId: string };
+
+/** Asleep: a moment set, and still ahead. */
+export function isAsleep(item: InboxItem, now = Date.now()): boolean {
+  return item.snoozedUntil !== null && Date.parse(item.snoozedUntil) > now;
+}
 
 export function sameView(a: InboxView, b: InboxView): boolean {
   if (a.of !== b.of) return false;
@@ -38,14 +45,21 @@ export function sameView(a: InboxView, b: InboxView): boolean {
   return true;
 }
 
-/** What a view selects, so the menu and the list cannot disagree about it. */
+/**
+ * What a view selects, so the menu and the list cannot disagree about it.
+ *
+ * One rule for sleep (ADR-0075): something put aside is absent from every view
+ * except "Später", which lists it, and "Alles", which is called Alles. That is
+ * what putting something aside means, and stating it once here is what keeps
+ * the counts beside the names honest — they come from this same function.
+ */
 export function itemsIn(items: InboxItem[], view: InboxView): InboxItem[] {
-  if (view.of === 'unread') return items.filter((one) => !one.read);
-  if (view.of === 'kind') return items.filter((one) => one.kind === view.kind);
-  if (view.of === 'workspace') {
-    return items.filter((one) => one.workspaceId === view.workspaceId);
-  }
-  return items;
+  if (view.of === 'snoozed') return items.filter((one) => isAsleep(one));
+  if (view.of === 'all') return items;
+  const awake = items.filter((one) => !isAsleep(one));
+  if (view.of === 'unread') return awake.filter((one) => !one.read);
+  if (view.of === 'kind') return awake.filter((one) => one.kind === view.kind);
+  return awake.filter((one) => one.workspaceId === view.workspaceId);
 }
 
 /**
@@ -156,6 +170,13 @@ export function InboxPanel({
           groupsIn(all, { of: 'unread' }).length)}
         {entry('all', { of: 'all' }, <ClockIcon />, t('inbox.view.all'),
           groupsIn(all, { of: 'all' }).length)}
+        {/* Only once something is asleep. An empty "Später" every day, for the
+            many people who never snooze anything, is a row that says nothing.
+            The count here is what is asleep rather than what is unread in it:
+            the question the row answers is "how much did I put off". */}
+        {all.some((one) => isAsleep(one)) &&
+          entry('snoozed', { of: 'snoozed' }, <ClockIcon />, t('inbox.view.snoozed'),
+            groupsIn(all, { of: 'snoozed' }).length)}
       </div>
 
       <div className="panel-menu-group">
