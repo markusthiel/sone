@@ -534,8 +534,15 @@ export const api = {
     workspaceName: string;
   }) => post<{ userId: string; workspaceId: string }>('/api/auth/setup', input),
 
+  /**
+   * Sign in, which may stop half way (ADR-0063).
+   *
+   * An account with a second factor answers with a ticket instead of a cookie;
+   * the caller then calls `secondFactorLogin`. The empty 204 is what an account
+   * without one still gets, so the shape says which happened.
+   */
   login: (input: { email: string; password: string }) =>
-    post<void>('/api/auth/login', input),
+    post<{ needsSecondFactor?: boolean; ticket?: string } | void>('/api/auth/login', input),
 
   signup: (input: {
     email: string;
@@ -1188,6 +1195,24 @@ export const api = {
         props: Record<string, unknown>;
       }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
+
+  /** Finish a sign-in that stopped for a code (ADR-0063). */
+  secondFactorLogin: (ticket: string, code: string) =>
+    post<{ usedRecovery?: boolean; recoveryCodesLeft: number }>('/api/auth/login/second', {
+      ticket,
+      code,
+    }),
+
+  /** Begin enrolling an authenticator. Nothing counts until a code is proved. */
+  startSecondFactor: () =>
+    post<{ uri: string; secret: string }>('/api/auth/second-factor/start', {}),
+
+  confirmSecondFactor: (code: string) =>
+    post<{ recoveryCodes: string[] }>('/api/auth/second-factor/confirm', { code }),
+
+  /** Turn it off. Needs the password, not just this session. */
+  removeSecondFactor: (password: string) =>
+    post<void>('/api/auth/second-factor/remove', { password }),
 
   /** Ask for a reset link. Answers the same for any address (ADR-0059). */
   requestReset: (email: string) => post<{ asked: true }>('/api/auth/reset/request', { email }),

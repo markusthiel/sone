@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted. The arithmetic is built and tested — codes, the sealed secret and the
-recovery codes, all pure. The table, the routes and the screens are not.
+Accepted. Built except for the enrolment screen under You → Security; the
+arithmetic, the store, the routes, the sign-in step and the administrator's
+removal are done.
 
 ## Context
 
@@ -136,6 +137,18 @@ session lying about if somebody closes the tab.
 
 Second-step attempts are rate limited on `auth_attempts` keyed by account, so a
 stolen password plus a code generator gets ten tries rather than unlimited ones.
+
+**The administrator's removal, and how it is recorded.** There is no audit table
+in SONE, and a log line nobody reads is not accountability — so **the person
+whose account was disarmed is told by mail, naming who did it.** They are
+exactly who needs to know, and if they did not ask for it they now have
+something to act on. Removing a factor somebody never had tells nobody, because
+that mail starts a conversation about nothing.
+
+The code step replaces the sign-in form rather than appearing under it: the
+password has already been accepted, and leaving it on screen invites somebody to
+retype it when the code is what is wrong. The client drops the password at that
+point for the same reason.
 
 ## Consequences
 

@@ -37,6 +37,16 @@ describe(
     let storageProblem: string | null = null;
     /** What the test button asked the relay to do, and what it may answer. */
     let mailAsked: { to: string; host: string } | null = null;
+    /** Who was told their second factor was removed, and by whom. */
+    let factorRemovedTold: { to: string; byWhom: string } | null = null;
+    /*
+     * Read through a call, which defeats the narrowing.
+     *
+     * The same shape as `askedMail` above, and for the same reason: after
+     * `= null` the compiler knows the variable *is* null, and the assignment
+     * that fills it happens in a callback it cannot follow.
+     */
+    const toldAbout = (): { to: string; byWhom: string } | null => factorRemovedTold;
     /*
      * Read through a call, which defeats the narrowing.
      *
@@ -106,6 +116,12 @@ describe(
           return Promise.resolve();
         },
         smtpPassword: 'aus der Umgebung',
+        // Recorded rather than sent: the test asserts who was told, and by
+        // which name (ADR-0063).
+        tellFactorRemoved: (to, byWhom) => {
+          factorRemovedTold = { to, byWhom };
+          return Promise.resolve();
+        },
       });
 
       server = createServer((req, res) => {
@@ -497,6 +513,65 @@ describe(
         }),
         422,
       );
+    });
+
+    test('an administrator can remove a second factor, and the person is told', async () => {
+      /*
+       * The only way back for somebody who has lost both their phone and their
+       * recovery codes — and deliberately not self-service (ADR-0063).
+       *
+       * There is no audit table in SONE, and a log line nobody reads is not
+       * accountability. The person whose account was disarmed is exactly who
+       * needs to know, and the mail names who did it so they can act on it.
+       */
+      const admin = await setup();
+      const { rows } = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name) VALUES ('verloren@example.org', 'Verloren')
+         RETURNING id::text AS id`,
+      );
+      const target = rows[0]!.id;
+
+      // With a confirmed factor in place.
+      await db.query(
+        `INSERT INTO second_factors (user_id, secret, confirmed_at) VALUES ($1, 'v1.a.b.c', now())`,
+        [target],
+      );
+      await db.query(
+        `INSERT INTO recovery_codes (code_hash, user_id) VALUES ('deadbeef', $1)`,
+        [target],
+      );
+
+      factorRemovedTold = null;
+      const removed = await expectJson<{ removed: boolean }>(
+        await fetch(`${base}/api/admin/users/${target}/second-factor/remove`, {
+          method: 'POST',
+          headers: { cookie: admin.cookie },
+        }),
+        200,
+      );
+      assert.equal(removed.removed, true);
+      const told = toldAbout();
+      assert.ok(told, 'somebody was told');
+      assert.equal(told.to, 'verloren@example.org');
+      assert.ok(told.byWhom !== '', 'and by whom');
+      assert.notEqual(told.byWhom, 'an administrator', 'named, not generic');
+
+      // The codes go with it: none may outlive the factor.
+      const left = await db.query(`SELECT 1 FROM recovery_codes WHERE user_id = $1`, [target]);
+      assert.equal(left.rowCount, 0);
+
+      // Doing it again tells nobody: a mail about removing a factor somebody
+      // never had starts a conversation about nothing.
+      factorRemovedTold = null;
+      const again = await expectJson<{ removed: boolean }>(
+        await fetch(`${base}/api/admin/users/${target}/second-factor/remove`, {
+          method: 'POST',
+          headers: { cookie: admin.cookie },
+        }),
+        200,
+      );
+      assert.equal(again.removed, false);
+      assert.equal(toldAbout(), null);
     });
 
     test('the mail server can be set without touching the environment', async () => {

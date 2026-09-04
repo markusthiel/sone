@@ -1301,6 +1301,22 @@ export const de: Record<keyof typeof en, string> = {
     'Alle Sitzungen wurden beendet — mit dem neuen Passwort neu anmelden.',
   'reset.toSignIn': 'Zur Anmeldung',
   'reset.backToSignIn': 'Zurück zur Anmeldung',
+  'auth.secondFactor': 'Noch ein Schritt',
+  'auth.secondFactor.hint':
+    'Den sechsstelligen Code aus der Authenticator-App eingeben.',
+  'auth.code': 'Code',
+  'auth.checking': 'Wird geprüft…',
+  'auth.secondFactor.lost':
+    'App verloren? Dann einen der Wiederherstellungscodes benutzen. Sind auch ' +
+    'die weg, kann die Betreiberin dieser Instanz den zweiten Faktor entfernen.',
+  'error.unknown_account': 'Dieses Konto gibt es nicht.',
+  'error.wrong_code': 'Dieser Code stimmt nicht.',
+  'error.code_already_used':
+    'Dieser Code wurde bereits benutzt. Auf den nächsten warten.',
+  'error.ticket_expired': 'Das hat zu lange gedauert. Bitte neu anmelden.',
+  'error.already_enrolled': 'Auf diesem Konto liegt schon ein Authenticator.',
+  'error.no_enrolment': 'Nichts zu bestätigen. Bitte neu beginnen.',
+  'error.wrong_password': 'Dieses Passwort stimmt nicht.',
   'auth.email': 'E-Mail',
   'auth.password': 'Passwort',
   'auth.passwordHint': 'Mindestens 12 Zeichen. Länge schlägt Komplexität.',
