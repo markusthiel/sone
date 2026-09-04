@@ -626,7 +626,12 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      * nearer means lighter there — one role, and each theme fills it. */
   border-inline-end: 1px solid var(--border-subtle);
   background: var(--surface-chrome);
-  overflow: hidden;
+  /* Visible, and it has to be: the account menu hangs out of a 56px column, and
+     with `hidden` here it was drawn and then cut off at the rail's edge — a menu
+     that opens and shows you a slice of itself. Nothing in the rail overflows on
+     its own; the only thing that leaves it is a popup, and a popup leaving is
+     the point. */
+  overflow: visible;
 }
 
 /* --- the panel: head, body, foot (ADR-0069) --- */
@@ -740,7 +745,12 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   padding-block: var(--sone-space-3);
   border-inline-end: 1px solid var(--border-subtle);
   background: var(--surface-chrome);
-  overflow: hidden;
+  /* Visible, and it has to be: the account menu hangs out of a 56px column, and
+     with `hidden` here it was drawn and then cut off at the rail's edge — a menu
+     that opens and shows you a slice of itself. Nothing in the rail overflows on
+     its own; the only thing that leaves it is a popup, and a popup leaving is
+     the point. */
+  overflow: visible;
 }
 
 @media (min-width: 800px) {
@@ -785,6 +795,47 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* In the rail the face is the whole control.
+ *
+ * It is the same component the panel's foot draws — a face, a name, a version —
+ * and the name and the version are exactly the two things that cannot fit in
+ * 56px. Hidden here rather than made into a second component: one account menu,
+ * drawn at whatever width it is given (ADR-0069). */
+.rail-account .sidebar-footer {
+  gap: 0;
+  padding: 0;
+  border-block-start: 0;
+  margin-block-start: 0;
+}
+
+.rail-account .sidebar-account-name,
+.rail-account .sidebar-version { display: none; }
+
+.rail-account .sidebar-account {
+  position: relative;
+  flex: none;
+  inline-size: var(--sone-tap);
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.rail-account .sidebar-avatar { inline-size: 26px; block-size: 26px; }
+
+/* No name to sit after, so the count rides the corner of the face. */
+.rail-account .sidebar-unread {
+  position: absolute;
+  inset-block-start: 1px;
+  inset-inline-end: 1px;
+  margin-inline-start: 0;
+}
+
+/* And the menu opens beside the rail rather than above it. 200px of menu does
+   not fit in 56px of column: it was being drawn and then clipped. */
+.rail-account .sidebar-account-menu {
+  inset-block-end: 0;
+  inset-inline-start: calc(100% + var(--sone-space-3));
 }
 
 /* The same list as the rail's, at the width where the rail is not drawn.

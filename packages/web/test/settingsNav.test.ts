@@ -249,12 +249,21 @@ test('it is shown as held, and locked, for an administrator', () => {
   assert.match(admin, /disabled=\{user\.isInstanceAdmin\}/);
 });
 
-test('the switcher offers this workspace to everyone and the list to those who may', () => {
-  // Two different destinations, which is the point: one is the workspace you
-  // are in, the other is every workspace here.
-  assert.match(menu, /paths\.workspaceSettings\(\)/);
-  assert.match(menu, /\{canManageWorkspaces && \(/);
-  assert.match(menu, /paths\.admin\('workspaces'\)/);
+test('the switcher answers one question, and it is which workspace', () => {
+  /*
+   * It answered three: which workspace, where do I configure this one, and show
+   * me all of them. The last two are destinations, and destinations are modes
+   * now (ADR-0069) — the workspace's settings are the middle group of the
+   * settings list, and every workspace is the rail's own mode.
+   *
+   * The third had also been broken since ADR-0067 was amended: it pointed at
+   * /admin/workspaces, which stopped existing in that amendment.
+   */
+  assert.doesNotMatch(menu, /paths\.workspaceSettings\(\)/);
+  assert.doesNotMatch(menu, /paths\.admin\('workspaces'\)/);
+  // What is left is the list itself, and the way to add one to it.
+  assert.match(menu, /className="switcher-item"/);
+  assert.match(menu, /t\('workspaces\.new'\)/);
 });
 
 test('the phone has one mechanism for this, not a second one', () => {

@@ -208,9 +208,13 @@ test('the sidebar footer is laid out in one rule', () => {
   // left unset is not a property left alone. They are one rule now, which is
   // what the original note was asking for: the placement moved in beside the
   // layout when the footer started appearing in a second column.
-  const rules = css.match(/\.sidebar-footer \{/g) ?? [];
+  // Counted at the top level only. The rail scopes a few of its own overrides
+  // to `.rail-account .sidebar-footer` — the name and the version do not fit in
+  // 56px — and a scoped override is not the fault this guards, which was two
+  // rules for the same element at the same specificity.
+  const rules = css.match(/^\.sidebar-footer \{/gm) ?? [];
   assert.equal(rules.length, 1);
-  assert.doesNotMatch(css, /\.sidebar-footer \{[^}]*flex-direction: column/);
+  assert.doesNotMatch(css, /^\.sidebar-footer \{[^}]*flex-direction: column/m);
   assert.match(css, /\.sidebar-footer \{[^}]*margin-block-start: auto/);
 });
 

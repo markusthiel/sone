@@ -621,7 +621,6 @@ export const en = {
   'workspaces.confirmName': 'Type the name to confirm',
   'workspaces.nameField': 'Workspace name',
   'workspaces.new': 'New workspace',
-  'workspaces.settings': 'Workspace settings',
   'workspaces.all': 'All workspaces',
 
   // --- the longer explanations ------------------------------------------
