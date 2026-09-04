@@ -50,7 +50,18 @@ test('the icon reuses the entry renderer rather than a second one', () => {
 
 const chooser = codeOf(new URL('../src/components/WorkspaceAppearance.tsx', import.meta.url));
 const list = codeOf(new URL('../src/components/WorkspaceList.tsx', import.meta.url));
-const detail = codeOf(new URL('../src/components/WorkspaceDetail.tsx', import.meta.url));
+/*
+ * The one workspace screen (ADR-0067).
+ *
+ * These assertions were written against `WorkspaceDetail`, which is gone. What
+ * they check — that the mark is chosen in place and not by reloading the page —
+ * is unchanged and now has one home: the appearance sits in the screen's
+ * name-and-mark section, which is where it already was on the other side of the
+ * split.
+ */
+const detail = codeOf(
+  new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
+);
 
 test('the chooser reuses the entry controls rather than resembling them', () => {
   // Two similar pickers would differ in some small way, and the difference is

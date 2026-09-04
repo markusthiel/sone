@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A workspace is edited in one place.** Its settings were split between
+`/workspace/…` and the administration, each with sections the other lacked — so
+an administrator could not change another workspace's typography and an owner
+could not delete their own. One screen now, with the workspace in the address,
+reached from the account menu and from the administration's list
+([ADR-0067](docs/adr/0067-one-place-to-edit-a-workspace.md)).
+
 **The sidebar can be dragged wider**, and remembers it. Long page titles in a
 nested folder had nowhere to go: a name like `02.03.2026 - 09:05 - Notiz` needs
 about 200px, and three levels of nesting inside a 260px sidebar leave it 180.

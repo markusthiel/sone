@@ -33,7 +33,6 @@ import { OidcPanel } from './OidcPanel.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { SettingsShell, resolveSection, type ShellSection } from './SettingsShell.tsx';
-import { WorkspaceDetail } from './WorkspaceDetail.tsx';
 import { WorkspaceList } from './WorkspaceList.tsx';
 
 /**
@@ -116,12 +115,6 @@ export function AdminScreen({
   const [listOpen, setListOpen] = useState(false);
   // Which workspace is open in the list, if any. State rather than a route,
   // because it is a step inside one section and not a place to link to.
-  const [openWorkspace, setOpenWorkspace] = useState<{
-    id: string;
-    name: string;
-    icon: WorkspaceIcon | null;
-  } | null>(null);
-
   const canManageWorkspaces = isAdmin === true || session.user.canManageWorkspaces;
   const available = SECTIONS.filter((entry) => {
     if (entry.admin) return isAdmin === true;
@@ -168,20 +161,19 @@ export function AdminScreen({
       {current === 'sso' && <OidcPanel />}
       {current === 'mail' && <MailPanel />}
       {current === 'maintenance' && <MaintenancePanel />}
-      {current === 'workspaces' &&
-        (openWorkspace ? (
-          <WorkspaceDetail
-            workspaceId={openWorkspace.id}
-            name={openWorkspace.name}
-            icon={openWorkspace.icon}
-            onBack={() => setOpenWorkspace(null)}
-          />
-        ) : (
+      {/* The list opens the one workspace screen, rather than a second one
+        * beside it (ADR-0067).
+        *
+        * `WorkspaceDetail` used to be rendered here and had drifted from the
+        * screen at `/workspace/…`: four sections overlapped and each had one
+        * the other lacked, so neither could do the whole job. Navigating means
+        * there is one screen, one URL, and nothing left to drift. */}
+      {current === 'workspaces' && (
           <WorkspaceList
             currentWorkspaceId={workspaceId}
-            onOpen={(id, chosenName, chosenIcon) =>
-              setOpenWorkspace({ id, name: chosenName, icon: chosenIcon })
-            }
+            onOpen={(id) => {
+              window.location.assign(paths.workspaceSettings('general', id));
+            }}
             onRestore={(id) => {
               // Restoring is one click, unlike deleting: putting something back
               // is not the action that needs slowing down.
@@ -190,7 +182,7 @@ export function AdminScreen({
                 .then(() => window.location.reload());
             }}
           />
-        ))}
+      )}
     </SettingsShell>
   );
 }

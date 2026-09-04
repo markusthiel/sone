@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted. The one screen exists and the administration's list opens it; what
+remains is the list showing a member their own workspaces, and the per-section
+rights beyond the `canEdit` the screen already had.
 
 ## Context
 
@@ -89,6 +91,28 @@ It is how people reach the settings for what they are looking at, and removing i
 to prove a point about structure would be removing the useful thing. It navigates
 to the same screen with the current workspace's id — a shortcut, not a second
 interface.
+
+## Built so far
+
+`WorkspaceDetail` is deleted, and the screen at `/workspace/…` gained the two
+sections it lacked: invitations and deletion. The id is in the address —
+`/workspace/:id/:section` — so there is one URL for a workspace's settings from
+either direction, and the short form still means "the one I am in" so an old
+link lands somewhere useful.
+
+Deletion moved into its own component to be lifted, and it follows the rule:
+present and disabled for somebody who may not use it, with a line saying whose
+it is. The typed name still has to match — a button enabled by a right alone
+would be one click from gone.
+
+**Five guards failed, and every one of them was holding a decision this record
+reverses.** One asserted the administration keeps the opened workspace in local
+state — "a step inside the section, not a place to link to", which is exactly
+what is being undone. Three read `WorkspaceDetail` and could not, because it is
+gone. One found a message nothing used any more.
+
+They were right to fail. A guard that survives a reversal of the thing it guards
+is a guard that was checking the wrong layer.
 
 ## Consequences
 
