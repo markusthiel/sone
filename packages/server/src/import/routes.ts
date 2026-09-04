@@ -145,7 +145,7 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
 
     try {
       /*
-       * A ZIP, or plain Markdown (ADR-0068 pending — see below).
+       * A ZIP, or plain Markdown (ADR-0066).
        *
        * `planImport` takes a list of entries, and a Markdown file is a list of
        * one: there is no reason the import should have demanded an archive, and

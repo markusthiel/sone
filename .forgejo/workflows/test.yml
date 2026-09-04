@@ -130,6 +130,13 @@ jobs:
         # beyond the feature not working.
         run: node scripts/check-env-reaches-container.mjs
 
+      - name: Check every cited record exists
+        # I cited a record that did not exist, twice, with a wrong number. A
+        # citation is a promise that somebody can go and read the reasoning,
+        # and a dangling one costs the trust of every other citation in the
+        # tree.
+        run: node scripts/check-adr-references.mjs
+
       - name: Check no record claims to be unbuilt
         # ADR-0054 said "nothing built yet" for two sessions after the feature
         # shipped. A status that lies is worse than none: the next reader takes

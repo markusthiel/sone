@@ -775,7 +775,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
        * note, correctly: plain text is a thing somebody wrote. What must still
        * be refused is a file that is neither an archive nor text, because a
        * JPEG that became a page of binary nonsense with a plausible title
-       * would look like it had worked (ADR-0068 pending).
+       * would look like it had worked (ADR-0066).
        */
       body: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00]),
     });
