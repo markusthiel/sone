@@ -680,7 +680,6 @@ export const de: Record<keyof typeof en, string> = {
   'workspaces.confirmName': 'Zum Bestätigen den Namen eintippen',
   'workspaces.nameField': 'Name des Workspace',
   'workspaces.new': 'Neuer Workspace',
-  'workspaces.settings': 'Workspace-Einstellungen',
   'workspaces.all': 'Alle Workspaces',
 
   // --- die längeren Erklärungen ------------------------------------------
