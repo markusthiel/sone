@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Fixed: somebody who manages workspaces could not edit one they were a member
+of.** The right was only consulted for workspaces they were *not* in, so joining
+a workspace took away the ability to administer it. And the settings screen
+disabled its controls for anybody without a role in the workspace, even when the
+server would have accepted the change.
+
 **Everybody has a workspace list.** It existed only for administrators, so a
 member could only ever edit the workspace they happened to be looking at. It is
 under Workspaces in the account menu now, showing the ones you are in — or every

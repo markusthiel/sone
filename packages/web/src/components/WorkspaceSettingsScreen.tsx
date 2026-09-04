@@ -14,7 +14,7 @@
  * not the administration area.
  */
 
-import { useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 
 import { api, type SessionInfo, type WorkspaceIcon } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
@@ -74,13 +74,52 @@ export function WorkspaceSettingsScreen({
   const { t } = useT();
   const [listOpen, setListOpen] = useState(false);
   const current = resolveSection(SECTIONS, section);
-  const workspace = session.workspaces.find((entry) => entry.id === workspaceId);
+  /*
+   * From the session, or fetched when this is not one of mine.
+   *
+   * The session carries only the workspaces somebody is in, so an administrator
+   * opening a foreign one had no name and no icon — it read "Untitled" with
+   * everything greyed out. The list route is scoped by the same rights, so
+   * asking it is asking the one source that already knows.
+   */
+  const own = session.workspaces.find((entry) => entry.id === workspaceId);
+  const [fetched, setFetched] = useState<{ name: string; icon: WorkspaceIcon | null } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (own || !workspaceId) return;
+    void api
+      .adminWorkspaces()
+      .then((result) => {
+        const found = result.workspaces.find((entry) => entry.id === workspaceId);
+        setFetched(found ? { name: found.name, icon: found.icon ?? null } : null);
+      })
+      .catch(() => {
+        // No name is better than a wrong one; the sections still work.
+        setFetched(null);
+      });
+  }, [own, workspaceId]);
+
+  const workspace = own ?? (fetched ? { ...fetched, role: 'unknown' as const } : undefined);
   const canAdminister =
     session.user.isInstanceAdmin || session.user.canManageWorkspaces;
 
-  // The same two roles the server enforces, stated here so the controls are
-  // disabled rather than failing on save.
-  const canEdit = workspace?.role === 'owner' || workspace?.role === 'admin';
+  /*
+   * What the server actually enforces, which is more than this said (ADR-0067).
+   *
+   * It read the workspace role alone — owner or admin of *this* workspace. The
+   * route has always accepted the role **or** the instance-wide
+   * workspace-management right, which is how somebody administers a workspace
+   * they are not in. So an administrator opening a foreign workspace found
+   * every control disabled while the server would have accepted the save: the
+   * interface was stricter than the rule it was mirroring.
+   *
+   * Found by reading the route rather than by a failure, because a disabled
+   * control produces no failure to read.
+   */
+  const manages = session.user.isInstanceAdmin || session.user.canManageWorkspaces;
+  const canEdit = workspace?.role === 'owner' || workspace?.role === 'admin' || manages;
 
   return (
     <SettingsShell

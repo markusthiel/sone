@@ -205,14 +205,25 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
     // Or the instance-wide right, which is how somebody administers a workspace
     // they are not in (ADR-0027). Naming and decorating are the same act, so
     // the same people may do both (ADR-0030).
-    const rights = role === null ? await administratorRights(deps.pool, auth.userId) : null;
-    if (role === null && rights?.workspaces !== true) {
+    /*
+     * Asked whatever the role is, which it was not.
+     *
+     * The rights were fetched only when the role was null, so somebody who
+     * manages workspaces **and happens to be an ordinary member of one** was
+     * refused — while the same person could have edited it by leaving the
+     * workspace first. A right that a membership takes away is not a right.
+     *
+     * Found by loosening the interface to match this rule and noticing the rule
+     * did not match itself (ADR-0067).
+     */
+    const rights = await administratorRights(deps.pool, auth.userId);
+    if (role === null && !rights.workspaces) {
       // Same answer as a workspace that does not exist: the difference would
       // reveal which workspaces are on this instance.
       ctx.fail(404, 'not_found');
       return;
     }
-    if (role !== null && role !== 'owner' && role !== 'admin') {
+    if (role !== null && role !== 'owner' && role !== 'admin' && !rights.workspaces) {
       ctx.fail(403, 'not_authorized');
       return;
     }

@@ -2451,3 +2451,25 @@ test('the workspace list is one list, and the server decides its length', () => 
   );
   assert.match(screen, /hrefFor=\{\(id\) => paths\.workspaceSettings\(id, workspaceId\)\}/);
 });
+
+test('the workspace screen is exactly as strict as the route it mirrors', () => {
+  /*
+   * It was stricter. `canEdit` read the workspace role alone, while the route
+   * has always accepted the role **or** the workspace-management right — which
+   * is how somebody administers a workspace they are not in. So an
+   * administrator opening a foreign workspace found every control disabled
+   * while the server would have accepted the save (ADR-0067).
+   *
+   * A disabled control produces no failure to read, which is why this was found
+   * by reading the route rather than by anything going wrong.
+   */
+  const screen = codeOf(
+    new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
+  );
+  assert.match(screen, /canManageWorkspaces/);
+  assert.match(screen, /const canEdit =[\s\S]{0,120}\|\| manages;/);
+
+  // And it has a name to show for a workspace the session does not carry:
+  // before, a foreign one read "Untitled" with everything greyed out.
+  assert.match(screen, /api\s*\n?\s*\.adminWorkspaces\(\)/);
+});

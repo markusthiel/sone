@@ -2,8 +2,7 @@
 
 ## Status
 
-Accepted and built, except for per-section rights finer than the single
-`canEdit` the screen already had.
+Accepted and built.
 
 ## Context
 
@@ -129,6 +128,31 @@ workspace deleted. The compiler caught it only because a variable went unused.
 There is a test for it now, in the same test as the loosening, because the
 loosening is not safe without it.
 
+**Rights, and two things they were not.**
+
+The screen's `canEdit` read the workspace role alone — owner or admin of *this*
+workspace. The route has always accepted the role **or** the instance-wide
+workspace-management right, which is how somebody administers a workspace they
+are not in. So an administrator opening a foreign one found every control
+disabled while the server would have accepted the save: **the interface was
+stricter than the rule it was mirroring**, and a disabled control produces no
+failure to read.
+
+It also had no name to show for a workspace the session does not carry, so a
+foreign one read "Untitled" with everything greyed out. It asks the list route,
+which is scoped by the same rights and is therefore the one source that already
+knows.
+
+**And the route disagreed with its own comment.** The rights were fetched only
+when the role was null, so somebody with the management right who happened to be
+an ordinary *member* of a workspace was refused — while the same person could
+have edited it by leaving the workspace first. **A right a membership takes away
+is not a right.** Fixed, with the test named for that case.
+
+Nothing finer than this is needed for the report that prompted the record: an
+owner edits their own, a manager edits any, a member reads. Per-section rights
+stay undecided below.
+
 ## Consequences
 
 `WorkspaceSettingsScreen` and `WorkspaceDetail` become one component. The
@@ -147,6 +171,10 @@ workspace is visible to its members.** It already was, in the people panel.
 it is the server. The mail relay, the sign-up policy and the second-factor
 requirement belong where they are, and a "settings" screen that mixes the two
 would make "who can change this" unanswerable at a glance.
+
+**A per-section right.** "Can edit the name but not the members" is a
+permissions system, and this record is about where controls live rather than what
+they are called.
 
 **A per-workspace right finer than owner and member.** "Can edit the name but
 not the members" is a permissions system, and this record is about where controls
