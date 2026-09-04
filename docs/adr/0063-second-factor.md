@@ -189,10 +189,13 @@ too long for any version.
 attestation, resident keys, multiple authenticators per account, and a recovery
 story of their own. They deserve a record rather than an afternoon.
 
-**Requiring it instance-wide.** An administrator being able to say "everybody
-here must have one" is reasonable and is a policy question — what happens to
-somebody who has not enrolled, whether they can still read, how long they get.
-None of that is decided by adding a flag.
+**Requiring it instance-wide.** Now
+[ADR-0065](0065-requiring-a-second-factor.md), which answers the three policy
+questions that were the actual feature: fourteen days of grace with two mails,
+then enrolment as the only reachable screen — reading included, because a stolen
+password that grants read access to a company's notes has granted the thing that
+mattered. And an administrator cannot switch it on without having one
+themselves.
 
 **Remembering a device.** "Do not ask again on this browser" is a cookie that is
 a second factor, and deciding how long it lives and what invalidates it is its
