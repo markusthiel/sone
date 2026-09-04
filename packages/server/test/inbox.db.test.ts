@@ -254,6 +254,120 @@ test('putting back somebody else’s notification does nothing', async () => {
   assert.equal(his.unread, 0, 'still read, by the only person who may say so');
 });
 
+test('something put aside stops counting and stops waiting', async () => {
+  /*
+   * A badge that keeps counting what somebody deliberately put aside is a badge
+   * they stop believing, and that is the one thing this number must not become
+   * (ADR-0075).
+   */
+  const anna = await person('jana');
+  const id = await notify(anna, 'Später');
+  const snooze = (until: string | null): Promise<Response> =>
+    fetch(`${base}/api/inbox/snooze`, {
+      method: 'POST',
+      headers: { cookie: anna.cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: [id], until }),
+    });
+  const count = async (): Promise<number> =>
+    (
+      await expectJson<{ unread: number }>(
+        await fetch(`${base}/api/inbox/count`, { headers: { cookie: anna.cookie } }),
+        200,
+      )
+    ).unread;
+
+  assert.equal(await count(), 1);
+  await expectJson(await snooze(new Date(Date.now() + 3_600_000).toISOString()), 200);
+  assert.equal(await count(), 0, 'asleep');
+
+  // And out of "unread", which means waiting for you.
+  const waiting = await expectJson<{ notifications: unknown[] }>(
+    await fetch(`${base}/api/inbox?unread=true`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.deepEqual(waiting.notifications, []);
+
+  // But still in the full listing, with the moment it comes back — one of the
+  // browser's views is the list of what is asleep.
+  const all = await expectJson<{ notifications: Array<{ snoozedUntil: string | null }> }>(
+    await fetch(`${base}/api/inbox`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.equal(all.notifications.length, 1);
+  assert.ok(all.notifications[0]?.snoozedUntil, 'and it says when');
+
+  // Waking it is the undo, and it is the same call with no time.
+  await snooze(null);
+  assert.equal(await count(), 1);
+});
+
+test('a notification wakes on its own, with nothing to run', async () => {
+  /*
+   * Asleep is "the moment is in the future", so the clock passing it is the
+   * whole mechanism. Nothing schedules a wake-up, so nothing can miss a tick or
+   * be out of step with the time.
+   */
+  const anna = await person('karin');
+  const id = await notify(anna, 'Kurz weg');
+  await db.query(`UPDATE notifications SET snoozed_until = now() - interval '1 minute'
+                   WHERE id = $1`, [id]);
+
+  const count = await expectJson<{ unread: number }>(
+    await fetch(`${base}/api/inbox/count`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.equal(count.unread, 1, 'back on its own');
+
+  // And a moment that has passed is reported as no moment at all: it is simply
+  // awake, and leaving it in would make every reader repeat the comparison.
+  const all = await expectJson<{ notifications: Array<{ snoozedUntil: string | null }> }>(
+    await fetch(`${base}/api/inbox`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.equal(all.notifications[0]?.snoozedUntil, null);
+});
+
+test('a time in the past, or a year out, is refused', async () => {
+  // The first would be asleep and awake at once; the second is "delete it
+  // without saying so".
+  const anna = await person('lena');
+  const id = await notify(anna, 'Nein');
+  const snooze = (until: unknown): Promise<Response> =>
+    fetch(`${base}/api/inbox/snooze`, {
+      method: 'POST',
+      headers: { cookie: anna.cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: [id], until }),
+    });
+
+  assert.equal((await snooze(new Date(Date.now() - 1000).toISOString())).status, 422);
+  assert.equal((await snooze(new Date(Date.now() + 400 * 86_400_000).toISOString())).status, 422);
+  assert.equal((await snooze('nächsten Dienstag')).status, 422);
+  // And nothing was put aside by any of them.
+  const count = await expectJson<{ unread: number }>(
+    await fetch(`${base}/api/inbox/count`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.equal(count.unread, 1);
+});
+
+test('putting aside somebody else’s notification does nothing', async () => {
+  const anna = await person('mira');
+  const bert = await person('nils');
+  const theirs = await notify(bert, 'Fremd');
+
+  await fetch(`${base}/api/inbox/snooze`, {
+    method: 'POST',
+    headers: { cookie: anna.cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ ids: [theirs], until: new Date(Date.now() + 3_600_000).toISOString() }),
+  });
+
+  const his = await expectJson<{ unread: number }>(
+    await fetch(`${base}/api/inbox/count`, { headers: { cookie: bert.cookie } }),
+    200,
+  );
+  assert.equal(his.unread, 1, 'still waiting for the only person it is for');
+});
+
 test('an archived page is not a place to be sent', async () => {
   const anna = await person('frida');
   await notify(anna, 'Zu einer Seite im Papierkorb');

@@ -2497,6 +2497,48 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   color: var(--sone-text-muted);
 }
 
+/* Putting a row aside, and the three times behind it (ADR-0075). */
+.inbox-snooze { position: relative; flex: none; }
+.inbox-snooze-menu {
+  position: absolute;
+  z-index: 43;
+  inset-block-start: calc(100% + 2px);
+  inset-inline-end: 0;
+  min-inline-size: 17rem;
+  padding: var(--sone-space-2);
+  display: flex;
+  flex-direction: column;
+  /* One treatment for everything that floats: the overlay surface, a subtle
+     border, and a lift. */
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: var(--sone-shadow-lg);
+}
+.inbox-snooze-menu button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sone-space-4);
+  min-block-size: var(--sone-tap);
+  padding-inline: var(--sone-space-3);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.inbox-snooze-menu button:hover { background: var(--sone-bg-hover); }
+/* The name on one line: "Morgen früh" broken across two makes the moment
+   beside it look like it belongs to something else. */
+.inbox-snooze-menu button > span:first-child { white-space: nowrap; }
+
+/* A sleeping row steps back, like a read one: it is here on purpose and is not
+   asking for anything until it comes back. */
+.inbox-list li[data-asleep='true'] .inbox-excerpt { color: var(--sone-text-muted); }
+
 /* The keys, said once above the list rather than repeated on every row.
  *
  * Not on a phone: there is no keyboard to press them on, and two lines

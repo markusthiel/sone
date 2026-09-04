@@ -13,7 +13,19 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-No operator action. Pull and restart.
+Pull and restart; one migration runs by itself.
+
+**A notification can be put aside until later.** Every row in the inbox has a
+**Später** button with three times — in drei Stunden, morgen früh, nächste
+Woche — and each shows the moment it means, so you can see what you are agreeing
+to. From the keyboard, **s** takes tomorrow morning.
+
+What is asleep leaves the list and stops counting against the badge on your
+picture, which is the point: a count that includes what you deliberately put off
+is a count nobody believes. It comes back on its own when the time arrives —
+nothing runs, the moment simply passes. A **Später** view appears while anything
+is asleep, saying when each one returns, and one button brings any of them back
+early.
 
 **SONE has a bar along the bottom on a phone.** Seiten, Workspaces, Posteingang,
 Papierkorb and you — the same places the rail holds on a wide screen, where a
