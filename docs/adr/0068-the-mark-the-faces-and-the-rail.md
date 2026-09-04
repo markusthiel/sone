@@ -61,10 +61,35 @@ what separates it from the page titles beneath it without spending a colour or a
 rule. A count is a number you compare, and mono keeps 8 and 88 the same shape in
 the same column.
 
+It runs through everything technical, not through three classes: the breadcrumb,
+a column header, a file's size and date, a version, every count. The first pass
+gave it to three and the result was a texture nobody could see.
+
+A table header is a rule now rather than a fill. The subtle background made it a
+second surface inside something that is already a grid of lines, which is two
+devices for one job — and it is not uppercased, because a column's name is
+something somebody typed and shouting it back at them is a liberty a static
+label can take and this cannot.
+
 Document headings keep `--sone-heading-weight: 300`. The brand direction wanted
 them bold and tight; the argument already written into `typography.test.ts` is
 better than that one — size carries the weight, and a bold heading over a note
-shouts at the thing it introduces. It is one token if that is ever revisited.
+shouts at the thing it introduces.
+
+*Amended:* the page title was taking that token too, so an argument about prose
+was being applied to something that is not prose. A heading inside a document
+introduces the paragraph under it. A page title is the label on the thing you
+have open, in a row with the breadcrumb and the sidebar's labels — furniture,
+and furniture may be firm. Two jobs, two tokens: `--sone-title-weight: 700` at
+`-0.035em` for the title, 300 unchanged for the document. The shared token was
+the accident, and it was mine: I read the test, agreed with it, and did not
+notice it was guarding a different element than the one I was declining to
+change.
+
+That split is what made the difference visible at all. With it, and with the
+monospaced face given to the breadcrumb, the table headers, the metadata lines
+and the counts, the interface reads as the design rather than as the old one
+with a new logo — which is what it still looked like after the first pass.
 
 ### A rail for the instance
 
