@@ -70,7 +70,9 @@ test('inviting uses the same panel a workspace owner uses', () => {
    * exactly what ADR-0027 predicted would happen to whichever of the two got
    * used less.
    */
-  assert.match(workspaceScreen, /<WorkspaceInvite workspaceId=\{workspaceId\} \/>/);
+  // Access rather than an invitation (ADR-0073), and inside the table of who is
+  // here rather than beside it.
+  assert.match(workspaceScreen, /<WorkspaceMembers workspaceId=\{workspaceId\} canAdminister=\{canEdit\} \/>/);
 });
 
 test('opening one is a place to link to', () => {

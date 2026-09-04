@@ -727,14 +727,19 @@ export const api = {
       method: 'DELETE',
     }),
 
-  inviteToWorkspace: (
-    workspaceId: string,
-    input: { email?: string | null; role?: string; maxUses?: number },
-  ) =>
-    request<{ token: string; invitationId: string; expiresAt: string }>(
-      `/api/workspaces/${workspaceId}/invitations`,
+  /**
+   * Give an account that already exists access to a workspace (ADR-0073).
+   *
+   * By address, and not from a list of everybody: a picker of every account on
+   * the server would make every workspace owner a reader of the instance's
+   * directory, which the administration keeps on purpose.
+   */
+  addMember: (workspaceId: string, input: { email: string; role?: string }) =>
+    request<{ userId: string; role: string }>(
+      `/api/workspaces/${workspaceId}/members`,
       { method: 'POST', body: JSON.stringify(input) },
     ),
+
 
   /** An account here, without a decision about which team they belong to. */
   inviteToInstance: (input: { email?: string | null; maxUses?: number }) =>

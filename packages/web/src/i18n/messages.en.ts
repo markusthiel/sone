@@ -203,8 +203,6 @@ export const en = {
   'file.pdfPageOf': 'Page {page} of {total}',
   'file.pdfLoading': 'Opening the document\u2026',
   'file.pdfFailed': 'This document could not be shown here.',
-  'workspace.invitations': 'Invitations',
-  'workspace.invitations.hint': 'Links that let somebody join this workspace.',
   'workspace.delete.hint': 'Remove this workspace, reversibly, for a while.',
   'workspace.delete.notYours':
     'Only an owner of this workspace, or somebody who manages workspaces, can ' +
@@ -648,13 +646,6 @@ export const en = {
     'Optional. With one, the invitation is for that person and can be used once. ' +
     'Without one it is a link anybody holding it may use — which is how you invite a ' +
     'group without typing every address.',
-  'invite.workspace.note':
-    'Works whether or not they already have an account. With one, the link asks them to ' +
-    'join and their own workspace is untouched. Without one, they register first and end ' +
-    'up in both.',
-  'invite.workspace.address':
-    'With an address the invitation is for that person and can be used once — and only ' +
-    'they can accept it, even if somebody else opens the link.',
   'group.note':
     'A group is a list of people. Give a group access to a page once, and everybody in ' +
     'it has it — including whoever joins later, which is what makes this worth keeping ' +
@@ -690,8 +681,6 @@ export const en = {
   'invite.email': 'Email address',
   'invite.emailPlaceholder': 'someone@example.org',
   'invite.link': 'Invitation link',
-  'invite.here': 'Invite somebody here',
-  'invite.joinAs': 'They join as',
   'invite.outstanding': 'Outstanding invitations',
   'invite.anybodyWithLink': 'Anybody with the link',
   'invite.role': 'Role',
@@ -970,6 +959,24 @@ export const en = {
   'tableAction.delete-table': 'Delete table',
 
   // --- what a role may do ------------------------------------------------
+  'role.owner': 'Owner',
+  'role.owner.hint': 'May transfer and delete the workspace',
+  'access.add': 'Give access',
+  'access.note':
+    'For people who already have an account on this server. Somebody who does ' +
+    'not is invited from the administration — that makes an account, which is ' +
+    'a different thing.',
+  'access.example': 'someone@example.org',
+  'access.address': 'Email address',
+  'access.address.hint': 'The address they sign in here with.',
+  'access.as': 'They come in as',
+  'access.give': 'Give access',
+  'access.given': '{email} has access now.',
+  'error.no_such_account':
+    'There is no account here with that address. New people are invited from the administration.',
+  'error.already_member': 'They are already in this workspace.',
+  'error.invalid_email': 'Please enter an email address.',
+  'member.roleFor': 'Role for {name}',
   'role.member': 'Member',
   'role.member.hint': 'Can read and write everything not restricted',
   'role.admin': 'Admin',
