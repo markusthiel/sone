@@ -20,7 +20,8 @@
  * about code that is not the code executing.
  */
 
-import { useEffect, useState, type ReactElement } from 'react';
+import qr from 'qrcode-generator';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 
 import {
   ApiError,
@@ -298,6 +299,75 @@ function Profile({
  * is better than a QR code there. A QR image for the desktop case is worth a
  * dependency and is offered as one.
  */
+/**
+ * The QR code an authenticator app scans (ADR-0063 amendment).
+ *
+ * `qrcode-generator` does the encoding — Reed-Solomon, masking and version
+ * selection, which is a real algorithm that SONE's scope does not make smaller.
+ * One package, no transitive dependencies, and it computes locally: the shared
+ * secret never leaves the instance, which ruled out every image service.
+ *
+ * The drawing is ours rather than the library's `createSvgTag`, so the colours
+ * are the theme's and there is no `dangerouslySetInnerHTML` in a screen that
+ * displays a credential.
+ */
+function SecretQr({ uri }: { uri: string }): ReactElement | null {
+  // The hook at the top, not inside an attribute: I had `useT()` in the
+  // aria-label, which is a hook call in a conditional render path.
+  const { t } = useT();
+  const modules = useMemo(() => {
+    try {
+      // Type 0 picks the smallest version that fits; 'M' is the middle error
+      // correction level, which is what authenticator apps expect.
+      const code = qr(0, 'M');
+      code.addData(uri);
+      code.make();
+      const count = code.getModuleCount();
+      const dark: Array<[number, number]> = [];
+      for (let row = 0; row < count; row += 1) {
+        for (let column = 0; column < count; column += 1) {
+          if (code.isDark(row, column)) dark.push([row, column]);
+        }
+      }
+      return { count, dark };
+    } catch {
+      // A URI too long for any version, or a library that changed under us:
+      // the typed secret below is the fallback, and it always works.
+      return null;
+    }
+  }, [uri]);
+
+  if (!modules) return null;
+
+  // A quiet zone of four modules, which the specification requires and which
+  // scanners genuinely need.
+  const quiet = 4;
+  const size = modules.count + quiet * 2;
+
+  return (
+    <svg
+      className="totp-qr"
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label={t('you.secondFactor.qrLabel')}
+    >
+      {/* Always on white, never on the theme's surface: a dark-mode QR code
+          with inverted colours is one many scanners refuse. */}
+      <rect width={size} height={size} fill="#fff" />
+      {modules.dark.map(([row, column]) => (
+        <rect
+          key={`${row}-${column}`}
+          x={column + quiet}
+          y={row + quiet}
+          width={1}
+          height={1}
+          fill="#000"
+        />
+      ))}
+    </svg>
+  );
+}
+
 function SecondFactorSettings({ session }: { session: SessionInfo }): ReactElement {
   const { t } = useT();
   const [enrolment, setEnrolment] = useState<{ uri: string; secret: string } | null>(null);
@@ -373,6 +443,7 @@ function SecondFactorSettings({ session }: { session: SessionInfo }): ReactEleme
       ) : enrolment ? (
         <>
           <p>{t('you.secondFactor.scan')}</p>
+          <SecretQr uri={enrolment.uri} />
           {/* On a phone this opens the authenticator app; on a desktop it is
               inert, which is why the typed secret is below it. */}
           <p>

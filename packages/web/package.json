@@ -22,6 +22,7 @@
     "prosemirror-state": "1.4.4",
     "prosemirror-tables": "1.8.5",
     "prosemirror-view": "1.42.3",
+    "qrcode-generator": "^2.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "y-indexeddb": "^9.0.12",

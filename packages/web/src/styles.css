@@ -2195,6 +2195,21 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
 }
 
+/* The QR code (ADR-0063). Bounded rather than full width, and with its own
+   white background: a dark-mode code with inverted colours is one many scanners
+   refuse, so the white is in the SVG and not left to the theme. */
+.totp-qr {
+  display: block;
+  inline-size: min(220px, 60vw);
+  block-size: auto;
+  margin-block: var(--sone-space-3);
+  border-radius: var(--sone-radius);
+  /* Crisp edges: a QR code scaled with smoothing is a QR code with grey
+     module borders. */
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+}
+
 /* The shared secret and the recovery codes (ADR-0063). Monospaced and spaced
    out, because both are copied by hand and a proportional face makes a 1 and an
    l the same problem. */

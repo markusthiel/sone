@@ -166,8 +166,22 @@ of the question: it would send the shared secret to somebody else.
 
 So the enrolment screen shows the secret in groups of four, which every
 authenticator app accepts by hand, and an `otpauth://` link that on a phone
-opens the app directly — better than a QR code there. A QR for the desktop case
-is worth a dependency, and is offered as one rather than smuggled in.
+opens the app directly — better than a QR code there.
+
+**Amended: there is a QR code, and it is a dependency.** `qrcode-generator`:
+one package, no transitive dependencies, and it computes locally — which was the
+condition, because every image service would have meant sending the shared
+secret to somebody else's server.
+
+Only the encoding comes from it. The drawing is ours, so the quiet zone, the
+sizing and the crisp edges are under our control and no screen displaying a
+credential carries `dangerouslySetInnerHTML`. The code is drawn on white inside
+the SVG rather than on the theme's surface: a dark-mode QR with inverted colours
+is one many scanners refuse.
+
+The typed secret stays below it. A QR that fails to render must not be the only
+way in — and the component returns null rather than throwing if the URI is ever
+too long for any version.
 
 ## What is deliberately not decided
 

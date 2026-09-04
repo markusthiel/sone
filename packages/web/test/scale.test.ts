@@ -2310,3 +2310,39 @@ test('a comment that arrived by email says so, beside its author', () => {
   const en = codeOf(new URL('../src/i18n/messages.en.ts', import.meta.url));
   assert.match(en, /SONE_IMAP_PASSWORD/);
 });
+
+test('the QR code encodes the enrolment URI, and the drawing is ours', async () => {
+  /*
+   * Against the library's own encoder rather than against a snapshot: what
+   * matters is that the modules drawn are the modules for *this* URI, and a
+   * snapshot would pass just as happily for the wrong string (ADR-0063).
+   */
+  const { default: qr } = await import('qrcode-generator');
+  const uri =
+    'otpauth://totp/SONE:anna@example.org?secret=JBSWY3DPEHPK3PXP&issuer=SONE' +
+    '&algorithm=SHA1&digits=6&period=30';
+  const code = qr(0, 'M');
+  code.addData(uri);
+  code.make();
+
+  // A real code has its finder pattern: a 7×7 square in the top-left corner.
+  assert.equal(code.getModuleCount() >= 21, true);
+  for (let at = 0; at < 7; at += 1) {
+    assert.equal(code.isDark(0, at), true, 'the finder pattern is solid');
+  }
+
+  const settings = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
+  // Ours, so the colours are the theme's and no credential screen carries
+  // `dangerouslySetInnerHTML`.
+  assert.match(settings, /code\.isDark\(row, column\)/);
+  assert.doesNotMatch(settings, /createSvgTag|dangerouslySetInnerHTML/);
+  // White in the SVG rather than left to the theme: a dark-mode code with
+  // inverted colours is one many scanners refuse.
+  assert.match(settings, /fill="#fff"/);
+  // And the quiet zone the specification requires.
+  assert.match(settings, /const quiet = 4;/);
+
+  // The typed secret stays, because a QR that fails to render must not be the
+  // only way in.
+  assert.match(settings, /className="totp-secret"/);
+});
