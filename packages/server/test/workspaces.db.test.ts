@@ -113,6 +113,46 @@ describe(
       headers: { ...(init.headers ?? {}), cookie },
     });
 
+    test('managing workspaces is not taken away by being a member of one', async () => {
+      /*
+       * The rule did not match itself.
+       *
+       * The rights were fetched only when the role was null, so somebody with
+       * the workspace-management right who happened to be an ordinary **member**
+       * of a workspace was refused — while the same person could have edited it
+       * by leaving first. A right a membership takes away is not a right
+       * (ADR-0067).
+       *
+       * Found by loosening the interface to match this route, and noticing the
+       * route disagreed with its own comment.
+       */
+      const session = await setup();
+      const hash = await hashPassword(PASSWORD);
+      const manager = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name, password_hash, can_manage_workspaces)
+         VALUES ('verwalter@example.org','Verwalter',$1,true) RETURNING id`,
+        [hash],
+      );
+      // A member of it, deliberately: that is the case that used to fail.
+      await db.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        [session.workspaceId, manager.rows[0]!.id],
+      );
+
+      // The same way every other test here signs in as somebody else — I
+      // invented a `signIn` helper that does not exist.
+      const login = await fetch(
+        `${base}/api/auth/login`,
+        json({ email: 'verwalter@example.org', password: PASSWORD }),
+      );
+      const renamed = await fetch(`${base}/api/workspaces/${session.workspaceId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: cookieFrom(login) },
+        body: JSON.stringify({ name: 'Umbenannt vom Verwalter' }),
+      });
+      assert.equal(renamed.status, 200, 'the right holds whatever the membership says');
+    });
+
     test('a second workspace can be created', async () => {
       const session = await setup();
       const res = await fetch(
