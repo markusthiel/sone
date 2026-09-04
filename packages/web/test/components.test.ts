@@ -116,11 +116,18 @@ test('editing a title is a line, not a box', () => {
 });
 
 test('a settings screen uses the same two surfaces as everything else', () => {
-  // It kept the old arrangement after the rest of the interface was turned over:
-  // a tinted section with a white list beside it, which is the opposite of the
-  // application it belongs to.
-  assert.match(css, /\.settings-screen \{[^}]*background: var\(--surface-page\)/);
-  assert.match(css, /\.settings-nav \{[^}]*background: var\(--surface-chrome\)/);
+  /*
+   * It kept the old arrangement after the rest of the interface was turned
+   * over: a tinted section with a white list beside it, the opposite of the
+   * application it belonged to.
+   *
+   * It has no surfaces of its own at all now (ADR-0069). The settings are
+   * content in the shell, so the paper is the shell's paper and the list beside
+   * them is the panel every mode has — which is where the rule that used to be
+   * asserted here now lives.
+   */
+  assert.doesNotMatch(css, /\.settings-screen/);
+  assert.match(css, /\.sidebar \{[^}]*background: var\(--surface-chrome\)/);
 
   // A card is set off from the paper, and not with the surface its own fields
   // use — a field that matches its card is a field nobody can see.
@@ -138,12 +145,12 @@ test('a settings screen uses the same two surfaces as everything else', () => {
   }
 });
 
-test('the settings screen is described in one rule', () => {
-  // There were two: one capped it at 900px with a padding, the other made it a
-  // fixed layer at inset 0. Both applied, so it was a fixed layer 900 pixels
-  // wide with the page showing beside it — the fifth time in this file that two
-  // half-rules for one thing have cost an afternoon.
-  const rules = [...css.matchAll(/^\.settings-screen \{/gm)];
+test('the settings body is described in one rule', () => {
+  // The screen it used to live in was described in two — one capped it at 900px
+  // with a padding, the other made it a fixed layer at inset 0, and both
+  // applied. The screen is gone; the guard moves to what replaced it rather
+  // than going with it.
+  const rules = [...css.matchAll(/^\.settings-body \{/gm)];
   assert.equal(rules.length, 1);
 });
 

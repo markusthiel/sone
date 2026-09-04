@@ -17,6 +17,10 @@ import { AccountMenu } from './components/AccountMenu.tsx';
 import { InboxPanel, itemsIn, type InboxView } from './components/InboxPanel.tsx';
 import { TrashPanel, entriesIn, type TrashView } from './components/TrashPanel.tsx';
 import { useInbox } from './hooks/useInbox.ts';
+import { SectionNav, resolveSection, type SectionGroup } from './components/SectionNav.tsx';
+import { SECTIONS as YOU_SECTIONS } from './components/Settings.tsx';
+import { SECTIONS as WORKSPACE_SECTIONS } from './components/WorkspaceSettingsScreen.tsx';
+import { ADMIN_SECTIONS } from './components/AdminScreen.tsx';
 import type { TrashEntry } from './api/client.ts';
 import { MoveDialog } from './components/MoveDialog.tsx';
 import { MoveToWorkspaceDialog } from './components/MoveToWorkspaceDialog.tsx';
@@ -357,6 +361,51 @@ function Workspace({
   const [trashView, setTrashView] = useState<TrashView>('recent');
 
   /*
+   * The settings menu, as three groups in one list rather than three screens
+   * behind a switcher (ADR-0069). Whose settings they are is what the group
+   * titles say; the workspace's group names the workspace, because an
+   * administrator opening somebody else's needs to see which one.
+   */
+  const settingsWorkspaceId =
+    route.kind === 'workspaceSettings' ? (route.workspaceId ?? workspaceId) : workspaceId;
+  const settingsWorkspaceName =
+    session.workspaces.find((one) => one.id === settingsWorkspaceId)?.name ?? workspaceName;
+  const settingsGroups: SectionGroup[] = [
+    {
+      title: t('area.you'),
+      sections: YOU_SECTIONS.map((e) => ({ id: e.id, label: t(e.label), hint: t(e.hint) })),
+      hrefFor: (id) => paths.settings(id),
+    },
+    {
+      title: settingsWorkspaceName || t('workspace.untitled'),
+      sections: WORKSPACE_SECTIONS.map((e) => ({
+        id: e.id,
+        label: t(e.label),
+        hint: t(e.hint),
+      })),
+      hrefFor: (id) => paths.workspaceSettings(id, settingsWorkspaceId),
+    },
+  ];
+  if (session.user.isInstanceAdmin) {
+    settingsGroups.push({
+      title: t('area.instance'),
+      sections: ADMIN_SECTIONS.map((e) => ({ id: e.id, label: t(e.label), hint: t(e.hint) })),
+      hrefFor: (id) => paths.admin(id),
+    });
+  }
+  const settingsCurrentHref =
+    route.kind === 'workspaceSettings'
+      ? paths.workspaceSettings(
+          resolveSection(WORKSPACE_SECTIONS, route.section),
+          settingsWorkspaceId,
+        )
+      : route.kind === 'admin'
+        ? paths.admin(resolveSection(ADMIN_SECTIONS, route.section))
+        : paths.settings(
+            resolveSection(YOU_SECTIONS, route.kind === 'settings' ? route.section : ''),
+          );
+
+  /*
    * Built once and given to exactly one place: the rail above the breakpoint,
    * the panel's foot below it. Two mounted copies would be two requests for the
    * same unread count and two answers that can disagree for a moment.
@@ -542,69 +591,18 @@ function Workspace({
   // a list of instance settings — two navigations for two unrelated things,
   // side by side, and neither of them the one somebody is using. This returns
   // early with a surface of its own and a way back (ADR-0027).
-  if (route.kind === 'settings') {
-    // An old section id, from a bookmark or an older build of this interface.
-    // Redirected rather than answered with the first section of the wrong area
-    // (ADR-0032): URLs are a public contract, and a link that lands somewhere
-    // plausible but wrong is worse than one that lands somewhere right.
-    const moved = MOVED_SETTINGS[route.section];
-    if (moved) {
-      navigate(moved, { replace: true });
-      return null;
-    }
-    return (
-      <Settings
-        section={route.section}
-        session={session}
-        workspaceId={workspaceId}
-        onClose={() => navigate(paths.home())}
-        onLogout={onLogout}
-      />
-    );
-  }
-
   /*
-   * The list of workspaces, for everybody (ADR-0067).
+   * The one thing that still has to happen before the shell renders.
    *
-   * Outside the administration, because it was inside it — which is why a
-   * member had no list at all and could only edit the workspace they happened
-   * to be looking at. The server decides its length.
+   * An old section id, from a bookmark or an older build. Redirected rather
+   * than answered with the first section of the wrong area (ADR-0032): URLs are
+   * a public contract, and a link that lands somewhere plausible but wrong is
+   * worse than one that lands somewhere right.
    */
-  if (route.kind === 'workspaceList') {
-    return (
-      <WorkspaceListScreen
-        session={session}
-        workspaceId={workspaceId}
-        onClose={() => navigate(paths.home())}
-        onLogout={onLogout}
-      />
-    );
-  }
-
-  if (route.kind === 'workspaceSettings') {
-    return (
-      <WorkspaceSettingsScreen
-        section={route.section}
-        session={session}
-        // The one named in the address, or the one being looked at when the
-        // address names none (ADR-0067).
-        workspaceId={route.workspaceId ?? workspaceId}
-        onClose={() => navigate(paths.home())}
-        onLogout={onLogout}
-      />
-    );
-  }
-
-  if (route.kind === 'admin') {
-    return (
-      <AdminScreen
-        section={route.section}
-        session={session}
-        workspaceId={workspaceId}
-        onClose={() => navigate(paths.home())}
-        onLogout={onLogout}
-      />
-    );
+  const moved = route.kind === 'settings' ? MOVED_SETTINGS[route.section] : undefined;
+  if (moved) {
+    navigate(moved, { replace: true });
+    return null;
   }
 
   return (
@@ -624,9 +622,21 @@ function Workspace({
       <Sidebar
         mode={mode}
         account={isColumn ? null : accountMenu}
-        panelTitle={mode === 'inbox' ? t('inbox.title') : t('trash.title')}
+        panelTitle={
+          mode === 'inbox'
+            ? t('inbox.title')
+            : mode === 'trash'
+              ? t('trash.title')
+              : mode === 'settings'
+                ? t('settings.title')
+                : t('workspaces.area')
+        }
         panelScope={
-          mode === 'trash' ? t('trash.scope', { workspace: workspaceName }) : undefined
+          mode === 'trash'
+            ? t('trash.scope', { workspace: workspaceName })
+            : mode === 'settings'
+              ? t('settings.scope')
+              : undefined
         }
         panelAction={
           mode === 'inbox' && (inbox.items ?? []).some((one) => !one.read) ? (
@@ -698,6 +708,33 @@ function Workspace({
         )}
         {mode === 'trash' && (
           <TrashPanel entries={trashEntries} view={trashView} onPick={setTrashView} />
+        )}
+        {mode === 'settings' && (
+          <SectionNav groups={settingsGroups} current={settingsCurrentHref} />
+        )}
+        {mode === 'workspaces' && (
+          <div className="panel-menu-group">
+            <div className="sidebar-label">{t('workspaces.area')}</div>
+            {/* The table in the content area is not this list repeated: six
+                workspaces are read down a column — role, size, deleted ones —
+                and one workspace is opened from here (ADR-0067). */}
+            <a
+              className="settings-nav-item"
+              href={paths.workspaces()}
+              {...(route.kind === 'workspaceList' ? { 'aria-current': 'page' as const } : {})}
+            >
+              {t('workspaces.all')}
+            </a>
+            {session.workspaces.map((one) => (
+              <a
+                className="settings-nav-item"
+                key={one.id}
+                href={paths.workspaceSettings('general', one.id)}
+              >
+                {one.name}
+              </a>
+            ))}
+          </div>
         )}
       </Sidebar>
 
@@ -839,6 +876,51 @@ function Workspace({
         {/* The inbox spans workspaces, so it takes no workspace id — the whole
             point is being told about a question asked somewhere other than
             where somebody is standing (ADR-0052). */}
+        {route.kind === 'settings' && (
+          <Settings
+            section={route.section}
+            session={session}
+            workspaceId={workspaceId}
+            onClose={() => navigate(paths.home())}
+            onLogout={onLogout}
+          />
+        )}
+
+        {/* The list of workspaces, for everybody (ADR-0067). Outside the
+            administration, because it was inside it — which is why a member had
+            no list at all and could only edit the one they happened to be
+            looking at. The server decides its length. */}
+        {route.kind === 'workspaceList' && (
+          <WorkspaceListScreen
+            session={session}
+            workspaceId={workspaceId}
+            onClose={() => navigate(paths.home())}
+            onLogout={onLogout}
+          />
+        )}
+
+        {route.kind === 'workspaceSettings' && (
+          <WorkspaceSettingsScreen
+            section={route.section}
+            session={session}
+            // The one named in the address, or the one being looked at when the
+            // address names none (ADR-0067).
+            workspaceId={route.workspaceId ?? workspaceId}
+            onClose={() => navigate(paths.home())}
+            onLogout={onLogout}
+          />
+        )}
+
+        {route.kind === 'admin' && (
+          <AdminScreen
+            section={route.section}
+            session={session}
+            workspaceId={workspaceId}
+            onClose={() => navigate(paths.home())}
+            onLogout={onLogout}
+          />
+        )}
+
         {route.kind === 'inbox' && (
           <InboxScreen
             items={inbox.items === null ? null : itemsIn(inbox.items, inboxView)}

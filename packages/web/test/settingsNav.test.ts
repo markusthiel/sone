@@ -1,7 +1,7 @@
 /**
- * The settings navigation (ADR-0032).
+ * The settings navigation (ADR-0032, and ADR-0069 for where it now lives).
  *
- * Three areas, three lists, one frame. The tests worth having are about the
+ * Three areas, three groups, one list in the panel. The tests worth having are about the
  * boundary between them — whose settings these are — and about the two things
  * that went wrong with one list of everything: two menu entries landing on the
  * same page, and two sections falling out of the list while the code below it
@@ -13,7 +13,7 @@ import { test } from 'node:test';
 
 import { codeOf, stylesOf } from './helpers/source.ts';
 
-const shell = codeOf(new URL('../src/components/SettingsShell.tsx', import.meta.url));
+const nav = codeOf(new URL('../src/components/SectionNav.tsx', import.meta.url));
 const you = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
 const workspace = codeOf(
   new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
@@ -22,9 +22,11 @@ const instance = codeOf(new URL('../src/components/AdminScreen.tsx', import.meta
 
 test('every settings column carries the same account menu', () => {
   // It was only in the sidebar, so from the administration area the way to your
-  // own profile — or to the trash, or out — was back through the notes. The
-  // switcher above only moves between areas.
-  assert.match(shell, /<AccountMenu/);
+  // own profile — or to the trash, or out — was back through the notes.
+  //
+  // The column no longer carries its own: the rail does, and the rail is always
+  // there (ADR-0069), which is the same promise kept with one copy instead of
+  // two.
   const account = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
   assert.match(account, /className="sidebar-footer"/, 'the same footer, not a copy of it');
   /*
@@ -43,22 +45,20 @@ test('every settings column carries the same account menu', () => {
   assert.doesNotMatch(sidebar, /className="sidebar-account-menu"/);
 });
 
-test('the switcher at the top of the column is the same shape, holding areas', () => {
-  // Where the workspace switcher sits in the application, so it is where
-  // somebody has already learnt to look for "where am I, and what else is
-  // there". The classes are the switcher's own — `switcher-*`, not
-  // `workspace-*` — because the shape belongs to the position rather than to
-  // either of the two things it holds.
-  assert.match(shell, /className="switcher-button"/);
-  assert.match(shell, /className="switcher-menu"/);
-  assert.match(shell, /className="switcher-item"/);
-
-  // The three areas, named for the subject as the areas themselves are.
-  // By key, since the switcher's labels are translated (ADR-0041) — and the keys
-  // name the same three subjects the record decided.
-  for (const key of ['area.you', 'area.workspace', 'area.instance']) {
-    assert.match(shell, new RegExp(`label: '${key}'`));
-  }
+test('the three areas are three groups in one list', () => {
+  /*
+   * The switcher is gone (ADR-0069).
+   *
+   * It existed because the settings covered the application: a screen with no
+   * rail beside it needs its own way of saying "here are the other two areas".
+   * With the rail always there, the three are three groups in one list, which
+   * is the same information without a menu you have to open to find out that
+   * the other two exist.
+   */
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /title: t\('area\.you'\)/);
+  assert.match(app, /title: t\('area\.instance'\)/);
+  assert.doesNotMatch(nav, /switcher-button/, 'no switcher, and none reimplemented');
 
   // Never in the workspace switcher's own menu: "which workspace" and "whose
   // settings" are different questions, and one menu holding both means two
@@ -69,11 +69,12 @@ test('the switcher at the top of the column is the same shape, holding areas', (
   assert.doesNotMatch(workspaceMenu, /Your settings|Administration/);
 });
 
-test('the administration area is absent from the switcher without the right', () => {
+test('the administration group is absent without the right', () => {
   // Absent rather than present and refusing, as the entry into it is.
-  assert.match(shell, /area\.id !== 'admin' \|\| canAdminister/);
-  // And the right comes from the session, since the switcher only decides
-  // whether to offer the entry — the area behind it asks the server.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /if \(session\.user\.isInstanceAdmin\) \{\s*\n\s*settingsGroups\.push/);
+  // And the right comes from the session, since the list only decides whether
+  // to offer the entry — the area behind it asks the server.
   for (const [name, source] of [
     ['you', you],
     ['this workspace', workspace],
@@ -86,31 +87,18 @@ test('the administration area is absent from the switcher without the right', ()
   }
 });
 
-test('three areas, and each names whose settings it holds', () => {
-  assert.match(you, /area="You"/);
+test('the workspace group is named after the workspace', () => {
   /*
-   * Translated, and no longer claiming to be *this* workspace.
-   *
-   * It was `area="This workspace"` — hardcoded English, and true only while
-   * there was one workspace anybody could edit. An administrator opening
-   * somebody else's now reads a heading that is about a workspace rather than
-   * about theirs (ADR-0067).
+   * "This workspace" is true of five workspaces, and an administrator opening
+   * somebody else's has to see which one before changing its typography. The
+   * group's title is the name itself now rather than an area name with the
+   * workspace as a second line under it — one line, and it says the thing.
    */
-  assert.match(workspace, /area=\{t\('workspace\.area'\)\}/);
-  assert.match(instance, /area=\{t\('area\.instance'\)\}/);
-});
-
-test('the workspace area says which workspace, under the area name', () => {
-  // "This workspace" is true of five workspaces. Somebody with five needs to see
-  // which one they are editing before they change its typography — and as a
-  // quieter second line, because it is a fact rather than a choice.
-  // The name below the area still says which one — translated now, since the
-  // fallback was English too.
-  assert.match(workspace, /subtitle=\{workspace\?\.name \|\| t\('workspace\.untitled'\)\}/);
-  assert.match(shell, /className="switcher-sub"/);
-  // And the heading that used to repeat the area name is gone, or the column says
-  // the same thing twice in two lines.
-  assert.doesNotMatch(shell, /className="sidebar-label">\{area\}/);
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(app, /title: settingsWorkspaceName \|\| t\('workspace\.untitled'\)/);
+  // And it is the workspace in the address when there is one, not the one being
+  // looked at — otherwise opening somebody else's names yours.
+  assert.match(app, /route\.workspaceId \?\? workspaceId/);
 });
 
 test('the profile and signing in are two sections', () => {
@@ -207,29 +195,38 @@ test('the frame is written once', () => {
     ['this workspace', workspace],
     ['the instance', instance],
   ] as const) {
-    assert.match(source, /<SettingsShell/, `${name} uses the shell`);
+    assert.match(source, /className="settings-body"/, `${name} is a body, not a screen`);
     assert.doesNotMatch(source, /settings-nav-item/, `${name} draws no navigation of its own`);
   }
-  assert.match(shell, /className="settings-nav-item"/);
+  assert.match(nav, /className="settings-nav-item"/);
 });
 
 test('the navigation is names, not explanations', () => {
   // A line of explanation under each entry made every one three lines tall, and
   // a navigation that has to be read is a page about the navigation.
-  assert.doesNotMatch(shell, /<span className="settings-nav-hint">/);
-  assert.match(shell, /title=\{entry\.hint\}/);
+  assert.doesNotMatch(nav, /<span className="settings-nav-hint">/);
+  assert.match(nav, /title=\{entry\.hint\}/);
 });
 
-test('each area is a screen of its own with a way out', () => {
+test('no area is a screen of its own any more', () => {
+  /*
+   * They were: four routes returned before the shell rendered, so opening any
+   * of them took the whole frame away and brought a different one back — and
+   * each therefore needed its own door out.
+   *
+   * They are content in the shell now (ADR-0069). The way back is the mark,
+   * which is on screen the whole time, so the door and the early return went
+   * together.
+   */
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
-  for (const kind of ['settings', 'workspaceSettings', 'admin']) {
-    assert.match(
+  for (const kind of ['settings', 'workspaceSettings', 'admin', 'workspaceList']) {
+    assert.doesNotMatch(
       app,
       new RegExp(`if \\(route\\.kind === '${kind}'\\) \\{`),
-      `${kind} returns early`,
+      `${kind} does not return early`,
     );
+    assert.match(app, new RegExp(`route\\.kind === '${kind}' && \\(`), `${kind} is content`);
   }
-  assert.match(shell, /t\('settings\.back'\)/);
 });
 
 // --- granting the right, and the way in -------------------------------------
@@ -260,22 +257,22 @@ test('the switcher offers this workspace to everyone and the list to those who m
   assert.match(menu, /paths\.admin\('workspaces'\)/);
 });
 
-test('a phone shows the list or the section, not both', () => {
-  // Stacking them put every entry above the section, so the section scrolled in
-  // whatever was left — a box a few lines tall.
+test('the phone has one mechanism for this, not a second one', () => {
+  /*
+   * The settings screen had its own: a `data-showing` attribute flipping
+   * between "the list" and "the section", plus the state and the two handlers
+   * that drove it.
+   *
+   * The list is the panel now, and on a phone the panel is already the drawer —
+   * it slides, it has a scrim, it closes on navigation. One mechanism doing the
+   * job of two, and the one that is left is the one the rest of the interface
+   * already uses (ADR-0069).
+   */
   const css = stylesOf(new URL('../src/styles.css', import.meta.url));
-  assert.match(css, /\.settings-screen\[data-showing='section'\] \.settings-nav \{ display: none/);
-  assert.match(css, /\.settings-screen\[data-showing='list'\] \.settings-body \{ display: none/);
-});
-
-test('it starts on the section, not on the list', () => {
-  // Arriving at a list of settings when you asked for one setting is a step
-  // nobody wanted.
-  assert.match(you, /useState\(false\);/);
-  assert.match(shell, /data-showing=\{listOpen \? 'list' : 'section'\}/);
-});
-
-test('choosing an entry returns to the section', () => {
-  // Otherwise the list stays over the thing it was asked to show.
-  assert.match(shell, /onClick=\{\(\) => onListOpen\(false\)\}/);
+  assert.doesNotMatch(css, /data-showing/);
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.doesNotMatch(app, /listOpen/);
+  for (const source of [you, workspace, instance]) {
+    assert.doesNotMatch(source, /listOpen/);
+  }
 });

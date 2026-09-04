@@ -28,7 +28,7 @@ import { useT } from '../i18n/useT.tsx';
 import { BellIcon, TrashIcon, WorkspacesIcon } from './icons.tsx';
 
 /** A mode is a place you stay, never an action you take. */
-export type Mode = 'tree' | 'workspaces' | 'inbox' | 'trash';
+export type Mode = 'tree' | 'workspaces' | 'inbox' | 'trash' | 'settings';
 
 export type ModeEntry = {
   mode: Mode;
@@ -69,5 +69,15 @@ export function modeOf(kind: string): Mode {
   if (kind === 'inbox') return 'inbox';
   if (kind === 'trash') return 'trash';
   if (kind === 'workspaceList') return 'workspaces';
+  /*
+   * Settings has no icon on the rail, on purpose: a cog would have to mean
+   * three things at once — yours, the workspace's, the instance's — and at that
+   * moment the rail answers "what do I want to do" rather than "where am I".
+   * It is reached from the account menu and is a mode like any other once you
+   * are in it.
+   */
+  if (kind === 'settings' || kind === 'workspaceSettings' || kind === 'admin') {
+    return 'settings';
+  }
   return 'tree';
 }

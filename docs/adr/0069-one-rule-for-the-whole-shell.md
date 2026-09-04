@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Stage one of four is implemented; the rest is named at the end.
+Accepted. Stages one and two are implemented; the rest is named at the end.
 
 ## Context
 
@@ -97,13 +97,42 @@ longer fetch or filter; they are handed what to show. `InboxScreen` lost its
 own "unread only" checkbox — a filter drawn twice is a filter that can disagree
 with itself, and the one in the panel is the one carrying the counts.
 
+### Stage two: the four screens become content
+
+`settings`, `workspaceList`, `workspaceSettings` and `admin` returned before the
+shell rendered. They are content in it now, and three things fell out of that
+rather than being designed:
+
+**The area switcher is gone.** It existed because the settings covered the
+application: a screen with no rail beside it needs its own way of saying "here
+are the other two areas". With the rail always there, the three areas are three
+groups in one list — the same information, without a menu you have to open to
+discover that the other two exist. The workspace's group is titled with the
+workspace's *name*, which also retires the second line under the area name: an
+administrator opening somebody else's reads which one on the only line there is.
+
+**The way out is gone**, because there is nothing to get out of. Each screen had
+its own "back", at the top of its own navigation, for the same reason each had
+its own account menu — it had covered everything. The mark does that job now and
+is never not there.
+
+**The phone's two-view mechanism is gone.** The settings screen flipped between
+"the list" and "the section" with a `data-showing` attribute, its own state and
+two handlers. The list is the panel now, and on a phone the panel is already the
+drawer: it slides, it has a scrim, it closes on navigation. One mechanism where
+there were two, and the surviving one is the one the rest of the interface uses.
+
+What is left of `SettingsShell` is `SectionNav`: a list of groups, and
+`resolveSection`. 274 lines became 69.
+
+The workspace list keeps its table. The panel lists the workspaces to open one;
+the table compares them — role, size, the deleted ones and their restore — which
+is the distinction ADR-0067 already drew: six workspaces are read down a column,
+not one row at a time. The panel navigates, the table shows. They are not two
+ways into the same thing.
+
 Deliberately not done here, in order:
 
-- **Stage two.** Workspaces and settings as modes. Those four early returns in
-  `App.tsx` go, `SettingsShell` goes with them, and the rail stops being a thing
-  you can navigate out of. Until then the workspaces icon still leaves the
-  shell, which is exactly what it did before — nothing regressed, but the model
-  is not yet whole.
 - **Stage three.** The rest of what the two modes should be: grouping several
   replies in one thread into one row, a reading view beside a deleted page
   before you restore it, "restore to…" when the folder above is gone (the API
