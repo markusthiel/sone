@@ -105,6 +105,8 @@ export interface SessionInfo {
     displayName: string;
     isGuest: boolean;
     /** Whether to be emailed, per kind (ADR-0058). */
+    /** Whether an authenticator is enrolled and confirmed (ADR-0063). */
+    hasSecondFactor?: boolean;
     /** When each kind is worth a mail (ADR-0061, amended). */
     mentionsWhen?: 'immediately' | 'daily' | 'off';
     assignmentsWhen?: 'immediately' | 'daily' | 'off';

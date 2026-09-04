@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Sign-in can ask for a code from an authenticator app**
+([ADR-0063](docs/adr/0063-second-factor.md)). Set it up under You → Signing in;
+ten recovery codes come with it, shown once. A password reset does *not* remove
+it — otherwise anybody with your mailbox would have your account. If both the
+app and the codes are gone, an administrator can remove it, and you are told by
+mail who did.
+
 **Asking to reset the password of a single sign-on account now gets an answer**
 ([ADR-0059](docs/adr/0059-password-reset.md)) — a mail saying the account signs
 in through its provider, instead of the silence that left people waiting for a

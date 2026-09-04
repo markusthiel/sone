@@ -2,9 +2,7 @@
 
 ## Status
 
-Accepted. Built except for the enrolment screen under You → Security; the
-arithmetic, the store, the routes, the sign-in step and the administrator's
-removal are done.
+Accepted and built end to end.
 
 ## Context
 
@@ -159,6 +157,17 @@ first time somebody's phone falls in a lake.
 Nothing changes for anybody who does not turn it on, and nothing about single
 sign-on: an OIDC account authenticates at the provider, which has its own second
 factor and is the right place for it.
+
+**No QR image, and that is a decision rather than an omission.** Generating one
+is a real algorithm — Reed-Solomon, masking, version selection — and unlike the
+MIME reader in ADR-0060, nothing about SONE's scope makes it smaller. The
+options were a dependency or a third-party image service, and the second is out
+of the question: it would send the shared secret to somebody else.
+
+So the enrolment screen shows the secret in groups of four, which every
+authenticator app accepts by hand, and an `otpauth://` link that on a phone
+opens the app directly — better than a QR code there. A QR for the desktop case
+is worth a dependency, and is offered as one rather than smuggled in.
 
 ## What is deliberately not decided
 

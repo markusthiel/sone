@@ -575,6 +575,9 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
          * it, and a second request for three booleans would be a second thing
          * to keep in step with the profile patch that changes them.
          */
+        // So the settings screen knows which half of itself to show, without a
+        // second request (ADR-0063).
+        hasSecondFactor: await hasSecondFactor(deps.pool, auth.userId),
         mentionsWhen: user?.mentions_when ?? 'immediately',
         assignmentsWhen: user?.assignments_when ?? 'immediately',
         repliesWhen: user?.replies_when ?? 'off',
