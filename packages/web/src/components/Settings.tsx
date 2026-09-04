@@ -747,6 +747,7 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
   );
   const [repliesWhen, setRepliesWhen] = useState(session.user.repliesWhen ?? 'off');
   const [activity, setActivity] = useState(session.user.activityDigest ?? 'off');
+  const [scope, setScope] = useState(session.user.digestScope ?? 'all');
   const [error, setError] = useState<string | null>(null);
 
   const save = (input: {
@@ -754,6 +755,7 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
     assignmentsWhen?: 'immediately' | 'daily' | 'off';
     repliesWhen?: 'immediately' | 'daily' | 'off';
     activityDigest?: 'off' | 'daily' | 'weekly';
+    digestScope?: 'all' | 'watched';
     emailAssignments?: boolean;
     emailReplies?: boolean;
   }): void => {
@@ -797,6 +799,28 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
           <option value="weekly">{t('you.activity.weekly')}</option>
         </select>
       </label>
+
+      {/* What the mail covers (ADR-0064). Only shown when the mail is on: a
+        * scope for a mail nobody receives is a question about nothing. */}
+      {activity !== 'off' && (
+        <label className="settings-row">
+          <span className="settings-row-label">
+            <b>{t('you.activity.scope')}</b>
+            <span>{t('you.activity.scope.hint')}</span>
+          </span>
+          <select
+            value={scope}
+            onChange={(event) => {
+              const chosen = event.target.value as 'all' | 'watched';
+              setScope(chosen);
+              save({ digestScope: chosen });
+            }}
+          >
+            <option value="all">{t('you.activity.scope.all')}</option>
+            <option value="watched">{t('you.activity.scope.watched')}</option>
+          </select>
+        </label>
+      )}
 
       {/* One answer per kind, replacing a tick plus a separate schedule
         * (ADR-0061, amended).

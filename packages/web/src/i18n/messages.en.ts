@@ -446,6 +446,12 @@ export const en = {
   'you.activity.hint':
     'A list of pages that changed in your workspaces — titles and names, never ' +
     'what was written, and never a page you cannot open. Off unless you choose it.',
+  'you.activity.scope': 'What it covers',
+  'you.activity.scope.hint':
+    'Watching a folder covers everything under it. Nothing you cannot open is ' +
+    'ever listed either way.',
+  'you.activity.scope.all': 'Everything I can see',
+  'you.activity.scope.watched': 'Only pages I watch',
   'you.activity.off': 'No such mail',
   'you.activity.daily': 'Every weekday morning',
   'you.activity.weekly': 'Monday mornings',
@@ -1267,6 +1273,7 @@ export const en = {
     'Lost the app? Use one of your recovery codes instead. If those are gone ' +
     'too, whoever runs this instance can remove the second factor for you.',
   'error.unknown_account': 'No such account.',
+  'error.page_not_found': 'That page is not there.',
   'error.wrong_code': 'That code is not right.',
   'error.code_already_used':
     'That code has been used already. Wait for the next one.',

@@ -20,7 +20,7 @@ import { generateKeyBetween } from '@sone/core';
 import type { Pool } from 'pg';
 
 import { effectiveRole, loadPageLocation, resolveSessionClaims } from '../auth/claims.js';
-import { queryRows } from '../db/pool.js';
+import { queryOne, queryRows } from '../db/pool.js';
 import { requireSession, sessionTokenFrom } from './auth.js';
 import type { Router } from './router.js';
 import { visiblePagesCondition } from '../pages/access.js';
@@ -124,6 +124,64 @@ export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): vo
   });
 
   /** Add a favourite. Idempotent: favouriting twice is not an error. */
+  /**
+   * Watch a page, or stop (ADR-0064).
+   *
+   * Beside favourites in the same module because they are the same shape of
+   * thing — a per-person mark on a page — and deliberately **not the same act**:
+   * a favourite is "I come here often", watching is "tell me when this
+   * changes". Somebody who bookmarked a page for navigation must not start
+   * getting mail about it.
+   *
+   * Watching a folder is recorded as watching that folder, and the digest
+   * expands it through `ancestor_ids`. Recording the descendants would mean a
+   * set that goes stale the moment somebody moves a page.
+   */
+  router.put('/api/pages/:pageId/watch', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+    const pageId = ctx.params['pageId'] ?? '';
+
+    // Only a page this person may read: watching an invisible page would be a
+    // row that never produces anything, and the attempt itself should not
+    // succeed quietly.
+    const visible = await queryOne<{ ok: boolean }>(
+      deps.pool,
+      `SELECT true AS ok FROM pages p
+        WHERE p.id = $1 AND p.archived_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM workspace_members m
+             WHERE m.workspace_id = p.workspace_id AND m.user_id = $2
+          )
+          AND ${visiblePagesCondition('p', '$2', 'false')}`,
+      [pageId, auth.userId],
+    );
+    if (!visible) {
+      ctx.fail(404, 'page_not_found');
+      return;
+    }
+
+    await deps.pool.query(
+      `INSERT INTO watched_pages (user_id, page_id) VALUES ($1, $2)
+       ON CONFLICT (user_id, page_id) DO NOTHING`,
+      [auth.userId, pageId],
+    );
+    ctx.sendEmpty(204);
+  });
+
+  router.delete('/api/pages/:pageId/watch', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+    // No visibility check: stopping is always allowed, including for a page
+    // somebody has since lost access to — otherwise a row would be unremovable
+    // by the only person it concerns.
+    await deps.pool.query(`DELETE FROM watched_pages WHERE user_id = $1 AND page_id = $2`, [
+      auth.userId,
+      ctx.params['pageId'] ?? '',
+    ]);
+    ctx.sendEmpty(204);
+  });
+
   router.put('/api/pages/:pageId/favourite', async (ctx) => {
     const pageId = ctx.params['pageId'] ?? '';
     const page = await loadPageLocation(deps.pool, pageId);

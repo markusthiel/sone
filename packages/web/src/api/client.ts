@@ -107,6 +107,8 @@ export interface SessionInfo {
     /** Whether to be emailed, per kind (ADR-0058). */
     /** Whether an authenticator is enrolled and confirmed (ADR-0063). */
     hasSecondFactor?: boolean;
+    /** Everything visible, or only what is watched (ADR-0064). */
+    digestScope?: 'all' | 'watched';
     /** When each kind is worth a mail (ADR-0061, amended). */
     mentionsWhen?: 'immediately' | 'daily' | 'off';
     assignmentsWhen?: 'immediately' | 'daily' | 'off';
@@ -1197,6 +1199,17 @@ export const api = {
         props: Record<string, unknown>;
       }>;
     }>(`/api/pages/${pageId}/versions/${versionId}`),
+
+  /**
+   * Watch a page, or stop (ADR-0064).
+   *
+   * The same shape as `setFavourite` and deliberately not the same call: a
+   * favourite is "I come here often", watching is "tell me when this changes".
+   */
+  setWatching: (pageId: string, watching: boolean) =>
+    request<void>(`/api/pages/${pageId}/watch`, {
+      method: watching ? 'PUT' : 'DELETE',
+    }),
 
   /** Finish a sign-in that stopped for a code (ADR-0063). */
   secondFactorLogin: (ticket: string, code: string) =>

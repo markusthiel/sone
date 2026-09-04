@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Nothing built yet.
+Accepted. The table, the routes and the digest's scope are built; the control on
+the page itself is not.
 
 ## Context
 
@@ -74,6 +75,21 @@ One table, two routes, a control on the page, and one branch in the digest
 query. The digest's visibility clause is unchanged and still per recipient: a
 watched page nobody may see is still invisible, and watching cannot be used to
 learn a title.
+
+## What was found building it
+
+**An alias shadow.** My watched-pages subquery used `watch` — but only after the
+SQL column guard complained: the first version used `w`, which the digest query
+already uses for `workspaces`. The guard resolved the outer `w.id` and `w.name`
+against `watched_pages` and reported two columns that do not exist.
+
+It was right to complain for a better reason than its own: a reader who has to
+track which `w` is which will misread one of them. Renamed rather than
+suppressed.
+
+**And the reverse guard caught `users.digest_scope` unused** — I had added the
+column and the query branch but not the line that reads the column into the
+branch, so the scope would have been ignored while everything appeared to work.
 
 ## What is deliberately not decided
 
