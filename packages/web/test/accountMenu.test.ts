@@ -30,7 +30,7 @@ test('one mark opens a menu instead of four icons in a row', () => {
   }
 });
 
-test('a place is in one list, not in the menu as well', () => {
+test('a mode is in one list, not in the menu as well', () => {
   /*
    * The fault ADR-0067 was amended over, guarded rather than remembered.
    *
@@ -39,7 +39,7 @@ test('a place is in one list, not in the menu as well', () => {
    * lives once, in places.tsx, and is drawn by the rail above 800px and by the
    * sidebar below it — never both at once.
    */
-  const places = codeOf(new URL('../src/components/places.tsx', import.meta.url));
+  const places = codeOf(new URL('../src/components/modes.tsx', import.meta.url));
   for (const route of ['workspaces', 'inbox', 'trash']) {
     assert.match(places, new RegExp(`paths\\.${route}\\(\\)`), `${route} is a place`);
     assert.doesNotMatch(
@@ -68,7 +68,7 @@ test('every entry carries a mark, and the areas share theirs with the switcher',
   // The marks that moved with their entries kept their entries' marks: the
   // rule is one subject, one symbol, and it does not care which list the
   // subject is in.
-  const places = codeOf(new URL('../src/components/places.tsx', import.meta.url));
+  const places = codeOf(new URL('../src/components/modes.tsx', import.meta.url));
   for (const icon of ['WorkspacesIcon', 'TrashIcon', 'BellIcon']) {
     assert.match(places, new RegExp(`<${icon} />`), `${icon} is with its place`);
   }
@@ -116,8 +116,14 @@ test('the three areas are three entries, and one of them is conditional', () => 
   // One flag now, decided by whoever renders the menu: the sidebar combines the
   // two rights, and a settings column passes the one it already computed.
   assert.match(sidebar, /\{canAdminister && \(/);
-  const sidebarFile = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
-  assert.match(sidebarFile, /canAdminister=\{isInstanceAdmin \|\| canManageWorkspaces\}/);
+  // Decided by whoever renders the menu. The shell builds it once in App and
+  // hands it to the rail or to the panel's foot (ADR-0069), so the flag is
+  // computed there rather than inside the column.
+  const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+  assert.match(
+    app,
+    /canAdminister=\{session\.user\.isInstanceAdmin \|\| session\.user\.canManageWorkspaces\}/,
+  );
 });
 
 test('signing out is last and set apart', () => {

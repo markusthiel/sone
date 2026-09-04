@@ -37,7 +37,7 @@ import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
 import { AddEntryMenu } from './AddEntryMenu.tsx';
 import { AccountMenu } from './AccountMenu.tsx';
-import { usePlaces } from './places.tsx';
+import { useModes, type Mode } from './modes.tsx';
 import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
@@ -54,6 +54,24 @@ import {
 } from './icons.tsx';
 
 interface SidebarProps {
+  /**
+   * Which mode the shell is in (ADR-0069).
+   *
+   * 'tree' draws the workspace switcher as the head and the page tree as the
+   * body. Every other mode gets a title and whatever menu it passed as
+   * children — the column's job is the same either way: it navigates.
+   */
+  mode: Mode;
+  /** The mode's name. Unused in the tree's mode, where the switcher is it. */
+  panelTitle?: ReactNode | undefined;
+  /** What the mode is looking at — a workspace, or how long the trash keeps. */
+  panelScope?: string | undefined;
+  /** One action belonging to the whole mode, never to a row inside it. */
+  panelAction?: ReactNode | undefined;
+  /** The mode's menu. Ignored in the tree's mode. */
+  children?: ReactNode | undefined;
+  /** The account menu, drawn at this foot only below the breakpoint. */
+  account?: ReactNode | undefined;
   workspaceId: string;
   workspaceName: string;
   onSwitchWorkspace: (workspaceId: string) => void;
@@ -224,9 +242,15 @@ export function Sidebar({
   onLogout,
   displayName,
   userId,
+  mode,
+  panelTitle,
+  panelScope,
+  panelAction,
+  children,
+  account,
 }: SidebarProps): ReactElement {
   const { t } = useT();
-  const places = usePlaces();
+  const modes = useModes();
 
   /**
    * Which sections are open, remembered per browser.
@@ -355,33 +379,56 @@ export function Sidebar({
          */
         {...(open ? {} : { 'aria-hidden': true, inert: true })}
       >
-        <div className="sidebar-head">
-          <WorkspaceMenu
-          canManageWorkspaces={canManageWorkspaces}
-          currentIcon={currentIcon}
-            currentId={workspaceId}
-            currentName={workspaceName}
-            onSwitch={onSwitchWorkspace}
-            onCreated={onSwitchWorkspace}
-          />
-          <div className="sidebar-head-actions">
-            {/* The collapse control belongs here, at the top of the thing it
-                collapses. "New folder" used to sit here and was in the wrong
-                place twice over: it is not a navigation action, and it is only
-                ever wanted while looking at the tree — so it lives at the
-                bottom of the tree instead. */}
-            <button
-              className="quiet drawer-close"
-              type="button"
-              onClick={onClose}
-              title={t('sidebar.hide')}
-              aria-label={t('sidebar.hide')}
-            >
-              <SidebarIcon />
-            </button>
+        {/* The head names the mode and what it is looking at (ADR-0069).
+          *
+          * Not decoration: the rail mixes two scopes. An inbox spans workspaces
+          * — ADR-0052 says its route carries none — and a trash belongs to
+          * exactly one, so without a line saying which, the same column shows
+          * two different worlds and looks identical doing it.
+          *
+          * In the tree's mode that head *is* the workspace switcher, which is
+          * how the switcher stays where it always was and stops being a special
+          * case: it is this column's title, like every other mode's. */}
+        <div className="panel-head">
+          <div className="sidebar-head">
+            {mode === 'tree' ? (
+              <WorkspaceMenu
+                canManageWorkspaces={canManageWorkspaces}
+                currentIcon={currentIcon}
+                currentId={workspaceId}
+                currentName={workspaceName}
+                onSwitch={onSwitchWorkspace}
+                onCreated={onSwitchWorkspace}
+              />
+            ) : (
+              <div className="panel-title">{panelTitle}</div>
+            )}
+            <div className="sidebar-head-actions">
+              {panelAction}
+              {/* The collapse control belongs here, at the top of the thing it
+                  collapses. "New folder" used to sit here and was in the wrong
+                  place twice over: it is not a navigation action, and it is
+                  only ever wanted while looking at the tree — so it lives at
+                  the bottom of the tree instead. */}
+              <button
+                className="quiet drawer-close"
+                type="button"
+                onClick={onClose}
+                title={t('sidebar.hide')}
+                aria-label={t('sidebar.hide')}
+              >
+                <SidebarIcon />
+              </button>
+            </div>
           </div>
+          {panelScope !== undefined && <div className="panel-scope">{panelScope}</div>}
         </div>
 
+        {/* The body navigates and never holds content (ADR-0069): the tree
+          *  here, a menu of views in every other mode. */}
+        <div className="panel-body">
+          {mode === 'tree' ? (
+            <>
         <a className="sidebar-search" href={paths.search()}>
           <SearchIcon /> {t('sidebar.search')}
         </a>
@@ -485,36 +532,41 @@ export function Sidebar({
           />
           )}
         </SidebarSection>
+            </>
+          ) : (
+            children
+          )}
+        </div>
 
-        {/* The places, for the width where the rail is not drawn.
+        {/* The foot, below the breakpoint only.
           *
-          * Same list, from places.tsx, and never on screen at the same time as
-          * the rail's copy — hidden above 800px by the stylesheet rather than
-          * by a media query in JavaScript, so there is one source for the
-          * breakpoint and it is the one that draws it.
-          *
-          * They are here rather than in the account menu because a menu is a
-          * place you go to look for something and these are places you go. That
-          * was the finding ADR-0067 was amended over. */}
-        <nav className="sidebar-places" aria-label={t('sidebar.places')}>
-          {places.map(({ place, href, label, icon }) => (
-            <a className="sidebar-place" key={place} href={href}>
-              {icon} {label}
+          * The rail is not drawn there, so its modes and the account menu would
+          * be unreachable; they sit here instead, in every mode, until the
+          * mobile bar takes the job over. Hidden above 800px by the stylesheet
+          * rather than by a media query in JavaScript, so the breakpoint has
+          * one owner and it is the thing that draws it — and the two copies are
+          * never on screen at once, which is what makes this one list in two
+          * places rather than two ways in. */}
+        <nav className="panel-modes" aria-label={t('sidebar.places')}>
+          {modes.map((entry) => (
+            <a
+              className="panel-mode"
+              key={entry.mode}
+              href={entry.href}
+              aria-current={mode === entry.mode ? 'page' : undefined}
+            >
+              {entry.icon} {entry.label}
             </a>
           ))}
         </nav>
 
-        {/* The face, and the menu behind it (AccountMenu).
+        {/* The face, given rather than built here.
           *
-          * Lifted out of this file so the settings columns can carry the same
-          * one: it was only here, so getting from the administration area to
-          * your own profile meant leaving the settings and coming back in. */}
-        <AccountMenu
-          displayName={displayName}
-          userId={userId}
-          canAdminister={isInstanceAdmin || canManageWorkspaces}
-          onLogout={onLogout}
-        />
+          * It is drawn in exactly one place at a time — the rail above the
+          * breakpoint, this foot below it — and which one is decided by
+          * whoever renders the shell. Two mounted copies would be two requests
+          * for the same unread count and two answers that can disagree. */}
+        {account}
         {/* The edge, draggable (see useSidebarWidth).
           *
           * Because the tree's problem is space rather than text: a title like

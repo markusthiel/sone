@@ -12,7 +12,12 @@ import { LoginScreen, SetupScreen, SignupScreen, useMessage, ResetScreen,
 } from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
 import { IconRail } from './components/IconRail.tsx';
-import { placeOf } from './components/places.tsx';
+import { modeOf } from './components/modes.tsx';
+import { AccountMenu } from './components/AccountMenu.tsx';
+import { InboxPanel, itemsIn, type InboxView } from './components/InboxPanel.tsx';
+import { TrashPanel, entriesIn, type TrashView } from './components/TrashPanel.tsx';
+import { useInbox } from './hooks/useInbox.ts';
+import type { TrashEntry } from './api/client.ts';
 import { MoveDialog } from './components/MoveDialog.tsx';
 import { MoveToWorkspaceDialog } from './components/MoveToWorkspaceDialog.tsx';
 import { ShareDialog } from './components/ShareDialog.tsx';
@@ -336,9 +341,34 @@ function Workspace({
   const { ids: watchedIds, toggle: toggleWatching } = useWatching(workspaceId);
   const {
     visible: sidebarVisible,
+    isColumn,
     toggle: toggleSidebar,
     close: closeSidebar,
   } = useSidebar(route);
+
+  /*
+   * Which mode the shell is in (ADR-0069). The rail picks it, the panel
+   * navigates within it, the area to the right shows what the panel selected.
+   */
+  const mode = modeOf(route.kind);
+  const inbox = useInbox();
+  const [inboxView, setInboxView] = useState<InboxView>({ of: 'unread' });
+  const [trashEntries, setTrashEntries] = useState<TrashEntry[] | null>(null);
+  const [trashView, setTrashView] = useState<TrashView>('recent');
+
+  /*
+   * Built once and given to exactly one place: the rail above the breakpoint,
+   * the panel's foot below it. Two mounted copies would be two requests for the
+   * same unread count and two answers that can disagree for a moment.
+   */
+  const accountMenu = (
+    <AccountMenu
+      displayName={session.user.displayName}
+      userId={session.user.id}
+      canAdminister={session.user.isInstanceAdmin || session.user.canManageWorkspaces}
+      onLogout={onLogout}
+    />
+  );
   const [rightOpen, setRightOpen] = useState(readRightPanelOpen);
 
   // Remembered per browser: reopening the panel on every navigation is the kind
@@ -589,9 +619,26 @@ function Workspace({
       {/* First in the DOM as well as first in the grid. It is the outermost
           frame of the window, and a screen reader reading the shell in source
           order should meet the map before the tree. */}
-      <IconRail here={placeOf(route.kind)} />
+      <IconRail here={mode} account={isColumn ? accountMenu : null} />
 
       <Sidebar
+        mode={mode}
+        account={isColumn ? null : accountMenu}
+        panelTitle={mode === 'inbox' ? t('inbox.title') : t('trash.title')}
+        panelScope={
+          mode === 'trash' ? t('trash.scope', { workspace: workspaceName }) : undefined
+        }
+        panelAction={
+          mode === 'inbox' && (inbox.items ?? []).some((one) => !one.read) ? (
+            <button
+              className="quiet panel-action"
+              type="button"
+              onClick={() => inbox.markRead()}
+            >
+              {t('inbox.markAll')}
+            </button>
+          ) : undefined
+        }
         onStartExport={setExportingId}
         onStartImport={setImportingId}
         canManageWorkspaces={session.user.canManageWorkspaces}
@@ -642,7 +689,17 @@ function Workspace({
           });
         }}
         onLogout={onLogout}
-      />
+      >
+        {/* The menu, never the content (ADR-0069). Both are computed from the
+            list the shell already holds, so the counts beside the names cost
+            nothing and cannot disagree with what the list shows. */}
+        {mode === 'inbox' && (
+          <InboxPanel items={inbox.items} view={inboxView} onPick={setInboxView} />
+        )}
+        {mode === 'trash' && (
+          <TrashPanel entries={trashEntries} view={trashView} onPick={setTrashView} />
+        )}
+      </Sidebar>
 
       {/* A failed tree operation used to vanish: usePages recorded the error
           and nothing rendered it, so a refused move looked like a move that
@@ -770,13 +827,25 @@ function Workspace({
         )}
 
         {route.kind === 'trash' && (
-          <Trash workspaceId={workspaceId} onChanged={() => void reloadPages()} />
+          <Trash
+            workspaceId={workspaceId}
+            view={trashView}
+            entries={trashEntries}
+            onEntries={setTrashEntries}
+            onChanged={() => void reloadPages()}
+          />
         )}
 
         {/* The inbox spans workspaces, so it takes no workspace id — the whole
             point is being told about a question asked somewhere other than
             where somebody is standing (ADR-0052). */}
-        {route.kind === 'inbox' && <InboxScreen />}
+        {route.kind === 'inbox' && (
+          <InboxScreen
+            items={inbox.items === null ? null : itemsIn(inbox.items, inboxView)}
+            error={inbox.error}
+            onRead={inbox.markRead}
+          />
+        )}
 
         {route.kind === 'home' && pages.length === 0 && (
           <div className="page-body">

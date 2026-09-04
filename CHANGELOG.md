@@ -45,6 +45,28 @@ Anything technical is set in the monospaced face: the path above a title, the
 column headers in a table, a file's size and date, version numbers, the counts
 beside a section. A table's header is a firm line now rather than a grey band.
 
+The narrow rail down the left edge is now what decides where you are, and the
+column beside it follows. Open the bell and that column becomes the inbox's
+menu — unread, by kind, by workspace, each with its count — while the
+notifications themselves fill the page. Open the trash and it becomes the
+trash's: recently deleted, going soon, pages, folders. Your pages are the mark
+at the top, and that column is the tree, exactly as before.
+
+The menu that used to hang above the tree is gone. What is left in its place is
+the workspace switcher alone, as the column's title — which is what most people
+were using it for.
+
+A deleted entry now says how many of its thirty days are left, and says it in
+red in the last week. „Deleted on the 12th" is a date somebody has to do
+arithmetic on, and nobody does it until the thing is gone.
+
+Your face and its menu moved to the foot of the rail. On a phone, where the rail
+is not drawn, it stays at the foot of the drawer with the same three places.
+
+And the sidebar's draggable edge is on the sidebar now. It has always been at
+the right-hand edge of the *window* — over a thousand pixels from the edge it
+resizes — so if you never found it, that is why.
+
 A narrow rail down the left edge holds the mark and three places: your inbox,
 your workspaces, the trash. They have moved out of the account menu rather than
 being repeated there — the menu is you and the server now, which is what it is
