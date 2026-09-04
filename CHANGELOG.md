@@ -13,6 +13,27 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.9.0
+
+A small release about one thing: getting notes *into* SONE.
+
+Markdown files can be imported directly — one, or several at once — where the
+import previously demanded a ZIP for no reason other than that nothing had ever
+made it not. And two refusals that named the wrong reason now name the right
+one: an archive in the Zip64 format said it held too many entries, which sent
+people looking for files to delete that were never the problem.
+
+**Operator action: none.** No migrations, no settings, no contract changes —
+document schema 4 and sync protocol 1, both unchanged, and the migration set is
+identical to 0.8.0's. `docker compose pull && docker compose up -d`.
+
+Both of the fixed refusals came from a real import that failed, which is worth
+saying because neither would have been found by testing the happy path:
+`too_many_entries` had no message at all, so the interface showed the error code
+itself.
+
 **Markdown files can be imported without zipping them first** — pick one, or
 several, and each becomes a page. The import demanded an archive for no reason
 other than that nothing had made it not; several files are packed into one
