@@ -551,6 +551,23 @@ async function main(): Promise<void> {
           'notification emails will reach people.\n',
       }),
     smtpPassword: config.smtpPassword,
+    // The person whose account was disarmed is exactly who needs to know
+    // (ADR-0063).
+    tellFactorRemoved: async (to, byWhom) => {
+      const current = await mailSettings();
+      if (!current.relay) return;
+      await sendMail(current.relay, {
+        to,
+        subject: 'SONE: your second factor was removed',
+        body:
+          `${byWhom} removed the second factor from your SONE account.\n\n` +
+          'You can sign in with your password alone now, and set up a new ' +
+          'authenticator under You → Security.\n\n' +
+          `${config.publicUrl}/settings/security\n\n` +
+          'If you did not ask for this, tell whoever runs this instance ' +
+          'straight away.\n',
+      });
+    },
     settings,
     version: SONE_VERSION,
     commit: SONE_COMMIT,

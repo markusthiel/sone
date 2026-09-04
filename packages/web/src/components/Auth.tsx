@@ -153,6 +153,8 @@ export function LoginScreen({
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** A half-finished sign-in, waiting for a code (ADR-0063). */
+  const [secondStep, setSecondStep] = useState<string | null>(null);
 
   /**
    * Whether this instance has a provider.
@@ -187,7 +189,19 @@ export function LoginScreen({
     setBusy(true);
     setError(null);
     try {
-      await api.login({ email, password });
+      const answer = await api.login({ email, password });
+      /*
+       * The sign-in may stop half way (ADR-0063).
+       *
+       * A ticket instead of a cookie means this account has a second factor.
+       * The password is not kept: it has already been accepted, and holding it
+       * to retry with would be holding it for no reason.
+       */
+      if (answer && typeof answer === 'object' && answer.needsSecondFactor && answer.ticket) {
+        setSecondStep(answer.ticket);
+        setPassword('');
+        return;
+      }
       onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -195,6 +209,11 @@ export function LoginScreen({
       setBusy(false);
     }
   };
+
+  // The code step replaces the form entirely: the password is already accepted,
+  // and leaving it on screen invites somebody to retype it when the code is
+  // what is wrong (ADR-0063).
+  if (secondStep) return <SecondFactorStep ticket={secondStep} onDone={onDone} />;
 
   return (
     <div className="centered">
@@ -397,6 +416,75 @@ export function ResetScreen({
       <button type="button" className="btn subtle" onClick={() => navigate(paths.login())}>
         {t('reset.backToSignIn')}
       </button>
+    </div>
+  );
+}
+
+/**
+ * The second step of signing in (ADR-0063).
+ *
+ * Its own small screen rather than a field that appears under the password: the
+ * password is already accepted at this point, and showing it still filled in
+ * would invite somebody to retype it when the code is what is wrong.
+ */
+function SecondFactorStep({
+  ticket,
+  onDone,
+}: {
+  ticket: string;
+  onDone: () => void;
+}): ReactElement {
+  const { t } = useT();
+  const message = useMessage();
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = (): void => {
+    setBusy(true);
+    setError(null);
+    void api
+      .secondFactorLogin(ticket, code.trim())
+      .then(onDone)
+      .catch((err: unknown) => {
+        setError(err instanceof ApiError ? err.code : 'network_error');
+        setBusy(false);
+      });
+  };
+
+  return (
+    <div className="centered card">
+      <h1>{t('auth.secondFactor')}</h1>
+      <p>{t('auth.secondFactor.hint')}</p>
+      <label>
+        {t('auth.code')}
+        <input
+          // Numeric, but not `type="number"`: a code is a string of six digits
+          // and a spinner on it is nonsense. `inputMode` gets the right
+          // keyboard on a phone without any of that.
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoFocus
+          value={code}
+          disabled={busy}
+          onChange={(event) => setCode(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && code.trim() !== '') submit();
+          }}
+        />
+      </label>
+      {error && <p className="error">{message(error)}</p>}
+      <button
+        type="button"
+        className="btn primary"
+        disabled={busy || code.trim() === ''}
+        onClick={submit}
+      >
+        {busy ? t('auth.checking') : t('auth.signIn')}
+      </button>
+      {/* Said here rather than only in the settings screen: somebody locked out
+          is reading this page, not that one. */}
+      <p className="muted">{t('auth.secondFactor.lost')}</p>
     </div>
   );
 }

@@ -1234,6 +1234,22 @@ export const en = {
     'Every session was signed out, so sign in again with the new password.',
   'reset.toSignIn': 'Go to sign in',
   'reset.backToSignIn': 'Back to sign in',
+  'auth.secondFactor': 'One more step',
+  'auth.secondFactor.hint':
+    'Enter the six-digit code from your authenticator app.',
+  'auth.code': 'Code',
+  'auth.checking': 'Checking…',
+  'auth.secondFactor.lost':
+    'Lost the app? Use one of your recovery codes instead. If those are gone ' +
+    'too, whoever runs this instance can remove the second factor for you.',
+  'error.unknown_account': 'No such account.',
+  'error.wrong_code': 'That code is not right.',
+  'error.code_already_used':
+    'That code has been used already. Wait for the next one.',
+  'error.ticket_expired': 'That took too long. Sign in again.',
+  'error.already_enrolled': 'There is already an authenticator on this account.',
+  'error.no_enrolment': 'Nothing to confirm. Start again.',
+  'error.wrong_password': 'That password is not right.',
   'auth.email': 'Email',
   'auth.password': 'Password',
   'auth.passwordHint': 'At least 12 characters. Length beats complexity.',

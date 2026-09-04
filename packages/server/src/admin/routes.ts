@@ -27,6 +27,7 @@ import { requireWorkspaceAdministrator } from './rights.js';
 import { requireSession } from '../http/auth.js';
 import { rematerialize } from '../materialize/rematerialize.js';
 import { RECOMMENDED_COST, passwordCost } from '../auth/password.js';
+import { hasSecondFactor, removeSecondFactor } from '../auth/secondFactor.js';
 import { SETTING_KEYS, SettingError, type SettingKey, type SettingsStore } from './settings.js';
 import type { RequestContext, Router } from '../http/router.js';
 
@@ -51,6 +52,8 @@ export interface AdminDeps {
   ) => Promise<void>;
   /** Read from the environment only (ADR-0024). */
   smtpPassword: string | null;
+  /** Tell somebody an administrator disarmed their account (ADR-0063). */
+  tellFactorRemoved: (to: string, byWhom: string) => Promise<void>;
   /**
    * Whether a client secret is configured, not the secret itself.
    *
@@ -315,6 +318,54 @@ export function registerAdminRoutes(router: Router, deps: AdminDeps): void {
    *     deliberate handover and is allowed while another admin exists;
    *     deactivating yourself is never what was meant.
    */
+  /**
+   * Remove somebody's second factor (ADR-0063).
+   *
+   * The only way back for a person who has lost both their phone and their
+   * recovery codes — and deliberately not self-service, because a self-service
+   * way around a second factor is not a second factor.
+   *
+   * **The person is told by mail**, naming the administrator who did it. There
+   * is no audit table in SONE, and a log line nobody reads is not
+   * accountability: the person whose account was disarmed is exactly who needs
+   * to know, and if they did not ask for it they now have a reason to act.
+   */
+  router.post('/api/admin/users/:userId/second-factor/remove', async (ctx) => {
+    const admin = await requireAdmin(deps.pool, ctx);
+    if (!admin) return;
+
+    const target = ctx.params['userId'] ?? '';
+    const who = await queryOne<{ email: string | null; display_name: string }>(
+      deps.pool,
+      `SELECT email, display_name FROM users WHERE id = $1`,
+      [target],
+    );
+    if (!who) {
+      ctx.fail(404, 'unknown_account');
+      return;
+    }
+
+    const had = await hasSecondFactor(deps.pool, target);
+    await removeSecondFactor(deps.pool, target);
+
+    // Only when there was something to remove: a mail saying an administrator
+    // removed a factor somebody never had is a mail that starts a conversation
+    // about nothing.
+    if (had && who.email) {
+      // `requireAdmin` returns only the id, so the name is looked up — the mail
+      // saying "an administrator" without saying which one is a mail that
+      // cannot be acted on.
+      const byWhom = await queryOne<{ display_name: string }>(
+        deps.pool,
+        `SELECT display_name FROM users WHERE id = $1`,
+        [admin.userId],
+      );
+      await deps.tellFactorRemoved(who.email, byWhom?.display_name ?? 'an administrator');
+    }
+
+    ctx.send(200, { removed: had });
+  });
+
   router.patch('/api/admin/users/:userId', async (ctx) => {
     const admin = await requireAdmin(deps.pool, ctx);
     if (!admin) return;
