@@ -13,203 +13,159 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Pull and restart; one migration runs by itself.
+Nothing yet.
 
-**You can answer a notification without leaving the inbox.** Every row about a
-conversation has an **Antworten** button; the box opens under the row, so the
-passage you are answering stays on screen while you write. Enter sends,
-Shift+Enter makes a line. Answering marks the conversation read, because you
-have dealt with it — and the reply appears immediately for anybody who has that
-page open.
+## 0.11.0
 
-**A repair that came with it: replies that arrive by email now notify the
-person being answered.** They were written into the page correctly and then not
-projected, so nobody was told about them until somebody happened to edit that
-page for another reason. Both ways of replying go through one piece of code now.
+Pull and restart. One migration runs by itself; there is nothing else to do.
 
-**A notification can be put aside until later.** Every row in the inbox has a
-**Später** button with three times — in drei Stunden, morgen früh, nächste
-Woche — and each shows the moment it means, so you can see what you are agreeing
-to. From the keyboard, **s** takes tomorrow morning.
+SONE has a face, a shape, and an inbox you can actually work down.
 
-What is asleep leaves the list and stops counting against the badge on your
-picture, which is the point: a count that includes what you deliberately put off
-is a count nobody believes. It comes back on its own when the time arrives —
-nothing runs, the moment simply passes. A **Später** view appears while anything
-is asleep, saying when each one returns, and one button brings any of them back
-early.
-
-**SONE has a bar along the bottom on a phone.** Seiten, Workspaces, Posteingang,
-Papierkorb and you — the same places the rail holds on a wide screen, where a
-thumb can reach them. They were at the foot of the drawer before, which meant
-every place on a phone was one tap further away than the same place on a
-desktop.
-
-It moves out of the way when the keyboard opens, so it never sits between you
-and the line you are writing, and it leaves room for the home indicator on the
-phones that have one. What it covers is given back: the page you are reading
-ends above it, and the drawer stops above it.
-
-The inbox's line about the keyboard shortcuts is not shown on a phone any more —
-there is no keyboard there to press them on.
-
-**A workspace gives access; the instance invites.** The workspace's
-**Einladungen** section is gone. It made a link that let whoever opened it join
-— creating an account on the server if they had none — which meant any workspace
-owner could add people to the server itself. Two different jobs in one form.
-
-Under **Leute** there is now **Zugriff geben**: type the address of somebody who
-already has an account here, choose what they come in as, done. No link, nothing
-to send, nothing outstanding. Somebody who has no account yet is invited under
-**Verwaltung → Einladungen**, which is where making an account belongs.
-
-Invitations sent before this still work and are still listed under Leute, so
-they can be withdrawn; no new ones can be made there.
-
-The roles in the members table are in your language now — they read "owner",
-"admin", "member", "guest" in every language before this.
-
-**Your settings and the administration are two separate areas.** They were one
-column with two headings, which put "Wo du landest" and "Mailserver" six rows
-apart — and both halves are going to grow. The account menu opens each into its
-own column now, and each says whose it is: yours, or everyone's on this server.
-
-**On a phone there is a way back to your pages again.** The bar of areas at the
-foot of the drawer had Workspaces, Posteingang and Papierkorb but not the pages
-themselves, so from settings or from a workspace's sections there was no route
-back at all. **Seiten** is the first entry there now.
-
-**The logo always takes you somewhere.** It goes where "Wo du landest" points.
-With the default setting — the page you were last on — that is the page you are
-already standing on, so pressing it did nothing; it goes to the top of your tree
-in that case. Signing in, reloading and switching workspace are unchanged: they
-still put you on the page you were last reading.
-
-**The inbox reads like an inbox now.**
-
-Several replies in one conversation are one row, saying the newest thing and how
-many there were — three people talking on one page no longer fills the list.
-Opening the row settles all of them. You can work down the list from the
-keyboard: **j** and **k** move, **Enter** opens, **e** marks a row read and **u**
-puts it back to waiting, which was not possible before at all — reading
-something was a one-way door. Every row also carries the two as buttons.
-
-**The trash lets you look before you decide.** There is a search field over it,
-and any entry can be opened for a read without being restored — the first page
-or two of its text, which is the only way to see inside something that is no
-longer in the tree. An entry whose folder was deleted as well now asks where it
-should go instead of refusing: its button says "Wiederherstellen nach…" and
-offers the folders that still exist.
-
-Two things that were only visible in German: the trash wrote four of its lines
-in English ("deleted", "with 12 entries inside", "the folder it was in is gone",
-"Untitled folder"), and a workspace with no name read "Untitled" in the
-switcher. Both say it in your language now.
-
-**Workspace settings are their own area, and you pick which workspace.**
-
-They used to sit in the middle of the settings menu, between your own settings
-and the server's — so three rows under a workspace's name came "This instance",
-"Accounts" and "Mail server", as though a workspace could have its own mail
-server. It cannot. Settings are yours and the server's now, and nothing else.
-
-A workspace's settings are in **Workspaces**, the second icon on the rail. The
-column there names the workspace at the top, with the same switcher the page
-tree has: pick one and its sections — name and mark, typography, people, groups,
-export, invitations, deletion — are the ones underneath. Picking also switches
-you into that workspace, so the mark takes you to its pages afterwards; picking
-while reading a section keeps you on that section, in the workspace you just
-chose.
-
-Two smaller repairs came with it. A workspace with no name reads "Ohne Namen" in
-the switcher rather than the English "Untitled". And the account menu in the
-rail is the round picture alone — the name and version line beside it belonged
-to a column, and the menu it opened was being cut off at the rail's edge.
-
-**One way to workspace settings, not three.** 0.10.0 shipped a workspace list
-alongside the "this workspace" entry it was meant to replace, and left the same
-list in the administration as well. The account menu has a single **Workspaces**
-entry now, the workspace you are in is first in the list, and the
-administration is the instance only — accounts, sign-in, mail, maintenance.
-
-SONE looks like something now.
+**SONE looks like something now.**
 
 There was no logo, no favicon and no installed icon — a tab in a row of tabs was
-a blank sheet. There is a mark: an indented stack of bars, the page tree drawn as
-a glyph, and the bar that carries the accent takes the workspace's own accent
+a blank sheet. There is a mark: an indented stack of bars, the page tree drawn
+as a glyph, and the bar that carries the accent takes the workspace's own accent
 colour, so a workspace set to blue has a blue mark. It is the tab icon, the icon
-iOS puts on a home screen, and the icon an install uses. Adding SONE to a phone's
-home screen works; it is still not offline, which needs a service worker and is
-not here yet.
+iOS puts on a home screen, and the icon an install uses. Adding SONE to a
+phone's home screen works; it is still not offline, which needs a service worker
+and is not here yet.
 
 Two typefaces come with it, Archivo and Jetbrains Mono, served from your own
 server like everything else — no request leaves the instance to fetch them.
-Section labels and counts are set in the monospaced face, which is what tells a
-label naming a place apart from a title naming a page.
 
-A page's title is set firm and tight now instead of large and thin. Headings
-*inside* a note are unchanged and stay light — the two had been sharing one
+A page's title is set firm and tight instead of large and thin. Headings
+*inside* a note are unchanged and stay light: the two had been sharing one
 setting, so a decision made about writing was being applied to the label on the
-window as well.
+window as well. Anything technical is in the monospaced face — the path above a
+title, the column headers in a table, a file's size and date, version numbers,
+the counts beside a section — which is what tells a label naming a place apart
+from a title naming a page. A table's header is a firm line rather than a grey
+band.
 
-Anything technical is set in the monospaced face: the path above a title, the
-column headers in a table, a file's size and date, version numbers, the counts
-beside a section. A table's header is a firm line now rather than a grey band.
+**Where you are is a narrow rail down the left edge, and a bar along the bottom
+on a phone.**
 
-The narrow rail down the left edge is now what decides where you are, and the
-column beside it follows. Open the bell and that column becomes the inbox's
-menu — unread, by kind, by workspace, each with its count — while the
-notifications themselves fill the page. Open the trash and it becomes the
-trash's: recently deleted, going soon, pages, folders. Your pages are the mark
-at the top, and that column is the tree, exactly as before.
+The rail holds the mark and three places: your workspaces, your inbox, the
+trash. Open the bell and the column beside it becomes the inbox's menu — unread,
+by kind, by workspace, each with its count — while the notifications themselves
+fill the page. Open the trash and it becomes the trash's. Your pages are the
+mark at the top, and that column is the tree, exactly as before. The menu that
+used to hang above the tree is gone; what is left in its place is the workspace
+switcher alone, as the column's title, which is what most people were using it
+for.
 
-Settings, your workspaces and the administration are no longer separate screens
-that replace everything. They open in the same frame as the rest, with the rail
-still there — so getting back is one click on the mark rather than a "back"
-button that only exists inside settings.
+On a phone the rail is not drawn. The same places sit in a bar along the bottom
+— Seiten, Workspaces, Posteingang, Papierkorb and you — where a thumb can reach
+them, instead of at the foot of a drawer behind a toggle. The bar moves out of
+the way when the keyboard opens, so it never sits between you and the line you
+are writing, and it leaves room for the home indicator on the phones that have
+one. What it covers is given back: the page you are reading ends above it, and
+the drawer stops above it.
 
-Their three areas — yours, this workspace, the instance — used to be a menu at
-the top of the settings column that you had to open to find out the other two
-existed. They are three groups in one list now, and the workspace's group is
-titled with the workspace's own name.
+Your face and its menu are at the foot of the rail, or at the end of the bar.
 
-The menu that used to hang above the tree is gone. What is left in its place is
-the workspace switcher alone, as the column's title — which is what most people
-were using it for.
+**Settings, your workspaces and the administration open in that frame** rather
+than as screens that replace everything, so getting back is one press of the
+mark rather than a "back" button that only exists inside settings.
 
-A deleted entry now says how many of its thirty days are left, and says it in
-red in the last week. „Deleted on the 12th" is a date somebody has to do
-arithmetic on, and nobody does it until the thing is gone.
+They are three areas and they stay separate. **Deine Einstellungen** is yours
+and says so; **Verwaltung** is the server's and says "für alle auf diesem
+Server", which is the fact that should be on screen when somebody changes a mail
+server. A workspace's settings are neither: they are in **Workspaces**, where
+the column names the workspace at the top with the same switcher the page tree
+has. Pick one and its sections are the ones underneath — and picking also
+switches you into that workspace, so the mark takes you to its pages afterwards.
+Before this they sat in the middle of the settings menu, three rows above
+"Mailserver", as though a workspace could have its own.
 
-Your face and its menu moved to the foot of the rail. On a phone, where the rail
-is not drawn, it stays at the foot of the drawer with the same three places.
+The logo always takes you somewhere. It goes where "Wo du landest" points; with
+the default setting — the page you were last on — that is the page you are
+already standing on, so it goes to the top of your tree instead. Signing in,
+reloading and switching workspace are unchanged: they still put you back on the
+page you were reading.
 
-And the sidebar's draggable edge is on the sidebar now. It has always been at
-the right-hand edge of the *window* — over a thousand pixels from the edge it
-resizes — so if you never found it, that is why.
+**A workspace gives access; the instance invites.**
 
-A narrow rail down the left edge holds the mark and three places: your inbox,
-your workspaces, the trash. They have moved out of the account menu rather than
-being repeated there — the menu is you and the server now, which is what it is
-for. On a phone the rail is not drawn and the same three sit at the foot of the
-sidebar's drawer, so there is one way to each of them at any width.
+The workspace's **Einladungen** section is gone. It made a link that let whoever
+opened it join — creating an account on the server if they had none — which
+meant any workspace owner could add people to the server itself. Two different
+jobs in one form.
 
-Three fixes that were found along the way:
+Under **Leute** there is **Zugriff geben**: type the address of somebody who
+already has an account here, choose what they come in as, done. No link, nothing
+to send, nothing outstanding. Somebody who has no account yet is invited under
+**Verwaltung → Einladungen**, which is where making an account belongs.
+Invitations sent before this still work and are still listed under Leute so they
+can be withdrawn; no new ones can be made there. The roles in the members table
+are in your language now — they read "owner", "admin", "member", "guest" in
+every language before this.
+
+**The inbox reads like an inbox.**
+
+Several replies in one conversation are one row, saying the newest thing and how
+many there were, so three people talking on one page no longer fill the list.
+You can work down it from the keyboard: **j** and **k** move, **Enter** opens,
+**e** marks a row read, **u** puts it back to waiting — which was not possible
+at all before, reading something was a one-way door — and **s** puts it aside
+until tomorrow morning. Every row carries the same acts as buttons.
+
+**Später** gives three times — in drei Stunden, morgen früh, nächste Woche — and
+each shows the moment it means, so you can see what you are agreeing to. What is
+asleep leaves the list and stops counting against the badge on your picture,
+which is the point: a count that includes what you deliberately put off is a
+count nobody believes. It comes back on its own when the time arrives; nothing
+runs, the moment simply passes. A **Später** view appears while anything is
+asleep, saying when each one returns, and one button brings any of them back
+early.
+
+**Antworten** answers a conversation without leaving. The box opens under the
+row, so the passage you are answering stays on screen while you write; Enter
+sends, Shift+Enter makes a line. Answering marks the conversation read, and the
+reply appears immediately for anybody who has that page open.
+
+A repair came with that one: **replies that arrive by email now notify the
+person being answered.** They were written into the page correctly and then not
+projected, so nobody was told about them until somebody happened to edit that
+page for another reason.
+
+**The trash lets you look before you decide.**
+
+There is a search field over it, and any entry can be opened for a read without
+being restored — the first page or two of its text, which is the only way to see
+inside something that is no longer in the tree. An entry whose folder was
+deleted as well now asks where it should go instead of refusing: its button says
+"Wiederherstellen nach…" and offers the folders that still exist. Every entry
+says how many of its thirty days are left, and says it in red in the last week:
+"gelöscht am 12." is a date somebody has to do arithmetic on, and nobody does it
+until the thing is gone.
+
+**Said in your language, at last.** The trash wrote four of its lines in English
+("deleted", "with 12 entries inside", "the folder it was in is gone", "Untitled
+folder"), a workspace with no name read "Untitled" in the switcher, and the
+roles in the members table were raw English ids. All of it was only visible by
+reading the screens in German.
+
+**Fixes found along the way.**
 
 - Quiet text in the light theme was too pale to meet the contrast standard — 3.6
   against white where 4.5 is the minimum. Every secondary label is darker now.
   The dark theme was already correct and is unchanged.
-- A sidebar you had dragged wider snapped back to its default width whenever the
-  right-hand panel opened, and returned when it closed.
-- Two floating elements were drawn without their shadow.
-- The sidebars were see-through. Not by much and not on purpose — a workspace
+- The sidebars were see-through. Not by much and not on purpose: a workspace
   with no colour set was having "nothing" mixed into its surfaces, and CSS reads
   that as an instruction to be sixteen per cent transparent. On a phone, where
-  the sidebar slides over the page, the page was visible through the navigation.
-  Every surface is solid now. A workspace that has set a colour looks exactly as
-  it did.
+  the sidebar slides over the page, the page showed through the navigation.
 - A workspace colour reached people who had chosen the dark theme and was
   ignored for people whose device had chosen it for them. Both now.
+- The sidebar's draggable edge is on the sidebar. It had always been at the
+  right-hand edge of the *window*, over a thousand pixels from the edge it
+  resizes, so if you never found it, that is why. And a sidebar you had dragged
+  wider snapped back to its default whenever the right-hand panel opened.
+- Two floating elements were drawn without their shadow.
+- 0.10.0 shipped a workspace list alongside the "this workspace" entry it was
+  meant to replace, and left the same list in the administration as well. There
+  is one way to each now, and the administration is the instance only —
+  accounts, sign-in, mail, maintenance.
 
 ## 0.10.0
 
