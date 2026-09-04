@@ -1727,12 +1727,18 @@ test('an inbox spans workspaces, so its route carries none', () => {
   const paths = codeOf(new URL('../src/routes/paths.ts', import.meta.url));
   assert.match(paths, /inbox: \(\) => '\/inbox'/);
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
-  assert.match(app, /route\.kind === 'inbox' && <InboxScreen \/>/);
+  // The screen takes the filtered list and no workspace: the filtering is the
+  // panel's view (ADR-0069), and the scope is deliberately absent.
+  assert.match(app, /route\.kind === 'inbox' && \(/);
+  assert.match(app, /<InboxScreen\n\s+items=\{inbox\.items/);
+  assert.doesNotMatch(app, /<InboxScreen[^>]*workspaceId/);
 
   const screen = codeOf(new URL('../src/components/InboxScreen.tsx', import.meta.url));
   // Read on opening, not on looking: an inbox that empties itself when glanced
   // at is one that loses things.
-  assert.match(screen, /if \(!item\.read\) void api\.markInboxRead\(\[item\.id\]\)/);
+  // The call goes through the shell's hook now — one fetch and one truth for
+  // the menu's counts and the list alike — but the moment is unchanged.
+  assert.match(screen, /if \(!item\.read\) onRead\(\[item\.id\]\)/);
   // And it says there is no email, rather than letting somebody assume one.
   assert.match(screen, /t\('inbox\.noEmail'\)/);
 });
@@ -2449,7 +2455,7 @@ test('the workspace list is one list, and the server decides its length', () => 
   // Reachable without any right — as one entry, now among the places rather
   // than in the account menu (ADR-0068). The right it does not need is what
   // this asserts; which list it is in is not the point.
-  const places = codeOf(new URL('../src/components/places.tsx', import.meta.url));
+  const places = codeOf(new URL('../src/components/modes.tsx', import.meta.url));
   assert.match(places, /href: paths\.workspaces\(\)/);
   assert.doesNotMatch(menu, /href=\{paths\.workspaces\(\)\}/);
   /*

@@ -20,6 +20,12 @@ export const en = {
   'account.inbox': 'Inbox',
   'account.label.waiting': '{name}, {count} notifications waiting',
   'inbox.title': 'Inbox',
+  'inbox.group.state': 'Inbox',
+  'inbox.group.kind': 'By kind',
+  'inbox.group.workspace': 'By workspace',
+  'inbox.view.unread': 'Unread',
+  'inbox.view.all': 'Everything',
+  'inbox.emptyView': 'Nothing here in this view.',
   'inbox.empty':
     'Nothing is waiting. This is where it appears when somebody names you in ' +
     'a comment, or replies in a thread you are part of.',
@@ -813,6 +819,14 @@ export const en = {
 
   // --- the trash ---------------------------------------------------------
   'trash.title': 'Trash',
+  'trash.group.when': 'View',
+  'trash.group.kind': 'By kind',
+  'trash.view.recent': 'Recently deleted',
+  'trash.view.expiring': 'Going soon',
+  'trash.view.pages': 'Pages',
+  'trash.view.folders': 'Folders',
+  'trash.scope': '{workspace} · kept for 30 days',
+  'trash.daysLeft': '{count, plural, one {# day left} other {# days left}}',
   'trash.note':
     'Deleted entries stay here until they are destroyed. Nothing is removed on a ' +
     'schedule — an instance that quietly empties its own trash is one that loses ' +
