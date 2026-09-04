@@ -2,8 +2,15 @@
 
 ## Status
 
-Accepted. Nothing built yet — this decides the shape, and one of the decisions
-below is the reason the obvious implementation would have been a mistake.
+Accepted and built: relations, rollups, the lookup aggregate, sorting by a
+derived column, and the row page's properties panel. Formula columns followed as
+[ADR-0056](0056-formula.md), and paging a collection as
+[ADR-0055](0055-paging-a-collection.md).
+
+*This line said "nothing built yet" for two sessions after the feature shipped.*
+Found by going through the records asking which were still open — a status that
+lies is worse than no status, because the next reader trusts it and reads the
+whole record as a plan rather than as a description of what is running.
 
 ## Context
 
