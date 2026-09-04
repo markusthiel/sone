@@ -168,10 +168,26 @@ jobs:
         # went unrun in CI this way.
         run: node scripts/check-test-globs.mjs
 
+      - name: Check what a workflow may run
+        # This one is here because of the step below it. `npx tsx` sat there for
+        # five days and two hundred and ninety-five red runs: tsx is a
+        # devDependency of all five packages and of none of them at the root, so
+        # a clean checkout has no node_modules/.bin/tsx and the job died on that
+        # line — thirteen steps in, before typecheck, before a single test. It
+        # passed locally only because a global tsx, installed months earlier by
+        # something unrelated, was on the path.
+        run: node scripts/check-ci-tools.mjs
+
       - name: Check build version ordering
         # A version that sorts backwards stops a running instance with a blank
         # page. It has happened twice.
-        run: npx tsx scripts/check-version.mts
+        #
+        # `pnpm exec`, not `npx`: it takes the binary the workspace installed
+        # and nothing else. npx puts the global bin directory on the path and
+        # falls back to the registry, so it can succeed with a tool that is not
+        # named in any manifest here — which is how this step passed on one
+        # machine while failing on every runner.
+        run: pnpm exec tsx scripts/check-version.mts
 
       - name: Check the image verifier
         # It runs only in the image workflow, after a build, so a mistake in it

@@ -90,7 +90,7 @@ jobs:
               *) TAGS="$TAGS ${IMAGE}:latest" ;;
             esac
           else
-            # Worked out by scripts/version.sh, which scripts/check-version.mjs
+            # Worked out by scripts/version.sh, which scripts/check-version.mts
             # runs directly in the test workflow — so what is tested is what
             # ships. In shell rather than Node because this job has git and a
             # POSIX shell and no guaranteed node.
