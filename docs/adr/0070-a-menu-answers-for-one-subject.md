@@ -41,6 +41,10 @@ The settings mode is you and the server: two groups, both with exactly one
 subject each, and the scope line under the title says `Persönlich · Instanz`
 because that is now true.
 
+> Amended by [ADR-0072](0072-two-areas-and-the-way-back.md). Two groups was
+> still two subjects in one column, and both halves keep growing: they are two
+> modes now, one column each, with the scope line saying whose the column is.
+
 A workspace's settings are the Workspaces mode. Its column is the same shape as
 the tree's: the head says which workspace — with the workspace switcher, the
 same component the tree's head carries — and the body navigates that workspace's
