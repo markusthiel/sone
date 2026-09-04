@@ -79,6 +79,7 @@ export const en = {
   'sidebar.search': 'Search',
   'sidebar.places': 'Parts of SONE',
   'mode.pages': 'Pages',
+  'mode.you': 'You',
   'sidebar.favourites': 'Favourites',
   'sidebar.folders': 'Folders',
   'sidebar.emptyFolders': 'No folders yet. Press + to make one.',
