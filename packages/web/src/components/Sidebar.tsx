@@ -37,6 +37,7 @@ import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
 import { AddEntryMenu } from './AddEntryMenu.tsx';
 import { AccountMenu } from './AccountMenu.tsx';
+import { usePlaces } from './places.tsx';
 import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import type { WorkspaceIcon } from '../api/client.ts';
@@ -225,6 +226,7 @@ export function Sidebar({
   userId,
 }: SidebarProps): ReactElement {
   const { t } = useT();
+  const places = usePlaces();
 
   /**
    * Which sections are open, remembered per browser.
@@ -483,6 +485,24 @@ export function Sidebar({
           />
           )}
         </SidebarSection>
+
+        {/* The places, for the width where the rail is not drawn.
+          *
+          * Same list, from places.tsx, and never on screen at the same time as
+          * the rail's copy — hidden above 800px by the stylesheet rather than
+          * by a media query in JavaScript, so there is one source for the
+          * breakpoint and it is the one that draws it.
+          *
+          * They are here rather than in the account menu because a menu is a
+          * place you go to look for something and these are places you go. That
+          * was the finding ADR-0067 was amended over. */}
+        <nav className="sidebar-places" aria-label={t('sidebar.places')}>
+          {places.map(({ place, href, label, icon }) => (
+            <a className="sidebar-place" key={place} href={href}>
+              {icon} {label}
+            </a>
+          ))}
+        </nav>
 
         {/* The face, and the menu behind it (AccountMenu).
           *

@@ -19,12 +19,34 @@ test('one mark opens a menu instead of four icons in a row', () => {
   // there is room for names, which is what these entries are told apart by.
   assert.match(sidebar, /aria-haspopup="menu"/);
   // The entries by key rather than by sentence, since this menu is translated
-  // (ADR-0041). What is asserted is unchanged: one mark, four names behind it.
-  // `workspaces` where `thisWorkspace` was: one entry for the subject, and the
-  // workspace being looked at is the first row of the list it opens
-  // (ADR-0067 amendment).
-  for (const key of ['yourSettings', 'workspaces', 'trash', 'signOut']) {
+  // (ADR-0041).
+  //
+  // Fewer than before, and on purpose: workspaces, the inbox and the trash are
+  // places, and places are on the rail — and in the sidebar at the width where
+  // the rail is not drawn (ADR-0068). What is left is you and the server, which
+  // is what a menu behind a face is for.
+  for (const key of ['yourSettings', 'signOut']) {
     assert.match(sidebar, new RegExp(`t\\('account\\.${key}'\\)`));
+  }
+});
+
+test('a place is in one list, not in the menu as well', () => {
+  /*
+   * The fault ADR-0067 was amended over, guarded rather than remembered.
+   *
+   * Three ways into one subject was not an improvement; a rail that repeated
+   * the menu would be the same finding with a column around it. So the list
+   * lives once, in places.tsx, and is drawn by the rail above 800px and by the
+   * sidebar below it — never both at once.
+   */
+  const places = codeOf(new URL('../src/components/places.tsx', import.meta.url));
+  for (const route of ['workspaces', 'inbox', 'trash']) {
+    assert.match(places, new RegExp(`paths\\.${route}\\(\\)`), `${route} is a place`);
+    assert.doesNotMatch(
+      sidebar,
+      new RegExp(`paths\\.${route}\\(\\)`),
+      `${route} is not also in the account menu`,
+    );
   }
 });
 
@@ -40,9 +62,21 @@ test('every entry carries a mark, and the areas share theirs with the switcher',
    * folder in the tree while `UsersIcon` means people, which is why this is its
    * own four-square mark rather than a borrowed one.
    */
-  for (const icon of ['PersonIcon', 'WorkspacesIcon', 'SlidersIcon', 'TrashIcon', 'SignOutIcon']) {
+  for (const icon of ['PersonIcon', 'SlidersIcon', 'SignOutIcon']) {
     assert.match(sidebar, new RegExp(`<${icon} />`), `${icon} is in the menu`);
   }
+  // The marks that moved with their entries kept their entries' marks: the
+  // rule is one subject, one symbol, and it does not care which list the
+  // subject is in.
+  const places = codeOf(new URL('../src/components/places.tsx', import.meta.url));
+  for (const icon of ['WorkspacesIcon', 'TrashIcon', 'BellIcon']) {
+    assert.match(places, new RegExp(`<${icon} />`), `${icon} is with its place`);
+  }
+  // And search is in neither list: it has the labelled row above the tree, at
+  // both widths, which is the more findable of the two ways it could have had.
+  const tree = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
+  assert.match(tree, /className="sidebar-search"/);
+  assert.doesNotMatch(places, /paths\.search\(\)/);
 
   const shell = codeOf(new URL('../src/components/SettingsShell.tsx', import.meta.url));
   assert.match(shell, /Icon: PersonIcon/);
@@ -75,10 +109,9 @@ test('the three areas are three entries, and one of them is conditional', () => 
   // Translated now (ADR-0041), so the entries are keys rather than sentences.
   assert.doesNotMatch(sidebar, /Edit your profile/);
   assert.match(sidebar, /t\('account\.yourSettings'\)/);
-  assert.match(sidebar, /t\('account\.workspaces'\)/);
   assert.match(sidebar, /href=\{paths\.settings\(\)\}/);
-  assert.match(sidebar, /href=\{paths\.workspaces\(\)\}/);
-  // And not both: the shortcut is the first row of the list.
+  // Neither entry for the workspace subject is here now: the list is a place
+  // (ADR-0068), and the shortcut to the current one is its first row.
   assert.doesNotMatch(sidebar, /href=\{paths\.workspaceSettings\(\)\}/);
   // One flag now, decided by whoever renders the menu: the sidebar combines the
   // two rights, and a settings column passes the one it already computed.
@@ -90,8 +123,9 @@ test('the three areas are three entries, and one of them is conditional', () => 
 test('signing out is last and set apart', () => {
   // The one entry here that pressing again does not undo.
   const out = sidebar.indexOf("t('account.signOut')");
-  const trash = sidebar.indexOf("t('account.trash')");
-  assert.ok(out > trash);
+  const settings = sidebar.indexOf("t('account.yourSettings')");
+  assert.ok(settings >= 0, 'the entry it has to come after is still here');
+  assert.ok(out > settings);
   assert.match(css, /\.sidebar-account-menu button \{[^}]*border-block-start: 1px solid/);
 });
 
