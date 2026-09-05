@@ -173,6 +173,10 @@ export const de: Record<keyof typeof en, string> = {
   'error.invalid_tag': 'Dieses Schlagwort ist nicht verwendbar.',
   'error.invalid_width': 'Diese Seitenbreite ist keine der zwei.',
   'error.unsupported_color': 'Diese Farbe ist keine der acht.',
+  'error.invalid_level': 'Diese Stufe für Seiten gibt es nicht.',
+  'error.invalid_right': 'Dieses Recht gibt es nicht.',
+  'error.system_role': 'Eingebaute Rollen lassen sich nicht ändern oder löschen.',
+  'error.role_in_use': 'Diese Rolle ist noch vergeben. Erst die Leute und Gruppen umstellen, die sie haben.',
   'error.name_taken': 'Dieser Name ist schon vergeben.',
   'error.last_owner': 'Ein Workspace muss einen Eigentümer behalten.',
   'error.last_administrator': 'Die Instanz muss einen Verwalter behalten.',
@@ -793,6 +797,38 @@ export const de: Record<keyof typeof en, string> = {
   'invite.expires': 'Läuft ab',
   'invite.used': 'Benutzt',
   'invite.withdraw': 'Zurückziehen',
+
+  // --- Rollen (ADR-0087) ---------------------------------------------------
+  //
+  // Eine Rolle ist zweierlei: was sie auf einer Seite ohne eigene Regeln gibt,
+  // und welche Rechte sie trägt. Die Texte hier trennen das, weil die
+  // Oberfläche es trennt — eine Leiter und eine Menge.
+  'role.note':
+    'Eine Rolle sagt zweierlei: was jemand auf Seiten darf, für die nichts Eigenes festgelegt ist, und was er im Workspace verwalten darf. Rollen lassen sich Personen und Gruppen geben.',
+  'role.new': 'Neue Rolle',
+  'role.name': 'Name',
+  'role.name.note': 'Wie die Rolle in Listen heißt.',
+  'role.namePlaceholder': 'Redaktion',
+  'role.level': 'Auf Seiten',
+  'role.level.note':
+    'Gilt für Seiten, für die nichts Eigenes freigegeben wurde. Einzelne Freigaben können mehr geben, nie weniger.',
+  'role.level.none': 'Nichts ohne ausdrückliche Freigabe',
+  'role.rights': 'Im Workspace',
+  'role.rights.note': 'Voneinander unabhängig. Nichts davon ist für die eigene Arbeit nötig.',
+  'role.edit': 'Ändern',
+  'role.delete': 'Löschen',
+  'role.builtIn': 'Fest eingebaut',
+  'role.heldBy': '{members} Personen, {groups} Gruppen',
+  'role.confirmDelete': '„{name}" löschen?',
+  'role.forGroup': 'Rolle dieser Gruppe',
+  'role.groupNone': 'Keine Rolle',
+  // Was jedes Recht erlaubt, in der Sprache der Sache und nicht der Route.
+  'right.people.manage': 'Leute verwalten',
+  'right.groups.manage': 'Gruppen verwalten',
+  'right.workspace.settings': 'Workspace-Einstellungen',
+  'right.roles.manage': 'Rollen festlegen',
+  'workspace.roles': 'Rollen',
+  'workspace.roles.hint': 'Was jemand darf, und wer welche Rolle hat',
 
   // --- Gruppen und Seitenrechte ------------------------------------------
   'group.new': 'Neue Gruppe',

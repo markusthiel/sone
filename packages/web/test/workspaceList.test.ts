@@ -106,10 +106,18 @@ test('the list is read back rather than adjusted in place', () => {
 test('a role is changed where it is shown', () => {
   // Not in a dialog: the list is where somebody is comparing people, and that
   // is where the comparison leads to a change.
+  //
+  // By id rather than by word (ADR-0087). A role this workspace defined has no
+  // word — and the four built-in ones are shown translated (ADR-0041), so their
+  // displayed names are not what the server is being told either.
   assert.match(
     members,
-    /api\.setMemberRole\(workspaceId, member\.userId, event\.target\.value\)/,
+    /api\.setMemberRoleId\(workspaceId, member\.userId, event\.target\.value\)/,
   );
+  // Every role the workspace has, not a hardcoded four: a picker that omitted
+  // the ones somebody defined would make the roles screen a place to build
+  // things nobody can be given.
+  assert.match(members, /\{roles\.map\(\(role\) => \(/);
 });
 
 test('the members table is one table, with one caller', () => {

@@ -25,6 +25,7 @@ import { ThemeSettings } from './ThemeSettings.tsx';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { WorkspaceExport } from './WorkspaceExport.tsx';
 import { WorkspaceDeletion } from './WorkspaceDeletion.tsx';
+import { RolesPanel } from './RolesPanel.tsx';
 import { WorkspaceMembers } from './WorkspaceMembers.tsx';
 
 export const SECTIONS = [
@@ -36,6 +37,10 @@ export const SECTIONS = [
   { id: 'people', label: 'workspace.people', hint: 'workspace.people.hint' },
   // Unreachable for the same reason.
   { id: 'groups', label: 'workspace.groups', hint: 'workspace.groups.hint' },
+  // Its own area, as asked for: a role is a thing you define once and give to
+  // many, so it does not belong inside the list of people or the list of
+  // groups (ADR-0087).
+  { id: 'roles', label: 'workspace.roles', hint: 'workspace.roles.hint' },
   // Where the record put it: a workspace export belongs to the workspace, not
   // to a page's ⋮ menu and not to the administration area — it is not a backup
   // (ADR-0044).
@@ -157,6 +162,7 @@ export function WorkspaceSettingsScreen({
         </section>
       )}
       {current === 'groups' && <GroupsPanel workspaceId={workspaceId} />}
+      {current === 'roles' && <RolesPanel workspaceId={workspaceId} />}
       {current === 'export' && <WorkspaceExport workspaceId={workspaceId} />}
     </div>
   );

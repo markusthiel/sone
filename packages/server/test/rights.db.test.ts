@@ -6,8 +6,8 @@
  * belong together — so the only way to let somebody make a group was to let
  * them change everybody's role and rename the workspace as well.
  *
- * These tests say what the three named rights do, and — the part that matters
- * more — that they can be held **apart**. A custom role carrying one of them
+ * These tests say what the named rights do, and — the part that matters more —
+ * that they can be held **apart**. A custom role carrying one of them
  * and not the others is what proves the eight questions really came apart,
  * rather than being renamed.
  */
@@ -59,11 +59,12 @@ describe('rights (database)', { concurrency: 1, skip: !hasDatabase }, () => {
   test('the system roles carry what the old comparison gave them', async () => {
     // The whole promise of the first two steps: nothing changes. An owner could
     // manage people, groups and settings before, and can now; a member could
-    // not, and cannot.
+    // not, and cannot. `roles.manage` joined them in step three, when there
+    // were routes for it to guard.
     const asOwner = await loadWorkspaceStanding(db, owner, workspace);
     assert.deepEqual(
       [...asOwner.rights].sort(),
-      ['groups.manage', 'people.manage', 'workspace.settings'],
+      ['groups.manage', 'people.manage', 'roles.manage', 'workspace.settings'],
     );
 
     const asMember = await loadWorkspaceStanding(db, colleague, workspace);
@@ -199,7 +200,8 @@ describe('rights (database)', { concurrency: 1, skip: !hasDatabase }, () => {
     );
     // And the rights those rows carry, which the seed above left empty.
     await db.query(
-      `UPDATE roles SET rights = ARRAY['people.manage','groups.manage','workspace.settings']
+      `UPDATE roles
+          SET rights = ARRAY['people.manage','groups.manage','workspace.settings','roles.manage']
         WHERE workspace_id IS NULL AND key IN ('owner','admin')`,
     );
   });

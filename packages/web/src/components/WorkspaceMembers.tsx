@@ -26,12 +26,10 @@
 import { useT } from '../i18n/useT.tsx';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
-import { ApiError, api, type WorkspaceMember } from '../api/client.ts';
+import { ApiError, api, type WorkspaceMember, type WorkspaceRoleRow } from '../api/client.ts';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { messageFor } from './Auth.tsx';
 import { PendingInvitations } from './PendingInvitations.tsx';
-
-const ROLES = ['owner', 'admin', 'member', 'guest'] as const;
 
 /**
  * The roles somebody can be let in as.
@@ -56,6 +54,7 @@ export function WorkspaceMembers({
 }): ReactElement {
   const { t } = useT();
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
+  const [roles, setRoles] = useState<WorkspaceRoleRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('member');
@@ -70,6 +69,21 @@ export function WorkspaceMembers({
   }, [workspaceId]);
 
   useEffect(load, [load]);
+
+  useEffect(() => {
+    /*
+     * The roles this workspace has, for the picker in the table.
+     *
+     * Failing quietly to an empty list: reading them needs `roles.manage`, and
+     * somebody may look after people without defining what roles mean. The
+     * picker then has nothing to offer, which is correct — and better than an
+     * error about a right they were not reaching for.
+     */
+    void api
+      .roles(workspaceId)
+      .then((result) => setRoles(result.roles))
+      .catch(() => setRoles([]));
+  }, [workspaceId]);
 
   /**
    * Do something, then read the result back.
@@ -185,23 +199,34 @@ export function WorkspaceMembers({
               <td>
                 {canAdminister ? (
                   <select
-                    value={member.role}
+                    value={member.roleId ?? ''}
                     aria-label={t('member.roleFor', { name: member.displayName })}
                     onChange={(event) =>
-                      act(api.setMemberRole(workspaceId, member.userId, event.target.value))
+                      act(api.setMemberRoleId(workspaceId, member.userId, event.target.value))
                     }
                   >
-                    {/* Translated, which they were not: four English role ids
-                        in a German table, on the one control that decides what
-                        somebody may do (ADR-0041). */}
-                    {ROLES.map((one) => (
-                      <option key={one} value={one}>
-                        {t(`role.${one}` as MessageKey)}
+                    {/* Every role this workspace has, not the four words
+                        (ADR-0087) — a role somebody defined is no less a role
+                        than a built-in one, and a picker that omitted it would
+                        make the settings area a place to define things nobody
+                        can be given.
+
+                        By id rather than by name: two roles cannot share a
+                        name, but the four built-in ones are shown translated
+                        (ADR-0041) and their translated names are not what the
+                        server is being told. */}
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.key ? t(`role.${role.key}` as MessageKey) : role.name}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  t(`role.${member.role}` as MessageKey)
+                  // A custom role has no key to translate, so its own name is
+                  // the only name it has.
+                  member.roleId !== null && member.role === 'custom'
+                    ? member.roleName
+                    : t(`role.${member.role}` as MessageKey)
                 )}
               </td>
               <td className="muted">{new Date(member.joinedAt).toLocaleDateString()}</td>
