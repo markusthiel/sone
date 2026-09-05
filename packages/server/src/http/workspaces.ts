@@ -175,7 +175,8 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
       if (!workspace) throw new Error('failed to create workspace');
 
       await client.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'owner')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
+         VALUES ($1,$2,'owner',(SELECT id FROM roles WHERE key = 'owner'),true)`,
         [workspace.id, auth.userId],
       );
       return workspace.id;

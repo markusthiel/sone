@@ -45,7 +45,6 @@ export function workspaceExportHandler(pool: Pool, store: FileStore) {
       rootId: null,
       viewer: {
         userId: job.createdBy,
-        isWorkspaceAdmin: membership === 'owner' || membership === 'admin',
       },
       withAttachments: job.payload['attachments'] !== false,
       maxPages: MAX_WORKSPACE_PAGES,

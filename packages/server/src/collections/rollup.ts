@@ -112,13 +112,20 @@ export async function computeRollup(
   input: {
     rowIds: string[];
     config: RollupConfig;
-    reader: { userId: string | null; isAdmin: boolean };
+    /**
+     * Whose view of the relations this is.
+     *
+     * No `isAdmin` any more: the visibility condition asks that itself
+     * (ADR-0087). This call site used to pass a hard-coded `false`, which was
+     * the third of three ways a caller can get a parameter wrong.
+     */
+    reader: { userId: string | null };
   },
 ): Promise<Map<string, DerivedValue>> {
   const out = new Map<string, DerivedValue>();
   if (input.rowIds.length === 0) return out;
 
-  const visible = visiblePagesCondition('src', '$3', '$4');
+  const visible = visiblePagesCondition('src', '$3');
 
   if (input.config.aggregate === 'rows' || input.config.aggregate === 'count') {
     const rows = await queryRows<{
@@ -143,7 +150,7 @@ export async function computeRollup(
               may_read::text AS hidden
          FROM edges
         ORDER BY title ASC`,
-      [input.rowIds, input.config.viaFieldId, input.reader.userId, input.reader.isAdmin],
+      [input.rowIds, input.config.viaFieldId, input.reader.userId],
     );
 
     for (const rowId of input.rowIds) {
@@ -191,13 +198,13 @@ export async function computeRollup(
               coalesce(v.text_value, v.number_value::text) AS shown
          FROM page_relations r
          JOIN pages src ON src.id = r.from_page_id
-         JOIN page_properties v ON v.page_id = r.from_page_id AND v.field_id = $5
+         JOIN page_properties v ON v.page_id = r.from_page_id AND v.field_id = $4
         WHERE r.to_page_id = ANY($1::uuid[])
           AND r.field_id = $2
           AND src.archived_at IS NULL
           AND (${visible})
         ORDER BY src.title ASC`,
-      [input.rowIds, input.config.viaFieldId, input.reader.userId, input.reader.isAdmin, fieldId],
+      [input.rowIds, input.config.viaFieldId, input.reader.userId, fieldId],
     );
 
     for (const rowId of input.rowIds) {
@@ -234,7 +241,7 @@ export async function computeRollup(
             bool_or(NOT (${visible}))::text AS hidden
        FROM page_relations r
        JOIN pages src ON src.id = r.from_page_id
-       JOIN page_properties v ON v.page_id = r.from_page_id AND v.field_id = $5
+       JOIN page_properties v ON v.page_id = r.from_page_id AND v.field_id = $4
       WHERE r.to_page_id = ANY($1::uuid[])
         AND r.field_id = $2
         AND src.archived_at IS NULL
@@ -243,7 +250,7 @@ export async function computeRollup(
         -- to read it.
         AND (${visible})
       GROUP BY r.to_page_id`,
-    [input.rowIds, input.config.viaFieldId, input.reader.userId, input.reader.isAdmin, fieldId],
+    [input.rowIds, input.config.viaFieldId, input.reader.userId, fieldId],
   );
 
   for (const rowId of input.rowIds) {

@@ -35,7 +35,13 @@ export interface BuildRequest {
   /** The page everything hangs under, or null for the whole workspace. */
   rootId: string | null;
   /** Whose rights decide what is included. */
-  viewer: { userId: string | null; isWorkspaceAdmin: boolean };
+  /**
+   * Whose export this is.
+   *
+   * No "and are they an admin" any more: the visibility condition asks that
+   * for itself now, so a caller cannot get it wrong (ADR-0087).
+   */
+  viewer: { userId: string | null };
   withAttachments: boolean;
   /** How many pages one archive may hold. */
   maxPages: number;
@@ -69,13 +75,12 @@ export async function buildArchive(
         -- A row of a collection and a structural container are not documents;
         -- their contents belong to the page that holds them.
         AND p.kind NOT IN ('row', 'container')
-        AND ${visiblePagesCondition('p', '$4', '$3')}
+        AND ${visiblePagesCondition('p', '$3')}
       ORDER BY p.idx, p.id
       LIMIT ${request.maxPages + 1}`,
     [
       request.workspaceId,
       request.rootId,
-      request.viewer.isWorkspaceAdmin,
       request.viewer.userId,
     ],
   );

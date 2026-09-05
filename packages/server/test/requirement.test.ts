@@ -166,9 +166,18 @@ test('a membership lookup lives in one place', () => {
   walk(server);
 
   /*
-   * Two: the shared helper, and one statement that asks a genuinely different
-   * question — whether somebody is one of two roles, answered in the database
-   * rather than by fetching a value to compare in JavaScript.
+   * One, and it was two.
+   *
+   * The shared helper's own copy is gone: `roleIn` asks
+   * `loadWorkspaceStanding` now, because a role is a row and what it *gives*
+   * is a column on that row rather than a switch statement (ADR-0087). What
+   * remains is the one statement that asks a genuinely different question —
+   * whether somebody is one of two roles, answered in the database rather than
+   * by fetching a value to compare in JavaScript.
+   *
+   * The requirement is unchanged and this number is not the requirement: the
+   * point is that a membership lookup is not copied around, and the assertion
+   * counts copies so that a sixth cannot appear quietly.
    */
-  assert.equal(copies, 2, 'the helper, and the one that asks something else');
+  assert.equal(copies, 1, 'only the one that asks something else');
 });

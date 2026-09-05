@@ -238,7 +238,7 @@ export async function writeNotifications(
        JOIN pages p ON p.id = $1
        JOIN workspace_members m
          ON m.workspace_id = p.workspace_id AND m.user_id = c.user_id
-      WHERE ${visiblePagesCondition('p', 'c.user_id', "m.role IN ('owner', 'admin')")}
+      WHERE ${visiblePagesCondition('p', 'c.user_id')}
      -- Made once per message. A page is reprojected whenever anything in it
      -- changes, so without this every edit would create the mention again.
      ON CONFLICT (user_id, kind, thread_id, message_id) DO NOTHING`,
