@@ -297,6 +297,51 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
   });
 
+  test('a page kept as a path survives the listing, for a guest as for a member', async () => {
+    /*
+     * ADR-0026 requires it: "a page they cannot see with children they can
+     * still has to appear as a path to them", drawn without its title.
+     *
+     * The route computed the column, documented it at length, and the filter
+     * two lines below dropped exactly those rows — a page nobody may read
+     * resolves to no role. It went unnoticed because a **member** survived by
+     * accident: the filter was told `restricted: false`, so the member's role
+     * still answered `editor` on the restricted ancestor. A **guest**, which is
+     * the case the feature exists for, lost the path and found the page they
+     * were granted floating at the top of the sidebar.
+     *
+     * This is the condition the route now applies, asserted at the level the
+     * route asks it: the SQL keeps the row, and the row is a path.
+     */
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'editor')`,
+      [grandchild, guest],
+    );
+
+    const rows = await db.query<{ id: string; path_only: boolean }>(
+      `SELECT p.id, NOT ${visiblePagesCondition('p', '$2')} AS path_only
+         FROM pages p
+        WHERE p.workspace_id = $1
+          AND (${visiblePagesCondition('p', '$2')} OR ${isPathOnlyCondition('p', '$2')})`,
+      [workspace, guest],
+    );
+    const byId = new Map(rows.rows.map((row) => [row.id, row.path_only]));
+
+    assert.equal(byId.get(grandchild), false, 'the granted page, in full');
+    assert.equal(byId.get(child), true, 'its restricted parent, as a path');
+    // And the resolver says nothing about the path page, which is why the
+    // filter dropped it and why the route now asks `path_only` first.
+    assert.equal(
+      (await resolvePageAccess(db, { pageId: child, userId: guest })).access,
+      null,
+      'a path is not access',
+    );
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [guest]);
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
+  });
+
   // --- every list, not only the tree ----------------------------------------
 
   test('a favourite does not outlive the access that created it', async () => {

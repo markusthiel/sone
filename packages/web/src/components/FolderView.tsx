@@ -50,7 +50,7 @@ export function FolderView({
         <nav className="breadcrumb" aria-label={t('folder.location')}>
           {trail.map((ancestor) => (
             <span key={ancestor.id}>
-              <a href={paths.page(ancestor.id, ancestor.title)}>
+              <a href={paths.page(ancestor.id, ancestor.title ?? undefined)}>
                 {ancestor.title || 'Untitled folder'}
               </a>
               <span aria-hidden="true"> / </span>
@@ -83,7 +83,7 @@ export function FolderView({
           // field rather than carrying the previous name into it — an
           // uncontrolled input keeps its own value across a prop change.
           key={folder.id}
-          defaultValue={folder.title}
+          defaultValue={folder.title ?? ''}
           onBlur={(event) => {
             const next = event.currentTarget.value.trim();
             if (next !== folder.title) onRename(folder.id, next);
@@ -91,7 +91,7 @@ export function FolderView({
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.currentTarget.blur();
             else if (event.key === 'Escape') {
-              event.currentTarget.value = folder.title;
+              event.currentTarget.value = folder.title ?? '';
               event.currentTarget.blur();
             }
           }}
@@ -136,7 +136,7 @@ export function FolderView({
               <ul className="folder-list">
                 {folders.map((child) => (
                   <li key={child.id}>
-                    <a href={paths.page(child.id, child.title)}>
+                    <a href={paths.page(child.id, child.title ?? undefined)}>
                       {/* The child's own icon and colour, for the same reason
                           the heading has them: a folder decorated in the tree
                           that is drawn plain in its parent's listing looks like
@@ -164,7 +164,7 @@ export function FolderView({
               <ul className="folder-list">
                 {pages.map((child) => (
                   <li key={child.id}>
-                    <a href={paths.page(child.id, child.title)}>
+                    <a href={paths.page(child.id, child.title ?? undefined)}>
                       <EntryIconView icon={child.icon} kind={entryKind(child.kind)} />
                       <span
                         className="folder-list-name"

@@ -664,6 +664,21 @@ function TreeLevel({
         const hasChildren = node.children.length > 0;
         const isCollapsed = collapsed.has(node.id);
         const isFolder = node.kind === 'folder';
+        /*
+         * A page that is here as a **path**, not as a page (ADR-0026).
+         *
+         * Somebody was granted something inside it and nothing here. It has to
+         * appear or the granted child is reachable only by knowing its address
+         * — and before this it did not, so a guest found the page they were
+         * given floating at the top of the sidebar, outside the section it
+         * actually lives in.
+         *
+         * What it must not do is offer anything. No link, because there is
+         * nothing here they may open; no rename, no ⋮, no "new inside this",
+         * no drag. And no title: the name was withheld on purpose, and sending
+         * it "so the interface can hide it" would be sending it.
+         */
+        const isPath = node.pathOnly === true;
         const title = node.title || (isFolder ? 'Untitled folder' : 'Untitled');
 
         return (
@@ -681,7 +696,11 @@ function TreeLevel({
               // Needed to tell a gap between siblings — which has one meaning
               // — from a gap at a nesting boundary, which has two.
               data-tree-parent={node.parentPageId ?? 'root'}
-              onPointerDown={drag.onPointerDown}
+              data-path-only={isPath ? 'true' : undefined}
+              // Not draggable: moving a page needs rights on it, and this is a
+              // page somebody has none on. A gesture that can only be refused
+              // is worse than one that is not offered.
+              {...(isPath ? {} : { onPointerDown: drag.onPointerDown })}
               data-drop={
                 drag.target?.rowId === node.id && drag.dragging
                   ? drag.target.intent
@@ -710,9 +729,14 @@ function TreeLevel({
                 <ChevronRightIcon />
               </button>
 
-              {node.id === renaming ? (
+              {isPath ? (
+                // A word rather than an empty space: a nameless row with a
+                // twisty beside it reads as a fault. This says what it is —
+                // and says nothing about the page, which is the point.
+                <span className="tree-link tree-path-only">{t('tree.pathOnly')}</span>
+              ) : node.id === renaming ? (
                 <RenameField
-                  initial={node.title}
+                  initial={node.title ?? ''}
                   onCommit={(next) => onRename(node.id, next)}
                   onCancel={onCancelRename}
                 />
@@ -727,7 +751,7 @@ function TreeLevel({
                   // Links are draggable by default; the browser's own drag
                   // would cancel this app's gesture before it started.
                   draggable={false}
-                  href={paths.page(node.id, node.title)}
+                  href={paths.page(node.id, node.title ?? undefined)}
                   {...(node.id === currentPageId ? { 'aria-current': 'page' as const } : {})}
                 >
                   {/* The entry's own kind, not "folder or else page". A canvas
@@ -744,7 +768,7 @@ function TreeLevel({
                 </a>
               )}
 
-              {node.id !== renaming && (
+              {node.id !== renaming && !isPath && (
                 <>
                   {/* Only a folder offers "new inside this". A page contains
                       nothing (ADR-0019), so offering it there would produce a

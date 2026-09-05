@@ -324,6 +324,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       last_edited_at: Date;
       ancestor_ids: string[];
       path_only: boolean;
+      restricted: boolean;
     }>(
       deps.pool,
       `SELECT p.id, p.parent_page_id, p.collection_id, p.idx, p.title, p.icon,
@@ -331,7 +332,17 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
               -- A page somebody reaches only as the path to a child they were
               -- granted. It appears, and the interface draws it without its
               -- title (ADR-0026).
-              NOT ${visiblePagesCondition('p', '$3')} AS path_only
+              NOT ${visiblePagesCondition('p', '$3')} AS path_only,
+              -- Fetched rather than assumed. The filter below used to be told
+              -- the page was unrestricted, on the grounds that the listing
+              -- condition had already excluded restricted ones — true of every
+              -- row except the ones path_only exists for. A page kept as a path
+              -- is kept *because* it is restricted.
+              EXISTS (
+                SELECT 1 FROM pages r
+                 WHERE r.id = ANY(array_append(p.ancestor_ids, p.id))
+                   AND r.restricted
+              ) AS restricted
          FROM pages p
         WHERE p.workspace_id = $1
           AND ($2 OR p.archived_at IS NULL)
@@ -359,15 +370,30 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     );
     void collateClause(i18n.sortCollation);
 
+    /*
+     * Kept: what they may reach, and what they need in order to reach it.
+     *
+     * The second half was computed, documented and thrown away. `path_only`
+     * marks a page somebody reaches only as the **path** to a child they were
+     * granted — ADR-0026 requires it to appear, without its title, or the child
+     * is reachable only by knowing its address. This filter then dropped
+     * exactly those rows, because a page nobody may read resolves to no role.
+     *
+     * It went unnoticed because it only bites somebody whose role gives them
+     * nothing. A member resolved to `editor` on the restricted ancestor and
+     * kept it by accident — helped by the `restricted: false` that used to be
+     * passed here. A **guest**, which is the case the feature exists for, got
+     * the granted page as a root of the sidebar, floating outside the section
+     * it lives in.
+     */
     const visible = rows.filter(
       (row) =>
+        row.path_only ||
         effectiveRole(claims, {
           id: row.id,
           workspaceId,
           ancestorIds: row.ancestor_ids,
-          // The listing condition above already excluded restricted pages, so
-          // this second check only has to agree with it.
-          restricted: false,
+          restricted: row.restricted,
         }) !== null,
     );
 

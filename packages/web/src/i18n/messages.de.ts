@@ -879,6 +879,10 @@ export const de: Record<keyof typeof en, string> = {
   'shares.revoke': 'Zurückziehen',
   'shares.open': 'Seite öffnen',
 
+  // Eine Seite, die jemand nur als *Weg* zu einer freigegebenen Unterseite
+  // sieht (ADR-0026). Der Name wurde absichtlich zurückgehalten; hier steht,
+  // warum die Zeile keinen hat, und sonst nichts über die Seite.
+  'tree.pathOnly': 'Nicht freigegeben',
   'perm.people': 'Leute',
   'perm.peopleHere': 'Leute in diesem Workspace',
   'perm.groups': 'Gruppen',

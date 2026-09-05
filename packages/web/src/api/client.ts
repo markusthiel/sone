@@ -151,7 +151,24 @@ export interface PageSummary {
   parentPageId: string | null;
   collectionId: string | null;
   idx: string;
-  title: string;
+  /**
+   * Null for a page kept only as the path to a child (ADR-0026).
+   *
+   * Typed as a plain string until now, which was a lie the compiler could not
+   * catch because the case was unreachable: the server withheld the title and
+   * then the row was filtered out before it left. Now that such a page arrives,
+   * the null is real, and every place that draws a title has to say what it
+   * draws instead.
+   */
+  title: string | null;
+  /**
+   * This page is here as a *path*, not as a page.
+   *
+   * Somebody was granted something inside it and nothing here. It has to appear
+   * or the child is reachable only by knowing its address — and it must not
+   * offer anything, because there is nothing here they may do.
+   */
+  pathOnly?: boolean;
   icon: { kind: string; value: string; color?: string; titleColor?: string } | null;
   kind: EntryKind;
   /** Offered as a shape to start from (ADR-0045). */
