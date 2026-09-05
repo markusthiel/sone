@@ -13,6 +13,31 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Erwähnungen landen jetzt in der Glocke.** Wer in einer Seite mit `@` genannt
+wurde, bekam nichts — und zwar am zuverlässigsten dann, wenn er die Seite gerade
+offen hatte.
+
+Der Grund: eine Erwähnung wird dem, der sie geschrieben hat, nicht gemeldet, und
+„wer sie geschrieben hat" wurde vom Sync-Raum geraten. Der merkt sich nämlich
+nicht den letzten Schreiber, sondern den letzten, der überhaupt etwas geschickt
+hat — und ein Leser, der die Seite öffnet, schickt etwas. Wer also gerade
+draufschaute, während jemand ihn nannte, filterte seine eigene Erwähnung weg.
+Und zwar dauerhaft.
+
+Jetzt steht im Dokument selbst, wer den Namen gesetzt hat. Sich selbst zu nennen
+bleibt eine Notiz an sich selbst.
+
+**Die Glocke zählte außerdem anders als sie auflistet.** Eine Benachrichtigung
+auf einer inzwischen gelöschten Seite wurde gezählt und nicht angezeigt —
+„Abzeichen zwei, Liste leer".
+
+**Und Textstellen einer Person werden jetzt wirklich hervorgehoben.** Im Reiter
+„Personen" jemanden anzuwählen tat sichtbar nichts: die Stelle, die eine
+Textposition in eine Editor-Position übersetzt, suchte das Falsche und fand nie
+etwas. Es wurde also jedes Mal nichts markiert.
+
+Nichts zu tun beim Aktualisieren.
+
 **Wer eine Seite zum Kommentieren freigegeben bekommt, kann jetzt auch
 kommentieren.** Klingt selbstverständlich und war es nicht: die Stufe
 „Kommentieren" gab es in der Freigabe seit es Links gibt, und sie hat nie etwas

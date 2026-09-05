@@ -35,12 +35,28 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
 
     const row = await queryOne<{ n: string }>(
       deps.pool,
-      `SELECT count(*)::text AS n FROM notifications
-        WHERE user_id = $1 AND read_at IS NULL
+      // The same two joins the list makes, and for the same reason.
+      //
+      // They were missing here, so the badge counted a notification on a page
+      // somebody had since put in the trash, or in a workspace that had been
+      // deleted — and the list, which does join both, did not show it. A badge
+      // saying two over an empty screen reads as the list being broken, which
+      // is exactly how this was reported (ADR-0091).
+      //
+      // Two queries, one question: the count is separate from the list because
+      // it sits on a button on every page and has to be one indexed count. That
+      // is a reason for a second *query*, never for a second answer.
+      `SELECT count(*)::text AS n
+         FROM notifications n
+         JOIN pages p ON p.id = n.page_id
+         JOIN workspaces w ON w.id = n.workspace_id
+        WHERE n.user_id = $1 AND n.read_at IS NULL
+          AND p.archived_at IS NULL
+          AND w.deleted_at IS NULL
           -- Asleep does not count (ADR-0075). A badge that keeps counting what
           -- somebody deliberately put aside is a badge they stop believing,
           -- which is the one thing this number must not become.
-          AND (snoozed_until IS NULL OR snoozed_until <= now())`,
+          AND (n.snoozed_until IS NULL OR n.snoozed_until <= now())`,
       [session.userId],
     );
 

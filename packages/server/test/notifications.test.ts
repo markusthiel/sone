@@ -148,6 +148,18 @@ test('an assignment names whoever´s edit produced it', () => {
 
 const block = (id: string, text: string) => ({ id, plainText: text });
 
+/*
+ * Real uuids, because `notifications.user_id` is one.
+ *
+ * These tests used 'anna' and 'markus', which reads better and cannot happen:
+ * every id here ends up in a uuid column, and a value that could not survive
+ * the INSERT is a value the function is not really being asked about. It is
+ * also how the guest-key crash below stayed invisible — nothing in this file
+ * ever handed it something Postgres would refuse.
+ */
+const ANNA = '11111111-1111-4111-8111-111111111111';
+const MARKUS = '22222222-2222-4222-8222-222222222222';
+
 test('somebody named in a paragraph is told, with the sentence they were named in', () => {
   /*
    * A mention in a comment and a mention in a paragraph are the same act —
@@ -157,15 +169,15 @@ test('somebody named in a paragraph is told, with the sentence they were named i
    * one (ADR-0085).
    */
   const out = textMentionsFor(
-    [{ userId: 'anna', blockId: 'p1' }],
+    [{ userId: ANNA, blockId: 'p1', writtenBy: MARKUS }],
     [block('p1', 'Kannst du @Anna hier draufschauen?')],
-    'markus',
+    MARKUS,
   );
 
   assert.deepEqual(out, [
     {
-      userId: 'anna',
-      actorId: 'markus',
+      userId: ANNA,
+      actorId: MARKUS,
       kind: 'mention',
       threadId: null,
       messageId: 'p1',
@@ -174,10 +186,69 @@ test('somebody named in a paragraph is told, with the sentence they were named i
   ]);
 });
 
-test('naming yourself is a note to self, not a notification', () => {
-  // Somebody who has just typed their own name knows they typed it.
+test('naming yourself is a note to self, and the document decides who "self" is', () => {
+  /*
+   * This test used to pass the same id as `actorId` and assert nothing came
+   * back — which was true, and was a test of the wrong rule.
+   *
+   * The actor is the projection's, and the projection's actor is whoever last
+   * sent a sync message: a reader opening the page qualified. So the filter was
+   * dropping mentions of *whoever happened to be looking*, and the person most
+   * likely to be looking when somebody names them is the person being named
+   * (ADR-0091). `writtenBy` comes from the document instead.
+   */
   assert.deepEqual(
-    textMentionsFor([{ userId: 'markus', blockId: 'p1' }], [block('p1', '@Markus: nicht vergessen')], 'markus'),
+    textMentionsFor(
+      [{ userId: MARKUS, blockId: 'p1', writtenBy: MARKUS }],
+      [block('p1', '@Markus: nicht vergessen')],
+      MARKUS,
+    ),
+    [],
+    'he wrote it himself',
+  );
+
+  // And the case that was broken: he is merely the one with the page open.
+  const out = textMentionsFor(
+    [{ userId: MARKUS, blockId: 'p1', writtenBy: ANNA }],
+    [block('p1', '@Markus schaust du?')],
+    MARKUS,
+  );
+  assert.equal(out.length, 1, 'somebody else named him');
+  assert.equal(out[0]?.actorId, ANNA, 'and the notification names them, not the actor');
+});
+
+test('a document that cannot say who wrote it notifies rather than staying silent', () => {
+  // An old page, or attribution pruned after the writer's other words went
+  // (ADR-0022). Telling somebody about their own sentence is a small annoyance;
+  // silently dropping everybody else's is the bug this replaced.
+  const out = textMentionsFor(
+    [{ userId: MARKUS, blockId: 'p1', writtenBy: null }],
+    [block('p1', '@Markus: nicht vergessen')],
+    MARKUS,
+  );
+  assert.equal(out.length, 1);
+});
+
+test('a name that is not an account is dropped rather than crashing the projection', () => {
+  /*
+   * `user_id` is a uuid column and a mention node's `userId` is written by a
+   * client, so it is whatever a client put there. A guest key reached the
+   * INSERT and aborted the **whole projection** — the page's comment counts,
+   * its search row and its notifications with it.
+   *
+   * `notificationsFor` drops a guest key and `assignmentsFor` drops a guest
+   * key. This one did not: the third of three places, which is where a rule
+   * goes to be forgotten.
+   */
+  assert.deepEqual(
+    textMentionsFor(
+      [
+        { userId: 'guest:Anna', blockId: 'p1', writtenBy: MARKUS },
+        { userId: 'nicht-mal-eine-id', blockId: 'p1', writtenBy: MARKUS },
+      ],
+      [block('p1', 'egal')],
+      MARKUS,
+    ),
     [],
   );
 });
@@ -186,7 +257,7 @@ test('a mention whose block has gone carries an empty excerpt rather than throwi
   // The document and the projected blocks are read in the same pass, so this
   // should not happen — and "should not happen" is not a reason to take a
   // projection down.
-  const out = textMentionsFor([{ userId: 'anna', blockId: 'weg' }], [], null);
+  const out = textMentionsFor([{ userId: ANNA, blockId: 'weg', writtenBy: MARKUS }], [], null);
   assert.equal(out.length, 1);
   assert.equal(out[0]?.excerpt, '');
 });
