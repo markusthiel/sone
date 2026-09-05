@@ -21,6 +21,30 @@ was being written. They are on `ghcr.io/markusthiel/sone` and can be
 pulled without credentials. A released tag's notes are not rewritten
 (ADR-0013), so the correction lives here.
 
+**Single sign-on could never create an account. It can now.** *(If you have OIDC
+configured, this is the entry to read.)*
+
+Pressing the sign-in button and coming back from your provider always ended in
+"sign-in failed" for anybody who did not already have an account here — because
+the statement that creates one named a database constraint that does not exist.
+The failure was indistinguishable from a rejected token, so an instance with
+perfectly correct settings looked like an instance with a wrong client secret.
+Nobody has ever signed in to SONE through a provider unless their identity row
+was created by hand.
+
+Two related repairs. The short-lived cookie that holds a sign-in in progress is
+**signed** now: without that, anybody able to set a cookie for your domain — a
+neighbouring subdomain, or plain HTTP — could have completed a sign-in *into
+their own account* in your browser, leaving you writing into their workspace
+believing it was yours. And that cookie is now actually cleared when a sign-in
+succeeds; it used to be discarded by the session cookie set immediately after
+it, and lingered for ten minutes.
+
+**Still missing, and now written down properly:** there is no way to attach a
+provider to an account that already exists here. The documentation described one;
+it was never built. Everybody who had a SONE account before OIDC was configured
+still cannot use it, and that needs its own change rather than a note.
+
 **Notification mail: putting something off now works, and a hiccup no longer
 loses it.**
 

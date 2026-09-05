@@ -152,7 +152,24 @@ export function setSessionCookie(
     `Max-Age=${SESSION_TTL_DAYS * 86_400}`,
   ];
   if (secure) attrs.push('Secure');
-  ctx.res.setHeader('set-cookie', attrs.join('; '));
+  /*
+   * Appended, not set.
+   *
+   * `setHeader` replaces, and the OIDC callback clears its pending cookie
+   * immediately before calling this — so the clearing cookie was thrown away
+   * and the pending blob survived a successful sign-in for its full ten
+   * minutes (ADR-0082). Nothing else sets a cookie alongside this one today,
+   * which is exactly why the collision went unseen.
+   */
+  const existing = ctx.res.getHeader('set-cookie');
+  ctx.res.setHeader(
+    'set-cookie',
+    Array.isArray(existing)
+      ? [...existing, attrs.join('; ')]
+      : typeof existing === 'string'
+        ? [existing, attrs.join('; ')]
+        : attrs.join('; '),
+  );
 }
 
 function clearSessionCookie(ctx: RequestContext, secure: boolean): void {
@@ -164,7 +181,24 @@ function clearSessionCookie(ctx: RequestContext, secure: boolean): void {
     'Max-Age=0',
   ];
   if (secure) attrs.push('Secure');
-  ctx.res.setHeader('set-cookie', attrs.join('; '));
+  /*
+   * Appended, not set.
+   *
+   * `setHeader` replaces, and the OIDC callback clears its pending cookie
+   * immediately before calling this — so the clearing cookie was thrown away
+   * and the pending blob survived a successful sign-in for its full ten
+   * minutes (ADR-0082). Nothing else sets a cookie alongside this one today,
+   * which is exactly why the collision went unseen.
+   */
+  const existing = ctx.res.getHeader('set-cookie');
+  ctx.res.setHeader(
+    'set-cookie',
+    Array.isArray(existing)
+      ? [...existing, attrs.join('; ')]
+      : typeof existing === 'string'
+        ? [existing, attrs.join('; ')]
+        : attrs.join('; '),
+  );
 }
 
 /**
@@ -229,7 +263,24 @@ export function setShareCookie(
     // outlives the browser would leave a credential behind on a shared machine.
   ];
   if (secure) attrs.push('Secure');
-  ctx.res.setHeader('set-cookie', attrs.join('; '));
+  /*
+   * Appended, not set.
+   *
+   * `setHeader` replaces, and the OIDC callback clears its pending cookie
+   * immediately before calling this — so the clearing cookie was thrown away
+   * and the pending blob survived a successful sign-in for its full ten
+   * minutes (ADR-0082). Nothing else sets a cookie alongside this one today,
+   * which is exactly why the collision went unseen.
+   */
+  const existing = ctx.res.getHeader('set-cookie');
+  ctx.res.setHeader(
+    'set-cookie',
+    Array.isArray(existing)
+      ? [...existing, attrs.join('; ')]
+      : typeof existing === 'string'
+        ? [existing, attrs.join('; ')]
+        : attrs.join('; '),
+  );
 }
 
 /** Truncated client address, for the rate-limit ledger. See ADR-0010. */
