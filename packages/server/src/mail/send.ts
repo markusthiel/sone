@@ -220,13 +220,24 @@ export async function sendMail(relay: Relay, message: Message, now = new Date())
       await session.say(`AUTH PLAIN ${credential}`, [235]);
     }
 
+    /*
+     * The recipient is made header-safe too.
+     *
+     * Every other caller passes an address out of `users.email`, so this was
+     * never load-bearing — until refusals started going to an address read out
+     * of an arriving mail's `From` header, which is text a stranger wrote. It
+     * is parsed before it gets here (`addressIn`), and this is the second lock
+     * on the same door: a recipient is never the place where a header gets
+     * invented.
+     */
+    const to = headerSafe(message.to);
     await session.say(`MAIL FROM:<${relay.from}>`, [250]);
-    await session.say(`RCPT TO:<${message.to}>`, [250, 251]);
+    await session.say(`RCPT TO:<${to}>`, [250, 251]);
     await session.say('DATA', [354]);
 
     const headers = [
       `From: ${relay.from}`,
-      `To: ${message.to}`,
+      `To: ${to}`,
       `Subject: ${headerSafe(message.subject)}`,
       `Date: ${now.toUTCString()}`,
       'MIME-Version: 1.0',
