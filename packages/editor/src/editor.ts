@@ -43,6 +43,7 @@ import { markdownPaste } from './markdownPaste.js';
 import { authorHighlight } from './authorHighlight.js';
 import { schema } from './schema.js';
 import { blockLock } from './blockLock.js';
+import { mentionMenu } from './mentionMenu.js';
 import { slashMenu, type LocaliseSlashItem } from './slashMenu.js';
 import { tableKeymap, tablePlugins } from './tables.js';
 
@@ -224,6 +225,10 @@ export function createEditorState(opts: EditorOptions): EditorState {
     // the first that handles a key; the other way round, Enter would split the
     // block instead of picking an item.
     slashMenu(opts.localiseSlashItem),
+    // Naming somebody in the text (ADR-0085). After the slash menu, and it
+    // takes only Escape: the arrows and Enter belong to the interface, which
+    // owns the list of people this package deliberately knows nothing about.
+    mentionMenu(),
     // One filter for every locked block (ADR-0049). Before the application's
     // own plugins, so a supplied plugin cannot dispatch past it.
     blockLock(),

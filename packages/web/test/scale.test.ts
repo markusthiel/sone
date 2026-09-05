@@ -1188,10 +1188,21 @@ test('a thread exists once somebody has written something', () => {
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
   assert.match(app, /setPendingComment\(anchor\);\s*\n\s*setRightOpen\(true\);/);
   const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
-  // Through `startThread`, which is the one place that decides *which*
-  // document a new thread goes into (ADR-0057) — the assertion's subject is
-  // that a thread appears only once something is written, and that still holds.
-  assert.match(panel, /startThread\(draft\)/);
+  /*
+   * Through `send`, which calls `startThread` — the one place that decides
+   * *which* document a new thread goes into (ADR-0057).
+   *
+   * It used to match `startThread(draft)` directly. Enter and the button were
+   * two copies of the same three lines then, and adding mentions to a comment
+   * made that a real bug rather than a duplication: the button cannot see who
+   * the composer's `@` picker chose, so it would have sent the sentence without
+   * the people named in it (ADR-0085). One function now, called by both.
+   *
+   * The assertion's subject is unchanged: a thread appears only once something
+   * is written.
+   */
+  assert.match(panel, /startThread\(draft, mentionsInDraft\(draft, picked\)\)/);
+  assert.match(panel, /onSend=\{send\}/);
   assert.match(panel, /disabled=\{draft\.trim\(\) === ''\}/);
 });
 

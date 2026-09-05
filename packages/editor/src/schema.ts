@@ -569,6 +569,52 @@ const nodes: Record<string, NodeSpec> = {
     }),
   ),
 
+  /**
+   * Somebody, named in the text (ADR-0085).
+   *
+   * An **atom**, and that is the whole decision. A mention written as plain
+   * text is a string that stops meaning anything the moment somebody's display
+   * name changes, cannot be told apart from the same characters typed by hand,
+   * and gives a notification nothing to address. As a node it holds an id: the
+   * label is what is drawn, the id is what is meant.
+   *
+   * `inline: true` with `atom: true` and no content, so a caret goes round it
+   * rather than into it — half a mention is not a smaller mention, it is a
+   * mistake — and one backspace removes the whole thing.
+   *
+   * The label is stored beside the id rather than looked up when drawing. That
+   * is a copy and it goes stale, and it is still right: a document is read by
+   * clients that may not be allowed to list the people in a workspace, and one
+   * that cannot resolve an id would otherwise draw a blank where a name was.
+   * The interface refreshes it when it does know better.
+   */
+  mention: {
+    group: 'inline',
+    inline: true,
+    atom: true,
+    attrs: { userId: { default: null }, label: { default: '' } },
+    // Not draggable: dragging a name out of the sentence it is in and into
+    // another one is never what somebody meant to do.
+    selectable: true,
+    parseDOM: [
+      {
+        tag: 'span[data-sone-mention]',
+        getAttrs: (dom) => ({
+          userId: (dom as HTMLElement).getAttribute('data-sone-mention'),
+          label: (dom as HTMLElement).textContent?.replace(/^@/, '') ?? '',
+        }),
+      },
+    ],
+    toDOM: (node) => [
+      'span',
+      {
+        'data-sone-mention': node.attrs['userId'] as string,
+        class: 'mention',
+      },
+      `@${node.attrs['label'] as string}`,
+    ],
+  },
+
   text: { group: 'inline' },
 };
 

@@ -36,8 +36,13 @@ export interface CommentActions {
   /** Threads whose text is gone. They keep their quotation (ADR-0046). */
   detached: CommentThread[];
   resolved: CommentThread[];
-  start: (anchor: { from: Uint8Array; to: Uint8Array; quote: string }, text: string) => void;
-  reply: (threadId: string, text: string) => void;
+  start: (
+    anchor: { from: Uint8Array; to: Uint8Array; quote: string },
+    text: string,
+    /** Who was named in it (ADR-0085). */
+    mentions?: string[],
+  ) => void;
+  reply: (threadId: string, text: string, mentions?: string[]) => void;
   setResolved: (threadId: string, resolved: boolean) => void;
   removeOne: (threadId: string) => void;
   removeReply: (threadId: string, messageId: string) => void;
@@ -99,6 +104,7 @@ export function useComments(doc: Y.Doc | null, author: string): CommentActions {
         item?: string;
       },
       text: string,
+      mentions?: string[],
     ) => {
       if (!doc || text.trim() === '') return;
       addThread(doc, {
@@ -110,15 +116,25 @@ export function useComments(doc: Y.Doc | null, author: string): CommentActions {
         messageId: newId(),
         author: who.current,
         text: text.trim(),
+        // Who was named (ADR-0085). The field has existed since ADR-0052 and
+        // nothing could ever set it, so the notification kind, the mail
+        // preference and the inbox filter were all in place with nothing able
+        // to produce one.
+        ...(mentions && mentions.length > 0 ? { mentions } : {}),
       });
     },
     [doc],
   );
 
   const reply = useCallback(
-    (threadId: string, text: string) => {
+    (threadId: string, text: string, mentions?: string[]) => {
       if (!doc || text.trim() === '') return;
-      addMessage(doc, threadId, { id: newId(), author: who.current, text: text.trim() });
+      addMessage(doc, threadId, {
+        id: newId(),
+        author: who.current,
+        text: text.trim(),
+        ...(mentions && mentions.length > 0 ? { mentions } : {}),
+      });
     },
     [doc],
   );

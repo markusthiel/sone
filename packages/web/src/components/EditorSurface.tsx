@@ -38,6 +38,7 @@ import { registerHighlighter } from './authorHighlightBridge.ts';
 import { BlockMenu } from './BlockMenu.tsx';
 import { soneNodeViews } from './CollectionNodeView.tsx';
 import { SelectionToolbar } from './SelectionToolbar.tsx';
+import { MentionMenu } from './MentionMenu.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
 import { TableToolbar } from './TableToolbar.tsx';
 import { VideoDialog } from './VideoDialog.tsx';
@@ -768,6 +769,10 @@ export function EditorSurface({
             onInsertProtectedSection={() => void insertProtectedSection()}
             onInsertVideo={() => setVideoOpen(true)}
           />
+          {/* Naming somebody in the text (ADR-0085). The same people the
+              assignee picker offers, from the one request this surface already
+              makes. */}
+          <MentionMenu view={view} revision={revision} people={members} />
           {videoOpen && (
             <VideoDialog
               onUpload={() => {

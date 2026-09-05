@@ -12,7 +12,10 @@ import * as Y from 'yjs';
 
 import { BLOCK_ATTRS } from '../src/doc/docSchema.js';
 import {
+  MENTION_ATTRS,
+  MENTION_NODE,
   findBlockElement,
+  mentionsIn,
   pageContent,
   readBlockTree,
   serialiseProps,
@@ -161,4 +164,109 @@ test('a block’s text is text, not serialised markup', () => {
   const { blocks } = readBlockTree(doc);
   assert.equal(blocks[0]?.text, 'Hello world');
   assert.doesNotMatch(blocks[0]?.text ?? '', /</);
+});
+
+// --- mentions ---------------------------------------------------------------
+
+/** A paragraph containing text, a mention, and more text. */
+function paragraphWithMention(
+  doc: Y.Doc,
+  blockId: string,
+  mention: { userId?: string; label?: string } | null,
+): void {
+  const fragment = pageContent(doc);
+  const paragraph = new Y.XmlElement('paragraph');
+  paragraph.setAttribute(BLOCK_ATTRS.id, blockId);
+
+  const before = new Y.XmlText();
+  before.insert(0, 'Kannst du ');
+  paragraph.push([before]);
+
+  if (mention) {
+    const node = new Y.XmlElement(MENTION_NODE);
+    if (mention.userId !== undefined) {
+      node.setAttribute(MENTION_ATTRS.userId, mention.userId);
+    }
+    if (mention.label !== undefined) node.setAttribute(MENTION_ATTRS.label, mention.label);
+    paragraph.push([node]);
+  }
+
+  const after = new Y.XmlText();
+  after.insert(0, ' hier draufschauen?');
+  paragraph.push([after]);
+
+  fragment.push([paragraph]);
+}
+
+test('a mention contributes the name it draws to the block text', () => {
+  /*
+   * A mention is an atom with no text children, so descending into it finds
+   * nothing — and the sentence would be indexed and excerpted as
+   * "Kannst du  hier draufschauen?". Searching for a colleague's name would
+   * find every page except the ones that name them (ADR-0085).
+   */
+  const doc = new Y.Doc();
+  paragraphWithMention(doc, 'p1', { userId: 'u1', label: 'Markus Thiel' });
+
+  const { blocks } = readBlockTree(doc);
+  assert.equal(blocks[0]!.text, 'Kannst du @Markus Thiel hier draufschauen?');
+  doc.destroy();
+});
+
+test('mentionsIn names who was mentioned, and in which block', () => {
+  // The block matters: a notification says where to look, and "somewhere on
+  // this page" is not where to look.
+  const doc = new Y.Doc();
+  paragraphWithMention(doc, 'p1', { userId: 'u1', label: 'Anna' });
+  paragraphWithMention(doc, 'p2', { userId: 'u2', label: 'Bert' });
+
+  assert.deepEqual(mentionsIn(doc), [
+    { userId: 'u1', blockId: 'p1' },
+    { userId: 'u2', blockId: 'p2' },
+  ]);
+  doc.destroy();
+});
+
+test('the same person twice in one block is one mention', () => {
+  // One notification per person per block, so editing the sentence around a
+  // name does not announce it again — and naming somebody twice in a sentence
+  // is emphasis, not two requests.
+  const doc = new Y.Doc();
+  const fragment = pageContent(doc);
+  const paragraph = new Y.XmlElement('paragraph');
+  paragraph.setAttribute(BLOCK_ATTRS.id, 'p1');
+  for (const label of ['Anna', 'Anna']) {
+    const node = new Y.XmlElement(MENTION_NODE);
+    node.setAttribute(MENTION_ATTRS.userId, 'u1');
+    node.setAttribute(MENTION_ATTRS.label, label);
+    paragraph.push([node]);
+  }
+  fragment.push([paragraph]);
+
+  assert.deepEqual(mentionsIn(doc), [{ userId: 'u1', blockId: 'p1' }]);
+  doc.destroy();
+});
+
+test('a mention with no id names nobody', () => {
+  // Decoration, or a document written by something that did not finish. Never
+  // a notification.
+  const doc = new Y.Doc();
+  paragraphWithMention(doc, 'p1', { label: 'Niemand' });
+
+  assert.deepEqual(mentionsIn(doc), []);
+  // And it still reads: the text is what somebody typed either way.
+  assert.equal(readBlockTree(doc).blocks[0]!.text, 'Kannst du @Niemand hier draufschauen?');
+  doc.destroy();
+});
+
+test('a mention outside any block is not attributed to one', () => {
+  // There is nowhere to send somebody, so there is nothing to tell them.
+  const doc = new Y.Doc();
+  const node = new Y.XmlElement(MENTION_NODE);
+  node.setAttribute(MENTION_ATTRS.userId, 'u1');
+  node.setAttribute(MENTION_ATTRS.label, 'Anna');
+  pageContent(doc).push([node]);
+
+  assert.deepEqual(mentionsIn(doc), []);
+  doc.destroy();
 });
