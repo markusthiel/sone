@@ -124,10 +124,19 @@ function typeText(state: EditorState, text: string): EditorState {
 // --- schema ----------------------------------------------------------------
 
 test('every block node carries id and props attributes', () => {
-  // The persisted format defines exactly these two (ADR-0015). A block type
-  // missing them would materialise without an id and be dropped.
+  /*
+   * The persisted format defines exactly these two (ADR-0015). A block type
+   * missing them would materialise without an id and be dropped.
+   *
+   * Inline nodes are skipped by asking whether they are inline, rather than by
+   * naming them. The exclusion was `doc` and `text` — a list that worked while
+   * `text` was the only inline node there was, and stopped the moment a mention
+   * became one (ADR-0085). A mention lives *inside* a block and is addressed by
+   * it; giving it a block id would put a row in the block table for something
+   * that is part of a sentence.
+   */
   for (const [name, type] of Object.entries(schema.nodes)) {
-    if (name === 'doc' || name === 'text') continue;
+    if (name === 'doc' || type.isInline) continue;
     assert.ok(type.spec.attrs, `${name} has no attrs`);
     assert.ok(BLOCK_ATTRS.id in type.spec.attrs!, `${name} lacks an id attribute`);
     assert.ok(BLOCK_ATTRS.props in type.spec.attrs!, `${name} lacks a props attribute`);

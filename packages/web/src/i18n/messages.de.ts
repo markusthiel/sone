@@ -489,6 +489,9 @@ export const de: Record<keyof typeof en, string> = {
     '{address, select, formal {Ihr Name, Ihre Adresse und Ihr Bild} ' +
     'other {Dein Name, deine Adresse und dein Bild}}',
   'you.signIn': 'Anmelden',
+  'mention.pick': 'Jemanden erwähnen',
+  'mention.nobody': 'In diesem Workspace ist sonst noch niemand.',
+  'mention.noMatch': 'Hier passt niemand zu „{query}“.',
   'you.sso': 'Single Sign-on',
   'you.sso.note':
     'Mit dem Anbieter anmelden, für den diese Instanz eingerichtet ist, statt mit ' +

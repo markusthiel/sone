@@ -12,7 +12,11 @@ import { test } from 'node:test';
 
 import type { CommentThread } from '@sone/core';
 
-import { assignmentsFor, notificationsFor } from '../src/notifications/fromComments.js';
+import {
+  assignmentsFor,
+  notificationsFor,
+  textMentionsFor,
+} from '../src/notifications/fromComments.js';
 
 const thread = (messages: Array<[string, string, string[]?]>): CommentThread => ({
   id: 't1',
@@ -138,4 +142,51 @@ test('an assignment names whoever´s edit produced it', () => {
   ];
   assert.equal(assignmentsFor(blocks, 'anna')[0]?.actorId, 'anna');
   assert.equal(assignmentsFor(blocks)[0]?.actorId, null, 'nobody, rather than a guess');
+});
+
+// --- mentions in the page's own text (ADR-0085) ------------------------------
+
+const block = (id: string, text: string) => ({ id, plainText: text });
+
+test('somebody named in a paragraph is told, with the sentence they were named in', () => {
+  /*
+   * A mention in a comment and a mention in a paragraph are the same act —
+   * "look at this, I mean you". Until this existed there was no way to make
+   * either: the `mentions` field, the notification kind, the per-kind mail
+   * setting and the inbox filter were all in place, and nothing could produce
+   * one (ADR-0085).
+   */
+  const out = textMentionsFor(
+    [{ userId: 'anna', blockId: 'p1' }],
+    [block('p1', 'Kannst du @Anna hier draufschauen?')],
+    'markus',
+  );
+
+  assert.deepEqual(out, [
+    {
+      userId: 'anna',
+      actorId: 'markus',
+      kind: 'mention',
+      threadId: null,
+      messageId: 'p1',
+      excerpt: 'Kannst du @Anna hier draufschauen?',
+    },
+  ]);
+});
+
+test('naming yourself is a note to self, not a notification', () => {
+  // Somebody who has just typed their own name knows they typed it.
+  assert.deepEqual(
+    textMentionsFor([{ userId: 'markus', blockId: 'p1' }], [block('p1', '@Markus: nicht vergessen')], 'markus'),
+    [],
+  );
+});
+
+test('a mention whose block has gone carries an empty excerpt rather than throwing', () => {
+  // The document and the projected blocks are read in the same pass, so this
+  // should not happen — and "should not happen" is not a reason to take a
+  // projection down.
+  const out = textMentionsFor([{ userId: 'anna', blockId: 'weg' }], [], null);
+  assert.equal(out.length, 1);
+  assert.equal(out[0]?.excerpt, '');
 });

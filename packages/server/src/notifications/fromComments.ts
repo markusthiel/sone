@@ -168,6 +168,43 @@ export function assignmentsFor(
  * Membership is required by the join, so somebody who has left the workspace is
  * not notified — which is also the honest answer to what should happen.
  */
+
+/**
+ * Who was named in the page's own text (ADR-0085).
+ *
+ * A mention in a comment and a mention in a paragraph are the same act — "look
+ * at this, I mean you" — so they are the same kind of notification, addressed
+ * by the block instead of by the message. The block is what makes it stable:
+ * one per person per block, so editing the sentence around a name does not
+ * announce it again, and it is also where the notification sends somebody.
+ *
+ * Never to the person who wrote it. Somebody who has just typed a colleague's
+ * name knows they typed it, and a mention of *yourself* is a note to self —
+ * which is a fine thing to write and not a thing to be told about.
+ */
+export function textMentionsFor(
+  mentions: Array<{ userId: string; blockId: string }>,
+  blocks: Array<{ id: string; plainText: string }>,
+  actorId: string | null,
+): Candidate[] {
+  if (mentions.length === 0) return [];
+  const textOf = new Map(blocks.map((block) => [block.id, block.plainText]));
+
+  return mentions
+    .filter((one) => one.userId !== actorId)
+    .map((one) => ({
+      userId: one.userId,
+      actorId,
+      kind: 'mention' as const,
+      // No thread. The uniqueness constraint is NULLS NOT DISTINCT over
+      // (user_id, kind, thread_id, message_id), so the block id alone keeps
+      // this to one notification (migration 0040).
+      threadId: null,
+      messageId: one.blockId,
+      excerpt: (textOf.get(one.blockId) ?? '').slice(0, EXCERPT),
+    }));
+}
+
 export async function writeNotifications(
   db: PoolClient,
   pageId: string,
@@ -182,8 +219,14 @@ export async function writeNotifications(
   }> = [],
   /** Whose edit produced this projection, for an assignment's actor (ADR-0058). */
   actorId: string | null = null,
+  /** Who was named in the page's own text (ADR-0085). */
+  mentions: Array<{ userId: string; blockId: string }> = [],
 ): Promise<number> {
-  const candidates = [...notificationsFor(threads), ...assignmentsFor(blocks, actorId)];
+  const candidates = [
+    ...notificationsFor(threads),
+    ...assignmentsFor(blocks, actorId),
+    ...textMentionsFor(mentions, blocks, actorId),
+  ];
   if (candidates.length === 0) return 0;
 
   const { rowCount } = await db.query(
