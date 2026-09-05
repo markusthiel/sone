@@ -230,8 +230,22 @@ describe('editor surface', () => {
     );
     assert.match(
       source.slice(toolbar, toolbar + 300),
-      /canFormat=\{!locked\}/,
+      /canFormat=\{!locked && handle\.canEdit\}/,
       'and is told about the lock, so bold goes and the comment button stays',
+    );
+    /*
+     * The second reason the formatting can be absent, added with ADR-0090.
+     *
+     * A locked page and a commenter produce the same toolbar — the comment
+     * button and nothing else — and they are two different facts: the page is
+     * closed, or this person may only say something about it. One prop, two
+     * causes, which is why the condition names both rather than folding the
+     * second into `locked`.
+     */
+    assert.match(
+      source.slice(0, toolbar),
+      /\{view && handle\.canComment && \(/,
+      'and the toolbar itself appears for a commenter, not only an editor',
     );
   });
 

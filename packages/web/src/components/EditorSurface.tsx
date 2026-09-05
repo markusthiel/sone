@@ -801,15 +801,20 @@ export function EditorSurface({
           disappearing — `canFormat` is what the buttons that change the text
           hang on.
 
-          No comment button for somebody who may only read: commenting requires
-          edit rights until there is a role that separates them (ADR-0046). A
-          JSX comment cannot sit among attributes, which is the second time
+          And `canComment` rather than `canEdit` is what decides whether the
+          toolbar appears at all. It used to be `canEdit`, with a note saying
+          commenting required edit rights "until there is a role that separates
+          them" — ADR-0090 is that separation, so somebody who may comment and
+          not edit now gets the toolbar with the comment button and nothing
+          else, which is the same shape a locked page already produced.
+
+          A JSX comment cannot sit among attributes, which is the second time
           this week I have tried to put one there. */}
-      {view && handle.canEdit && (
+      {view && handle.canComment && (
         <SelectionToolbar
           view={view}
           revision={revision}
-          canFormat={!locked}
+          canFormat={!locked && handle.canEdit}
           onComment={onComment}
         />
       )}

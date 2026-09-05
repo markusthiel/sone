@@ -72,6 +72,12 @@ document.
 Same discipline as everywhere else here: the projection is rebuildable and never
 authoritative.
 
+> **The guest's half is built: ADR-0090 (2026-09-05).** This record specified
+> guests commenting and the `guest:` key they sign with, and the sync layer's
+> write gate is document-wide — so `commenter` could not comment, and neither
+> could a member holding that level. A route now composes the mutation
+> server-side for anybody who may comment and may not edit.
+
 ### A message names its author explicitly
 
 Unlike prose, where authorship is inferred from client ids and pruned when the

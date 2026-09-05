@@ -338,6 +338,9 @@ export function RightSidebar({
               internal={internalComments ?? null}
               members={members ?? []}
               canEdit={handle?.canEdit !== false}
+              // The smaller right, and the one the reply box hangs on. `!== false`
+              // for the same reason as above: no handle yet is not a refusal.
+              canComment={handle?.canComment !== false}
               onReveal={onRevealComment}
               pending={pendingComment ?? null}
               onCancelPending={onCancelPendingComment}

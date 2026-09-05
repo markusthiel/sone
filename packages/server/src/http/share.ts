@@ -37,6 +37,7 @@ import {
   revokeShareLink,
   type ShareLinkSummary,
 } from '../auth/share.js';
+import { commentAuthorsOf } from '../comments/routes.js';
 import { decryptShareToken } from '../auth/shareTokenStore.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { atLeast as pageAtLeast, resolvePageAccess } from '../pages/access.js';
@@ -287,6 +288,47 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       }));
 
     ctx.send(200, { pages, scopePageId: scope.scopePageId });
+  });
+
+  /**
+   * The names behind the comments on one page (ADR-0090).
+   *
+   * A visitor holding a link can read the page's comment threads, and a thread
+   * whose authors have no names is barely a thread: "somebody objected here" is
+   * not much better than no comment at all. The panel resolves an author id
+   * against a list of people, and a visitor is given an empty one on purpose.
+   *
+   * The obvious fix — hand them the workspace's members — is a directory of
+   * everybody who works here, given to whoever forwards a link. So this is the
+   * narrow answer: the ids come from **this page's own document**, never from
+   * the request, so it cannot be asked "whose id is this"; and it returns
+   * names, never addresses.
+   *
+   * Scoped like everything else on this path: the page must be one the link
+   * actually reaches, checked with `effectiveRole` rather than by trusting the
+   * grant, which is the rule the page list above follows for the same reason.
+   */
+  router.get('/api/share/:token/pages/:pageId/authors', async (ctx) => {
+    const token = ctx.params['token'] ?? '';
+    const pageId = ctx.params['pageId'] ?? '';
+    if (token === '' || pageId === '') {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const resolved = await resolveShareTokenClaims(deps.pool, token);
+    if (!resolved || resolved.passwordRequired) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const page = await loadPageLocation(deps.pool, pageId);
+    if (!page || effectiveRole(resolved.claims, page) === null) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    ctx.send(200, { authors: await commentAuthorsOf(deps.pool, pageId) });
   });
 
   /**
