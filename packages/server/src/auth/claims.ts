@@ -268,6 +268,18 @@ export async function resolveShareTokenClaims(
     password?: string | null;
     ipPrefix?: string | null;
     existingShareSessionId?: string | null;
+    /**
+     * Whether this resolution is a **visit**.
+     *
+     * True for the sync connection, which is somebody arriving. False for an
+     * ordinary HTTP request carrying only the share cookie — a picture loading
+     * in a shared page, a comment being posted — because those cannot identify
+     * which visitor they belong to and would otherwise mint a new
+     * `share_sessions` row each time. That inflated the "active visitors" count
+     * in the sharing dialog by one per image, and gave every such request a
+     * fresh session named "Guest".
+     */
+    track?: boolean;
   } = {},
 ): Promise<ShareTokenResolution | null> {
   const row = await queryOne<{
@@ -319,7 +331,18 @@ export async function resolveShareTokenClaims(
     throw new AuthError('this link requires signing in', 'invalid_credentials');
   }
 
-  const displayName = (opts.displayName?.trim() || 'Guest').slice(0, 64);
+  /*
+   * The name they gave, or nothing said.
+   *
+   * Null rather than 'Guest' when the caller supplies none, and the difference
+   * is the bug this fixes. Every HTTP request carrying only the share cookie
+   * resolves through here — a file, a comment — and none of them knows the
+   * visitor's name. With 'Guest' substituted, each of those requests **wrote
+   * 'Guest' over the name the connection had stored**, so somebody who typed
+   * "Lars" signed their comment as a guest called Guest, and the people panel
+   * lost them too.
+   */
+  const givenName = opts.displayName?.trim().slice(0, 64) || null;
 
   let shareSessionId = opts.existingShareSessionId ?? null;
   if (shareSessionId) {
@@ -332,20 +355,44 @@ export async function resolveShareTokenClaims(
     if (!still) shareSessionId = null;
   }
 
-  if (!shareSessionId) {
-    const created = await queryOne<{ id: string }>(
+  let displayName = givenName ?? 'Guest';
+
+  if (opts.track === false) {
+    /*
+     * No row, and no session id in the claims.
+     *
+     * Nothing on this path uses the id: the actor of an anonymous write is
+     * null by design, and what a link grants comes from the token. An empty
+     * string rather than a fabricated id, so anything that did start using it
+     * fails visibly rather than pointing at a session that never existed.
+     */
+    shareSessionId = '';
+  } else if (!shareSessionId) {
+    const created = await queryOne<{ id: string; display_name: string }>(
       db,
       `INSERT INTO share_sessions (share_token_id, display_name, ip_prefix, expires_at)
-       VALUES ($1, $2, $3, now() + interval '30 days') RETURNING id`,
+       VALUES ($1, $2, $3, now() + interval '30 days')
+       RETURNING id, display_name`,
       [row.id, displayName, opts.ipPrefix ?? null],
     );
     if (!created) throw new Error('failed to create share session');
     shareSessionId = created.id;
-  } else {
+  } else if (givenName) {
+    // Said, so recorded. Somebody may change the name they gave.
     await db.query(
       `UPDATE share_sessions SET last_seen_at = now(), display_name = $2 WHERE id = $1`,
-      [shareSessionId, displayName],
+      [shareSessionId, givenName],
     );
+  } else {
+    // Not said, so **read** rather than replaced. A request that does not know
+    // the name is not a request that the visitor is nameless.
+    const kept = await queryOne<{ display_name: string }>(
+      db,
+      `UPDATE share_sessions SET last_seen_at = now() WHERE id = $1
+       RETURNING display_name`,
+      [shareSessionId],
+    );
+    displayName = kept?.display_name?.trim() || 'Guest';
   }
 
   return {

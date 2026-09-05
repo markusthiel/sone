@@ -25,11 +25,14 @@ import { useModes, type Mode } from './modes.tsx';
 export function IconRail({
   here,
   account,
+  unread = 0,
 }: {
   here: Mode;
   /** The account menu, which is not a mode and is drawn apart from them.
    *  Null below the breakpoint, where the mode bar draws it instead. */
   account: ReactNode;
+  /** Waiting in the inbox, drawn on the bell (ADR-0092). */
+  unread?: number;
 }): ReactElement {
   const { t } = useT();
   /*
@@ -39,7 +42,7 @@ export function IconRail({
    * again here: a mode left out of one of the two drawings is a mode somebody
    * cannot reach, which is exactly what happened on a phone (ADR-0072).
    */
-  const [tree, ...rest] = useModes();
+  const [tree, ...rest] = useModes(unread);
 
   return (
     <nav className="icon-rail" aria-label={t('sidebar.places')}>
@@ -53,7 +56,7 @@ export function IconRail({
       </a>
 
       <div className="rail-nav">
-        {rest.map(({ mode, href, label, icon }) => (
+        {rest.map(({ mode, href, label, icon, badge }) => (
           // aria-current="page" and not a class: the state is "this is where
           // you are", which the browser and a screen reader both already know
           // how to say. The stylesheet reads the same attribute.
@@ -61,11 +64,19 @@ export function IconRail({
             className="rail-item"
             key={mode}
             href={href}
-            title={label}
-            aria-label={label}
+            // The count goes in the label rather than only in the pill: a
+            // screen reader announcing "Posteingang" over a badge saying three
+            // has said the smaller half.
+            title={badge ? `${label} (${badge})` : label}
+            aria-label={badge ? `${label} (${badge})` : label}
             aria-current={here === mode ? 'page' : undefined}
           >
             {icon}
+            {badge !== undefined && badge > 0 && (
+              <span className="sidebar-unread" aria-hidden="true">
+                {badge > 99 ? '99+' : badge}
+              </span>
+            )}
           </a>
         ))}
       </div>

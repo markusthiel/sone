@@ -39,6 +39,14 @@ export type ModeEntry = {
   href: string;
   label: string;
   icon: ReactElement;
+  /**
+   * How many things are waiting here, drawn as a badge on the icon.
+   *
+   * On the entry rather than passed to each drawing, because there are two of
+   * them — the rail and the mode bar — and a count one of them knows about is
+   * a count the other quietly omits. Only the inbox has one today.
+   */
+  badge?: number;
 };
 
 /**
@@ -54,7 +62,7 @@ export type ModeEntry = {
  * (ADR-0074). One list, two drawings, and neither may leave a mode out — the
  * drawing that did left a phone with no way back to its own pages.
  */
-export function useModes(): ModeEntry[] {
+export function useModes(unread = 0): ModeEntry[] {
   const { t } = useT();
   return [
     {
@@ -71,7 +79,21 @@ export function useModes(): ModeEntry[] {
       label: t('account.workspaces'),
       icon: <WorkspacesIcon />,
     },
-    { mode: 'inbox', href: paths.inbox(), label: t('account.inbox'), icon: <BellIcon /> },
+    {
+      mode: 'inbox',
+      href: paths.inbox(),
+      label: t('account.inbox'),
+      icon: <BellIcon />,
+      /*
+       * The number belongs here, on the bell.
+       *
+       * It sat on the account avatar, where it was the only badge in the
+       * application and pointed at a menu that does not hold the notifications.
+       * Reported as: "Die Glocke sollte dann die Zahl haben, die momentan auf
+       * dem Profil sitzt, da macht es mehr sinn." It does (ADR-0092).
+       */
+      badge: unread,
+    },
     // Beside the trash rather than inside a workspace's settings: "what have I
     // let out" is a question about your own doing, asked across every page you
     // touched, and it belongs where the other such questions are (ADR-0070).

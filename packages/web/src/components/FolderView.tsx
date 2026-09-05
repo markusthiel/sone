@@ -24,8 +24,21 @@ interface FolderViewProps {
   folder: PageNode;
   /** Ancestor folders, outermost first, for the breadcrumb. */
   trail: PageNode[];
-  onCreate: (parentPageId: string, kind: 'page' | 'folder' | 'canvas') => void;
-  onRename: (pageId: string, title: string) => void;
+  /**
+   * Absent when this person may not change the folder.
+   *
+   * Both of them, together: the name is an input and the three buttons make
+   * things, and somebody who may only read this folder should be offered
+   * neither. They were unconditional, so a viewer got a caret in the title and
+   * three buttons that answer 403 — and a share-link visitor got the same, on a
+   * folder, which is how "der Ordner wird als Seite dargestellt auf die man
+   * schreiben kann" happened (ADR-0092).
+   *
+   * Optional rather than a `canEdit` flag beside them, so the type says it: a
+   * caller with nothing to offer cannot pass a handler that would refuse.
+   */
+  onCreate?: (parentPageId: string, kind: 'page' | 'folder' | 'canvas') => void;
+  onRename?: (pageId: string, title: string) => void;
 }
 
 export function FolderView({
@@ -76,45 +89,56 @@ export function FolderView({
         <span className="entry-heading-icon">
           <EntryIconView icon={folder.icon} kind="folder" />
         </span>
-        <input
-          className="page-title"
-          style={titleColorStyle(folder.icon)}
-          // Keyed on the folder, so arriving at a different one replaces the
-          // field rather than carrying the previous name into it — an
-          // uncontrolled input keeps its own value across a prop change.
-          key={folder.id}
-          defaultValue={folder.title ?? ''}
-          onBlur={(event) => {
-            const next = event.currentTarget.value.trim();
-            if (next !== folder.title) onRename(folder.id, next);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur();
-            else if (event.key === 'Escape') {
-              event.currentTarget.value = folder.title ?? '';
-              event.currentTarget.blur();
-            }
-          }}
-          placeholder={t('folder.untitled')}
-          aria-label={t('folder.name')}
-        />
+        {onRename ? (
+          <input
+            className="page-title"
+            style={titleColorStyle(folder.icon)}
+            // Keyed on the folder, so arriving at a different one replaces the
+            // field rather than carrying the previous name into it — an
+            // uncontrolled input keeps its own value across a prop change.
+            key={folder.id}
+            defaultValue={folder.title ?? ''}
+            onBlur={(event) => {
+              const next = event.currentTarget.value.trim();
+              if (next !== folder.title) onRename(folder.id, next);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.currentTarget.blur();
+              else if (event.key === 'Escape') {
+                event.currentTarget.value = folder.title ?? '';
+                event.currentTarget.blur();
+              }
+            }}
+            placeholder={t('folder.untitled')}
+            aria-label={t('folder.name')}
+          />
+        ) : (
+          // A heading, not a disabled field. A greyed-out input still says "this
+          // is where you type", and a folder somebody may only read has nothing
+          // for them to type into.
+          <h1 className="page-title" style={titleColorStyle(folder.icon)}>
+            {folder.title || t('folder.untitled')}
+          </h1>
+        )}
       </div>
 
-      <div className="folder-actions">
-        <button type="button" className="btn" onClick={() => onCreate(folder.id, 'page')}>
-          <PlusIcon /> {t('entry.newPage')}
-        </button>
-        <button type="button" className="btn" onClick={() => onCreate(folder.id, 'folder')}>
-          <FolderPlusIcon /> {t('entry.newFolder')}
-        </button>
-        <button
-          className="btn"
-          type="button"
-          onClick={() => onCreate(folder.id, 'canvas')}
-        >
-          <BrushIcon /> {t('canvas.new')}
-        </button>
-      </div>
+      {onCreate && (
+        <div className="folder-actions">
+          <button type="button" className="btn" onClick={() => onCreate(folder.id, 'page')}>
+            <PlusIcon /> {t('entry.newPage')}
+          </button>
+          <button type="button" className="btn" onClick={() => onCreate(folder.id, 'folder')}>
+            <FolderPlusIcon /> {t('entry.newFolder')}
+          </button>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => onCreate(folder.id, 'canvas')}
+          >
+            <BrushIcon /> {t('canvas.new')}
+          </button>
+        </div>
+      )}
 
       {/* No "Add columns" here any more.
         *
