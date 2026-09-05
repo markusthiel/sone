@@ -30,6 +30,7 @@ import { SidebarIcon } from './components/icons.tsx';
 import { EntryIconView } from './components/EntryIconView.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
 import {
+  PAGE_TABS,
   RightPanelToggle,
   RightSidebar,
   readRightPanelOpen,
@@ -1328,6 +1329,15 @@ function ShareSession({
    * rather than a convenience.
    */
   const [treeOpen, setTreeOpen] = useState(true);
+  /*
+   * The right panel, closed to begin with.
+   *
+   * Not `readRightPanelOpen()`: that key is the workspace's, per browser, and a
+   * member opening a link in their own browser would find the panel already
+   * out — which is the workspace's setting leaking into a view that is not the
+   * workspace. A link opens on the page.
+   */
+  const [rightOpen, setRightOpen] = useState(false);
   // The share token identifies the workspace server-side; the client does not
   // know it yet, so it sends a placeholder that the server ignores in favour of
   // the token's own workspace.
@@ -1480,6 +1490,7 @@ function ShareSession({
     <div
       className={hasTree ? 'app with-share-tree' : 'app'}
       data-sidebar={treeOpen ? 'shown' : 'hidden'}
+      data-right-panel={rightOpen ? 'open' : 'closed'}
     >
       {hasTree && (
         <>
@@ -1574,6 +1585,9 @@ function ShareSession({
             </button>
           )}
           <PageStatus handle={handle} connectionState={state} />
+          <div className="topbar-end">
+            <RightPanelToggle open={rightOpen} onToggle={() => setRightOpen((v) => !v)} />
+          </div>
         </div>
         {handle && effectivePageId ? (
           <PageView
@@ -1605,6 +1619,30 @@ function ShareSession({
           </div>
         )}
       </div>
+
+      {/* The page's own panel, and only the page's own tabs.
+        *
+        * `PAGE_TABS`: the outline, the attachments, the pictures, the links
+        * out. Not the version history, which names every author and every
+        * moment they wrote; not the contributors; not the tasks and who they
+        * are assigned to; not the discussion. Those describe the workspace,
+        * and a link is not a way into the workspace.
+        *
+        * Not offered as a setting either. "Show the right sidebar" on a share
+        * would either hand a stranger the history and the names, or be a
+        * switch whose only power is to hide an outline. The split is a fact
+        * about the tabs, so it lives with the tabs (see `PAGE_TABS`). */}
+      <RightSidebar
+        handle={handle}
+        pageId={effectivePageId}
+        // The workspace this page belongs to is not something a link tells the
+        // client — the token names it server-side. None of `PAGE_TABS` needs
+        // it, and passing a placeholder would be a lie the next tab believes.
+        workspaceId=""
+        open={rightOpen}
+        onClose={() => setRightOpen(false)}
+        tabs={PAGE_TABS}
+      />
     </div>
   );
 }

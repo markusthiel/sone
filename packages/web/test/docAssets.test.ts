@@ -169,11 +169,23 @@ test('the tabs are icons, and every one still says its name', () => {
   assert.match(css, /\.right-tab svg \{/);
 });
 
+/** The entries of one `as const` array in the panel's source. */
+function arrayNamed(name: string): string[] {
+  const from = panel.indexOf(`const ${name} = [`);
+  assert.notEqual(from, -1, `${name} exists`);
+  const to = panel.indexOf('] as const', from);
+  return [...panel.slice(from, to).matchAll(/^\s{2}'([a-z]+)',$/gm)].map((m) => m[1]!);
+}
+
 test('every tab is listed and rendered', () => {
   // The failure the settings screen had, in a smaller place: a tab that renders
   // but is not in the list cannot be opened, and one in the list that renders
   // nothing is an empty panel.
-  const listed = [...panel.matchAll(/^\s{2}'([a-z]+)',$/gm)].map((m) => m[1]);
+  //
+  // Read from RIGHT_TABS by name rather than by scraping every two-space quoted
+  // line in the file: there is a second such array now (PAGE_TABS), and the
+  // scrape swallowed it whole the moment it appeared.
+  const listed = arrayNamed('RIGHT_TABS');
   assert.deepEqual(listed, [
     'outline',
     'tasks',
@@ -188,6 +200,31 @@ test('every tab is listed and rendered', () => {
   for (const name of listed) {
     assert.match(panel, new RegExp(`tab === '${name}'`), `${name} renders`);
     assert.match(panel, new RegExp(`${name}: \\{ label:`), `${name} has an icon and a name`);
+  }
+});
+
+test('the tabs a shared link gets are about the page, and are real tabs', () => {
+  /*
+   * `PAGE_TABS` is what a link's visitor sees, and the division is the whole
+   * reason there is no "show the right sidebar" option on a share: four tabs
+   * describe the document, and the rest describe the workspace — the version
+   * history names every author, the contributors list names colleagues, tasks
+   * name their assignees, comments are the discussion among them.
+   *
+   * Two ways this could rot. A tab could be added to `PAGE_TABS` that is not a
+   * tab at all, and the strip would draw a button that selects nothing. Or one
+   * of the workspace tabs could drift in — which would be a disclosure, and a
+   * quiet one, because the panel would look exactly the same.
+   */
+  const shared = arrayNamed('PAGE_TABS');
+  assert.deepEqual(shared, ['outline', 'files', 'images', 'links']);
+
+  const all = arrayNamed('RIGHT_TABS');
+  for (const name of shared) {
+    assert.ok(all.includes(name), `${name} is a tab the panel has`);
+  }
+  for (const withheld of ['history', 'people', 'tasks', 'comments', 'properties']) {
+    assert.ok(!shared.includes(withheld), `${withheld} stays out of a shared link`);
   }
 });
 
