@@ -114,7 +114,8 @@ export function SlashMenu({
 
   // Re-place when the page moves: a scroll produces no transaction, so nothing
   // else would tell this component that the caret is no longer where it was.
-  const viewportToken = useViewportChanges(from !== null);
+  // The editor's element too — see the note in useViewportChanges (ADR-0083).
+  const viewportToken = useViewportChanges(from !== null, view.dom as HTMLElement);
 
   // Position after layout, so the measured height is the real one. useEffect
   // would paint at the wrong place first and visibly jump.
