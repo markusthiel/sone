@@ -644,7 +644,7 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
       const computed = await computeRollup(deps.pool, {
         rowIds: [pageId],
         config,
-        reader: { userId: auth.actorId, isAdmin: false },
+        reader: { userId: auth.actorId },
       });
       const value = computed.get(pageId);
       if (value) derived[field.id] = value;
@@ -695,14 +695,13 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
           AND f.config ->> 'collectionId' = $1
           AND p.workspace_id = $2
           AND p.archived_at IS NULL
-          AND ${visiblePagesCondition('p', '$3', '$4')}
+          AND ${visiblePagesCondition('p', '$3')}
         ORDER BY p.title ASC, f.name ASC
         LIMIT 100`,
       [
         collectionId,
         here.workspace_id,
         claims.principal.kind === 'user' ? claims.principal.userId : null,
-        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
       ],
     );
 
@@ -777,14 +776,13 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
           -- Not this one: a relation pointing at its own collection asks about
           -- a row's siblings, which the table already answers, and it makes a
           -- rollup that counts itself.
-          AND c.id <> $4
-          AND ${visiblePagesCondition('p', '$2', '$3')}
+          AND c.id <> $3
+          AND ${visiblePagesCondition('p', '$2')}
         ORDER BY p.title ASC
         LIMIT 200`,
       [
         claims.workspaceId,
         claims.principal.kind === 'user' ? claims.principal.userId : null,
-        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
         ctx.params['collectionId'] ?? '',
       ],
     );

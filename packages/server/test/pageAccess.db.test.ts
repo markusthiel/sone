@@ -216,8 +216,8 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
 
     const rows = await db.query<{ id: string }>(
       `SELECT p.id FROM pages p
-        WHERE p.workspace_id = $1 AND ${visiblePagesCondition('p', '$2', '$3')}`,
-      [workspace, member, false],
+        WHERE p.workspace_id = $1 AND ${visiblePagesCondition('p', '$2')}`,
+      [workspace, member],
     );
     const ids = rows.rows.map((r) => r.id);
 
@@ -238,12 +238,12 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     );
 
     const rows = await db.query<{ id: string; path_only: boolean }>(
-      `SELECT p.id, NOT ${visiblePagesCondition('p', '$2', '$3')} AS path_only
+      `SELECT p.id, NOT ${visiblePagesCondition('p', '$2')} AS path_only
          FROM pages p
         WHERE p.workspace_id = $1
-          AND (${visiblePagesCondition('p', '$2', '$3')}
+          AND (${visiblePagesCondition('p', '$2')}
                OR ${isPathOnlyCondition('p', '$2')})`,
-      [workspace, member, false],
+      [workspace, member],
     );
     const byId = new Map(rows.rows.map((r) => [r.id, r.path_only]));
 
@@ -258,8 +258,8 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
     const rows = await db.query<{ id: string }>(
       `SELECT p.id FROM pages p
-        WHERE p.workspace_id = $1 AND ${visiblePagesCondition('p', '$2', '$3')}`,
-      [workspace, owner, true],
+        WHERE p.workspace_id = $1 AND ${visiblePagesCondition('p', '$2')}`,
+      [workspace, owner],
     );
     assert.ok(rows.rows.some((r) => r.id === child));
     await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [child]);
@@ -282,8 +282,8 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     ] as const) {
       const listed = await db.query<{ id: string }>(
         `SELECT p.id FROM pages p
-          WHERE p.id = $1 AND ${visiblePagesCondition('p', '$2', '$3')}`,
-        [pageId, person, false],
+          WHERE p.id = $1 AND ${visiblePagesCondition('p', '$2')}`,
+        [pageId, person],
       );
       const resolved = await resolvePageAccess(db, { pageId, userId: person });
       assert.equal(
@@ -313,7 +313,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
          FROM favourites f
          JOIN pages p ON p.id = f.page_id
         WHERE f.user_id = $1
-          AND ${visiblePagesCondition('p', '$1', 'false')}`,
+          AND ${visiblePagesCondition('p', '$1')}`,
       [member],
     );
     assert.equal(rows.rowCount, 0);
@@ -331,7 +331,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     const rows = await db.query<{ id: string }>(
       `SELECT p.id FROM pages p
         WHERE p.workspace_id = $1
-          AND ${visiblePagesCondition('p', '$2', 'false')}
+          AND ${visiblePagesCondition('p', '$2')}
         LIMIT 50`,
       [workspace, member],
     );
@@ -500,7 +500,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     const resolved = await resolvePageAccess(db, { pageId: child, userId: member });
     const listed = await db.query<{ id: string }>(
       `SELECT p.id FROM pages p
-        WHERE p.id = $1 AND ${visiblePagesCondition('p', '$2', 'false')}`,
+        WHERE p.id = $1 AND ${visiblePagesCondition('p', '$2')}`,
       [child, member],
     );
 
@@ -595,6 +595,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
           principal: { kind: 'user', userId: member, displayName: 'Member' },
           workspaceId: workspace,
           workspaceRole: 'member',
+          pageLevel: 'editor',
           grants: [],
         },
         location!,
@@ -616,6 +617,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
           principal: { kind: 'user', userId: member, displayName: 'Member' },
           workspaceId: workspace,
           workspaceRole: 'member',
+          pageLevel: 'editor',
           grants: [
             { scopePageId: child, includeSubtree: true, role: 'viewer', source: 'page_permission' },
           ],
@@ -652,6 +654,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
           principal: { kind: 'user', userId: member, displayName: 'Member' },
           workspaceId: workspace,
           workspaceRole: 'member',
+          pageLevel: 'editor',
           grants: [],
         },
         location!,

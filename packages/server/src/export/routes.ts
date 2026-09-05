@@ -101,8 +101,6 @@ export function registerExportRoutes(router: Router, deps: ExportDeps): void {
         rootId: root.id,
         viewer: {
           userId: claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
-          isWorkspaceAdmin:
-            claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
         },
         withAttachments,
         maxPages: MAX_PAGES,

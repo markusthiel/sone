@@ -180,8 +180,11 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     }
 
     await deps.pool.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,$3)`,
-      [workspaceId, account.id, role],
+      `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
+       -- The role named twice: as the enum the old column wants, and as the
+       -- text the role row is found by.
+       VALUES ($1,$2,$3,(SELECT id FROM roles WHERE key = $4),$4 = 'owner')`,
+      [workspaceId, account.id, role, role],
     );
     ctx.send(201, { userId: account.id, role });
   });
@@ -318,8 +321,15 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     }
 
     await deps.pool.query(
-      `UPDATE workspace_members SET role = $3 WHERE workspace_id = $1 AND user_id = $2`,
-      [workspaceId, target, role],
+      // The role row as well as the word (ADR-0087): the word is what the
+      // request names and the row is what everything reads. Ownership is its
+      // own column, because it is not a right.
+      `UPDATE workspace_members
+          SET role = $3,
+              role_id = (SELECT id FROM roles WHERE key = $4),
+              is_owner = ($4 = 'owner')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspaceId, target, role, role],
     );
     ctx.send(200, { ok: true });
   });

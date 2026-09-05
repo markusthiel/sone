@@ -48,6 +48,7 @@ import { Client, Pool } from 'pg';
 
 import { migrate } from '../../src/db/migrate.js';
 import { verifyDatabaseAssumptions } from '../../src/db/pool.js';
+import { ensureSystemRoles } from '../../src/auth/standing.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const MIGRATIONS_DIR = path.resolve(here, '../../../../db/migrations');
@@ -206,6 +207,18 @@ export async function resetDatabase(db: Pool): Promise<void> {
     END $$;
   `);
   await db.query(`SELECT setval('doc_update_seq', 1, false)`);
+
+  /*
+   * The four system roles are seed data, and the truncate above takes them.
+   *
+   * Without them every membership resolves to a member holding no role, which
+   * is no access at all — the whole suite fails with 403 and the cause is not
+   * in any of the tests. That is exactly the shape a partial restore has in
+   * production, which is why the server asserts the same invariant at boot
+   * rather than trusting the migration to be the only way rows arrive
+   * (ADR-0087).
+   */
+  await ensureSystemRoles(db);
 }
 
 // --- fixtures --------------------------------------------------------------
