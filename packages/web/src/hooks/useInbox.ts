@@ -12,6 +12,7 @@
  * already here.
  */
 
+import { NotifyScope, type SoneClient } from '@sone/client';
 import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
@@ -31,7 +32,14 @@ export interface InboxItem {
   workspaceName: string;
 }
 
-export function useInbox(): {
+export function useInbox(
+  /**
+   * The sync connection, so the server can say when something changed
+   * (ADR-0093). Null before it exists and on a screen that has none — the hook
+   * still works, with the focus refresh alone.
+   */
+  client?: SoneClient | null,
+): {
   items: InboxItem[] | null;
   error: string | null;
   /** Given ids, or nothing at all for "declare bankruptcy on the list". */
@@ -60,9 +68,15 @@ export function useInbox(): {
    *
    * `focus` and `visibilitychange`, the same pair `usePages` uses, rather than
    * a timer: a notification is not urgent enough to poll for and is wanted the
-   * moment somebody looks. The honest limit is that a badge does not appear
-   * while they are staring at the page — that needs a push, which the sync
-   * protocol has no frame for, and is its own decision.
+   * moment somebody looks.
+   *
+   * The limit ADR-0092 named — a badge that does not appear while somebody is
+   * staring at the page — is gone: the sync connection now carries a nudge, and
+   * that is the effect below. The focus pair stays, and is not redundant. It is
+   * what covers the minutes when there was no connection at all: a laptop that
+   * slept, a tab that was discarded, a deploy. A push tells you what happened
+   * while you were listening; nothing tells you what happened while you were
+   * not, so the two answer different questions.
    */
   const [generation, setGeneration] = useState(0);
   const refresh = useCallback(() => setGeneration((n) => n + 1), []);
@@ -81,6 +95,25 @@ export function useInbox(): {
       cancelled = true;
     };
   }, [generation]);
+
+  /*
+   * The push (ADR-0093).
+   *
+   * The nudge carries no count — it says "your inbox changed", and the list
+   * below is refetched and recounted. That is the same single source ADR-0092
+   * settled on: a number on the wire would be a second answer to the question
+   * this list already answers, and two answers is how the badge and the list
+   * spent a release disagreeing.
+   *
+   * Refetched unconditionally rather than only when the tab is visible. A
+   * hidden tab that skipped it would be a tab whose badge is stale the instant
+   * somebody switches to it — which is the bug this replaces, moved somewhere
+   * less obvious.
+   */
+  useEffect(() => {
+    if (!client) return;
+    return client.onNotify(NotifyScope.Inbox, refresh);
+  }, [client, refresh]);
 
   useEffect(() => {
     const again = (): void => {

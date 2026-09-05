@@ -20,8 +20,10 @@ import {
 } from '../src/connection.js';
 import {
   ClientMessage,
+  NotifyScope,
   ServerMessage,
   decodeServerFrame,
+  type ServerFrame,
 } from '../src/protocol.js';
 
 const WORKSPACE = '00000000-0000-4000-8000-000000000001';
@@ -102,6 +104,10 @@ interface Harness {
   fatals: Array<{ code: string; detail: string }>;
   passwordPrompts: number;
   shareSessions: string[];
+  /** Scopes of the Notify frames that arrived (ADR-0093). */
+  notifies: string[];
+  /** Everything handed on to the store, so a test can assert what was not. */
+  frames: ServerFrame[];
   latest(): StubSocket;
 }
 
@@ -117,6 +123,8 @@ function harness(
   const states: ConnectionState[] = [];
   const fatals: Array<{ code: string; detail: string }> = [];
   const shareSessions: string[] = [];
+  const notifies: string[] = [];
+  const frames: ServerFrame[] = [];
   let reconnects = 0;
   let passwordPrompts = 0;
 
@@ -150,6 +158,8 @@ function harness(
         passwordPrompts++;
       },
       onShareSession: (id) => shareSessions.push(id),
+      onNotify: (scope) => notifies.push(scope),
+      onFrame: (frame) => frames.push(frame),
     },
   );
 
@@ -165,6 +175,8 @@ function harness(
       return passwordPrompts;
     },
     shareSessions,
+    notifies,
+    frames,
     latest: () => sockets[sockets.length - 1]!,
   };
 }
@@ -595,4 +607,49 @@ test('a successful connection clears the failure', async () => {
   // The getter reports null in the ready state, so a stale failure cannot
   // outlive the problem even if nothing resets it.
   connection.close();
+});
+
+// --- the nudge (ADR-0093) --------------------------------------------------
+
+function notifyFrame(scope: string): Uint8Array {
+  const e = encoding.createEncoder();
+  encoding.writeVarUint(e, ServerMessage.Notify);
+  encoding.writeVarString(e, scope);
+  return encoding.toUint8Array(e);
+}
+
+test('a nudge is raised as one, and never handed to the store', () => {
+  /*
+   * Every other server frame names a document handle. This one names a person's
+   * inbox, and the store's business is documents — so routing it through
+   * `onFrame` would make the document store the thing that knows about
+   * notifications, which is how a layer stops being a layer.
+   */
+  const h = harness();
+  h.connection.connect();
+  h.latest().open();
+  h.latest().receive(authAckFrame());
+
+  h.latest().receive(notifyFrame(NotifyScope.Inbox));
+
+  assert.deepEqual(h.notifies, ['inbox']);
+  assert.deepEqual(h.frames, [], 'the store was not told');
+});
+
+test('an unknown scope is delivered rather than refused', () => {
+  /*
+   * The scope is a string so that the next thing worth nudging costs no
+   * protocol version — which is only true if an older client does not treat an
+   * unfamiliar one as a broken frame. It has no listener, so nothing happens;
+   * the connection stays up, which is the whole point.
+   */
+  const h = harness();
+  h.connection.connect();
+  h.latest().open();
+  h.latest().receive(authAckFrame());
+
+  h.latest().receive(notifyFrame('pages'));
+
+  assert.deepEqual(h.notifies, ['pages']);
+  assert.equal(h.connection.currentState, 'ready');
 });
