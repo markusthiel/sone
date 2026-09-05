@@ -91,7 +91,27 @@ export const NotifyScope = {
    * is the one place that decides what somebody may see.
    */
   Pages: 'pages',
+  /**
+   * The workspace's trash (ADR-0097).
+   *
+   * Its own scope rather than a second reason to refetch the tree: archiving
+   * and restoring belong to both lists, and renaming belongs only to the tree.
+   * One scope for the pair would mean every rename in the workspace refetching
+   * a list it cannot have changed.
+   */
+  Trash: 'trash',
 } as const;
+
+/**
+ * The scopes this server will put on the wire.
+ *
+ * The channel's payload names its own scope, and that payload comes from a
+ * trigger rather than from this process — so it is checked against this list
+ * before it is forwarded. Our own SQL either way, and an allow-list is one line:
+ * a string that reached clients because a migration typed it is a contract
+ * nobody agreed to.
+ */
+export const WORKSPACE_SCOPES: readonly string[] = [NotifyScope.Pages, NotifyScope.Trash];
 
 export type NotifyScopeValue = (typeof NotifyScope)[keyof typeof NotifyScope];
 

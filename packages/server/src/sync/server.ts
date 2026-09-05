@@ -34,6 +34,7 @@ import {
   ClientMessage,
   LIMITS,
   NotifyScope,
+  WORKSPACE_SCOPES,
   ProtocolError,
   SyncError,
   decodeClientMessage,
@@ -225,8 +226,21 @@ export class SyncServer {
     this.bus.onInboxChanged(({ userId }) => {
       this.notifyPerson(userId, NotifyScope.Inbox);
     });
-    this.bus.onPagesChanged(({ workspaceId }) => {
-      this.notifyWorkspace(workspaceId, NotifyScope.Pages);
+    this.bus.onWorkspaceChanged(({ workspaceId, scope }) => {
+      /*
+       * Checked against the protocol's own list before it goes on the wire
+       * (ADR-0097).
+       *
+       * The scope arrives in a NOTIFY payload written by a trigger — our own
+       * SQL, and still not this process. An allow-list is one line, and a
+       * string that reached clients because a migration typed it is a contract
+       * nobody agreed to.
+       */
+      if (!WORKSPACE_SCOPES.includes(scope)) {
+        this.log('warn', `ignoring unknown workspace scope ${scope}`);
+        return;
+      }
+      this.notifyWorkspace(workspaceId, scope);
     });
     this.log('info', 'sync server started');
   }
@@ -252,13 +266,15 @@ export class SyncServer {
   }
 
   /**
-   * Tell everybody with this workspace open that its tree changed (ADR-0096).
+   * Tell everybody with this workspace open that one of its lists changed
+   * (ADR-0096, ADR-0097).
    *
    * Everybody, without asking who may see the change — because the frame does
-   * not carry the change. It says which list to fetch again, and the tree route
-   * is the one place that decides what each of them gets back. Filtering here
-   * would mean this server resolving a page's access per connection, which is a
-   * second answer to a question that route already answers (ADR-0086).
+   * not carry the change. It says which list to fetch again, and the route that
+   * serves that list is the one place that decides what each of them gets back.
+   * Filtering here would mean this server resolving a page's access per
+   * connection, which is a second answer to a question those routes already
+   * answer (ADR-0086).
    */
   private notifyWorkspace(workspaceId: string, scope: string): void {
     const conns = this.byWorkspace.get(workspaceId);
