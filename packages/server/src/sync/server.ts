@@ -519,9 +519,33 @@ export class SyncServer {
           password: payload.sharePassword ?? null,
           ipPrefix: conn.ipPrefix,
           existingShareSessionId: payload.shareSessionId ?? null,
+          /*
+           * The cookie that came with the upgrade request (ADR-0101).
+           *
+           * A share token and a session token are mutually exclusive in the
+           * auth message, and the **cookie** travels regardless — so somebody
+           * signed in who opens a link that requires an account is admitted
+           * here for the same reason the HTTP route admits them.
+           */
+          signedIn: Boolean(conn.cookieSessionToken),
         });
         if (!resolved) {
           conn.send(encodeError(0, SyncError.AuthFailed));
+          conn.socket.close(1008, 'auth failed');
+          return;
+        }
+        if (resolved.signInRequired) {
+          /*
+           * The link admits people with accounts, and this connection presented
+           * only the link (ADR-0101).
+           *
+           * Refused rather than admitted with empty claims: those would
+           * authenticate a connection that may do nothing, which is a session
+           * somebody then has to explain. The browser reaches
+           * `GET /api/share/:token` before it opens this socket and is told
+           * there, in a sentence.
+           */
+          conn.send(encodeError(0, SyncError.AuthFailed, 'sign_in_required'));
           conn.socket.close(1008, 'auth failed');
           return;
         }

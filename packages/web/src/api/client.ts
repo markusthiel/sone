@@ -1166,6 +1166,14 @@ export const api = {
   resolveShare: (token: string) =>
     request<{
       requiresPassword: boolean;
+      /**
+       * The link admits people with accounts, and nobody is signed in here
+       * (ADR-0101).
+       *
+       * Answered before anything about the page is read, so the rest of this
+       * shape is absent when it is true.
+       */
+      requiresSignIn?: boolean;
       pageId?: string;
       title?: string;
       kind?: string;
