@@ -644,9 +644,21 @@ async function main(): Promise<void> {
           baseUrl: current.baseUrl,
         }),
       )
-      .catch(() => {
+      .then((result) => {
+        // Said, because it was not: the counts were computed, returned and
+        // dropped, so nothing anywhere recorded that a digest had gone out or
+        // that ten had failed (ADR-0081).
+        if (result.sent > 0 || result.failed.length > 0) {
+          console.log(`[digest] sent ${result.sent}, empty ${result.empty}`);
+        }
+        for (const failure of result.failed) {
+          console.error(`[digest] could not send — ${failure}`);
+        }
+      })
+      .catch((err: unknown) => {
         // Tried again next hour. A relay that is down must not take the
-        // process with it.
+        // process with it — but it must not be invisible either.
+        console.error('[digest] hourly pass failed', err);
       });
   }, 3_600_000);
   digestTimer.unref();
@@ -654,9 +666,12 @@ async function main(): Promise<void> {
   const mailTimer = setInterval(() => {
     void mailSettings()
       .then((current) => sweepForEmail(pool, current))
-      .catch(() => {
+      .catch((err: unknown) => {
         // A sweep that cannot reach the database will be tried again in a
-        // minute; throwing here would take the process down for it.
+        // minute; throwing here would take the process down for it. Saying
+        // nothing at all made an unreachable database, a schema drift and a
+        // relay outage identical and invisible (ADR-0081).
+        console.error('[mail] sweep failed', err);
       });
   }, 60_000);
   mailTimer.unref();

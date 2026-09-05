@@ -42,6 +42,19 @@ export interface Message {
    * was sent *to* is the credential and the `From` header stays decoration.
    */
   replyTo?: string;
+  /**
+   * Where somebody turns this off, for the clients that offer the button.
+   *
+   * ADR-0058 says this header is included. It was not: the comment describing
+   * it survived and the line under it became `Auto-Submitted`, so the whole
+   * repository held the string `List-Unsubscribe` once, in the record
+   * (ADR-0081).
+   *
+   * A URL only, and no `List-Unsubscribe-Post`: the one-click form of this
+   * header lets anybody who can send a request unsubscribe somebody else, and
+   * the page it points at is behind a sign-in for that reason.
+   */
+  unsubscribeUrl?: string;
 }
 
 /** How long any single exchange may take before the attempt is abandoned. */
@@ -245,6 +258,9 @@ export async function sendMail(relay: Relay, message: Message, now = new Date())
       // For clients that offer the button. It points at the authenticated
       // settings page, which is worse than one click and is the version that
       // cannot be used against the recipient (ADR-0058).
+      ...(message.unsubscribeUrl
+        ? [`List-Unsubscribe: <${headerSafe(message.unsubscribeUrl)}>`]
+        : []),
       /*
        * `auto-replied` rather than `auto-generated` when a reply is invited.
        *

@@ -12,7 +12,13 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import type { Pool } from 'pg';
 
-import { claimJob, enqueue, expireJobs, runOneJob } from '../src/jobs/runner.js';
+import {
+  MAX_JOB_ATTEMPTS,
+  claimJob,
+  enqueue,
+  expireJobs,
+  runOneJob,
+} from '../src/jobs/runner.js';
 import { closeTestPool, getTestPool, resetDatabase, seedWorkspace } from './support/db.js';
 
 let db: Pool;
@@ -86,14 +92,62 @@ test('a job that throws is recorded, and the runner carries on', async () => {
   });
   assert.equal(ran, true, 'it ran, and it failed');
 
-  const row = await db.query<{ state: string; error: string }>(
-    `SELECT state, error FROM jobs WHERE id = $1`,
+  const row = await db.query<{ state: string; error: string; run_after: Date }>(
+    `SELECT state, error, run_after FROM jobs WHERE id = $1`,
     [id],
   );
-  assert.equal(row.rows[0]?.state, 'failed');
+  /*
+   * Queued again, not failed (ADR-0081).
+   *
+   * This asserted `failed` on the first exception, which is what the runner
+   * did — and ADR-0058 said the queue retried five times with widening gaps.
+   * The difference mattered: notification mail is claimed by setting
+   * `emailed_at`, the only way back in, so one transient relay hiccup
+   * discarded somebody's notifications permanently.
+   */
+  assert.equal(row.rows[0]?.state, 'queued', 'a first failure is retried');
   // Stored so somebody can be told why their export did not arrive, instead of
   // watching it stay at "queued" for ever.
   assert.equal(row.rows[0]?.error, 'the archive was too large');
+  assert.ok(
+    row.rows[0]!.run_after.getTime() > Date.now() + 30_000,
+    'and it waits before the next attempt rather than spinning',
+  );
+});
+
+test('a job that keeps throwing eventually fails for good', async () => {
+  // Bounded, because a permanently rejected address should not be retried for
+  // ever — the other half of ADR-0058's rule.
+  const id = await enqueue(db, { workspaceId, kind: 'boom', createdBy: userId });
+  const handlers = { boom: () => Promise.reject(new Error('still broken')) };
+
+  for (let attempt = 1; attempt <= MAX_JOB_ATTEMPTS; attempt += 1) {
+    // The gap is real, so the clock is moved rather than waited out.
+    await db.query(`UPDATE jobs SET run_after = now() WHERE id = $1`, [id]);
+    await runOneJob(db, handlers);
+  }
+
+  const row = await db.query<{ state: string; attempts: number }>(
+    `SELECT state, attempts FROM jobs WHERE id = $1`,
+    [id],
+  );
+  assert.equal(row.rows[0]?.state, 'failed');
+  assert.equal(row.rows[0]?.attempts, MAX_JOB_ATTEMPTS);
+});
+
+test('a job is not picked up before its time', async () => {
+  const id = await enqueue(db, { workspaceId, kind: 'later', createdBy: userId });
+  await db.query(`UPDATE jobs SET run_after = now() + interval '1 hour' WHERE id = $1`, [id]);
+
+  let ranIt = false;
+  const ran = await runOneJob(db, {
+    later: () => {
+      ranIt = true;
+      return Promise.resolve({ result: {} });
+    },
+  });
+  assert.equal(ranIt, false, 'the handler was not called');
+  assert.equal(ran, false, 'and the runner reported nothing to do');
 });
 
 test('a kind this build does not know fails rather than staying claimed', async () => {
