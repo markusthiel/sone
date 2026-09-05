@@ -66,22 +66,56 @@ describe(
     const yesterday = (): Date => new Date(Date.now() - 86_400_000);
 
     test('a restricted page is not in somebody else´s digest', async () => {
-      const open = await page('Offene Seite', false, colleague);
-      const secret = await page('Gehaltsrunde', true, colleague);
+      /*
+       * Read as the plain **member**, not as the owner (ADR-0081).
+       *
+       * This used to read as `member`, who is the workspace *owner* in this
+       * fixture, and assert that the restricted page was hidden. That passed
+       * only because the digest asked the wrong question: it passed
+       * `users.is_instance_admin` where the tree passes the workspace role, so
+       * an owner was treated as nobody in particular and silently lost rows
+       * from their own digest. The condition's own documentation says
+       * "whether they hold owner or admin in the workspace".
+       *
+       * The intent — a restricted page must not put its title in somebody
+       * else's mail — is unchanged and is what the reader below tests.
+       */
+      const open = await page('Offene Seite', false, member);
+      const secret = await page('Gehaltsrunde', true, member);
 
-      const forMember = await changedFor(db, {
-        userId: member,
-        email: 'mitglied@example.org',
-        isAdmin: false,
+      const forColleague = await changedFor(db, {
+        userId: colleague,
+        email: 'kollegin@example.org',
         since: yesterday(),
       });
 
-      const titles = forMember.map((one) => one.title);
+      const titles = forColleague.map((one) => one.title);
       assert.ok(titles.includes('Offene Seite'), 'the ordinary page is there');
       assert.ok(!titles.includes('Gehaltsrunde'), 'the restricted one is not');
       // And not by id either, in case a title were ever omitted.
-      assert.ok(!forMember.some((one) => one.pageId === secret));
-      assert.ok(forMember.some((one) => one.pageId === open));
+      assert.ok(!forColleague.some((one) => one.pageId === secret));
+      assert.ok(forColleague.some((one) => one.pageId === open));
+    });
+
+    test('the workspace owner sees what the tree would show them', async () => {
+      /*
+       * The other half of the same rule, and the half that was broken
+       * (ADR-0081). An owner cannot be locked out of their own workspace by a
+       * restriction set on a page inside it — that is what `resolvePageAccess`
+       * decides for the tree, and the digest must not be a second answer.
+       */
+      const secret = await page('Vertraulich', true, colleague);
+
+      const forOwner = await changedFor(db, {
+        userId: member,
+        email: 'mitglied@example.org',
+        since: yesterday(),
+      });
+
+      assert.ok(
+        forOwner.some((one) => one.pageId === secret),
+        'the owner is not hidden from their own workspace',
+      );
     });
 
     test('somebody´s own edits alone are not news', async () => {
@@ -90,7 +124,6 @@ describe(
       const mine = await changedFor(db, {
         userId: member,
         email: 'mitglied@example.org',
-        isAdmin: false,
         since: yesterday(),
       });
       assert.ok(!mine.some((one) => one.title === 'Von mir selbst'));
@@ -121,7 +154,7 @@ describe(
       );
       const elsewhere = await page('Ganz woanders', false, colleague);
 
-      const watching = { userId: member, email: 'mitglied@example.org', isAdmin: false };
+      const watching = { userId: member, email: 'mitglied@example.org' };
 
       // With nothing watched, the watched scope finds nothing — and that is
       // silence, not a smaller mail: the caller sends none at all.
@@ -151,16 +184,19 @@ describe(
        * a new WHERE condition beside it is exactly where somebody would
        * accidentally write OR instead of AND.
        */
-      const secret = await page('Gehaltsrunde 2', true, colleague);
+      // Read as the plain member for the same reason as the test above: the
+      // owner of a workspace is not somebody a restriction inside it hides
+      // things from, so asking the question of an owner asks nothing
+      // (ADR-0081).
+      const secret = await page('Gehaltsrunde 2', true, member);
       await db.query(`INSERT INTO watched_pages (user_id, page_id) VALUES ($1, $2)`, [
-        member,
+        colleague,
         secret,
       ]);
 
       const watched = await changedFor(db, {
-        userId: member,
-        email: 'mitglied@example.org',
-        isAdmin: false,
+        userId: colleague,
+        email: 'kollegin@example.org',
         since: yesterday(),
         scope: 'watched',
       });

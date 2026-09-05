@@ -230,3 +230,40 @@ test('a reply address becomes a Reply-To, and changes what the mail admits to be
     await plain.close();
   }
 });
+
+test('the unsubscribe header ADR-0058 promised is actually sent', async () => {
+  /*
+   * The record says "a `List-Unsubscribe` header is included for mail clients
+   * that offer the button". It was not: the comment describing it survived in
+   * `send.ts` and the line under it became `Auto-Submitted`, so the whole
+   * repository held the string once — in the record (ADR-0081).
+   *
+   * A URL only, and no `List-Unsubscribe-Post`: the one-click form lets anybody
+   * who can send a request unsubscribe somebody else, and the page it points at
+   * is behind a sign-in for exactly that reason.
+   */
+  const fake = await fakeRelay();
+  try {
+    await sendMail(relay(fake.port), {
+      to: 'anna@example.org',
+      subject: 's',
+      body: 'b',
+      unsubscribeUrl: 'https://sone.example/settings/notifications',
+    });
+    assert.match(
+      fake.data,
+      /List-Unsubscribe: <https:\/\/sone\.example\/settings\/notifications>/,
+    );
+    assert.doesNotMatch(fake.data, /List-Unsubscribe-Post/);
+  } finally {
+    await fake.close();
+  }
+
+  const without = await fakeRelay();
+  try {
+    await sendMail(relay(without.port), { to: 'a@example.org', subject: 's', body: 'b' });
+    assert.doesNotMatch(without.data, /List-Unsubscribe/);
+  } finally {
+    await without.close();
+  }
+});

@@ -14,7 +14,7 @@
 
 import type { Pool } from 'pg';
 
-import { queryOne } from '../db/pool.js';
+import { queryOne, type Db } from '../db/pool.js';
 
 export interface Job {
   id: string;
@@ -22,6 +22,8 @@ export interface Job {
   kind: string;
   payload: Record<string, unknown>;
   createdBy: string | null;
+  /** How many attempts have been made, this one included (ADR-0081). */
+  attempts: number;
 }
 
 export interface JobContext {
@@ -44,8 +46,30 @@ export type JobHandler = (
  */
 export const JOB_RESULT_HOURS = Number(process.env['SONE_JOB_RESULT_HOURS'] ?? 24);
 
+/**
+ * How many times a job is attempted before it is left alone.
+ *
+ * Five, which is what ADR-0058 said the queue already did. A permanently
+ * rejected address should not be retried for ever; a relay that was restarting
+ * should not cost somebody their notifications.
+ */
+export const MAX_JOB_ATTEMPTS = 5;
+
+/**
+ * How long before the next attempt, given how many have been made.
+ *
+ * A minute, then two, four, eight — capped at an hour, the same curve the
+ * projection retries use. Long enough that a restarting relay is up again,
+ * short enough that a notification is still news.
+ */
+export function jobRetryDelayMs(attempts: number): number {
+  return Math.min(60_000 * 2 ** Math.max(0, attempts - 1), 60 * 60_000);
+}
+
 export async function enqueue(
-  pool: Pool,
+  // A `Db`, not a `Pool`: the mail sweep claims and queues in one transaction,
+  // and a job written outside it could be lost with the claim (ADR-0081).
+  pool: Db,
   input: {
     workspaceId: string;
     kind: string;
@@ -78,6 +102,7 @@ export async function claimJob(pool: Pool, kinds: string[]): Promise<Job | null>
     kind: string;
     payload: Record<string, unknown>;
     created_by: string | null;
+    attempts: number;
   }>(
     pool,
     `UPDATE jobs
@@ -87,11 +112,15 @@ export async function claimJob(pool: Pool, kinds: string[]): Promise<Job | null>
       WHERE id = (
         SELECT id FROM jobs
          WHERE state = 'queued' AND kind = ANY($1::text[])
-         ORDER BY created_at
+           -- Not before its time. A requeued job waits out a widening gap
+           -- rather than being picked up on the next five-second tick
+           -- (migration 0057, ADR-0081).
+           AND run_after <= now()
+         ORDER BY run_after, created_at
          FOR UPDATE SKIP LOCKED
          LIMIT 1
       )
-      RETURNING id, workspace_id, kind, payload, created_by`,
+      RETURNING id, workspace_id, kind, payload, created_by, attempts`,
     [kinds],
   );
   if (!row) return null;
@@ -101,6 +130,7 @@ export async function claimJob(pool: Pool, kinds: string[]): Promise<Job | null>
     kind: row.kind,
     payload: row.payload,
     createdBy: row.created_by,
+    attempts: row.attempts,
   };
 }
 
@@ -153,10 +183,38 @@ export async function runOneJob(
       ],
     );
   } catch (error) {
-    await pool.query(
-      `UPDATE jobs SET state = 'failed', error = $2, finished_at = now() WHERE id = $1`,
-      [job.id, error instanceof Error ? error.message : 'unknown'],
-    );
+    /*
+     * Retried, with a widening gap, until the attempts run out (ADR-0081).
+     *
+     * This wrote `failed` on the first exception, and ADR-0058 said the queue
+     * retried five times. The gap mattered more than the record: notification
+     * mail is *claimed* by setting `emailed_at`, and that is the only way back
+     * in — so one transient relay hiccup discarded somebody's notifications
+     * permanently, with nothing anywhere to say it had happened. The whole
+     * argument for letting `emailed_at` mean "claimed" rather than "delivered"
+     * is that the queue owns the retries.
+     *
+     * `attempts` was already incremented by the claim, so a job that has just
+     * had its first attempt carries 1 here.
+     */
+    const message = error instanceof Error ? error.message : 'unknown';
+    const attempts = job.attempts;
+    if (attempts < MAX_JOB_ATTEMPTS) {
+      await pool.query(
+        `UPDATE jobs
+            SET state = 'queued',
+                error = $2,
+                started_at = NULL,
+                run_after = now() + ($3 || ' milliseconds')::interval
+          WHERE id = $1`,
+        [job.id, message, String(jobRetryDelayMs(attempts))],
+      );
+    } else {
+      await pool.query(
+        `UPDATE jobs SET state = 'failed', error = $2, finished_at = now() WHERE id = $1`,
+        [job.id, message],
+      );
+    }
   }
   return true;
 }
