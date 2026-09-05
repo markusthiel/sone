@@ -98,6 +98,43 @@ test('the list can be closed, and reopened', () => {
   assert.match(shell, /data-sidebar=\{treeOpen \? 'shown' : 'hidden'\}/);
 });
 
+test('the right panel is the page\'s, not the workspace\'s', () => {
+  /*
+   * Asked as "ob die rechte Seitenleiste mit freigeschaltet werden soll" — a
+   * per-share option. The answer is that one switch is the wrong shape: the
+   * panel is nine tabs and four of them are about the *workspace*. So the
+   * panel comes with a link, restricted to `PAGE_TABS`, and there is no
+   * setting — because the division is a fact about the tabs rather than a
+   * choice somebody makes per link.
+   *
+   * `docAssets.test.ts` guards which tabs those are; this guards that the
+   * shared view asks for them.
+   */
+  const shell = app().slice(app().indexOf('function ShareSession'));
+  assert.match(shell, /<RightSidebar/);
+  assert.match(shell, /tabs=\{PAGE_TABS\}/);
+  assert.match(shell, /<RightPanelToggle open=\{rightOpen\}/);
+
+  // Closed on arrival, and not from the workspace's remembered setting: that
+  // key is per browser, so a member opening a link in their own browser would
+  // find the panel already out.
+  assert.match(shell, /const \[rightOpen, setRightOpen\] = useState\(false\);/);
+  assert.doesNotMatch(shell, /readRightPanelOpen/);
+});
+
+test('the panel has a column to open into', () => {
+  /*
+   * The tree's own bug, one side over. Every `[data-right-panel='open']`
+   * template belongs to `.with-sidebar` and begins with the rail's track, so
+   * without a rule for this shell the panel would have no track and become a
+   * row under the page — a wide bar again, at the bottom.
+   */
+  assert.match(
+    css(),
+    /\.app\.with-share-tree\[data-right-panel='open'\] \{\s*grid-template-columns: var\(--sidebar-width, 260px\) minmax\(0, 1fr\) 300px;/,
+  );
+});
+
 test('a link to a single page gets no list at all', () => {
   // An aside holding one entry is furniture, and the empty column would be a
   // margin with a border on it.
