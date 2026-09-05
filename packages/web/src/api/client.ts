@@ -12,7 +12,7 @@
  * wrong, not for display.
  */
 
-import type { DiffBlock, EntryIcon, WordChange, WorkspaceTheme } from '@sone/core';
+import type { DiffBlock, EntryIcon, Role, WordChange, WorkspaceTheme } from '@sone/core';
 
 export class ApiError extends Error {
   constructor(
@@ -185,6 +185,19 @@ export interface PageSummary {
    * offer anything, because there is nothing here they may do.
    */
   pathOnly?: boolean;
+  /**
+   * What this person may do with this entry (ADR-0095).
+   *
+   * Sent by the tree route, which was already computing it once per row to
+   * decide which rows to send at all — and throwing it away. Without it every
+   * entry looked alike to the shell, so a folder somebody may only read got a
+   * rename field and three create buttons, each of which the server answers
+   * 403 to.
+   *
+   * Null for a page kept only as a path: they may do nothing with the row
+   * itself, and "no role" is the honest answer rather than a missing field.
+   */
+  role: Role | null;
   icon: { kind: string; value: string; color?: string; titleColor?: string } | null;
   kind: EntryKind;
   /** Offered as a shape to start from (ADR-0045). */
@@ -727,6 +740,8 @@ export const api = {
         idx: string;
         /** The entry's chosen icon and colour, so the tree draws what the page does. */
         icon: unknown;
+        /** What the link grants on this entry (ADR-0095). */
+        role: Role | null;
       }>;
       scopePageId: string;
     }>(`/api/share/${encodeURIComponent(token)}/pages`),
