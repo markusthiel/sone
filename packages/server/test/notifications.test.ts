@@ -18,6 +18,16 @@ import {
   textMentionsFor,
 } from '../src/notifications/fromComments.js';
 
+/*
+ * Real uuids, because every id in this file ends in a uuid column.
+ *
+ * They read worse than 'anna' and 'bo' and they are the point: a value the
+ * column would refuse is a value this file cannot learn anything from.
+ */
+const ANNA = '11111111-1111-4111-8111-111111111111';
+const MARKUS = '22222222-2222-4222-8222-222222222222';
+const BO = '33333333-3333-4333-8333-333333333333';
+
 const thread = (messages: Array<[string, string, string[]?]>): CommentThread => ({
   id: 't1',
   from: new Uint8Array(),
@@ -123,14 +133,49 @@ test('a guest cannot be given a task', () => {
 });
 
 test('a notification records who caused it', () => {
-  // Absent until the email work needed it and found it missing: a notification
-  // said what happened, where and to whom, and not by whom — so "Anna
-  // mentioned you" was a sentence the data could not produce (ADR-0058).
-  // The suite's own `thread` helper, which builds the object directly — I
-  // reached for a Y.Doc and an `addThread` this file does not import.
-  const [mention] = notificationsFor([thread([['anna', 'schau mal', ['bo']]])]);
-  assert.equal(mention?.userId, 'bo');
-  assert.equal(mention?.actorId, 'anna', 'the message´s author');
+  /*
+   * Absent until the email work needed it and found it missing: a notification
+   * said what happened, where and to whom, and not by whom — so "Anna mentioned
+   * you" was a sentence the data could not produce (ADR-0058).
+   *
+   * With **real uuids**, which this file did not have. `actor_id` is
+   * `uuid REFERENCES users (id)`, so `'anna'` is a value the column would have
+   * refused — and a fixture Postgres would refuse is a fixture that cannot find
+   * out what Postgres does. That is exactly how the guest case below stayed
+   * invisible until somebody replied through a share link (ADR-0092).
+   */
+  const [mention] = notificationsFor([thread([[ANNA, 'schau mal', [BO]]])]);
+  assert.equal(mention?.userId, BO);
+  assert.equal(mention?.actorId, ANNA, 'the message´s author');
+});
+
+test('a guest is not an account, so nothing is pointed at them', () => {
+  /*
+   * The worst fault of its batch, and it was reported as "eine Antwort auf
+   * einen Kommentar wird nicht eingetragen".
+   *
+   * A comment's author is a user id **or** a `guest:` key (ADR-0046), and this
+   * passed it straight into a uuid column. A visitor replying through a share
+   * link therefore threw `22P02` **inside the projection's transaction**, so
+   * the page's comment counts, blocks and search row rolled back with it — and
+   * the message stays in the document, so every later projection threw again.
+   * `22P02` is not a code the room treats as permanent, so it retried for ever
+   * instead of saying anything.
+   *
+   * `textMentionsFor` was given this guard three days ago (ADR-0091) after the
+   * same class of bug. This is the fourth time in this codebase that a rule
+   * held in two of three places.
+   */
+  const [reply] = notificationsFor([
+    thread([
+      [ANNA, 'Was meint ihr?'],
+      ['guest:Lars', 'Ich finde es gut.'],
+    ]),
+  ]);
+
+  assert.equal(reply?.userId, ANNA, 'she is still told about the answer');
+  assert.equal(reply?.kind, 'reply');
+  assert.equal(reply?.actorId, null, 'and there is no account to name');
 });
 
 test('an assignment names whoever´s edit produced it', () => {
@@ -147,18 +192,6 @@ test('an assignment names whoever´s edit produced it', () => {
 // --- mentions in the page's own text (ADR-0085) ------------------------------
 
 const block = (id: string, text: string) => ({ id, plainText: text });
-
-/*
- * Real uuids, because `notifications.user_id` is one.
- *
- * These tests used 'anna' and 'markus', which reads better and cannot happen:
- * every id here ends up in a uuid column, and a value that could not survive
- * the INSERT is a value the function is not really being asked about. It is
- * also how the guest-key crash below stayed invisible — nothing in this file
- * ever handed it something Postgres would refuse.
- */
-const ANNA = '11111111-1111-4111-8111-111111111111';
-const MARKUS = '22222222-2222-4222-8222-222222222222';
 
 test('somebody named in a paragraph is told, with the sentence they were named in', () => {
   /*

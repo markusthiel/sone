@@ -853,6 +853,26 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 
 .rail-account .sidebar-avatar { inline-size: 26px; block-size: 26px; }
 
+/* The badge on a rail or bar icon (ADR-0092).
+ *
+ * `position: relative` on the item, because the pill is absolute and without a
+ * positioned ancestor it resolves against the initial containing block — the
+ * mistake ADR-0083's drag handle made, in the same stylesheet.
+ *
+ * Small, and clipped to two digits plus a plus: this sits on a 40px icon, and a
+ * number that grows the icon makes the rail jump the first time somebody comes
+ * back from holiday. */
+.rail-item,
+.bar-item { position: relative; }
+
+.rail-item .sidebar-unread,
+.bar-item .sidebar-unread {
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-end: 2px;
+  pointer-events: none;
+}
+
 /* No name to sit after, so the count rides the corner of the face. */
 .rail-account .sidebar-unread {
   position: absolute;
@@ -1791,6 +1811,21 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 /* The toggle's disclosure control. */
 .ProseMirror [data-block='toggle'] { padding-inline-start: 1.4em; }
+
+/* Room for the count, by how many digits it has (ADR-0092).
+ *
+ * The marker is absolutely positioned in that 1.4em, and the count sits inside
+ * it — so a two-digit number ran out of the gutter and printed over the first
+ * word: "15Code Week". The gutter has to grow, and it can only grow by a step
+ * the document knows about, which is why the plugin puts the digit count on the
+ * node.
+ *
+ * Three is the cap. A hundred hidden blocks under one toggle is a toggle
+ * nobody opens, and the number stops being informative long before it stops
+ * fitting. */
+.ProseMirror [data-block='toggle'][data-count-digits='1'] { padding-inline-start: 2.6em; }
+.ProseMirror [data-block='toggle'][data-count-digits='2'] { padding-inline-start: 3.1em; }
+.ProseMirror [data-block='toggle'][data-count-digits='3'] { padding-inline-start: 3.7em; }
 
 .ProseMirror .sone-toggle-marker {
   position: absolute;

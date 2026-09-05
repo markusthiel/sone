@@ -31,12 +31,13 @@ import type { Pool } from 'pg';
 
 import * as Y from 'yjs';
 
-import { readThreads } from '@sone/core';
+import { addMessage, addThread, readThreads, removeThread } from '@sone/core';
 
 import { registerCommentRoutes } from '../src/comments/routes.js';
 import { createShareLink } from '../src/auth/share.js';
 import { createSession } from '../src/auth/session.js';
 import { applyToDocument, loadDoc } from '../src/doc/docStore.js';
+import { rematerialize } from '../src/materialize/rematerialize.js';
 import { SESSION_COOKIE, SHARE_COOKIE } from '../src/http/auth.js';
 import { Router } from '../src/http/router.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
@@ -387,6 +388,152 @@ describe(
       assert.equal(mine?.messages[0]?.author, reader, 'signed with their account');
 
       await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [reader]);
+    });
+
+    test('a visitor signs with the name they typed, not with "Guest"', async () => {
+      /*
+       * Reported as: the guest enters "Lars" and the member sees "Gast".
+       *
+       * Two faults, both in resolving the share cookie. The cookie names the
+       * **link**, not the person holding it, so an HTTP request cannot say
+       * which visitor is asking — and this path substituted 'Guest' *and wrote
+       * it back over* the name the sync connection had stored, so posting a
+       * comment destroyed the name in the same breath as signing with the wrong
+       * one (ADR-0092).
+       *
+       * So the name travels with the comment. For a guest that is no weaker
+       * than the session's: both were typed into a box by the same person. What
+       * stops a visitor signing as a colleague is the `guest:` prefix, not the
+       * wire the string came down.
+       */
+      const fresh = await page('Mit Namen');
+      const link = await createShareLink(db, {
+        pageId: fresh,
+        createdBy: owner,
+        role: 'commenter',
+      });
+
+      const res = await post(
+        `/api/pages/${fresh}/comments`,
+        { from: ANCHOR, to: ANCHOR, quote: 'x', text: 'Ich bin Lars.', name: 'Lars' },
+        shareCookie(link.token),
+      );
+      assert.equal(res.status, 201);
+
+      const threads = await threadsOn(fresh);
+      assert.equal(threads[0]!.messages[0]!.author, 'guest:Lars');
+    });
+
+    test('a visitor’s reply does not take the page’s projection down with it', async () => {
+      /*
+       * The heaviest fault of the batch, reported only as "eine Antwort auf
+       * einen Kommentar wird nicht eingetragen".
+       *
+       * A reply notifies everybody already in the thread, and the candidate
+       * carried `actorId: message.author`. A visitor's author is a `guest:`
+       * key; `actor_id` is a uuid column. So the INSERT threw `22P02` **inside
+       * the projection's transaction** — taking the comment counts, the blocks
+       * and the search row with it. And the message stays in the document, so
+       * every later projection of that page threw again. `22P02` is not one of
+       * the codes the room treats as permanent, so it retried for ever instead
+       * of saying anything.
+       *
+       * Asserted on the projection, not on the notification: the notification
+       * is the small half.
+       */
+      const fresh = await page('Faden');
+      const link = await createShareLink(db, {
+        pageId: fresh,
+        createdBy: owner,
+        role: 'commenter',
+      });
+
+      // A member opens the thread, so there is somebody for the reply to reach.
+      await applyToDocument(
+        db,
+        fresh,
+        (doc) => {
+          addThread(doc, {
+            id: 'faden',
+            from: new Uint8Array(Buffer.from(ANCHOR, 'base64')),
+            to: new Uint8Array(Buffer.from(ANCHOR, 'base64')),
+            quote: 'etwas',
+            messageId: 'm1',
+            author: owner,
+            text: 'Was meint ihr?',
+          });
+        },
+        owner,
+      );
+
+      const replied = await post(
+        `/api/pages/${fresh}/comments/faden/messages`,
+        { text: 'Ich finde es gut.', name: 'Lars' },
+        shareCookie(link.token),
+      );
+      assert.equal(replied.status, 201, 'the reply is accepted');
+
+      const state = await db.query<{ status: string }>(
+        `SELECT status FROM materialization_state WHERE page_id = $1`,
+        [fresh],
+      );
+      assert.equal(state.rows[0]?.status, 'ok', 'and the page still projects');
+
+      const counted = await db.query<{ messages: number }>(
+        `SELECT messages FROM page_comments WHERE page_id = $1`,
+        [fresh],
+      );
+      assert.equal(counted.rows[0]?.messages, 2, 'both messages counted');
+
+      // And the member hears about it, with no actor to name.
+      const told = await db.query<{ actor_id: string | null }>(
+        `SELECT actor_id FROM notifications
+          WHERE user_id = $1 AND page_id = $2 AND kind = 'reply'`,
+        [owner, fresh],
+      );
+      assert.equal(told.rowCount, 1);
+      assert.equal(told.rows[0]!.actor_id, null, 'a guest is not an account to point at');
+    });
+
+    test('deleting a thread takes its notification with it', async () => {
+      // The bell kept an entry for a conversation that no longer exists —
+      // click it and nothing is found. The projection rewrites the comments
+      // wholesale and only ever *inserted* notifications, so the two drifted
+      // one way for ever (ADR-0092).
+      const fresh = await page('Wieder weg');
+      await applyToDocument(
+        db,
+        fresh,
+        (doc) => {
+          addThread(doc, {
+            id: 'weg',
+            from: new Uint8Array(Buffer.from(ANCHOR, 'base64')),
+            to: new Uint8Array(Buffer.from(ANCHOR, 'base64')),
+            quote: 'etwas',
+            messageId: 'm1',
+            author: owner,
+            text: 'Frage',
+          });
+          addMessage(doc, 'weg', { id: 'm2', author: reader, text: 'Antwort' });
+        },
+        owner,
+      );
+      await rematerialize(db, fresh, workspace, owner);
+
+      const before = await db.query(
+        `SELECT 1 FROM notifications WHERE page_id = $1 AND thread_id = 'weg'`,
+        [fresh],
+      );
+      assert.equal(before.rowCount, 1, 'the owner was told about the reply');
+
+      await applyToDocument(db, fresh, (doc) => removeThread(doc, 'weg'), owner);
+      await rematerialize(db, fresh, workspace, owner);
+
+      const after_ = await db.query(
+        `SELECT 1 FROM notifications WHERE page_id = $1 AND thread_id = 'weg'`,
+        [fresh],
+      );
+      assert.equal(after_.rowCount, 0, 'and it goes when the thread does');
     });
 
     test('whoever shared the page is told about a visitor’s first thread', async () => {

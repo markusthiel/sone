@@ -13,7 +13,13 @@ import { test } from 'node:test';
 import { BLOCK_ATTRS } from '@sone/core';
 import { EditorState, TextSelection } from 'prosemirror-state';
 
-import { hiddenBlockPositions, hiddenChildCount, toggleCollapsed } from '../src/collapse.js';
+import {
+  collapse,
+  collapsePluginKey,
+  hiddenBlockPositions,
+  hiddenChildCount,
+  toggleCollapsed,
+} from '../src/collapse.js';
 import { schema } from '../src/schema.js';
 
 const block = (
@@ -133,6 +139,37 @@ test('the hidden count is what the marker shows', () => {
     block('paragraph', 'after', 'p3', 0),
   ]);
   assert.equal(hiddenChildCount(doc, 0), 2);
+});
+
+test('the gutter is widened for the count, by its digits', () => {
+  /*
+   * The marker is absolutely positioned in a 1.4em gutter and the count sits
+   * inside it, so from ten upwards it ran out and printed over the first word
+   * — reported with a screenshot reading "15Code Week" (ADR-0092).
+   *
+   * Only the document knows how wide it needs to be, and only the stylesheet
+   * can reserve the space before anything is laid out. So the plugin puts the
+   * digit count on the node and the stylesheet has a step per width.
+   */
+  const state = EditorState.create({
+    schema,
+    doc: docOf([
+      block('toggle', 'closed', 't1', 0, { collapsed: true }),
+      // Twelve, so the count is two digits — the case that overflowed.
+      ...Array.from({ length: 12 }, (_unused, at) =>
+        block('paragraph', `p${at}`, `id${at}`, 1),
+      ),
+    ]),
+    plugins: [collapse()],
+  });
+  const set = collapsePluginKey.getState(state)!;
+  const node = set
+    .find()
+    .map((one) => one as unknown as { type: { attrs?: Record<string, string> } })
+    .find((one) => one.type.attrs?.['data-count-digits'] !== undefined);
+
+  assert.ok(node, 'the block carries the width it needs');
+  assert.equal(node!.type.attrs!['data-count-digits'], '2');
 });
 
 test('collapsing is a document change, so it is the same for everyone', () => {

@@ -1139,7 +1139,10 @@ export async function claimsForRequest(
   }
 
   if (shareToken) {
-    const resolved = await resolveShareTokenClaims(pool, shareToken);
+    // Not a visit: this is a picture loading or a comment being posted, and it
+    // cannot say which visitor it belongs to. See `track` for what tracking it
+    // anyway cost.
+    const resolved = await resolveShareTokenClaims(pool, shareToken, { track: false });
     // A link needing a password is not authenticated by the cookie alone. The
     // sync connection handles unlocking; an ordinary request is not the place to.
     if (resolved && !resolved.passwordRequired) {

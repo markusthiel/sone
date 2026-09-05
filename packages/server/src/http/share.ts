@@ -246,6 +246,7 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       title: string;
       kind: string;
       idx: string;
+      icon: unknown;
       ancestor_ids: string[];
       workspace_id: string;
       restricted_at: string | null;
@@ -254,7 +255,11 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       // The scope page itself, plus everything under it when the link carries
       // the subtree. `ancestor_ids` makes that a containment test rather than
       // a walk — the same column ADR-0006 added for exactly this question.
-      `SELECT p.id, p.parent_page_id, p.title, p.kind, p.idx, p.ancestor_ids, p.workspace_id,
+      // The icon travels too. Without it the shared tree drew a plain folder
+      // and a plain page for everything, while the title above the page showed
+      // the real one — so the same entry had two appearances on one screen.
+      `SELECT p.id, p.parent_page_id, p.title, p.kind, p.idx, p.icon,
+              p.ancestor_ids, p.workspace_id,
               ${restrictedAtSql('p')} AS restricted_at
          FROM pages p
         WHERE p.archived_at IS NULL
@@ -285,6 +290,7 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
         title: row.title,
         kind: row.kind === 'folder' || row.kind === 'canvas' ? row.kind : 'page',
         idx: row.idx,
+        icon: row.icon ?? null,
       }));
 
     ctx.send(200, { pages, scopePageId: scope.scopePageId });
