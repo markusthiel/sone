@@ -176,9 +176,16 @@ Migrations are forward-only, and the server refuses to start on a downgrade
 rather than corrupting data. A rollback is a backup restore:
 
 ```sh
-docker compose exec app node packages/server/scripts/backup.mjs
-docker compose exec app node packages/server/scripts/restore.mjs --archive <dir>
+docker compose exec app node packages/server/scripts/backup.mjs   # runs live
+docker compose stop app                                           # restore does not
+docker compose run --rm app node packages/server/scripts/restore.mjs --archive <dir>
 ```
+
+A backup can be taken while SONE is running. A **restore cannot**: rooms in
+memory hold documents that would no longer match the database underneath them.
+That sentence lived in a script's docstring, where the two commands sat side by
+side above as though they were the same kind of thing. See
+[docs/deployment.md](docs/deployment.md#restoring-a-backup).
 
 Document formats migrate automatically when a page is opened, so an upgrade is
 a restart rather than a maintenance window. What remains manual, and why it
