@@ -974,7 +974,13 @@ function Workspace({
             pages, and pages belong to one workspace. The question "what have I
             let out" is asked about a place, not about everything at once. */}
         {route.kind === 'shares' && (
-          <SharesScreen workspaceId={workspaceId} view={sharesView} onCounts={setShareCounts} />
+          <SharesScreen
+            workspaceId={workspaceId}
+            view={sharesView}
+            onCounts={setShareCounts}
+            // So a link somebody else revoked stops being offered (ADR-0098).
+            client={client}
+          />
         )}
 
         {/* The inbox spans workspaces, so it takes no workspace id — the whole

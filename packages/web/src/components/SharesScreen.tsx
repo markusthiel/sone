@@ -32,9 +32,11 @@
  * places come to disagree.
  */
 
+import { NotifyScope, type SoneClient } from '@sone/client';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
+import { useNudge } from '../hooks/useNudge.ts';
 import { useT } from '../i18n/useT.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { messageFor } from './Auth.tsx';
@@ -49,12 +51,22 @@ export function SharesScreen({
   workspaceId,
   view,
   onCounts,
+  client,
 }: {
   workspaceId: string;
   /** Which of the three the menu chose (ADR-0092). */
   view: SharesView;
   /** How many are in each, so the menu can say so without asking again. */
   onCounts: (counts: Record<SharesView, number>) => void;
+  /**
+   * The sync connection, so a link somebody else revoked stops being offered
+   * here (ADR-0098).
+   *
+   * This is the screen where a stale row is worst: every one of them is a
+   * "withdraw" button, and withdrawing something that is already gone is a
+   * refusal for an act somebody believed they were still able to make.
+   */
+  client?: SoneClient | null;
 }): ReactElement {
   const { t } = useT();
   const [shares, setShares] = useState<Shares>(EMPTY);
@@ -75,6 +87,14 @@ export function SharesScreen({
   };
 
   useEffect(load, [workspaceId]);
+
+  /*
+   * And again when the server says a share changed (ADR-0098).
+   *
+   * Its own scope, not the tree's: links, grants and group membership move
+   * these three lists, and a rename — which the tree cares about — cannot.
+   */
+  useNudge(client, NotifyScope.Shares, load);
 
   // The menu's numbers come from the list this screen already has. A second
   // request for them is how a count and a list come to disagree.

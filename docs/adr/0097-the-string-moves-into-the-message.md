@@ -91,6 +91,11 @@ followed by a render would be a nudge that vanished.
 screen, whenever somebody wants it: a `NotifyScope`, a name in
 `WORKSPACE_SCOPES`, a trigger emitting it, and a `useNudge` call.
 
+> Built next (ADR-0098), and it cost exactly that — the first time the claim has
+> been made and then held. What it did cost was thought about *which* changes
+> belong to that screen, which is where the interesting mistake now lives: that
+> question turned up a gap in this record's own trigger set.
+
 **Eight route tests, six failing before the change** — and the two that passed
 are the two asserting the trash stays quiet, which passed for the wrong reason:
 nothing was being sent at all. That is the standing shape of these files, and
