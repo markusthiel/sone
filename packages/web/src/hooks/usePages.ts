@@ -5,7 +5,8 @@
  * is the payoff of ADR-0002: the sidebar is one indexed query.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { NotifyScope, type SoneClient } from '@sone/client';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   ApiError,
@@ -16,7 +17,14 @@ import {
   type PageSummary,
 } from '../api/client.ts';
 
-export function usePages(workspaceId: string | null): {
+export function usePages(
+  workspaceId: string | null,
+  /**
+   * The sync connection, so the server can say when the tree changed
+   * (ADR-0096). Null before it exists — the hook still works, on focus alone.
+   */
+  client?: SoneClient | null,
+): {
   pages: PageSummary[];
   tree: PageNode[];
   loading: boolean;
@@ -30,10 +38,12 @@ export function usePages(workspaceId: string | null): {
    * document reached the server, the server updated the row — and the sidebar
    * went on showing the old name until something else happened to refetch it.
    *
-   * This closes that gap for the page you are looking at, immediately. Changes
-   * made by other people still arrive on the next refetch rather than live;
-   * that needs a workspace-level subscription, which the sync protocol does not
-   * have yet.
+   * This closes that gap for the page you are looking at, immediately, without
+   * a request at all — which is still worth having: the server's own nudge
+   * costs a round trip, and renaming the page in front of you should not.
+   *
+   * Somebody else's change used to arrive only on the next refetch. It arrives
+   * on the nudge now (ADR-0096); this stays as the fast path for your own.
    */
   applyTitle: (pageId: string, title: string) => void;
   createPage: (input: {
@@ -83,9 +93,52 @@ export function usePages(workspaceId: string | null): {
     void reload();
   }, [reload]);
 
+  /*
+   * The push (ADR-0096).
+   *
+   * This hook's own note said, for months, that somebody else's change arrives
+   * "on the next refetch rather than live; that needs a workspace-level
+   * subscription, which the sync protocol does not have yet". ADR-0093 gave the
+   * protocol a nudge with a **scope** precisely so the next subject would cost
+   * no protocol version, and this is that subject.
+   *
+   * **Coalesced.** One nudge is one reload of the whole tree, and a change that
+   * arrives as many statements — an import writing a subtree, a move touching
+   * several rows — would otherwise be one reload each. So a nudge starts a short
+   * window and the reload happens at the end of it; further nudges inside the
+   * window are already accounted for.
+   *
+   * A quarter of a second: long enough to swallow a burst from one action,
+   * short enough that a colleague's rename appears while somebody is still
+   * looking at the place it happened.
+   */
+  const coalescing = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!client) return;
+    const stop = client.onNotify(NotifyScope.Pages, () => {
+      if (coalescing.current) return;
+      coalescing.current = setTimeout(() => {
+        coalescing.current = null;
+        void reload();
+      }, 250);
+    });
+    return () => {
+      stop();
+      if (coalescing.current) {
+        clearTimeout(coalescing.current);
+        coalescing.current = null;
+      }
+    };
+  }, [client, reload]);
+
   // Refetched when the tab regains focus. Someone else's rename or new page
   // would otherwise never appear in a tab left open, and polling for it would
   // be a request every few seconds for a change that usually has not happened.
+  //
+  // Kept beside the push rather than replaced by it, for the reason ADR-0093
+  // gave for the bell: a push says what happened while the connection was up,
+  // and nothing says what happened while it was not — a sleeping laptop, a
+  // discarded tab, a deploy.
   useEffect(() => {
     const onFocus = (): void => {
       void reload();

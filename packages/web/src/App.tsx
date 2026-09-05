@@ -345,7 +345,9 @@ function Workspace({
     reload: reloadPages,
     loading: pagesLoading,
     error: pagesError,
-  } = usePages(workspaceId);
+    // The client, so somebody else's rename, move or new page appears while
+    // this tab is looking at it rather than at the next focus (ADR-0096).
+  } = usePages(workspaceId, client);
   // The entry a move dialog is open for, if any.
   const [movingId, setMovingId] = useState<string | null>(null);
   /** The entry being moved to another workspace (ADR-0038). */
