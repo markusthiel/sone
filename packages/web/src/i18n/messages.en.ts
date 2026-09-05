@@ -831,6 +831,10 @@ export const en = {
   'tag.none': 'None',
 
   // --- sharing a page ----------------------------------------------------
+  'share.signInRequired':
+    'This link needs an account',
+  'share.signInRequired.hint':
+    'Whoever made this link asked for people to be signed in, so their name is recorded with anything they write. Sign in and open the link again.',
   'share.label': 'Share',
   'share.anyoneWithLink': 'Anyone with a link',
   'share.notShared': 'This page is not shared.',

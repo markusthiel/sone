@@ -920,6 +920,13 @@ export const de: Record<keyof typeof en, string> = {
   'tag.none': 'Keine',
 
   // --- eine Seite teilen -------------------------------------------------
+  'share.signInRequired':
+    'Dieser Link braucht ein Konto',
+  'share.signInRequired.hint':
+    'Wer den Link erstellt hat, wollte angemeldete Leute — damit bei allem, was ' +
+    'geschrieben wird, ein Name steht. {address, select, ' +
+    'formal {Melden Sie sich an und öffnen Sie den Link noch einmal.} ' +
+    'other {Melde dich an und öffne den Link noch einmal.}}',
   'share.label': 'Teilen',
   'share.anyoneWithLink': 'Jeder mit dem Link',
   'share.notShared': 'Diese Seite ist nicht geteilt.',
