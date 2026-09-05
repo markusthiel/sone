@@ -46,21 +46,42 @@ export function registerGroupRoutes(router: Router, deps: GroupDeps): void {
     const admin = await requireWorkspaceAdmin(deps.pool, ctx, workspaceId);
     if (!admin) return;
 
-    const groups = await queryRows<{ id: string; name: string; members: number }>(
+    const groups = await queryRows<{
+      id: string;
+      name: string;
+      members: number;
+      role_id: string | null;
+      role_name: string | null;
+    }>(
       deps.pool,
       // The count comes with the list. A group's size is the first thing
       // somebody wants when deciding whether to grant it access, and fetching
       // it per group would be a request per row for a number.
-      `SELECT g.id, g.name, count(gm.user_id)::int AS members
+      //
+      // The role too, for the same reason and a stronger one: a group carrying
+      // a role gives it to everybody in it (ADR-0087), so a list of groups that
+      // does not say which role each carries is a list that hides the thing
+      // worth knowing about them.
+      `SELECT g.id, g.name, count(gm.user_id)::int AS members,
+              g.role_id, r.name AS role_name
          FROM groups g
          LEFT JOIN group_members gm ON gm.group_id = g.id
+         LEFT JOIN roles r ON r.id = g.role_id
         WHERE g.workspace_id = $1
-        GROUP BY g.id
+        GROUP BY g.id, r.name
         ORDER BY lower(g.name)`,
       [workspaceId],
     );
 
-    ctx.send(200, { groups });
+    ctx.send(200, {
+      groups: groups.map((one) => ({
+        id: one.id,
+        name: one.name,
+        members: one.members,
+        roleId: one.role_id,
+        roleName: one.role_name,
+      })),
+    });
   });
 
   router.post('/api/workspaces/:workspaceId/groups', async (ctx) => {

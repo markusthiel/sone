@@ -13,6 +13,31 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Rollen lassen sich jetzt selbst festlegen — Workspace-Einstellungen →
+Rollen.** Eine Rolle sagt zweierlei: was jemand auf Seiten darf, für die nichts
+Eigenes freigegeben wurde, und was er im Workspace verwalten darf. Beides wird
+getrennt gewählt, weil es zweierlei ist: die Seitenstufe ist eine Leiter
+(lesen → kommentieren → bearbeiten → verwalten), die Verwaltungsrechte sind
+unabhängig voneinander.
+
+**Damit gibt es endlich „nur lesend":** eine Rolle mit der Seitenstufe *Darf
+lesen* und ohne Verwaltungsrechte. Einzelne Freigaben können weiterhin mehr
+geben, nie weniger.
+
+Rollen lassen sich **Personen und Gruppen** geben. Eine Gruppe mit einer Rolle
+gibt sie allen darin; wer mehrere Rollen hat, bekommt jeweils das
+Großzügigere — eine Gruppe beizutreten nimmt nie etwas weg.
+
+Die vier eingebauten Rollen (Eigentümer, Admin, Mitglied, Gast) stehen in der
+Liste und lassen sich nicht ändern. Ein Workspace hat immer einen Eigentümer,
+und ein Eigentümer darf immer alles — sonst ließe sich ein Workspace bauen, den
+niemand mehr verwalten kann.
+
+Eine Rolle, die noch jemand hat, lässt sich nicht löschen; die Meldung sagt, wie
+viele Personen und Gruppen sie halten.
+
+Migrationen laufen beim Start automatisch. Sonst nichts zu tun.
+
 **Ein Eigentümer kann eine beschränkte Seite jetzt auch beobachten.** Die
 Sichtbarkeitsregel, die jede Liste im Programm benutzt, bekam von jeder
 aufrufenden Stelle mitgeteilt, ob die anfragende Person alles sehen darf. Eine

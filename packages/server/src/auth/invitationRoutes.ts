@@ -280,7 +280,7 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     const workspaceId = ctx.params['workspaceId'] ?? '';
     if (!(await mayAdminister(deps.pool, ctx, workspaceId, user.userId))) return;
 
-    let body: { role?: unknown };
+    let body: { role?: unknown; roleId?: unknown };
     try {
       body = await ctx.json();
     } catch {
@@ -289,11 +289,44 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     }
 
     const target = ctx.params['userId'] ?? '';
-    const role = typeof body.role === 'string' ? body.role : '';
-    if (!['owner', 'admin', 'member', 'guest'].includes(role)) {
+
+    /*
+     * One of the four words, or the id of a role this workspace defined
+     * (ADR-0087).
+     *
+     * Both, rather than only ids: `role` is what every existing client sends
+     * and what a share of the tests assert, and the four words are still the
+     * names of real rows. A request naming both is answered as invalid rather
+     * than picking one — two answers to "what should this person be" is not a
+     * thing to guess at.
+     */
+    const word = typeof body.role === 'string' ? body.role : '';
+    const roleId = typeof body.roleId === 'string' && body.roleId !== '' ? body.roleId : '';
+    if (word !== '' && roleId !== '') {
       ctx.fail(422, 'invalid_role');
       return;
     }
+    if (word !== '' && !['owner', 'admin', 'member', 'guest'].includes(word)) {
+      ctx.fail(422, 'invalid_role');
+      return;
+    }
+
+    // The row, whichever way it was named. A custom role never carries
+    // ownership: that is a column on the membership, so that "a workspace
+    // keeps an owner" stays one query (ADR-0087).
+    const chosen = await queryOne<{ id: string; key: string | null }>(
+      deps.pool,
+      roleId !== ''
+        ? `SELECT id, key FROM roles
+            WHERE id = $1 AND (workspace_id IS NULL OR workspace_id = $2)`
+        : `SELECT id, key FROM roles WHERE key = $1 AND workspace_id IS NULL`,
+      roleId !== '' ? [roleId, workspaceId] : [word],
+    );
+    if (!chosen) {
+      ctx.fail(422, 'invalid_role');
+      return;
+    }
+    const role = chosen.key;
 
     const current = await roleIn(deps.pool, workspaceId, target);
     if (!current) {
@@ -324,15 +357,19 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     }
 
     await deps.pool.query(
-      // The role row as well as the word (ADR-0087): the word is what the
-      // request names and the row is what everything reads. Ownership is its
-      // own column, because it is not a right.
+      /*
+       * The row is what everything reads; the old enum column is kept in step
+       * only so a rolled-back release still sees something sensible, and it
+       * cannot hold a custom role — `member` is the nearest of the four words,
+       * and it is the safe direction to be wrong in, since the column is only
+       * read by a server that predates roles being rows.
+       */
       `UPDATE workspace_members
-          SET role = $3,
-              role_id = (SELECT id FROM roles WHERE key = $4),
-              is_owner = ($4 = 'owner')
+          SET role = $3::workspace_role,
+              role_id = $4,
+              is_owner = ($5 = 'owner')
         WHERE workspace_id = $1 AND user_id = $2`,
-      [workspaceId, target, role, role],
+      [workspaceId, target, role ?? 'member', chosen.id, role ?? ''],
     );
     ctx.send(200, { ok: true });
   });
