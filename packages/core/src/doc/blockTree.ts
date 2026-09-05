@@ -199,6 +199,19 @@ function inlineText(element: Y.XmlElement, depth = 0): string {
     } else if (child instanceof Y.XmlElement) {
       // A child carrying a block id is a block, not inline content.
       if (child.getAttribute(BLOCK_ATTRS.id)) continue;
+      /*
+       * A mention contributes the name it draws (ADR-0085).
+       *
+       * It is an atom with no text children, so descending into it finds
+       * nothing — and a sentence that reads "@Anna, can you look at this?" would
+       * be indexed and excerpted as ", can you look at this?". Searching for a
+       * colleague's name would find every page except the ones that name them.
+       */
+      const mentioned = child.nodeName === MENTION_NODE ? mentionLabel(child) : null;
+      if (mentioned !== null) {
+        parts.push(`@${mentioned}`);
+        continue;
+      }
       parts.push(inlineText(child, depth + 1));
     }
   }
@@ -523,4 +536,67 @@ export function setBlockProps(
     }
   });
   return true;
+}
+
+/** The element name a mention is stored under. One place, three readers. */
+export const MENTION_NODE = 'mention';
+/** Attribute names on a mention element. */
+export const MENTION_ATTRS = { userId: 'userId', label: 'label' } as const;
+
+/** The name a mention draws, or null when it carries none. */
+function mentionLabel(element: Y.XmlElement): string | null {
+  const label = element.getAttribute(MENTION_ATTRS.label);
+  return typeof label === 'string' ? label : '';
+}
+
+/**
+ * Everybody named in a document's blocks, with the block they were named in
+ * (ADR-0085).
+ *
+ * The block matters: a notification says where to look, and "somewhere on this
+ * page" is not where to look. It is also what makes the notification stable —
+ * one per person per block, so editing the sentence around a name does not
+ * announce it again.
+ *
+ * Read from the document rather than trusted from a client, for the same reason
+ * comment notifications are (ADR-0052): a notification a client creates is a
+ * notification a client can forge.
+ */
+export function mentionsIn(doc: Y.Doc): Array<{ userId: string; blockId: string }> {
+  const out: Array<{ userId: string; blockId: string }> = [];
+  const seen = new Set<string>();
+
+  const { blocks } = readBlockTree(doc);
+  const byId = new Map(blocks.map((block) => [block.id, block]));
+
+  const walk = (element: Y.XmlElement, blockId: string | null, depth: number): void => {
+    if (depth > MAX_BLOCK_DEPTH) return;
+    for (let i = 0; i < element.length; i++) {
+      const child: unknown = element.get(i);
+      if (!(child instanceof Y.XmlElement)) continue;
+
+      const ownId = child.getAttribute(BLOCK_ATTRS.id);
+      const within = typeof ownId === 'string' && ownId !== '' ? ownId : blockId;
+
+      if (child.nodeName === MENTION_NODE) {
+        const userId = child.getAttribute(MENTION_ATTRS.userId);
+        // A mention with no id names nobody: it is decoration, or a document
+        // written by something that did not finish. Never a notification.
+        if (typeof userId === 'string' && userId !== '' && within && byId.has(within)) {
+          const key = `${userId}\u0000${within}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            out.push({ userId, blockId: within });
+          }
+        }
+        continue;
+      }
+      walk(child, within, depth + 1);
+    }
+  };
+
+  // Through the same accessor the rest of this file uses, so a document
+  // opened two ways is one document.
+  walk(pageContent(doc) as unknown as Y.XmlElement, null, 0);
+  return out;
 }

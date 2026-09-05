@@ -1971,6 +1971,57 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   overscroll-behavior: contain;
 }
 
+/* The `@` list inside a comment box (ADR-0085).
+ *
+ * Absolute inside the box's wrapper rather than fixed like the editor's: a
+ * comment composer is in a scrolling panel, and a fixed overlay measured from
+ * the caret would need the same re-measuring machinery for a box that is four
+ * lines tall. Anchored to the box, the browser moves it. */
+.comment-draft-wrap {
+  position: relative;
+}
+
+.comment-mention-menu {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 0;
+  z-index: 30;
+  max-block-size: 200px;
+  overflow-y: auto;
+  margin-block-start: 4px;
+  padding: var(--sone-space-2);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius-lg);
+  background: var(--sone-bg);
+  box-shadow: var(--sone-shadow-md);
+  overscroll-behavior: contain;
+}
+
+/* The people menu is the slash menu with a narrower measure: one line each,
+   and no descriptions to make room for (ADR-0085). */
+.mention-menu {
+  inline-size: 260px;
+}
+
+/* A mention in the text.
+ *
+ * Marked, not decorated: it reads as a name in a sentence, and the tint is what
+ * says the name means a person rather than being a word that happens to be
+ * capitalised. No underline — it is not a link, and nothing happens when you
+ * press it. */
+.mention {
+  padding: 0 2px;
+  border-radius: var(--sone-radius-sm);
+  /* Mixed from the accent rather than a colour of its own: a workspace sets
+     its accent (ADR-0028) and a name marked in a fixed blue would be the one
+     thing on the page that ignores it. The percentages are low because this
+     sits inside a sentence — a chip would break the line's rhythm. */
+  background: color-mix(in srgb, var(--sone-accent) 12%, transparent);
+  color: var(--sone-accent);
+  /* An atom: a caret goes round it, and selecting it selects the whole name. */
+  white-space: nowrap;
+}
+
 .slash-group + .slash-group {
   margin-block-start: 4px;
   padding-block-start: 4px;

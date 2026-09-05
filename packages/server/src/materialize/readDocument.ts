@@ -21,6 +21,7 @@ import {
   PAGE_KEYS,
   VIEW_KEYS,
   compareSiblings,
+  mentionsIn,
   readBlockTree,
   type StoredValue,
   canvasText,
@@ -136,6 +137,14 @@ export interface ReadDocument {
    * the messages, and the rows deliberately do not carry them.
    */
   commentThreads: CommentThread[];
+  /**
+   * Everybody named in the page's text, with the block naming them (ADR-0085).
+   *
+   * Read here for the same reason the threads are: this is where the document
+   * is open, and a mention is a node in it rather than a row. The materialiser
+   * is handed this result and not the document.
+   */
+  mentions: Array<{ userId: string; blockId: string }>;
   /**
    * Who has writing in this page, as the document names them (ADR-0050).
    *
@@ -402,6 +411,7 @@ export function readDocument(doc: Y.Doc, pageId: string | null): ReadDocument {
     canvasText: canvasText(doc),
     authorKeys: [...doc.getMap(USERS_KEY).keys()],
     commentThreads: readThreads(doc),
+    mentions: mentionsIn(doc),
     comments: readThreads(doc).map((thread) => ({
       id: thread.id,
       quote: thread.quote,

@@ -457,6 +457,9 @@ export const en = {
   'you.profile': 'Profile',
   'you.profile.hint': 'Your name, address and picture',
   'you.signIn': 'Signing in',
+  'mention.pick': 'Mention somebody',
+  'mention.nobody': 'There is nobody else in this workspace yet.',
+  'mention.noMatch': 'Nobody here matches “{query}”.',
   'you.sso': 'Single sign-on',
   'you.sso.note':
     'Sign in with the provider this instance is configured for, instead of your ' +
