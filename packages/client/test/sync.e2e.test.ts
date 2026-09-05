@@ -170,6 +170,23 @@ describe('client end to end', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
     `);
     await db.query(`SELECT setval('doc_update_seq', 1, false)`);
 
+    /*
+     * The truncate above takes the four system roles with it (ADR-0087).
+     *
+     * They are seeded by a migration, so they look like schema rather than
+     * data — but `TRUNCATE ... CASCADE` does not know that, and without them
+     * every membership below resolves to a member holding no role, which is no
+     * access at all. The whole suite then fails with `role: null` and nothing
+     * says why.
+     *
+     * This is the second copy of "empty every table" to need the line; the
+     * server harness has the other. That the fix had to be made twice is the
+     * argument for the server asserting the same invariant at boot rather than
+     * trusting the migration to be the only way these rows arrive.
+     */
+    const { ensureSystemRoles } = await import('@sone/server/src/auth/standing.js');
+    await ensureSystemRoles(db);
+
     const { hashPassword } = await import('@sone/server/src/auth/password.js');
     const { createSession } = await import('@sone/server/src/auth/session.js');
 

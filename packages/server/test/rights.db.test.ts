@@ -157,6 +157,53 @@ describe('rights (database)', { concurrency: 1, skip: !hasDatabase }, () => {
     await db.query(`DELETE FROM users WHERE id = $1`, [outsider.rows[0]!.id]);
   });
 
+  test('a database that lost the system roles says so', async () => {
+    /*
+     * The failure this cost an hour to diagnose, twice.
+     *
+     * Without the four system roles every membership resolves to a member
+     * holding no role, which is no access at all: every request answers 403,
+     * every page vanishes from every tree, and nothing anywhere explains it.
+     * It happened in the server test harness and then again in the client one,
+     * because "empty every table" was written in two places and only one of
+     * them was fixed.
+     *
+     * So it is loud now. `ensureSystemRoles` at boot means a running instance
+     * cannot reach this, which is exactly why the message has to name the
+     * cause: whoever sees it is looking at a database somebody truncated or
+     * restored in part.
+     */
+    await db.query(`UPDATE workspace_members SET role_id = NULL WHERE workspace_id = $1`, [
+      workspace,
+    ]);
+    const kept = await db.query<{ id: string; key: string; page_level: string | null }>(
+      `DELETE FROM roles WHERE workspace_id IS NULL RETURNING id, key, page_level`,
+    );
+
+    await assert.rejects(
+      () => loadWorkspaceStanding(db, colleague, workspace),
+      /system roles are missing/,
+    );
+
+    for (const role of kept.rows) {
+      await db.query(
+        `INSERT INTO roles (id, workspace_id, key, name, page_level, rights)
+         VALUES ($1, NULL, $2, initcap($2), $3, '{}')`,
+        [role.id, role.key, role.page_level],
+      );
+    }
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = role::text)
+        WHERE workspace_id = $1`,
+      [workspace],
+    );
+    // And the rights those rows carry, which the seed above left empty.
+    await db.query(
+      `UPDATE roles SET rights = ARRAY['people.manage','groups.manage','workspace.settings']
+        WHERE workspace_id IS NULL AND key IN ('owner','admin')`,
+    );
+  });
+
   test('a right name the code does not know is dropped', async () => {
     /*
      * A row can outlive the code that understood it: a right removed from the

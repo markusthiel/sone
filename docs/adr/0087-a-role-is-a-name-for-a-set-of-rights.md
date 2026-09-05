@@ -278,6 +278,22 @@ boot, because the test harness demonstrated within minutes what a truncated
 `roles` table does: every membership resolves to a member holding no role,
 which is no access at all, on every request, with nothing in the logs.
 
+That last one is worth a paragraph of its own, because it happened **twice**.
+Two test harnesses contain "empty every table" — the server's `resetDatabase`
+and the client's own copy inside `sync.e2e.test.ts` — and fixing the first did
+not fix the second. The second failure looked nothing like the first from the
+outside: the server suite was green, and CI failed in the client package, whose
+tests skip entirely on a machine with no `SONE_TEST_DATABASE_URL`. So it could
+not be reproduced by running the package that was changed.
+
+Two things came out of it. Both harnesses seed the roles now. And
+`loadWorkspaceStanding` **throws** when a membership resolves to no role at all
+and the system roles are gone, instead of returning no access: the silent
+version answers 403 to everything and explains nothing, which is an hour of
+somebody's afternoon each time it happens. The check is narrow — a guest and a
+custom role both produce a row, so only a genuinely broken database reaches it —
+and the boot assertion means a running instance never should.
+
 ## Consequences
 
 **"Nur lesend" becomes expressible**, both as a role for a whole workspace and

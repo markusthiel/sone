@@ -201,6 +201,38 @@ export async function loadWorkspaceStanding(
   if (!row || !row.is_member) return NOT_A_MEMBER;
 
   /*
+   * A member whose role could not be found at all is a broken installation,
+   * and it says so rather than resolving to no access.
+   *
+   * Silent no-access is what this failure looks like otherwise: every request
+   * answers 403, every page vanishes from every tree, and nothing anywhere
+   * explains it. It cost an hour twice while this was being built — once when
+   * the server test harness truncated the seeded system roles, and again when
+   * the client harness did, because "empty every table" was written in two
+   * places and only one of them was fixed.
+   *
+   * The condition is narrow on purpose. A guest holds a role whose page level
+   * is null, and a custom role has no key; both produce a row. Only a
+   * membership pointing at nothing at all — no role row, and no row matching
+   * the old enum word either — lands here, and that means the four system
+   * roles are missing. `ensureSystemRoles` runs at boot precisely so this
+   * cannot happen in a running instance.
+   */
+  if (row.role_key === null && row.page_level === null && !row.is_owner) {
+    const hasRoles = await queryOne<{ n: number }>(
+      db,
+      `SELECT count(*)::int AS n FROM roles WHERE workspace_id IS NULL`,
+    );
+    if ((hasRoles?.n ?? 0) === 0) {
+      throw new Error(
+        'the system roles are missing from this database, so nobody has any access. ' +
+          'They are seeded by migration 0058 and asserted at boot; a database that ' +
+          'lost them was probably truncated or restored in part (ADR-0087).',
+      );
+    }
+  }
+
+  /*
    * Unknown right names are dropped rather than carried.
    *
    * A row can outlive the code that understood it: a right removed from the
