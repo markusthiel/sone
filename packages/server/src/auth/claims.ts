@@ -35,7 +35,7 @@ export interface Grant {
   scopePageId: string;
   includeSubtree: boolean;
   role: Role;
-  source: 'share_token' | 'page_permission';
+  source: 'share_token' | 'page_permission' | 'page_group_permission';
   tokenId?: string;
 }
 
@@ -98,6 +98,56 @@ export async function roleIn(
   return row?.role ?? null;
 }
 
+/**
+ * Every page grant somebody holds in a workspace — their own and their groups'.
+ *
+ * One function, because there were two copies of the personal half and neither
+ * had the group half. `resolvePageAccess` in pages/access.ts has read
+ * `page_group_permissions` since groups existed, and it answers for the tree,
+ * search and the listings; this file answers for **sync**, page reads and
+ * writes, files, collections and import. So a page granted to a group was
+ * listed in the tree and refused when it was opened, and the end-to-end test
+ * written to prove group rights worked went through the routes that use the
+ * other resolver. See ADR-0086.
+ *
+ * Both halves in one query rather than two, and returned as separate grants
+ * rather than a maximum: `effectiveRole` already takes the most permissive
+ * grant in scope, and a group grant must never be able to reduce what somebody
+ * could already do (ADR-0026).
+ */
+async function pageGrantsFor(
+  db: Pool | PoolClient,
+  userId: string,
+  workspaceId: string,
+): Promise<Grant[]> {
+  const rows = await queryRows<{
+    page_id: string;
+    role: Role;
+    include_subtree: boolean;
+    via_group: boolean;
+  }>(
+    db,
+    `SELECT pp.page_id, pp.role, pp.include_subtree, false AS via_group
+       FROM page_permissions pp
+       JOIN pages p ON p.id = pp.page_id
+      WHERE pp.user_id = $1 AND p.workspace_id = $2
+      UNION ALL
+     SELECT gp.page_id, gp.role, gp.include_subtree, true AS via_group
+       FROM page_group_permissions gp
+       JOIN group_members gm ON gm.group_id = gp.group_id
+       JOIN pages p ON p.id = gp.page_id
+      WHERE gm.user_id = $1 AND p.workspace_id = $2`,
+    [userId, workspaceId],
+  );
+
+  return rows.map((row) => ({
+    scopePageId: row.page_id,
+    includeSubtree: row.include_subtree,
+    role: row.role,
+    source: row.via_group ? ('page_group_permission' as const) : ('page_permission' as const),
+  }));
+}
+
 export async function resolveSessionClaims(
   db: Pool | PoolClient,
   sessionToken: string,
@@ -110,19 +160,6 @@ export async function resolveSessionClaims(
   if (!role) return null;
   const membership = { role };
 
-  const explicit = await queryRows<{
-    page_id: string;
-    role: Role;
-    include_subtree: boolean;
-  }>(
-    db,
-    `SELECT pp.page_id, pp.role, pp.include_subtree
-       FROM page_permissions pp
-       JOIN pages p ON p.id = pp.page_id
-      WHERE pp.user_id = $1 AND p.workspace_id = $2`,
-    [session.user.userId, workspaceId],
-  );
-
   return {
     principal: {
       kind: session.user.isGuest ? 'guest' : 'user',
@@ -131,12 +168,7 @@ export async function resolveSessionClaims(
     },
     workspaceId,
     workspaceRole: membership.role,
-    grants: explicit.map((row) => ({
-      scopePageId: row.page_id,
-      includeSubtree: row.include_subtree,
-      role: row.role,
-      source: 'page_permission' as const,
-    })),
+    grants: await pageGrantsFor(db, session.user.userId, workspaceId),
   };
 }
 
@@ -448,19 +480,6 @@ export async function revalidateClaims(
     );
     if (!row) return null;
 
-    const explicit = await queryRows<{
-      page_id: string;
-      role: Role;
-      include_subtree: boolean;
-    }>(
-      db,
-      `SELECT pp.page_id, pp.role, pp.include_subtree
-         FROM page_permissions pp
-         JOIN pages p ON p.id = pp.page_id
-        WHERE pp.user_id = $1 AND p.workspace_id = $2`,
-      [row.user_id, workspaceId],
-    );
-
     return {
       principal: {
         kind: row.is_guest ? 'guest' : 'user',
@@ -469,12 +488,9 @@ export async function revalidateClaims(
       },
       workspaceId,
       workspaceRole: row.role,
-      grants: explicit.map((r) => ({
-        scopePageId: r.page_id,
-        includeSubtree: r.include_subtree,
-        role: r.role,
-        source: 'page_permission' as const,
-      })),
+      // The same loader as the first resolution. Two copies of this query is
+      // how the group half came to be missing from both.
+      grants: await pageGrantsFor(db, row.user_id, workspaceId),
     };
   }
 

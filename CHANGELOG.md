@@ -13,6 +13,18 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Eine Seite, die einer Gruppe freigegeben wurde, lässt sich jetzt auch
+öffnen.** Bisher entschied die Frage „darf diese Person diese Seite" an zwei
+Stellen unterschiedlich: der Seitenbaum kannte Gruppenfreigaben, die Stelle, die
+das Dokument herausgibt, nicht. Wer eine beschränkte Seite ausschließlich über
+eine Gruppe erreichte, sah sie im Baum und bekam sie nicht auf — sie sah kaputt
+aus statt gesperrt. Freigaben an einzelne Personen waren nie betroffen.
+
+Wer Gruppenfreigaben eingerichtet hat und dachte, sie wirkten nicht: sie wirken
+jetzt. Es lohnt sich, einmal durchzusehen, ob alle noch gewollt sind.
+
+Nichts zu tun beim Aktualisieren.
+
 **A locked page can no longer have its contents deleted.** The lock stopped
 typing, and it did not stop the ⋮⋮ handle beside a block: its menu still opened
 on a locked page, and Delete still worked. The handle and the `+` are now gone
