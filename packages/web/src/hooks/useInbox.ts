@@ -16,6 +16,7 @@ import { NotifyScope, type SoneClient } from '@sone/client';
 import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
+import { useNudge } from './useNudge.ts';
 
 export interface InboxItem {
   id: string;
@@ -109,11 +110,14 @@ export function useInbox(
    * hidden tab that skipped it would be a tab whose badge is stale the instant
    * somebody switches to it — which is the bug this replaces, moved somewhere
    * less obvious.
+   *
+   * Through the same hook the tree and the trash use (ADR-0097). It was written
+   * inline here first and coalesced only in `usePages`; one projection can send
+   * two nudges to one person within milliseconds — its inserts and its sweep of
+   * deleted threads — and there was no reason for this to be the listener that
+   * fetched twice.
    */
-  useEffect(() => {
-    if (!client) return;
-    return client.onNotify(NotifyScope.Inbox, refresh);
-  }, [client, refresh]);
+  useNudge(client, NotifyScope.Inbox, refresh);
 
   useEffect(() => {
     const again = (): void => {

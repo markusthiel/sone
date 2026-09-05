@@ -110,6 +110,13 @@ tab, a deploy.
 once, which is the evidence that it was not speculative generality. The next
 subject — the trash, the shares screen — is a constant and a trigger.
 
+> **Half right, and ADR-0097 fixed the other half.** The *protocol* was a
+> constant. This record gave the page tree its own Postgres channel, so a third
+> subject would also have needed a channel, a bus handler and its wiring —
+> three copies of a shape differing only in a string. The channel now carries
+> the string (`sone_workspace_changed` with `{workspaceId, scope}`), which is
+> what makes the sentence above true rather than optimistic.
+
 **`usePages` keeps its optimistic local rename.** The nudge costs a round trip,
 and renaming the page in front of you should not wait for one. What changed is
 that somebody *else's* rename no longer waits for a focus event.

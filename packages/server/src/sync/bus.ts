@@ -5,10 +5,15 @@
  * the pool, because a listening connection is blocked for the pool's purposes
  * and taking one from the pool would eventually starve it.
  *
- * Three channels on that one connection: documents, inboxes (ADR-0093) and page
- * trees (ADR-0096). The cost being avoided above is per connection rather than
- * per channel, so a second listener for a second subject would pay it twice for
- * nothing — and a third for a third.
+ * Three channels on that one connection: documents, inboxes (ADR-0093) and a
+ * workspace's lists (ADR-0096, ADR-0097). The cost being avoided above is per
+ * connection rather than per channel, so a second listener for a second subject
+ * would pay it twice for nothing.
+ *
+ * Three and not four, because the workspace channel names its own subject in
+ * its payload. A channel per subject was the shape until the trash needed one:
+ * three copies of something that differs only in a string is the point at which
+ * the string moves into the message.
  *
  * Two properties of NOTIFY drive the design:
  *
@@ -37,13 +42,14 @@ export const DOC_UPDATE_CHANNEL = 'sone_doc_update';
 export const INBOX_CHANNEL = 'sone_inbox_changed';
 
 /**
- * A workspace's page tree changed (ADR-0096).
+ * Something a workspace's screens list has changed (ADR-0096, ADR-0097).
  *
- * Keyed by workspace rather than by person, which is what a tree is. The third
- * channel on the same connection, and the reason the cost argument above is
- * worth restating: it is per connection, and this adds none.
+ * Keyed by workspace, which is what those lists are — and carrying **which**
+ * list in its payload, which is what makes a fourth subject a constant and a
+ * trigger rather than a fourth channel. It replaced `sone_pages_changed`, whose
+ * one subject was in its name.
  */
-export const PAGES_CHANNEL = 'sone_pages_changed';
+export const WORKSPACE_CHANNEL = 'sone_workspace_changed';
 
 export interface DocUpdateNotice {
   docId: string;
@@ -61,14 +67,22 @@ export interface InboxNotice {
   userId: string;
 }
 
-/** Whose tree, and nothing about what changed in it (ADR-0096). */
-export interface PagesNotice {
+/** Whose lists, which one, and nothing about what changed in it (ADR-0097). */
+export interface WorkspaceNotice {
   workspaceId: string;
+  /**
+   * The scope, verbatim from the trigger.
+   *
+   * Not validated here: the bus's job is to deliver what the channel said, and
+   * deciding which scopes may reach a client is a decision about the wire —
+   * made in the sync server, against the protocol's own list.
+   */
+  scope: string;
 }
 
 export type DocUpdateHandler = (notice: DocUpdateNotice) => void;
 export type InboxHandler = (notice: InboxNotice) => void;
-export type PagesHandler = (notice: PagesNotice) => void;
+export type WorkspaceHandler = (notice: WorkspaceNotice) => void;
 
 /**
  * Listens for document updates produced by other instances.
@@ -81,7 +95,7 @@ export class UpdateBus {
   private client: Client | null = null;
   private readonly handlers = new Set<DocUpdateHandler>();
   private readonly inboxHandlers = new Set<InboxHandler>();
-  private readonly pagesHandlers = new Set<PagesHandler>();
+  private readonly workspaceHandlers = new Set<WorkspaceHandler>();
   private stopped = false;
   private reconnectDelayMs = 500;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -105,9 +119,9 @@ export class UpdateBus {
     return () => this.inboxHandlers.delete(handler);
   }
 
-  onPagesChanged(handler: PagesHandler): () => void {
-    this.pagesHandlers.add(handler);
-    return () => this.pagesHandlers.delete(handler);
+  onWorkspaceChanged(handler: WorkspaceHandler): () => void {
+    this.workspaceHandlers.add(handler);
+    return () => this.workspaceHandlers.delete(handler);
   }
 
   async start(): Promise<void> {
@@ -124,19 +138,20 @@ export class UpdateBus {
     client.on('notification', (msg) => {
       if (!msg.payload) return;
 
-      if (msg.channel === PAGES_CHANNEL) {
-        let workspaceId: unknown;
+      if (msg.channel === WORKSPACE_CHANNEL) {
+        let parsed: { workspaceId?: unknown; scope?: unknown };
         try {
-          workspaceId = (JSON.parse(msg.payload) as { workspaceId?: unknown }).workspaceId;
+          parsed = JSON.parse(msg.payload) as typeof parsed;
         } catch {
           return;
         }
-        if (typeof workspaceId !== 'string') return;
-        for (const handler of this.pagesHandlers) {
+        const { workspaceId, scope } = parsed;
+        if (typeof workspaceId !== 'string' || typeof scope !== 'string') return;
+        for (const handler of this.workspaceHandlers) {
           try {
-            handler({ workspaceId });
+            handler({ workspaceId, scope });
           } catch (err) {
-            console.error('[bus] pages handler threw', err);
+            console.error('[bus] workspace handler threw', err);
           }
         }
         return;
@@ -190,7 +205,7 @@ export class UpdateBus {
     await client.connect();
     await client.query(`LISTEN ${DOC_UPDATE_CHANNEL}`);
     await client.query(`LISTEN ${INBOX_CHANNEL}`);
-    await client.query(`LISTEN ${PAGES_CHANNEL}`);
+    await client.query(`LISTEN ${WORKSPACE_CHANNEL}`);
     this.client = client;
     this.reconnectDelayMs = 500;
   }
@@ -219,7 +234,7 @@ export class UpdateBus {
     }
     this.handlers.clear();
     this.inboxHandlers.clear();
-    this.pagesHandlers.clear();
+    this.workspaceHandlers.clear();
     if (this.client) {
       const client = this.client;
       this.client = null;

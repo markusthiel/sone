@@ -965,6 +965,8 @@ function Workspace({
             onEntries={setTrashEntries}
             tree={tree}
             onChanged={() => void reloadPages()}
+            // So somebody else emptying the trash is visible here (ADR-0097).
+            client={client}
           />
         )}
 
