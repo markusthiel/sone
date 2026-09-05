@@ -163,11 +163,17 @@ describe(
     /*
      * A ratchet on the blind spot, not a pass mark.
      *
-     * 27 references sit behind a prefix this reader cannot resolve — a CTE's
+     * 32 references sit behind a prefix this reader cannot resolve — a CTE's
      * inner alias, a subquery's name. Those are *not checked*, and a checker
      * that does not say so has a silence that means nothing. The number may
      * fall; if it rises, somebody has written SQL this cannot see into, and
      * that is worth one minute of their attention rather than a surprise later.
+     *
+     * It rose from 27 with `loadWorkspaceStanding` (ADR-0087), which is one
+     * statement built from three CTEs, and the minute was spent: the CTE's
+     * columns were renamed away from the names of the table it reads, so that
+     * what this reader *can* see is checked and what it cannot see is not
+     * mistaken for a column of `workspace_members`.
      */
     let unresolved = 0;
     for (const file of sources(new URL('../src/', import.meta.url))) {
@@ -177,8 +183,8 @@ describe(
       }
     }
     assert.ok(
-      unresolved <= 27,
-      `${unresolved} unchecked references, was 26 — new SQL this reader cannot see into`,
+      unresolved <= 32,
+      `${unresolved} unchecked references, was 32 — new SQL this reader cannot see into`,
     );
   });
 

@@ -98,9 +98,10 @@ export async function changedFor(
         -- to, and a workspace **owner** — who the tree shows everything —
         -- silently lost rows from their own digest.
         --
-        -- Here m is the membership already joined above, so the answer is per row
-        -- rather than one boolean for a mail that spans workspaces.
-        AND ${visiblePagesCondition('p', '$1', "(m.role IN ('owner', 'admin'))")}
+        -- The condition asks the membership question itself now (ADR-0087),
+        -- which is what this call site needed most: a digest spans workspaces,
+        -- so a single boolean computed once could never have been right here.
+        AND ${visiblePagesCondition('p', '$1')}
         -- Watched, when that is the scope (ADR-0064).
         --
         -- The page itself, or anything under a watched folder: somebody who

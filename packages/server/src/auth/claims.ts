@@ -23,6 +23,7 @@ import type { Pool, PoolClient } from 'pg';
 import { queryOne, queryRows } from '../db/pool.js';
 import { AuthError, hashToken } from './password.js';
 import { resolveSession } from './session.js';
+import { loadWorkspaceStanding } from './standing.js';
 
 export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'guest';
 
@@ -44,28 +45,27 @@ export interface AccessClaims {
   workspaceId: string;
   /** Null for anonymous share-link sessions: they are not members. */
   workspaceRole: WorkspaceRole | null;
+  /**
+   * What the workspace gives them on a page carrying no rules of its own
+   * (ADR-0087).
+   *
+   * Resolved when the claims are built, by `loadWorkspaceStanding` — the same
+   * function `resolvePageAccess` uses, so the tree and the document cannot
+   * disagree about what a role means. Null grants nothing without an explicit
+   * grant, which is what `guest` is, and what an anonymous share-link session
+   * is.
+   *
+   * Carried on the claims rather than derived from `workspaceRole` here,
+   * because a role's meaning is a row now: a custom role has no name in the
+   * old four-word vocabulary, and a `switch` over those four words could only
+   * ever answer for the four.
+   */
+  pageLevel: Role | null;
   grants: Grant[];
 }
 
-/** Workspace roles that imply full access to every page in the workspace. */
-const FULL_ACCESS_ROLES: ReadonlySet<WorkspaceRole> = new Set(['owner', 'admin']);
-
 const atLeast = (have: Role, need: Role): boolean =>
   ROLE_ORDER.indexOf(have) >= ROLE_ORDER.indexOf(need);
-
-const workspaceRoleToPageRole = (role: WorkspaceRole): Role => {
-  switch (role) {
-    case 'owner':
-    case 'admin':
-      return 'admin';
-    case 'member':
-      return 'editor';
-    case 'guest':
-      // A guest has no implicit page access at all; everything comes from an
-      // explicit grant.
-      return 'viewer';
-  }
-};
 
 // --- resolution ------------------------------------------------------------
 
@@ -89,13 +89,24 @@ export async function roleIn(
   db: Pool | PoolClient,
   workspaceId: string,
   userId: string,
-): Promise<WorkspaceRole | null> {
-  const row = await queryOne<{ role: WorkspaceRole }>(
-    db,
-    `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
-    [workspaceId, userId],
-  );
-  return row?.role ?? null;
+): Promise<WorkspaceRole | 'custom' | null> {
+  /*
+   * Answered from the role row rather than from the enum column (ADR-0087).
+   *
+   * `'custom'` is new and is the point of the type change. Null has always
+   * meant "not in this workspace", and half the callers branch on exactly
+   * that; a member holding a role with no name in the old four-word
+   * vocabulary must not be mistaken for somebody who is not here at all. So
+   * they get a word that is not one of the four, which every existing
+   * comparison against `'owner'` or `'admin'` already handles correctly.
+   *
+   * Those comparisons are what ADR-0087's second step replaces with named
+   * rights. Until then, a workspace with no custom roles behaves exactly as
+   * before — and none can exist yet, because nothing creates one.
+   */
+  const standing = await loadWorkspaceStanding(db, userId, workspaceId);
+  if (!standing.isMember) return null;
+  return standing.role ?? 'custom';
 }
 
 /**
@@ -156,9 +167,11 @@ export async function resolveSessionClaims(
   const session = await resolveSession(db, sessionToken);
   if (!session) return null;
 
-  const role = await roleIn(db, workspaceId, session.user.userId);
-  if (!role) return null;
-  const membership = { role };
+  // The standing rather than the role: it carries what the role means on a
+  // page, which is the thing `effectiveRole` needs and the thing a `switch`
+  // over four words could only answer for four (ADR-0087).
+  const standing = await loadWorkspaceStanding(db, session.user.userId, workspaceId);
+  if (!standing.isMember) return null;
 
   return {
     principal: {
@@ -167,7 +180,8 @@ export async function resolveSessionClaims(
       displayName: session.user.displayName,
     },
     workspaceId,
-    workspaceRole: membership.role,
+    workspaceRole: standing.role,
+    pageLevel: standing.pageLevel,
     grants: await pageGrantsFor(db, session.user.userId, workspaceId),
   };
 }
@@ -224,6 +238,8 @@ export async function resolveShareTokenClaims(
           principal: { kind: 'anonymous', sessionId: '', displayName: '' },
           workspaceId: row.workspace_id,
           workspaceRole: null,
+          // A share link is not a membership: nothing but the grant below.
+          pageLevel: null,
           grants: [],
         },
       };
@@ -274,6 +290,7 @@ export async function resolveShareTokenClaims(
       principal: { kind: 'anonymous', sessionId: shareSessionId, displayName },
       workspaceId: row.workspace_id,
       workspaceRole: null,
+      pageLevel: null,
       grants: [
         {
           scopePageId: row.scope_page_id,
@@ -361,18 +378,23 @@ export function effectiveRole(
     if (best === null || atLeast(role, best)) best = role;
   };
 
-  if (claims.workspaceRole !== null && FULL_ACCESS_ROLES.has(claims.workspaceRole)) {
-    consider(workspaceRoleToPageRole(claims.workspaceRole));
-  } else if (claims.workspaceRole === 'member' && !page.restricted) {
-    // Members see the workspace tree by default — unless the page or a section
-    // above it withholds it (ADR-0026), in which case only an explicit grant
-    // reaches them.
-    //
-    // This condition was the missing half of restrictions: the tree stopped
-    // listing a restricted page and sync went on serving its document to
-    // anybody who knew the id, so the interface concealed what the protocol
-    // did not.
-    consider('editor');
+  /*
+   * What the role gives, and when it is withheld.
+   *
+   * A page level of `admin` applies everywhere, restricted pages included, or
+   * a restriction could lock out the people who have to be able to undo it.
+   * Anything less is the workspace default, and a restricted page withholds
+   * the default — the same two branches `resolvePageAccess` has, now over the
+   * same loaded value rather than over a `switch` of its own (ADR-0087).
+   *
+   * The restriction half was once missing here: the tree stopped listing a
+   * restricted page and sync went on serving its document to anybody who knew
+   * the id, so the interface concealed what the protocol did not.
+   */
+  if (claims.pageLevel === 'admin') {
+    consider('admin');
+  } else if (claims.pageLevel !== null && !page.restricted) {
+    consider(claims.pageLevel);
   }
 
   for (const grant of claims.grants) {
@@ -464,10 +486,12 @@ export async function revalidateClaims(
       user_id: string;
       display_name: string;
       is_guest: boolean;
-      role: WorkspaceRole;
     }>(
       db,
-      `SELECT u.id AS user_id, u.display_name, u.is_guest, m.role
+      // The membership is still required here — a session whose workspace
+      // membership was revoked must stop resolving — but what the membership
+      // *gives* is asked below, in the one place that answers it.
+      `SELECT u.id AS user_id, u.display_name, u.is_guest
          FROM sessions s
          JOIN users u ON u.id = s.user_id
          JOIN workspace_members m
@@ -480,6 +504,9 @@ export async function revalidateClaims(
     );
     if (!row) return null;
 
+    const standing = await loadWorkspaceStanding(db, row.user_id, workspaceId);
+    if (!standing.isMember) return null;
+
     return {
       principal: {
         kind: row.is_guest ? 'guest' : 'user',
@@ -487,7 +514,8 @@ export async function revalidateClaims(
         displayName: row.display_name,
       },
       workspaceId,
-      workspaceRole: row.role,
+      workspaceRole: standing.role,
+      pageLevel: standing.pageLevel,
       // The same loader as the first resolution. Two copies of this query is
       // how the group half came to be missing from both.
       grants: await pageGrantsFor(db, row.user_id, workspaceId),
@@ -526,6 +554,7 @@ export async function revalidateClaims(
     },
     workspaceId,
     workspaceRole: null,
+    pageLevel: null,
     grants: [
       {
         scopePageId: row.scope_page_id,

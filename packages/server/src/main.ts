@@ -31,6 +31,7 @@ import {
   checkAndRecordVersion,
   pendingDocumentMigrations,
 } from './db/version.js';
+import { ensureSystemRoles } from './auth/standing.js';
 import { registerInvitationRoutes } from './auth/invitationRoutes.js';
 import { registerGroupRoutes } from './pages/groupRoutes.js';
 import { registerPagePermissionRoutes } from './pages/permissionRoutes.js';
@@ -121,6 +122,17 @@ async function main(): Promise<void> {
     await closePool();
     process.exit(78);
   }
+
+  /*
+   * The four system roles have to exist, or nobody has any access (ADR-0087).
+   *
+   * Migration 0058 seeds them, which covers the ordinary path. This covers the
+   * ones that are not exotic: a partial restore, a truncate, a database
+   * rebuilt from a dump taken before that migration. Asserting an invariant at
+   * boot costs four statements; discovering it at the first request costs an
+   * instance where everybody is locked out and the logs say nothing.
+   */
+  await ensureSystemRoles(pool);
 
   // --- version fence -------------------------------------------------------
   // Refuses a downgrade or an invalid version skip before serving anything.

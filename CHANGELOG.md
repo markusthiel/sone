@@ -13,6 +13,30 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Ein Eigentümer kann eine beschränkte Seite jetzt auch beobachten.** Die
+Sichtbarkeitsregel, die jede Liste im Programm benutzt, bekam von jeder
+aufrufenden Stelle mitgeteilt, ob die anfragende Person alles sehen darf. Eine
+davon sagte immer „nein", und ausgerechnet beim Beobachten einer Seite: wer
+eine beschränkte Seite offen vor sich sah, bekam beim Klick auf *Beobachten*
+„Seite nicht gefunden". Die Regel fragt das jetzt selbst.
+
+**Unter der Oberfläche: Rollen sind jetzt Daten.** Bisher waren die vier Rollen
+vier Wörter im Programmcode, und ihre Bedeutung stand in zwei `switch`-Blöcken.
+Jetzt ist eine Rolle eine Zeile mit zwei Feldern — was sie auf einer Seite ohne
+eigene Regeln gibt, und welche Rechte sie trägt. Die vier vorhandenen Rollen
+bekommen genau das, was sie hatten; für dich ändert sich nichts.
+
+Das ist die Grundlage für frei definierbare Rollen, die einen eigenen
+Einstellungsbereich bekommen und Personen **und Gruppen** zugewiesen werden
+können. Der Bildschirm dazu kommt als Nächstes.
+
+Außerdem sind drei Fragen, die bisher alle mit „ist diese Person Eigentümer
+oder Admin?" beantwortet wurden, jetzt drei benannte Rechte: Leute verwalten,
+Gruppen verwalten, Workspace-Einstellungen. Wer eines davon vergeben will,
+musste bisher alle drei vergeben.
+
+Migrationen laufen beim Start automatisch. Sonst nichts zu tun.
+
 **Eine Seite, die einer Gruppe freigegeben wurde, lässt sich jetzt auch
 öffnen.** Bisher entschied die Frage „darf diese Person diese Seite" an zwei
 Stellen unterschiedlich: der Seitenbaum kannte Gruppenfreigaben, die Stelle, die
