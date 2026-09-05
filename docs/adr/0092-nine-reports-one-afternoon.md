@@ -48,11 +48,24 @@ hit the same value and rolled back again. `isPermanentWriteFailure` counts
 for ever rather than saying anything. A page that a guest replied on stopped
 being projected, silently, permanently.
 
+> **The diagnosis was half right** (ADR-0094). `22*` was indeed missing from
+> that list — and adding it alone would have made this *worse*, because a value
+> error would then have poisoned the room and stopped it storing edits at all.
+> The retry was caused by something else: the room put the batch back after a
+> failure of the **projection**, when the **append** before it had already
+> succeeded. It was appending the same bytes again on every flush.
+
 `textMentionsFor` guards exactly this, one function down, and was given the
 guard three days ago (ADR-0091) after the same class of bug. `notificationsFor`
 was not. That is now the **fourth** time in this codebase that a rule held in
 two of three places, and the third time the third place was found by somebody
 using the product rather than by a test.
+
+> **And it was not three places.** ADR-0094 went looking for the class instead
+> of the instance and found two more: `assignmentsFor` on `props.assignee`, and
+> `notificationsFor` again on the reply path. The guard now also sits in
+> `writeNotifications`, which is the one function all of them funnel through —
+> the producers' copies can be forgotten, the writer's cannot.
 
 ## The decisions
 
