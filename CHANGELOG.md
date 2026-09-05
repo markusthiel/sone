@@ -21,6 +21,16 @@ was being written. They are on `ghcr.io/markusthiel/sone` and can be
 pulled without credentials. A released tag's notes are not rewritten
 (ADR-0013), so the correction lives here.
 
+**The block handles stay with the text when the sidebar moves.**
+
+Collapsing or expanding the sidebar, or dragging its width, left the `+` and
+`⋮⋮` where the text used to be — and clicking into something else usually put
+them right, which is the tell. The reading column has a maximum width and is
+centred, so changing the room beside it makes it **re-centre without changing
+width**; the code watching for movement only watched for resizing, and had
+nothing to notice. The formatting toolbar, the table toolbar and the slash menu
+drifted the same way for the same reason.
+
 **Single sign-on could never create an account. It can now.** *(If you have OIDC
 configured, this is the entry to read.)*
 
