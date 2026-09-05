@@ -98,6 +98,7 @@ export const de: Record<keyof typeof en, string> = {
   'sidebar.resize': 'Ziehen macht die Leiste breiter, Doppelklick setzt zurück',
   'sidebar.close': 'Navigation schließen',
   'sidebar.hide': 'Seitenleiste ausblenden',
+  'sidebar.show': 'Seitenleiste einblenden',
   'sidebar.search': 'Suchen',
   'sidebar.places': 'Bereiche',
   'mode.pages': 'Seiten',

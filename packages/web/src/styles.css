@@ -7807,40 +7807,48 @@ body {
 
 /* What a link reaches, beside the page it opened on.
  *
- * A plain indented list rather than a collapsible tree: a link's scope is one
- * section, the whole of it fits, and a control that hides part of what somebody
- * was given is a control working against the point of the page.
+ * `.sidebar` first, this second: the list *is* the sidebar here, with the same
+ * surface, the same head, the same rows and the same collapse control. It was
+ * a thing of its own — a bordered box with its own type scale and its own
+ * indents — and it looked like a second design for the same object, which is
+ * how a shared link comes to feel like a different product from the workspace
+ * the page lives in.
+ *
+ * So this file adds only what differs: the column, and the absence of a rail.
  */
-.share-tree {
-  flex: 0 0 15rem;
-  padding: var(--sone-space-5);
-  border-inline-end: 1px solid var(--sone-border);
-  overflow-y: auto;
+
+/* The column it lives in.
+ *
+ * `.app` is a grid of one column, so a second child is a second *row* — and
+ * that is exactly what shipped: a bar across the whole width with the shared
+ * pages listed in it, above the page.
+ *
+ * Two tracks, not three. `.with-sidebar` opens with `var(--rail-width)` for the
+ * icon rail; a visitor holding a link has no inbox, no trash, no settings and
+ * no account, so the rail would be a 56px strip of nothing — the workspace's
+ * furniture drawn for somebody who is not in the workspace.
+ */
+@media (min-width: 800px) {
+  .app.with-share-tree {
+    grid-template-columns: var(--sidebar-width, 260px) minmax(0, 1fr);
+  }
+  /* Collapsed, the track goes with it. A zero-width column still draws its
+     border, which is why this changes the template rather than the width —
+     the same reason `.with-sidebar` does it this way. */
+  .app.with-share-tree[data-sidebar='hidden'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-.share-tree ul { list-style: none; margin: 0; padding: 0; }
+.app.with-share-tree[data-sidebar='hidden'] .sidebar { display: none; }
 
-.share-tree a {
-  display: block;
-  padding: var(--sone-space-2) var(--sone-space-3);
-  border-radius: var(--sone-radius-sm);
-  color: var(--sone-text);
-  text-decoration: none;
-  font-size: var(--sone-text-sm);
+@media (max-width: 799px) {
+  /* As an overlay it must stay in the DOM to slide, so the rule above would
+     break the transition — and it stops at the bottom of the window rather
+     than above the mode bar, because this view has no mode bar. */
+  .app.with-share-tree[data-sidebar='hidden'] .sidebar { display: flex; }
+  .share-tree { inset-block-end: 0; }
 }
-
-.share-tree a:hover { background: var(--sone-bg-hover); }
-.share-tree a[aria-current='page'] { background: var(--sone-bg-hover); font-weight: 550; }
-
-/* Depth as an indent, from the attribute the list already carries. Four levels
- * is where a shared section stops being a section; deeper simply stops moving,
- * which is better than a column of titles pushed off the edge. */
-.share-tree a[data-depth='1'] { padding-inline-start: var(--sone-space-6); }
-.share-tree a[data-depth='2'] { padding-inline-start: var(--sone-space-7); }
-.share-tree a[data-depth='3'],
-.share-tree a[data-depth='4'] { padding-inline-start: calc(var(--sone-space-7) + var(--sone-space-5)); }
-
-.share-tree li[data-kind='folder'] > a { font-weight: 550; }
 
 .permission-list {
   margin: var(--sone-space-2) 0;
