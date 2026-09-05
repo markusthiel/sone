@@ -46,7 +46,11 @@ import { createDefaultFolder } from '../pages/createEntry.js';
 import { negotiateLocale } from '../i18n/locale.js';
 import { WORKSPACE_ORDER_SQL } from '../workspaces/order.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
-import { resolveSessionClaims } from '../auth/claims.js';
+import {
+  resolveSessionClaims,
+  resolveShareTokenClaims,
+  type AccessClaims,
+} from '../auth/claims.js';
 
 /**
  * What a resolved session knows.
@@ -1094,7 +1098,65 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
 }
 
 /**
+ * Claims for a request that either credential may carry.
+ *
+ * A member's session cookie **or** a share link's cookie. `claimsFor` below
+ * reads only the first, which is right for a workspace route and wrong for
+ * anything a link's visitor may also reach — files were the first such route,
+ * and comments are the second.
+ *
+ * It lived privately in `files/routes.ts`. Here now, because the second copy is
+ * where the two stop agreeing about who somebody is (ADR-0086), and because
+ * this is a question about credentials, which is what this file is.
+ *
+ * The three answers are distinguished on purpose, and a first version of the
+ * files route collapsed them. **No credential** earns 401, which tells a
+ * signed-out browser to authenticate. **A credential that does not grant this**
+ * earns 404, which does not confirm that the thing exists.
+ */
+export async function claimsForRequest(
+  pool: Pool,
+  ctx: RequestContext,
+  workspaceId: string,
+): Promise<
+  | { kind: 'ok'; claims: AccessClaims }
+  /** Nothing was presented: the caller should sign in, or open the link. */
+  | { kind: 'anonymous' }
+  /** Something was presented and it does not grant this. */
+  | { kind: 'rejected' }
+> {
+  const sessionToken = sessionTokenFrom(ctx);
+  const shareToken = shareTokenFrom(ctx);
+
+  if (!sessionToken && !shareToken) return { kind: 'anonymous' };
+
+  if (sessionToken) {
+    const claims = await resolveSessionClaims(pool, sessionToken, workspaceId);
+    // Tried first: somebody signed in who also opened a share link should be
+    // judged by their own rights, which may be greater than the link's and are
+    // never lesser.
+    if (claims) return { kind: 'ok', claims };
+  }
+
+  if (shareToken) {
+    const resolved = await resolveShareTokenClaims(pool, shareToken);
+    // A link needing a password is not authenticated by the cookie alone. The
+    // sync connection handles unlocking; an ordinary request is not the place to.
+    if (resolved && !resolved.passwordRequired) {
+      if (resolved.claims.workspaceId === workspaceId) {
+        return { kind: 'ok', claims: resolved.claims };
+      }
+    }
+  }
+
+  return { kind: 'rejected' };
+}
+
+/**
  * The caller's claims for a workspace, or an answered request and null.
+ *
+ * A **member's** claims: this reads the session cookie only. A route a share
+ * link may also reach wants `claimsForRequest` above.
  *
  * Moved here from `http/pages.ts`, where it was a local function, when a second
  * route needed it (ADR-0054's collection list). Here rather than in

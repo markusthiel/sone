@@ -139,6 +139,10 @@ export const en = {
   'action.save': 'Save',
   'action.create': 'Create',
   'error.invalid_value': 'That value does not fit this column.',
+  'error.empty_message': 'A comment needs something in it.',
+  'error.message_too_long': 'That comment is longer than a comment can be.',
+  'error.invalid_anchor': 'That comment lost the passage it was about. Select the text again.',
+  'error.too_many_threads': 'This page is holding as many threads as it can. Resolve a few first.',
   'error.not_your_link': 'That connection was begun for a different account.',
   'error.no_other_way_in':
     'That is the only way into this account. Set a password first, or you would ' +

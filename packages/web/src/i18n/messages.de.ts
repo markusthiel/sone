@@ -151,6 +151,10 @@ export const de: Record<keyof typeof en, string> = {
   'action.save': 'Speichern',
   'action.create': 'Anlegen',
   'error.invalid_value': 'Dieser Wert passt nicht in diese Spalte.',
+  'error.empty_message': 'Ein Kommentar braucht einen Inhalt.',
+  'error.message_too_long': 'Dieser Kommentar ist länger, als ein Kommentar sein kann.',
+  'error.invalid_anchor': 'Die Stelle, um die es ging, ist verloren gegangen. Bitte den Text noch einmal auswählen.',
+  'error.too_many_threads': 'Diese Seite trägt schon so viele Diskussionen, wie sie kann. Erst ein paar auflösen.',
   'error.not_your_link': 'Diese Verknüpfung wurde für ein anderes Konto begonnen.',
   'error.no_other_way_in':
     '{address, select, formal {Das ist der einzige Weg in dieses Konto. Erst ein ' +

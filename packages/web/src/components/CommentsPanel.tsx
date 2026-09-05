@@ -41,6 +41,7 @@ function Thread({
   members,
   comments,
   canEdit,
+  canComment,
   onReveal,
   open,
   onToggle,
@@ -48,7 +49,10 @@ function Thread({
   thread: CommentThread;
   members: WorkspaceMember[];
   comments: CommentActions;
+  /** May delete a message. */
   canEdit: boolean;
+  /** May add one, which is the smaller right (ADR-0090). */
+  canComment: boolean;
   onReveal: (thread: CommentThread) => void;
   open: boolean;
   onToggle: () => void;
@@ -171,7 +175,7 @@ function Thread({
         })}
       </ul>
 
-      {canEdit && open && (
+      {canComment && open && (
         <div className="comment-reply">
           {/* A reply, which is how anybody is addressed — member or guest
               (ADR-0046). It quotes nothing and needs no identity beyond what the
@@ -236,6 +240,7 @@ export function CommentsPanel({
   internal,
   members,
   canEdit,
+  canComment,
   onReveal,
   pending,
   onCancelPending,
@@ -244,7 +249,21 @@ export function CommentsPanel({
 }: {
   comments: CommentActions;
   members: WorkspaceMember[];
+  /**
+   * May change the page. Deleting a message hangs on this, and writing one
+   * does not — see `canComment`.
+   */
   canEdit: boolean;
+  /**
+   * May write a message (ADR-0090).
+   *
+   * Split from `canEdit` because the two really are different: somebody given
+   * a page to comment on may add to the conversation and may not delete
+   * anybody's part of it, including — deliberately — their own. A message
+   * somebody could take back after it was answered is a conversation that can
+   * be rewritten.
+   */
+  canComment: boolean;
   onReveal: (thread: CommentThread) => void;
   /** A selection waiting for its first message (ADR-0046). */
   /**
@@ -439,6 +458,7 @@ export function CommentsPanel({
               members={members}
               comments={source}
               canEdit={canEdit}
+              canComment={canComment}
               onReveal={onReveal}
               open={!closed.has(thread.id)}
               onToggle={() => toggle(thread.id)}

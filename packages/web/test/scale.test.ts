@@ -1207,18 +1207,32 @@ test('a thread exists once somebody has written something', () => {
 });
 
 test('the comment button is absent for somebody who may only read', () => {
-  // Absent rather than present and refusing: commenting needs edit rights until
-  // there is a role that separates them (ADR-0046).
-  //
-  // The condition used to be a spread on the prop — `canEdit ? { onComment }`
-  // — inside a block already gated on `canEdit`. The toolbar has since moved
-  // out of that block, because a locked page keeps its comments and loses its
-  // gutter (ADR-0049), so the rights check is now the gate on the toolbar
-  // itself and the doubled one is gone.
+  /*
+   * Absent rather than present and refusing.
+   *
+   * The condition used to be a spread on the prop — `canEdit ? { onComment }`
+   * — inside a block already gated on `canEdit`. The toolbar has since moved
+   * out of that block, because a locked page keeps its comments and loses its
+   * gutter (ADR-0049), so the rights check is the gate on the toolbar itself
+   * and the doubled one is gone.
+   *
+   * And the right it asks for changed. It was `canEdit`, with a note in the
+   * source saying commenting required edit rights "until there is a role that
+   * separates them" — so `viewer` and `commenter` were the same thing here, and
+   * the level named after commenting could not comment. ADR-0090 separates
+   * them: `canComment` is true from `commenter` up, so a reader still gets
+   * nothing and the level in between finally means what it says.
+   */
   const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
-  assert.match(surface, /\{view && handle\.canEdit && \(\s*<SelectionToolbar/s);
+  assert.match(surface, /\{view && handle\.canComment && \(\s*<SelectionToolbar/s);
   const toolbar = codeOf(new URL('../src/components/SelectionToolbar.tsx', import.meta.url));
   assert.match(toolbar, /\{onComment && \(/);
+
+  // And the ladder underneath it, so this cannot pass with a `canComment` that
+  // happens to mean something else.
+  const protocol = codeOf(new URL('../../client/src/protocol.ts', import.meta.url));
+  assert.match(protocol, /export const canComment = \(role: Role\): boolean =>/);
+  assert.match(protocol, /ROLE_ORDER\.indexOf\('commenter'\)/);
 });
 
 test('a locked page loses the gutter, not the comments', () => {
@@ -1248,7 +1262,10 @@ test('a locked page loses the gutter, not the comments', () => {
 
   const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
   assert.match(surface, /\{view && handle\.canEdit && !locked && \(/);
-  assert.match(surface, /canFormat=\{!locked\}/);
+  // Two reasons the formatting can be gone now: the page is locked, or this
+  // person may comment and not edit (ADR-0090). Both are named, rather than
+  // the second being folded into the first.
+  assert.match(surface, /canFormat=\{!locked && handle\.canEdit\}/);
 });
 
 test('the editor resolves an anchor for the page, in one place', () => {

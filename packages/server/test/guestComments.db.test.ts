@@ -1,0 +1,436 @@
+/**
+ * A visitor holding a link, saying something (ADR-0090).
+ *
+ * Asked for as "bau die Kommentare für Gäste". The interesting part is not that
+ * it works — it is everything it must still refuse, because this is the first
+ * route that lets somebody **without an account write into a document**.
+ *
+ * ## Why a route and not the sync connection
+ *
+ * The sync room's write gate is `atLeast(role, 'editor')` and it applies to the
+ * whole update: a Yjs update that adds a comment is opaque bytes, and telling it
+ * apart from one that rewrites a paragraph means applying it to a scratch copy
+ * and diffing. So `commenter` — the level whose whole purpose is "may say
+ * something, may not change anything" — could say nothing at all. Not only
+ * guests: a **member** graded `commenter` was in the same position, which is why
+ * the comment button used to be gated on edit rights.
+ *
+ * The route makes the guarantee structural instead of parsed. It never receives
+ * a document update. It receives a quotation, an anchor and some text, and the
+ * server calls `addThread` itself — there is no argument to it that can reach a
+ * paragraph. `nothing but the comments changes` is the test that says so, and it
+ * is the one that matters most in this file.
+ */
+
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { createServer, type Server } from 'node:http';
+import { after, before, describe, test } from 'node:test';
+
+import type { Pool } from 'pg';
+
+import * as Y from 'yjs';
+
+import { readThreads } from '@sone/core';
+
+import { registerCommentRoutes } from '../src/comments/routes.js';
+import { createShareLink } from '../src/auth/share.js';
+import { createSession } from '../src/auth/session.js';
+import { applyToDocument, loadDoc } from '../src/doc/docStore.js';
+import { SESSION_COOKIE, SHARE_COOKIE } from '../src/http/auth.js';
+import { Router } from '../src/http/router.js';
+import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
+
+/**
+ * A real encoded relative position, built the way the editor builds one.
+ *
+ * It has to be real. The first version of this file used three arbitrary bytes,
+ * on the reasoning that an anchor is opaque and one that points nowhere is a
+ * *detached* thread — a state the panel draws on purpose. That is true of an
+ * anchor whose text was deleted and false of bytes that are not an anchor at
+ * all: reading one **throws**, inside `readThreads`, which the materialiser
+ * calls. So those three bytes did not make a detached thread, they made a page
+ * that could no longer be projected — and the route now refuses them, which is
+ * what `an anchor that is not a relative position is refused` asserts.
+ */
+function realAnchor(): string {
+  const doc = new Y.Doc();
+  const text = doc.getText('body');
+  text.insert(0, 'Ein Satz, der so bleiben muss.');
+  const position = Y.createRelativePositionFromTypeIndex(text, 4);
+  const encoded = Buffer.from(Y.encodeRelativePosition(position)).toString('base64');
+  doc.destroy();
+  return encoded;
+}
+
+const ANCHOR = realAnchor();
+
+describe(
+  'a visitor commenting through a link (database)',
+  { concurrency: 1, skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not set' : false },
+  () => {
+    let db: Pool;
+    let server: Server;
+    let base: string;
+    let owner: string;
+    let reader: string;
+    let workspace: string;
+    let pageId: string;
+
+    /** Links at each level, so the ladder can be asked rather than assumed. */
+    let viewerToken: string;
+    let commenterToken: string;
+
+    const page = async (title: string): Promise<string> => {
+      const id = randomUUID();
+      await db.query(
+        `INSERT INTO pages (id, workspace_id, parent_page_id, title, idx, kind, ancestor_ids)
+         VALUES ($1,$2,NULL,$3,'0','page','{}')`,
+        [id, workspace, title],
+      );
+      return id;
+    };
+
+    const post = async (
+      path: string,
+      body: unknown,
+      cookie: string | null,
+    ): Promise<Response> =>
+      fetch(`${base}${path}`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(cookie ? { cookie } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+
+    const shareCookie = (token: string): string =>
+      `${SHARE_COOKIE}=${encodeURIComponent(token)}`;
+
+    const threadsOn = async (id: string): Promise<ReturnType<typeof readThreads>> => {
+      const loaded = await loadDoc(db, id);
+      try {
+        return readThreads(loaded.doc);
+      } finally {
+        loaded.doc.destroy();
+      }
+    };
+
+    before(async () => {
+      db = await getTestPool();
+      await resetDatabase(db);
+
+      const router = new Router();
+      registerCommentRoutes(router, { pool: db });
+      server = createServer((req, res) => {
+        void router.handle(req, res, 'http://localhost').then((handled) => {
+          if (!handled && !res.headersSent) {
+            res.writeHead(404, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: 'not_found' }));
+          }
+        });
+      });
+      await new Promise<void>((resolve) => server.listen(0, resolve));
+      base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+
+      const users = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name, password_hash) VALUES
+           ('o@example.org','Ottilie','x'), ('r@example.org','Rieke','x')
+         RETURNING id`,
+      );
+      [owner, reader] = users.rows.map((r) => r.id) as [string, string];
+
+      const ws = await db.query<{ id: string }>(
+        `INSERT INTO workspaces (name, created_by) VALUES ('W',$1) RETURNING id`,
+        [owner],
+      );
+      workspace = ws.rows[0]!.id;
+      await db.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner) VALUES
+           ($1,$2,'owner',(SELECT id FROM roles WHERE key='owner'),true),
+           ($1,$3,'guest',(SELECT id FROM roles WHERE key='guest'),false)`,
+        [workspace, owner, reader],
+      );
+
+      pageId = await page('Konzept');
+
+      viewerToken = (
+        await createShareLink(db, { pageId, createdBy: owner, role: 'viewer' })
+      ).token;
+      commenterToken = (
+        await createShareLink(db, { pageId, createdBy: owner, role: 'commenter' })
+      ).token;
+    });
+
+    after(async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await closeTestPool();
+    });
+
+    test('a commenter link may start a thread, a viewer link may not', async () => {
+      /*
+       * The ladder, which is also the answer to whether sharing needs a new
+       * option for this. It does not: `viewer | commenter | editor` has been in
+       * the dialog since links existed. The middle rung simply never did
+       * anything, and this is it doing something.
+       */
+      const refused = await post(
+        `/api/pages/${pageId}/comments`,
+        { from: ANCHOR, to: ANCHOR, quote: 'ein Satz', text: 'Stimmt das?' },
+        shareCookie(viewerToken),
+      );
+      // 404, not 403: a refusal that confirms the page exists is a refusal that
+      // tells somebody something.
+      assert.equal(refused.status, 404, 'a reader stays a reader');
+
+      const allowed = await post(
+        `/api/pages/${pageId}/comments`,
+        { from: ANCHOR, to: ANCHOR, quote: 'ein Satz', text: 'Stimmt das?' },
+        shareCookie(commenterToken),
+      );
+      assert.equal(allowed.status, 201);
+
+      const threads = await threadsOn(pageId);
+      assert.equal(threads.length, 1);
+      assert.equal(threads[0]!.messages[0]!.text, 'Stimmt das?');
+    });
+
+    test('a visitor signs with the name they gave, not with silence', async () => {
+      /*
+       * A share session has no account, so the author is the `guest:` key
+       * ADR-0022 defined and ADR-0046 named for exactly this. The consequence
+       * that record already accepted holds: two visitors who both type "Anna"
+       * are one name in the thread, and there is nothing else to tell them
+       * apart by.
+       *
+       * The name comes from the *session*, never from the request body — a
+       * request that could name its own author is a request that can sign
+       * somebody else's name.
+       */
+      const threads = await threadsOn(pageId);
+      const author = threads[0]!.messages[0]!.author;
+      assert.ok(author.startsWith('guest:'), `signed as ${author}`);
+      assert.equal(author, 'guest:Guest', 'the name the session carries');
+    });
+
+    test('nothing but the comments changes', async () => {
+      /*
+       * The guarantee the whole design rests on, and the reason this is a route
+       * rather than a relaxed sync gate.
+       *
+       * The document's prose is written here first, then a visitor comments,
+       * then the prose is read back. If a comment could ever reach a paragraph,
+       * the words would be the thing that moved.
+       */
+      const other = await page('Mit Inhalt');
+      await applyToDocument(
+        db,
+        other,
+        (doc) => {
+          doc.getText('body').insert(0, 'Ein Satz, der so bleiben muss.');
+        },
+        owner,
+      );
+      const link = await createShareLink(db, {
+        pageId: other,
+        createdBy: owner,
+        role: 'commenter',
+      });
+
+      const res = await post(
+        `/api/pages/${other}/comments`,
+        { from: ANCHOR, to: ANCHOR, quote: 'Ein Satz', text: 'Warum?' },
+        shareCookie(link.token),
+      );
+      assert.equal(res.status, 201);
+
+      const loaded = await loadDoc(db, other);
+      try {
+        assert.equal(
+          loaded.doc.getText('body').toString(),
+          'Ein Satz, der so bleiben muss.',
+          'the prose is untouched',
+        );
+        assert.equal(readThreads(loaded.doc).length, 1, 'and the comment arrived');
+      } finally {
+        loaded.doc.destroy();
+      }
+    });
+
+    test('a reply reaches the thread, and a missing thread is not invented', async () => {
+      const threads = await threadsOn(pageId);
+      const threadId = threads[0]!.id;
+
+      const replied = await post(
+        `/api/pages/${pageId}/comments/${threadId}/messages`,
+        { text: 'Ja, das stimmt.' },
+        shareCookie(commenterToken),
+      );
+      assert.equal(replied.status, 201);
+
+      const after_ = await threadsOn(pageId);
+      assert.equal(after_[0]!.messages.length, 2);
+
+      // `addMessage` is a no-op for a thread that is not there, and a silent
+      // 201 would be a reply somebody believes they made. The document's own
+      // answer decides, as it does for a reply arriving by mail.
+      const nowhere = await post(
+        `/api/pages/${pageId}/comments/t-does-not-exist/messages`,
+        { text: 'Hallo?' },
+        shareCookie(commenterToken),
+      );
+      assert.equal(nowhere.status, 404);
+    });
+
+    test('an empty comment is refused rather than stored', async () => {
+      // A thread whose first message is blank is a highlight over nothing, and
+      // it arrives on somebody else's screen as exactly that.
+      for (const text of ['', '   ']) {
+        const res = await post(
+          `/api/pages/${pageId}/comments`,
+          { from: ANCHOR, to: ANCHOR, quote: 'x', text },
+          shareCookie(commenterToken),
+        );
+        assert.equal(res.status, 422, `refused ${JSON.stringify(text)}`);
+      }
+    });
+
+    test('an anchor that is not a relative position is refused', async () => {
+      /*
+       * The hole this test opened by accident, and the reason it is worth more
+       * than the rest of the file.
+       *
+       * The route checked that the anchor was base64 and wrote the bytes
+       * through — an anchor is opaque, and one that points nowhere is a
+       * detached thread, which is a state the panel draws on purpose. But bytes
+       * that are not a relative position do not point nowhere: reading them
+       * throws, inside `readThreads`, which the **materialiser** calls. So a
+       * visitor could post a handful of bytes and leave the page unable to
+       * project — no comment counts, no notifications, no search row, for
+       * everybody — until somebody dug the thread out of the document.
+       *
+       * Both shapes are asked for: something that is not base64, and something
+       * that is base64 and is not an anchor. The second is the one that got
+       * through.
+       */
+      for (const from of ['not base64 !!', Buffer.from([1, 2, 3]).toString('base64')]) {
+        const res = await post(
+          `/api/pages/${pageId}/comments`,
+          { from, to: ANCHOR, quote: 'x', text: 'Hm' },
+          shareCookie(commenterToken),
+        );
+        assert.equal(res.status, 422, `refused ${from}`);
+      }
+
+      // And the page still projects, which is the thing that was at risk.
+      const rows = await db.query(
+        `SELECT 1 FROM page_comments WHERE page_id = $1`,
+        [pageId],
+      );
+      assert.ok(rows.rowCount !== null);
+    });
+
+    test('no credential at all is 401, so a member is sent to sign in', async () => {
+      // The distinction the files route lost once and this inherits from its
+      // resolver: "nothing presented" and "presented and refused" are different
+      // answers, and collapsing them sends a signed-out member to a dead end
+      // instead of the login screen.
+      const res = await post(
+        `/api/pages/${pageId}/comments`,
+        { from: ANCHOR, to: ANCHOR, quote: 'x', text: 'Hm' },
+        null,
+      );
+      assert.equal(res.status, 401);
+    });
+
+    test('a member graded guest is refused too, and this is not a guest-only fix', async () => {
+      /*
+       * Two things at once, and the second is the point of the whole change.
+       *
+       * A workspace **guest** reaches nothing by role, so they are refused —
+       * the route asks the same `effectiveRole` everything else asks, not "is
+       * there a share cookie".
+       *
+       * Then the same person is given the page at `commenter`, and may. Before
+       * this, a member graded `commenter` could not comment either: the sync
+       * gate is `editor` and there was no other way in. So this route is not a
+       * guest feature that members happen to share — it is the level finally
+       * meaning what it is named after, for everybody who holds it.
+       */
+      const cookie = `${SESSION_COOKIE}=${encodeURIComponent(
+        (await createSession(db, reader)).token,
+      )}`;
+
+      const refused = await post(
+        `/api/pages/${pageId}/comments`,
+        { from: ANCHOR, to: ANCHOR, quote: 'x', text: 'Darf ich?' },
+        cookie,
+      );
+      assert.equal(refused.status, 404, 'a guest reaches nothing by role');
+
+      await db.query(
+        `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'commenter')`,
+        [pageId, reader],
+      );
+
+      const allowed = await post(
+        `/api/pages/${pageId}/comments`,
+        { from: ANCHOR, to: ANCHOR, quote: 'x', text: 'Jetzt schon.' },
+        cookie,
+      );
+      assert.equal(allowed.status, 201, 'a member graded commenter may comment');
+
+      const mine = (await threadsOn(pageId)).find(
+        (thread) => thread.messages[0]?.text === 'Jetzt schon.',
+      );
+      assert.equal(mine?.messages[0]?.author, reader, 'signed with their account');
+
+      await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [reader]);
+    });
+
+    test('whoever shared the page is told about a visitor’s first thread', async () => {
+      /*
+       * A reply notifies everybody already in the thread, which the projection
+       * handles and needs no help. A **new** thread has nobody in it — so a
+       * visitor's first comment would notify nobody at all, and a comment
+       * nobody hears about is a comment lost (the lesson ADR-0081 paid for with
+       * a queue that never retried).
+       *
+       * Who to tell is not a guess: a visitor is holding a link, and somebody
+       * made that link. They chose to let this page out.
+       */
+      const fresh = await page('Frisch geteilt');
+      const link = await createShareLink(db, {
+        pageId: fresh,
+        createdBy: owner,
+        role: 'commenter',
+      });
+
+      const res = await post(
+        `/api/pages/${fresh}/comments`,
+        { from: ANCHOR, to: ANCHOR, quote: 'x', text: 'Eine Frage dazu.' },
+        shareCookie(link.token),
+      );
+      assert.equal(res.status, 201);
+
+      const rows = await db.query<{ kind: string; excerpt: string }>(
+        `SELECT kind, excerpt FROM notifications WHERE user_id = $1 AND page_id = $2`,
+        [owner, fresh],
+      );
+      assert.equal(rows.rowCount, 1, 'the person who shared it hears about it');
+      assert.equal(rows.rows[0]!.excerpt, 'Eine Frage dazu.');
+    });
+
+    test('the projection follows, so the thread can be found without opening it', async () => {
+      // The document is the truth and the table is what can be queried
+      // (ADR-0046). A route that wrote only the document would leave a page
+      // whose comment count is wrong until something else happened to it.
+      const rows = await db.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM page_comments WHERE page_id = $1`,
+        [pageId],
+      );
+      assert.notEqual(rows.rows[0]!.count, '0', 'projected, not only written');
+    });
+  },
+);
