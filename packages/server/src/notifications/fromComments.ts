@@ -50,6 +50,26 @@ function accountOrNull(author: string): string | null {
   return !isGuestKey(author) && UUID.test(author) ? author : null;
 }
 
+/**
+ * Is this string an account id at all?
+ *
+ * The same question `accountOrNull` answers, as a predicate, because it is
+ * asked of `user_id` — which is `NOT NULL`, so the answer there is not "null"
+ * but "there is no notification to write".
+ *
+ * It exists as one exported function because this rule has now been forgotten
+ * in three separate places on three separate occasions (ADR-0091, ADR-0092,
+ * ADR-0094), always by the producer written most recently. Each producer still
+ * uses it — a candidate for a name that is not an account is not a candidate —
+ * **and** `writeNotifications` applies it once more before the INSERT. That is
+ * not belt and braces: the writer's copy is the one a fourth producer cannot
+ * forget, and the producers' copies are what keep a wrong value from silently
+ * becoming a dropped row far from where it was made.
+ */
+export function isAccountId(value: unknown): value is string {
+  return typeof value === 'string' && !isGuestKey(value) && UUID.test(value);
+}
+
 const EXCERPT = 140;
 
 interface Candidate {
@@ -94,10 +114,18 @@ export function notificationsFor(threads: CommentThread[]): Candidate[] {
       const excerpt = message.text.slice(0, EXCERPT);
 
       for (const who of message.mentions) {
-        // A guest has no account to notify. Their name in a comment is a label,
-        // which is what ADR-0046 said it was — this is where that stops being an
-        // abstract statement.
-        if (isGuestKey(who)) continue;
+        /*
+         * A guest has no account to notify. Their name in a comment is a label,
+         * which is what ADR-0046 said it was — this is where that stops being an
+         * abstract statement.
+         *
+         * And neither has anything else that is not a uuid. `mentions` is
+         * written by a client, so it holds whatever a client put there; this
+         * checked only the `guest:` prefix, and `'anna'` went straight into
+         * `user_id uuid` and took the page's whole projection with it
+         * (ADR-0094).
+         */
+        if (!isAccountId(who)) continue;
         /*
          * Not the author, checked *here* as well as when the message is written.
          *
@@ -120,7 +148,9 @@ export function notificationsFor(threads: CommentThread[]): Candidate[] {
       }
 
       for (const who of before) {
-        if (who === message.author || isGuestKey(who)) continue;
+        // `before` holds message authors, which are user ids or `guest:` keys
+        // (ADR-0046) — and, from a document written by anything else, neither.
+        if (who === message.author || !isAccountId(who)) continue;
         const key = `${who}:${message.id}`;
         /*
          * A mention wins.
@@ -166,8 +196,17 @@ export function assignmentsFor(
   const out: Candidate[] = [];
   for (const block of blocks) {
     if (block.type !== 'todo') continue;
+    /*
+     * `props` is whatever is in the document.
+     *
+     * An importer, an older build, a client bug: `assignee` is a string field
+     * on a block, and this dropped a `guest:` key and let everything else
+     * through into `user_id uuid`. A todo assigned to `'anna'` therefore
+     * aborted the projection of the page it was on — every time, for ever
+     * (ADR-0094).
+     */
     const who = block.props['assignee'];
-    if (typeof who !== 'string' || who === '' || isGuestKey(who)) continue;
+    if (!isAccountId(who)) continue;
     out.push({
       userId: who,
       /*
@@ -244,7 +283,7 @@ export function textMentionsFor(
       // aborts the whole projection with `invalid input syntax for type uuid`,
       // which takes the page's comment counts and search row down with it.
       // `notificationsFor` and `assignmentsFor` both drop these; this did not.
-      if (isGuestKey(one.userId) || !UUID.test(one.userId)) return false;
+      if (!isAccountId(one.userId)) return false;
       // Written by somebody, and that somebody is not the person named.
       return one.writtenBy == null || one.writtenBy !== one.userId;
     })
@@ -286,11 +325,32 @@ export async function writeNotifications(
   /** Who was named in the page's own text (ADR-0085). */
   mentions: Array<{ userId: string; blockId: string }> = [],
 ): Promise<number> {
+  /*
+   * The last line of defence, and the only one a new producer inherits for
+   * free (ADR-0094).
+   *
+   * Each of the three above drops a value the column cannot hold, and each of
+   * them had to be taught separately — two of them after somebody had already
+   * lost a page to it. This filter is here so that the fourth producer, written
+   * by somebody who has not read any of those records, cannot repeat it: the
+   * INSERT is one function, and this is that function.
+   *
+   * Dropped rather than raised. A notification is a courtesy about somebody
+   * else's writing, and taking the page's projection down — its comment counts,
+   * its blocks, its search row — because one name in it is malformed is a cost
+   * out of all proportion to what is lost.
+   */
   const candidates = [
     ...notificationsFor(threads),
     ...assignmentsFor(blocks, actorId),
     ...textMentionsFor(mentions, blocks, actorId),
-  ];
+  ]
+    .filter((one) => isAccountId(one.userId))
+    // A bad actor is nulled rather than dropped: `actor_id` is nullable
+    // precisely for "there is no account to name" (ADR-0058), so the
+    // notification survives without a name on it. `user_id` is `NOT NULL` and
+    // has no such answer, which is why that one is a filter.
+    .map((one) => (isAccountId(one.actorId) ? one : { ...one, actorId: null }));
   if (candidates.length === 0) return 0;
 
   const { rowCount } = await db.query(

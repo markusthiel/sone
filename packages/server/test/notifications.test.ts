@@ -27,6 +27,7 @@ import {
 const ANNA = '11111111-1111-4111-8111-111111111111';
 const MARKUS = '22222222-2222-4222-8222-222222222222';
 const BO = '33333333-3333-4333-8333-333333333333';
+const BERT = '44444444-4444-4444-8444-444444444444';
 
 const thread = (messages: Array<[string, string, string[]?]>): CommentThread => ({
   id: 't1',
@@ -48,7 +49,7 @@ const thread = (messages: Array<[string, string, string[]?]>): CommentThread => 
 });
 
 test('nobody is told about their own writing', () => {
-  const out = notificationsFor([thread([['anna', 'Ich frage mich...', ['anna']]])]);
+  const out = notificationsFor([thread([[ANNA, 'Ich frage mich...', [ANNA]]])]);
   assert.deepEqual(out, [], 'not even when they name themselves');
 });
 
@@ -57,13 +58,13 @@ test('a reply reaches the others in the thread', () => {
   // predict, unlike "everybody who can see the page".
   const out = notificationsFor([
     thread([
-      ['anna', 'Frage?'],
-      ['bert', 'Antwort.'],
+      [ANNA, 'Frage?'],
+      [BERT, 'Antwort.'],
     ]),
   ]);
   assert.deepEqual(
     out.map((one) => [one.userId, one.kind, one.messageId]),
-    [['anna', 'reply', 'm2']],
+    [[ANNA, 'reply', 'm2']],
     'anna hears about bert’s reply, and bert hears nothing about his own',
   );
 });
@@ -73,13 +74,13 @@ test('a mention beats a reply for the same message', () => {
   // for one message, and "you were asked" is the more useful of the two.
   const out = notificationsFor([
     thread([
-      ['anna', 'Frage?'],
-      ['bert', 'Was meinst du, @anna?', ['anna']],
+      [ANNA, 'Frage?'],
+      [BERT, 'Was meinst du, @anna?', [ANNA]],
     ]),
   ]);
   assert.deepEqual(
     out.map((one) => [one.userId, one.kind]),
-    [['anna', 'mention']],
+    [[ANNA, 'mention']],
   );
 });
 
@@ -89,7 +90,7 @@ test('a guest has no account to notify', () => {
   const out = notificationsFor([
     thread([
       ['guest:Anna', 'Frage?'],
-      ['bert', 'Antwort für @Anna', ['guest:Anna']],
+      [BERT, 'Antwort für @Anna', ['guest:Anna']],
     ]),
   ]);
   assert.deepEqual(out, []);
@@ -99,7 +100,7 @@ test('the excerpt is a copy, cut short', () => {
   // A copy on purpose: the message may be edited or deleted afterwards, and
   // what somebody was told at the time is what the inbox should still say.
   const long = 'x'.repeat(400);
-  const out = notificationsFor([thread([['anna', 'Frage?'], ['bert', long]])]);
+  const out = notificationsFor([thread([[ANNA, 'Frage?'], [BERT, long]])]);
   assert.equal(out[0]?.excerpt.length, 140);
 });
 
@@ -109,14 +110,14 @@ test('an assigned task tells the person once, not per edit', () => {
   // assignment has no thread and two NULLs are distinct in Postgres. Migration
   // 0040 is the fix; this is the shape of what it protects.
   const blocks = [
-    { id: 'b1', type: 'todo', props: { assignee: 'anna' }, plainText: 'Rechnung prüfen' },
+    { id: 'b1', type: 'todo', props: { assignee: ANNA }, plainText: 'Rechnung prüfen' },
     { id: 'b2', type: 'todo', props: {}, plainText: 'Nicht zugewiesen' },
-    { id: 'b3', type: 'paragraph', props: { assignee: 'bert' }, plainText: 'Kein Vorgang' },
+    { id: 'b3', type: 'paragraph', props: { assignee: BERT }, plainText: 'Kein Vorgang' },
   ];
   const out = assignmentsFor(blocks);
   assert.deepEqual(
     out.map((one) => [one.userId, one.kind, one.messageId, one.threadId]),
-    [['anna', 'assignment', 'b1', null]],
+    [[ANNA, 'assignment', 'b1', null]],
     'only the assigned task, keyed by its own block',
   );
 });
@@ -130,6 +131,65 @@ test('a guest cannot be given a task', () => {
     ]),
     [],
   );
+});
+
+test('nor can a name that is not an account at all', () => {
+  /*
+   * The same class as the two before it, third place, still live in `main`
+   * until ADR-0094 — and this one had never been reported, because it needs a
+   * document whose `assignee` prop is a plain name: an import, an older build,
+   * a client bug.
+   *
+   * `props` is whatever is in the document, `user_id` is a uuid column, and the
+   * INSERT runs inside the projection's transaction. So a todo block assigned
+   * to `'anna'` did not lose a notification, it lost the **page**: its blocks,
+   * its comment counts and its search row rolled back on every projection, for
+   * ever.
+   */
+  assert.deepEqual(
+    assignmentsFor([
+      { id: 'b1', type: 'todo', props: { assignee: 'anna' }, plainText: 'Etwas' },
+      { id: 'b2', type: 'todo', props: { assignee: 42 }, plainText: 'Etwas' },
+      { id: 'b3', type: 'todo', props: { assignee: '' }, plainText: 'Etwas' },
+    ]),
+    [],
+  );
+
+  // And a real one beside them is still told: one malformed value costs one
+  // notification, not the batch.
+  assert.deepEqual(
+    assignmentsFor([
+      { id: 'b1', type: 'todo', props: { assignee: 'anna' }, plainText: 'Kaputt' },
+      { id: 'b2', type: 'todo', props: { assignee: BO }, plainText: 'Echt' },
+    ]).map((one) => one.userId),
+    [BO],
+  );
+});
+
+test('a comment naming something that is not an account names nobody', () => {
+  // `mentions` is written by a client, so it holds whatever a client put there.
+  // `notificationsFor` dropped the `guest:` prefix and nothing else — the same
+  // gap, one function up (ADR-0094).
+  assert.deepEqual(
+    notificationsFor([thread([[ANNA, 'Schau mal, @anna', ['anna']]])]),
+    [],
+  );
+});
+
+test('a reply to somebody who is not an account tells nobody', () => {
+  /*
+   * The subtler half: `user_id` here comes from a *previous message's author*,
+   * not from a mention. A document written by an importer can hold an author
+   * that is neither a uuid nor a `guest:` key, and the reply candidate built
+   * from it went into the same column.
+   */
+  const out = notificationsFor([
+    thread([
+      ['anna-als-name', 'Frage?'],
+      [MARKUS, 'Antwort.'],
+    ]),
+  ]);
+  assert.deepEqual(out, []);
 });
 
 test('a notification records who caused it', () => {
@@ -183,9 +243,9 @@ test('an assignment names whoever´s edit produced it', () => {
   // the person whose write created the row — the same person in every ordinary
   // case, and honestly null when no edit caused the projection.
   const blocks = [
-    { id: 'b1', type: 'todo', props: { assignee: 'bo' }, plainText: 'Rechnung prüfen' },
+    { id: 'b1', type: 'todo', props: { assignee: BO }, plainText: 'Rechnung prüfen' },
   ];
-  assert.equal(assignmentsFor(blocks, 'anna')[0]?.actorId, 'anna');
+  assert.equal(assignmentsFor(blocks, ANNA)[0]?.actorId, ANNA);
   assert.equal(assignmentsFor(blocks)[0]?.actorId, null, 'nobody, rather than a guess');
 });
 

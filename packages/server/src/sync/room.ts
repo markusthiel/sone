@@ -104,6 +104,15 @@ export class DocumentRoom {
    */
   private poisoned = false;
   private poisonReason: string | null = null;
+  /**
+   * Why the last projection failed, or null (ADR-0094).
+   *
+   * A different thing from poison, and the distinction is the point: poison
+   * means work cannot be **stored**, this means what is **derived** from stored
+   * work is stale. The room goes on taking edits, and the next flush that
+   * projects a document without the offending value clears this by itself.
+   */
+  private projectionError: string | null = null;
   /** Actor for the next flush. Best effort: the last writer wins. */
   private lastActorId: string | null = null;
 
@@ -414,10 +423,38 @@ export class DocumentRoom {
     const merged = Y.mergeUpdates(batch);
     const actorId = this.lastActorId;
 
+    /*
+     * Two steps, and they fail differently (ADR-0094).
+     *
+     * **Storing** the update is the step that can lose work: until it lands,
+     * the edit exists only in this process's memory. **Projecting** rebuilds
+     * what is derived from a document that is by then already stored —
+     * documents are the truth (ADR-0002) — so its failure costs a stale table
+     * and nothing else.
+     *
+     * They were one `try`. Everything below follows from separating them: a
+     * projection failure no longer puts the batch back (which appended the same
+     * bytes again on the next flush, and the next), and no longer poisons the
+     * room (which stopped *storing* work because a table could not be rebuilt).
+     */
+    let seq: number;
     try {
-      const seq = await appendUpdate(this.pool, this.pageId, merged, actorId);
-      this.throughSeq = seq;
+      seq = await appendUpdate(this.pool, this.pageId, merged, actorId);
+    } catch (err) {
+      if (isPermanentWriteFailure(err)) {
+        this.poison(err);
+        return;
+      }
+      // Transient — connection lost, deadlock, timeout. Put the batch back at
+      // the front: the CRDT state is still correct in memory, and dropping it
+      // would lose user work.
+      this.pendingUpdates.unshift(...batch);
+      await this.recordFailure(err);
+      throw err;
+    }
+    this.throughSeq = seq;
 
+    try {
       /*
        * A comment document is not a page, so it does not get a page's
        * projection (ADR-0057).
@@ -444,42 +481,85 @@ export class DocumentRoom {
         );
       }
 
+      this.projectionError = null;
+    } catch (err) {
+      /*
+       * The projection failed. The edit is stored.
+       *
+       * So the batch is **not** put back: those bytes are in `doc_updates`, and
+       * unshifting them appended a second copy on the next flush, a third on
+       * the one after, for as long as somebody kept typing on a page whose
+       * projection was broken. That, and not the value error itself, is what
+       * ADR-0092 saw as "it retried for ever".
+       *
+       * And the room is **not** poisoned. Poisoning stops persisting, which is
+       * the correct answer to "this instance cannot store work" and the wrong
+       * one to "a derived table could not be rebuilt": it would throw away
+       * everything typed after the first bad value, to fix nothing.
+       *
+       * Nothing is scheduled to try again either. Every flush re-projects the
+       * *current* document, so the edit that removes the offending value is the
+       * thing that repairs the page — no retry loop, no job, and the cost of a
+       * page that stays broken is one failed transaction per flush of it.
+       */
+      const reason = err instanceof Error ? err.message : String(err);
+      if (reason !== this.projectionError) {
+        // Once per distinct reason rather than once per flush: a broken page
+        // is flushed on every burst of typing, and a log line per keystroke is
+        // a log nobody reads.
+        console.error(
+          `[room ${this.pageId}] projection failed (the document is stored):`,
+          reason,
+        );
+      }
+      this.projectionError = reason;
+      await this.recordFailure(err);
+    }
+
+    try {
       // Compact opportunistically. Cheap to check, and without it loadDoc
       // replays an ever-growing list on every cold open.
+      //
+      // Outside the projection's `try`, because it is about the log rather than
+      // about the derived tables: a page whose projection is broken is exactly
+      // a page that keeps accumulating updates, and it should not also be the
+      // one page that never compacts them.
       const pending = await pendingUpdateCount(this.pool, this.pageId);
       if (pending >= COMPACT_THRESHOLD) {
         await compactDoc(this.pool, this.pageId);
       }
     } catch (err) {
-      if (isPermanentWriteFailure(err)) {
-        // The write can never succeed: the workspace or page has been deleted,
-        // or the schema no longer matches. Retrying would hold the batch in
-        // memory forever and re-fail on every subsequent update, so the room
-        // is poisoned instead — it stops persisting and reports itself.
-        //
-        // The CRDT log is untouched, so nothing already stored is lost. What
-        // is lost is the unflushed tail, which had nowhere to go regardless.
-        this.poisoned = true;
-        this.poisonReason = err instanceof Error ? err.message : String(err);
-        console.error(
-          `[room ${this.pageId}] permanent write failure, room poisoned:`,
-          this.poisonReason,
-        );
-        return;
-      }
-
-      // Transient — connection lost, deadlock, timeout. Put the batch back at
-      // the front: the CRDT state is still correct in memory, and dropping it
-      // would lose user work.
-      this.pendingUpdates.unshift(...batch);
-      await withTransaction(this.pool, (client) =>
-        markFailed(client, this.pageId, err),
-      ).catch(() => {
-        // If even recording the failure fails, the database is unreachable and
-        // there is nothing useful left to do here.
-      });
-      throw err;
+      console.error(`[room ${this.pageId}] compaction failed:`, err);
     }
+  }
+
+  /** Stop persisting, and say so. Only for a failure to *store*. */
+  private poison(err: unknown): void {
+    // The CRDT log is untouched, so nothing already stored is lost. What is
+    // lost is the unflushed tail, which had nowhere to go regardless.
+    this.poisoned = true;
+    this.poisonReason = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[room ${this.pageId}] permanent write failure, room poisoned:`,
+      this.poisonReason,
+    );
+  }
+
+  /**
+   * Record a failure where somebody will find it.
+   *
+   * `materialization_state` rather than only the console: a room's memory dies
+   * with the process, and the page that stopped projecting in ADR-0092 had been
+   * broken for days by the time anybody noticed. `attempts` climbing there is
+   * the durable version of "this keeps happening".
+   */
+  private async recordFailure(err: unknown): Promise<void> {
+    await withTransaction(this.pool, (client) =>
+      markFailed(client, this.pageId, err),
+    ).catch(() => {
+      // If even recording the failure fails, the database is unreachable and
+      // there is nothing useful left to do here.
+    });
   }
 
   get hasPendingWrites(): boolean {
@@ -493,6 +573,17 @@ export class DocumentRoom {
 
   get poisonedBecause(): string | null {
     return this.poisonReason;
+  }
+
+  /**
+   * Why this page's derived tables are stale, or null (ADR-0094).
+   *
+   * The document itself is stored and being served either way — this says the
+   * projection built from it is behind, which is what makes a page's comment
+   * counts, blocks and search row disagree with what people can see on screen.
+   */
+  get projectionFailure(): string | null {
+    return this.projectionError;
   }
 
   get persistedThroughSeq(): number {
@@ -544,6 +635,7 @@ export class DocumentRoom {
  * Is this database error one that retrying can never fix?
  *
  * Postgres SQLSTATE classes:
+ *   22xxx  data exception — a value the column cannot hold
  *   23xxx  integrity constraint violation — the referenced row is gone
  *   42xxx  syntax or access rule violation — schema mismatch
  *   3D/3F  undefined database or schema
@@ -551,11 +643,25 @@ export class DocumentRoom {
  * Everything else (connection failures, deadlocks, timeouts, disk full) is
  * treated as transient and retried, which is the safer default: retrying a
  * permanent failure wastes memory, but discarding a transient one loses work.
+ *
+ * **22 was missing, and that omission had a name** (ADR-0092): a `guest:` key
+ * reached `actor_id uuid`, threw `22P02` inside the projection's transaction,
+ * and because the class was not listed the room treated it as transient and
+ * tried again on every flush, silently, for ever. A value error is the most
+ * permanent kind there is — the same bytes produce the same error until the
+ * document changes.
+ *
+ * Which is why this function is now asked in only one place: the **append**.
+ * The projection's answer to any failure is the same regardless of class —
+ * record it, keep the room working, let the next flush try the current
+ * document — so classifying it there would be a distinction with no
+ * consequence (ADR-0094).
  */
 function isPermanentWriteFailure(err: unknown): boolean {
   const code = (err as { code?: unknown } | null)?.code;
   if (typeof code !== 'string') return false;
   return (
+    code.startsWith('22') ||
     code.startsWith('23') ||
     code.startsWith('42') ||
     code.startsWith('3D') ||
