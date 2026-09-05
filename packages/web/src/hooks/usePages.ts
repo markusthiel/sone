@@ -6,7 +6,7 @@
  */
 
 import { NotifyScope, type SoneClient } from '@sone/client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   ApiError,
@@ -16,6 +16,7 @@ import {
   type PageNode,
   type PageSummary,
 } from '../api/client.ts';
+import { useNudge } from './useNudge.ts';
 
 export function usePages(
   workspaceId: string | null,
@@ -102,34 +103,12 @@ export function usePages(
    * protocol a nudge with a **scope** precisely so the next subject would cost
    * no protocol version, and this is that subject.
    *
-   * **Coalesced.** One nudge is one reload of the whole tree, and a change that
-   * arrives as many statements — an import writing a subtree, a move touching
-   * several rows — would otherwise be one reload each. So a nudge starts a short
-   * window and the reload happens at the end of it; further nudges inside the
-   * window are already accounted for.
-   *
-   * A quarter of a second: long enough to swallow a burst from one action,
-   * short enough that a colleague's rename appears while somebody is still
-   * looking at the place it happened.
+   * **Coalesced**, by the hook that does it: one nudge is one reload of the
+   * whole tree, and a change that arrives as many statements — an import
+   * writing a subtree, a move touching several rows — would otherwise be one
+   * reload each.
    */
-  const coalescing = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!client) return;
-    const stop = client.onNotify(NotifyScope.Pages, () => {
-      if (coalescing.current) return;
-      coalescing.current = setTimeout(() => {
-        coalescing.current = null;
-        void reload();
-      }, 250);
-    });
-    return () => {
-      stop();
-      if (coalescing.current) {
-        clearTimeout(coalescing.current);
-        coalescing.current = null;
-      }
-    };
-  }, [client, reload]);
+  useNudge(client, NotifyScope.Pages, () => void reload());
 
   // Refetched when the tab regains focus. Someone else's rename or new page
   // would otherwise never appear in a tab left open, and polling for it would

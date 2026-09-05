@@ -10,6 +10,12 @@
  * nudge, and the two decisions worth holding down are both about doing less
  * than seems natural: it refetches rather than believing a number, and it does
  * so whether or not the tab is visible.
+ *
+ * The waits are past the coalescing window: since ADR-0097 the three listeners
+ * share one hook, so a nudge here opens a window and the refetch happens at the
+ * end of it rather than on the frame. One projection can send this listener two
+ * nudges within milliseconds — its inserts and its sweep of deleted threads —
+ * which is the burst that made sharing the hook worth the change.
  */
 
 import assert from 'node:assert/strict';
@@ -137,7 +143,9 @@ describe('the bell hears the server', () => {
 
     await (await import('react')).act(async () => {
       nudge();
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Past the coalescing window the nudge opens (ADR-0097): the refetch is
+      // at the end of it, not on the frame.
+      await new Promise((resolve) => setTimeout(resolve, 400));
     });
 
     assert.equal(fetches, afterMount + 1, 'the list, once more');
@@ -162,10 +170,10 @@ describe('the bell hears the server', () => {
     await (await import('react')).act(async () => {
       nudge();
       nudge();
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 400));
     });
 
-    assert.ok(fetches > afterMount, 'it went and looked');
+    assert.equal(fetches, afterMount + 1, 'it went and looked, once for the pair');
   });
 
   test('a hidden tab is refreshed too', async () => {
@@ -188,7 +196,7 @@ describe('the bell hears the server', () => {
 
       await (await import('react')).act(async () => {
         nudge();
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 400));
       });
 
       assert.equal(fetches, afterMount + 1);

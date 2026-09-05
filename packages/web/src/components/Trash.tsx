@@ -17,7 +17,10 @@
  * went as well.
  */
 
+import { NotifyScope, type SoneClient } from '@sone/client';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
+
+import { useNudge } from '../hooks/useNudge.ts';
 
 import { ApiError, api, type PageNode, type TrashEntry } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
@@ -39,6 +42,15 @@ interface TrashProps {
   tree: PageNode[];
   /** Called after a restore, so the tree picks the entry up again. */
   onChanged: () => void;
+  /**
+   * The sync connection, so somebody else emptying the trash is visible here
+   * (ADR-0097).
+   *
+   * The case with two people in it: one presses "delete permanently" and the
+   * other is looking at the same list. Without it the second one clicks a row
+   * that is not there and gets a refusal they could not have predicted.
+   */
+  client?: SoneClient | null;
 }
 
 /** What an entry says, once somebody has asked. */
@@ -55,6 +67,7 @@ export function Trash({
   onEntries,
   tree,
   onChanged,
+  client,
 }: TrashProps): ReactElement {
   const { t } = useT();
   const message = useMessage();
@@ -84,6 +97,16 @@ export function Trash({
   useEffect(() => {
     void load();
   }, [load]);
+
+  /*
+   * And again when the server says the trash changed (ADR-0097).
+   *
+   * Its own scope rather than the tree's: a rename cannot change what is in
+   * here, and refetching on one would be a request per rename per person with
+   * this screen open. Archiving and restoring ring both, because they change
+   * both lists.
+   */
+  useNudge(client, NotifyScope.Trash, () => void load());
 
   const preview = (entry: TrashEntry): void => {
     if (open === entry.id) {
