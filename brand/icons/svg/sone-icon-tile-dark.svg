@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="SONE">
+  <title>SONE</title>
+  <rect width="100" height="100" fill="#161615"/>
+  <rect x="14" y="15.89" width="72" height="8.526" fill="#f7f5f0"/>
+  <rect x="29.16" y="35.79" width="56.84" height="8.526" fill="#f7f5f0"/>
+  <rect x="44.32" y="55.68" width="41.68" height="8.526" fill="#6fc0b0"/>
+  <rect x="29.16" y="75.58" width="56.84" height="8.526" fill="#f7f5f0"/>
+</svg>

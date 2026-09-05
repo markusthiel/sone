@@ -13,6 +13,31 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Die Markendateien liegen jetzt vollständig im Repo, unter `brand/`.** Logo in
+vier Farbfassungen (hell, dunkel, einfarbig schwarz, einfarbig weiß), als Signet
+und als Lockup mit und ohne Claim, dazu Favicon- und App-Icons, OG-Karten,
+Druck-PDF, Briefbogen, Foliensatz und E-Mail-Signatur. Erzeugt werden sie von
+`tools/brand/` aus derselben Geometrie, die `Logo.tsx` zeichnet, und denselben
+Tokens, die `styles.css` deklariert — nachgezeichnet ist nichts. Die Wortmarke
+ist in Pfade umgewandelt, keine gelieferte Datei braucht eine installierte
+Schrift.
+
+**Ein installiertes SONE verliert auf Android nicht mehr den obersten Balken.**
+Das Icon hatte keine maskierbare Fassung, also hat Android das normale
+zugeschnitten — und sein Kreis schneidet genau den breitesten Balken ab, den,
+der die Marke als Baum lesbar macht. Neu: `icon-maskable-192.png` und
+`icon-maskable-512.png` mit 26 % Rand, im Manifest als `maskable` eingetragen.
+
+**Ein gesetztes Lesezeichen zeigt wieder ein Icon.** `/favicon.ico` fehlte;
+Lesezeichenleisten, Windows-Verknüpfungen und ältere Feedreader fragen diesen
+Pfad direkt ab, ganz ohne `<link>`, und bekamen eine 404 und ein leeres Blatt.
+
+**Ein geteilter Link auf eine SONE-Instanz zeigt jetzt eine Karte.** Bisher
+erschien in Chats und Messengern nur die nackte Adresse. Die Karte beschreibt
+absichtlich die Software und nie die Seite: alles in einer Instanz liegt hinter
+der Anmeldung, und eine Vorschau, die den Titel von jemandes Notizen mitschickt,
+wäre ein Leck und kein Feature.
+
 **Ein geteilter Ordner ist beim Gast wieder ein Ordner.** Er wurde als Seite mit
 Schreibcursor gezeichnet — eine Einladung, in etwas zu schreiben, das keinen Text
 aufnehmen kann, auf einem Link, der vielleicht nur lesen darf. Jetzt: die Liste

@@ -46,6 +46,9 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/*.d.ts',
       'packages/editor/vendor/**',
+      // Generators, not application code: plain CommonJS run by hand against
+      // `docx` and `pptxgenjs`, which are not workspace dependencies.
+      'tools/brand/**',
     ],
   },
 
