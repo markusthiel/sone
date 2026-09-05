@@ -42,7 +42,6 @@ import {
   decodeServerMessage,
   encodeAuth,
   encodeOpen,
-  type DecodedServerMessage,
 } from '../src/sync/protocol.js';
 import {
   closeTestPool,
@@ -54,75 +53,7 @@ import {
   uuid,
   type Fixture,
 } from './support/db.js';
-
-/** Minimal test client: collects frames and lets a test await the one it wants. */
-class TestClient {
-  private readonly received: DecodedServerMessage[] = [];
-  private readonly waiters: Array<{
-    match: (m: DecodedServerMessage) => boolean;
-    resolve: (m: DecodedServerMessage) => void;
-    timer: NodeJS.Timeout;
-  }> = [];
-
-  private constructor(readonly socket: WebSocket) {
-    socket.on('message', (data) => {
-      const message = decodeServerMessage(new Uint8Array(data as Buffer));
-      this.received.push(message);
-      for (let i = this.waiters.length - 1; i >= 0; i--) {
-        const waiter = this.waiters[i]!;
-        if (waiter.match(message)) {
-          clearTimeout(waiter.timer);
-          this.waiters.splice(i, 1);
-          waiter.resolve(message);
-        }
-      }
-    });
-  }
-
-  static async connect(url: string): Promise<TestClient> {
-    const socket = new WebSocket(url);
-    await once(socket, 'open');
-    return new TestClient(socket);
-  }
-
-  send(data: Uint8Array): void {
-    this.socket.send(data, { binary: true });
-  }
-
-  /** Await a frame matching the predicate, checking already-received ones. */
-  waitFor(
-    match: (m: DecodedServerMessage) => boolean,
-    timeoutMs = 4000,
-  ): Promise<DecodedServerMessage> {
-    const already = this.received.find(match);
-    if (already) return Promise.resolve(already);
-
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(
-          new Error(
-            `timed out waiting for frame; received types: ${this.received
-              .map((m) => m.type)
-              .join(',')}`,
-          ),
-        );
-      }, timeoutMs);
-      this.waiters.push({ match, resolve, timer });
-    });
-  }
-
-  waitForType(type: number, timeoutMs = 4000): Promise<DecodedServerMessage> {
-    return this.waitFor((m) => m.type === type, timeoutMs);
-  }
-
-  get frames(): readonly DecodedServerMessage[] {
-    return this.received;
-  }
-
-  close(): void {
-    this.socket.close();
-  }
-}
+import { TestClient } from './support/syncClient.js';
 
 describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not set' : false }, () => {
   let db: Pool;

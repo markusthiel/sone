@@ -77,6 +77,11 @@ staring at the page.** That needs a server push, the sync protocol has no frame
 for it, and adding one is its own decision — named here rather than left as a
 surprise.
 
+> **Closed by ADR-0093.** The protocol has that frame now, and the limit above
+> no longer holds. The `focus` pair stays and is not redundant: a push says what
+> happened while you were listening, and nothing says what happened while you
+> were not.
+
 ### A notification whose thread is gone goes with it
 
 The projection rewrites `page_comments` wholesale and `writeNotifications` only
@@ -178,6 +183,11 @@ strong sense. It needs a new server frame and a NOTIFY channel keyed by user
 rather than by document, and neither is small. `focus` covers the case that was
 reported — coming back to the tab and seeing nothing new — and the residual gap
 is named above rather than papered over.
+
+> Built in the next round (ADR-0093). The estimate held: a frame and a channel,
+> plus the thing this note did not mention and that turned out to be the actual
+> difficulty — an index of connections by *person*, in a layer whose every other
+> index is by document.
 
 **Let the badge keep its own count and just refresh it.** Two sources, refreshed
 in two ways, disagreeing whenever one of them is updated optimistically. The

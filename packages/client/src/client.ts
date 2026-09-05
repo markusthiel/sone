@@ -42,6 +42,17 @@ export class SoneClient {
   readonly connection: SyncConnection;
   readonly store: DocumentStore;
 
+  /**
+   * Who wants to hear about a nudge, by scope (ADR-0093).
+   *
+   * A subscription rather than a constructor callback, and that is the whole
+   * design decision here: the client is created where the workspace is known
+   * and the bell lives several components away, so a callback passed at
+   * construction would have to be threaded down through everything in between —
+   * or, worse, would tempt somebody to build a second client for the bell.
+   */
+  private readonly listeners = new Map<string, Set<() => void>>();
+
   constructor(opts: SoneClientOptions) {
     // Constructed in this order because the store needs the connection, and
     // the connection's callbacks need the store. The store is created first
@@ -57,6 +68,7 @@ export class SoneClient {
         ? { onConnectionTrouble: opts.onConnectionTrouble }
         : {}),
       onReconnect: () => store.handleReconnect(),
+      onNotify: (scope) => this.emitNotify(scope),
       onStateChange: (state, previous) => {
         // A transition away from ready means every document is stale until the
         // handshake runs again.
@@ -81,6 +93,36 @@ export class SoneClient {
       ...(opts.log ? { log: opts.log } : {}),
     });
     this.store = store;
+  }
+
+  /**
+   * Be told when the server says something in `scope` changed.
+   *
+   * Returns the unsubscribe, so a component that mounts twice does not end up
+   * refetching twice per nudge.
+   */
+  onNotify(scope: string, handler: () => void): () => void {
+    let set = this.listeners.get(scope);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(scope, set);
+    }
+    set.add(handler);
+    return () => {
+      set.delete(handler);
+      if (set.size === 0) this.listeners.delete(scope);
+    };
+  }
+
+  private emitNotify(scope: string): void {
+    for (const handler of this.listeners.get(scope) ?? []) {
+      try {
+        handler();
+      } catch {
+        // A listener that throws is a bug in that listener; it must not stop
+        // the others being told, and it must not take the socket down.
+      }
+    }
   }
 
   connect(): void {
@@ -114,5 +156,6 @@ export class SoneClient {
   close(): void {
     this.connection.close();
     this.store.destroy();
+    this.listeners.clear();
   }
 }
