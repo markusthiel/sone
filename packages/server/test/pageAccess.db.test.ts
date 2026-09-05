@@ -596,6 +596,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
           workspaceId: workspace,
           workspaceRole: 'member',
           pageLevel: 'editor',
+          caps: [],
           grants: [],
         },
         location!,
@@ -618,6 +619,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
           workspaceId: workspace,
           workspaceRole: 'member',
           pageLevel: 'editor',
+          caps: [],
           grants: [
             { scopePageId: child, includeSubtree: true, role: 'viewer', source: 'page_permission' },
           ],
@@ -655,6 +657,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
           workspaceId: workspace,
           workspaceRole: 'member',
           pageLevel: 'editor',
+          caps: [],
           grants: [],
         },
         location!,

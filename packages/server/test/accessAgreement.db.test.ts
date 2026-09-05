@@ -57,6 +57,8 @@ describe('the two access resolvers agree (database)', { concurrency: 1, skip: !h
   /** The colleague's live session, so claims are resolved the way sync does. */
   let sessionToken: string;
   let sessionId: string;
+  /** And the owner's, for the one case that is about not being capped. */
+  let ownerToken: string;
 
   const ancestryOf = new Map<string, string[]>();
 
@@ -146,6 +148,7 @@ describe('the two access resolvers agree (database)', { concurrency: 1, skip: !h
     const session = await createSession(db, colleague);
     sessionToken = session.token;
     sessionId = session.sessionId;
+    ownerToken = (await createSession(db, owner)).token;
   });
 
   after(async () => {
@@ -327,6 +330,127 @@ describe('the two access resolvers agree (database)', { concurrency: 1, skip: !h
     await agree(below, null, 'nor below it');
 
     await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [section]);
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'guest')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspace, colleague],
+    );
+  });
+
+  test('a cap lowers what a role and a grant arrived at, in both', async () => {
+    /*
+     * The third layer (ADR-0087), and the only one that takes something away.
+     *
+     * Asked of both resolvers because a ceiling the tree honours and sync does
+     * not is a page listed as read-only whose editor still writes — the exact
+     * shape of ADR-0086, one layer up. This is also why the cap lives on the
+     * claims beside the grants rather than on the page location: a dozen call
+     * sites build a location by hand, and every one of them would have had to
+     * learn to fetch a ceiling.
+     */
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'member')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspace, colleague],
+    );
+    await agree(section, 'editor', 'an ordinary member');
+
+    await db.query(
+      `INSERT INTO page_caps (page_id, max_level, include_subtree) VALUES ($1,'viewer',true)`,
+      [section],
+    );
+    await agree(section, 'viewer', 'capped');
+    await agree(below, 'viewer', 'and below it');
+    await agree(root, 'editor', 'and not above it');
+
+    // A grant cannot climb over the ceiling. That is the whole difference
+    // between this layer and the one before it.
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'admin')`,
+      [section, colleague],
+    );
+    await agree(section, 'viewer', 'a grant does not climb over a ceiling');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [colleague]);
+    await db.query(`DELETE FROM page_caps WHERE page_id = $1`, [section]);
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'guest')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspace, colleague],
+    );
+  });
+
+  test('the lowest ceiling on the path wins, in both', async () => {
+    // A ceiling under a ceiling is the real ceiling. "The nearest one wins"
+    // would let a subpage quietly undo the section above it.
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'member')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspace, colleague],
+    );
+    await db.query(
+      `INSERT INTO page_caps (page_id, max_level, include_subtree) VALUES
+         ($1,'commenter',true), ($2,'viewer',true)`,
+      [root, section],
+    );
+
+    await agree(root, 'commenter', 'the outer ceiling');
+    await agree(section, 'viewer', 'the lower one where both apply');
+    await agree(below, 'viewer', 'and under it');
+
+    await db.query(`DELETE FROM page_caps WHERE page_id = ANY($1)`, [[root, section]]);
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'guest')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspace, colleague],
+    );
+  });
+
+  test('a cap does not apply to somebody the workspace makes a page admin', async () => {
+    /*
+     * The safety floor, and the reason it has to exist: without it the first
+     * cap set on a workspace root could never be lifted again, by anybody,
+     * without database access.
+     *
+     * The record proposed exempting whoever holds `roles.manage`. Asking the
+     * page level is the same rule a restricted page already applies, and a cap
+     * is a rule about a page — so who may override it is settled by what the
+     * workspace says about pages, not by a right about the settings screen.
+     */
+    await db.query(
+      `INSERT INTO page_caps (page_id, max_level, include_subtree) VALUES ($1,'viewer',true)`,
+      [root],
+    );
+
+    const listing = (await resolvePageAccess(db, { pageId: section, userId: owner })).access;
+    assert.equal(listing, 'admin', 'the owner is not capped');
+
+    const claims = await resolveSessionClaims(db, ownerToken, workspace);
+    const location = await loadPageLocation(db, section);
+    assert.equal(effectiveRole(claims!, location!), 'admin', 'and sync agrees');
+
+    await db.query(`DELETE FROM page_caps WHERE page_id = $1`, [root]);
+  });
+
+  test('a cap says so, so the interface can explain it', async () => {
+    // The price ADR-0087 accepted for this layer. A capped page looks like
+    // every other page and behaves differently; without a word for it, every
+    // permission question becomes an investigation.
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'member')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspace, colleague],
+    );
+    await db.query(
+      `INSERT INTO page_caps (page_id, max_level, include_subtree) VALUES ($1,'viewer',true)`,
+      [section],
+    );
+
+    const resolved = await resolvePageAccess(db, { pageId: section, userId: colleague });
+    assert.equal(resolved.access, 'viewer');
+    assert.equal(resolved.reason, 'capped', 'named, not left as "role"');
+
+    await db.query(`DELETE FROM page_caps WHERE page_id = $1`, [section]);
     await db.query(
       `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'guest')
         WHERE workspace_id = $1 AND user_id = $2`,

@@ -79,3 +79,45 @@ test('the panel says why keeping a group up to date matters', () => {
   assert.match(groupsPanel, /t\('group\.note'\)/);
   assert.match(en['group.note'], /including whoever joins later/);
 });
+
+// --- the ceiling (ADR-0087) -------------------------------------------------
+
+test('the ceiling sits below the restriction and above the list', () => {
+  /*
+   * The order the three layers apply in: the workspace default, then what is
+   * given to the people below, then the ceiling over all of it.
+   *
+   * Placement is the argument. A control that *lowers*, set among controls that
+   * raise, reads as one of them — and this is the only rule in SONE that takes
+   * something away.
+   */
+  const restrictedAt = panel.indexOf("t('perm.onlyAdded')");
+  const capAt = panel.indexOf("t('cap.label')");
+  const listAt = panel.indexOf('permission-list');
+
+  assert.ok(restrictedAt > 0 && capAt > restrictedAt, 'below the restriction');
+  assert.ok(listAt > capAt, 'and above the people it limits');
+});
+
+test('a ceiling from a section above says where it came from', () => {
+  /*
+   * The price ADR-0087 accepted for this layer, and the condition under which
+   * it is tolerable.
+   *
+   * A capped page looks like every other page and behaves differently. Somebody
+   * who cannot edit it will look at the list of people, find themselves with
+   * edit access, and have no way to reach the rule that actually decided — it
+   * is on a page further up that they may never open. So the panel names it.
+   */
+  assert.match(panel, /inheritedCap && \(/);
+  assert.match(panel, /t\('cap\.inherited', \{/);
+  assert.match(en['cap.inherited'], /\{from\}/, 'and the message carries the page it is set on');
+});
+
+test('the ceiling offers no "admin", because that would be no ceiling', () => {
+  // The list is viewer, commenter, editor — and "none" at the top. Offering
+  // `admin` would be a control that does nothing, which is the exact shape of
+  // failure this whole area keeps producing.
+  assert.match(panel, /\['viewer', 'commenter', 'editor'\] as const/);
+  assert.match(panel, /t\('cap\.none'\)/);
+});

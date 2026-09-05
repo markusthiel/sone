@@ -680,6 +680,10 @@ export const api = {
   pagePermissions: (pageId: string) =>
     request<{
       restricted: boolean;
+      /** The ceiling set on this page itself, or none (ADR-0087). */
+      cap: { maxLevel: string; includeSubtree: boolean } | null;
+      /** The strictest one inherited from a section above, and where from. */
+      inheritedCap: { maxLevel: string; from: string } | null;
       groups: Array<{
         groupId: string;
         name: string;
@@ -695,6 +699,13 @@ export const api = {
         inheritedFrom: string | null;
       }>;
     }>(`/api/pages/${pageId}/permissions`),
+
+  /** Null lifts it: "no ceiling" is the top of the same list, not another act. */
+  setPageCap: (pageId: string, maxLevel: string | null, includeSubtree = true) =>
+    request<{ cap: { maxLevel: string; includeSubtree: boolean } | null }>(
+      `/api/pages/${pageId}/cap`,
+      { method: 'PUT', body: JSON.stringify({ maxLevel, includeSubtree }) },
+    ),
 
   setPageRestricted: (pageId: string, restricted: boolean) =>
     request<{ restricted: boolean }>(`/api/pages/${pageId}/restricted`, {

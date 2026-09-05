@@ -62,10 +62,37 @@ export function accessFromRole(role: string | null): PageAccess | null {
   }
 }
 
+/**
+ * The lower of two ceilings, for a cap under a cap (ADR-0087).
+ *
+ * The counterpart of `morePermissive`, and the only place in this file that
+ * takes something away. Where several caps apply through ancestry the lowest
+ * wins: a ceiling under a ceiling is the real ceiling, and "the nearest one
+ * wins" would let a subpage quietly undo the section above it.
+ */
+export const lessPermissive = (
+  a: PageAccess | null,
+  b: PageAccess | null,
+): PageAccess | null => {
+  if (a === null) return b;
+  if (b === null) return a;
+  return RANK[a] <= RANK[b] ? a : b;
+};
+
 export interface Resolution {
   access: PageAccess | null;
-  /** Why, for the interface to explain a page somebody cannot edit. */
-  reason: 'role' | 'granted' | 'inherited' | 'restricted' | 'not_a_member';
+  /**
+   * Why, for the interface to explain a page somebody cannot edit.
+   *
+   * `capped` is the one that has to reach the screen. The other four describe
+   * access somebody was *given*, which is explainable by "somebody shared this
+   * with you"; a cap is a rule attached to the page that lowers what a role
+   * already granted, so a capped page looks like every other page and behaves
+   * differently. Without a word for it, every permission question becomes an
+   * investigation — which is the price ADR-0087 accepted for this layer, and
+   * this field is where it is paid.
+   */
+  reason: 'role' | 'granted' | 'inherited' | 'restricted' | 'capped' | 'not_a_member';
 }
 
 /**
@@ -88,6 +115,7 @@ export async function resolvePageAccess(
     workspace_id: string;
     restricted: boolean;
     granted: PageAccess | null;
+    capped: PageAccess | null;
     owns_workspace: boolean;
   }>(
     db,
@@ -138,6 +166,18 @@ export async function resolvePageAccess(
             WHEN 'admin' THEN 4 WHEN 'editor' THEN 3 WHEN 'commenter' THEN 2 ELSE 1
           END DESC
         LIMIT 1) AS granted,
+       -- The lowest ceiling on the path, which is the real one (ADR-0087).
+       -- Ordered the other way round from the grants above, and that asymmetry
+       -- is the whole difference between the two layers: grants take the most
+       -- permissive, caps the least.
+       (SELECT c.max_level FROM page_caps c
+          JOIN ancestry a2 ON a2.id = c.page_id
+         WHERE c.include_subtree OR c.page_id = $1
+         ORDER BY
+           CASE c.max_level
+             WHEN 'admin' THEN 4 WHEN 'editor' THEN 3 WHEN 'commenter' THEN 2 ELSE 1
+           END ASC
+         LIMIT 1) AS capped,
        COALESCE(w.personal_for = $2, false) AS owns_workspace
        FROM ancestry a
        JOIN pages p ON p.id = a.id
@@ -156,27 +196,57 @@ export async function resolvePageAccess(
   const standing = await loadWorkspaceStanding(db, input.userId, row.workspace_id);
   const byRole = standing.pageLevel;
 
+  /*
+   * A cap lowers what everything else arrived at, and is asked last (ADR-0087).
+   *
+   * Except for somebody the workspace makes a page admin — the same escape
+   * hatch a restricted page carries, and for the same reason: a cap that
+   * applied to them could be set on the workspace root and never lifted again,
+   * by anybody, without database access.
+   *
+   * The record proposed exempting whoever holds `roles.manage` instead. Asking
+   * the page level is the better rule and turned out to be the same rule the
+   * line below already applies: a cap is a rule about a *page*, so who may
+   * override it should be settled by what the workspace says about pages, not
+   * by a right that is about the settings screen.
+   */
+  const ceiling = byRole === 'admin' ? null : row.capped;
+
   if (row.restricted) {
     // A restricted page ignores the role's default. Anybody the workspace
     // makes a page admin keeps manage, or a restriction would be able to lock
     // out the people who have to be able to undo it.
     const keep = byRole === 'admin' ? 'admin' : null;
-    const access = morePermissive(keep, row.granted);
+    const given = morePermissive(keep, row.granted);
+    const access = lessPermissive(given, ceiling);
     return {
       access,
-      reason: access === null ? 'restricted' : row.granted ? 'granted' : 'role',
+      reason:
+        access === null
+          ? 'restricted'
+          : ceiling !== null && given !== null && RANK[ceiling] < RANK[given]
+            ? 'capped'
+            : row.granted
+              ? 'granted'
+              : 'role',
     };
   }
 
-  const access = morePermissive(byRole, row.granted);
+  const given = morePermissive(byRole, row.granted);
+  const access = lessPermissive(given, ceiling);
   return {
     access,
     reason:
       access === null
         ? 'not_a_member'
-        : row.granted && (byRole === null || RANK[row.granted] > RANK[byRole])
-          ? 'granted'
-          : 'role',
+        : // Said before the other two, because a cap is the only one that took
+          // something away and is therefore the only one the reader cannot work
+          // out from what they were given.
+          ceiling !== null && given !== null && RANK[ceiling] < RANK[given]
+          ? 'capped'
+          : row.granted && (byRole === null || RANK[row.granted] > RANK[byRole])
+            ? 'granted'
+            : 'role',
   };
 }
 
