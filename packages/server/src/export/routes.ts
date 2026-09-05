@@ -14,7 +14,7 @@
 
 import type { Pool } from 'pg';
 
-import { canRead } from '../auth/claims.js';
+import { canRead, restrictedAtSql } from '../auth/claims.js';
 import { claimsOrNull, sessionTokenFrom } from '../http/auth.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { loadDoc } from '../doc/docStore.js';
@@ -59,11 +59,16 @@ export function registerExportRoutes(router: Router, deps: ExportDeps): void {
       workspace_id: string;
       ancestor_ids: string[];
       title: string;
-      restricted: boolean;
+      restricted_at: string | null;
     }>(
       deps.pool,
-      `SELECT id, workspace_id, ancestor_ids, title, restricted
-         FROM pages WHERE id = $1 AND archived_at IS NULL`,
+      // The *inherited* restriction, not the page's own column. This read
+      // `pages.restricted` and therefore said "not restricted" for every page
+      // inside a restricted section — which the type change from a boolean to
+      // a boundary id is what surfaced (ADR-0026, ADR-0089).
+      `SELECT p.id, p.workspace_id, p.ancestor_ids, p.title,
+              ${restrictedAtSql('p')} AS restricted_at
+         FROM pages p WHERE p.id = $1 AND p.archived_at IS NULL`,
       [pageId],
     );
     if (!root) {
@@ -80,7 +85,7 @@ export function registerExportRoutes(router: Router, deps: ExportDeps): void {
       id: root.id,
       workspaceId: root.workspace_id,
       ancestorIds: root.ancestor_ids,
-      restricted: root.restricted,
+      restrictedAt: root.restricted_at,
     };
     if (!claims || !canRead(claims, location)) {
       // Indistinguishable from the page not existing, like everywhere else.

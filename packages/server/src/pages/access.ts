@@ -120,13 +120,22 @@ export async function resolvePageAccess(
   }>(
     db,
     `WITH RECURSIVE ancestry AS (
-       SELECT p.id, p.parent_page_id, p.workspace_id, p.restricted
+       -- Depth counts *upward* from the page: 0 is the page itself, and a
+       -- larger number is further towards the root. So "at or below" is
+       -- "depth <= ", which is what the fence below is compared with.
+       SELECT p.id, p.parent_page_id, p.workspace_id, p.restricted, 0 AS depth
          FROM pages p
         WHERE p.id = $1
        UNION ALL
-       SELECT p.id, p.parent_page_id, p.workspace_id, p.restricted
+       SELECT p.id, p.parent_page_id, p.workspace_id, p.restricted, a.depth + 1
          FROM pages p
          JOIN ancestry a ON p.id = a.parent_page_id
+     ),
+     fence AS (
+       -- Where the restriction starts, as a depth. The *deepest* one, which is
+       -- the smallest depth: any other on the path is above it, so a grant that
+       -- clears the deepest has already cleared them.
+       SELECT min(depth) AS depth FROM ancestry WHERE restricted
      ),
      grants AS (
        -- Granted to them, and granted to a group they are in. Read together
@@ -140,6 +149,11 @@ export async function resolvePageAccess(
         -- own grant either way, so the page it was made on always counts.
         WHERE pp.user_id = $2
           AND (pp.include_subtree OR pp.page_id = $1)
+          -- And it must have been made at or below the restriction, or a
+          -- subtree grant one level above a restricted section would walk
+          -- straight through it (ADR-0089). No fence, no clause: the COALESCE
+          -- compares the row with itself.
+          AND a.depth <= COALESCE((SELECT depth FROM fence), a.depth)
        UNION ALL
        SELECT gp.role
          FROM page_group_permissions gp
@@ -147,6 +161,7 @@ export async function resolvePageAccess(
          JOIN group_members gm ON gm.group_id = gp.group_id
         WHERE gm.user_id = $2
           AND (gp.include_subtree OR gp.page_id = $1)
+          AND a.depth <= COALESCE((SELECT depth FROM fence), a.depth)
      )
      SELECT
        -- Not the role. What somebody holds in a workspace is loaded by
@@ -251,6 +266,33 @@ export async function resolvePageAccess(
 }
 
 /**
+ * Whether a grant made on `scopeColumn` stands at or below the restriction.
+ *
+ * The listing half of the fence `effectiveRole` applies (ADR-0089), and the
+ * reason it is a fragment rather than two written-out subqueries: the two
+ * branches above are the person's own grants and their groups', and those two
+ * disagreeing would mean a page a group could list and a person could not.
+ *
+ * Positions in the path, which is `ancestor_ids` root-first with the page
+ * itself appended — so a larger position is deeper. The deepest restricted
+ * page is the only fence that matters; a grant at or below it clears every
+ * other one on the path by construction.
+ *
+ * `COALESCE(..., 1)` is the unrestricted case: every page on the path has
+ * position 1 or more, so with no fence the comparison is always true. (The
+ * branch above already answers that case, so this is a guard rather than a
+ * path anybody reaches.)
+ */
+const grantIsBelowFence = (alias: string, scopeColumn: string): string => `
+  array_position(array_append(${alias}.ancestor_ids, ${alias}.id), ${scopeColumn})
+    >= COALESCE((
+      SELECT max(array_position(array_append(${alias}.ancestor_ids, ${alias}.id), r.id))
+        FROM pages r
+       WHERE r.id = ANY(array_append(${alias}.ancestor_ids, ${alias}.id))
+         AND r.restricted
+    ), 1)`;
+
+/**
  * A SQL condition for "this person may see this page".
  *
  * Written once and pasted into every query that lists pages, because there are
@@ -287,6 +329,7 @@ export const visiblePagesCondition = (alias: string, userParam: string): string 
          pp.page_id = ${alias}.id
          OR (pp.include_subtree AND pp.page_id = ANY(${alias}.ancestor_ids))
        )
+       AND ${grantIsBelowFence(alias, 'pp.page_id')}
   )
   OR EXISTS (
     SELECT 1 FROM page_group_permissions gp
@@ -296,8 +339,10 @@ export const visiblePagesCondition = (alias: string, userParam: string): string 
          gp.page_id = ${alias}.id
          OR (gp.include_subtree AND gp.page_id = ANY(${alias}.ancestor_ids))
        )
+       AND ${grantIsBelowFence(alias, 'gp.page_id')}
   )
 )`;
+
 
 /**
  * A page somebody cannot see, but whose descendant they can.

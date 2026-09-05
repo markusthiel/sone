@@ -13,6 +13,38 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Eine Beschränkung hält jetzt auch gegen die, die den Ordner darüber haben.**
+Wer eine Seite oder einen Bereich beschränkt („nur die unten hinzugefügten
+Leute"), hielt damit bisher nur die Rolle des Workspace fern. Eine Freigabe auf
+einem Ordner *darüber*, die den Teilbaum einschließt, ging glatt hindurch — also
+genau gegen die Leute, gegen die man beschränkt: das eigene Team, alle, die den
+Bereich darüber bekommen haben.
+
+Ab jetzt zählt eine Freigabe nur, wenn sie **auf oder unterhalb** der
+beschränkten Seite gesetzt wurde. Wer direkt dort hinzugefügt wurde, kommt
+hinein; wer den Ordner darüber hält, nicht mehr. Freigabelinks folgen derselben
+Regel: ein Link auf einen Ordner öffnet keine beschränkte Seite darin.
+
+**Zu tun beim Aktualisieren: nichts — aber jemand verliert womöglich Zugriff.**
+Wer heute über eine Freigabe von weiter oben in einen beschränkten Bereich
+kommt, kommt danach nicht mehr hinein. Das ist der Zweck der Änderung. Wer den
+Zugriff behalten soll, wird direkt auf der beschränkten Seite hinzugefügt.
+
+**Dabei sind sechs Stellen aufgefallen, die eine beschränkte Seite nicht
+verbargen.** Der Seitenbaum hat sie immer verborgen; diese sechs Wege nicht:
+
+- eine beschränkte Seite direkt über ihre Adresse abrufen — Titel, Symbol,
+  Titelbild kamen zurück,
+- Schlagwörter samt Anzahl aus einem beschränkten Bereich in der Schlagwortliste,
+- beschränkte Seiten im Papierkorb,
+- eine neue Seite in einem beschränkten Ordner anlegen,
+- eine Seite in einen beschränkten Ordner wiederherstellen,
+- eine beschränkte Seite auf einen früheren Stand zurücksetzen.
+
+Betroffen waren **Mitglieder** — Gäste wurden ohnehin abgewiesen, weshalb es in
+keinem Test auffiel. Alle sechs sind geschlossen und durch Tests abgesichert,
+die vorher fehlschlagen.
+
 **Eine freigegebene Unterseite steht jetzt an ihrem Platz im Seitenbaum.** Wer
 eine Seite tief in einem beschränkten Bereich freigegeben bekommt, sah sie
 bisher ganz oben in der Seitenleiste stehen, außerhalb des Bereichs, in dem sie
