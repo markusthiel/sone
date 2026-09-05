@@ -283,6 +283,8 @@ async function main(): Promise<void> {
     publicUrl: config.publicUrl,
     // Decided the same way as everywhere else here, rather than a new setting.
     secureCookies: config.publicUrl.startsWith('https://'),
+    // Signs the pending sign-in cookie (ADR-0082).
+    secretKey: config.secretKey,
   });
 
   /*
