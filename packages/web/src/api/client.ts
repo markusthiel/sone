@@ -677,6 +677,59 @@ export const api = {
   createContainer: (pageId: string) =>
     request<{ containerId: string }>(`/api/pages/${pageId}/containers`, { method: 'POST' }),
 
+  /**
+   * What a link reaches: its page, and the subtree when it says so.
+   *
+   * Needed because a shared **folder** is otherwise a shared nothing — the link
+   * view renders one page, a folder has no body, and there is no navigation on
+   * that path.
+   */
+  sharedPages: (token: string) =>
+    request<{
+      pages: Array<{
+        id: string;
+        parentPageId: string | null;
+        title: string;
+        kind: string;
+        idx: string;
+      }>;
+      scopePageId: string;
+    }>(`/api/share/${encodeURIComponent(token)}/pages`),
+
+  /** Everything shared in a workspace, from both ends (ADR-0026). */
+  shares: (workspaceId: string) =>
+    request<{
+      links: Array<{
+        id: string;
+        pageId: string;
+        pageTitle: string;
+        role: string;
+        includeSubtree: boolean;
+        hasPassword: boolean;
+        expiresAt: string | null;
+        createdAt: string;
+        mine: boolean;
+      }>;
+      granted: Array<{
+        pageId: string;
+        pageTitle: string;
+        subject: string;
+        subjectKind: string;
+        access: string;
+        includeSubtree: boolean;
+        grantedAt: string;
+      }>;
+      received: Array<{
+        pageId: string;
+        pageTitle: string;
+        access: string;
+        includeSubtree: boolean;
+        grantedAt: string;
+        grantedBy: string | null;
+        viaGroup: string | null;
+      }>;
+    }>(`/api/workspaces/${workspaceId}/shares`),
+
   pagePermissions: (pageId: string) =>
     request<{
       restricted: boolean;

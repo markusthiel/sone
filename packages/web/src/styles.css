@@ -7776,6 +7776,60 @@ body {
   font-size: var(--sone-text-sm);
 }
 
+/* The sharing overview (ADR-0026).
+ *
+ * The reading column, like every other screen that is a list rather than a
+ * document — a page of links read at the width of prose, not at the width of
+ * the window.
+ *
+ * The headings carry more space above than the settings default, because this
+ * screen is three lists and not one: links, what I gave, what I was given, and
+ * the gap is what says they are three answers rather than one long one.
+ */
+.shares {
+  max-width: 46rem;
+  margin-inline: auto;
+}
+
+.shares h2 { margin-block-start: var(--sone-space-7); }
+
+/* What a link reaches, beside the page it opened on.
+ *
+ * A plain indented list rather than a collapsible tree: a link's scope is one
+ * section, the whole of it fits, and a control that hides part of what somebody
+ * was given is a control working against the point of the page.
+ */
+.share-tree {
+  flex: 0 0 15rem;
+  padding: var(--sone-space-5);
+  border-inline-end: 1px solid var(--sone-border);
+  overflow-y: auto;
+}
+
+.share-tree ul { list-style: none; margin: 0; padding: 0; }
+
+.share-tree a {
+  display: block;
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border-radius: var(--sone-radius-sm);
+  color: var(--sone-text);
+  text-decoration: none;
+  font-size: var(--sone-text-sm);
+}
+
+.share-tree a:hover { background: var(--sone-bg-hover); }
+.share-tree a[aria-current='page'] { background: var(--sone-bg-hover); font-weight: 550; }
+
+/* Depth as an indent, from the attribute the list already carries. Four levels
+ * is where a shared section stops being a section; deeper simply stops moving,
+ * which is better than a column of titles pushed off the edge. */
+.share-tree a[data-depth='1'] { padding-inline-start: var(--sone-space-6); }
+.share-tree a[data-depth='2'] { padding-inline-start: var(--sone-space-7); }
+.share-tree a[data-depth='3'],
+.share-tree a[data-depth='4'] { padding-inline-start: calc(var(--sone-space-7) + var(--sone-space-5)); }
+
+.share-tree li[data-kind='folder'] > a { font-weight: 550; }
+
 .permission-list {
   margin: var(--sone-space-2) 0;
   padding: 0;

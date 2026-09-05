@@ -38,6 +38,7 @@ import { LocaleProvider, resolveLocale, useT } from './i18n/useT.tsx';
 import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
+import { SharesScreen } from './components/SharesScreen.tsx';
 import { WorkspaceListScreen } from './components/WorkspaceListScreen.tsx';
 import { ModeBar } from './components/ModeBar.tsx';
 import { WorkspaceChooser, WorkspacePanel } from './components/WorkspacePanel.tsx';
@@ -931,6 +932,11 @@ function Workspace({
           />
         )}
 
+        {/* Per workspace, unlike the inbox below: a share is a rule about
+            pages, and pages belong to one workspace. The question "what have I
+            let out" is asked about a place, not about everything at once. */}
+        {route.kind === 'shares' && <SharesScreen workspaceId={workspaceId} />}
+
         {/* The inbox spans workspaces, so it takes no workspace id — the whole
             point is being told about a question asked somewhere other than
             where somebody is standing (ADR-0052). */}
@@ -1257,6 +1263,32 @@ function ShareRoute({
   );
 }
 
+/**
+ * How deep an entry sits inside what was shared.
+ *
+ * Walked from the entry upwards rather than built as a tree, because the list
+ * is small — it is one link's scope, not a workspace — and a flat list with an
+ * indent reads the same and cannot lose a node whose parent is missing. Which
+ * happens legitimately here: a restricted page inside the shared section is
+ * withheld, and its children may not be.
+ */
+function depthOf(
+  id: string,
+  entries: ReadonlyArray<{ id: string; parentPageId: string | null }>,
+): number {
+  const byId = new Map(entries.map((one) => [one.id, one]));
+  let depth = 0;
+  let at = byId.get(id);
+  // Bounded by the number of entries, so a cycle — which the database forbids
+  // and this cannot verify — stops rather than hangs.
+  while (at?.parentPageId && depth < entries.length) {
+    at = byId.get(at.parentPageId);
+    if (!at) break;
+    depth += 1;
+  }
+  return depth;
+}
+
 function ShareSession({
   token,
   pageId,
@@ -1318,6 +1350,38 @@ function ShareSession({
   const handle = usePage(client, effectivePageId);
   const [password, setPassword] = useState('');
 
+  /**
+   * What else the link reaches.
+   *
+   * Loaded because a shared **folder** was a shared nothing: this view renders
+   * one page, a folder has no body, and there was no navigation here at all —
+   * so a link to a section of the handbook arrived as an empty page with a
+   * name at the top.
+   *
+   * Only what the link grants, asked of the server rather than filtered here:
+   * a visitor holding a link is not a member and must not learn what else the
+   * workspace contains.
+   */
+  const [shared, setShared] = useState<
+    Array<{ id: string; parentPageId: string | null; title: string; kind: string; idx: string }>
+  >([]);
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .sharedPages(token)
+      .then((result) => {
+        if (!cancelled) setShared(result.pages);
+      })
+      // Quietly: a link to a single page has nothing to draw here, and a
+      // password-protected one answers this only once it is unlocked.
+      .catch(() => {
+        if (!cancelled) setShared([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, passwordRequired]);
+
   if (passwordRequired) {
     return (
       <div className="centered">
@@ -1364,6 +1428,29 @@ function ShareSession({
     <div className="app">
       {/* The shared-link view: no toggles and nothing to scroll past, so it
           keeps the plain bar. */}
+      {/* Only when the link reaches more than the page it names.
+        *
+        * A link to one page has nothing to navigate, and an aside holding a
+        * single entry is furniture. This is the difference between sharing a
+        * page and sharing a section, and the view should look like whichever
+        * one happened. */}
+      {shared.length > 1 && (
+        <nav className="share-tree" aria-label="Shared pages">
+          <ul>
+            {shared.map((entry) => (
+              <li key={entry.id} data-kind={entry.kind}>
+                <a
+                  href={`/s/${encodeURIComponent(token)}/p/${entry.id}`}
+                  aria-current={entry.id === effectivePageId ? 'page' : undefined}
+                  data-depth={depthOf(entry.id, shared)}
+                >
+                  {entry.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
       <div className="main">
         <div className="topbar">
           <PageStatus handle={handle} connectionState={state} />
