@@ -88,7 +88,16 @@ wrong once for five days.
 The 0.11.0 release notes and its commit message say an image could not be
 produced here. That was wrong, and it is not corrected in place: a released tag
 is not moved (ADR-0013), and its notes are what an operator running 0.11.0
-reads. `0.11.1` carries the correction.
+reads. The correction sits under **Unreleased**, immediately above the notes it
+corrects, and ships with the next release rather than in one of its own.
+
+That was a deliberate choice against cutting `0.11.1` for it. Nothing in the
+application changed here — CI, a document and the changelog — so a patch
+release would have handed an operator a tag, an image and a "pull and restart"
+whose result is byte-identical to what they already run. A version answers "what
+must I do to upgrade?" (ADR-0013), and the honest answer to this one is
+"nothing", which is not a release. Anyone reading the changelog meets the
+correction one paragraph before the sentence it corrects.
 
 Everything the 295 runs did not check has now been checked, on the same
 machine, the same way as before: 2082 tests, typecheck and lint clean. That is
