@@ -43,6 +43,7 @@ import { markdownPaste } from './markdownPaste.js';
 import { authorHighlight } from './authorHighlight.js';
 import { schema } from './schema.js';
 import { blockLock } from './blockLock.js';
+import { editGuard } from './editGuard.js';
 import { mentionMenu } from './mentionMenu.js';
 import { slashMenu, type LocaliseSlashItem } from './slashMenu.js';
 import { tableKeymap, tablePlugins } from './tables.js';
@@ -232,6 +233,16 @@ export function createEditorState(opts: EditorOptions): EditorState {
     // One filter for every locked block (ADR-0049). Before the application's
     // own plugins, so a supplied plugin cannot dispatch past it.
     blockLock(),
+    /*
+     * And the same question for the whole page, asked where ProseMirror asks
+     * about every change rather than only about the user's own input.
+     *
+     * `editable` below governs typing, pasting and dragging. It does not
+     * govern a command somebody's button dispatches, and the interface is full
+     * of buttons that dispatch — which is how a locked page kept its gutter
+     * menu's delete. See editGuard.ts.
+     */
+    editGuard(() => opts.editable?.() !== false),
   );
 
   // Last, so a supplied plugin sees a state this package has already set up —
