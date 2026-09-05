@@ -59,6 +59,15 @@ nobody can explain.
 
 ### Groups name who, never what
 
+> **See ADR-0087 (proposed, 2026-09-05).** This heading is the one part of this
+> record that a later decision argues with. The reasoning below survives intact —
+> a group is still a list of people, and the more permissive of a direct and a
+> group grant still wins. What ADR-0087 adds is a **role**, which does name what,
+> and which a group can hold. The argument this section did not make is about
+> everything that is not a page: who may add people, make groups, change the
+> workspace's typography, export it. Those are eight independent questions, and
+> today they are all answered by one comparison against `owner` or `admin`.
+
 A group is a list of people. It is granted access exactly as a person is, and it
 exists because granting page by page and person by person stops working at
 around ten people — which is what both Outline and Docmost say in their own
