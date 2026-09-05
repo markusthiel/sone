@@ -16,7 +16,7 @@ import type { Router } from '../http/router.js';
 import { roleIn } from './claims.js';
 import { queryOne } from '../db/pool.js';
 import { requireSession } from '../http/auth.js';
-import { administratorRights } from '../admin/rights.js';
+import { holdsRight } from './rights.js';
 import { AuthError } from './password.js';
 import {
   acceptInvitation,
@@ -47,17 +47,15 @@ async function mayAdminister(
   workspaceId: string,
   userId: string,
 ): Promise<boolean> {
-  const membership = await roleIn(pool, workspaceId, userId);
-  if (membership && (membership === 'owner' || membership === 'admin')) {
-    return true;
-  }
-
-  const rights = await administratorRights(pool, userId);
-  if (rights.workspaces) return true;
+  // `people.manage` rather than "owner or admin" (ADR-0087). Both ways of
+  // holding it — the role, and the instance-wide right — are asked inside
+  // `holdsRight`, which is where ADR-0027's consolidation now lives.
+  const { member, held } = await holdsRight(pool, workspaceId, userId, 'people.manage');
+  if (held) return true;
 
   // Not found rather than forbidden for a workspace somebody is not in: "you
   // may not invite here" confirms the workspace exists.
-  ctx.fail(membership ? 403 : 404, membership ? 'forbidden' : 'not_found');
+  ctx.fail(member ? 403 : 404, member ? 'forbidden' : 'not_found');
   return false;
 }
 
@@ -307,11 +305,16 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     //
     // Demoting the last one leaves a workspace nobody can transfer or delete,
     // and the person who did it is usually the person who then cannot undo it.
+    //
+    // Counted over `is_owner`, the column, rather than over the role word:
+    // ownership is not a right and does not travel with a role, precisely so
+    // that this rule stays one query instead of "the last person holding a
+    // role that includes deletion" (ADR-0087).
     if (current === 'owner' && role !== 'owner') {
       const others = await queryOne<{ n: number }>(
         deps.pool,
         `SELECT count(*)::int AS n FROM workspace_members
-          WHERE workspace_id = $1 AND role = 'owner' AND user_id <> $2`,
+          WHERE workspace_id = $1 AND is_owner AND user_id <> $2`,
         [workspaceId, target],
       );
       if ((others?.n ?? 0) === 0) {
@@ -350,10 +353,11 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     }
 
     if (current === 'owner') {
+      // Over the column, for the reason above.
       const others = await queryOne<{ n: number }>(
         deps.pool,
         `SELECT count(*)::int AS n FROM workspace_members
-          WHERE workspace_id = $1 AND role = 'owner' AND user_id <> $2`,
+          WHERE workspace_id = $1 AND is_owner AND user_id <> $2`,
         [workspaceId, target],
       );
       if ((others?.n ?? 0) === 0) {

@@ -64,11 +64,19 @@ export interface WorkspaceStanding {
  * and deleting the workspace, which is a property of the membership rather
  * than a right (ADR-0087).
  */
-const SYSTEM_ROLES: ReadonlyArray<{ key: string; name: string; level: Role | null }> = [
-  { key: 'owner', name: 'Owner', level: 'admin' },
-  { key: 'admin', name: 'Admin', level: 'admin' },
-  { key: 'member', name: 'Member', level: 'editor' },
-  { key: 'guest', name: 'Guest', level: null },
+const MANAGES: readonly Right[] = ['people.manage', 'groups.manage', 'workspace.settings'];
+
+const SYSTEM_ROLES: ReadonlyArray<{
+  key: string;
+  name: string;
+  level: Role | null;
+  rights: readonly Right[];
+}> = [
+  { key: 'owner', name: 'Owner', level: 'admin', rights: MANAGES },
+  { key: 'admin', name: 'Admin', level: 'admin', rights: MANAGES },
+  // A member may write in the workspace and may not decide who else is in it.
+  { key: 'member', name: 'Member', level: 'editor', rights: [] },
+  { key: 'guest', name: 'Guest', level: null, rights: [] },
 ];
 
 /**
@@ -82,9 +90,9 @@ export async function ensureSystemRoles(db: Pool | PoolClient): Promise<void> {
   for (const role of SYSTEM_ROLES) {
     await db.query(
       `INSERT INTO roles (workspace_id, key, name, page_level, rights)
-       VALUES (NULL, $1, $2, $3, '{}')
+       VALUES (NULL, $1, $2, $3, $4)
        ON CONFLICT (key) WHERE key IS NOT NULL DO NOTHING`,
-      [role.key, role.name, role.level],
+      [role.key, role.name, role.level, role.rights],
     );
   }
 }

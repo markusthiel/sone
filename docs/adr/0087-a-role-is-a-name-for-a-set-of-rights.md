@@ -2,8 +2,13 @@
 
 ## Status
 
-Proposed. Nothing is built. This record exists to be argued with before code is
-written, because it changes a decision ADR-0026 made deliberately.
+Accepted, and steps 1 and 2 of the four below are built. Steps 3 (the settings
+screen) and 4 (caps) are not.
+
+It was written as a proposal and agreed before any code, because it changes a
+decision ADR-0026 made deliberately. Two things changed in the building, both
+recorded in **What building it changed** near the end: the list of rights is
+three rather than eight, and ownership became a column.
 
 ## Context
 
@@ -89,18 +94,16 @@ the whole of Markus's first question, and it falls out rather than being built.
 ### The rights are an enumeration in code, and a check enforces it
 
 ```
-people.manage      add and remove members, change what role they hold
+people.manage      add and remove members, change what role they hold, invitations
 groups.manage      create groups, change who is in them
-roles.manage       define roles and assign them
 workspace.settings name, mark, typography, appearance
-workspace.export   export the whole workspace
-pages.create       create a page at the top level of the tree
-links.share        create a share link on a page one may manage
-trash.purge        empty the workspace's trash for good
 ```
 
-Eight, and the list is closed. Adding one is a change to this file and to the
+Three, and the list is closed. Adding one is a change to this file and to the
 code that checks it, in the same commit.
+
+The proposal listed eight. Five of them named things nothing guards — see
+**What building it changed**.
 
 **A right nobody checks is a lie**, and this project has now found that exact
 shape six times (ADR-0084 names it). So the enumeration gets a mechanical guard
@@ -229,6 +232,51 @@ ADR-0026 sequenced its own work and that was right. The same here:
 Steps 1 and 2 are invisible to anybody using SONE and are most of the work.
 Step 3 is the thing that was asked for. That ordering is deliberate: the screen
 is easy to build against a model that is wrong.
+
+## What building it changed
+
+Two things, and both are the kind of correction that only appears once the code
+is in front of you.
+
+**Three rights, not eight.** The proposal listed `roles.manage`,
+`workspace.export`, `pages.create`, `links.share` and `trash.purge` alongside
+the three that shipped. Writing the enforcement check first — the rule this
+record states — showed that none of the five could have one:
+
+- `roles.manage` guards routes that do not exist until step 3.
+- `links.share` duplicates a check that is already there and is a *page* check,
+  not a workspace one: creating a share link needs `admin` on the page.
+- `pages.create` and `trash.purge` are not separately gated at all today.
+- `workspace.export` is the interesting one. Nothing guards it either — **any
+  member may export an entire workspace**, which was news, and is recorded here
+  as a finding rather than fixed. Adding the right would have meant either
+  tightening what SONE does inside a change whose whole promise was that
+  nothing changes, or shipping a name with nothing behind it. Both are worse
+  than a note.
+
+So the enumeration holds exactly the rights that gate something, and grows when
+a check does. That is the rule the record already stated; what the building
+showed is that the rule bites immediately, which is the point of writing the
+guard before the list.
+
+**Ownership became a column.** The record said owner is a property of the
+membership rather than a right, and left it there. In the code that had to
+become `workspace_members.is_owner`, because the two "the last owner cannot be
+removed" checks counted rows matching the role *word* — which stops meaning
+anything the moment somebody holds a custom role. Ownership as a column also
+means assigning a custom role cannot silently stop somebody being the owner.
+
+**And two things the change carried that were not planned.** Removing the
+`adminParam` from `visiblePagesCondition` was not in the record: it became
+necessary because "does this person's role give them everything" is now a
+question about a role row rather than an enum, and asking thirteen call sites
+to compute it again would have been the same mistake twice. One of those
+thirteen was passing the literal `false`, so an owner could not watch a
+restricted page they could plainly see; that is fixed as a side effect and
+named in the changelog rather than smuggled. And `ensureSystemRoles` runs at
+boot, because the test harness demonstrated within minutes what a truncated
+`roles` table does: every membership resolves to a member holding no role,
+which is no access at all, on every request, with nothing in the logs.
 
 ## Consequences
 
