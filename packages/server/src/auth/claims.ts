@@ -62,6 +62,38 @@ export interface AccessClaims {
    */
   pageLevel: Role | null;
   grants: Grant[];
+  /**
+   * Ceilings set on pages in this workspace (ADR-0087).
+   *
+   * On the claims rather than on the page, and beside the grants rather than
+   * anywhere else, for one reason each.
+   *
+   * **Beside the grants** because that is what a cap is the mirror of: a grant
+   * names a page and a subtree and raises what applies there, a cap names a
+   * page and a subtree and lowers it. Reading them in one place is what lets
+   * `effectiveRole` say "widen, then lower" as two lines rather than as a rule
+   * spread over two files.
+   *
+   * **On the claims** because the alternative — a field on `PageLocation` —
+   * was tried and is wrong. A dozen call sites build a location from a row
+   * they already have, and every one of them would have had to learn to fetch
+   * a cap; the ones that forgot would allow a write to a page the tree shows
+   * as read-only. That is precisely the failure ADR-0086 was written about,
+   * and the compiler pointing at twelve sites was the warning.
+   *
+   * A cap is not filtered by the visibility condition either, which is why
+   * "the listing already excluded it" — the reason those sites pass
+   * `restricted: false` — could never have been said about a cap. A capped
+   * page is visible; that is the point of it.
+   */
+  caps: Cap[];
+}
+
+/** A ceiling on a page and, when it says so, everything under it. */
+export interface Cap {
+  scopePageId: string;
+  includeSubtree: boolean;
+  maxLevel: Role;
 }
 
 const atLeast = (have: Role, need: Role): boolean =>
@@ -159,6 +191,34 @@ async function pageGrantsFor(
   }));
 }
 
+/**
+ * Every ceiling set in a workspace.
+ *
+ * All of them rather than the ones that apply to a page: claims are resolved
+ * per workspace and asked per page, exactly like grants, and a workspace has
+ * far fewer caps than pages. Filtering happens in `effectiveRole`, against the
+ * `ancestor_ids` the location already carries.
+ */
+async function pageCapsFor(db: Pool | PoolClient, workspaceId: string): Promise<Cap[]> {
+  const rows = await queryRows<{
+    page_id: string;
+    include_subtree: boolean;
+    max_level: Role;
+  }>(
+    db,
+    `SELECT c.page_id, c.include_subtree, c.max_level
+       FROM page_caps c
+       JOIN pages p ON p.id = c.page_id
+      WHERE p.workspace_id = $1`,
+    [workspaceId],
+  );
+  return rows.map((row) => ({
+    scopePageId: row.page_id,
+    includeSubtree: row.include_subtree,
+    maxLevel: row.max_level,
+  }));
+}
+
 export async function resolveSessionClaims(
   db: Pool | PoolClient,
   sessionToken: string,
@@ -183,6 +243,7 @@ export async function resolveSessionClaims(
     workspaceRole: standing.role,
     pageLevel: standing.pageLevel,
     grants: await pageGrantsFor(db, session.user.userId, workspaceId),
+    caps: await pageCapsFor(db, workspaceId),
   };
 }
 
@@ -241,6 +302,9 @@ export async function resolveShareTokenClaims(
           // A share link is not a membership: nothing but the grant below.
           pageLevel: null,
           grants: [],
+          // Nothing is authorised until the password is given, so there is
+          // nothing for a ceiling to lower.
+          caps: [],
         },
       };
     }
@@ -300,6 +364,15 @@ export async function resolveShareTokenClaims(
           tokenId: row.id,
         },
       ],
+      /*
+       * A share link is a second grant path, and a cap beats it too.
+       *
+       * ADR-0026 warned that links must not become a way round page
+       * permissions, and a ceiling somebody set on a section is exactly the
+       * rule a link would otherwise walk past — "this is reference material,
+       * nobody edits it" cannot mean "unless they arrived by link".
+       */
+      caps: await pageCapsFor(db, row.workspace_id),
     },
   };
 }
@@ -402,6 +475,29 @@ export function effectiveRole(
       grant.scopePageId === page.id ||
       (grant.includeSubtree && page.ancestorIds.includes(grant.scopePageId));
     if (inScope) consider(grant.role);
+  }
+
+  /*
+   * The ceiling, asked last, and the only thing here that lowers (ADR-0087).
+   *
+   * Not applied to somebody the workspace makes a page admin: the same escape
+   * hatch a restricted page carries. A cap that applied to them could be set on
+   * the workspace root and never lifted again, by anybody, without database
+   * access.
+   *
+   * `resolvePageAccess` asks exactly this, in the same order, and the
+   * agreement test is what keeps the two from drifting — which is the failure
+   * this pair of functions has had once already (ADR-0086).
+   */
+  if (best !== null && claims.pageLevel !== 'admin') {
+    for (const cap of claims.caps) {
+      const inScope =
+        cap.scopePageId === page.id ||
+        (cap.includeSubtree && page.ancestorIds.includes(cap.scopePageId));
+      // The lowest ceiling wins, so every cap in scope is asked rather than the
+      // first: a ceiling under a ceiling is the real ceiling.
+      if (inScope && !atLeast(cap.maxLevel, best)) best = cap.maxLevel;
+    }
   }
 
   return best;
@@ -516,6 +612,7 @@ export async function revalidateClaims(
       workspaceId,
       workspaceRole: standing.role,
       pageLevel: standing.pageLevel,
+      caps: await pageCapsFor(db, workspaceId),
       // The same loader as the first resolution. Two copies of this query is
       // how the group half came to be missing from both.
       grants: await pageGrantsFor(db, row.user_id, workspaceId),
@@ -564,5 +661,9 @@ export async function revalidateClaims(
         tokenId: credential.shareTokenId,
       },
     ],
+    // Re-read on revalidation like everything else: a cap set while a link
+    // session is open takes effect when the connection is next re-checked,
+    // which is what makes it revocable at all (ADR-0006).
+    caps: await pageCapsFor(db, row.workspace_id),
   };
 }

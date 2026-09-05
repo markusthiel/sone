@@ -758,6 +758,7 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
       workspaceId: 'ws',
       workspaceRole: null,
       pageLevel: null,
+      caps: [],
       grants: [
         { scopePageId: 'root', includeSubtree: true, role: 'commenter', source: 'share_token' },
       ],

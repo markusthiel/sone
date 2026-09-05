@@ -13,6 +13,29 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Eine Seite oder ein Bereich lässt sich jetzt deckeln: „hier höchstens
+lesen".** Im Freigabe-Bereich einer Seite, unter der Beschränkung. Die
+Obergrenze gilt für die Seite und alles darunter — auch für Leute, denen weiter
+unten ausdrücklich mehr gegeben wurde, und auch für Freigabelinks.
+
+Das ist die einzige Regel in SONE, die etwas *wegnimmt*. Alle anderen geben:
+die Rolle gibt eine Grundlage, einzelne Freigaben erweitern sie, und die
+Obergrenze deckelt am Ende alles. Sie hängt an der **Seite**, nicht an einer
+Person oder Gruppe — deshalb kann sie senken, ohne dass ein Gruppenbeitritt
+jemandem etwas nehmen könnte.
+
+Gilt mehr als eine, gewinnt die **niedrigste**. Eine Decke unter einer Decke ist
+die wirkliche Decke; sonst könnte eine Unterseite still aufheben, was für den
+Bereich darüber festgelegt wurde.
+
+Wer den Workspace verwaltet, ist ausgenommen — sonst ließe sich eine Obergrenze
+auf der obersten Seite setzen, die danach niemand mehr aufheben kann.
+
+Und weil eine gedeckelte Seite aussieht wie jede andere und sich anders verhält:
+der Freigabe-Bereich sagt, **von wo** eine geerbte Obergrenze kommt.
+
+Migrationen laufen beim Start automatisch. Sonst nichts zu tun.
+
 **Rollen lassen sich jetzt selbst festlegen — Workspace-Einstellungen →
 Rollen.** Eine Rolle sagt zweierlei: was jemand auf Seiten darf, für die nichts
 Eigenes freigegeben wurde, und was er im Workspace verwalten darf. Beides wird

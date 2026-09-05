@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, and steps 1 to 3 of the four below are built. Step 4 (caps) is not.
+Accepted, and all four steps below are built.
 
 It was written as a proposal and agreed before any code, because it changes a
 decision ADR-0026 made deliberately. What changed in the building is recorded in
@@ -335,6 +335,43 @@ needs either `roles.manage` or `people.manage`.** Requiring only the first would
 leave somebody who may set a person's role with a picker that is present, empty
 and unexplained. It is the only route so far that two rights reach, which is why
 `requireAnyRight` says so rather than being a general facility.
+
+### What step four changed, and where the cap ended up living
+
+Two decisions were revised in the building, and both were about *where* a cap is
+carried rather than what it does.
+
+**The cap lives on the claims, beside the grants — not on the page.** The
+obvious place is `PageLocation`, next to `restricted`, and that is where it went
+first. The compiler then pointed at **twelve** call sites that build a location
+by hand from a row they already have, each of which would have had to learn to
+fetch a ceiling; the ones that forgot would allow a write to a page the tree
+shows as read-only. That is ADR-0086 again, and the type error was the warning.
+
+Beside the grants is also the truer place. A grant names a page and a subtree
+and raises what applies there; a cap names a page and a subtree and lowers it.
+Read together, "widen, then lower" is two lines in one function instead of a
+rule spread across two files. The twelve sites needed no change at all.
+
+Those sites pass `restricted: false` with the note "the listing already excluded
+restricted pages". Nothing like that could ever have been said about a cap: a
+capped page **is** visible — that is the point of it — so no listing filters one
+out.
+
+**The exemption is the page level, not `roles.manage`.** This record proposed
+exempting whoever holds `roles.manage`, plus the owner. Asking whether the
+workspace makes them a page admin is the same rule a restricted page already
+applies, and it is the better one: a cap is a rule about a *page*, so who may
+override it should be settled by what the workspace says about pages, not by a
+right that is about the settings screen. For the four system roles the two
+formulations coincide; for a custom role they do not, and the page level is the
+one that reads correctly.
+
+**And one thing that fell out for free.** `share_role` has no "nothing" level,
+so a cap can never hide a page — only lower what it gives. That was not designed;
+it is a consequence of reusing the existing vocabulary, and it is the right
+behaviour: a page that vanished for a reason the reader cannot see is what
+ADR-0026 spends its length avoiding, and hiding is what `restricted` is for.
 
 ## Consequences
 
