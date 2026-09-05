@@ -27,6 +27,29 @@ import { visiblePagesCondition } from '../pages/access.js';
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * An author key as an account id, or null when it is not one.
+ *
+ * `actor_id` is `uuid REFERENCES users (id)`, nullable precisely for "there is
+ * no account to name". A comment's author is a user id **or** a `guest:` key
+ * (ADR-0046), and this passed it through unchecked — so the moment a visitor
+ * replied through a share link, the INSERT tried `'guest:Lars'::uuid` and threw
+ * `22P02`.
+ *
+ * That is not a lost notification, it is a lost **page**. The insert runs
+ * inside the projection's transaction, so the whole rewrite rolled back:
+ * comment counts, blocks, search row, all of it — and the guest's message stays
+ * in the document, so every later projection hit the same value and rolled back
+ * again. `isPermanentWriteFailure` does not count `22P02`, so the room retried
+ * for ever rather than saying so (ADR-0092).
+ *
+ * `textMentionsFor` guards exactly this, one function down, and this one was
+ * never given the same guard.
+ */
+function accountOrNull(author: string): string | null {
+  return !isGuestKey(author) && UUID.test(author) ? author : null;
+}
+
 const EXCERPT = 140;
 
 interface Candidate {
@@ -88,7 +111,7 @@ export function notificationsFor(threads: CommentThread[]): Candidate[] {
         if (who === message.author) continue;
         out.set(`${who}:${message.id}`, {
           userId: who,
-          actorId: message.author,
+          actorId: accountOrNull(message.author),
           kind: 'mention',
           threadId: thread.id,
           messageId: message.id,
@@ -109,7 +132,7 @@ export function notificationsFor(threads: CommentThread[]): Candidate[] {
         if (out.has(key)) continue;
         out.set(key, {
           userId: who,
-          actorId: message.author,
+          actorId: accountOrNull(message.author),
           kind: 'reply',
           threadId: thread.id,
           messageId: message.id,

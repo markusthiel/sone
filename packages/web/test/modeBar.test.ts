@@ -26,8 +26,19 @@ test('the bar is the rail, from the same list', () => {
    * offer fewer places than a desktop with no way to reach the missing ones —
    * the workspaces and the trash would exist and be unreachable.
    */
-  assert.match(bar, /const modes = useModes\(\);/);
-  assert.match(rail, /const \[tree, \.\.\.rest\] = useModes\(\);/);
+  assert.match(bar, /const modes = useModes\(unread\);/);
+  assert.match(rail, /const \[tree, \.\.\.rest\] = useModes\(unread\);/);
+  /*
+   * And the count travels *in* the list, not beside it (ADR-0092).
+   *
+   * The badge is drawn twice — once per drawing — so a number passed to only
+   * one of them is a badge a phone does not have. On the entry, both get it or
+   * neither does.
+   */
+  const modes = codeOf(new URL('../src/components/modes.tsx', import.meta.url));
+  assert.match(modes, /badge\?: number;/);
+  assert.match(bar, /className="sidebar-unread"/);
+  assert.match(rail, /className="sidebar-unread"/);
   // Searching is not a place you are, so it is not here. It stays the labelled
   // row above the tree, where it is at both widths.
   assert.doesNotMatch(bar, /paths\.search/);
@@ -45,8 +56,20 @@ test('the two are never on screen at once, and the stylesheet decides', () => {
 test('the account is drawn once, and the bar is the second place', () => {
   // Two mounted copies would be two requests for the same unread count and two
   // answers that can disagree for a moment.
-  assert.match(app, /<IconRail here=\{mode\} account=\{isColumn \? accountMenu : null\} \/>/);
-  assert.match(app, /<ModeBar here=\{mode\} account=\{isColumn \? null : accountMenu\} \/>/);
+  assert.match(
+    app,
+    /<IconRail here=\{mode\} account=\{isColumn \? accountMenu : null\} unread=\{inbox\.unread\} \/>/,
+  );
+  assert.match(
+    app,
+    /<ModeBar here=\{mode\} account=\{isColumn \? null : accountMenu\} unread=\{inbox\.unread\} \/>/,
+  );
+  // One number, from the list the inbox itself draws. It used to be a second
+  // `GET /api/inbox/count` inside the menu, which is how a badge and a list
+  // come to disagree the moment somebody marks something read (ADR-0092).
+  const menu = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
+  assert.doesNotMatch(menu, /inboxCount/);
+  assert.doesNotMatch(menu, /sidebar-unread"/);
   const sidebar = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
   assert.doesNotMatch(sidebar, /panel-modes/, 'the panel foot it replaces is gone');
   assert.doesNotMatch(sidebar, /<AccountMenu/);

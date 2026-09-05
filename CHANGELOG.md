@@ -13,6 +13,42 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Ein geteilter Ordner ist beim Gast wieder ein Ordner.** Er wurde als Seite mit
+Schreibcursor gezeichnet — eine Einladung, in etwas zu schreiben, das keinen Text
+aufnehmen kann, auf einem Link, der vielleicht nur lesen darf. Jetzt: die Liste
+dessen, was drin liegt, ohne Umbenennen-Feld und ohne „Neue Seite".
+
+**Gast-Kommentare tragen jetzt den Namen, den der Gast eingegeben hat.** Und der
+Gast sieht den Namen des Mitglieds, das geantwortet hat, statt „Jemand, der nicht
+mehr dabei ist". Beides war falsch, und beim Namen des Gastes doppelt: jede
+Anfrage über den Freigabe-Cookie hat den gespeicherten Namen mit „Guest"
+**überschrieben**.
+
+**Eine Antwort eines Gastes hat die Projektion der ganzen Seite abgebrochen.**
+Gemeldet als „eine Antwort auf einen Kommentar wird nicht eingetragen" — es war
+schlimmer: ein Gast-Schlüssel in einer uuid-Spalte, mitten in der Transaktion,
+die auch Kommentarzahlen, Blöcke und die Suchzeile schreibt. Und weil die
+Nachricht im Dokument bleibt, scheiterte jede weitere Projektion derselben Seite
+wieder — still und dauerhaft.
+
+**Die Zahl sitzt jetzt an der Glocke, nicht am Profilbild**, und sie kommt aus
+derselben Liste, die der Posteingang zeigt. Zahl und Inhalt frischen auf, sobald
+man ins Fenster zurückkehrt. (Während man auf die Seite starrt, erscheint noch
+nichts von selbst — das bräuchte einen Push, den es noch nicht gibt.)
+
+**Ein gelöschter Kommentar nimmt seinen Eintrag in der Glocke mit.** Bisher blieb
+er stehen und zeigte auf einen Faden, den es nicht mehr gibt.
+
+**Der Freigaben-Bereich hat eine Seitenleiste.** Links, von mir, für mich als
+drei Einträge mit Anzahl; das Ergebnis im Content. Vorher lag alles untereinander
+und links war nichts.
+
+**Kleinigkeiten:** der Zähler eines ausklappbaren Elements schrieb ab zehn über
+den Text; im geteilten Seitenbaum fehlten Ordner-Symbole und -Farben, die der
+Titel sehr wohl zeigte.
+
+Nichts zu tun beim Aktualisieren.
+
 **Erwähnungen landen jetzt in der Glocke.** Wer in einer Seite mit `@` genannt
 wurde, bekam nichts — und zwar am zuverlässigsten dann, wenn er die Seite gerade
 offen hatte.

@@ -313,6 +313,34 @@ export async function materializeDocument(
   }
 
   /*
+   * A notification whose thread is gone goes with it (ADR-0092).
+   *
+   * The rewrite above is one-directional: `page_comments` shrinks when
+   * somebody deletes a thread, and `writeNotifications` only ever inserts. So
+   * deleting a comment left its row in the bell for ever, pointing at a thread
+   * that is not there — click it and nothing is found.
+   *
+   * `thread_id IS NOT NULL` is not a nicety. An assignment and a text mention
+   * carry a null thread on purpose (the block id is their identity), and
+   * without the guard every projection would wipe all of them.
+   *
+   * Threads, not messages: the projection stores a thread per row and a count,
+   * so a single deleted reply inside a surviving thread is not visible here.
+   * Its notification stays, and lands on the thread rather than on the
+   * sentence — which is where the reader wanted to go anyway.
+   */
+  await db.query(
+    `DELETE FROM notifications n
+      WHERE n.page_id = $1
+        AND n.thread_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM page_comments c
+           WHERE c.page_id = n.page_id AND c.thread_id = n.thread_id
+        )`,
+    [pageId],
+  );
+
+  /*
    * And who has been addressed (ADR-0052).
    *
    * After the comment rows, from the same threads: this is the trusted side, so

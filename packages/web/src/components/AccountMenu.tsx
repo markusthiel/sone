@@ -64,23 +64,6 @@ export function AccountMenu({
    * Once per mount, which is once per navigation: not polled. A number that is
    * a minute old is the right trade for a request nobody asked for.
    */
-  const [unread, setUnread] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    void api
-      .inboxCount()
-      .then((result) => {
-        if (!cancelled) setUnread(result.unread);
-      })
-      .catch(() => {
-        // A count that cannot be fetched is drawn as no count. An error badge
-        // on the account button would be a permanent complaint about something
-        // nobody can act on.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
   // Most accounts have no picture, so a failed request is the ordinary case
   // rather than an error worth reporting.
   const [avatarBroken, setAvatarBroken] = useState(false);
@@ -112,11 +95,10 @@ export function AccountMenu({
         className="sidebar-account"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={
-          unread > 0
-            ? t('account.label.waiting', { name: displayName, count: unread })
-            : t('account.label', { name: displayName })
-        }
+        // Just the name. What is waiting is announced on the bell, which is
+        // where it is (ADR-0092) — saying it here too would have a screen
+        // reader report the count in the one place that cannot open it.
+        aria-label={t('account.label', { name: displayName })}
         onClick={() => setOpen((previous) => !previous)}
       >
         <span className="sidebar-avatar" aria-hidden="true">
@@ -137,11 +119,11 @@ export function AccountMenu({
           * in the interface that has to be noticed without being looked for.
           * The number is in the button's own label as well, or a screen reader
           * announces the name and not the count. */}
-        {unread > 0 && (
-          <span className="sidebar-unread" aria-hidden="true">
-            {unread > 99 ? '99+' : unread}
-          </span>
-        )}
+        {/* No badge here any more (ADR-0092).
+          *
+          * It was the only one in the application and it sat on the face,
+          * which opens a menu that does not hold the notifications. It is on
+          * the bell now, where the thing it counts lives. */}
       </button>
 
       <a

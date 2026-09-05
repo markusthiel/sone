@@ -18,7 +18,6 @@ export const en = {
   'account.workspaces': 'Workspaces',
   'account.administration': 'Administration',
   'account.inbox': 'Inbox',
-  'account.label.waiting': '{name}, {count} notifications waiting',
   'inbox.title': 'Inbox',
   'settings.title': 'Settings',
   // Two areas, not three: a workspace has one of its own (ADR-0070).

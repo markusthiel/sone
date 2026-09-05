@@ -38,7 +38,15 @@ test('the shared list is the sidebar, not a second one', () => {
   // Rows are tree rows, with the same icon component the workspace tree uses.
   assert.match(source, /className="tree-row"/);
   assert.match(source, /className="tree-link"/);
-  assert.match(source, /<EntryIconView icon=\{null\} kind=\{drawnKind\(entry\.kind\)\}/);
+  /*
+   * With the entry's **own** icon and colour, not a null.
+   *
+   * It passed `icon={null}`, so the shared tree drew a plain folder and a plain
+   * page for everything while the title above the page showed the real one —
+   * the same entry with two appearances on one screen (ADR-0092).
+   */
+  assert.match(source, /<EntryIconView icon=\{iconOf\(entry\.icon\)\} kind=\{drawnKind\(entry\.kind\)\}/);
+  assert.match(source, /style=\{titleColorStyle\(iconOf\(entry\.icon\)\)\}/);
 });
 
 test('the width is a track on the parent, not a property of the list', () => {
@@ -149,6 +157,34 @@ test('the panel has a column to open into', () => {
     css(),
     /\.app\.with-share-tree\[data-right-panel='open'\] \{\s*grid-template-columns: var\(--sidebar-width, 260px\) minmax\(0, 1fr\) 300px;/,
   );
+});
+
+test('a folder opens as a folder, and offers nothing', () => {
+  /*
+   * Reported as: "Der Ordner Video wird beim Gast als Seite dargestellt auf die
+   * man schreiben kann, das ist ein grober Bug."
+   *
+   * It rendered `PageView` for whatever the link opened on. A folder has no
+   * body, so the visitor got the editor's empty page with a caret in it and
+   * "Write something, or press / for blocks" — an invitation to write into
+   * something that cannot hold writing, on a link that may be read-only.
+   *
+   * And `FolderView` had to learn to offer nothing: its name was an input and
+   * its three buttons made things, unconditionally. Optional handlers rather
+   * than a flag, so a caller with nothing to offer cannot pass one that refuses
+   * (ADR-0092).
+   */
+  const shell = app().slice(app().indexOf('function ShareSession'));
+  assert.match(shell, /const openedFolder = /);
+  assert.match(shell, /<FolderView folder=\{openedFolder\} trail=\{\[\]\} \/>/);
+  assert.doesNotMatch(shell, /<FolderView[^>]*onCreate/, 'nothing to create with');
+
+  const folder = codeOf(new URL('../src/components/FolderView.tsx', import.meta.url));
+  assert.match(folder, /onCreate\?: \(/);
+  assert.match(folder, /onRename\?: \(/);
+  // A heading, not a disabled field: a greyed-out input still says "type here".
+  assert.match(folder, /<h1 className="page-title"/);
+  assert.match(folder, /\{onCreate && \(/);
 });
 
 test('a link to a single page gets no list at all', () => {

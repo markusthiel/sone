@@ -86,11 +86,23 @@ function newId(prefix: string): string {
  * record already accepted: two visitors who both type "Anna" are one name in
  * the thread. More visible here than in a list of contributors, and still the
  * honest answer, because there is nothing else to tell them apart by.
+ *
+ * **The name may come with the request, and only for a visitor.** The first
+ * version refused it, on the grounds that a request naming its own author is a
+ * request that can sign somebody else's name. That is right about a member and
+ * empty about a guest: the name on a share session was typed into a box by the
+ * same person, over a different wire. What actually stops a visitor from
+ * signing as a colleague is the `guest:` prefix, which the panel draws as a
+ * guest badge — not where the string arrived from.
+ *
+ * And refusing it did not leave the name alone, it lost it: the share cookie
+ * cannot say which visitor is asking, so the session resolved on this path was
+ * a nameless one and every guest comment was signed "Guest" (ADR-0092).
  */
-function authorOf(claims: AccessClaims): string {
-  return claims.principal.kind === 'anonymous'
-    ? guestKey(claims.principal.displayName)
-    : claims.principal.userId;
+function authorOf(claims: AccessClaims, given: unknown): string {
+  if (claims.principal.kind !== 'anonymous') return claims.principal.userId;
+  const asked = typeof given === 'string' ? given.trim() : '';
+  return guestKey(asked !== '' ? asked : claims.principal.displayName);
 }
 
 /**
@@ -249,7 +261,7 @@ export function registerCommentRoutes(router: Router, deps: CommentDeps): void {
 
     const threadId = newId('t');
     const messageId = newId('m');
-    const author = authorOf(who.claims);
+    const author = authorOf(who.claims, read.body['name']);
 
     const { changed } = await applyToDocument(
       deps.pool,
@@ -313,7 +325,7 @@ export function registerCommentRoutes(router: Router, deps: CommentDeps): void {
       (doc) => {
         addMessage(doc, threadId, {
           id: messageId,
-          author: authorOf(who.claims),
+          author: authorOf(who.claims, read.body['name']),
           text: read.text,
         });
       },
