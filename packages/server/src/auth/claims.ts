@@ -384,14 +384,22 @@ export interface PageLocation {
   workspaceId: string;
   ancestorIds: string[];
   /**
-   * Whether this page or an ancestor withholds the workspace default.
+   * The **deepest** page on this page's path that withholds the workspace
+   * default, or null. Includes the page itself.
    *
    * Carried here because sync decides with this function and nothing else. The
    * tree hid a restricted page from the moment restrictions existed, and this
    * still served its document to anybody who knew the id — the interface
    * concealed it and the protocol did not.
+   *
+   * An id rather than the boolean it used to be, because a restriction has to
+   * say *where* it starts. `restricted: true` answers "is the default
+   * withheld"; it cannot answer "is this grant from inside the restricted
+   * section or from above it", which is the question a fence has to be able to
+   * answer to be a fence. The deepest one is the only one that matters — see
+   * `effectiveRole`.
    */
-  restricted: boolean;
+  restrictedAt: string | null;
 }
 
 /**
@@ -400,6 +408,24 @@ export interface PageLocation {
  * Only three columns, and no document content. Called on every subdocument
  * open, so it must stay cheap.
  */
+/**
+ * SQL for "where does the restriction on this page's path start".
+ *
+ * The deepest restricted page among its ancestors and itself, by id. Written
+ * once because five queries need it and a fifth copy is where the fourth stops
+ * agreeing — the shape of failure ADR-0086 records.
+ *
+ * `ancestor_ids` is ordered root-first, so the highest position is the nearest
+ * ancestor, and the page itself is appended last and therefore beats them all.
+ */
+export const restrictedAtSql = (alias: string): string => `(
+  SELECT r.id FROM pages r
+   WHERE r.id = ANY(array_append(${alias}.ancestor_ids, ${alias}.id))
+     AND r.restricted
+   ORDER BY array_position(array_append(${alias}.ancestor_ids, ${alias}.id), r.id) DESC
+   LIMIT 1
+)`;
+
 export async function loadPageLocation(
   db: Pool | PoolClient,
   pageId: string,
@@ -408,17 +434,17 @@ export async function loadPageLocation(
     id: string;
     workspace_id: string;
     ancestor_ids: string[];
-    restricted: boolean;
+    restricted_at: string | null;
   }>(
     db,
     // Restriction is inherited, so the ancestors are checked here rather than
     // by the caller — one query, and no way to forget it.
+    //
+    // The **deepest** restricted page on the path, found by its position in
+    // `ancestor_ids` — the array is ordered root-first, so the highest index
+    // is the nearest one, and the page itself beats all of them.
     `SELECT p.id, p.workspace_id, p.ancestor_ids,
-            EXISTS (
-              SELECT 1 FROM pages r
-               WHERE r.id = ANY(array_append(p.ancestor_ids, p.id))
-                 AND r.restricted
-            ) AS restricted
+            ${restrictedAtSql('p')} AS restricted_at
        FROM pages p WHERE p.id = $1`,
     [pageId],
   );
@@ -427,7 +453,7 @@ export async function loadPageLocation(
     id: row.id,
     workspaceId: row.workspace_id,
     ancestorIds: row.ancestor_ids,
-    restricted: row.restricted,
+    restrictedAt: row.restricted_at,
   };
 }
 
@@ -466,15 +492,48 @@ export function effectiveRole(
    */
   if (claims.pageLevel === 'admin') {
     consider('admin');
-  } else if (claims.pageLevel !== null && !page.restricted) {
+  } else if (claims.pageLevel !== null && page.restrictedAt === null) {
     consider(claims.pageLevel);
   }
 
+  /*
+   * A restriction stops inherited access at its own edge.
+   *
+   * The path, root first, with the page itself last. A grant reaches this page
+   * if its scope is on that path — and, when something on the path is
+   * restricted, only if the grant was made **at or below** where the
+   * restriction starts.
+   *
+   * That last clause is new, and it is the difference between a fence and a
+   * sign. "Nur die unten hinzugefügten Leute" withheld the workspace default
+   * and let a subtree grant one level up walk straight through, so restricting
+   * a section did nothing at all against the people most likely to reach it:
+   * everybody who had been given the folder above. Reported as exactly that
+   * surprise, and it was.
+   *
+   * The **deepest** restriction is the only one that has to be checked. Any
+   * other on the path is at or above it, so a grant that clears the deepest one
+   * has already cleared them: nothing strictly below the deepest is restricted,
+   * because it is the deepest.
+   *
+   * A grant made *on* the restricted page still counts — that is what "only the
+   * people added below" means, and `ADR-0026`'s rule that an explicit grant
+   * reaches a restricted page is unchanged for the page it was made on.
+   */
+  const path = [...page.ancestorIds, page.id];
+  const fence = page.restrictedAt === null ? -1 : path.indexOf(page.restrictedAt);
+
   for (const grant of claims.grants) {
+    const at = path.indexOf(grant.scopePageId);
     const inScope =
       grant.scopePageId === page.id ||
       (grant.includeSubtree && page.ancestorIds.includes(grant.scopePageId));
-    if (inScope) consider(grant.role);
+    if (!inScope) continue;
+    // `at` is never -1 for a grant in scope: being in scope means being on the
+    // path. Written as a comparison anyway, because a scope id that is not on
+    // the path would otherwise sort before the fence and be let through.
+    if (fence >= 0 && (at < 0 || at < fence)) continue;
+    consider(grant.role);
   }
 
   /*
