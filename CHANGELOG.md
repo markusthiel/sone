@@ -21,6 +21,41 @@ was being written. They are on `forgejo.thiel.tools/thiel/sone` and can be
 pulled without credentials. A released tag's notes are not rewritten
 (ADR-0013), so the correction lives here.
 
+**Notification mail: putting something off now works, and a hiccup no longer
+loses it.**
+
+**Später did not reach your inbox.** A notification you put off until Monday
+left the list and stopped counting against the badge — and still sent you the
+mail about it that afternoon. It waits now, and arrives when the notification
+does.
+
+**Replying by email failed silently for whole mails.** A mail listing several
+things carried a reply address taken from the *oldest* of them, and an
+assignment cannot be replied to — so if the oldest thing happened to be an
+assignment, the entire mail lost its reply address, mentions and all. It now
+names the earliest item that can actually take an answer.
+
+**A relay hiccup used to cost you notifications permanently.** The queue was
+documented as retrying five times; it gave up on the first error, and by then
+the notifications were already marked as sent. It retries now, five times with
+widening gaps.
+
+**A failed activity digest lost the day it covered** — the "up to here" mark
+moved before the mail went out, so the window nobody was told about was never
+mentioned again. And one unreachable address skipped everybody after it in the
+list, for that whole day. Both fixed.
+
+**Your digest showed you less than the app does, if you own a workspace.** It
+asked whether you administer the *server* where every other screen asks whether
+you own the *workspace*, so owners quietly lost rows from their own digest —
+and instance administrators saw restricted page titles from workspaces where
+they are ordinary members. It asks the same question as the page tree now.
+
+Also: two workspaces with the same name no longer merge into one heading in the
+digest, notification mail carries the `List-Unsubscribe` header it was always
+documented as carrying, and the two mail timers now log what they did instead of
+swallowing every failure in silence.
+
 **A deleted workspace is now actually deleted.** *(Operators: read this one.)*
 
 Deleting a workspace marks it, and after 30 days the maintenance job removes it

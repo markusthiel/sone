@@ -23,7 +23,6 @@ const MAX_LINES = 20;
 export interface DigestReader {
   userId: string;
   email: string;
-  isAdmin: boolean;
   since: Date;
   /**
    * Everything visible, or only what this person watches (ADR-0064).
@@ -90,7 +89,18 @@ export async function changedFor(
                  AND a IS DISTINCT FROM $1::text
             ))
         -- The same condition the tree and search use, per recipient (ADR-0062).
-        AND ${visiblePagesCondition('p', '$1', '$3')}
+        --
+        -- The bypass is the reader's role **in that page's workspace**, which
+        -- is what the condition documents and what every other caller passes.
+        -- This passed users.is_instance_admin instead (ADR-0081), which is a
+        -- different question and wrong in both directions: an instance
+        -- administrator saw restricted titles from every workspace they belong
+        -- to, and a workspace **owner** — who the tree shows everything —
+        -- silently lost rows from their own digest.
+        --
+        -- Here m is the membership already joined above, so the answer is per row
+        -- rather than one boolean for a mail that spans workspaces.
+        AND ${visiblePagesCondition('p', '$1', "(m.role IN ('owner', 'admin'))")}
         -- Watched, when that is the scope (ADR-0064).
         --
         -- The page itself, or anything under a watched folder: somebody who
@@ -107,14 +117,14 @@ export async function changedFor(
         -- the outer w.id and w.name against watched_pages. It was right to
         -- complain -- a reader who has to track which w is which is a reader
         -- who will misread one of them.
-        AND ($4::boolean IS NOT TRUE OR EXISTS (
+        AND ($3::boolean IS NOT TRUE OR EXISTS (
               SELECT 1 FROM watched_pages watch
                WHERE watch.user_id = $1
                  AND (watch.page_id = p.id OR watch.page_id = ANY(p.ancestor_ids))
             ))
       ORDER BY p.last_edited_at DESC
       LIMIT ${MAX_LINES + 1}`,
-    [reader.userId, reader.since, reader.isAdmin, reader.scope === 'watched'],
+    [reader.userId, reader.since, reader.scope === 'watched'],
   );
 }
 
@@ -137,16 +147,24 @@ export function composeDigest(
   const shown = pages.slice(0, MAX_LINES);
   const more = pages.length - shown.length;
 
-  const byWorkspace = new Map<string, ChangedPage[]>();
+  /*
+   * Grouped by id, headed by name (ADR-0081).
+   *
+   * It grouped by name, so two workspaces called "Projekte" — which is an
+   * ordinary thing to have, one per team — merged into one heading, and a
+   * reader saw pages from somewhere else listed under their own.
+   */
+  const byWorkspace = new Map<string, { name: string; pages: ChangedPage[] }>();
   for (const page of shown) {
-    const list = byWorkspace.get(page.workspaceName) ?? [];
-    list.push(page);
-    byWorkspace.set(page.workspaceName, list);
+    const group = byWorkspace.get(page.workspaceId) ?? { name: page.workspaceName, pages: [] };
+    group.pages.push(page);
+    byWorkspace.set(page.workspaceId, group);
   }
 
   const lines: string[] = [];
-  for (const [workspace, list] of byWorkspace) {
-    lines.push(`${workspace}:`);
+  for (const [, group] of byWorkspace) {
+    const list = group.pages;
+    lines.push(`${group.name}:`);
     for (const page of list) {
       /*
        * The instance's detail setting is honoured here too (ADR-0058).
@@ -195,8 +213,8 @@ export interface ActivityDigestDeps {
  */
 export async function sendActivityDigests(
   deps: ActivityDigestDeps,
-): Promise<{ sent: number; empty: number }> {
-  if (!deps.relay) return { sent: 0, empty: 0 };
+): Promise<{ sent: number; empty: number; failed: string[] }> {
+  if (!deps.relay) return { sent: 0, empty: 0, failed: [] };
 
   const due = await queryRows<{
     id: string;
@@ -240,45 +258,72 @@ export async function sendActivityDigests(
   let sent = 0;
   let empty = 0;
 
+  const failed: string[] = [];
+
   for (const reader of due) {
-    const pages = await changedFor(deps.pool, {
-      userId: reader.id,
-      email: reader.email,
-      isAdmin: reader.is_instance_admin,
-      since: reader.since,
-      scope: reader.digest_scope,
-    });
-
-    const composed = composeDigest(
-      pages,
-      deps.detail,
-      deps.baseUrl,
-      reader.activity_digest,
-    );
-
     /*
-     * The watermark moves either way.
+     * One reader's failure is one reader's failure (ADR-0081).
      *
-     * A quiet week that sent no mail must still advance it, or the next digest
-     * covers two weeks and the one after that three — and "nothing happened"
-     * would eventually become "here is a month of everything".
+     * `sendMail` throwing used to escape this loop, so a single unreachable
+     * address, or one relay hiccup, skipped everybody after that person for the
+     * whole hour — and since the gate is "hour = 8 in your timezone", for the
+     * whole day. The people who lost their digest were whoever happened to sort
+     * after the failure, which is nobody's fault and nobody's to notice.
      */
-    await deps.pool.query(`UPDATE users SET activity_digest_sent_at = now() WHERE id = $1`, [
-      reader.id,
-    ]);
+    try {
+      const pages = await changedFor(deps.pool, {
+        userId: reader.id,
+        email: reader.email,
+        since: reader.since,
+        scope: reader.digest_scope,
+      });
 
-    if (!composed) {
-      empty += 1;
-      continue;
+      const composed = composeDigest(
+        pages,
+        deps.detail,
+        deps.baseUrl,
+        reader.activity_digest,
+      );
+
+      if (!composed) {
+        /*
+         * The watermark moves for a quiet week too.
+         *
+         * Otherwise the next digest covers two weeks and the one after that
+         * three, and "nothing happened" eventually becomes "here is a month of
+         * everything".
+         */
+        await deps.pool.query(`UPDATE users SET activity_digest_sent_at = now() WHERE id = $1`, [
+          reader.id,
+        ]);
+        empty += 1;
+        continue;
+      }
+
+      /*
+       * Sent first, then marked (ADR-0081).
+       *
+       * The mark used to move before the send, so a relay failure recorded the
+       * day as delivered and lost it: the next digest starts from the new
+       * watermark, and everything that happened in the window nobody was told
+       * about is never mentioned again. Marking after means the failure case
+       * repeats the window rather than dropping it — a digest somebody gets
+       * twice is a nuisance, one they never get is a hole.
+       */
+      await sendMail(deps.relay, {
+        to: reader.email,
+        subject: composed.subject,
+        body: composed.body,
+        unsubscribeUrl: `${deps.baseUrl}/settings/notifications`,
+      });
+      await deps.pool.query(`UPDATE users SET activity_digest_sent_at = now() WHERE id = $1`, [
+        reader.id,
+      ]);
+      sent += 1;
+    } catch (err) {
+      failed.push(`${reader.id}: ${err instanceof Error ? err.message : String(err)}`);
     }
-
-    await sendMail(deps.relay, {
-      to: reader.email,
-      subject: composed.subject,
-      body: composed.body,
-    });
-    sent += 1;
   }
 
-  return { sent, empty };
+  return { sent, empty, failed };
 }
