@@ -252,6 +252,45 @@ describe('health (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
     await broken.end().catch(() => {});
   });
 
+  test('readiness names the pages whose projection is behind', async () => {
+    /*
+     * The half of ADR-0094 that is about being *told*.
+     *
+     * A page whose document is stored and whose derived tables are not is
+     * still served — so it has no symptom an operator would see, and the one
+     * in ADR-0092 was broken for days. Read from `materialization_state`
+     * rather than from the rooms, because the room that saw the failure may
+     * be long gone from an instance that has since restarted.
+     */
+    const db = await getTestPool();
+    const fx = await seedWorkspace(db);
+    const pageId = uuid(77);
+    await db.query(
+      `INSERT INTO pages (id, workspace_id, title, idx) VALUES ($1,$2,'Kaputt','a0')`,
+      [pageId, fx.workspaceId],
+    );
+    await db.query(
+      `INSERT INTO materialization_state (page_id, status, last_error, attempts, materialized_at)
+       VALUES ($1, 'failed', 'invalid input syntax for type uuid: "anna"', 3, now())`,
+      [pageId],
+    );
+
+    const report = await checkReadiness({
+      pool: db,
+      documentSchemaVersion: 1,
+      syncProtocolVersion: 1,
+    });
+
+    assert.equal(report.checks.projections.failed, 1);
+    assert.deepEqual(report.checks.projections.pageIds, [pageId]);
+    // Still ready: one page with a stale search row is not a reason to take an
+    // instance out of rotation.
+    assert.equal(report.ready, true);
+
+    await db.query(`DELETE FROM materialization_state WHERE page_id = $1`, [pageId]);
+    await db.query(`DELETE FROM pages WHERE id = $1`, [pageId]);
+  });
+
   test('version endpoint reports both contract versions', async () => {
     const res = await fetch(`${base}/api/version`);
     const body = (await res.json()) as Record<string, unknown>;

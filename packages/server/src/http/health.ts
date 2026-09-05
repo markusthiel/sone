@@ -55,6 +55,16 @@ export interface ReadinessReport {
     migrations: { ok: boolean; applied?: number; latest?: string; error?: string };
     collation: { ok: boolean; value?: string; error?: string };
     rooms: { ok: boolean; total: number; poisoned: number; pageIds?: string[] };
+    /**
+     * Pages whose derived tables are behind their document (ADR-0094).
+     *
+     * Its own check rather than a field on `rooms`, because it is a different
+     * failure and outlives the process that saw it: a room is one instance's
+     * memory of an open document, and `materialization_state` is what every
+     * instance can read afterwards. The page that stopped projecting in
+     * ADR-0092 had been broken for days with nothing to look at.
+     */
+    projections: { ok: boolean; failed: number; pageIds?: string[]; error?: string };
   };
 }
 
@@ -101,6 +111,7 @@ export async function checkReadiness(deps: HealthDeps): Promise<ReadinessReport>
       migrations: { ok: false },
       collation: { ok: false },
       rooms: { ok: true, total: 0, poisoned: 0 },
+      projections: { ok: true, failed: 0 },
     },
   };
 
@@ -171,6 +182,50 @@ export async function checkReadiness(deps: HealthDeps): Promise<ReadinessReport>
       total: deps.sync.stats.rooms,
       poisoned: poisoned.length,
       ...(poisoned.length > 0 ? { pageIds: poisoned.map((r) => r.pageId) } : {}),
+    };
+  }
+
+  // --- projections ---------------------------------------------------------
+  /*
+   * Pages whose document is stored and whose derived tables are not (ADR-0094).
+   *
+   * Read from the table rather than from the rooms, because that is what makes
+   * it visible at all: the room that saw the failure may have been torn down an
+   * hour ago, on an instance that has since restarted, and `markFailed` is the
+   * part that survives both.
+   *
+   * Like a poisoned room, this does not make the instance unready. The page is
+   * still served — the document is the truth (ADR-0002) — and taking an
+   * instance out of rotation over one page whose search row is stale is a worse
+   * outage than the bug. It is here to be *seen*, which is precisely what was
+   * missing.
+   */
+  try {
+    // The count is over all of them and the list is the twenty most recent: a
+    // number that stopped at the size of its own page would read as "twenty
+    // broken pages" on an instance with a thousand.
+    const row = await queryOne<{ failed: string; page_ids: string[] | null }>(
+      deps.pool,
+      `SELECT count(*) AS failed,
+              (SELECT array_agg(page_id)
+                 FROM (SELECT page_id FROM materialization_state
+                        WHERE status = 'failed'
+                        ORDER BY materialized_at DESC
+                        LIMIT 20) AS recent) AS page_ids
+         FROM materialization_state
+        WHERE status = 'failed'`,
+    );
+    const failed = Number(row?.failed ?? 0);
+    report.checks.projections = {
+      ok: true,
+      failed,
+      ...(row?.page_ids ? { pageIds: row.page_ids } : {}),
+    };
+  } catch (err) {
+    report.checks.projections = {
+      ok: false,
+      failed: 0,
+      error: err instanceof Error ? err.message : String(err),
     };
   }
 
