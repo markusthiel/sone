@@ -12,7 +12,7 @@
 
 import type { Pool } from 'pg';
 
-import { roleIn } from '../auth/claims.js';
+import { requireRight } from '../auth/rights.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { requireSession } from '../http/auth.js';
 import type { RequestContext, Router } from '../http/router.js';
@@ -21,28 +21,23 @@ export interface GroupDeps {
   pool: Pool;
 }
 
-/** Owner or admin of the workspace, or nothing. */
+/**
+ * Whoever may manage groups here, or nothing.
+ *
+ * `groups.manage` rather than "owner or admin" (ADR-0087). The old comparison
+ * answered eight different questions with one word, so the only way to let
+ * somebody make a group was to let them change everybody's role as well.
+ *
+ * Not found rather than forbidden for a workspace somebody is not in: "you may
+ * not manage groups here" confirms the workspace exists. That distinction now
+ * lives in `requireRight`, with the rest of the routes that make it.
+ */
 async function requireWorkspaceAdmin(
   pool: Pool,
   ctx: RequestContext,
   workspaceId: string,
 ): Promise<string | null> {
-  const session = await requireSession(pool, ctx);
-  if (!session) return null;
-
-  const membership = await roleIn(pool, workspaceId, session.userId);
-
-  if (!membership) {
-    // Not found rather than forbidden for a workspace somebody is not in:
-    // "you may not manage groups here" confirms the workspace exists.
-    ctx.fail(404, 'not_found');
-    return null;
-  }
-  if (membership !== 'owner' && membership !== 'admin') {
-    ctx.fail(403, 'forbidden');
-    return null;
-  }
-  return session.userId;
+  return requireRight(pool, ctx, workspaceId, 'groups.manage');
 }
 
 export function registerGroupRoutes(router: Router, deps: GroupDeps): void {

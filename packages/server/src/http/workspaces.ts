@@ -14,6 +14,7 @@ import type { Pool } from 'pg';
 
 import { sanitiseTheme } from '@sone/core';
 import { roleIn } from '../auth/claims.js';
+import { holdsRight } from '../auth/rights.js';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { createDefaultFolder } from '../pages/createEntry.js';
 import { requireSession } from './auth.js';
@@ -202,30 +203,27 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
     if (!auth) return;
 
     const workspaceId = ctx.params['workspaceId'] ?? '';
-    const role = await roleIn(deps.pool, workspaceId, auth.userId);
-    // Or the instance-wide right, which is how somebody administers a workspace
-    // they are not in (ADR-0027). Naming and decorating are the same act, so
-    // the same people may do both (ADR-0030).
     /*
-     * Asked whatever the role is, which it was not.
+     * `workspace.settings` (ADR-0087). Naming and decorating are the same act,
+     * so the same people may do both (ADR-0030).
      *
-     * The rights were fetched only when the role was null, so somebody who
-     * manages workspaces **and happens to be an ordinary member of one** was
-     * refused — while the same person could have edited it by leaving the
-     * workspace first. A right that a membership takes away is not a right.
-     *
-     * Found by loosening the interface to match this rule and noticing the rule
-     * did not match itself (ADR-0067).
+     * Both ways of holding it are asked together, which ADR-0067 records as
+     * having been the bug here: the instance-wide right was fetched only when
+     * the role was null, so somebody who manages workspaces **and happens to be
+     * an ordinary member of one** was refused — while the same person could
+     * have edited it by leaving the workspace first. A right that a membership
+     * takes away is not a right. `holdsRight` asks both, always.
      */
-    const rights = await administratorRights(deps.pool, auth.userId);
-    if (role === null && !rights.workspaces) {
-      // Same answer as a workspace that does not exist: the difference would
+    const { member, held } = await holdsRight(
+      deps.pool,
+      workspaceId,
+      auth.userId,
+      'workspace.settings',
+    );
+    if (!held) {
+      // Not found for somebody who is not here at all: the difference would
       // reveal which workspaces are on this instance.
-      ctx.fail(404, 'not_found');
-      return;
-    }
-    if (role !== null && role !== 'owner' && role !== 'admin' && !rights.workspaces) {
-      ctx.fail(403, 'not_authorized');
+      ctx.fail(member ? 403 : 404, member ? 'not_authorized' : 'not_found');
       return;
     }
 
@@ -315,13 +313,15 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
     if (!auth) return;
 
     const workspaceId = ctx.params['workspaceId'] ?? '';
-    const role = await roleIn(deps.pool, workspaceId, auth.userId);
-    if (role === null) {
-      ctx.fail(404, 'not_found');
-      return;
-    }
-    if (role !== 'owner' && role !== 'admin') {
-      ctx.fail(403, 'not_authorized');
+    // Typography is a workspace setting like its name (ADR-0087).
+    const { member, held } = await holdsRight(
+      deps.pool,
+      workspaceId,
+      auth.userId,
+      'workspace.settings',
+    );
+    if (!held) {
+      ctx.fail(member ? 403 : 404, member ? 'not_authorized' : 'not_found');
       return;
     }
 
@@ -448,10 +448,13 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
 
     const workspaceId = ctx.params['workspaceId'] ?? '';
     const role = await roleIn(deps.pool, workspaceId, auth.userId);
-    // Or the instance-wide right to administer workspaces, which is how
-    // somebody manages a team they are not in (ADR-0027).
-    const rights = role === null ? await administratorRights(deps.pool, auth.userId) : null;
-    if (role === null && rights?.workspaces !== true) {
+    // Whether an address may be shown, which is a `people.manage` question
+    // rather than a role one (ADR-0087): showing addresses is part of looking
+    // after who is in the workspace. Both ways of holding the right are asked
+    // together, including the instance-wide one that lets somebody manage a
+    // team they are not in (ADR-0027).
+    const managesPeople = await holdsRight(deps.pool, workspaceId, auth.userId, 'people.manage');
+    if (role === null && !managesPeople.held) {
       ctx.fail(404, 'not_found');
       return;
     }
@@ -480,7 +483,7 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
         // An address is shown only to those who administer the workspace.
         // Everyone else gets the name, which is what they need to know who
         // edited a page.
-        email: role === 'owner' || role === 'admin' ? row.email : null,
+        email: managesPeople.held ? row.email : null,
         role: row.role,
         isGuest: row.is_guest,
         joinedAt: row.joined_at,
