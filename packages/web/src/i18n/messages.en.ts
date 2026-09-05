@@ -88,6 +88,7 @@ export const en = {
   'sidebar.resize': 'Drag to make the sidebar wider, double-click to reset',
   'sidebar.close': 'Close navigation',
   'sidebar.hide': 'Hide the sidebar',
+  'sidebar.show': 'Show the sidebar',
   'sidebar.search': 'Search',
   'sidebar.places': 'Parts of SONE',
   'mode.pages': 'Pages',
