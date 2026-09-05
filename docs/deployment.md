@@ -383,6 +383,18 @@ before the maintenance job removes it for good — a month by default.
 Long enough for somebody to notice a mistake, short enough that "deleted" means
 what people take it to mean when they ask whether their notes are still here.
 
+That sentence was not true until 0.11.x. The purge removed the page entries and
+left every page's content in the database — invisible, unreachable and
+permanent, because the CRDT tables carry no foreign key to `pages` (ADR-0080).
+It removes both now. **Two things it still does not do**, said plainly rather
+than implied: attachments on disk are never removed, because there is no orphan
+sweep; and content left behind by a purge that ran on an earlier version stays
+where it is — this release stops the leak, it does not clean up after it.
+
+`SONE_VERSION_RETENTION_DAYS` (how long page history is kept, 90 by default) is
+clamped to at least one day. It was not: `0` meant "delete every version of
+every page on the next maintenance pass".
+
 ## Single sign-on
 
 Set `SONE_OIDC_CLIENT_SECRET` to the client secret from your provider; everything

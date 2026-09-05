@@ -8,6 +8,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 
+import { documentIdsFor } from '../src/doc/deleteDocuments.js';
 import { purgeDeletedWorkspaces } from '../src/maintenance/job.js';
 import { getTestPool, hasDatabase } from './support/db.js';
 
@@ -156,9 +157,10 @@ describe('workspace deletion (database)', { concurrency: 1, skip: !hasDatabase }
   });
 
   test('purging takes what the workspace held with it', async () => {
-    // By cascade rather than by hand: pages, members, invitations, groups and
-    // page grants all reference the workspace, and a list of deletes here would
-    // be a list to keep in step with the schema.
+    // Mostly by cascade: members, invitations, groups and page grants all
+    // reference the workspace, and a list of deletes here would be a list to
+    // keep in step with the schema. The documents are the exception — see the
+    // test below, which is the one that matters.
     const doomed = await db.query<{ id: string }>(
       `INSERT INTO workspaces (name, created_by, deleted_at)
        VALUES ('WithPages', $1, now() - interval '60 days') RETURNING id`,
@@ -175,5 +177,102 @@ describe('workspace deletion (database)', { concurrency: 1, skip: !hasDatabase }
 
     const pages = await db.query(`SELECT 1 FROM pages WHERE workspace_id = $1`, [workspaceId]);
     assert.equal(pages.rowCount, 0);
+  });
+
+  test('purging removes the content, not only the entry', async () => {
+    /*
+     * The test this file was missing, and the reason the bug survived
+     * (ADR-0080).
+     *
+     * `doc_updates` and `doc_snapshots` carry no foreign key to `pages`, so the
+     * cascade never reached them: a purged workspace left every byte of every
+     * page in the database permanently, unreachable by any view or route, while
+     * the function's comment and the deployment guide both said "deleted" meant
+     * deleted. The test above asserts the `pages` rows are gone, which they
+     * always were — the same test shape that missed this once already in the
+     * page-delete route.
+     *
+     * The internal comments document is checked too: its id is derived from the
+     * page's rather than equal to it, so deleting "by page id" never touched
+     * it, in this function or in the route that had already been fixed.
+     */
+    const doomed = await db.query<{ id: string }>(
+      `INSERT INTO workspaces (name, created_by, deleted_at)
+       VALUES ('WithContent', $1, now() - interval '60 days') RETURNING id`,
+      [user],
+    );
+    const workspaceId = doomed.rows[0]!.id;
+    const page = await db.query<{ id: string }>(
+      `INSERT INTO pages (id, workspace_id, title, idx, kind, ancestor_ids)
+       VALUES (gen_random_uuid(), $1, 'Mit Inhalt', '0', 'page', '{}') RETURNING id`,
+      [workspaceId],
+    );
+    const pageId = page.rows[0]!.id;
+    const [, internalId] = documentIdsFor([pageId]);
+
+    for (const docId of [pageId, internalId!]) {
+      await db.query(
+        `INSERT INTO doc_updates (doc_id, seq, payload)
+         VALUES ($1, nextval('doc_update_seq'), '\\x0102')`,
+        [docId],
+      );
+      await db.query(
+        `INSERT INTO doc_snapshots (doc_id, through_seq, state, state_vector)
+         VALUES ($1, 1, '\\x0102', '\\x03')`,
+        [docId],
+      );
+    }
+
+    // Standing where the bug was: the rows exist before the purge.
+    const before = await db.query(`SELECT 1 FROM doc_updates WHERE doc_id = ANY($1::uuid[])`, [
+      [pageId, internalId],
+    ]);
+    assert.equal(before.rowCount, 2, 'the content is there to begin with');
+
+    await purgeDeletedWorkspaces(db, 30);
+
+    const updates = await db.query(`SELECT 1 FROM doc_updates WHERE doc_id = ANY($1::uuid[])`, [
+      [pageId, internalId],
+    ]);
+    assert.equal(updates.rowCount, 0, 'no page content is left behind');
+
+    const snapshots = await db.query(
+      `SELECT 1 FROM doc_snapshots WHERE doc_id = ANY($1::uuid[])`,
+      [[pageId, internalId]],
+    );
+    assert.equal(snapshots.rowCount, 0, 'and no snapshot of it either');
+  });
+
+  test('a live workspace keeps its content while another is purged', async () => {
+    // The other direction, because a delete that takes too much is the failure
+    // nobody recovers from. The purge selects pages through the workspaces it
+    // is about to remove; a mistake in that join would empty the instance.
+    const keptPage = await db.query<{ id: string }>(
+      `INSERT INTO pages (id, workspace_id, title, idx, kind, ancestor_ids)
+       VALUES (gen_random_uuid(), $1, 'Bleibt', '1', 'page', '{}') RETURNING id`,
+      [workspace],
+    );
+    const keptId = keptPage.rows[0]!.id;
+    await db.query(
+      `INSERT INTO doc_updates (doc_id, seq, payload)
+       VALUES ($1, nextval('doc_update_seq'), '\\x0405')`,
+      [keptId],
+    );
+
+    const doomed = await db.query<{ id: string }>(
+      `INSERT INTO workspaces (name, created_by, deleted_at)
+       VALUES ('Nebenan', $1, now() - interval '60 days') RETURNING id`,
+      [user],
+    );
+    await db.query(
+      `INSERT INTO pages (id, workspace_id, title, idx, kind, ancestor_ids)
+       VALUES (gen_random_uuid(), $1, 'Weg', '0', 'page', '{}')`,
+      [doomed.rows[0]!.id],
+    );
+
+    await purgeDeletedWorkspaces(db, 30);
+
+    const kept = await db.query(`SELECT 1 FROM doc_updates WHERE doc_id = $1`, [keptId]);
+    assert.equal(kept.rowCount, 1, 'the neighbouring workspace is untouched');
   });
 });
