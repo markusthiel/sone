@@ -1,111 +1,329 @@
 /**
- * Signing in through an identity provider, end to end.
+ * Signing in through an identity provider, end to end (ADR-0024, ADR-0082).
  *
- * The flow's own tests cover the protocol; these cover what this application
- * does with the answer — which account it decides somebody is, and what it
- * refuses.
+ * This file said that already, and it was not true. It made four `INSERT`
+ * statements and asserted what Postgres does with them; it did not import
+ * `oidcRoutes.ts`, and neither did anything else in the repository. So the
+ * callback, the state comparison, the account linking and the session issue —
+ * every decision this application makes about who somebody is — had never been
+ * executed by a test.
+ *
+ * The cryptography around them is genuinely well covered: `oidcToken.test.ts`
+ * builds real RSA-signed tokens and breaks them one property at a time, and
+ * `oidcFlow.test.ts` drives discovery, PKCE and the exchange against a fake
+ * provider. What was missing is the join between them: nothing signed a real
+ * token *and* delivered it through a route, which is where the one line that
+ * prevents account takeover lives.
+ *
+ * So: a provider that issues real tokens, and the routes, and a database.
  */
 
 import assert from 'node:assert/strict';
+import { createServer as createHttpServer, type Server } from 'node:http';
+import { createSign, generateKeyPairSync } from 'node:crypto';
 import { after, before, describe, test } from 'node:test';
+import type { AddressInfo } from 'node:net';
+import type { Pool } from 'pg';
 
-import { getTestPool, hasDatabase } from './support/db.js';
+import { registerOidcRoutes } from '../src/auth/oidcRoutes.js';
+import { Router } from '../src/http/router.js';
+import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
 
-describe('single sign-on (database)', { concurrency: 1, skip: !hasDatabase }, () => {
-  let db: Awaited<ReturnType<typeof getTestPool>>;
+const SECRET = 'a-test-instance-secret-key-of-sufficient-length';
+const CLIENT = 'sone';
 
-  before(async () => {
-    db = await getTestPool();
+const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const jwk = { ...(publicKey.export({ format: 'jwk' }) as Record<string, unknown>), kid: 'k1', alg: 'RS256' };
+
+const b64 = (value: object | Buffer): string =>
+  (Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value), 'utf8')).toString(
+    'base64url',
+  );
+
+function idToken(claims: Record<string, unknown>): string {
+  const header = { alg: 'RS256', kid: 'k1', typ: 'JWT' };
+  const body = `${b64(header)}.${b64(claims)}`;
+  const signature = createSign('RSA-SHA256').update(body).sign(privateKey).toString('base64url');
+  return `${body}.${signature}`;
+}
+
+let db: Pool;
+let provider: Server;
+let issuer: string;
+let app: Server;
+let base: string;
+/** What the fake provider will put in the next id token. */
+let nextClaims: Record<string, unknown> = {};
+
+before(async () => {
+  if (!hasDatabase) return;
+  db = await getTestPool();
+  await resetDatabase(db);
+
+  // --- the provider --------------------------------------------------------
+  provider = createHttpServer((req, res) => {
+    const url = new URL(req.url ?? '/', issuer);
+    if (url.pathname === '/.well-known/openid-configuration') {
+      res.setHeader('content-type', 'application/json');
+      res.end(
+        JSON.stringify({
+          issuer,
+          authorization_endpoint: `${issuer}/authorize`,
+          token_endpoint: `${issuer}/token`,
+          jwks_uri: `${issuer}/jwks`,
+        }),
+      );
+      return;
+    }
+    if (url.pathname === '/jwks') {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ keys: [jwk] }));
+      return;
+    }
+    if (url.pathname === '/token') {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ id_token: idToken(nextClaims) }));
+      return;
+    }
+    res.statusCode = 404;
+    res.end('{}');
+  });
+  await new Promise<void>((resolve) => provider.listen(0, '127.0.0.1', resolve));
+  // localhost, because `discover` requires https everywhere else — deliberately.
+  issuer = `http://localhost:${(provider.address() as AddressInfo).port}`;
+
+  await db.query(
+    `INSERT INTO oidc_settings (issuer, client_id, button_label, allow_signup, enabled)
+     VALUES ($1, $2, 'Anmelden', true, true)`,
+    [issuer, CLIENT],
+  );
+
+  // --- the application -----------------------------------------------------
+  app = createHttpServer();
+  const router = new Router();
+  await new Promise<void>((resolve) => app.listen(0, '127.0.0.1', resolve));
+  base = `http://127.0.0.1:${(app.address() as AddressInfo).port}`;
+
+  registerOidcRoutes(router, {
+    pool: db,
+    clientSecret: 'the-client-secret',
+    publicUrl: base,
+    secureCookies: false,
+    secretKey: SECRET,
+  });
+  app.on('request', (req, res) => {
+    void router.handle(req, res, base).then((took) => {
+      if (!took) {
+        res.statusCode = 404;
+        res.end('{}');
+      }
+    });
+  });
+});
+
+after(async () => {
+  if (!hasDatabase) return;
+  await new Promise<void>((resolve) => app.close(() => resolve()));
+  await new Promise<void>((resolve) => provider.close(() => resolve()));
+  await closeTestPool();
+});
+
+/** Begin a sign-in; returns the pending cookie and the state inside it. */
+async function start(): Promise<{ cookie: string; state: string; nonce: string }> {
+  const res = await fetch(`${base}/api/auth/oidc/start`, { redirect: 'manual' });
+  assert.equal(res.status, 302, 'the browser is sent to the provider');
+
+  const setCookie = res.headers.getSetCookie().find((one) => one.startsWith('sone_oidc='));
+  assert.ok(setCookie, 'a pending cookie was set');
+
+  const value = decodeURIComponent(setCookie.slice('sone_oidc='.length).split(';')[0] ?? '');
+  // Signed, so the payload is base64url before the dot. A browser cannot forge
+  // this; a test can read it, which is the point of splitting the two.
+  const payload = JSON.parse(
+    Buffer.from(value.split('.')[0] ?? '', 'base64url').toString('utf8'),
+  ) as { state: string; nonce: string };
+
+  return { cookie: `sone_oidc=${encodeURIComponent(value)}`, ...payload };
+}
+
+const callback = (cookie: string, state: string): Promise<Response> =>
+  fetch(`${base}/api/auth/oidc/callback?code=abc&state=${encodeURIComponent(state)}`, {
+    headers: { cookie },
+    redirect: 'manual',
   });
 
-  after(async () => {
-    await db.query(`DELETE FROM oidc_identities`);
-    await db.query(`DELETE FROM oidc_settings`);
+describe('single sign-on (routes)', { concurrency: 1, skip: !hasDatabase }, () => {
+  test('a good token makes an account and a session', async () => {
+    const { cookie, state, nonce } = await start();
+    nextClaims = {
+      iss: issuer,
+      aud: CLIENT,
+      sub: 'provider-subject-1',
+      nonce,
+      email: 'neu@example.org',
+      email_verified: true,
+      name: 'Neu Hier',
+      exp: Math.floor(Date.now() / 1000) + 300,
+      iat: Math.floor(Date.now() / 1000),
+    };
+
+    const res = await callback(cookie, state);
+    assert.equal(res.status, 302, 'and back into the application');
+
+    const cookies = res.headers.getSetCookie();
+    assert.ok(
+      cookies.some((one) => one.startsWith('sone_session=') && !one.includes('Max-Age=0')),
+      'a session cookie',
+    );
+    /*
+     * And the pending cookie is gone (ADR-0082).
+     *
+     * `clearPending` and `setSessionCookie` both used `setHeader`, which
+     * replaces — so on the one path that matters the clearing cookie was
+     * discarded and the pending blob stayed in the browser for its full ten
+     * minutes. The comment above `clearPending` said "cleared whatever happens
+     * next"; it was true only where the sign-in failed.
+     */
+    assert.ok(
+      cookies.some((one) => one.startsWith('sone_oidc=') && one.includes('Max-Age=0')),
+      'the pending cookie is cleared on success too',
+    );
+
+    const account = await db.query<{ id: string }>(
+      `SELECT u.id FROM users u
+         JOIN oidc_identities i ON i.user_id = u.id
+        WHERE i.subject = 'provider-subject-1'`,
+    );
+    assert.equal(account.rowCount, 1, 'the account exists and is linked');
   });
 
-  test('an identity belongs to exactly one account per provider', async () => {
-    // Without the constraint, a second sign-in that produced a fresh subject
-    // would silently give somebody another door into one account, and nothing
-    // would show it.
-    const user = await db.query<{ id: string }>(
-      `INSERT INTO users (email, display_name, password_hash)
-       VALUES ('sso@example.org','SSO','x') RETURNING id`,
-    );
-    const userId = user.rows[0]!.id;
-
-    await db.query(
-      `INSERT INTO oidc_identities (issuer, subject, user_id)
-       VALUES ('https://login.example.org','sub-1',$1)`,
-      [userId],
-    );
-
-    await assert.rejects(
-      () =>
-        db.query(
-          `INSERT INTO oidc_identities (issuer, subject, user_id)
-           VALUES ('https://login.example.org','sub-2',$1)`,
-          [userId],
-        ),
-      /oidc_identities_one_per_user/,
-    );
-
-    await db.query(`DELETE FROM oidc_identities`);
-    await db.query(`DELETE FROM users WHERE id = $1`, [userId]);
+  test('a state that does not match is refused', async () => {
+    const { cookie } = await start();
+    const res = await callback(cookie, 'not-the-state-we-sent');
+    assert.equal(res.status, 400);
   });
 
-  test('the same subject at two providers is two identities', async () => {
-    // Subjects are only unique within an issuer, so the key has to be both.
-    // Keyed on subject alone, two providers using "1000" would be one person.
-    const first = await db.query<{ id: string }>(
-      `INSERT INTO users (email, display_name, password_hash)
-       VALUES ('a@example.org','A','x') RETURNING id`,
-    );
-    const second = await db.query<{ id: string }>(
-      `INSERT INTO users (email, display_name, password_hash)
-       VALUES ('b@example.org','B','x') RETURNING id`,
-    );
+  test('a planted pending cookie is not accepted', async () => {
+    /*
+     * The reason the cookie is signed (ADR-0082).
+     *
+     * The state check only proves the provider's answer matches *whatever
+     * pending blob the browser is carrying*, and the blob was plain JSON.
+     * Anybody able to write a cookie for this host — a sibling subdomain, or
+     * plain HTTP where secure cookies are off — could plant their own state,
+     * nonce and verifier and complete a sign-in into their own account in
+     * somebody else's browser.
+     */
+    const planted = Buffer.from(
+      JSON.stringify({ state: 'mine', nonce: 'mine', verifier: 'mine' }),
+      'utf8',
+    ).toString('base64url');
 
-    await db.query(
-      `INSERT INTO oidc_identities (issuer, subject, user_id) VALUES
-         ('https://one.example.org','1000',$1),
-         ('https://two.example.org','1000',$2)`,
-      [first.rows[0]!.id, second.rows[0]!.id],
-    );
+    for (const cookie of [
+      `sone_oidc=${encodeURIComponent(`${planted}.notasignature`)}`,
+      // And unsigned, in the shape it used to have.
+      `sone_oidc=${encodeURIComponent(JSON.stringify({ state: 'mine', nonce: 'm', verifier: 'v' }))}`,
+    ]) {
+      const res = await callback(cookie, 'mine');
+      assert.equal(res.status, 400, 'no pending sign-in this instance began');
+    }
+  });
 
-    const rows = await db.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM oidc_identities WHERE subject = '1000'`,
-    );
-    assert.equal(rows.rows[0]?.n, 2);
+  test('an unverified address does not become an account', async () => {
+    // The provider knows who they are; it has not established that the address
+    // is theirs, and the address is what a later link would match on.
+    const { cookie, state, nonce } = await start();
+    nextClaims = {
+      iss: issuer,
+      aud: CLIENT,
+      sub: 'provider-subject-2',
+      nonce,
+      email: 'ungeprueft@example.org',
+      email_verified: false,
+      exp: Math.floor(Date.now() / 1000) + 300,
+      iat: Math.floor(Date.now() / 1000),
+    };
 
-    await db.query(`DELETE FROM oidc_identities`);
-    await db.query(`DELETE FROM users WHERE id = ANY($1)`, [
-      [first.rows[0]!.id, second.rows[0]!.id],
+    const res = await callback(cookie, state);
+    assert.equal(res.status, 403);
+
+    const none = await db.query(`SELECT 1 FROM oidc_identities WHERE subject = $1`, [
+      'provider-subject-2',
     ]);
+    assert.equal(none.rowCount, 0);
   });
 
-  test('there is at most one provider configured', async () => {
-    // A second row would be a second provider nobody chose between.
+  test('an address that already belongs to a local account cannot be taken over', async () => {
+    /*
+     * The single line that prevents account takeover, executed for the first
+     * time. Matching is on (issuer, subject) and never on email; the insert
+     * carries ON CONFLICT (email) DO NOTHING, and a colliding local address
+     * returns no row, so the sign-in is refused rather than linked.
+     *
+     * It is load-bearing on a schema detail — the unique constraint on
+     * `users.email` — so this asserts the outcome rather than the mechanism.
+     */
     await db.query(
-      `INSERT INTO oidc_settings (issuer, client_id) VALUES ('https://one.example.org','a')`,
+      `INSERT INTO users (email, display_name, password_hash)
+       VALUES ('schon-da@example.org', 'Schon da', 'x')`,
     );
-    await assert.rejects(
-      () =>
-        db.query(
-          `INSERT INTO oidc_settings (issuer, client_id) VALUES ('https://two.example.org','b')`,
-        ),
-      /oidc_settings_pkey/,
-    );
-    await db.query(`DELETE FROM oidc_settings`);
+
+    const { cookie, state, nonce } = await start();
+    nextClaims = {
+      iss: issuer,
+      aud: CLIENT,
+      sub: 'provider-subject-3',
+      nonce,
+      email: 'schon-da@example.org',
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 300,
+      iat: Math.floor(Date.now() / 1000),
+    };
+
+    const res = await callback(cookie, state);
+    assert.equal(res.status, 403, 'refused rather than linked');
+
+    const linked = await db.query(`SELECT 1 FROM oidc_identities WHERE subject = $1`, [
+      'provider-subject-3',
+    ]);
+    assert.equal(linked.rowCount, 0, 'and no identity was attached to the local account');
   });
 
-  test('an account signed in only through a provider has no password', async () => {
-    // Which is what stops a created-by-SSO account from being reachable by
-    // guessing a password nobody ever set.
-    const user = await db.query<{ id: string; password_hash: string | null }>(
-      `INSERT INTO users (email, display_name, password_hash)
-       VALUES ('nopw@example.org','No password',NULL) RETURNING id, password_hash`,
-    );
-    assert.equal(user.rows[0]?.password_hash, null);
-    await db.query(`DELETE FROM users WHERE id = $1`, [user.rows[0]!.id]);
+  test('signing in twice reuses the account rather than making a second', async () => {
+    const { cookie, state, nonce } = await start();
+    nextClaims = {
+      iss: issuer,
+      aud: CLIENT,
+      sub: 'provider-subject-1',
+      nonce,
+      email: 'neu@example.org',
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 300,
+      iat: Math.floor(Date.now() / 1000),
+    };
+
+    assert.equal((await callback(cookie, state)).status, 302);
+
+    const rows = await db.query(`SELECT 1 FROM oidc_identities WHERE subject = $1`, [
+      'provider-subject-1',
+    ]);
+    assert.equal(rows.rowCount, 1, 'still one identity');
+  });
+
+  test('a token from another provider is refused', async () => {
+    // Real, correctly signed, and about somebody else's instance.
+    const { cookie, state, nonce } = await start();
+    nextClaims = {
+      iss: 'https://somewhere.else.example',
+      aud: CLIENT,
+      sub: 'provider-subject-4',
+      nonce,
+      email: 'fremd@example.org',
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 300,
+      iat: Math.floor(Date.now() / 1000),
+    };
+
+    assert.equal((await callback(cookie, state)).status, 401);
   });
 });
