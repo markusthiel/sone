@@ -49,6 +49,17 @@ inheriting for everybody else. The alternative — an explicit rule replacing al
 inherited access — makes every restriction an act of removing people nobody
 remembers granting.
 
+> **Corrected by ADR-0089 (2026-09-05), in one direction only.** Inheritance
+> still runs downwards exactly as described. What changed is what a *restricted*
+> page does to it: a restriction stops inherited access at its own edge, so a
+> subtree grant made **above** a restricted page no longer reaches it. A grant
+> made **on** it, or below it, still does — which is the sentence above,
+> unchanged, for the pages the grant was actually made about.
+>
+> The old rule was read out of this section honestly and turned out to fail
+> precisely where restriction is used: against the people who already hold the
+> folder above.
+
 ### Three levels, and no more for now
 
 **Manage** (change permissions and the page itself), **edit**, **view**.

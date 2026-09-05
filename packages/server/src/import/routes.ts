@@ -18,7 +18,7 @@
 
 import type { Pool } from 'pg';
 
-import { canEdit } from '../auth/claims.js';
+import { canEdit, restrictedAtSql } from '../auth/claims.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { readBinary } from '../files/routes.js';
 import { claimsOrNull, sessionTokenFrom } from '../http/auth.js';
@@ -53,11 +53,14 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
       workspace_id: string;
       ancestor_ids: string[];
       kind: string;
-      restricted: boolean;
+      restricted_at: string | null;
     }>(
       deps.pool,
-      `SELECT id, workspace_id, ancestor_ids, kind, restricted
-         FROM pages WHERE id = $1 AND archived_at IS NULL`,
+      // The *inherited* restriction, not the page's own column — see the note
+      // in export/routes.ts, which had the same mistake.
+      `SELECT p.id, p.workspace_id, p.ancestor_ids, p.kind,
+              ${restrictedAtSql('p')} AS restricted_at
+         FROM pages p WHERE p.id = $1 AND p.archived_at IS NULL`,
       [pageId],
     );
     if (!page) {
@@ -73,7 +76,7 @@ export function registerImportRoutes(router: Router, deps: ImportDeps): void {
       id: page.id,
       workspaceId: page.workspace_id,
       ancestorIds: page.ancestor_ids,
-      restricted: page.restricted,
+      restrictedAt: page.restricted_at,
     };
     if (!claims) {
       ctx.fail(404, 'not_found');

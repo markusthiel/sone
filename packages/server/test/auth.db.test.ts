@@ -543,7 +543,7 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
       id: uuid(77),
       workspaceId: other.workspaceId,
       ancestorIds: [],
-      restricted: false,
+      restrictedAt: null,
     };
     assert.equal(effectiveRole(claims!, foreignPage), null);
   });
@@ -764,11 +764,11 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
       ],
     };
     assert.equal(
-      effectiveRole(claims, { id: 'child', workspaceId: 'ws', ancestorIds: ['root'], restricted: false }),
+      effectiveRole(claims, { id: 'child', workspaceId: 'ws', ancestorIds: ['root'], restrictedAt: null }),
       'commenter',
     );
     assert.equal(
-      effectiveRole(claims, { id: 'elsewhere', workspaceId: 'ws', ancestorIds: [], restricted: false }),
+      effectiveRole(claims, { id: 'elsewhere', workspaceId: 'ws', ancestorIds: [], restrictedAt: null }),
       null,
     );
   });

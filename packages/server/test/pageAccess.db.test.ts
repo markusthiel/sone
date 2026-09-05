@@ -632,7 +632,10 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
 
     const location = await loadPageLocation(db, grandchild);
-    assert.equal(location?.restricted, true, 'inherited from the section above');
+    // Which page the fence stands on, not merely that there is one: a grant
+    // made below that page still reaches, and one inherited from above it does
+    // not (ADR-0089).
+    assert.equal(location?.restrictedAt, child, 'inherited from the section above');
 
     assert.equal(
       effectiveRole(
@@ -694,7 +697,7 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
 
     // Sync asks this, and it is the same question a page is protected by.
     const location = await loadPageLocation(db, containerId);
-    assert.equal(location?.restricted, true);
+    assert.equal(location?.restrictedAt, containerId, 'the container is its own fence');
     assert.equal(
       effectiveRole(
         {

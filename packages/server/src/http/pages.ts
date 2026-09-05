@@ -41,6 +41,7 @@ import {
   effectiveRole,
   loadPageLocation,
   resolveSessionClaims,
+  restrictedAtSql,
   type AccessClaims,
 } from '../auth/claims.js';
 import { deleteDocumentsFor } from '../doc/deleteDocuments.js';
@@ -174,13 +175,11 @@ async function moveEntry(pool: Pool, input: MoveInput): Promise<MoveResult> {
       kind: string;
       ancestor_ids: string[];
       path_only: boolean;
-      restricted: boolean;
+      restricted_at: string | null;
     }>(
       pool,
       `SELECT id, workspace_id, kind, ancestor_ids,
-              EXISTS (SELECT 1 FROM pages r
-                       WHERE r.id = ANY(array_append(pages.ancestor_ids, pages.id))
-                         AND r.restricted) AS restricted
+              ${restrictedAtSql('pages')} AS restricted_at
          FROM pages WHERE id = $1`,
       [parentPageId],
     );
@@ -199,7 +198,7 @@ async function moveEntry(pool: Pool, input: MoveInput): Promise<MoveResult> {
       workspaceId: parent.workspace_id,
       ancestorIds: parent.ancestor_ids,
       // Fetched with the row, because no listing filtered this one.
-      restricted: parent.restricted,
+      restrictedAt: parent.restricted_at,
     });
     if (parentRole === null) return { status: 404, code: 'parent_not_found' };
     if (parentRole === 'viewer' || parentRole === 'commenter') {
@@ -324,7 +323,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       last_edited_at: Date;
       ancestor_ids: string[];
       path_only: boolean;
-      restricted: boolean;
+      restricted_at: string | null;
     }>(
       deps.pool,
       `SELECT p.id, p.parent_page_id, p.collection_id, p.idx, p.title, p.icon,
@@ -338,11 +337,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
               -- condition had already excluded restricted ones — true of every
               -- row except the ones path_only exists for. A page kept as a path
               -- is kept *because* it is restricted.
-              EXISTS (
-                SELECT 1 FROM pages r
-                 WHERE r.id = ANY(array_append(p.ancestor_ids, p.id))
-                   AND r.restricted
-              ) AS restricted
+              ${restrictedAtSql('p')} AS restricted_at
          FROM pages p
         WHERE p.workspace_id = $1
           AND ($2 OR p.archived_at IS NULL)
@@ -393,7 +388,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           id: row.id,
           workspaceId,
           ancestorIds: row.ancestor_ids,
-          restricted: row.restricted,
+          restrictedAt: row.restricted_at,
         }) !== null,
     );
 
@@ -475,12 +470,11 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         workspace_id: string;
         kind: string;
         ancestor_ids: string[];
+        restricted_at: string | null;
       }>(
         deps.pool,
         `SELECT id, workspace_id, kind, ancestor_ids,
-              EXISTS (SELECT 1 FROM pages r
-                       WHERE r.id = ANY(array_append(pages.ancestor_ids, pages.id))
-                         AND r.restricted) AS restricted
+              ${restrictedAtSql('pages')} AS restricted_at
          FROM pages WHERE id = $1`,
         [parentPageId],
       );
@@ -503,9 +497,23 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         id: parent.id,
         workspaceId: parent.workspace_id,
         ancestorIds: parent.ancestor_ids,
-        // The listing condition above already excluded restricted pages, so
-        // this second check only has to agree with it.
-        restricted: false,
+        /*
+         * Fetched, not assumed.
+         *
+         * This passed a literal `null` and said "the listing condition above
+         * already excluded restricted pages" — a sentence copied from a route
+         * that has a listing. This one does not: it is a create, and the parent
+         * arrives as an id in the request body. So a member whose role gives
+         * `editor` could create a page inside a restricted folder they cannot
+         * open, and the folder's own restriction had nothing to say about it.
+         *
+         * The same false sentence, in the same words, was what discarded
+         * `path_only` in the tree route (ADR-0088). It is worth noticing that
+         * both were found by changing a boolean into an id: an assumption
+         * survives review, and a value that has to come from somewhere does
+         * not.
+         */
+        restrictedAt: parent.restricted_at,
       });
       if (role === null || role === 'viewer' || role === 'commenter') {
         ctx.fail(403, 'not_authorized');
@@ -705,7 +713,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       id: string;
       workspace_id: string;
       ancestor_ids: string[];
-      restricted: boolean;
+      restricted_at: string | null;
     }>(
       deps.pool,
       `SELECT id, workspace_id, ancestor_ids, restricted
@@ -726,7 +734,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           id: page.id,
           workspaceId: page.workspace_id,
           ancestorIds: page.ancestor_ids,
-          restricted: page.restricted,
+          restrictedAt: page.restricted_at,
         })
       : null;
     if (role === null) {
@@ -897,10 +905,17 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     const pageId = ctx.params['pageId'] ?? '';
     const versionId = ctx.params['versionId'] ?? '';
 
-    const page = await queryOne<{ id: string; workspace_id: string; ancestor_ids: string[] }>(
+    const page = await queryOne<{
+      id: string;
+      workspace_id: string;
+      ancestor_ids: string[];
+      restricted_at: string | null;
+    }>(
       deps.pool,
-      `SELECT id, workspace_id, ancestor_ids FROM pages
-        WHERE id = $1 AND archived_at IS NULL`,
+      `SELECT p.id, p.workspace_id, p.ancestor_ids,
+              ${restrictedAtSql('p')} AS restricted_at
+         FROM pages p
+        WHERE p.id = $1 AND p.archived_at IS NULL`,
       [pageId],
     );
     if (!page) {
@@ -917,7 +932,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         id: page.id,
         workspaceId: page.workspace_id,
         ancestorIds: page.ancestor_ids,
-        restricted: false,
+        restrictedAt: page.restricted_at,
       })
     ) {
       ctx.fail(403, 'not_authorized');
@@ -975,12 +990,15 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       last_edited_at: Date;
       ancestor_ids: string[];
       path_only: boolean;
+      restricted_at: string | null;
       width: 'column' | 'full' | null;
     }>(
       deps.pool,
-      `SELECT id, workspace_id, parent_page_id, collection_id, title, icon, kind,
-              cover_url, width, archived_at, created_at, last_edited_at, ancestor_ids
-         FROM pages WHERE id = $1`,
+      `SELECT p.id, p.workspace_id, p.parent_page_id, p.collection_id, p.title, p.icon,
+              p.kind, p.cover_url, p.width, p.archived_at, p.created_at, p.last_edited_at,
+              p.ancestor_ids,
+              ${restrictedAtSql('p')} AS restricted_at
+         FROM pages p WHERE p.id = $1`,
       [pageId],
     );
 
@@ -1004,9 +1022,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           id: page.id,
           workspaceId: page.workspace_id,
           ancestorIds: page.ancestor_ids,
-          // The listing condition above already excluded restricted pages, so
-          // this second check only has to agree with it.
-          restricted: false,
+          restrictedAt: page.restricted_at,
         })
       : null;
     if (role === null) {
@@ -1337,9 +1353,11 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       page_id: string;
       ancestor_ids: string[];
       path_only: boolean;
+      restricted_at: string | null;
     }>(
       deps.pool,
-      `SELECT t.tag_key, t.tag_label, t.page_id, p.ancestor_ids
+      `SELECT t.tag_key, t.tag_label, t.page_id, p.ancestor_ids,
+              ${restrictedAtSql('p')} AS restricted_at
          FROM page_tags t
          JOIN pages p ON p.id = t.page_id
         WHERE t.workspace_id = $1
@@ -1354,9 +1372,11 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         id: row.page_id,
         workspaceId,
         ancestorIds: row.ancestor_ids,
-        // The listing condition above already excluded restricted pages, so
-        // this second check only has to agree with it.
-        restricted: false,
+        // Fetched per row: this query has no visibility condition, which is why
+        // the filtering happens here at all. Saying "the listing already
+        // excluded restricted pages" of a query that lists everything is how a
+        // tag on a restricted page came to be counted for everybody.
+        restrictedAt: row.restricted_at,
       });
       if (role === null) continue;
 
@@ -1530,6 +1550,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       parent_page_id: string | null;
       descendants: string;
       parent_missing: boolean;
+      restricted_at: string | null;
     }>(
       deps.pool,
       `SELECT p.id, p.title, p.kind, p.archived_at, p.ancestor_ids, p.parent_page_id,
@@ -1542,7 +1563,8 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
               (p.parent_page_id IS NOT NULL AND NOT EXISTS (
                  SELECT 1 FROM pages q
                   WHERE q.id = p.parent_page_id AND q.archived_at IS NULL
-               )) AS parent_missing
+               )) AS parent_missing,
+              ${restrictedAtSql('p')} AS restricted_at
          FROM pages p
         WHERE p.workspace_id = $1
           AND p.archived_at IS NOT NULL
@@ -1568,9 +1590,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           id: row.id,
           workspaceId,
           ancestorIds: row.ancestor_ids,
-          // The listing condition above already excluded restricted pages, so
-          // this second check only has to agree with it.
-          restricted: false,
+          // Fetched per row. The query above lists what is archived, with no
+          // visibility condition at all — this filter is the only one there is,
+          // and it was being handed a null that let every restricted page pass.
+          restrictedAt: row.restricted_at,
         }) !== null,
     );
 
@@ -1765,10 +1788,13 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         kind: string;
         workspace_id: string;
         ancestor_ids: string[];
+        restricted_at: string | null;
       }>(
         deps.pool,
-        `SELECT id, kind, workspace_id, ancestor_ids FROM pages
-          WHERE id = $1 AND archived_at IS NULL`,
+        `SELECT p.id, p.kind, p.workspace_id, p.ancestor_ids,
+                ${restrictedAtSql('p')} AS restricted_at
+           FROM pages p
+          WHERE p.id = $1 AND p.archived_at IS NULL`,
         [target],
       );
       // A folder, alive, in this workspace, that this person may write in. The
@@ -1780,7 +1806,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
               id: folder.id,
               workspaceId: folder.workspace_id,
               ancestorIds: folder.ancestor_ids,
-              restricted: false,
+              // The target arrives as an id in the request body, so nothing
+              // filtered it: restoring into a restricted folder somebody cannot
+              // open is exactly what this has to refuse.
+              restrictedAt: folder.restricted_at,
             })
           : null;
       if (
@@ -2291,7 +2320,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           ancestorIds: row.ancestor_ids,
           // The listing condition above already excluded restricted pages, so
           // this second check only has to agree with it.
-          restricted: false,
+          restrictedAt: null,
         }) !== null,
     );
 

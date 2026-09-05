@@ -119,6 +119,12 @@ grant one level up walks through it. Changing it would change what every existin
 subtree grant does, so it is recorded here and in a test that says what actually
 happens, for a decision of its own.
 
+> **Decided and fixed, 2026-09-05: ADR-0089.** A grant now counts only if it was
+> made at or below the restriction. The decision of its own turned out to be a
+> short one — the old rule failed exactly against the people a restriction is
+> set to keep out, and held only against people who could not see the section
+> anyway.
+
 **And one the tree route had.** `path_only` was computed for a page somebody
 reaches only as the path to a child they were granted, exactly as ADR-0026
 requires — and the very next line filtered those rows out, because their

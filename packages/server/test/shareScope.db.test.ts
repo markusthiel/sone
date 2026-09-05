@@ -194,26 +194,24 @@ describe(
 
   test('a link is filtered by the same rule as anybody else', async () => {
       /*
-       * This is here because it caught me expecting the wrong thing, and what
-       * it records is a property of the model rather than of this route.
+       * This test has been written twice, and both versions are worth knowing
+       * about.
        *
-       * I wrote it asserting that a **restricted** page inside the shared
-       * section stays out. It does not — and neither does it for a member
-       * holding a subtree grant on the folder above. `restricted` withholds the
-       * *workspace default*; an explicit grant still reaches through it
-       * (ADR-0026), and a subtree grant on an ancestor is an explicit grant.
-       * Both resolvers agree, so this is the model speaking, not a hole this
-       * route opened.
+       * The first asserted that a **restricted** page inside the shared section
+       * stays out of the link. It failed. `restricted` withheld the *workspace
+       * default* and an explicit grant reached through it, and a subtree grant
+       * on an ancestor is an explicit grant — so I rewrote the test to record
+       * what the model actually did, and reported it rather than quietly
+       * changing the model from inside a test about sharing.
        *
-       * Whether that is the right rule is a real question — "only the people
-       * added below" reads like a fence, and a grant one level up walks
-       * through it — but it is a question about the permission model, not
-       * about sharing a folder, and changing it here would change what every
-       * existing subtree grant does.
+       * ADR-0089 then decided it: a restriction stops inherited access at its
+       * own edge. So the first version was right about what should happen and
+       * wrong about what did, and this is now what it always meant to say.
        *
-       * What this asserts is the part that must hold either way: the route
-       * asks `effectiveRole` per row rather than trusting the link's own
-       * grant, so whatever the model decides, this list follows it.
+       * The property that held through both versions, and the reason this test
+       * belongs here at all: the route asks `effectiveRole` per row rather than
+       * trusting the link's own grant. Whatever the model decides, this list
+       * follows it — that is what makes the list not a second opinion.
        */
       await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
       const link = await createShareLink(db, {
@@ -225,10 +223,16 @@ describe(
 
       const shared = await scopeOf(link.token);
       const ids = shared.pages.map((one) => one.id);
-      assert.equal(ids.includes(child), true, 'an explicit grant reaches through a restriction');
+      assert.equal(ids.includes(folder), true, 'the page the link names is still reached');
+      assert.equal(ids.includes(child), false, 'and the restriction below it stops the link');
+      assert.equal(
+        ids.includes(grandchild),
+        false,
+        'and the link does not resume underneath the restriction',
+      );
 
-      // And the same answer as the resolver every other surface asks, which is
-      // the property that stops this list from becoming a second opinion.
+      // The same answer as the resolver every other surface asks, which is the
+      // property that stops this list from becoming a second opinion.
       const { resolvePageAccess } = await import('../src/pages/access.js');
       for (const id of ids) {
         const asOwner = await resolvePageAccess(db, { pageId: id, userId: owner });
