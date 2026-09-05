@@ -74,6 +74,37 @@ export function liveClientIds(doc: Y.Doc): Set<number> {
 }
 
 /**
+ * Which person each client id belongs to, from the document's own mapping.
+ *
+ * `Y.PermanentUserData` keeps `userKey -> { ids: [clientId, …] }`, written by
+ * every client when it opens a page. This inverts it, because everything that
+ * reads authorship has a client id in hand and wants the person.
+ *
+ * A user id for an account, a `guest:` key for somebody who has none — the same
+ * two shapes a comment's author field carries, so a caller comparing the two
+ * is comparing like with like.
+ *
+ * Built from the map rather than from a live `Y.PermanentUserData`, which
+ * observes and throws when an entry is removed from under it (see
+ * `pruneAttribution`). This only reads.
+ */
+export function authorsByClient(doc: Y.Doc): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const [userKey, value] of doc.getMap(USERS_KEY).entries()) {
+    const ids = value instanceof Y.Map ? value.get('ids') : null;
+    if (!(ids instanceof Y.Array)) continue;
+    for (const entry of ids.toArray() as unknown[]) {
+      // Last writer wins on a collision, which cannot happen legitimately: a
+      // client id belongs to one session. Not worth an error — a document is
+      // written by clients we do not control, and the alternative to a
+      // arbitrary answer here is no attribution at all.
+      if (typeof entry === 'number') out.set(entry, userKey);
+    }
+  }
+  return out;
+}
+
+/**
  * How a guest is named in a document's attribution (ADR-0022).
  *
  * Prefixed, and the prefix is the point rather than a namespace trick: a guest
