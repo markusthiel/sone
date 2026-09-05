@@ -60,14 +60,40 @@ export function useViewportChanges(active: boolean, watch?: HTMLElement | null):
     visual?.addEventListener('resize', bump);
     visual?.addEventListener('scroll', bump);
 
-    // And the element itself, for every reason the window knows nothing about.
-    //
-    // Guarded on the constructor rather than assumed: jsdom does not implement
-    // it, and a test environment missing an observer should lose the extra
-    // re-measure rather than take the component down with a ReferenceError.
+    /*
+     * The element **and everything it sits inside**.
+     *
+     * Watching the element alone was not enough, and the reason is invisible
+     * from the element's own point of view: the reading column is
+     * `max-width: 46rem; margin-inline: auto`. On any window wider than that,
+     * collapsing the sidebar — or dragging it narrower — changes how much room
+     * there is, so the column **re-centres without changing width at all**.
+     *
+     * A ResizeObserver reports size. The text moved two hundred pixels sideways
+     * and the observer had nothing to report, so nothing re-measured and the
+     * gutter stayed where the text used to be — until the next selection or
+     * edit happened to recompute it, which is why it "usually fixes itself when
+     * you click on something else" (ADR-0083).
+     *
+     * The ancestors are what actually changed: the pane holding the column got
+     * wider. Observing the chain catches that, and catches the next layout that
+     * moves the text for a reason this hook has not been told about — which is
+     * the whole job of a hook whose question is "did something move".
+     *
+     * Cheap: one observer, a handful of targets, and every notification is
+     * coalesced into the same single frame as a scroll.
+     *
+     * Guarded on the constructor rather than assumed: jsdom does not implement
+     * it, and a test environment missing an observer should lose the extra
+     * re-measure rather than take the component down with a ReferenceError.
+     */
     const observer =
       watch && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(bump) : null;
-    observer?.observe(watch as Element);
+    if (observer && watch) {
+      for (let element: HTMLElement | null = watch; element; element = element.parentElement) {
+        observer.observe(element);
+      }
+    }
 
     return () => {
       if (frame !== null) cancelAnimationFrame(frame);

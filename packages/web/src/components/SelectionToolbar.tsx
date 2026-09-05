@@ -72,7 +72,11 @@ export function SelectionToolbar({
 
   // A scroll moves the selection under the toolbar without producing a
   // transaction, so nothing else would prompt a re-measure.
-  const viewportToken = useViewportChanges(visible);
+  // The editor's element too, and not only the window: the reading column
+  // re-centres when the sidebar opens or closes, without any window event and
+  // without changing its own width (ADR-0083). Every overlay measured against
+  // the text drifts the same way.
+  const viewportToken = useViewportChanges(visible, view.dom as HTMLElement);
 
   const copyCode = async (): Promise<void> => {
     if (codeText === null) return;

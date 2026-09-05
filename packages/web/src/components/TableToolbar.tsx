@@ -90,7 +90,8 @@ export function TableToolbar({ view, revision }: TableToolbarProps): ReactElemen
   const [retryToken, setRetryToken] = useState(0);
 
   const inTable = isInTable(view.state);
-  const viewportToken = useViewportChanges(inTable);
+  // The editor's element too — see the note in useViewportChanges (ADR-0083).
+  const viewportToken = useViewportChanges(inTable, view.dom as HTMLElement);
 
   useEffect(() => {
     if (!inTable) {
