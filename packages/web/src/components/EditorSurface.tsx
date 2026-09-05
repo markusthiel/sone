@@ -758,7 +758,13 @@ export function EditorSurface({
         }}
       />
 
-      {view && handle.canEdit && (
+      {/* `!locked` as well as `canEdit`, because ADR-0049 says a locked page
+          stops "typing, the slash menu, the block gutter" — and until now it
+          drew the gutter anyway. `editable` refuses what the user types; it
+          does not refuse what a menu item dispatches, so the gutter's delete
+          worked on a locked page. The plugin side is closed too (editGuard),
+          and this is the half that stops offering it. */}
+      {view && handle.canEdit && !locked && (
         <>
           <SlashMenu
             view={view}
@@ -785,16 +791,27 @@ export function EditorSurface({
           )}
           <BlockMenu view={view} revision={revision} members={members} />
           <TableToolbar view={view} revision={revision} />
-          {/* No comment button for somebody who may only read: commenting
-              requires edit rights until there is a role that separates them
-              (ADR-0046). A JSX comment cannot sit among attributes, which is
-              the second time this week I have tried to put one there. */}
-          <SelectionToolbar
-            view={view}
-            revision={revision}
-            {...(handle.canEdit ? { onComment } : {})}
-          />
         </>
+      )}
+
+      {/* Outside the block above, because a locked page still takes comments:
+          "a locked page under review is exactly the case comments exist for,
+          and a comment is about the page rather than part of it" (ADR-0049,
+          ADR-0046). So the toolbar stays and drops its formatting instead of
+          disappearing — `canFormat` is what the buttons that change the text
+          hang on.
+
+          No comment button for somebody who may only read: commenting requires
+          edit rights until there is a role that separates them (ADR-0046). A
+          JSX comment cannot sit among attributes, which is the second time
+          this week I have tried to put one there. */}
+      {view && handle.canEdit && (
+        <SelectionToolbar
+          view={view}
+          revision={revision}
+          canFormat={!locked}
+          onComment={onComment}
+        />
       )}
     </>
   );

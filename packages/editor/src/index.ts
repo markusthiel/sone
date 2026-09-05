@@ -18,4 +18,5 @@ export * from './authorship.js';
 export * from './authorHighlight.js';
 export * from './assignment.js';
 export * from './blockLock.js';
+export * from './editGuard.js';
 export * from './commentAnchors.js';
