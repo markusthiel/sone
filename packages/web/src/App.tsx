@@ -27,6 +27,7 @@ import { MoveToWorkspaceDialog } from './components/MoveToWorkspaceDialog.tsx';
 import { ShareDialog } from './components/ShareDialog.tsx';
 import { Trash } from './components/Trash.tsx';
 import { SidebarIcon } from './components/icons.tsx';
+import { EntryIconView } from './components/EntryIconView.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
 import {
   RightPanelToggle,
@@ -1289,6 +1290,25 @@ function depthOf(
   return depth;
 }
 
+/**
+ * What the link opened on, for the head of the list.
+ *
+ * The entry with no parent *within what was shared* — which the route sets for
+ * the scope page and for nothing else, so this is a lookup rather than a guess.
+ * Empty string if the list has not arrived: the head is not a place to put
+ * "loading".
+ */
+function sharedRootTitle(
+  entries: ReadonlyArray<{ parentPageId: string | null; title: string }>,
+): string {
+  return entries.find((one) => one.parentPageId === null)?.title ?? '';
+}
+
+/** The kinds the entry icon draws, for a kind that arrives as text. */
+function drawnKind(kind: string): 'page' | 'folder' | 'canvas' {
+  return kind === 'folder' || kind === 'canvas' ? kind : 'page';
+}
+
 function ShareSession({
   token,
   pageId,
@@ -1298,6 +1318,16 @@ function ShareSession({
   pageId: string | null;
   displayName: string;
 }): ReactElement {
+  const { t } = useT();
+  /*
+   * Open to begin with, and closable — the same as the workspace.
+   *
+   * Not stored: `useSidebarWidth` keeps the workspace's choice in local
+   * storage, and a link is a place somebody arrives once. Remembering that they
+   * collapsed the list on a different link, weeks ago, would be a surprise
+   * rather than a convenience.
+   */
+  const [treeOpen, setTreeOpen] = useState(true);
   // The share token identifies the workspace server-side; the client does not
   // know it yet, so it sends a placeholder that the server ignores in favour of
   // the token's own workspace.
@@ -1424,35 +1454,125 @@ function ShareSession({
     );
   }
 
+  /*
+   * Only when the link reaches more than the page it names.
+   *
+   * A link to one page has nothing to navigate, and an aside holding a single
+   * entry is furniture. This is the difference between sharing a page and
+   * sharing a section, and the view should look like whichever one happened.
+   */
+  const hasTree = shared.length > 1;
+
   return (
-    <div className="app">
-      {/* The shared-link view: no toggles and nothing to scroll past, so it
-          keeps the plain bar. */}
-      {/* Only when the link reaches more than the page it names.
-        *
-        * A link to one page has nothing to navigate, and an aside holding a
-        * single entry is furniture. This is the difference between sharing a
-        * page and sharing a section, and the view should look like whichever
-        * one happened. */}
-      {shared.length > 1 && (
-        <nav className="share-tree" aria-label="Shared pages">
-          <ul>
-            {shared.map((entry) => (
-              <li key={entry.id} data-kind={entry.kind}>
-                <a
-                  href={`/s/${encodeURIComponent(token)}/p/${entry.id}`}
-                  aria-current={entry.id === effectivePageId ? 'page' : undefined}
-                  data-depth={depthOf(entry.id, shared)}
+    /*
+     * The same shell as the workspace, minus the rail.
+     *
+     * `.app` is a grid of one column, so the first version's list became a
+     * second *row* — a bar across the whole width, above the page. The column
+     * has to be a track on the parent; `with-share-tree` is that track, and it
+     * is conditional for the same reason the list is.
+     *
+     * No `with-sidebar`, so no rail column. The rail holds destinations —
+     * inbox, trash, settings, the account — and a visitor holding a link has
+     * none of them. A 56px strip of nothing beside the list would be the
+     * workspace's furniture rendered for somebody who is not in the workspace.
+     */
+    <div
+      className={hasTree ? 'app with-share-tree' : 'app'}
+      data-sidebar={treeOpen ? 'shown' : 'hidden'}
+    >
+      {hasTree && (
+        <>
+          {/* The overlay's backdrop, which only draws on a narrow screen. Same
+              element and same class as the workspace's, so closing the drawer
+              by tapping beside it works here without a second answer to what
+              that gesture means. */}
+          {treeOpen && (
+            <button
+              className="scrim"
+              type="button"
+              aria-label={t('sidebar.close')}
+              onClick={() => setTreeOpen(false)}
+            />
+          )}
+          <nav
+            className={`sidebar share-tree${treeOpen ? ' open' : ''}`}
+            aria-label={t('sidebar.label')}
+            {...(treeOpen ? {} : { 'aria-hidden': true, inert: true })}
+          >
+            <div className="panel-head">
+              <div className="sidebar-head">
+                {/* What was shared, by name. The workspace puts its switcher
+                    here; there is nothing to switch between on a link, so the
+                    head says which section this is instead — which is the
+                    question somebody opening a link actually has. */}
+                <div className="panel-title">{sharedRootTitle(shared)}</div>
+                <div className="sidebar-head-actions">
+                  <button
+                    className="quiet drawer-close"
+                    type="button"
+                    onClick={() => setTreeOpen(false)}
+                    title={t('sidebar.hide')}
+                    aria-label={t('sidebar.hide')}
+                  >
+                    <SidebarIcon />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel-body">
+              {shared.map((entry) => (
+                <div
+                  className="tree-row"
+                  data-kind={entry.kind}
+                  key={entry.id}
+                  /* Depth as an indent on the row, from the flat list.
+                   *
+                   * The workspace nests its rows so a guide line can be drawn
+                   * down a branch. Here the list cannot always be nested: a
+                   * restricted page inside the shared section is withheld and
+                   * its children are not, so a node whose parent is missing is
+                   * a legitimate row — and building a tree would drop it. Same
+                   * 18px step, so it reads the same. */
+                  style={{
+                    marginInlineStart: `${18 * depthOf(entry.id, shared)}px`,
+                  }}
                 >
-                  {entry.title}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
+                  <span className="tree-twisty" data-placeholder="true" aria-hidden="true" />
+                  <a
+                    className="tree-link"
+                    draggable={false}
+                    href={`/s/${encodeURIComponent(token)}/p/${entry.id}`}
+                    {...(entry.id === effectivePageId
+                      ? { 'aria-current': 'page' as const }
+                      : {})}
+                  >
+                    <EntryIconView icon={null} kind={drawnKind(entry.kind)} />{' '}
+                    <span>{entry.title}</span>
+                  </a>
+                </div>
+              ))}
+            </div>
+          </nav>
+        </>
       )}
       <div className="main">
         <div className="topbar">
+          {/* The way back, and the reason the close button is safe to offer.
+              Only when there is a list to reopen — on a single-page link this
+              would toggle nothing. */}
+          {hasTree && (
+            <button
+              className="quiet sidebar-toggle"
+              type="button"
+              onClick={() => setTreeOpen((open) => !open)}
+              aria-label={treeOpen ? t('sidebar.hide') : t('sidebar.show')}
+              aria-expanded={treeOpen}
+            >
+              <SidebarIcon />
+            </button>
+          )}
           <PageStatus handle={handle} connectionState={state} />
         </div>
         {handle && effectivePageId ? (

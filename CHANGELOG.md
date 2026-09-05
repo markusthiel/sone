@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Der Seitenbaum eines Freigabelinks ist jetzt eine Seitenleiste.** Er kam als
+breites Menü quer über die Seite heraus — und sah außerdem aus wie ein zweites,
+eigenes Ding neben dem Seitenbaum im Workspace. Jetzt ist es dieselbe
+Seitenleiste: derselbe Kopf, dieselben Zeilen mit Symbolen, derselbe Knopf zum
+Ein- und Ausklappen.
+
+Ohne die schmale Symbolleiste am Rand: die führt zu Posteingang, Papierkorb,
+Einstellungen und Konto, und davon hat jemand mit einem Link nichts.
+
+Nichts zu tun beim Aktualisieren.
+
 **Eine Beschränkung hält jetzt auch gegen die, die den Ordner darüber haben.**
 Wer eine Seite oder einen Bereich beschränkt („nur die unten hinzugefügten
 Leute"), hielt damit bisher nur die Rolle des Workspace fern. Eine Freigabe auf
