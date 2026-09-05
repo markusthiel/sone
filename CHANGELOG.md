@@ -21,6 +21,41 @@ was being written. They are on `ghcr.io/markusthiel/sone` and can be
 pulled without credentials. A released tag's notes are not rewritten
 (ADR-0013), so the correction lives here.
 
+**Backups say what they contain, and a failed restore leaves your database
+alone.**
+
+Nothing was producing bad backups — the round trip works and is tested. What it
+was doing is keeping things to itself. An archive with no attachments in it
+could mean three different things, and the restore told everybody the same one:
+"if the source used S3 storage, point this instance at the same bucket", to
+operators who had never had a bucket. The archive now records which it was, and
+the restore says the true sentence.
+
+An instance keeping attachments in **S3** gets a database-only backup — that is
+correct and always was, but it happened quietly. The backup now says so while it
+runs, in as many words: the bucket needs a backup of its own.
+
+A file directory that **cannot be read** — a volume that failed to mount, say —
+now refuses the backup instead of quietly producing one without the
+attachments. A backup may leave things out; it may not do so by accident.
+
+A **restore that fails** now leaves the database exactly as it was, rather than
+partway between two states. A backup **interrupted** before it finished is named
+`.incomplete` and is refused with that word, rather than looking like an archive
+and failing on a missing file at the worst moment. And a very large backup no
+longer needs as much memory as the database is big — above two gigabytes it
+could not be made at all.
+
+Two corrections to what was written down. `--force` on a restore never dropped
+and recreated anything, whatever the message said — it skips one check, and
+using it to move a database *backwards* leaves the newer tables in place and
+breaks the next start. And the README printed the backup and restore commands
+side by side as though both could run against a live instance: **a restore
+cannot.** There is a restore section in `docs/deployment.md` now, which also
+says the thing nobody had written down — a restore with a different
+`SONE_SECRET_KEY` succeeds and then silently fails to read second factors and
+share links.
+
 **Replies that arrive by email: umlauts, and who is allowed to send one.**
 
 An answer typed on a phone arrived with its accented letters doubled — "Grüße"
