@@ -595,7 +595,7 @@ function Workspace({
         // should cost somebody a good guess, not a blank screen.
         arrived.current = workspaceId;
         const first = pages[0];
-        if (first) navigate(paths.page(first.id, first.title));
+        if (first) navigate(paths.page(first.id, first.title ?? undefined));
       });
 
     return () => {

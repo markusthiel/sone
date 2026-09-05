@@ -32,7 +32,10 @@ interface Cost {
 
 interface Props {
   /** What is moving, and where it is now. */
-  entry: { id: string; title: string };
+  /** A title can be absent for a page kept only as a path (ADR-0026) — and
+   *  such a page offers no menu, so this dialog never opens for one. Typed
+   *  honestly all the same: the alternative is a cast at the call site. */
+  entry: { id: string; title: string | null };
   session: SessionInfo;
   currentWorkspaceId: string;
   /** Reloads the tree; the entry is no longer in this workspace. */

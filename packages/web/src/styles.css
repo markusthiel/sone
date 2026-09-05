@@ -7776,6 +7776,18 @@ body {
   font-size: var(--sone-text-sm);
 }
 
+/* A page in the tree only as the path to a granted child (ADR-0026).
+ *
+ * Muted and not a link, because there is nothing here to open. Deliberately not
+ * italic or struck through: it is not a broken row or a deleted one, it is a
+ * place somebody's access passes through — and the twisty beside it works,
+ * which is the whole reason it is drawn at all.
+ */
+.tree-path-only {
+  color: var(--sone-text-muted);
+  cursor: default;
+}
+
 /* The sharing overview (ADR-0026).
  *
  * The reading column, like every other screen that is a list rather than a
