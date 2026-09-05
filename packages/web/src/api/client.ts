@@ -455,9 +455,32 @@ export interface WorkspaceMember {
   displayName: string;
   /** Null unless the caller administers the workspace. */
   email: string | null;
+  /** One of the four system words, or 'custom' for a role this workspace made. */
   role: string;
+  /** Which role row they hold, so a picker can select the right one. */
+  roleId: string | null;
+  /** What that role is called, which is the only name a custom one has. */
+  roleName: string;
   isGuest: boolean;
   joinedAt: string;
+}
+
+/**
+ * A role as the settings screen sees it (ADR-0087).
+ *
+ * `key` is present only on the four system roles, and its presence is what says
+ * they cannot be edited — rather than a separate flag, which would be a second
+ * way of saying the same thing and a second thing to keep in step.
+ */
+export interface WorkspaceRoleRow {
+  id: string;
+  key: string | null;
+  name: string;
+  /** Null means the role gives nothing without an explicit page grant. */
+  pageLevel: string | null;
+  rights: string[];
+  members: number;
+  groups: number;
 }
 
 export interface SearchResult {
@@ -605,7 +628,15 @@ export const api = {
     }),
 
   groups: (workspaceId: string) =>
-    request<{ groups: Array<{ id: string; name: string; members: number }> }>(
+    request<{
+      groups: Array<{
+        id: string;
+        name: string;
+        members: number;
+        roleId: string | null;
+        roleName: string | null;
+      }>;
+    }>(
       `/api/workspaces/${workspaceId}/groups`,
     ),
 
@@ -716,10 +747,63 @@ export const api = {
       { method: 'PATCH', body: JSON.stringify({ icon }) },
     ),
 
+  /**
+   * One of the four system roles by its word, or any role by its id.
+   *
+   * Both, because the four words are still the names of real rows and every
+   * caller that predates roles-as-rows sends one (ADR-0087). A request naming
+   * both is refused rather than resolved.
+   */
   setMemberRole: (workspaceId: string, userId: string, role: string) =>
     request<{ ok: true }>(`/api/workspaces/${workspaceId}/members/${userId}`, {
       method: 'PUT',
       body: JSON.stringify({ role }),
+    }),
+
+  setMemberRoleId: (workspaceId: string, userId: string, roleId: string) =>
+    request<{ ok: true }>(`/api/workspaces/${workspaceId}/members/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ roleId }),
+    }),
+
+  // --- roles (ADR-0087) ------------------------------------------------------
+
+  /** Every role this workspace can use, system and its own, with who holds each. */
+  roles: (workspaceId: string) =>
+    request<{ roles: WorkspaceRoleRow[]; rights: string[] }>(
+      `/api/workspaces/${workspaceId}/roles`,
+    ),
+
+  createRole: (
+    workspaceId: string,
+    role: { name: string; pageLevel: string | null; rights: string[] },
+  ) =>
+    request<WorkspaceRoleRow>(`/api/workspaces/${workspaceId}/roles`, {
+      method: 'POST',
+      body: JSON.stringify(role),
+    }),
+
+  /** The whole role, not a patch — see the route for why. */
+  updateRole: (
+    workspaceId: string,
+    roleId: string,
+    role: { name: string; pageLevel: string | null; rights: string[] },
+  ) =>
+    request<{ ok: true }>(`/api/workspaces/${workspaceId}/roles/${roleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(role),
+    }),
+
+  deleteRole: (workspaceId: string, roleId: string) =>
+    request<{ ok: true }>(`/api/workspaces/${workspaceId}/roles/${roleId}`, {
+      method: 'DELETE',
+    }),
+
+  /** Null takes the role away, which leaves the group a list of people. */
+  setGroupRole: (workspaceId: string, groupId: string, roleId: string | null) =>
+    request<{ ok: true }>(`/api/workspaces/${workspaceId}/groups/${groupId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ roleId }),
     }),
 
   removeMember: (workspaceId: string, userId: string) =>

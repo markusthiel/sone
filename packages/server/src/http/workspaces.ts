@@ -464,13 +464,24 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
       display_name: string;
       email: string | null;
       role: string;
+      role_id: string | null;
+      role_name: string;
       is_guest: boolean;
       joined_at: Date;
     }>(
       deps.pool,
-      `SELECT m.user_id, u.display_name, u.email, m.role, u.is_guest, m.joined_at
+      // The role row, not only the old word: a custom role has no word, and a
+      // picker that cannot say which role somebody holds cannot preselect it
+      // (ADR-0087). `r.key` is null for a custom role, which is what makes
+      // `role` read 'custom' below.
+      `SELECT m.user_id, u.display_name, u.email,
+              COALESCE(r.key, 'custom') AS role,
+              r.id AS role_id,
+              COALESCE(r.name, m.role::text) AS role_name,
+              u.is_guest, m.joined_at
          FROM workspace_members m
          JOIN users u ON u.id = m.user_id
+         LEFT JOIN roles r ON r.id = m.role_id
         WHERE m.workspace_id = $1
         ORDER BY u.display_name COLLATE "und-x-icu"`,
       [workspaceId],
@@ -485,6 +496,8 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
         // edited a page.
         email: managesPeople.held ? row.email : null,
         role: row.role,
+        roleId: row.role_id,
+        roleName: row.role_name,
         isGuest: row.is_guest,
         joinedAt: row.joined_at,
       })),

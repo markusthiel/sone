@@ -34,6 +34,7 @@ import {
 import { ensureSystemRoles } from './auth/standing.js';
 import { registerInvitationRoutes } from './auth/invitationRoutes.js';
 import { registerGroupRoutes } from './pages/groupRoutes.js';
+import { registerRoleRoutes } from './auth/roleRoutes.js';
 import { registerPagePermissionRoutes } from './pages/permissionRoutes.js';
 import { registerOidcRoutes } from './auth/oidcRoutes.js';
 import { installSecondFactorGate, registerAuthRoutes } from './http/auth.js';
@@ -288,6 +289,7 @@ async function main(): Promise<void> {
   registerInvitationRoutes(router, { pool });
   registerPagePermissionRoutes(router, { pool });
   registerGroupRoutes(router, { pool });
+  registerRoleRoutes(router, { pool });
 
   registerOidcRoutes(router, {
     pool,

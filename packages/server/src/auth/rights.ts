@@ -65,11 +65,36 @@ export async function requireRight(
   workspaceId: string,
   right: Right,
 ): Promise<string | null> {
+  return requireAnyRight(pool, ctx, workspaceId, [right]);
+}
+
+/**
+ * The same, for a route that two different rights both reach.
+ *
+ * There is exactly one so far and it is worth naming rather than generalising
+ * from: **reading the list of roles**. You need it to define what a role means
+ * (`roles.manage`) and you need it to give somebody one (`people.manage`), and
+ * a list that only the first could read would leave the second with a picker
+ * that has nothing in it — a control that is present, empty, and unexplained.
+ *
+ * Not "any member may read it": which roles a workspace has defined, and what
+ * each one may do, is a description of how the place is run.
+ */
+export async function requireAnyRight(
+  pool: Pool,
+  ctx: RequestContext,
+  workspaceId: string,
+  rights: readonly Right[],
+): Promise<string | null> {
   const session = await requireSession(pool, ctx);
   if (!session) return null;
 
-  const { member, held } = await holdsRight(pool, workspaceId, session.userId, right);
-  if (held) return session.userId;
+  let member = false;
+  for (const right of rights) {
+    const answer = await holdsRight(pool, workspaceId, session.userId, right);
+    if (answer.held) return session.userId;
+    member = member || answer.member;
+  }
 
   ctx.fail(member ? 403 : 404, member ? 'forbidden' : 'not_found');
   return null;

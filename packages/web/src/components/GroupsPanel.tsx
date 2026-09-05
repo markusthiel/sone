@@ -8,21 +8,26 @@
  */
 
 import { useT } from '../i18n/useT.tsx';
+import type { MessageKey } from '../i18n/messages.en.ts';
 import { useEffect, useState, type ReactElement } from 'react';
 
-import { ApiError, api, type WorkspaceMember } from '../api/client.ts';
+import { ApiError, api, type WorkspaceMember, type WorkspaceRoleRow } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
 
 interface Group {
   id: string;
   name: string;
   members: number;
+  /** A group can carry a role, which everybody in it then holds (ADR-0087). */
+  roleId: string | null;
+  roleName: string | null;
 }
 
 export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElement {
   const { t } = useT();
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [roles, setRoles] = useState<WorkspaceRoleRow[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [openMembers, setOpenMembers] = useState<Array<{ userId: string; displayName: string }>>(
     [],
@@ -44,6 +49,13 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
       .members(workspaceId)
       .then((result) => setMembers(result.members))
       .catch(() => {});
+    // Failing quietly: somebody who may manage groups need not be able to
+    // define roles, and a picker that is simply absent says that better than
+    // an error about a right they were not looking for.
+    void api
+      .roles(workspaceId)
+      .then((result) => setRoles(result.roles))
+      .catch(() => setRoles([]));
   }, [workspaceId]);
 
   useEffect(() => {
@@ -109,6 +121,22 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
             <span className="muted">
               {group.members} {group.members === 1 ? 'person' : 'people'}
             </span>
+            {roles.length > 0 && (
+              <select
+                aria-label={t('role.forGroup')}
+                value={group.roleId ?? ''}
+                onChange={(event) =>
+                  act(api.setGroupRole(workspaceId, group.id, event.target.value || null))
+                }
+              >
+                <option value="">{t('role.groupNone')}</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.key ? t(`role.${role.key}` as MessageKey) : role.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <button type="button" className="btn" onClick={() => remove(group)}>
               {t('group.delete')}
             </button>

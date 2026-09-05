@@ -64,7 +64,12 @@ export interface WorkspaceStanding {
  * and deleting the workspace, which is a property of the membership rather
  * than a right (ADR-0087).
  */
-const MANAGES: readonly Right[] = ['people.manage', 'groups.manage', 'workspace.settings'];
+const MANAGES: readonly Right[] = [
+  'people.manage',
+  'groups.manage',
+  'workspace.settings',
+  'roles.manage',
+];
 
 const SYSTEM_ROLES: ReadonlyArray<{
   key: string;
