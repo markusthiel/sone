@@ -81,6 +81,16 @@ export const ServerMessage = {
  */
 export const NotifyScope = {
   Inbox: 'inbox',
+  /**
+   * The page tree of the workspace this connection authenticated for
+   * (ADR-0096).
+   *
+   * The scope that proves the scope was worth having: a second subject, no
+   * protocol version. Addressed by **workspace** rather than by person, which
+   * is what the tree is, and it names nothing about the change — the tree route
+   * is the one place that decides what somebody may see.
+   */
+  Pages: 'pages',
 } as const;
 
 export type NotifyScopeValue = (typeof NotifyScope)[keyof typeof NotifyScope];
