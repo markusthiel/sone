@@ -48,6 +48,15 @@ export const RIGHTS = [
   'groups.manage',
   /** The workspace's name, mark, typography and appearance. */
   'workspace.settings',
+  /**
+   * Define roles: what each one gives, and who holds it.
+   *
+   * The most consequential of the four, because it is the one that can hand
+   * out the other three. Held by owner and admin, which is who could change
+   * what a role means before there was anything to change — until roles were
+   * rows, the four were four words in the code.
+   */
+  'roles.manage',
 ] as const;
 
 export type Right = (typeof RIGHTS)[number];

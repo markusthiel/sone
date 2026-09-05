@@ -2,13 +2,12 @@
 
 ## Status
 
-Accepted, and steps 1 and 2 of the four below are built. Steps 3 (the settings
-screen) and 4 (caps) are not.
+Accepted, and steps 1 to 3 of the four below are built. Step 4 (caps) is not.
 
 It was written as a proposal and agreed before any code, because it changes a
-decision ADR-0026 made deliberately. Two things changed in the building, both
-recorded in **What building it changed** near the end: the list of rights is
-three rather than eight, and ownership became a column.
+decision ADR-0026 made deliberately. What changed in the building is recorded in
+**What building it changed** near the end: the list of rights grew one name at a
+time as the checks appeared, and ownership became a column.
 
 ## Context
 
@@ -94,16 +93,27 @@ the whole of Markus's first question, and it falls out rather than being built.
 ### The rights are an enumeration in code, and a check enforces it
 
 ```
-people.manage      add and remove members, change what role they hold, invitations
+people.manage      add and remove members, change what role somebody holds,
+                   invitations, and which role a group carries
 groups.manage      create groups, change who is in them
 workspace.settings name, mark, typography, appearance
+roles.manage       define what a role gives
 ```
 
-Three, and the list is closed. Adding one is a change to this file and to the
-code that checks it, in the same commit.
+Four, and the list is closed. Adding one is a change to this file and to the
+code that checks it, in the same commit — which is how `roles.manage` arrived:
+step two left it out because its routes did not exist yet, and step three added
+the routes and the name together.
 
-The proposal listed eight. Five of them named things nothing guards — see
+The proposal listed eight. Four of them named things nothing guards — see
 **What building it changed**.
+
+**The line between the last two is worth stating once**, because it is asked at
+every route that touches a role: *defining what a role means is `roles.manage`;
+deciding who holds one is `people.manage`.* That holds whether the holder is a
+person or a group. Requiring more for the group case would be a rule that only
+looks stricter — somebody who may set a person's role can already hand out every
+right by making them an admin.
 
 **A right nobody checks is a lie**, and this project has now found that exact
 shape six times (ADR-0084 names it). So the enumeration gets a mechanical guard
@@ -238,12 +248,15 @@ is easy to build against a model that is wrong.
 Two things, and both are the kind of correction that only appears once the code
 is in front of you.
 
-**Three rights, not eight.** The proposal listed `roles.manage`,
-`workspace.export`, `pages.create`, `links.share` and `trash.purge` alongside
-the three that shipped. Writing the enforcement check first — the rule this
-record states — showed that none of the five could have one:
+**Three rights in step two, four after step three.** The proposal listed
+`roles.manage`, `workspace.export`, `pages.create`, `links.share` and
+`trash.purge` alongside the three that shipped first. Writing the enforcement
+check before the list — the rule this record states — showed that none of the
+five could have one at that point:
 
-- `roles.manage` guards routes that do not exist until step 3.
+- `roles.manage` guarded routes that did not exist until step 3. It joined the
+  list in that step, in the same change as the routes, which is the rule
+  working rather than an exception to it.
 - `links.share` duplicates a check that is already there and is a *page* check,
   not a workspace one: creating a share link needs `admin` on the page.
 - `pages.create` and `trash.purge` are not separately gated at all today.
@@ -293,6 +306,35 @@ version answers 403 to everything and explains nothing, which is an hour of
 somebody's afternoon each time it happens. The check is narrow — a guest and a
 custom role both produce a row, so only a genuinely broken database reaches it —
 and the boot assertion means a running instance never should.
+
+### What step three added, and the one thing it had to decide
+
+The screen is `RolesPanel`, its own section beside Groups, and the shape of it
+follows from what a role is: the page level is drawn as **radio buttons**
+because it is a ladder, and the rights as **checkboxes** because they are a set.
+Drawing the ladder as checkboxes would invite the combination that cannot exist
+— "may edit but not view" — and then have to refuse it.
+
+Three refusals carry the weight, and each is a way somebody loses a workspace:
+
+- **A built-in role cannot be edited or deleted.** They are listed, because the
+  choice is between all of them and hiding half would make the other half look
+  like the whole; they simply have no edit control. Absent says why more plainly
+  than disabled does.
+- **A role somebody holds cannot be deleted.** The refusal names how many people
+  and groups hold it. Moving everybody to `member` and deleting would change
+  what several people may do without saying so, and "several" could be everyone.
+- **A right the server does not know is refused, not dropped.** This is the
+  opposite of what the loader does when it *reads* a row, and deliberately: a
+  stored name nothing recognises is ignored, because a row can outlive the code,
+  but a name arriving from a client right now is a tick somebody just made, and
+  saving the role without it is exactly the failure this record is about.
+
+The one thing that had to be decided while building: **reading the list of roles
+needs either `roles.manage` or `people.manage`.** Requiring only the first would
+leave somebody who may set a person's role with a picker that is present, empty
+and unexplained. It is the only route so far that two rights reach, which is why
+`requireAnyRight` says so rather than being a general facility.
 
 ## Consequences
 
