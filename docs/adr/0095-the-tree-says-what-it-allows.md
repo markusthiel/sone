@@ -123,6 +123,11 @@ still says a workspace-level subscription "does not exist yet". It does now
 somebody is looking is still noticed only on the next refetch. Named, not built:
 it is the same shape of work as the bell and deserves its own decision.
 
+> Built in the next round (ADR-0096). It is the sharper half of that work: since
+> this record an entry carries what it allows, so a permission arriving while
+> somebody is looking leaves a rename field on screen that the server will
+> refuse — the exact fault this record removed, a second later.
+
 **Six route tests, all six failing before the change**, and the interesting one
 is the counterweight: a member keeps `editor` on the folder *beside* the
 restricted one. A fix to this that read as "members see less" would be worse
