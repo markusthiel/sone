@@ -656,10 +656,13 @@ describe('client end to end', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
     const handle = client.openPage(uuid(1));
     await waitFor(() => handle.canEdit, 'editor rights');
 
+    // No `sync.revokeAccess(...)`: the change travels the way it does in
+    // production, through the trigger and the `access` scope (ADR-0099). It
+    // used to be called here, which proved the method worked and hid that
+    // nothing in the application called it.
     await db.query(`UPDATE share_tokens SET role = 'viewer' WHERE id = $1`, [
       link.shareTokenId,
     ]);
-    await sync.revokeAccess(uuid(1));
 
     await waitFor(() => !handle.canEdit, 'the downgrade to arrive');
     assert.equal(handle.role, 'viewer');
@@ -682,7 +685,6 @@ describe('client end to end', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
     await waitFor(() => handle.status === 'synced', 'synced');
 
     await revokeShareLink(db, link.shareTokenId);
-    await sync.revokeAccess(uuid(1));
 
     await waitFor(() => handle.status === 'denied', 'the document to be closed');
   });

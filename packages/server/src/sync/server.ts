@@ -32,6 +32,7 @@ import { resolveSessionId } from '../auth/session.js';
 import { UpdateBus, fetchUpdatesSince } from './bus.js';
 import {
   ClientMessage,
+  ACCESS_SCOPE,
   LIMITS,
   NotifyScope,
   WORKSPACE_SCOPES,
@@ -189,6 +190,9 @@ export class SyncServer {
    * a question.
    */
   private readonly byWorkspace = new Map<string, Set<Connection>>();
+  /** Workspaces being revalidated, and those asked for again while one ran. */
+  private readonly revalidating = new Set<string>();
+  private readonly revalidateAgain = new Set<string>();
   private readonly bus: UpdateBus;
   private readonly log: NonNullable<SyncServerOptions['log']>;
   private shuttingDown = false;
@@ -236,6 +240,18 @@ export class SyncServer {
        * string that reached clients because a migration typed it is a contract
        * nobody agreed to.
        */
+      /*
+       * One scope is for this server rather than for a client (ADR-0099).
+       *
+       * Claims are resolved once, at authentication, and a document open checks
+       * against that snapshot. So a grant given or taken away while somebody is
+       * connected reached the tree — fetched per request over HTTP — and not
+       * the connection that serves the documents the tree points at.
+       */
+      if (scope === ACCESS_SCOPE) {
+        void this.revalidateWorkspace(workspaceId);
+        return;
+      }
       if (!WORKSPACE_SCOPES.includes(scope)) {
         this.log('warn', `ignoring unknown workspace scope ${scope}`);
         return;
@@ -808,16 +824,43 @@ export class SyncServer {
   // --- revocation ----------------------------------------------------------
 
   /**
-   * Force-close documents whose access has been revoked.
+   * Re-resolve everybody connected to a workspace whose access rules moved.
    *
-   * Called after a share link is revoked or a permission is removed.
-   * Revocation that only affects the next connection is not revocation: an
-   * anonymous editor with an open socket would keep writing.
+   * This replaced `revokeAccess(pageId)`, which was written for exactly this
+   * job — "revocation that only affects the next connection is not revocation:
+   * an anonymous editor with an open socket would keep writing" — and was
+   * **called by nothing** (ADR-0099). The only refresh in the system was the
+   * maintenance sweep, every five minutes.
+   *
+   * By workspace rather than by page, because the trigger that sets this off
+   * says which workspace and deliberately not which page: a grant on a folder
+   * changes access to everything under it, and a page moved changes what its
+   * whole subtree inherits. Working out the affected pages here would be a
+   * second answer to a question `effectiveRole` already answers per document,
+   * which is what `revalidateConnection` then asks.
+   *
+   * **Coalesced**, because an import can write a subtree's permissions as many
+   * statements and each one is a nudge: a revalidation in flight absorbs the
+   * ones that arrive during it, and one more runs afterwards to cover whatever
+   * changed while it was working.
    */
-  async revokeAccess(pageId: string): Promise<void> {
-    for (const conn of [...this.connections]) {
-      if (!conn.handlesByPage.has(pageId)) continue;
-      await this.revalidateConnection(conn);
+  async revalidateWorkspace(workspaceId: string): Promise<void> {
+    if (this.revalidating.has(workspaceId)) {
+      this.revalidateAgain.add(workspaceId);
+      return;
+    }
+    this.revalidating.add(workspaceId);
+    try {
+      for (const conn of [...(this.byWorkspace.get(workspaceId) ?? [])]) {
+        await this.revalidateConnection(conn);
+      }
+    } catch (err) {
+      this.log('error', `revalidating workspace ${workspaceId} failed`, err);
+    } finally {
+      this.revalidating.delete(workspaceId);
+    }
+    if (this.revalidateAgain.delete(workspaceId)) {
+      await this.revalidateWorkspace(workspaceId);
     }
   }
 
