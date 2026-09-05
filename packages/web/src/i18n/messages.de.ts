@@ -841,6 +841,16 @@ export const de: Record<keyof typeof en, string> = {
   'group.create': 'Anlegen',
   'group.delete': 'Löschen',
   'group.remove': 'Entfernen',
+  // --- Deckelung (ADR-0087) ------------------------------------------------
+  //
+  // Die einzige Schicht, die etwas wegnimmt. Der Text muss das sagen, sonst
+  // liest sie sich wie noch ein Knopf, der etwas gibt.
+  'cap.label': 'Höchstens',
+  'cap.none': 'Keine Obergrenze',
+  'cap.note':
+    'Begrenzt, was hier höchstens geht — auch für die, die unten mehr bekommen. Wer den Workspace verwaltet, ist ausgenommen; sonst könnte eine Obergrenze niemand mehr aufheben.',
+  'cap.inherited': 'Von „{from}" gilt hier bereits: {level}.',
+
   'perm.people': 'Leute',
   'perm.peopleHere': 'Leute in diesem Workspace',
   'perm.groups': 'Gruppen',

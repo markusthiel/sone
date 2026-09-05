@@ -93,8 +93,44 @@ export function registerPagePermissionRoutes(router: Router, deps: PermissionDep
       [pageId],
     );
 
+    /*
+     * The cap set *here*, and the lowest one inherited from above.
+     *
+     * Both, because they answer different questions and the screen asks both:
+     * the control shows what this page's own rule is, and the note beside it
+     * explains a ceiling somebody set on a section further up — which is
+     * otherwise invisible on the page it actually limits.
+     */
+    const caps = await queryRows<{
+      page_id: string;
+      max_level: PageAccess;
+      include_subtree: boolean;
+      title: string;
+    }>(
+      deps.pool,
+      `SELECT c.page_id, c.max_level, c.include_subtree, anc.title
+         FROM pages target
+         JOIN page_caps c
+           ON c.page_id = target.id
+           OR (c.include_subtree AND c.page_id = ANY(target.ancestor_ids))
+         JOIN pages anc ON anc.id = c.page_id
+        WHERE target.id = $1
+        ORDER BY
+          CASE c.max_level
+            WHEN 'admin' THEN 4 WHEN 'editor' THEN 3 WHEN 'commenter' THEN 2 ELSE 1
+          END ASC`,
+      [pageId],
+    );
+    const own = caps.find((one) => one.page_id === pageId) ?? null;
+    const inherited = caps.find((one) => one.page_id !== pageId) ?? null;
+
     ctx.send(200, {
       restricted: page?.restricted ?? false,
+      cap: own ? { maxLevel: own.max_level, includeSubtree: own.include_subtree } : null,
+      /** The strictest ceiling from above, so the page can say where it comes from. */
+      inheritedCap: inherited
+        ? { maxLevel: inherited.max_level, from: inherited.title }
+        : null,
       groups: groupGrants.map((row) => ({
         groupId: row.group_id,
         name: row.name,
@@ -139,6 +175,71 @@ export function registerPagePermissionRoutes(router: Router, deps: PermissionDep
       body.restricted === true,
     ]);
     ctx.send(200, { restricted: body.restricted === true });
+  });
+
+  /**
+   * The ceiling on this page, or none (ADR-0087).
+   *
+   * The third layer of the precedence rule, and the only one that lowers: a
+   * role gives, grants widen, a cap lowers. It is attached to the **page**
+   * rather than to a person or a group, which is what lets it lower without
+   * reopening ADR-0026's rule that joining a group must never cost anybody
+   * anything — a cap cannot travel with a membership.
+   *
+   * Needs `admin` on the page, like every other rule set here. That is also
+   * the exemption: a cap does not apply to somebody whose workspace role makes
+   * them a page admin, or the first cap set on a workspace root could never be
+   * lifted again by anybody.
+   */
+  router.put('/api/pages/:pageId/cap', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    const pageId = ctx.params['pageId'] ?? '';
+    const resolved = await resolvePageAccess(deps.pool, { pageId, userId: session.userId });
+    if (!atLeast(resolved.access, 'admin')) {
+      ctx.fail(resolved.access === null ? 404 : 403,
+        resolved.access === null ? 'not_found' : 'forbidden');
+      return;
+    }
+
+    let body: { maxLevel?: unknown; includeSubtree?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    /*
+     * Null lifts it. One route rather than a PUT and a DELETE, because "no
+     * ceiling" is a value the control offers alongside the four — it is the
+     * top of the same list, not a different operation.
+     */
+    if (body.maxLevel === null || body.maxLevel === undefined || body.maxLevel === '') {
+      await deps.pool.query(`DELETE FROM page_caps WHERE page_id = $1`, [pageId]);
+      ctx.send(200, { cap: null });
+      return;
+    }
+
+    const level = LEVELS.find((one) => one === body.maxLevel);
+    if (!level) {
+      ctx.fail(422, 'invalid_level');
+      return;
+    }
+
+    const includeSubtree = body.includeSubtree !== false;
+    await deps.pool.query(
+      `INSERT INTO page_caps (page_id, max_level, include_subtree, set_by)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (page_id) DO UPDATE SET
+         max_level = EXCLUDED.max_level,
+         include_subtree = EXCLUDED.include_subtree,
+         set_by = EXCLUDED.set_by,
+         set_at = now()`,
+      [pageId, level, includeSubtree, session.userId],
+    );
+    ctx.send(200, { cap: { maxLevel: level, includeSubtree } });
   });
 
   /** Grant somebody access, or change what they have. */

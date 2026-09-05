@@ -770,6 +770,13 @@ export const en = {
   'group.create': 'Create',
   'group.delete': 'Delete',
   'group.remove': 'Remove',
+  // --- Cap (ADR-0087) --------------------------------------------------------
+  'cap.label': 'At most',
+  'cap.none': 'No ceiling',
+  'cap.note':
+    'Limits what is possible here at most, including for the people given more below. Whoever administers the workspace is exempt; otherwise a ceiling could never be lifted.',
+  'cap.inherited': '“{from}” already applies here: {level}.',
+
   'perm.people': 'People',
   'perm.peopleHere': 'People in this workspace',
   'perm.groups': 'Groups',
