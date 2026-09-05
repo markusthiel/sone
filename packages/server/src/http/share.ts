@@ -37,8 +37,10 @@ import {
   type ShareLinkSummary,
 } from '../auth/share.js';
 import { decryptShareToken } from '../auth/shareTokenStore.js';
-import { queryOne } from '../db/pool.js';
-import { sessionTokenFrom, setShareCookie } from './auth.js';
+import { queryOne, queryRows } from '../db/pool.js';
+import { atLeast as pageAtLeast, resolvePageAccess } from '../pages/access.js';
+import { loadWorkspaceStanding } from '../auth/standing.js';
+import { requireSession, sessionTokenFrom, setShareCookie } from './auth.js';
 import type { RequestContext, Router } from './router.js';
 
 export interface ShareDeps {
@@ -193,6 +195,288 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       title: page.title,
       kind: page.kind,
       role: scope.role,
+    });
+  });
+
+  /**
+   * What a link actually reaches: its page, and the subtree when it says so.
+   *
+   * Without this a shared **folder** is a shared nothing. The link view renders
+   * one page, a folder has no body, and there is no navigation on that path —
+   * so somebody sent a link to a section of the handbook, and what arrived was
+   * an empty page with its name at the top. Reported exactly that way: "kann er
+   * nur den Ordner sehen und sonst nichts".
+   *
+   * The scope is the link's, not the workspace's. A visitor holding a link is
+   * not a member and must not learn what else exists here — so this walks down
+   * from the page the link names and stops there, rather than filtering the
+   * workspace tree and hoping the filter is right. A list that starts from
+   * everything and removes is one forgotten condition away from a disclosure;
+   * one that starts from the grant cannot be.
+   *
+   * Every row is still put through `effectiveRole`, because the link's own
+   * grant is not the only rule in play: a cap set on a section lowers what the
+   * link gives (ADR-0087), and a restricted page below the scope withholds
+   * itself.
+   */
+  router.get('/api/share/:token/pages', async (ctx) => {
+    const token = ctx.params['token'] ?? '';
+    if (token === '') {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const resolved = await resolveShareTokenClaims(deps.pool, token);
+    if (!resolved || resolved.passwordRequired) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const scope = resolved.claims.grants[0];
+    if (!scope) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const rows = await queryRows<{
+      id: string;
+      parent_page_id: string | null;
+      title: string;
+      kind: string;
+      idx: string;
+      ancestor_ids: string[];
+      workspace_id: string;
+      restricted: boolean;
+    }>(
+      deps.pool,
+      // The scope page itself, plus everything under it when the link carries
+      // the subtree. `ancestor_ids` makes that a containment test rather than
+      // a walk — the same column ADR-0006 added for exactly this question.
+      `SELECT p.id, p.parent_page_id, p.title, p.kind, p.idx, p.ancestor_ids, p.workspace_id,
+              EXISTS (
+                SELECT 1 FROM pages r
+                 WHERE r.id = ANY(array_append(p.ancestor_ids, p.id))
+                   AND r.restricted
+              ) AS restricted
+         FROM pages p
+        WHERE p.archived_at IS NULL
+          AND p.kind NOT IN ('row', 'container')
+          AND (p.id = $1 OR ($2 AND $1 = ANY(p.ancestor_ids)))
+        ORDER BY p.idx, p.id`,
+      [scope.scopePageId, scope.includeSubtree],
+    );
+
+    const pages = rows
+      .filter(
+        (row) =>
+          effectiveRole(resolved.claims, {
+            id: row.id,
+            workspaceId: row.workspace_id,
+            ancestorIds: row.ancestor_ids,
+            // Fetched per row rather than assumed: a restricted page below the
+            // shared section withholds itself from a link as from anybody, and
+            // the link's grant is not a way past it.
+            restricted: row.restricted,
+          }) !== null,
+      )
+      .map((row) => ({
+        id: row.id,
+        // Null for the scope page itself, so the view can draw it as the root
+        // of what was shared rather than as an orphan.
+        parentPageId: row.id === scope.scopePageId ? null : row.parent_page_id,
+        title: row.title,
+        kind: row.kind === 'folder' || row.kind === 'canvas' ? row.kind : 'page',
+        idx: row.idx,
+      }));
+
+    ctx.send(200, { pages, scopePageId: scope.scopePageId });
+  });
+
+  /**
+   * Everything shared in this workspace, from both ends (ADR-0026).
+   *
+   * Asked for as "ein Menüpunkt mit Freigaben. So dass man sieht welche Seiten
+   * man selbst freigegeben hat und welche für mich freigegeben wurden."
+   *
+   * Until now sharing could only be seen **from the page**: open it, open the
+   * dialog, read the list. That is fine for checking one page and useless for
+   * the question people actually have, which is "what have I let out, and what
+   * am I responsible for" — a question about a hundred pages, asked when
+   * somebody leaves or a project ends. A rule nobody can enumerate is a rule
+   * nobody reviews.
+   *
+   * Three lists, because there are three kinds of answer and they are not
+   * interchangeable:
+   *
+   *   - **links** — a URL anybody holding it can open. The one to review first,
+   *     because it is the one that leaves the building.
+   *   - **granted** — pages this person gave somebody else, directly or to a
+   *     group.
+   *   - **received** — pages somebody else gave *them*.
+   *
+   * Scoped to what the asker may see. `granted` is what they granted, not
+   * everything granted in the workspace: a member who may share a page they
+   * administer must not thereby learn who else has access to the rest of the
+   * workspace. Somebody who administers the whole place sees it all anyway,
+   * because every page is a page they may manage — which the per-page check
+   * below is what establishes.
+   */
+  router.get('/api/workspaces/:workspaceId/shares', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    const standing = await loadWorkspaceStanding(deps.pool, session.userId, workspaceId);
+    if (!standing.isMember) {
+      // The same answer as a workspace that does not exist.
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    /*
+     * `granted_by = $2` rather than "every grant on a page they administer".
+     *
+     * The narrower rule is the honest one for a list titled "what I shared":
+     * a grant somebody else made is not this person's to review, and showing it
+     * here would make the page a directory of who has access to what — which
+     * is the disclosure ADR-0026 spends its length avoiding.
+     *
+     * An administrator loses nothing by it: they can open any page and see its
+     * full list. What they lose is a list of other people's decisions
+     * presented as their own.
+     */
+    const granted = await queryRows<{
+      page_id: string;
+      title: string;
+      subject: string;
+      access: string;
+      include_subtree: boolean;
+      granted_at: Date;
+      kind: string;
+    }>(
+      deps.pool,
+      `SELECT pp.page_id, p.title, u.display_name AS subject, pp.role::text AS access,
+              pp.include_subtree, pp.granted_at, 'person' AS kind
+         FROM page_permissions pp
+         JOIN pages p ON p.id = pp.page_id
+         JOIN users u ON u.id = pp.user_id
+        WHERE pp.granted_by = $2 AND p.workspace_id = $1 AND p.archived_at IS NULL
+        UNION ALL
+       SELECT gp.page_id, p.title, g.name AS subject, gp.role::text AS access,
+              gp.include_subtree, gp.granted_at, 'group' AS kind
+         FROM page_group_permissions gp
+         JOIN pages p ON p.id = gp.page_id
+         JOIN groups g ON g.id = gp.group_id
+        WHERE gp.granted_by = $2 AND p.workspace_id = $1 AND p.archived_at IS NULL
+        ORDER BY granted_at DESC`,
+      [workspaceId, session.userId],
+    );
+
+    // What was given to them: their own grants and their groups'. Who granted
+    // it is named, because "who do I ask about this" is the question somebody
+    // has when they find a page they did not expect to have.
+    const received = await queryRows<{
+      page_id: string;
+      title: string;
+      access: string;
+      include_subtree: boolean;
+      granted_at: Date;
+      granted_by: string | null;
+      via_group: string | null;
+    }>(
+      deps.pool,
+      `SELECT pp.page_id, p.title, pp.role::text AS access, pp.include_subtree,
+              pp.granted_at, u.display_name AS granted_by, NULL AS via_group
+         FROM page_permissions pp
+         JOIN pages p ON p.id = pp.page_id
+         LEFT JOIN users u ON u.id = pp.granted_by
+        WHERE pp.user_id = $2 AND p.workspace_id = $1 AND p.archived_at IS NULL
+        UNION ALL
+       SELECT gp.page_id, p.title, gp.role::text AS access, gp.include_subtree,
+              gp.granted_at, u.display_name AS granted_by, g.name AS via_group
+         FROM page_group_permissions gp
+         JOIN group_members gm ON gm.group_id = gp.group_id
+         JOIN groups g ON g.id = gp.group_id
+         JOIN pages p ON p.id = gp.page_id
+         LEFT JOIN users u ON u.id = gp.granted_by
+        WHERE gm.user_id = $2 AND p.workspace_id = $1 AND p.archived_at IS NULL
+        ORDER BY granted_at DESC`,
+      [workspaceId, session.userId],
+    );
+
+    const links = await queryRows<{
+      id: string;
+      scope_page_id: string;
+      title: string;
+      role: string;
+      include_subtree: boolean;
+      has_password: boolean;
+      expires_at: Date | null;
+      created_at: Date;
+      mine: boolean;
+    }>(
+      deps.pool,
+      // Every live link on a page this person may manage, not only their own.
+      // A link is a URL in somebody's inbox: the question "what is out there"
+      // has to be answerable by whoever is responsible for the page, or the
+      // list is a list of the links you already remembered.
+      `SELECT st.id, st.scope_page_id, p.title, st.role::text AS role, st.include_subtree,
+              st.password_hash IS NOT NULL AS has_password, st.expires_at, st.created_at,
+              st.created_by = $2 AS mine
+         FROM share_tokens st
+         JOIN pages p ON p.id = st.scope_page_id
+        WHERE p.workspace_id = $1
+          AND st.revoked_at IS NULL
+          AND (st.expires_at IS NULL OR st.expires_at > now())
+          AND p.archived_at IS NULL
+        ORDER BY st.created_at DESC`,
+      [workspaceId, session.userId],
+    );
+
+    // Each link is kept only if this person may manage the page it opens.
+    // Asked per row through the one resolver rather than reproduced as a
+    // condition here, which is the mistake ADR-0086 was written about.
+    const visibleLinks = [];
+    for (const link of links) {
+      const access = await resolvePageAccess(deps.pool, {
+        pageId: link.scope_page_id,
+        userId: session.userId,
+      });
+      if (!pageAtLeast(access.access, 'admin')) continue;
+      visibleLinks.push({
+        id: link.id,
+        pageId: link.scope_page_id,
+        pageTitle: link.title,
+        role: link.role,
+        includeSubtree: link.include_subtree,
+        hasPassword: link.has_password,
+        expiresAt: link.expires_at,
+        createdAt: link.created_at,
+        mine: link.mine,
+      });
+    }
+
+    ctx.send(200, {
+      links: visibleLinks,
+      granted: granted.map((row) => ({
+        pageId: row.page_id,
+        pageTitle: row.title,
+        subject: row.subject,
+        subjectKind: row.kind,
+        access: row.access,
+        includeSubtree: row.include_subtree,
+        grantedAt: row.granted_at,
+      })),
+      received: received.map((row) => ({
+        pageId: row.page_id,
+        pageTitle: row.title,
+        access: row.access,
+        includeSubtree: row.include_subtree,
+        grantedAt: row.granted_at,
+        grantedBy: row.granted_by,
+        /** Named when it came through a group, so "why do I have this" answers itself. */
+        viaGroup: row.via_group,
+      })),
     });
   });
 

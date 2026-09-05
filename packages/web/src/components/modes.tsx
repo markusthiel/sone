@@ -29,10 +29,10 @@ import type { ReactElement } from 'react';
 import { paths } from '../routes/paths.ts';
 import { useT } from '../i18n/useT.tsx';
 import { SoneMark } from './Logo.tsx';
-import { BellIcon, TrashIcon, WorkspacesIcon } from './icons.tsx';
+import { BellIcon, ShareIcon, TrashIcon, WorkspacesIcon } from './icons.tsx';
 
 /** A mode is a place you stay, never an action you take. */
-export type Mode = 'tree' | 'workspaces' | 'inbox' | 'trash' | 'settings' | 'admin';
+export type Mode = 'tree' | 'workspaces' | 'inbox' | 'shares' | 'trash' | 'settings' | 'admin';
 
 export type ModeEntry = {
   mode: Mode;
@@ -72,6 +72,10 @@ export function useModes(): ModeEntry[] {
       icon: <WorkspacesIcon />,
     },
     { mode: 'inbox', href: paths.inbox(), label: t('account.inbox'), icon: <BellIcon /> },
+    // Beside the trash rather than inside a workspace's settings: "what have I
+    // let out" is a question about your own doing, asked across every page you
+    // touched, and it belongs where the other such questions are (ADR-0070).
+    { mode: 'shares', href: paths.shares(), label: t('shares.title'), icon: <ShareIcon /> },
     { mode: 'trash', href: paths.trash(), label: t('account.trash'), icon: <TrashIcon /> },
   ];
 }
@@ -86,6 +90,7 @@ export function useModes(): ModeEntry[] {
 export function modeOf(kind: string): Mode {
   if (kind === 'inbox') return 'inbox';
   if (kind === 'trash') return 'trash';
+  if (kind === 'shares') return 'shares';
   /*
    * A workspace's settings are the Workspaces mode (ADR-0070).
    *

@@ -73,6 +73,8 @@ export const paths = {
   /** The instance everybody shares. Only offered with the right. */
   admin: (section = 'instance') => `/admin/${section}`,
   trash: () => '/trash',
+  /** What is shared, from both ends (ADR-0026). */
+  shares: () => '/shares',
   /** What is waiting, across every workspace (ADR-0052). */
   inbox: () => '/inbox',
 
@@ -146,6 +148,7 @@ export type Route =
   | { kind: 'workspaceSettings'; workspaceId: string | null; section: string }
   | { kind: 'admin'; section: string }
   | { kind: 'trash' }
+  | { kind: 'shares' }
   | { kind: 'inbox' }
   | { kind: 'page'; pageId: string }
   | { kind: 'share'; token: string; pageId: string | null }
@@ -216,6 +219,9 @@ export function parseRoute(pathname: string, search = ''): Route {
       return { kind: 'admin', section: segments[1] ?? 'instance' };
     case 'trash':
       return { kind: 'trash' };
+
+    case 'shares':
+      return { kind: 'shares' };
     /*
      * Outside any workspace, deliberately.
      *
