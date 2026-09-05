@@ -38,6 +38,22 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Bytes, for a field that has to travel as JSON.
+ *
+ * A relative position is opaque bytes (ADR-0046) and JSON has no way to carry
+ * them. Chunked rather than spread into one `String.fromCharCode` call, which
+ * throws on a long enough array — an anchor is short today, and "short today"
+ * is how that bug is written.
+ */
+function base64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let at = 0; at < bytes.length; at += 1024) {
+    binary += String.fromCharCode(...bytes.subarray(at, at + 1024));
+  }
+  return btoa(binary);
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -712,6 +728,50 @@ export const api = {
       }>;
       scopePageId: string;
     }>(`/api/share/${encodeURIComponent(token)}/pages`),
+
+  /**
+   * The names behind the comments on one shared page (ADR-0090).
+   *
+   * Not the workspace's members — that list is a directory, and a link's
+   * visitor is given an empty one on purpose. These are the people who wrote a
+   * message on *this* page, which is what a thread needs to be readable at all.
+   */
+  sharedCommentAuthors: (token: string, pageId: string) =>
+    request<{ authors: Array<{ id: string; name: string }> }>(
+      `/api/share/${encodeURIComponent(token)}/pages/${encodeURIComponent(pageId)}/authors`,
+    ),
+
+  /**
+   * Start a comment thread through the server (ADR-0090).
+   *
+   * For somebody who may comment and may not write the document: the sync
+   * room's gate is document-wide, so their update would be refused whole. The
+   * anchors travel as base64 because JSON has no bytes.
+   */
+  startComment: (
+    pageId: string,
+    input: { from: Uint8Array; to: Uint8Array; quote: string; item?: string; text: string },
+  ) =>
+    request<{ threadId: string; messageId: string }>(
+      `/api/pages/${encodeURIComponent(pageId)}/comments`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          from: base64(input.from),
+          to: base64(input.to),
+          quote: input.quote,
+          ...(input.item ? { item: input.item } : {}),
+          text: input.text,
+        }),
+      },
+    ),
+
+  /** Reply to one, the same way. */
+  replyToComment: (pageId: string, threadId: string, text: string) =>
+    request<{ messageId: string }>(
+      `/api/pages/${encodeURIComponent(pageId)}/comments/${encodeURIComponent(threadId)}/messages`,
+      { method: 'POST', body: JSON.stringify({ text }) },
+    ),
 
   /** Everything shared in a workspace, from both ends (ADR-0026). */
   shares: (workspaceId: string) =>

@@ -263,6 +263,104 @@ describe(
       await db.query(`DELETE FROM page_caps WHERE page_id = $1`, [folder]);
     });
 
+    test('the names a link gets are the ones who wrote on that page', async () => {
+      /*
+       * A visitor can read the page's comments (ADR-0090), and a comment whose
+       * author has no name is barely a comment — "somebody objected here".
+       *
+       * The obvious fix is to hand the panel the workspace's member list, and
+       * it is a directory of everybody who works here given to whoever forwards
+       * a link. So the answer is narrow: names for the people who actually
+       * wrote a message **on this page**, and nothing else.
+       *
+       * The two halves of that are asserted separately, because the second is
+       * the one that would be a disclosure: a colleague who has written nothing
+       * here is not in the answer, and neither is anybody's address.
+       */
+      const wrote = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name, password_hash)
+         VALUES ('w@example.org','Wanda','x') RETURNING id`,
+      );
+      const silent = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name, password_hash)
+         VALUES ('s@example.org','Silke','x') RETURNING id`,
+      );
+      await db.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id) VALUES
+           ($1,$2,'member',(SELECT id FROM roles WHERE key='member')),
+           ($1,$3,'member',(SELECT id FROM roles WHERE key='member'))`,
+        [workspace, wrote.rows[0]!.id, silent.rows[0]!.id],
+      );
+
+      const { applyToDocument } = await import('../src/doc/docStore.js');
+      const { addThread } = await import('@sone/core');
+      const Y = await import('yjs');
+      const anchor = (): Uint8Array => {
+        const doc = new Y.Doc();
+        const text = doc.getText('body');
+        text.insert(0, 'etwas');
+        const bytes = Y.encodeRelativePosition(
+          Y.createRelativePositionFromTypeIndex(text, 1),
+        );
+        doc.destroy();
+        return bytes;
+      };
+      await applyToDocument(
+        db,
+        child,
+        (doc) => {
+          addThread(doc, {
+            id: 't1',
+            from: anchor(),
+            to: anchor(),
+            quote: 'etwas',
+            messageId: 'm1',
+            author: wrote.rows[0]!.id,
+            text: 'Hier fehlt was.',
+          });
+        },
+        wrote.rows[0]!.id,
+      );
+
+      const link = await createShareLink(db, {
+        pageId: folder,
+        role: 'commenter',
+        includeSubtree: true,
+        createdBy: owner,
+      });
+      const res = await fetch(
+        `${base}/api/share/${encodeURIComponent(link.token)}/pages/${child}/authors`,
+      );
+      const body = await expectJson<{ authors: Array<{ id: string; name: string }> }>(res, 200);
+
+      assert.deepEqual(
+        body.authors.map((one) => one.name),
+        ['Wanda'],
+        'the one who wrote here, and nobody else',
+      );
+      assert.equal(
+        Object.keys(body.authors[0]!).sort().join(','),
+        'id,name',
+        'a name, not a person record — no address, no role',
+      );
+
+      // A page in the link's scope with no comments answers with nothing rather
+      // than with everybody.
+      const empty = await fetch(
+        `${base}/api/share/${encodeURIComponent(link.token)}/pages/${grandchild}/authors`,
+      );
+      assert.deepEqual(
+        (await expectJson<{ authors: unknown[] }>(empty, 200)).authors,
+        [],
+      );
+
+      // And a page the link does not reach is not a way to ask about a page.
+      const outside = await fetch(
+        `${base}/api/share/${encodeURIComponent(link.token)}/pages/${elsewhere}/authors`,
+      );
+      assert.equal(outside.status, 404, 'outside the scope is outside the answer');
+    });
+
     test('a revoked link reaches nothing', async () => {
       const link = await createShareLink(db, {
         pageId: folder,

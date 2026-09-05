@@ -40,6 +40,7 @@ import * as Y from 'yjs';
 
 import {
   ServerMessage,
+  canComment,
   canWrite,
   encodeAwareness,
   encodeCloseDocument,
@@ -119,6 +120,14 @@ export interface PageHandle {
   readonly status: DocumentStatus;
   readonly role: Role | null;
   readonly canEdit: boolean;
+  /**
+   * May write a comment, which is not the same as may write the page.
+   *
+   * True for an editor too: the ladder is inclusive, and a control that asked
+   * "commenter exactly" would take the comment button away from everybody who
+   * has always had it.
+   */
+  readonly canComment: boolean;
   /** Other participants, excluding this client. */
   peers(): PresenceState[];
   setPresence(state: Partial<PresenceState> | null): void;
@@ -533,6 +542,9 @@ export class DocumentStore {
       },
       get canEdit() {
         return entry.role !== null && canWrite(entry.role);
+      },
+      get canComment() {
+        return entry.role !== null && canComment(entry.role);
       },
       peers() {
         const states: PresenceState[] = [];

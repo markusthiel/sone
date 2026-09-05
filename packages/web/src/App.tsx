@@ -5,7 +5,7 @@
  * about all of those at once; everything else takes what it needs as props.
  */
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { LoginScreen, SetupScreen, SignupScreen, useMessage, ResetScreen,
   SecondFactorRequired,
@@ -60,7 +60,7 @@ import { useComments } from './hooks/useComments.ts';
 import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
-import { asInternalRequest } from '@sone/core';
+import { asInternalRequest, guestKey } from '@sone/core';
 import type { CommentThread } from '@sone/core';
 import type { CommentAnchor, DrawnThread } from '@sone/editor';
 
@@ -1338,6 +1338,14 @@ function ShareSession({
    * workspace. A link opens on the page.
    */
   const [rightOpen, setRightOpen] = useState(false);
+  /** A selection waiting for its first message, exactly as in the workspace. */
+  const [pendingComment, setPendingComment] = useState<{
+    from: Uint8Array;
+    to: Uint8Array;
+    quote: string;
+    item?: string;
+  } | null>(null);
+  const marks = useCommentMarkStyle();
   // The share token identifies the workspace server-side; the client does not
   // know it yet, so it sends a placeholder that the server ignores in favour of
   // the token's own workspace.
@@ -1389,6 +1397,90 @@ function ShareSession({
   const effectivePageId = pageId ?? resolvedPageId;
   const handle = usePage(client, effectivePageId);
   const [password, setPassword] = useState('');
+
+  /*
+   * Comments, over the server rather than over the document (ADR-0090).
+   *
+   * The threads are *read* from the document like everywhere else — a visitor
+   * holding a link already has it open. Writing is the half that differs: the
+   * sync room's write gate is document-wide, so a commenter's Yjs update would
+   * be refused whole, and the transport posts the one thing they may add
+   * instead. `useComments` picks the wire; the panel calls one function.
+   *
+   * Given only when the link actually allows it, so `handle.canComment` decides
+   * and this hook does not have to know about roles.
+   */
+  const commentTransport = useMemo(() => {
+    if (!effectivePageId) return null;
+    const pageId = effectivePageId;
+    return {
+      start: async (input: {
+        from: Uint8Array;
+        to: Uint8Array;
+        quote: string;
+        item?: string;
+        text: string;
+      }): Promise<void> => {
+        await api.startComment(pageId, input);
+      },
+      reply: async (threadId: string, text: string): Promise<void> => {
+        await api.replyToComment(pageId, threadId, text);
+      },
+    };
+  }, [effectivePageId]);
+
+  const comments = useComments(
+    handle?.doc ?? null,
+    // A visitor signs with the name they gave. The consequence ADR-0046 already
+    // accepted: two people who both type "Anna" are one name in the thread.
+    guestKey(displayName),
+    commentTransport,
+  );
+
+  /*
+   * The names behind the member-written comments on this page — and nothing
+   * else.
+   *
+   * `members` stays empty here on purpose: that list is a directory of everyone
+   * who works here. But a thread whose authors have no names is barely a
+   * thread, so the server returns names for the people who actually wrote a
+   * message on *this* page, shaped like the member rows the panel already
+   * knows how to read.
+   */
+  const [authors, setAuthors] = useState<WorkspaceMember[]>([]);
+  useEffect(() => {
+    if (!effectivePageId) return;
+    let cancelled = false;
+    void api
+      .sharedCommentAuthors(token, effectivePageId)
+      .then((result) => {
+        if (cancelled) return;
+        setAuthors(
+          result.authors.map((one) => ({
+            userId: one.id,
+            displayName: one.name,
+            // Everything else a member row carries is workspace information,
+            // and none of it is a name. Absent rather than faked: a placeholder
+            // role would be a claim about somebody.
+            email: null,
+            role: '',
+            roleId: null,
+            roleName: '',
+            isGuest: false,
+            joinedAt: '',
+          })),
+        );
+      })
+      .catch(() => {
+        // A page with no comments answers this too; a failure here costs the
+        // names and nothing else, so it is not worth a message.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Re-read when the threads change, so a member's first reply is not
+    // nameless until a reload.
+  }, [token, effectivePageId, comments.threads.length]);
 
   /**
    * What else the link reaches.
@@ -1472,6 +1564,21 @@ function ShareSession({
    * sharing a section, and the view should look like whichever one happened.
    */
   const hasTree = shared.length > 1;
+
+  /*
+   * The comments tab, only when the link lets somebody take part.
+   *
+   * `PAGE_TABS` is what a link gets by default and deliberately leaves the
+   * discussion out — the four workspace-describing tabs stay out for good. But
+   * a **commenter** link exists to invite somebody into the conversation, and
+   * the tab is the conversation.
+   *
+   * A *viewer* link does not get it, and that is the answer to whether sharing
+   * needs an option for this: the link's level already says it. `viewer`,
+   * `commenter`, `editor` — the middle one is the switch, it has been in the
+   * dialog since links existed, and it finally does something (ADR-0090).
+   */
+  const shareTabs = handle?.canComment ? [...PAGE_TABS, 'comments' as const] : PAGE_TABS;
 
   return (
     /*
@@ -1594,14 +1701,21 @@ function ShareSession({
             handle={handle}
             pageId={effectivePageId}
             connectionState={state}
-            // A guest sees the marks but has no panel here yet: the shared view
-            // has no right sidebar, so a comment button would open nothing. The
-            // guest's half of ADR-0046 is real and is the next slice.
-            threads={[]}
-            onComment={() => {}}
-            // Nothing to mark: the shared view has no comments panel yet, and a
-            // guest's half of ADR-0046 is the next slice.
-            markStyle="off"
+            // The guest's half of ADR-0046, built as ADR-0090. The marks, the
+            // threads and the button are the workspace's, because a comment is
+            // a comment: what differs is the wire the write goes down, and
+            // `useComments` is where that is decided.
+            threads={commentMarksFor(comments.threads)}
+            itemThreads={comments.threads}
+            // No internal threads on this path, ever, and said rather than
+            // omitted: `ShareSession` never builds an internal document, and
+            // the sync room would refuse one to a visitor anyway (ADR-0057).
+            internalItemThreads={[]}
+            onComment={(anchor) => {
+              setPendingComment(anchor);
+              setRightOpen(true);
+            }}
+            markStyle={marks.style}
             // No trail here: this path renders a page outside the tree, so
             // there are no folders above it to name.
             trail={[]}
@@ -1620,7 +1734,8 @@ function ShareSession({
         )}
       </div>
 
-      {/* The page's own panel, and only the page's own tabs.
+      {/* The page's own panel, and only the page's own tabs — plus the
+        * discussion, when the link allows one.
         *
         * `PAGE_TABS`: the outline, the attachments, the pictures, the links
         * out. Not the version history, which names every author and every
@@ -1641,7 +1756,21 @@ function ShareSession({
         workspaceId=""
         open={rightOpen}
         onClose={() => setRightOpen(false)}
-        tabs={PAGE_TABS}
+        tabs={shareTabs}
+        comments={comments}
+        // Never. Said out loud rather than left to the default, because an
+        // omission reads as an oversight and this one is the rule (ADR-0057).
+        internalComments={null}
+        // Names for the people who wrote on this page, not the workspace's
+        // people. See where `authors` is loaded.
+        members={authors}
+        pendingComment={pendingComment}
+        onCancelPendingComment={() => setPendingComment(null)}
+        marks={marks}
+        onRevealComment={() => {
+          // Nothing to scroll to from here yet: the reveal is the editor's, and
+          // this view holds no ref to it. The thread is in the panel either way.
+        }}
       />
     </div>
   );
