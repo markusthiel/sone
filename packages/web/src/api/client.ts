@@ -752,6 +752,24 @@ export const api = {
   oidcConfig: () =>
     request<{ enabled: boolean; buttonLabel: string | null }>('/api/auth/oidc/config'),
 
+  /**
+   * Whether this account has a provider attached (ADR-0084).
+   *
+   * The normal way in is an invitation: somebody is invited, sets a password,
+   * and *then* wants to use the company's provider. Until this existed, only
+   * accounts created *by* a provider could ever use one.
+   */
+  oidcLink: () =>
+    request<{
+      available: boolean;
+      buttonLabel: string | null;
+      linked: { issuer: string; lastSeen: string | null } | null;
+      canUnlink: boolean;
+    }>('/api/auth/oidc/link'),
+
+  oidcUnlink: () =>
+    request<{ removed: number }>('/api/auth/oidc/link', { method: 'DELETE' }),
+
   adminOidc: () =>
     request<{
       settings: {

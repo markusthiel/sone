@@ -74,7 +74,11 @@ hand account takeover to whoever can edit an address at the provider.
 That has two consequences worth knowing before you test:
 
 - **An existing SONE account is not adopted** because the addresses match.
-  Linking an existing account is a deliberate act by somebody already signed in.
+  Linking an existing account is a deliberate act by somebody already signed in:
+  **Deine Einstellungen → Anmelden → Single Sign-on → Verknüpfen** (ADR-0084).
+  That screen did not exist until 0.11.x, so on an older build this sentence
+  described nothing and everybody invited before the provider was configured
+  was shut out of it.
 - **A new account is only created** when sign-up through the provider is on
   *and* the provider reports the address as verified. A provider that will not
   say whether it checked has not checked.

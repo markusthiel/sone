@@ -21,7 +21,7 @@
  */
 
 import qr from 'qrcode-generator';
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 
 import {
   ApiError,
@@ -102,6 +102,7 @@ export function Settings({
       {current === 'sign-in' && (
         <>
           <SignIn />
+          <SingleSignOn />
           <SecondFactorSettings session={session} />
         </>
       )}
@@ -492,6 +493,94 @@ function SecondFactorSettings({ session }: { session: SessionInfo }): ReactEleme
       )}
 
       {error && <p className="error">{messageFor(error)}</p>}
+    </section>
+  );
+}
+
+/**
+ * Connecting a provider to an account that already exists (ADR-0084).
+ *
+ * The ordinary path is an invitation: somebody is invited, sets a password, and
+ * *then* wants to use the company's provider instead of remembering another
+ * one. Until this existed, only accounts a provider had created could ever use
+ * a provider — everybody invited before it was configured was shut out, and two
+ * records described this screen as though it were here.
+ *
+ * A whole-page navigation rather than a popup: the provider decides how it
+ * authenticates somebody, and a window it cannot resize or redirect freely is
+ * a worse version of the same trip.
+ */
+function SingleSignOn(): ReactElement | null {
+  const { t } = useT();
+  const [state, setState] = useState<Awaited<ReturnType<typeof api.oidcLink>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    void api
+      .oidcLink()
+      .then(setState)
+      .catch(() => setState(null));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // The callback comes back here with a mark in the address, because it is a
+  // redirect from somewhere else and there is no other way for it to say how it
+  // went.
+  const justLinked = new URLSearchParams(window.location.search).get('linked') === '1';
+
+  const disconnect = (): void => {
+    setBusy(true);
+    setError(null);
+    void api
+      .oidcUnlink()
+      .then(() => load())
+      .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'))
+      .finally(() => setBusy(false));
+  };
+
+  // Nothing at all when the instance has no provider: an empty section headed
+  // "single sign-on" is a thing to wonder about rather than a thing to use.
+  if (!state?.available) return null;
+
+  return (
+    <section className="settings-section">
+      <h2>{t('you.sso')}</h2>
+      <p className="muted settings-note">{t('you.sso.note')}</p>
+
+      {justLinked && !error && <p className="muted">{t('you.sso.justLinked')}</p>}
+      {error && <p className="error">{messageFor(error)}</p>}
+
+      {state.linked ? (
+        <div className="settings-card">
+          <div className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('you.sso.connected')}</b>
+              <span>{state.linked.issuer}</span>
+            </span>
+            <button
+              type="button"
+              className="btn"
+              disabled={busy || !state.canUnlink}
+              onClick={disconnect}
+            >
+              {t('you.sso.disconnect')}
+            </button>
+          </div>
+          {!state.canUnlink && (
+            <p className="muted settings-note">{t('you.sso.onlyWayIn')}</p>
+          )}
+        </div>
+      ) : (
+        <div className="admin-row-actions">
+          <a className="btn" href="/api/auth/oidc/start?link=1">
+            {state.buttonLabel ?? t('you.sso.connect')}
+          </a>
+        </div>
+      )}
     </section>
   );
 }
