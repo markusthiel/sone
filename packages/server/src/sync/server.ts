@@ -82,6 +82,14 @@ class Connection {
    * a key it is no longer filed under stays there for the life of the process.
    */
   accountId: string | null = null;
+  /**
+   * The workspace this connection authenticated for (ADR-0096).
+   *
+   * Held for the same reason as the account above: claims are replaced by
+   * revalidation, and a connection removed from an index under a key it is no
+   * longer filed under stays there for the life of the process.
+   */
+  workspaceId: string | null = null;
   readonly documents = new Map<number, OpenDocument>();
   readonly handlesByPage = new Map<string, number>();
   private nextHandle = 1;
@@ -170,6 +178,16 @@ export class SyncServer {
    * badge that appears on one of them is the reported bug wearing a hat.
    */
   private readonly byUser = new Map<string, Set<Connection>>();
+  /**
+   * Authenticated connections by workspace (ADR-0096).
+   *
+   * The second index, and the pair is the point: an inbox belongs to a person
+   * and a page tree belongs to a workspace, so a nudge about one cannot be
+   * addressed the way a nudge about the other is. A connection authenticates
+   * for exactly one workspace, which is what makes this a plain map rather than
+   * a question.
+   */
+  private readonly byWorkspace = new Map<string, Set<Connection>>();
   private readonly bus: UpdateBus;
   private readonly log: NonNullable<SyncServerOptions['log']>;
   private shuttingDown = false;
@@ -207,6 +225,9 @@ export class SyncServer {
     this.bus.onInboxChanged(({ userId }) => {
       this.notifyPerson(userId, NotifyScope.Inbox);
     });
+    this.bus.onPagesChanged(({ workspaceId }) => {
+      this.notifyWorkspace(workspaceId, NotifyScope.Pages);
+    });
     this.log('info', 'sync server started');
   }
 
@@ -230,8 +251,43 @@ export class SyncServer {
     for (const conn of conns) conn.send(frame);
   }
 
+  /**
+   * Tell everybody with this workspace open that its tree changed (ADR-0096).
+   *
+   * Everybody, without asking who may see the change — because the frame does
+   * not carry the change. It says which list to fetch again, and the tree route
+   * is the one place that decides what each of them gets back. Filtering here
+   * would mean this server resolving a page's access per connection, which is a
+   * second answer to a question that route already answers (ADR-0086).
+   */
+  private notifyWorkspace(workspaceId: string, scope: string): void {
+    const conns = this.byWorkspace.get(workspaceId);
+    if (!conns) return;
+    const frame = encodeNotify(scope);
+    for (const conn of conns) conn.send(frame);
+  }
+
   /** Index an authenticated connection under whoever it belongs to. */
   private rememberPerson(conn: Connection): void {
+    /*
+     * The workspace first, because everybody has one.
+     *
+     * A share-link visitor has no account and therefore no inbox (ADR-0046),
+     * and they do have a tree: the list of what the link reaches. So the two
+     * indexes are filled under different conditions, and the early return below
+     * used to skip both.
+     */
+    const workspaceId = conn.claims?.workspaceId;
+    if (workspaceId) {
+      conn.workspaceId = workspaceId;
+      let group = this.byWorkspace.get(workspaceId);
+      if (!group) {
+        group = new Set();
+        this.byWorkspace.set(workspaceId, group);
+      }
+      group.add(conn);
+    }
+
     const userId = accountOf(conn.claims);
     if (!userId) return;
     conn.accountId = userId;
@@ -244,6 +300,15 @@ export class SyncServer {
   }
 
   private forgetPerson(conn: Connection): void {
+    if (conn.workspaceId) {
+      const group = this.byWorkspace.get(conn.workspaceId);
+      if (group) {
+        group.delete(conn);
+        if (group.size === 0) this.byWorkspace.delete(conn.workspaceId);
+      }
+      conn.workspaceId = null;
+    }
+
     if (!conn.accountId) return;
     const conns = this.byUser.get(conn.accountId);
     if (!conns) return;

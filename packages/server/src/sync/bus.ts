@@ -5,9 +5,10 @@
  * the pool, because a listening connection is blocked for the pool's purposes
  * and taking one from the pool would eventually starve it.
  *
- * Two channels on that one connection: documents, and inboxes (ADR-0093). The
- * cost being avoided above is per connection rather than per channel, so a
- * second listener for the second subject would pay it twice for nothing.
+ * Three channels on that one connection: documents, inboxes (ADR-0093) and page
+ * trees (ADR-0096). The cost being avoided above is per connection rather than
+ * per channel, so a second listener for a second subject would pay it twice for
+ * nothing — and a third for a third.
  *
  * Two properties of NOTIFY drive the design:
  *
@@ -35,6 +36,15 @@ export const DOC_UPDATE_CHANNEL = 'sone_doc_update';
  */
 export const INBOX_CHANNEL = 'sone_inbox_changed';
 
+/**
+ * A workspace's page tree changed (ADR-0096).
+ *
+ * Keyed by workspace rather than by person, which is what a tree is. The third
+ * channel on the same connection, and the reason the cost argument above is
+ * worth restating: it is per connection, and this adds none.
+ */
+export const PAGES_CHANNEL = 'sone_pages_changed';
+
 export interface DocUpdateNotice {
   docId: string;
   seq: number;
@@ -51,8 +61,14 @@ export interface InboxNotice {
   userId: string;
 }
 
+/** Whose tree, and nothing about what changed in it (ADR-0096). */
+export interface PagesNotice {
+  workspaceId: string;
+}
+
 export type DocUpdateHandler = (notice: DocUpdateNotice) => void;
 export type InboxHandler = (notice: InboxNotice) => void;
+export type PagesHandler = (notice: PagesNotice) => void;
 
 /**
  * Listens for document updates produced by other instances.
@@ -65,6 +81,7 @@ export class UpdateBus {
   private client: Client | null = null;
   private readonly handlers = new Set<DocUpdateHandler>();
   private readonly inboxHandlers = new Set<InboxHandler>();
+  private readonly pagesHandlers = new Set<PagesHandler>();
   private stopped = false;
   private reconnectDelayMs = 500;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -88,6 +105,11 @@ export class UpdateBus {
     return () => this.inboxHandlers.delete(handler);
   }
 
+  onPagesChanged(handler: PagesHandler): () => void {
+    this.pagesHandlers.add(handler);
+    return () => this.pagesHandlers.delete(handler);
+  }
+
   async start(): Promise<void> {
     if (this.stopped) throw new Error('bus already stopped');
     await this.connect();
@@ -101,6 +123,24 @@ export class UpdateBus {
 
     client.on('notification', (msg) => {
       if (!msg.payload) return;
+
+      if (msg.channel === PAGES_CHANNEL) {
+        let workspaceId: unknown;
+        try {
+          workspaceId = (JSON.parse(msg.payload) as { workspaceId?: unknown }).workspaceId;
+        } catch {
+          return;
+        }
+        if (typeof workspaceId !== 'string') return;
+        for (const handler of this.pagesHandlers) {
+          try {
+            handler({ workspaceId });
+          } catch (err) {
+            console.error('[bus] pages handler threw', err);
+          }
+        }
+        return;
+      }
 
       if (msg.channel === INBOX_CHANNEL) {
         let userId: unknown;
@@ -150,6 +190,7 @@ export class UpdateBus {
     await client.connect();
     await client.query(`LISTEN ${DOC_UPDATE_CHANNEL}`);
     await client.query(`LISTEN ${INBOX_CHANNEL}`);
+    await client.query(`LISTEN ${PAGES_CHANNEL}`);
     this.client = client;
     this.reconnectDelayMs = 500;
   }
@@ -178,6 +219,7 @@ export class UpdateBus {
     }
     this.handlers.clear();
     this.inboxHandlers.clear();
+    this.pagesHandlers.clear();
     if (this.client) {
       const client = this.client;
       this.client = null;

@@ -56,6 +56,10 @@ tree — costs no protocol version. That only holds if an older client treats an
 unfamiliar scope as "nothing to do" rather than as a broken frame, which is
 asserted.
 
+> The page tree is exactly what came next (ADR-0096), and it cost none: one
+> constant on each side of the wire. The claim above was the whole argument for
+> the scope, so it is worth recording that it held.
+
 ### Statement-level triggers, over transition tables
 
 `notify_inbox_changed()` fires on insert and delete; `notify_inbox_read_changed()`

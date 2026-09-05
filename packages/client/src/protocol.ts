@@ -57,6 +57,14 @@ export const ServerMessage = {
 
 export const NotifyScope = {
   Inbox: 'inbox',
+  /**
+   * The page tree of the workspace this connection authenticated for
+   * (ADR-0096).
+   *
+   * Addressed by workspace rather than by person, and naming nothing about the
+   * change: the tree route is the one place that decides what somebody sees.
+   */
+  Pages: 'pages',
 } as const;
 
 export type Role = 'viewer' | 'commenter' | 'editor' | 'admin';
