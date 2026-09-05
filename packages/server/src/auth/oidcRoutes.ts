@@ -17,7 +17,7 @@ import type { Pool } from 'pg';
 
 import type { RequestContext, Router } from '../http/router.js';
 import { queryOne } from '../db/pool.js';
-import { setSessionCookie } from '../http/auth.js';
+import { requireSession, setSessionCookie } from '../http/auth.js';
 import { createSession } from './session.js';
 import {
   OidcError,
@@ -93,12 +93,27 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
     });
   });
 
-  /** Send somebody to the provider. */
+  /**
+   * Send somebody to the provider.
+   *
+   * Two ways in, one route. Without a session it is a sign-in; with `?link=1`
+   * and a session it attaches the provider to the account already signed in
+   * (ADR-0084). One route because everything up to the callback is identical —
+   * discovery, the three secrets, the redirect — and the only difference is a
+   * field in the sealed blob.
+   */
   router.get('/api/auth/oidc/start', async (ctx) => {
     const settings = await settingsFor(deps.pool, deps);
     if (!settings) {
       ctx.fail(404, 'not_configured');
       return;
+    }
+
+    let linkTo: string | null = null;
+    if (ctx.url.searchParams.get('link') === '1') {
+      const auth = await requireSession(deps.pool, ctx);
+      if (!auth) return;
+      linkTo = auth.userId;
     }
 
     let discovery;
@@ -109,7 +124,7 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
       return;
     }
 
-    const pending = beginSignIn();
+    const pending: Pending = { ...beginSignIn(), ...(linkTo ? { link: linkTo } : {}) };
 
     // HttpOnly, so script cannot read the verifier; SameSite=Lax, because the
     // provider returns by a top-level navigation and Strict would drop it and
@@ -178,6 +193,43 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
         keys: (await fetchKeys(discovery)) as Jwk[],
       });
 
+      /*
+       * Attaching a provider to an account that already exists (ADR-0084).
+       *
+       * The normal way in is an invitation: somebody is invited, sets a
+       * password, and *then* wants to use the company's provider instead. Until
+       * now the only `INSERT INTO oidc_identities` in the codebase was reachable
+       * through fresh-account creation, so everybody who already had an account
+       * was permanently unable to use single sign-on — while two records and the
+       * deployment guide described a linking flow that did not exist.
+       *
+       * The session is checked again here, not taken from the blob: the blob
+       * says whose attempt this is, and the cookie says who is holding the
+       * browser. Both have to agree, or finishing a link in somebody else's
+       * browser would attach your provider identity to their account.
+       */
+      if (pending.link) {
+        const auth = await requireSession(deps.pool, ctx);
+        if (!auth) return;
+        if (auth.userId !== pending.link) {
+          ctx.fail(403, 'not_your_link');
+          return;
+        }
+
+        const attached = await attachIdentity(deps.pool, settings, claims, auth.userId);
+        if (attached !== 'linked') {
+          /*
+           * Refused rather than moved. An identity pointing at two accounts is
+           * a question with no good answer at sign-in time, and taking one off
+           * an account somebody else is using is not this route's decision.
+           */
+          ctx.fail(409, attached === 'taken' ? 'already_linked_elsewhere' : 'already_have_one');
+          return;
+        }
+        redirectTo(ctx, '/settings/sign-in?linked=1');
+        return;
+      }
+
       const userId = await linkOrCreate(deps.pool, settings, claims);
       if (!userId) {
         // Known to the provider and unknown here, with sign-up off. Said
@@ -187,6 +239,23 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
         return;
       }
 
+      /*
+       * A session, and no second-factor step — which is the recorded rule
+       * rather than an omission (ADR-0065, ADR-0084).
+       *
+       * The exemption exists because "an OIDC account authenticates at the
+       * provider, which has its own second factor and is the right place for
+       * one. Requiring TOTP of such an account would be requiring a second
+       * factor on top of somebody else's first one." That argument is about the
+       * *door*, not about the account, so it holds just as well for an account
+       * that also has a password: the password door still asks for the second
+       * factor, and the provider door still trusts the provider.
+       *
+       * The trade is real and belongs to the person who linked: an attacker who
+       * takes their provider account gets in without their TOTP. That is the
+       * trade every "sign in with…" makes, and linking is a deliberate act by
+       * somebody already signed in.
+       */
       const session = await createSession(deps.pool, userId);
       setSessionCookie(ctx, session.token, deps.secureCookies);
       redirectTo(ctx, '/');
@@ -204,6 +273,59 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
       ctx.fail(401, error instanceof OidcError ? error.code : 'sign_in_failed');
     }
   });
+
+  /**
+   * Whether this account has a provider attached, and which (ADR-0084).
+   *
+   * Named, because "connected" without saying to what is not an answer
+   * somebody can act on — an instance can change its provider, and an old
+   * identity pointing at an issuer nobody uses any more should be visible as
+   * exactly that.
+   */
+  router.get('/api/auth/oidc/link', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    const row = await queryOne<{ issuer: string; last_seen: string | null }>(
+      deps.pool,
+      `SELECT issuer, last_seen::text FROM oidc_identities WHERE user_id = $1`,
+      [auth.userId],
+    );
+    const settings = await settingsFor(deps.pool, deps);
+    ctx.send(200, {
+      available: settings !== null,
+      buttonLabel: settings?.button_label ?? null,
+      linked: row ? { issuer: row.issuer, lastSeen: row.last_seen } : null,
+      /*
+       * Whether removing it would lock them out.
+       *
+       * An account whose only way in is the provider must not be able to
+       * disconnect it — that is a door closed from the inside with nobody on
+       * the other side. The interface needs to know before it offers the
+       * button, and the route refuses regardless.
+       */
+      canUnlink: row !== null && (await hasPassword(deps.pool, auth.userId)),
+    });
+  });
+
+  /** Take it off again. */
+  router.delete('/api/auth/oidc/link', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+
+    if (!(await hasPassword(deps.pool, auth.userId))) {
+      // The only way in. Refused with a code the interface can explain rather
+      // than a bare 403: what somebody has to do first is set a password.
+      ctx.fail(409, 'no_other_way_in');
+      return;
+    }
+
+    const removed = await deps.pool.query(`DELETE FROM oidc_identities WHERE user_id = $1`, [
+      auth.userId,
+    ]);
+    ctx.send(200, { removed: removed.rowCount ?? 0 });
+  });
+
 }
 
 /** A redirect, written here because the router deals in JSON replies. */
@@ -216,6 +338,17 @@ interface Pending {
   state: string;
   nonce: string;
   verifier: string;
+  /**
+   * Whose account this attempt is attaching a provider to (ADR-0084).
+   *
+   * Absent for an ordinary sign-in. Present when somebody already signed in
+   * pressed "connect" in their settings — and the callback then refuses unless
+   * the session still belongs to that same person, so a link cannot be
+   * completed into somebody else's account by finishing it in their browser.
+   *
+   * Inside the signed blob, which is what makes it trustworthy at all.
+   */
+  link?: string;
 }
 
 /**
@@ -292,6 +425,61 @@ function clearPending(ctx: RequestContext, deps: OidcDeps): void {
     'Max-Age=0',
     ...(deps.secureCookies ? ['Secure'] : []),
   ].join('; '));
+}
+
+/** Whether this account can still be signed into without the provider. */
+async function hasPassword(pool: Pool, userId: string): Promise<boolean> {
+  const row = await queryOne<{ has: boolean }>(
+    pool,
+    `SELECT password_hash IS NOT NULL AS has FROM users WHERE id = $1`,
+    [userId],
+  );
+  return row?.has === true;
+}
+
+/**
+ * Attach a provider identity to an account that already exists (ADR-0084).
+ *
+ * Returns false when that identity already belongs to somebody else here. The
+ * insert carries `ON CONFLICT (issuer, subject) DO NOTHING`, so the refusal is
+ * the database's answer rather than a check-then-write with a gap in it.
+ *
+ * One provider per account: the unique constraint on `user_id` makes a second
+ * link replace nothing and fail, which is the honest behaviour while there is
+ * one provider configured per instance.
+ */
+async function attachIdentity(
+  pool: Pool,
+  settings: Settings,
+  claims: { sub: string },
+  userId: string,
+): Promise<'linked' | 'taken' | 'already_have_one'> {
+  const issuer = settings.issuer.replace(/\/+$/, '');
+  try {
+    const row = await queryOne<{ user_id: string }>(
+      pool,
+      `INSERT INTO oidc_identities (issuer, subject, user_id, last_seen)
+       VALUES ($1, $2, $3, now())
+       ON CONFLICT (issuer, subject) DO UPDATE SET last_seen = now()
+         WHERE oidc_identities.user_id = $3
+       RETURNING user_id`,
+      [issuer, claims.sub, userId],
+    );
+    // No row means the identity exists and belongs to somebody else: the
+    // `DO UPDATE ... WHERE` matched nothing.
+    return row ? 'linked' : 'taken';
+  } catch (error) {
+    /*
+     * `oidc_identities_one_per_user` — this account already has an identity at
+     * this issuer, under a different subject.
+     *
+     * Distinguished because the two are different sentences to a person: "that
+     * provider account belongs to somebody else here" and "you already have one
+     * connected; disconnect it first". Both would otherwise be a bare failure.
+     */
+    if ((error as { code?: string }).code === '23505') return 'already_have_one';
+    throw error;
+  }
 }
 
 /**

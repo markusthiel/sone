@@ -150,6 +150,15 @@ export const de: Record<keyof typeof en, string> = {
   'action.save': 'Speichern',
   'action.create': 'Anlegen',
   'error.invalid_value': 'Dieser Wert passt nicht in diese Spalte.',
+  'error.not_your_link': 'Diese Verknüpfung wurde für ein anderes Konto begonnen.',
+  'error.no_other_way_in':
+    '{address, select, formal {Das ist der einzige Weg in dieses Konto. Erst ein ' +
+    'Passwort setzen — sonst sperren Sie sich aus.} other {Das ist der einzige Weg ' +
+    'in dieses Konto. Erst ein Passwort setzen — sonst sperrst du dich aus.}}',
+  'error.already_linked_elsewhere':
+    'Dieses Anbieter-Konto ist hier schon mit jemand anderem verknüpft.',
+  'error.already_have_one':
+    'Dieses Konto hat schon einen Anbieter verknüpft. Erst den trennen.',
   'error.too_many_files': 'Mehr Dateien, als eine Zelle hält.',
   'error.unknown_option': 'Diese Option gehört nicht zu dieser Spalte.',
   'error.field_is_derived': 'Diese Spalte wird berechnet, sie ist nicht beschreibbar.',
@@ -480,6 +489,20 @@ export const de: Record<keyof typeof en, string> = {
     '{address, select, formal {Ihr Name, Ihre Adresse und Ihr Bild} ' +
     'other {Dein Name, deine Adresse und dein Bild}}',
   'you.signIn': 'Anmelden',
+  'you.sso': 'Single Sign-on',
+  'you.sso.note':
+    'Mit dem Anbieter anmelden, für den diese Instanz eingerichtet ist, statt mit ' +
+    'dem Passwort. Das Passwort bleibt gültig: eine Verknüpfung fügt einen zweiten ' +
+    'Weg hinein hinzu, sie ersetzt den ersten nicht.',
+  'you.sso.connected': 'Verknüpft mit',
+  'you.sso.connect': 'Verknüpfen',
+  'you.sso.disconnect': 'Trennen',
+  'you.sso.justLinked': 'Verknüpft. Ab jetzt geht die Anmeldung auch darüber.',
+  'you.sso.onlyWayIn':
+    '{address, select, formal {Das ist der einzige Weg in dieses Konto. Erst ein ' +
+    'Passwort setzen — sonst würden Sie sich aussperren.} other {Das ist der ' +
+    'einzige Weg in dieses Konto. Erst ein Passwort setzen — sonst würdest du ' +
+    'dich aussperren.}}',
   'you.signIn.hint': '{address, select, formal {Ihr Passwort} other {Dein Passwort}}',
   'you.appearance': 'Aussehen',
   'you.appearance.hint':
