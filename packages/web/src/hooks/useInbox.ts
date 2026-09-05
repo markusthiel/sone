@@ -42,9 +42,30 @@ export function useInbox(): {
   snooze: (ids: string[], until: Date | null) => void;
   /** Answer where you are (ADR-0076). Resolves when the server has it. */
   reply: (id: string, text: string) => Promise<void>;
+  /** How many are waiting, for the badge on the bell. */
+  unread: number;
+  /** Read it again now. */
+  refresh: () => void;
 } {
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /*
+   * Read again when somebody comes back to the window (ADR-0092).
+   *
+   * This ran once, with `[]` deps, and the comment on the count called that
+   * "once per navigation" — which was true of a server-rendered application and
+   * has never been true here: routing is `pushState`, so the hook is mounted
+   * once per **full page load**. That is exactly "erst nach reload".
+   *
+   * `focus` and `visibilitychange`, the same pair `usePages` uses, rather than
+   * a timer: a notification is not urgent enough to poll for and is wanted the
+   * moment somebody looks. The honest limit is that a badge does not appear
+   * while they are staring at the page — that needs a push, which the sync
+   * protocol has no frame for, and is its own decision.
+   */
+  const [generation, setGeneration] = useState(0);
+  const refresh = useCallback(() => setGeneration((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,7 +80,19 @@ export function useInbox(): {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [generation]);
+
+  useEffect(() => {
+    const again = (): void => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    window.addEventListener('focus', again);
+    document.addEventListener('visibilitychange', again);
+    return () => {
+      window.removeEventListener('focus', again);
+      document.removeEventListener('visibilitychange', again);
+    };
+  }, [refresh]);
 
   const markRead = useCallback((ids?: string[]) => {
     // Optimistic, and deliberately: the navigation that usually accompanies
@@ -129,5 +162,19 @@ export function useInbox(): {
     });
   }, []);
 
-  return { items, error, markRead, setRead, snooze, reply };
+  /*
+   * Counted from the list, not fetched a second time.
+   *
+   * The badge had its own `GET /api/inbox/count` inside `AccountMenu`, which
+   * is how a number and a list that disagree come about — and they did, because
+   * one of them was optimistically updated on "mark read" and the other was
+   * not. One source, so pressing "read" moves both.
+   */
+  const unread = (items ?? []).filter(
+    (one) =>
+      !one.read &&
+      (one.snoozedUntil === null || new Date(one.snoozedUntil).getTime() <= Date.now()),
+  ).length;
+
+  return { items, error, markRead, setRead, snooze, reply, unread, refresh };
 }

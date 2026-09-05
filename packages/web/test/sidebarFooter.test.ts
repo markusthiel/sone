@@ -27,14 +27,19 @@ test('the one mark says what it opens', () => {
   // out among other things.
   // Through the catalogue now (ADR-0041) — and the label still names the person,
   // which is what the message's own parameter is for.
-  // The label says the count as well when something is waiting: a screen
-  // reader would otherwise announce the name and not the badge beside it
-  // (ADR-0052). Both forms asserted rather than the old one loosened.
+  /*
+   * Just the name now (ADR-0092).
+   *
+   * It used to say the waiting count too, because the badge was on the face.
+   * The badge is on the bell, so saying it here would have a screen reader
+   * report a number in the one place that cannot open it — and the bell's own
+   * label says it instead.
+   */
   assert.match(sidebar, /t\('account\.label', \{ name: displayName \}\)/);
-  assert.match(
-    sidebar,
-    /t\('account\.label\.waiting', \{ name: displayName, count: unread \}\)/,
-  );
+  assert.doesNotMatch(sidebar, /account\.label\.waiting/);
+
+  const rail = codeOf(new URL('../src/components/IconRail.tsx', import.meta.url));
+  assert.match(rail, /aria-label=\{badge \? `\$\{label\} \(\$\{badge\}\)` : label\}/);
 });
 
 test('the account entry carries the person, not a symbol', () => {

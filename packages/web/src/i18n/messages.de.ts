@@ -24,7 +24,6 @@ export const de: Record<keyof typeof en, string> = {
   'account.workspaces': 'Workspaces',
   'account.administration': 'Verwaltung',
   'account.inbox': 'Posteingang',
-  'account.label.waiting': '{name}, {count} Benachrichtigungen wartend',
   'inbox.title': 'Posteingang',
   'settings.title': 'Einstellungen',
   // Zwei Bereiche, nicht drei: der Workspace hat einen eigenen (ADR-0070).

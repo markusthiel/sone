@@ -27,7 +27,7 @@ import { MoveToWorkspaceDialog } from './components/MoveToWorkspaceDialog.tsx';
 import { ShareDialog } from './components/ShareDialog.tsx';
 import { Trash } from './components/Trash.tsx';
 import { SidebarIcon } from './components/icons.tsx';
-import { EntryIconView } from './components/EntryIconView.tsx';
+import { EntryIconView, titleColorStyle } from './components/EntryIconView.tsx';
 import { PageStatus, PageView } from './components/PageView.tsx';
 import {
   PAGE_TABS,
@@ -41,6 +41,7 @@ import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
 import { SharesScreen } from './components/SharesScreen.tsx';
+import { SharesPanel, type SharesView } from './components/SharesPanel.tsx';
 import { WorkspaceListScreen } from './components/WorkspaceListScreen.tsx';
 import { ModeBar } from './components/ModeBar.tsx';
 import { WorkspaceChooser, WorkspacePanel } from './components/WorkspacePanel.tsx';
@@ -385,6 +386,14 @@ function Workspace({
    * be a filter the counts did not know about.
    */
   const [trashQuery, setTrashQuery] = useState('');
+  /* Which of the three lists the shares menu chose, and how many are in each —
+     counted by the screen, so the menu's numbers cannot disagree with it. */
+  const [sharesView, setSharesView] = useState<SharesView>('links');
+  const [shareCounts, setShareCounts] = useState<Record<SharesView, number>>({
+    links: 0,
+    granted: 0,
+    received: 0,
+  });
 
   /*
    * Two menus, not one list with two headings (ADR-0072).
@@ -672,7 +681,7 @@ function Workspace({
       {/* First in the DOM as well as first in the grid. It is the outermost
           frame of the window, and a screen reader reading the shell in source
           order should meet the map before the tree. */}
-      <IconRail here={mode} account={isColumn ? accountMenu : null} />
+      <IconRail here={mode} account={isColumn ? accountMenu : null} unread={inbox.unread} />
 
       <Sidebar
         mode={mode}
@@ -681,6 +690,8 @@ function Workspace({
             ? t('inbox.title')
             : mode === 'trash'
               ? t('trash.title')
+              : mode === 'shares'
+                ? t('shares.title')
               : mode === 'settings'
                 ? t('settings.title')
                 : mode === 'admin'
@@ -794,6 +805,9 @@ function Workspace({
         )}
         {mode === 'workspaces' && (
           <WorkspacePanel chosenId={chosenWorkspaceId} current={workspaceCurrentHref} />
+        )}
+        {mode === 'shares' && (
+          <SharesPanel counts={shareCounts} view={sharesView} onPick={setSharesView} />
         )}
       </Sidebar>
 
@@ -937,7 +951,9 @@ function Workspace({
         {/* Per workspace, unlike the inbox below: a share is a rule about
             pages, and pages belong to one workspace. The question "what have I
             let out" is asked about a place, not about everything at once. */}
-        {route.kind === 'shares' && <SharesScreen workspaceId={workspaceId} />}
+        {route.kind === 'shares' && (
+          <SharesScreen workspaceId={workspaceId} view={sharesView} onCounts={setShareCounts} />
+        )}
 
         {/* The inbox spans workspaces, so it takes no workspace id — the whole
             point is being told about a question asked somewhere other than
@@ -1127,7 +1143,7 @@ function Workspace({
         * reader reading the shell in source order should meet it where the eye
         * does. Drawn only below 800px, by the stylesheet — the breakpoint has
         * one owner and it is the thing that draws it. */}
-      <ModeBar here={mode} account={isColumn ? null : accountMenu} />
+      <ModeBar here={mode} account={isColumn ? null : accountMenu} unread={inbox.unread} />
     </div>
   );
 }
@@ -1310,6 +1326,29 @@ function drawnKind(kind: string): 'page' | 'folder' | 'canvas' {
   return kind === 'folder' || kind === 'canvas' ? kind : 'page';
 }
 
+/**
+ * An entry's chosen icon, narrowed from what the route sends.
+ *
+ * The shared tree drew `icon={null}` for everything — a plain folder and a
+ * plain page — while the title above the page showed the real one. The same
+ * entry had two appearances on one screen, and the tree's was the wrong one.
+ */
+function iconOf(
+  icon: unknown,
+): { kind: string; value: string; color?: string; titleColor?: string } | null {
+  if (!icon || typeof icon !== 'object') return null;
+  const record = icon as Record<string, unknown>;
+  if (typeof record['kind'] !== 'string' || typeof record['value'] !== 'string') return null;
+  return {
+    kind: record['kind'],
+    value: record['value'],
+    ...(typeof record['color'] === 'string' ? { color: record['color'] } : {}),
+    // The colour the *title* takes, which is a separate choice from the
+    // icon's own and is why the tree needs both.
+    ...(typeof record['titleColor'] === 'string' ? { titleColor: record['titleColor'] } : {}),
+  };
+}
+
 function ShareSession({
   token,
   pageId,
@@ -1421,13 +1460,16 @@ function ShareSession({
         item?: string;
         text: string;
       }): Promise<void> => {
-        await api.startComment(pageId, input);
+        // The name goes with it. The share cookie names the link, not the
+        // person holding it, so this is the only thing that tells the server
+        // who signed the comment (ADR-0092).
+        await api.startComment(pageId, { ...input, name: displayName });
       },
       reply: async (threadId: string, text: string): Promise<void> => {
-        await api.replyToComment(pageId, threadId, text);
+        await api.replyToComment(pageId, threadId, text, displayName);
       },
     };
-  }, [effectivePageId]);
+  }, [effectivePageId, displayName]);
 
   const comments = useComments(
     handle?.doc ?? null,
@@ -1478,9 +1520,20 @@ function ShareSession({
     return () => {
       cancelled = true;
     };
-    // Re-read when the threads change, so a member's first reply is not
-    // nameless until a reload.
-  }, [token, effectivePageId, comments.threads.length]);
+    /*
+     * Re-read whenever a message appears, not whenever a *thread* does.
+     *
+     * The key was `threads.length`, and a reply does not change it — so the
+     * commonest sequence of all went unnamed: a visitor opens a thread (no
+     * member has written on the page, so the list is empty), a member answers,
+     * and the answer showed as "somebody who is no longer here". The names
+     * arrived only if somebody happened to start a second thread.
+     */
+  }, [
+    token,
+    effectivePageId,
+    comments.threads.reduce((total, thread) => total + thread.messages.length, 0),
+  ]);
 
   /**
    * What else the link reaches.
@@ -1495,7 +1548,14 @@ function ShareSession({
    * workspace contains.
    */
   const [shared, setShared] = useState<
-    Array<{ id: string; parentPageId: string | null; title: string; kind: string; idx: string }>
+    Array<{
+      id: string;
+      parentPageId: string | null;
+      title: string;
+      kind: string;
+      idx: string;
+      icon: unknown;
+    }>
   >([]);
   useEffect(() => {
     let cancelled = false;
@@ -1579,6 +1639,40 @@ function ShareSession({
    * dialog since links existed, and it finally does something (ADR-0090).
    */
   const shareTabs = handle?.canComment ? [...PAGE_TABS, 'comments' as const] : PAGE_TABS;
+
+  /*
+   * A folder is a folder here too.
+   *
+   * This rendered `PageView` for whatever the link opened on, and a folder has
+   * no body — so the visitor got the editor's empty page with a caret in it and
+   * "Write something, or press / for blocks". Reported as "der Ordner Video
+   * wird beim Gast als Seite dargestellt auf die man schreiben kann", and it is
+   * as bad as that sounds: an invitation to write into something that cannot
+   * hold writing, on a link that may be read-only (ADR-0092).
+   *
+   * Built from the list the link already carries, so a folder shows what is
+   * under it *within the share* — never what is under it in the workspace.
+   */
+  const openedFolder = ((): PageNode | null => {
+    const entry = shared.find((one) => one.id === effectivePageId);
+    if (!entry || entry.kind !== 'folder') return null;
+    const asNode = (one: (typeof shared)[number], depth: number): PageNode => ({
+      id: one.id,
+      parentPageId: one.parentPageId,
+      collectionId: null,
+      idx: one.idx,
+      title: one.title,
+      icon: iconOf(one.icon),
+      kind: drawnKind(one.kind),
+      archived: false,
+      lastEditedAt: '',
+      children: shared
+        .filter((child) => child.parentPageId === one.id)
+        .map((child) => asNode(child, depth + 1)),
+      depth,
+    });
+    return asNode(entry, 0);
+  })();
 
   return (
     /*
@@ -1666,8 +1760,8 @@ function ShareSession({
                       ? { 'aria-current': 'page' as const }
                       : {})}
                   >
-                    <EntryIconView icon={null} kind={drawnKind(entry.kind)} />{' '}
-                    <span>{entry.title}</span>
+                    <EntryIconView icon={iconOf(entry.icon)} kind={drawnKind(entry.kind)} />{' '}
+                    <span style={titleColorStyle(iconOf(entry.icon))}>{entry.title}</span>
                   </a>
                 </div>
               ))}
@@ -1696,7 +1790,13 @@ function ShareSession({
             <RightPanelToggle open={rightOpen} onToggle={() => setRightOpen((v) => !v)} />
           </div>
         </div>
-        {handle && effectivePageId ? (
+        {openedFolder ? (
+          /* Read-only: no rename field and no "new page" buttons. A link may be
+             a viewer's, and even an editor link is not a licence to reorganise
+             somebody's filing — what a link grants is the page, and creating
+             beside it is a different act. */
+          <FolderView folder={openedFolder} trail={[]} />
+        ) : handle && effectivePageId ? (
           <PageView
             handle={handle}
             pageId={effectivePageId}

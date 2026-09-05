@@ -1772,16 +1772,37 @@ test('a correction is offered as a search, and keeps the filters', () => {
   assert.match(screen, /query\.replace\(parsed\.text, word\)/);
 });
 
-test('the inbox count is the menu´s own business, and not polled', () => {
-  // Two screens render the account menu, so a prop would mean both fetching the
-  // same number and both keeping it fresh (ADR-0052).
+test('the count is on the bell, and it comes from the list', () => {
+  /*
+   * This test used to say the opposite, and both halves of what it said were
+   * wrong (ADR-0092).
+   *
+   * It asserted that the count is `AccountMenu`'s own business, fetched by its
+   * own `GET /api/inbox/count`, "once per mount, which is once per navigation".
+   * Routing here is `pushState` and the menu is mounted once, so that was once
+   * per **full page load** — reported as "die Zahl aktualisiert sich erst nach
+   * reload". And it put the badge on the face, which opens a menu that does not
+   * hold the notifications: "Die Glocke sollte dann die Zahl haben".
+   *
+   * So: one number, counted from the list the inbox already has, drawn on the
+   * bell. A second request cannot disagree with a list it never sees, and
+   * marking something read now moves both because there is only one.
+   */
   const menu = codeOf(new URL('../src/components/AccountMenu.tsx', import.meta.url));
-  assert.match(menu, /api\s*\n?\s*\.inboxCount\(\)/);
-  assert.match(menu, /\}, \[\]\);/, 'once per mount, which is once per navigation');
-  assert.doesNotMatch(menu, /setInterval/);
-  // A count that cannot be fetched is drawn as no count: an error badge on the
-  // account button is a permanent complaint about something nobody can act on.
-  assert.match(menu, /\.catch\(\(\) => \{/);
+  assert.doesNotMatch(menu, /inboxCount/, 'no second request for the same number');
+  assert.doesNotMatch(menu, /sidebar-unread"/, 'and no badge on the face');
+
+  const hook = codeOf(new URL('../src/hooks/useInbox.ts', import.meta.url));
+  assert.match(hook, /const unread = \(items \?\? \[\]\)\.filter\(/);
+  // Read again when somebody comes back to the window — the same pair
+  // `usePages` uses. Not a timer: a notification is wanted when it is looked
+  // for, and polling costs every open tab.
+  assert.match(hook, /addEventListener\('focus', again\)/);
+  assert.match(hook, /addEventListener\('visibilitychange', again\)/);
+  assert.doesNotMatch(hook, /setInterval/);
+
+  const rail = codeOf(new URL('../src/components/IconRail.tsx', import.meta.url));
+  assert.match(rail, /className="sidebar-unread"/);
 });
 
 test('an inbox spans workspaces, so its route carries none', () => {

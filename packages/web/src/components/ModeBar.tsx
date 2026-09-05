@@ -28,13 +28,16 @@ import { useModes, type Mode } from './modes.tsx';
 export function ModeBar({
   here,
   account,
+  unread = 0,
 }: {
   here: Mode;
   /** The account menu. Null above the breakpoint, where the rail draws it. */
   account: ReactNode;
+  /** Waiting in the inbox, drawn on the bell (ADR-0092). */
+  unread?: number;
 }): ReactElement {
   const { t } = useT();
-  const modes = useModes();
+  const modes = useModes(unread);
   const keyboard = useKeyboardOpen();
 
   return (
@@ -52,7 +55,7 @@ export function ModeBar({
       data-hidden={keyboard ? 'true' : undefined}
       {...(keyboard ? { inert: true } : {})}
     >
-      {modes.map(({ mode, href, label, icon }) => (
+      {modes.map(({ mode, href, label, icon, badge }) => (
         <a
           className="bar-item"
           key={mode}
@@ -61,8 +64,14 @@ export function ModeBar({
           // are", which the browser and a screen reader both already know how to
           // say. The stylesheet reads the same attribute.
           aria-current={here === mode ? 'page' : undefined}
+          aria-label={badge ? `${label} (${badge})` : undefined}
         >
           {icon}
+          {badge !== undefined && badge > 0 && (
+            <span className="sidebar-unread" aria-hidden="true">
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
           <span className="bar-label">{label}</span>
         </a>
       ))}

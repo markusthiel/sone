@@ -725,6 +725,8 @@ export const api = {
         title: string;
         kind: string;
         idx: string;
+        /** The entry's chosen icon and colour, so the tree draws what the page does. */
+        icon: unknown;
       }>;
       scopePageId: string;
     }>(`/api/share/${encodeURIComponent(token)}/pages`),
@@ -750,7 +752,22 @@ export const api = {
    */
   startComment: (
     pageId: string,
-    input: { from: Uint8Array; to: Uint8Array; quote: string; item?: string; text: string },
+    input: {
+      from: Uint8Array;
+      to: Uint8Array;
+      quote: string;
+      item?: string;
+      text: string;
+      /**
+       * The name a visitor gave, when there is one.
+       *
+       * The share cookie carries the token and cannot say which visitor is
+       * asking, so the server has no other way to know — and without it every
+       * guest comment was signed "Guest" (ADR-0092). Ignored for a member,
+       * whose session names them.
+       */
+      name?: string;
+    },
   ) =>
     request<{ threadId: string; messageId: string }>(
       `/api/pages/${encodeURIComponent(pageId)}/comments`,
@@ -762,15 +779,16 @@ export const api = {
           quote: input.quote,
           ...(input.item ? { item: input.item } : {}),
           text: input.text,
+          ...(input.name ? { name: input.name } : {}),
         }),
       },
     ),
 
   /** Reply to one, the same way. */
-  replyToComment: (pageId: string, threadId: string, text: string) =>
+  replyToComment: (pageId: string, threadId: string, text: string, name?: string) =>
     request<{ messageId: string }>(
       `/api/pages/${encodeURIComponent(pageId)}/comments/${encodeURIComponent(threadId)}/messages`,
-      { method: 'POST', body: JSON.stringify({ text }) },
+      { method: 'POST', body: JSON.stringify({ text, ...(name ? { name } : {}) }) },
     ),
 
   /** Everything shared in a workspace, from both ends (ADR-0026). */

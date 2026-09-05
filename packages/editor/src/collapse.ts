@@ -171,6 +171,24 @@ function buildDecorations(state: EditorState): DecorationSet {
           marks: [],
         }),
       );
+      /*
+       * How many digits the gutter has to hold (ADR-0092).
+       *
+       * The marker is absolutely positioned in a 1.4em gutter and the count
+       * sits inside it, so a two-digit number ran out of the gutter and over
+       * the first word — reported with a screenshot of "15Code Week".
+       *
+       * The gutter has to widen, and only the document knows by how much. A
+       * node decoration carries the digit count to the stylesheet, which is
+       * the only place that can reserve space before anything is laid out.
+       */
+      if (count > 0) {
+        decorations.push(
+          Decoration.node(offset, offset + node.nodeSize, {
+            'data-count-digits': String(Math.min(String(count).length, 3)),
+          }),
+        );
+      }
     }
   });
 
