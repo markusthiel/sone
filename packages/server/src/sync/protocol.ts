@@ -100,6 +100,15 @@ export const NotifyScope = {
    * a list it cannot have changed.
    */
   Trash: 'trash',
+  /**
+   * The workspace's shares screen (ADR-0098).
+   *
+   * Links, what this person granted, what was granted to them (ADR-0088). Its
+   * own scope for the same reason the trash has one: the three lists change on
+   * grants, links and group membership, and on nothing else the tree changes
+   * on.
+   */
+  Shares: 'shares',
 } as const;
 
 /**
@@ -111,7 +120,11 @@ export const NotifyScope = {
  * a string that reached clients because a migration typed it is a contract
  * nobody agreed to.
  */
-export const WORKSPACE_SCOPES: readonly string[] = [NotifyScope.Pages, NotifyScope.Trash];
+export const WORKSPACE_SCOPES: readonly string[] = [
+  NotifyScope.Pages,
+  NotifyScope.Trash,
+  NotifyScope.Shares,
+];
 
 export type NotifyScopeValue = (typeof NotifyScope)[keyof typeof NotifyScope];
 
