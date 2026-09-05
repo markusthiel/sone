@@ -62,6 +62,10 @@ export function PagePermissions({
   const { t } = useT();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [restricted, setRestricted] = useState(false);
+  const [cap, setCap] = useState<string>('');
+  const [inheritedCap, setInheritedCap] = useState<{ maxLevel: string; from: string } | null>(
+    null,
+  );
   const [grants, setGrants] = useState<Grant[]>([]);
   const [groupGrants, setGroupGrants] = useState<GroupGrant[]>([]);
   const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
@@ -73,6 +77,8 @@ export function PagePermissions({
       .pagePermissions(pageId)
       .then((result) => {
         setRestricted(result.restricted);
+        setCap(result.cap?.maxLevel ?? '');
+        setInheritedCap(result.inheritedCap);
         setGrants(result.grants);
         setGroupGrants(result.groups);
         setLoaded(true);
@@ -145,6 +151,49 @@ export function PagePermissions({
         {restricted
           ? 'The workspace cannot reach this page or anything under it. Owners and admins still can — somebody has to be able to undo this.'
           : 'Everybody in the workspace can reach this page. Adding someone below gives them more than their role does, never less.'}
+      </p>
+
+      {/* The ceiling (ADR-0087).
+        *
+        * Below the restriction and above the list, because that is the order
+        * the three layers apply in: the workspace default, then what is given
+        * to the people below, then the ceiling over all of it. A control that
+        * lowers, placed among controls that raise, would read as one of them.
+        */}
+      <div className="field">
+        <label htmlFor="page-cap">{t('cap.label')}</label>
+        <select
+          id="page-cap"
+          value={cap}
+          onChange={(event) => {
+            setCap(event.target.value);
+            act(api.setPageCap(pageId, event.target.value || null));
+          }}
+        >
+          <option value="">{t('cap.none')}</option>
+          {(['viewer', 'commenter', 'editor'] as const).map((one) => (
+            <option key={one} value={one}>
+              {levelLabel(one, t)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="muted">
+        {t('cap.note')}
+        {/* Named where it came from, because a ceiling set on a section above
+          * is otherwise invisible on the page it actually limits — which is
+          * the whole cost of this layer and the reason it is spelled out. */}
+        {inheritedCap && (
+          <>
+            {' '}
+            <b>
+              {t('cap.inherited', {
+                level: levelLabel(inheritedCap.maxLevel, t),
+                from: inheritedCap.from,
+              })}
+            </b>
+          </>
+        )}
       </p>
 
       <ul className="permission-list">
