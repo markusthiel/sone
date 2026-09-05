@@ -115,6 +115,14 @@ for everybody holding it, and a system role is held in every workspace — so on
 edit would revalidate the whole instance. The five-minute sweep covers it, and
 doing better needs a decision about how, not another trigger.
 
+> **Done in the next round (ADR-0100), and it needed both.** The decision was
+> smaller than this sentence implies: compare `page_level` and not `rights` —
+> the two halves of a role, and only one of them is about pages — and let the
+> notification name the workspaces that actually hold the role rather than all
+> of them. Two comparisons and a join. A named deferral with a plausible reason
+> is the kind of thing that stays deferred; this one lasted one round because
+> somebody asked for it by name.
+
 ### Coalesced, like everything else on this channel
 
 An import can write a subtree's permissions as many statements, and each is a
@@ -130,7 +138,8 @@ NOTIFY to cross the bus, on every instance rather than the one that served the
 request.
 
 **The maintenance sweep stays.** It is the net for everything with no trigger
-behind it: a session expiring, a user deactivated, a `roles` edit. A push says
+behind it: a session expiring, a user deactivated, a restored dump. (A `roles`
+edit was on that list until ADR-0100 took it off.) A push says
 what happened while the server was listening; nothing says what happened while
 it was not — the same argument the focus refresh gets in the browser.
 
