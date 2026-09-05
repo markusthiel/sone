@@ -1092,7 +1092,11 @@ test('the entry menu is ordered by how often and how permanent', () => {
   // Both move rows are one line tall, so a pair of related choices does not look
   // like two unrelated ones.
   assert.match(css, /\.entry-menu-item \{[^}]*white-space: nowrap/s);
-  assert.match(menu, /\{isFolder && \(\s*\n\s*<div className="entry-menu-new">/);
+  // "Only a folder offers 'new inside this'" used to be asserted here, as the
+  // source reading `{isFolder && (`. It broke when the condition gained a
+  // second term and the rule it protected had not changed — which is what a
+  // test of *where a condition is written* is worth (ADR-0091). It is asked of
+  // the rendered menu in `entryRights.test.tsx` now (ADR-0095).
   // And no colour: colour here means a palette choice or danger, and emphasis
   // with no meaning behind it is how a palette stops meaning anything.
   assert.doesNotMatch(css, /\.entry-menu-band \{[^}]*var\(--accent\)/s);
@@ -1133,8 +1137,10 @@ test('marking a template is a toggle on the entry itself', () => {
   const menu = codeOf(new URL('../src/components/EntryMenu.tsx', import.meta.url));
   assert.match(menu, /role="menuitemcheckbox"\s*\n\s*aria-checked=\{isTemplate\}/);
   assert.match(menu, /setPageTemplate\(node\.id, !isTemplate\)/);
-  // Not offered on a folder: there is no document to copy.
-  assert.match(menu, /\{!isFolder && \(/);
+  // "Not offered on a folder: there is no document to copy" moved to
+  // `entryRights.test.tsx`, for the same reason as the line above (ADR-0095):
+  // it was a test of the source, and it broke on a change that left the rule
+  // alone.
 });
 
 test('a detached thread keeps its place and its words', () => {
