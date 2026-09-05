@@ -21,6 +21,21 @@ was being written. They are on `forgejo.thiel.tools/thiel/sone` and can be
 pulled without credentials. A released tag's notes are not rewritten
 (ADR-0013), so the correction lives here.
 
+**You can connect a provider to the account you already have.** Invited, set a
+password, and now you would rather use the company's login: **Deine
+Einstellungen → Anmelden**. Your password keeps working — connecting adds a
+second way in rather than replacing the first, and you can disconnect again
+unless it is the only way into the account.
+
+This was described in the documentation and never built, so until now only
+accounts *created by* a provider could use one. Everybody invited before single
+sign-on was configured was shut out of it with nothing on screen saying why.
+
+Signing in through the provider does not ask for your second factor, and that is
+deliberate: the provider did the authenticating and has its own. The password
+door still asks. Worth knowing when you connect one — somebody who takes your
+provider account gets in without your code.
+
 **The block handles stay with the text when the sidebar moves.**
 
 Collapsing or expanding the sidebar, or dragging its width, left the `+` and
