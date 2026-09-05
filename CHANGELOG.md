@@ -22,6 +22,16 @@ Ein- und Ausklappen.
 Ohne die schmale Symbolleiste am Rand: die führt zu Posteingang, Papierkorb,
 Einstellungen und Konto, und davon hat jemand mit einem Link nichts.
 
+**Und die rechte Seitenleiste gibt es dort jetzt auch** — mit den vier Reitern,
+die über die Seite selbst sind: Gliederung, Dateien, Bilder, Links. Verlauf,
+Personen, Aufgaben und Kommentare bleiben draußen; die sind über den Workspace,
+und der Verlauf nennt jede Version samt Autor.
+
+Das ist bewusst keine Freigabe-Option. „Rechte Seitenleiste anzeigen" würde
+entweder den Verlauf und die Namensliste mit hinausgeben oder nur eine
+Gliederung verstecken — die Trennung ist eine Eigenschaft der Reiter, keine
+Entscheidung pro Link.
+
 Nichts zu tun beim Aktualisieren.
 
 **Eine Beschränkung hält jetzt auch gegen die, die den Ordner darüber haben.**
