@@ -65,6 +65,13 @@ export const NotifyScope = {
    * change: the tree route is the one place that decides what somebody sees.
    */
   Pages: 'pages',
+  /**
+   * The workspace's trash (ADR-0097).
+   *
+   * Its own scope rather than a second reason to refetch the tree: archiving
+   * and restoring belong to both lists, renaming belongs only to the tree.
+   */
+  Trash: 'trash',
 } as const;
 
 export type Role = 'viewer' | 'commenter' | 'editor' | 'admin';
