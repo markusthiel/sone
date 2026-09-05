@@ -149,6 +149,15 @@ export interface ConnectionEvents {
    * open frame dropped with nothing to retry it.
    */
   onAuthenticated?: () => void;
+  /**
+   * Something this person counts elsewhere has changed (ADR-0093).
+   *
+   * Deliberately not routed through `onFrame`: every other server frame names a
+   * document handle and belongs to the store, and this one belongs to nobody in
+   * particular. Handing it to the store would make the store the thing that
+   * knows about inboxes.
+   */
+  onNotify?: (scope: string) => void;
   /** Fatal: the connection will not retry. */
   onFatal?: (code: string, detail: string) => void;
   /** Anonymous share session id, so the caller can persist it. */
@@ -356,6 +365,11 @@ export class SyncConnection {
     }
 
     if (frame.type === ServerMessage.Pong) return;
+
+    if (frame.type === ServerMessage.Notify) {
+      this.events.onNotify?.(frame.scope);
+      return;
+    }
 
     this.events.onFrame?.(frame);
   }

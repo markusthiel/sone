@@ -24,6 +24,7 @@ import WebSocket from 'ws';
 import * as Y from 'yjs';
 
 import { SoneClient } from '../src/client.js';
+import { NotifyScope } from '../src/protocol.js';
 import type { SocketLike } from '../src/connection.js';
 
 const BASE_DATABASE_URL = process.env['SONE_TEST_DATABASE_URL'];
@@ -758,5 +759,39 @@ describe('client end to end', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
     handle.subscribe((h) => seen.push(h.status));
 
     await waitFor(() => seen.includes('synced'), 'a synced notification');
+  });
+  test('a notification reaches the bell without the page being touched', async () => {
+    /*
+     * The client half of ADR-0093, against a real server and a real Postgres.
+     *
+     * Deliberately with **no page open**: the point of the nudge is that it is
+     * about a person rather than a document, and a test that opened a page
+     * first could pass on a design that hung the push off the room.
+     */
+    const client = makeClient();
+    client.connect();
+    await waitFor(() => client.state === 'ready', 'ready');
+
+    let nudges = 0;
+    const stop = client.onNotify(NotifyScope.Inbox, () => {
+      nudges++;
+    });
+
+    await seedPage(uuid(1), 'Genannt');
+    await db.query(
+      `INSERT INTO notifications
+         (user_id, workspace_id, page_id, kind, thread_id, message_id, excerpt)
+       VALUES ($1,$2,$3,'mention','t1','m1','schau mal')`,
+      [userId, workspaceId, uuid(1)],
+    );
+
+    await waitFor(() => nudges > 0, 'a nudge');
+
+    // And it stops when the listener does, so a component that remounts does
+    // not refetch once per mount it ever had.
+    stop();
+    await db.query(`DELETE FROM notifications WHERE user_id = $1`, [userId]);
+    await sleep(400);
+    assert.equal(nudges, 1);
   });
 });

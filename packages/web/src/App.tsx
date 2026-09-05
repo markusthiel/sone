@@ -374,7 +374,9 @@ function Workspace({
    * navigates within it, the area to the right shows what the panel selected.
    */
   const mode = modeOf(route.kind);
-  const inbox = useInbox();
+  // The client, so the bell hears about a notification rather than waiting for
+  // somebody to leave the window and come back (ADR-0093).
+  const inbox = useInbox(client);
   const [inboxView, setInboxView] = useState<InboxView>({ of: 'unread' });
   const [trashEntries, setTrashEntries] = useState<TrashEntry[] | null>(null);
   const [trashView, setTrashView] = useState<TrashView>('recent');

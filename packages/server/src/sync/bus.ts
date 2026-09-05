@@ -5,6 +5,10 @@
  * the pool, because a listening connection is blocked for the pool's purposes
  * and taking one from the pool would eventually starve it.
  *
+ * Two channels on that one connection: documents, and inboxes (ADR-0093). The
+ * cost being avoided above is per connection rather than per channel, so a
+ * second listener for the second subject would pay it twice for nothing.
+ *
  * Two properties of NOTIFY drive the design:
  *
  *   - The payload is capped at 8000 bytes, so notifications carry ids only,
@@ -22,12 +26,33 @@ import { queryRows } from '../db/pool.js';
 
 export const DOC_UPDATE_CHANNEL = 'sone_doc_update';
 
+/**
+ * Somebody's inbox changed (ADR-0093).
+ *
+ * A second channel on the same connection rather than a second listener: the
+ * reason a listening connection lives outside the pool is that it is blocked
+ * for everything else, and that cost is per connection, not per channel.
+ */
+export const INBOX_CHANNEL = 'sone_inbox_changed';
+
 export interface DocUpdateNotice {
   docId: string;
   seq: number;
 }
 
+/**
+ * Who was affected, and nothing else.
+ *
+ * No count and no excerpt: a NOTIFY payload reaches every listening instance
+ * regardless of who is connected to it, and the inbox route is the one place
+ * that decides what a person may see.
+ */
+export interface InboxNotice {
+  userId: string;
+}
+
 export type DocUpdateHandler = (notice: DocUpdateNotice) => void;
+export type InboxHandler = (notice: InboxNotice) => void;
 
 /**
  * Listens for document updates produced by other instances.
@@ -39,6 +64,7 @@ export type DocUpdateHandler = (notice: DocUpdateNotice) => void;
 export class UpdateBus {
   private client: Client | null = null;
   private readonly handlers = new Set<DocUpdateHandler>();
+  private readonly inboxHandlers = new Set<InboxHandler>();
   private stopped = false;
   private reconnectDelayMs = 500;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -57,6 +83,11 @@ export class UpdateBus {
     return () => this.handlers.delete(handler);
   }
 
+  onInboxChanged(handler: InboxHandler): () => void {
+    this.inboxHandlers.add(handler);
+    return () => this.inboxHandlers.delete(handler);
+  }
+
   async start(): Promise<void> {
     if (this.stopped) throw new Error('bus already stopped');
     await this.connect();
@@ -69,7 +100,27 @@ export class UpdateBus {
     });
 
     client.on('notification', (msg) => {
-      if (msg.channel !== DOC_UPDATE_CHANNEL || !msg.payload) return;
+      if (!msg.payload) return;
+
+      if (msg.channel === INBOX_CHANNEL) {
+        let userId: unknown;
+        try {
+          userId = (JSON.parse(msg.payload) as { userId?: unknown }).userId;
+        } catch {
+          return;
+        }
+        if (typeof userId !== 'string') return;
+        for (const handler of this.inboxHandlers) {
+          try {
+            handler({ userId });
+          } catch (err) {
+            console.error('[bus] inbox handler threw', err);
+          }
+        }
+        return;
+      }
+
+      if (msg.channel !== DOC_UPDATE_CHANNEL) return;
       let notice: DocUpdateNotice;
       try {
         const parsed = JSON.parse(msg.payload) as { docId?: unknown; seq?: unknown };
@@ -98,6 +149,7 @@ export class UpdateBus {
 
     await client.connect();
     await client.query(`LISTEN ${DOC_UPDATE_CHANNEL}`);
+    await client.query(`LISTEN ${INBOX_CHANNEL}`);
     this.client = client;
     this.reconnectDelayMs = 500;
   }
@@ -125,6 +177,7 @@ export class UpdateBus {
       this.reconnectTimer = null;
     }
     this.handlers.clear();
+    this.inboxHandlers.clear();
     if (this.client) {
       const client = this.client;
       this.client = null;
