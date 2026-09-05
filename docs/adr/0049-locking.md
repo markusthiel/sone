@@ -70,6 +70,35 @@ Everything that is not changing its text:
 And what it stops: typing, the slash menu, the block gutter, drag-and-drop of
 blocks, pasting, and dropping a file onto the page.
 
+> **Correction, 2026-09-05.** The block gutter was not stopped. It was drawn on
+> a locked page, and its delete worked: Markus locked a page, opened the ⋮⋮ menu
+> and removed the contents.
+>
+> Two mistakes, one in each half of what this ADR claims. The gutter's condition
+> in `EditorSurface` asked whether the reader may edit and never asked about the
+> lock — so the list above was a description of what the interface *ought* to do,
+> written before it did it. And the enforcement below turns out to be narrower
+> than "one predicate every write path consults": `editable` is an `EditorView`
+> prop, and ProseMirror consults it for what the **user** does — typing, pasting,
+> dragging. It is not consulted for a transaction that code dispatches, and the
+> interface is full of code that dispatches: the gutter menu's delete, every
+> button in the selection toolbar, the table toolbar. Each of them called
+> `command(view.state, view.dispatch)` and went straight past the lock.
+>
+> Fixed by asking the same predicate in the place ProseMirror asks about every
+> change — a `filterTransaction`, `editGuard`, fed the identical function
+> `editable` is given, with the same two exemptions the block lock already
+> carries and a third the tests found: ySyncPlugin fills an empty document by
+> dispatching at mount, so refusing that renders every locked page blank. The
+> gutter is now genuinely absent as well, and the selection toolbar stays with
+> its formatting removed, because the paragraph above this one says a locked
+> page keeps its comments.
+>
+> The general shape is the one ADR-0084 names: **a record written before the
+> work reads afterwards as a description of the work.** "One predicate, so
+> nothing has to remember the lock" was the right decision and was implemented
+> in one of the two places ProseMirror offers.
+
 ### Renaming is not blocked, and that is deliberate
 
 The title is a property rather than content, and a page whose name is wrong stays

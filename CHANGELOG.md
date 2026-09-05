@@ -13,6 +13,19 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**A locked page can no longer have its contents deleted.** The lock stopped
+typing, and it did not stop the ⋮⋮ handle beside a block: its menu still opened
+on a locked page, and Delete still worked. The handle and the `+` are now gone
+while a page is locked, and every command the interface can run is checked
+against the lock rather than only what you type — so a button that misses the
+lock cannot change a locked page.
+
+Commenting on a locked page is unchanged, which is the point of a lock: the
+toolbar over a selection keeps its comment button and drops bold, italic and
+link.
+
+Nothing to do when upgrading.
+
 **Correction to the 0.11.0 notes: there is a container image, and there always
 was.** Those notes say no image could be produced. That was wrong — it came from
 a page in this repository that described the image workflow as something it is

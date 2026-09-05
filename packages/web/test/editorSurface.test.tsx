@@ -103,16 +103,19 @@ describe('editor surface', () => {
    * server's content arriving.
    */
   async function makeHandle(
-    options: { status?: string; seed?: boolean } = {},
+    options: { status?: string; seed?: boolean; locked?: boolean } = {},
   ): Promise<unknown> {
     const Y = await import('yjs');
-    const { pageContent } = await import('@sone/core');
+    const { pageContent, DOC_KEYS, PAGE_KEYS } = await import('@sone/core');
     const { seedEmptyPage } = await import('@sone/editor');
     // y-protocols is a dependency of @sone/client rather than of the web
     // package, so it is not resolvable from here. The awareness object only
     // needs the shape the cursor plugin touches.
     const doc = new Y.Doc();
     if (options.seed !== false) seedEmptyPage(pageContent(doc));
+    // The lock lives in the document beside the title, not in a column
+    // (ADR-0049), so this is the whole of locking a page.
+    if (options.locked) doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.locked, true);
 
     const awareness = {
       doc,
@@ -158,6 +161,78 @@ describe('editor surface', () => {
       'the + must be in the DOM, or there is nothing to press',
     );
     assert.ok(container.querySelector('.block-handle'), 'and the block handle');
+  });
+
+  test('a locked page has no gutter', async () => {
+    /*
+     * Markus, on a locked page: "Inhalte löschen kann ich dann trotzdem noch.
+     * Auf den Anfasser klicken und löschen auswählen."
+     *
+     * The gutter was drawn because its condition asked `canEdit` and not the
+     * lock, and pressing delete in it worked because the lock's only
+     * enforcement was `editable` — which ProseMirror consults for what the user
+     * types, not for what a menu item dispatches (ADR-0049).
+     *
+     * What must not go with it is the selection toolbar — see the next test.
+     */
+    const { createElement } = await import('react');
+    const { EditorSurface } = await import('../src/components/EditorSurface.tsx');
+
+    await render(
+      createElement(EditorSurface as never, {
+        handle: await makeHandle({ locked: true }),
+        pageId: '00000000-0000-4000-8000-000000000002',
+        threads: [],
+        members: [],
+        onComment: () => {},
+      }),
+    );
+
+    assert.equal(
+      container.querySelector('.block-handle'),
+      null,
+      'no ⋮⋮ on a locked page — its menu is how the contents were deleted',
+    );
+    assert.equal(container.querySelector('.block-insert'), null, 'and no +');
+    assert.match(
+      container.innerHTML,
+      /data-locked="true"/,
+      'the page still says it is locked',
+    );
+  });
+
+  test('a locked page keeps the selection toolbar and loses its formatting', async () => {
+    /*
+     * "A locked page under review is exactly the case comments exist for, and a
+     * comment is about the page rather than part of it" (ADR-0049). So the
+     * easy version of the fix above — hiding every overlay when the page is
+     * locked — takes commenting away with the gutter, and the lock stops being
+     * a lock and starts being a read-only mode nobody asked for.
+     *
+     * Asserted on the source, like the pointerdown guard below: the toolbar
+     * appears over a selection, and jsdom cannot make one that has a rectangle.
+     * What can be checked is that the toolbar is not inside the block the lock
+     * removes, and that it is told about the lock instead.
+     */
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(
+      new URL('../src/components/EditorSurface.tsx', import.meta.url),
+      'utf8',
+    );
+
+    const gutter = source.indexOf('handle.canEdit && !locked');
+    const toolbar = source.indexOf('<SelectionToolbar');
+    assert.notEqual(gutter, -1, 'the gutter is gated on the lock');
+    assert.notEqual(toolbar, -1);
+    assert.ok(
+      toolbar > source.indexOf('</>', gutter),
+      'the selection toolbar is outside the block the lock removes',
+    );
+    assert.match(
+      source.slice(toolbar, toolbar + 300),
+      /canFormat=\{!locked\}/,
+      'and is told about the lock, so bold goes and the comment button stays',
+    );
   });
 
   test('menu items do not act on pointerdown', async () => {

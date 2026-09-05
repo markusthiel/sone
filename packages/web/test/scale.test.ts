@@ -1209,10 +1209,46 @@ test('a thread exists once somebody has written something', () => {
 test('the comment button is absent for somebody who may only read', () => {
   // Absent rather than present and refusing: commenting needs edit rights until
   // there is a role that separates them (ADR-0046).
+  //
+  // The condition used to be a spread on the prop — `canEdit ? { onComment }`
+  // — inside a block already gated on `canEdit`. The toolbar has since moved
+  // out of that block, because a locked page keeps its comments and loses its
+  // gutter (ADR-0049), so the rights check is now the gate on the toolbar
+  // itself and the doubled one is gone.
   const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
-  assert.match(surface, /\{\.\.\.\(handle\.canEdit \? \{ onComment \} : \{\}\)\}/);
+  assert.match(surface, /\{view && handle\.canEdit && \(\s*<SelectionToolbar/s);
   const toolbar = codeOf(new URL('../src/components/SelectionToolbar.tsx', import.meta.url));
   assert.match(toolbar, /\{onComment && \(/);
+});
+
+test('a locked page loses the gutter, not the comments', () => {
+  /*
+   * Both halves of ADR-0049's "one predicate", after finding that it was one
+   * predicate in one place only.
+   *
+   * `editable` is an EditorView prop and ProseMirror consults it for what the
+   * user types. A menu item that dispatches a command is not what the user
+   * types, so the gutter's delete changed a locked page — which is how Markus
+   * found it. `editGuard` asks the same predicate in `filterTransaction`,
+   * where ProseMirror asks about every change.
+   *
+   * And the interface half: the gutter is not drawn at all, while the
+   * selection toolbar stays for the comment button, because a locked page
+   * under review is the case comments exist for.
+   */
+  const guard = codeOf(new URL('../../editor/src/editGuard.ts', import.meta.url));
+  assert.match(guard, /filterTransaction/);
+  assert.match(guard, /if \(mayEdit\(\)\) return true;/);
+
+  const editor = codeOf(new URL('../../editor/src/editor.ts', import.meta.url));
+  // Fed the same function `editable` gets, or the two halves could disagree —
+  // which is the whole failure being fixed.
+  assert.match(editor, /editGuard\(\(\) => opts\.editable\?\.\(\) !== false\)/);
+  assert.match(editor, /editable: \(\) => opts\.editable\?\.\(\) !== false/);
+
+  const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+  assert.match(surface, /\{view && handle\.canEdit && !locked && \(/);
+  assert.match(surface, /canFormat=\{!locked\}/);
 });
 
 test('the editor resolves an anchor for the page, in one place', () => {
