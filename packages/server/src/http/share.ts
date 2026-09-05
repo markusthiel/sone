@@ -43,6 +43,7 @@ import { queryOne, queryRows } from '../db/pool.js';
 import { atLeast as pageAtLeast, resolvePageAccess } from '../pages/access.js';
 import { loadWorkspaceStanding } from '../auth/standing.js';
 import { requireSession, sessionTokenFrom, setShareCookie } from './auth.js';
+import { resolveSessionId } from '../auth/session.js';
 import type { RequestContext, Router } from './router.js';
 
 export interface ShareDeps {
@@ -152,7 +153,19 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       return;
     }
 
-    const resolved = await resolveShareTokenClaims(deps.pool, token);
+    /*
+     * Whether an account is present, decided here and handed over (ADR-0101).
+     *
+     * A link with `allow_anonymous: false` admits somebody with an account and
+     * refuses a nameless visitor, so the resolver has to be told which this is.
+     * Resolved before the token so there is one answer for both branches below.
+     */
+    const sessionToken = sessionTokenFrom(ctx);
+    const signedIn = sessionToken
+      ? (await resolveSessionId(deps.pool, sessionToken)) !== null
+      : false;
+
+    const resolved = await resolveShareTokenClaims(deps.pool, token, { signedIn });
     if (!resolved) {
       // Revoked, expired, or never existed — one answer for all three. Telling
       // them apart would let somebody probe for tokens that once worked.
@@ -162,6 +175,20 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
 
     if (resolved.passwordRequired) {
       ctx.send(200, { requiresPassword: true });
+      return;
+    }
+
+    /*
+     * The link is for people with accounts (ADR-0101).
+     *
+     * Answered like the password case above — a state, not a failure — and
+     * before anything about the page is read, so the answer says what is needed
+     * and nothing about what is behind it. This used to throw out of the
+     * resolver, uncaught, as HTTP 500: the interface then showed the "what is
+     * your name" form for a link that would never admit a nameless visitor.
+     */
+    if (resolved.signInRequired) {
+      ctx.send(200, { requiresSignIn: true });
       return;
     }
 
@@ -229,7 +256,11 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
     }
 
     const resolved = await resolveShareTokenClaims(deps.pool, token);
-    if (!resolved || resolved.passwordRequired) {
+    // A link that needs a password or an account grants nothing yet, and its
+    // claims carry no grants — so this would fail closed anyway. Said out loud
+    // because "it happens to be empty" is a reason that stops being true
+    // (ADR-0101).
+    if (!resolved || resolved.passwordRequired || resolved.signInRequired) {
       ctx.fail(404, 'not_found');
       return;
     }
@@ -333,7 +364,11 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
     }
 
     const resolved = await resolveShareTokenClaims(deps.pool, token);
-    if (!resolved || resolved.passwordRequired) {
+    // A link that needs a password or an account grants nothing yet, and its
+    // claims carry no grants — so this would fail closed anyway. Said out loud
+    // because "it happens to be empty" is a reason that stops being true
+    // (ADR-0101).
+    if (!resolved || resolved.passwordRequired || resolved.signInRequired) {
       ctx.fail(404, 'not_found');
       return;
     }

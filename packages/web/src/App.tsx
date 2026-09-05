@@ -1191,6 +1191,8 @@ function ShareRoute({
   token: string;
   pageId: string | null;
 }): ReactElement {
+  const { t } = useT();
+
   /**
    * The name a visitor gave, remembered for this tab.
    *
@@ -1229,11 +1231,23 @@ function ShareRoute({
    * wait.
    */
   const [canWrite, setCanWrite] = useState<boolean | null>(null);
+  /**
+   * The link admits people with accounts, and nobody is signed in (ADR-0101).
+   *
+   * Its own state rather than a kind of failure: the link is not broken and the
+   * page is not gone — there is one thing to do, and the screen can say it.
+   */
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   useEffect(() => {
     let cancelled = false;
     void api
       .resolveShare(token)
       .then((info) => {
+        if (!cancelled && info.requiresSignIn) {
+          setNeedsSignIn(true);
+          setCanWrite(false);
+          return;
+        }
         // A password-protected link is resolved after the password, so its role
         // is not known yet — treated as writable, since asking for a name and
         // not needing it is a smaller fault than not asking and being unable to
@@ -1252,6 +1266,27 @@ function ShareRoute({
     return (
       <div className="centered">
         <p className="muted">{'…'}</p>
+      </div>
+    );
+  }
+
+  /*
+   * Said before the name form rather than after a failed connection.
+   *
+   * The route used to answer 500 for this, so the screen fell through to "what
+   * is your name" and then to a connection error — two wrong screens for a link
+   * that is working exactly as its author set it up (ADR-0101).
+   */
+  if (needsSignIn) {
+    return (
+      <div className="centered">
+        <div className="card">
+          <h1>{t('share.signInRequired')}</h1>
+          <p className="muted">{t('share.signInRequired.hint')}</p>
+          <a className="button" href={paths.login()}>
+            {t('auth.signIn')}
+          </a>
+        </div>
       </div>
     );
   }

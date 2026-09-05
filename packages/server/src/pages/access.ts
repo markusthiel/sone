@@ -314,8 +314,26 @@ const grantIsBelowFence = (alias: string, scopeColumn: string): string => `
  *
  * The restriction test comes first because most pages are not restricted, and
  * a page nothing restricts needs no lookup at all.
+ *
+ * **A null user matches nothing** (ADR-0101). That branch — "nothing on this
+ * page's path is restricted" — is true of most pages and says nothing about who
+ * is asking, on purpose: every caller establishes membership first, and this
+ * answers the narrower question of what is withheld *within* a workspace
+ * somebody is already in. Which made a null user match every unrestricted page.
+ *
+ * No caller passed null. A dozen of them write
+ * `kind === 'anonymous' ? null : userId` and each is unreachable, because each
+ * route requires a session first. That is a rule holding because twelve callers
+ * happen to prevent it — the shape this codebase has been bitten by six times,
+ * and the last three times it was the caller written most recently. So the
+ * condition says no rather than relying on nobody asking.
  */
 export const visiblePagesCondition = (alias: string, userParam: string): string => `(
+  -- Cast, because this is the first mention of the parameter and
+  -- \`x IS NOT NULL\` gives Postgres nothing to infer a type from: without it
+  -- the whole statement is rejected with "could not determine data type".
+  ${userParam}::uuid IS NOT NULL
+  AND (
   NOT EXISTS (
     SELECT 1 FROM pages r
      WHERE r.id = ANY(array_append(${alias}.ancestor_ids, ${alias}.id))
@@ -340,6 +358,7 @@ export const visiblePagesCondition = (alias: string, userParam: string): string 
          OR (gp.include_subtree AND gp.page_id = ANY(${alias}.ancestor_ids))
        )
        AND ${grantIsBelowFence(alias, 'gp.page_id')}
+  )
   )
 )`;
 
