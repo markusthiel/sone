@@ -269,20 +269,28 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       [scope.scopePageId, scope.includeSubtree],
     );
 
-    const pages = rows
-      .filter(
-        (row) =>
-          effectiveRole(resolved.claims, {
-            id: row.id,
-            workspaceId: row.workspace_id,
-            ancestorIds: row.ancestor_ids,
-            // Fetched per row rather than assumed: a restricted page below the
-            // shared section withholds itself from a link as from anybody, and
-            // the link's grant is not a way past it.
-            restrictedAt: row.restricted_at,
-          }) !== null,
-      )
-      .map((row) => ({
+    /*
+     * The role, kept rather than compared with null and dropped (ADR-0095).
+     *
+     * The same shape as the workspace tree route, and the same reason: it is
+     * being computed per row anyway, to decide which rows a link may see, and
+     * without it every entry reaches the visitor looking alike. A link that
+     * grants `commenter` and one that grants `viewer` produce identical trees,
+     * so the view has nothing to ask before offering something.
+     */
+    const pages: Array<Record<string, unknown>> = [];
+    for (const row of rows) {
+      const role = effectiveRole(resolved.claims, {
+        id: row.id,
+        workspaceId: row.workspace_id,
+        ancestorIds: row.ancestor_ids,
+        // Fetched per row rather than assumed: a restricted page below the
+        // shared section withholds itself from a link as from anybody, and
+        // the link's grant is not a way past it.
+        restrictedAt: row.restricted_at,
+      });
+      if (role === null) continue;
+      pages.push({
         id: row.id,
         // Null for the scope page itself, so the view can draw it as the root
         // of what was shared rather than as an orphan.
@@ -291,7 +299,9 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
         kind: row.kind === 'folder' || row.kind === 'canvas' ? row.kind : 'page',
         idx: row.idx,
         icon: row.icon ?? null,
-      }));
+        role,
+      });
+    }
 
     ctx.send(200, { pages, scopePageId: scope.scopePageId });
   });

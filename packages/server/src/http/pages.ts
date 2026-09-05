@@ -22,6 +22,7 @@ import {
   SCHEMA_VERSION,
   generateKeyBetween,
   type EntryKind,
+  type Role,
   derivedTagColor,
   isTagColor,
   tagKey,
@@ -381,19 +382,34 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
      * the granted page as a root of the sidebar, floating outside the section
      * it lives in.
      */
-    const visible = rows.filter(
-      (row) =>
-        row.path_only ||
-        effectiveRole(claims, {
-          id: row.id,
-          workspaceId,
-          ancestorIds: row.ancestor_ids,
-          restrictedAt: row.restricted_at,
-        }) !== null,
-    );
+    /*
+     * The role, kept rather than thrown away (ADR-0095).
+     *
+     * This was a `filter` that computed `effectiveRole` for every row, compared
+     * it with null and discarded it. So the answer to "what may this person do
+     * with this entry" was worked out here, once per entry, and then a list of
+     * pages that all look alike was sent — and the shell, having nothing to
+     * ask, drew a rename field and three create buttons on a folder somebody
+     * may only read, each of which the server answers 403 to.
+     *
+     * That is the third time in this codebase that a value was computed, used
+     * for a decision, and dropped before anybody could see it (ADR-0088,
+     * ADR-0091). It is the cheapest kind of feature there is: the work was
+     * already being done.
+     */
+    const visible: Array<{ row: (typeof rows)[number]; role: Role | null }> = [];
+    for (const row of rows) {
+      const role = effectiveRole(claims, {
+        id: row.id,
+        workspaceId,
+        ancestorIds: row.ancestor_ids,
+        restrictedAt: row.restricted_at,
+      });
+      if (row.path_only || role !== null) visible.push({ row, role });
+    }
 
     ctx.send(200, {
-      pages: visible.map((row) => ({
+      pages: visible.map(({ row, role }) => ({
         id: row.id,
         parentPageId: row.parent_page_id,
         collectionId: row.collection_id,
@@ -405,6 +421,17 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         // sending it "so the interface can hide it" is sending it.
         title: row.path_only ? null : row.title,
         pathOnly: row.path_only,
+        /*
+         * What this person may do with this entry (ADR-0095).
+         *
+         * Null for a page kept only as a path: they may do nothing at all with
+         * the row itself, and "no role" is the honest answer rather than a
+         * missing field. Sent for every entry — a field that is usually there
+         * is a field every caller handles twice, and the shell would then have
+         * to decide what an absent one means, which is the question this
+         * answers.
+         */
+        role: row.path_only ? null : role,
         icon: row.path_only ? null : row.icon,
         // A canvas is drawn differently in the tree and opened differently, so
         // the kind travels rather than being flattened to 'page'.

@@ -11,6 +11,7 @@ import { LoginScreen, SetupScreen, SignupScreen, useMessage, ResetScreen,
   SecondFactorRequired,
 } from './components/Auth.tsx';
 import { FolderView } from './components/FolderView.tsx';
+import { mayEdit } from './entryRights.ts';
 import { IconRail } from './components/IconRail.tsx';
 import { modeOf } from './components/modes.tsx';
 import { AccountMenu } from './components/AccountMenu.tsx';
@@ -62,7 +63,7 @@ import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
 import { asInternalRequest, guestKey } from '@sone/core';
-import type { CommentThread } from '@sone/core';
+import type { CommentThread, Role } from '@sone/core';
 import type { CommentAnchor, DrawnThread } from '@sone/editor';
 
 import { api, type PageNode, type WorkspaceMember } from './api/client.ts';
@@ -875,8 +876,23 @@ function Workspace({
           <FolderView
             folder={selected}
             trail={ancestorNodes(tree, selected.id)}
-            onCreate={(parent, kind) => void onCreateEntry(parent, kind)}
-            onRename={(id, title) => void renameEntry(id, title)}
+            /*
+             * Only when they may (ADR-0095).
+             *
+             * Spread rather than passed-and-ignored, because that is what the
+             * optional handlers are for: a caller with nothing to offer cannot
+             * hand over one that would be refused. Before the tree carried a
+             * role there was nothing to ask, so both went unconditionally — and
+             * a member with viewer rights on a folder got a rename field and
+             * three buttons that answer 403 (ADR-0092).
+             */
+            {...(mayEdit(selected)
+              ? {
+                  onCreate: (parent: string, kind: 'page' | 'folder' | 'canvas') =>
+                    void onCreateEntry(parent, kind),
+                  onRename: (id: string, title: string) => void renameEntry(id, title),
+                }
+              : {})}
           />
         )}
 
@@ -1557,6 +1573,8 @@ function ShareSession({
       kind: string;
       idx: string;
       icon: unknown;
+      /** What the link grants here (ADR-0095). */
+      role: Role | null;
     }>
   >([]);
   useEffect(() => {
@@ -1666,6 +1684,10 @@ function ShareSession({
       title: one.title,
       icon: iconOf(one.icon),
       kind: drawnKind(one.kind),
+      // What the link grants here (ADR-0095). The folder view offers nothing to
+      // a visitor either way, and a node whose role said "editor" because
+      // nobody filled it in is the kind of placeholder that gets believed later.
+      role: one.role,
       archived: false,
       lastEditedAt: '',
       children: shared
