@@ -210,6 +210,108 @@ describe('the two access resolvers agree (database)', { concurrency: 1, skip: !h
     await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [section]);
   });
 
+  test('a grant from above the restriction does not reach through it', async () => {
+    /*
+     * The fence (ADR-0089), and the case that made it necessary.
+     *
+     * "Nur die unten hinzugefügten Leute" is what restricting a section
+     * promises. Before this, a subtree grant one level *above* the section
+     * walked straight through it — so restricting a folder did nothing at all
+     * against the people most likely to be able to reach it: everybody who had
+     * been given the folder above.
+     *
+     * Both resolvers agreed on the wrong answer, which is why it survived the
+     * agreement test: they were consistent and consistently open.
+     */
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree)
+       VALUES ($1,$2,'editor',true)`,
+      [root, colleague],
+    );
+    await agree(section, 'editor', 'before the restriction');
+
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [section]);
+    await agree(root, 'editor', 'the grant itself is untouched');
+    await agree(section, null, 'and stops at the restricted section');
+    await agree(below, null, 'and does not resume below it');
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [section]);
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [colleague]);
+  });
+
+  test('a grant made at or below the restriction still reaches', async () => {
+    /*
+     * The other half, and the reason the rule is "at or below" rather than
+     * "not through": a fence nobody can be let in at is a wall, and the whole
+     * point of restricting a section is to name who belongs in it.
+     *
+     * Two grants, because the boundary itself is the interesting case: one made
+     * *on* the restricted page, one made under it.
+     */
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [section]);
+
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree)
+       VALUES ($1,$2,'viewer',true)`,
+      [section, colleague],
+    );
+    await agree(section, 'viewer', 'granted on the restricted page itself');
+    await agree(below, 'viewer', 'and downwards from there');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [colleague]);
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree)
+       VALUES ($1,$2,'editor',true)`,
+      [below, colleague],
+    );
+    await agree(below, 'editor', 'granted below the restriction');
+    await agree(section, null, 'without opening the section it lives in');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [colleague]);
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [section]);
+  });
+
+  test('the deepest restriction is the one that counts', async () => {
+    /*
+     * Two fences on one path. A grant on the outer restricted page clears that
+     * one and is still stopped by the inner one — which is why `effectiveRole`
+     * only ever looks at the deepest: anything that clears the deepest has
+     * cleared every other by construction.
+     */
+    await db.query(`UPDATE pages SET restricted = true WHERE id = ANY($1)`, [[root, section]]);
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree)
+       VALUES ($1,$2,'editor',true)`,
+      [root, colleague],
+    );
+
+    await agree(root, 'editor', 'granted on the outer restriction');
+    await agree(section, null, 'stopped by the inner one');
+    await agree(below, null, 'and below it');
+
+    await db.query(`DELETE FROM page_permissions WHERE user_id = $1`, [colleague]);
+    await db.query(`UPDATE pages SET restricted = false WHERE id = ANY($1)`, [[root, section]]);
+  });
+
+  test('a group grant obeys the same fence as a personal one', async () => {
+    // Two branches in the listing condition and one loop in the claims, so the
+    // group half is where a fence gets forgotten — and a page a group could
+    // list and a person could not is the same disclosure by a different door.
+    await db.query(
+      `INSERT INTO page_group_permissions (page_id, group_id, role, include_subtree)
+       VALUES ($1,$2,'editor',true)`,
+      [root, team],
+    );
+    await agree(section, 'editor', 'before the restriction');
+
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [section]);
+    await agree(section, null, 'and stopped by it, like a personal grant');
+    await agree(below, null, 'and below it');
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [section]);
+    await db.query(`DELETE FROM page_group_permissions WHERE group_id = $1`, [team]);
+  });
+
   test('the more permissive of person and group wins, in both', async () => {
     // Adding somebody to a group must never reduce what they could already do
     // (ADR-0026). Both resolvers take a maximum; this is what says so about

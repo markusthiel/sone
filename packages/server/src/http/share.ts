@@ -29,6 +29,7 @@ import {
   loadPageLocation,
   resolveSessionClaims,
   resolveShareTokenClaims,
+  restrictedAtSql,
 } from '../auth/claims.js';
 import {
   createShareLink,
@@ -246,18 +247,14 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       idx: string;
       ancestor_ids: string[];
       workspace_id: string;
-      restricted: boolean;
+      restricted_at: string | null;
     }>(
       deps.pool,
       // The scope page itself, plus everything under it when the link carries
       // the subtree. `ancestor_ids` makes that a containment test rather than
       // a walk — the same column ADR-0006 added for exactly this question.
       `SELECT p.id, p.parent_page_id, p.title, p.kind, p.idx, p.ancestor_ids, p.workspace_id,
-              EXISTS (
-                SELECT 1 FROM pages r
-                 WHERE r.id = ANY(array_append(p.ancestor_ids, p.id))
-                   AND r.restricted
-              ) AS restricted
+              ${restrictedAtSql('p')} AS restricted_at
          FROM pages p
         WHERE p.archived_at IS NULL
           AND p.kind NOT IN ('row', 'container')
@@ -276,7 +273,7 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
             // Fetched per row rather than assumed: a restricted page below the
             // shared section withholds itself from a link as from anybody, and
             // the link's grant is not a way past it.
-            restricted: row.restricted,
+            restrictedAt: row.restricted_at,
           }) !== null,
       )
       .map((row) => ({
