@@ -33,6 +33,7 @@ import { UpdateBus, fetchUpdatesSince } from './bus.js';
 import {
   ClientMessage,
   LIMITS,
+  NotifyScope,
   ProtocolError,
   SyncError,
   decodeClientMessage,
@@ -41,6 +42,7 @@ import {
   encodeAwareness,
   encodeClosed,
   encodeError,
+  encodeNotify,
   encodeOpenAck,
   encodePong,
   encodeRoleChanged,
@@ -72,6 +74,14 @@ class Connection {
    * is what makes revocation take effect on a live connection.
    */
   credential: ConnectionCredential | null = null;
+  /**
+   * The account this connection belongs to, once authenticated (ADR-0093).
+   *
+   * Held beside the claims rather than read out of them at close time: claims
+   * are replaced by revalidation, and a connection removed from the index under
+   * a key it is no longer filed under stays there for the life of the process.
+   */
+  accountId: string | null = null;
   readonly documents = new Map<number, OpenDocument>();
   readonly handlesByPage = new Map<string, number>();
   private nextHandle = 1;
@@ -147,6 +157,19 @@ export class SyncServer {
   private readonly rooms = new Map<string, DocumentRoom>();
   private readonly roomLoading = new Map<string, Promise<DocumentRoom>>();
   private readonly connections = new Set<Connection>();
+  /**
+   * Authenticated connections by person (ADR-0093).
+   *
+   * The rest of this server is indexed by document, which is why the bell could
+   * not be pushed to: a notification is about a **person**, and the page they
+   * happen to have open is unrelated to it — usually it is not even the page the
+   * notification points at.
+   *
+   * A set per person rather than a connection, because a person is not a
+   * connection: the phone in their hand and the tab on their desk are two, and a
+   * badge that appears on one of them is the reported bug wearing a hat.
+   */
+  private readonly byUser = new Map<string, Set<Connection>>();
   private readonly bus: UpdateBus;
   private readonly log: NonNullable<SyncServerOptions['log']>;
   private shuttingDown = false;
@@ -181,7 +204,55 @@ export class SyncServer {
     this.bus.onUpdate(({ docId, seq }) => {
       void this.onRemoteUpdate(docId, seq);
     });
+    this.bus.onInboxChanged(({ userId }) => {
+      this.notifyPerson(userId, NotifyScope.Inbox);
+    });
     this.log('info', 'sync server started');
+  }
+
+  /**
+   * Tell somebody that something they count has changed.
+   *
+   * A nudge and nothing else: no count, no excerpt. The client refetches the
+   * list it already owns and counts that, which is the rule ADR-0092 arrived at
+   * after a badge and a list spent a release disagreeing — and putting the
+   * number on the wire here would recreate the disagreement with a faster
+   * courier.
+   *
+   * Nobody is looked up in the database on this path. The index is built from
+   * claims that were resolved at authentication and re-resolved on revocation,
+   * so a notification for a person with no connection here costs a map miss.
+   */
+  private notifyPerson(userId: string, scope: string): void {
+    const conns = this.byUser.get(userId);
+    if (!conns) return;
+    const frame = encodeNotify(scope);
+    for (const conn of conns) conn.send(frame);
+  }
+
+  /** Index an authenticated connection under whoever it belongs to. */
+  private rememberPerson(conn: Connection): void {
+    const userId = accountOf(conn.claims);
+    if (!userId) return;
+    conn.accountId = userId;
+    let conns = this.byUser.get(userId);
+    if (!conns) {
+      conns = new Set();
+      this.byUser.set(userId, conns);
+    }
+    conns.add(conn);
+  }
+
+  private forgetPerson(conn: Connection): void {
+    if (!conn.accountId) return;
+    const conns = this.byUser.get(conn.accountId);
+    if (!conns) return;
+    conns.delete(conn);
+    // Emptied rather than left behind: this map is keyed by every person who has
+    // ever connected to this instance, and a set that is never removed is a leak
+    // that only shows up on an instance that has been up for a month.
+    if (conns.size === 0) this.byUser.delete(conn.accountId);
+    conn.accountId = null;
   }
 
   /**
@@ -384,6 +455,11 @@ export class SyncServer {
           }),
         );
       }
+
+      // After both branches, so the one rule covers a session and a share link
+      // alike: whoever has an account is reachable, whoever does not is not
+      // filed under anything (ADR-0093).
+      this.rememberPerson(conn);
 
       if (conn.authTimer) {
         clearTimeout(conn.authTimer);
@@ -635,6 +711,7 @@ export class SyncServer {
 
   private async onClose(conn: Connection): Promise<void> {
     this.connections.delete(conn);
+    this.forgetPerson(conn);
     for (const timer of [conn.authTimer, conn.idleTimer]) {
       if (timer) clearTimeout(timer);
     }
@@ -801,6 +878,21 @@ export class SyncServer {
 // --- helpers ---------------------------------------------------------------
 
 function actorIdOf(claims: AccessClaims): string | null {
+  const principal = claims.principal;
+  return principal.kind === 'anonymous' ? null : principal.userId;
+}
+
+/**
+ * The account behind a connection, or none.
+ *
+ * The same question `actorIdOf` asks, kept as its own function because it is
+ * asked for a different reason and the two would not move together: an actor is
+ * about who wrote something, this is about who to tell. A share-link visitor has
+ * no account and therefore no inbox (ADR-0046) — filing them under a placeholder
+ * key is the shape both of the last fortnight's guest bugs had.
+ */
+function accountOf(claims: AccessClaims | null): string | null {
+  if (!claims) return null;
   const principal = claims.principal;
   return principal.kind === 'anonymous' ? null : principal.userId;
 }

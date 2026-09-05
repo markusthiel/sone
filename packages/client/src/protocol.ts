@@ -44,6 +44,19 @@ export const ServerMessage = {
   Pong: 5,
   Error: 6,
   RoleChanged: 7,
+  /**
+   * Something this person's inbox counts has changed (ADR-0093).
+   *
+   * No handle: the only frame here that is about a person rather than a
+   * document. No count either — the inbox holds the list it counts, and a
+   * number on the wire would be a second answer to the question that list
+   * already answers (ADR-0092).
+   */
+  Notify: 8,
+} as const;
+
+export const NotifyScope = {
+  Inbox: 'inbox',
 } as const;
 
 export type Role = 'viewer' | 'commenter' | 'editor' | 'admin';
@@ -131,6 +144,7 @@ export type ServerFrame =
   | { type: typeof ServerMessage.Awareness; handle: number; payload: Uint8Array }
   | { type: typeof ServerMessage.Closed; handle: number; reason: string }
   | { type: typeof ServerMessage.RoleChanged; handle: number; role: Role }
+  | { type: typeof ServerMessage.Notify; scope: string }
   | { type: typeof ServerMessage.Pong }
   | { type: typeof ServerMessage.Error; requestId: number; code: string; detail: string };
 
@@ -197,6 +211,8 @@ export function decodeServerFrame(data: Uint8Array): ServerFrame {
           handle: decoding.readVarUint(d),
           role: decoding.readVarString(d) as Role,
         };
+      case ServerMessage.Notify:
+        return { type: ServerMessage.Notify, scope: decoding.readVarString(d) };
       case ServerMessage.Pong:
         return { type: ServerMessage.Pong };
       case ServerMessage.Error:

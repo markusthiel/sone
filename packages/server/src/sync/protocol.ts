@@ -58,7 +58,32 @@ export const ServerMessage = {
   Error: 6,
   /** Access level changed while the document was open. */
   RoleChanged: 7,
+  /**
+   * Something this person's inbox counts has changed (ADR-0093).
+   *
+   * The one frame here that is about a **person** rather than a document: it
+   * carries no handle, because a notification is not about the page anybody has
+   * open — that is the whole reason the bell could not be pushed to before.
+   *
+   * It carries a scope and nothing else. No count and no content: the inbox
+   * already holds the list it counts, and a number on the wire would be a
+   * second answer to a question that list answers — which is how a badge and a
+   * list came to disagree in the first place (ADR-0092).
+   */
+  Notify: 8,
 } as const;
+
+/**
+ * What a Notify frame is about.
+ *
+ * A string rather than the bare frame, so the next thing worth nudging — the
+ * page tree, say — needs no protocol version.
+ */
+export const NotifyScope = {
+  Inbox: 'inbox',
+} as const;
+
+export type NotifyScopeValue = (typeof NotifyScope)[keyof typeof NotifyScope];
 
 export type ClientMessageType = (typeof ClientMessage)[keyof typeof ClientMessage];
 export type ServerMessageType = (typeof ServerMessage)[keyof typeof ServerMessage];
@@ -233,6 +258,14 @@ export function encodeError(
   encoding.writeVarUint(encoder, requestId);
   encoding.writeVarString(encoder, code);
   encoding.writeVarString(encoder, detail);
+  return encoding.toUint8Array(encoder);
+}
+
+/** Nudge: something in this scope changed for this person (ADR-0093). */
+export function encodeNotify(scope: string): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, ServerMessage.Notify);
+  encoding.writeVarString(encoder, scope);
   return encoding.toUint8Array(encoder);
 }
 
@@ -450,6 +483,7 @@ export type DecodedServerMessage =
   | { type: typeof ServerMessage.Awareness; handle: number; payload: Uint8Array }
   | { type: typeof ServerMessage.Closed; handle: number; reason: string }
   | { type: typeof ServerMessage.RoleChanged; handle: number; role: string }
+  | { type: typeof ServerMessage.Notify; scope: string }
   | { type: typeof ServerMessage.Pong }
   | {
       type: typeof ServerMessage.Error;
@@ -500,6 +534,8 @@ export function decodeServerMessage(data: Uint8Array): DecodedServerMessage {
         handle: decoding.readVarUint(decoder),
         role: decoding.readVarString(decoder),
       };
+    case ServerMessage.Notify:
+      return { type: ServerMessage.Notify, scope: decoding.readVarString(decoder) };
     case ServerMessage.Pong:
       return { type: ServerMessage.Pong };
     case ServerMessage.Error:
