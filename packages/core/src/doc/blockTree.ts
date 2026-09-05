@@ -13,6 +13,7 @@
 
 import * as Y from 'yjs';
 
+import { authorsByClient } from './attribution.js';
 import { BLOCK_ATTRS, DOC_KEYS, STRUCTURAL_BLOCK_TYPES } from './docSchema.js';
 
 /** Guard against a malformed document causing unbounded recursion. */
@@ -561,13 +562,32 @@ function mentionLabel(element: Y.XmlElement): string | null {
  * Read from the document rather than trusted from a client, for the same reason
  * comment notifications are (ADR-0052): a notification a client creates is a
  * notification a client can forge.
+ *
+ * **`writtenBy` is who put the name there**, from the CRDT's own record of which
+ * client inserted the node, resolved through the document's attribution mapping
+ * (ADR-0022). Null when the document does not say — an old page, or attribution
+ * pruned away after the writer's other words were deleted.
+ *
+ * It is here because the alternative was worse and shipped. A mention is not
+ * announced to the person who wrote it, and with nothing in the document saying
+ * who that was, the projection substituted its own actor — which is "whoever
+ * last sent a sync message", not "who typed this". So the person most likely to
+ * have the page open when somebody named them was the person whose mention got
+ * dropped as a note to self (ADR-0091).
+ *
+ * A comment message has carried its author as a field since ADR-0046 for
+ * exactly this reason. Page text has no field to carry one, so it is read from
+ * the item — which is the same answer arrived at from the other end.
  */
-export function mentionsIn(doc: Y.Doc): Array<{ userId: string; blockId: string }> {
-  const out: Array<{ userId: string; blockId: string }> = [];
+export function mentionsIn(
+  doc: Y.Doc,
+): Array<{ userId: string; blockId: string; writtenBy: string | null }> {
+  const out: Array<{ userId: string; blockId: string; writtenBy: string | null }> = [];
   const seen = new Set<string>();
 
   const { blocks } = readBlockTree(doc);
   const byId = new Map(blocks.map((block) => [block.id, block]));
+  const authors = authorsByClient(doc);
 
   const walk = (element: Y.XmlElement, blockId: string | null, depth: number): void => {
     if (depth > MAX_BLOCK_DEPTH) return;
@@ -586,7 +606,14 @@ export function mentionsIn(doc: Y.Doc): Array<{ userId: string; blockId: string 
           const key = `${userId}\u0000${within}`;
           if (!seen.has(key)) {
             seen.add(key);
-            out.push({ userId, blockId: within });
+            // The item that holds this node is the insertion that made it, so
+            // its client is the person who typed the name.
+            const client = child._item?.id.client;
+            out.push({
+              userId,
+              blockId: within,
+              writtenBy: client === undefined ? null : (authors.get(client) ?? null),
+            });
           }
         }
         continue;

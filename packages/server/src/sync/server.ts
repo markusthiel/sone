@@ -570,7 +570,22 @@ export class SyncServer {
     }
 
     const canWrite = atLeast(doc.role, 'editor');
-    doc.room.setActor(actorIdOf(conn.claims!));
+    /*
+     * Only somebody who could have written it.
+     *
+     * This ran unconditionally, so a reader opening the page — which sends a
+     * sync step like anybody else — became the actor of the next flush. The
+     * actor is what the projection records as "who edited this" and what a
+     * mention was compared against, so a reader could take the credit for
+     * somebody else's paragraph and, worse, silently swallow their own mention
+     * (ADR-0091).
+     *
+     * Still best-effort: a flush covers several people's edits and keeps one
+     * actor, which the room says plainly. But "the last person who could write"
+     * is a defensible approximation and "the last person who said anything" is
+     * not one.
+     */
+    if (canWrite) doc.room.setActor(actorIdOf(conn.claims!));
 
     const { reply, rejectedWrite } = doc.room.handleSyncMessage(
       doc.subscriberId,

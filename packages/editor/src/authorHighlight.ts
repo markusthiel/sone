@@ -23,7 +23,7 @@
 
 import { Plugin, PluginKey, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { ySyncPluginKey } from 'y-prosemirror';
+import { relativePositionToAbsolutePosition, ySyncPluginKey } from 'y-prosemirror';
 import * as Y from 'yjs';
 
 import { eachAuthoredText, rangesForClients } from './authorship.js';
@@ -69,8 +69,8 @@ function buildDecorations(state: EditorState, clients: Set<number> | null): Deco
       // Through y-prosemirror's own mapping, both ends. A relative position
       // survives concurrent edits, which is what makes this correct while
       // somebody else is typing.
-      const from = relativeToAbsolute(state, text, range.from, binding);
-      const to = relativeToAbsolute(state, text, range.to, binding);
+      const from = relativeToAbsolute(state, type, text, range.from, binding.mapping);
+      const to = relativeToAbsolute(state, type, text, range.to, binding.mapping);
       if (from === null || to === null || to <= from) continue;
 
       decorations.push(
@@ -82,53 +82,53 @@ function buildDecorations(state: EditorState, clients: Set<number> | null): Deco
   return DecorationSet.create(state.doc, decorations);
 }
 
-/** One end of a range, in editor coordinates. */
+/**
+ * One end of a range, in editor coordinates.
+ *
+ * Through **y-prosemirror's own** `relativePositionToAbsolutePosition`, which is
+ * the inverse of the `absolutePositionToRelativePosition` the comment anchors
+ * already use. Same pair, same file in the library, and this is the half that
+ * was missing here.
+ *
+ * What stood here instead re-derived the position: look the `Y.XmlText` up in
+ * the binding's mapping, find that node in the document, add one for entering
+ * it, add the index. Every step of that reasoning is right about a
+ * `Y.XmlElement` and wrong about a `Y.XmlText` — y-prosemirror maps an element
+ * to a node and a text to an **array** of text nodes (`meta.mapping.set(ytext,
+ * ptexts)`). An array is truthy, so it sailed past the guard, and then no node
+ * in the document was ever identity-equal to it. Every range was skipped, the
+ * decoration set was always empty, and the People panel's button toggled over a
+ * page where nothing happened (ADR-0091).
+ *
+ * The header of this file says the reason not to compute the offset here is
+ * that re-deriving y-prosemirror's mapping and being subtly wrong puts a
+ * highlight over the wrong sentence. The code under it re-derived the mapping.
+ */
 function relativeToAbsolute(
   state: EditorState,
+  root: Y.XmlFragment,
   text: Y.XmlText,
   index: number,
-  binding: { mapping?: unknown },
+  mapping: unknown,
 ): number | null {
   try {
-    const relative = Y.createRelativePositionFromTypeIndex(text, index);
     const doc = text.doc;
     if (!doc) return null;
 
-    const absolute = Y.createAbsolutePositionFromRelativePosition(relative, doc);
-    if (!absolute) return null;
-
-    // y-prosemirror keeps a node for each Yjs type; the position of that node
-    // plus the index inside it is the editor position.
-    const mapping = binding.mapping as Map<unknown, unknown> | undefined;
-    const node = mapping?.get(text);
-    if (!node) return null;
-
-    const found = findNodePosition(state, node);
-    if (found === null) return null;
-
-    const position = found + 1 + absolute.index;
-    return position <= state.doc.content.size ? position : null;
+    const relative = Y.createRelativePositionFromTypeIndex(text, index);
+    const absolute = relativePositionToAbsolutePosition(
+      doc,
+      root,
+      relative,
+      mapping as never,
+    );
+    if (absolute === null) return null;
+    return absolute <= state.doc.content.size ? absolute : null;
   } catch {
     // A type that has been removed from the document while this ran. Skipped
     // rather than dropping every other highlight with it.
     return null;
   }
-}
-
-/** Where a node sits in the document, or null if it is no longer there. */
-function findNodePosition(state: EditorState, target: unknown): number | null {
-  let found: number | null = null;
-
-  state.doc.descendants((node, pos) => {
-    if (found !== null) return false;
-    if ((node as unknown) === target) {
-      found = pos;
-      return false;
-    }
-    return true;
-  });
-
-  return found;
 }
 
 /**
@@ -157,14 +157,42 @@ export function authorHighlight(): Plugin<AuthorHighlightState> {
 
         if (!value.clients) return value;
 
-        // Rebuilt when the document changed, and also when y-prosemirror
-        // announced a binding: the first request often arrives before the
-        // binding exists, and without this the highlight would stay empty until
-        // the next keystroke.
-        if (tr.docChanged || tr.getMeta(ySyncPluginKey)) {
+        /*
+         * Recomputed when y-prosemirror says so, and only then.
+         *
+         * That announcement is the one moment the Yjs document and the editor's
+         * document agree. A **local** edit reaches this `apply` first and Yjs
+         * afterwards — y-prosemirror writes the change inside the view's update,
+         * which runs after the state is applied — so recomputing here reads the
+         * authorship from *before* the keystroke and lays it over the document
+         * from *after* it. Every character typed above a highlight moved the
+         * text and left the mark behind, which is the wrong-highlight failure
+         * this file says is worse than showing nothing.
+         *
+         * It also rebuilds on a binding announcement because the first request
+         * usually arrives before there is a binding, and without it the
+         * highlight would stay empty until something else happened.
+         */
+        if (tr.getMeta(ySyncPluginKey)) {
           return {
             clients: value.clients,
             decorations: buildDecorations(newState, value.clients),
+          };
+        }
+
+        /*
+         * Otherwise the marks are *moved*, not recomputed.
+         *
+         * ProseMirror's own mapping knows where every position went, which is
+         * exactly the question a local edit raises and the only one that can be
+         * answered before Yjs has heard about it. What it cannot know is that
+         * the typing *changed who wrote what* — and it does not have to, because
+         * the recompute above follows one transaction later.
+         */
+        if (tr.docChanged) {
+          return {
+            clients: value.clients,
+            decorations: value.decorations.map(tr.mapping, tr.doc),
           };
         }
 
