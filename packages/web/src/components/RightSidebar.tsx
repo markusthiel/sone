@@ -81,6 +81,32 @@ export const RIGHT_TABS = [
 export type RightTab = (typeof RIGHT_TABS)[number];
 
 /**
+ * The tabs that are about the **page**, for a visitor holding a link.
+ *
+ * The panel is nine tabs and they are not one kind of thing. Four describe the
+ * document in front of you — its structure, its attachments, its pictures, the
+ * links out of it — and four describe the *workspace*: `history` names every
+ * version and who wrote it, `people` lists the contributors, `tasks` their
+ * assignees, `comments` the discussion among them.
+ *
+ * Which is why a link does not get a switch for this. "Show the right sidebar"
+ * would either hand a stranger the version history and a list of colleagues'
+ * names, or it would be a control whose only power is to hide an outline —
+ * nobody would use the second and nobody would want the first. The division is
+ * a property of the tabs, so the tabs are where it is written.
+ *
+ * `properties` is out too, and it is the near miss: page properties are the
+ * page's own, but the panel edits them, and a link's visitor is not somebody
+ * who should be setting them.
+ */
+export const PAGE_TABS = [
+  'outline',
+  'files',
+  'images',
+  'links',
+] as const satisfies readonly RightTab[];
+
+/**
  * An icon and a name per tab.
  *
  * Icons rather than words on the strip, because seven words do not fit a 300px
@@ -137,29 +163,38 @@ interface RightSidebarProps {
   open: boolean;
   onClose: () => void;
   /**
+   * Which tabs this panel offers. All of them, unless told otherwise.
+   *
+   * A subset rather than a set of booleans, because the strip is a list and
+   * "which of these" is what a list is. `PAGE_TABS` is the one subset that
+   * exists — see its note for why it is a property of the tabs and not a
+   * setting somebody chooses.
+   */
+  tabs?: readonly RightTab[];
+  /**
    * The page's comment threads, from the page rather than read here.
    *
    * The editor needs the same list to draw its marks, and two readers of one
    * document would disagree about the moment a thread appeared — so the page
    * owns the hook and hands it down (ADR-0046).
    */
-  comments: CommentActions;
+  comments?: CommentActions;
   /** The internal threads, when this person may have them (ADR-0057). */
-  internalComments: CommentActions | null;
+  internalComments?: CommentActions | null;
   /** The workspace's people, for naming a comment's author. */
-  members: WorkspaceMember[];
+  members?: WorkspaceMember[];
   /** Scroll to a thread's text and flash it. */
-  onRevealComment: (thread: CommentThread) => void;
+  onRevealComment?: (thread: CommentThread) => void;
   /** A selection waiting for its first message, and how to drop it. */
-  pendingComment: { from: Uint8Array; to: Uint8Array; quote: string } | null;
-  onCancelPendingComment: () => void;
+  pendingComment?: { from: Uint8Array; to: Uint8Array; quote: string } | null;
+  onCancelPendingComment?: () => void;
   /** How much a commented passage is marked, and whether at all here. */
-  marks: { style: CommentMarkStyle; setStyle: (style: CommentMarkStyle) => void };
+  marks?: { style: CommentMarkStyle; setStyle: (style: CommentMarkStyle) => void };
   /** Which past version is being read, and how to choose one (ADR-0047). */
-  viewingVersion: string | null;
-  onViewVersion: (versionId: string | null) => void;
+  viewingVersion?: string | null;
+  onViewVersion?: (versionId: string | null) => void;
   /** Show what a version changed (ADR-0053). */
-  onCompareVersion: (versionId: string) => void;
+  onCompareVersion?: (versionId: string) => void;
 }
 
 export function RightSidebar({
@@ -168,6 +203,7 @@ export function RightSidebar({
   workspaceId,
   open,
   onClose,
+  tabs = RIGHT_TABS,
   comments,
   internalComments,
   members,
@@ -180,15 +216,36 @@ export function RightSidebar({
   onCompareVersion,
 }: RightSidebarProps): ReactElement {
   const { t } = useT();
-  const [tab, setTab] = useState<RightTab>(readTab);
+  /*
+   * The remembered tab, unless this panel does not offer it.
+   *
+   * Without the clamp a stored `history` would select a tab the strip does not
+   * draw, and the panel would open on a heading with nothing under it — which
+   * is what "remember the choice" turns into the moment the choices differ by
+   * context.
+   */
+  const [tab, setTab] = useState<RightTab>(() => {
+    const stored = readTab();
+    return tabs.includes(stored) ? stored : (tabs[0] ?? 'outline');
+  });
 
+  /*
+   * Only a full panel writes the preference back.
+   *
+   * The key is per browser, and a member who opens a shared link in their own
+   * browser is the same browser: a restricted panel that stored its choice
+   * would quietly reset the workspace's own panel to the outline. A view that
+   * cannot offer every tab has no business deciding which one everybody gets.
+   */
+  const remembers = tabs.length === RIGHT_TABS.length;
   useEffect(() => {
+    if (!remembers) return;
     try {
       localStorage.setItem(TAB_KEY, tab);
     } catch {
       // Storage disabled. Losing the preference is acceptable.
     }
-  }, [tab]);
+  }, [tab, remembers]);
 
   return (
     <>
@@ -215,7 +272,7 @@ export function RightSidebar({
         {...(open ? {} : { 'aria-hidden': true, inert: true })}
       >
         <div className="right-tabs" role="tablist" aria-label={t('panel.label')}>
-          {RIGHT_TABS.map((name) => {
+          {tabs.map((name) => {
             const { label, Icon } = TABS[name];
             return (
               <button
@@ -259,23 +316,30 @@ export function RightSidebar({
           {tab === 'files' && <FilesPanel handle={handle} />}
           {tab === 'images' && <ImagesPanel handle={handle} />}
           {tab === 'links' && <LinksPanel handle={handle} />}
-          {tab === 'history' && (
+          {/* Guarded on the props as well as the tab.
+            *
+            * These two are the tabs a restricted panel leaves out, so their
+            * props are optional — and a condition that only checks the tab
+            * would make the type-checker's permission to omit them a promise
+            * this file breaks. The guard is the other half of `tabs`: leave a
+            * tab out and its props may go too. */}
+          {tab === 'history' && onViewVersion && onCompareVersion && (
             <HistoryPanel
               pageId={pageId}
-              members={members}
-              viewing={viewingVersion}
+              members={members ?? []}
+              viewing={viewingVersion ?? null}
               onView={onViewVersion}
               onCompare={onCompareVersion}
             />
           )}
-          {tab === 'comments' && (
+          {tab === 'comments' && comments && marks && onRevealComment && onCancelPendingComment && (
             <CommentsPanel
               comments={comments}
-              internal={internalComments}
-              members={members}
+              internal={internalComments ?? null}
+              members={members ?? []}
               canEdit={handle?.canEdit !== false}
               onReveal={onRevealComment}
-              pending={pendingComment}
+              pending={pendingComment ?? null}
               onCancelPending={onCancelPendingComment}
               marks={marks}
               pageId={pageId}
