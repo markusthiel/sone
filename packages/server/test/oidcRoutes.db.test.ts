@@ -26,6 +26,7 @@ import type { AddressInfo } from 'node:net';
 import type { Pool } from 'pg';
 
 import { registerOidcRoutes } from '../src/auth/oidcRoutes.js';
+import { createSession } from '../src/auth/session.js';
 import { Router } from '../src/http/router.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
 
@@ -128,9 +129,17 @@ after(async () => {
   await closeTestPool();
 });
 
-/** Begin a sign-in; returns the pending cookie and the state inside it. */
-async function start(): Promise<{ cookie: string; state: string; nonce: string }> {
-  const res = await fetch(`${base}/api/auth/oidc/start`, { redirect: 'manual' });
+/**
+ * Begin a sign-in; returns the pending cookie and the state inside it.
+ *
+ * With `session`, it begins a **link** instead: the same trip to the provider,
+ * with the account it is for sealed into the blob (ADR-0084).
+ */
+async function start(session?: string): Promise<{ cookie: string; state: string; nonce: string }> {
+  const res = await fetch(
+    `${base}/api/auth/oidc/start${session ? '?link=1' : ''}`,
+    { redirect: 'manual', ...(session ? { headers: { cookie: session } } : {}) },
+  );
   assert.equal(res.status, 302, 'the browser is sent to the provider');
 
   const setCookie = res.headers.getSetCookie().find((one) => one.startsWith('sone_oidc='));
@@ -151,6 +160,29 @@ const callback = (cookie: string, state: string): Promise<Response> =>
     headers: { cookie },
     redirect: 'manual',
   });
+
+/** An account with a password, and a session cookie for it. */
+async function withAccount(email: string): Promise<{ userId: string; cookie: string }> {
+  const { rows } = await db.query<{ id: string }>(
+    `INSERT INTO users (email, display_name, password_hash)
+     VALUES ($1, 'Eingeladen', 'x') RETURNING id::text AS id`,
+    [email],
+  );
+  const userId = rows[0]!.id;
+  const session = await createSession(db, userId);
+  return { userId, cookie: `sone_session=${session.token}` };
+}
+
+const claimsFor = (sub: string, nonce: string, email: string) => ({
+  iss: issuer,
+  aud: CLIENT,
+  sub,
+  nonce,
+  email,
+  email_verified: true,
+  exp: Math.floor(Date.now() / 1000) + 300,
+  iat: Math.floor(Date.now() / 1000),
+});
 
 describe('single sign-on (routes)', { concurrency: 1, skip: !hasDatabase }, () => {
   test('a good token makes an account and a session', async () => {
@@ -325,5 +357,117 @@ describe('single sign-on (routes)', { concurrency: 1, skip: !hasDatabase }, () =
     };
 
     assert.equal((await callback(cookie, state)).status, 401);
+  });
+
+  test('somebody invited first can connect a provider afterwards', async () => {
+    /*
+     * The ordinary path, and the one that did not exist (ADR-0084).
+     *
+     * Being invited, setting a password, and *then* wanting the company's
+     * provider is how almost everybody arrives. The only INSERT INTO
+     * oidc_identities in the codebase was reachable through fresh-account
+     * creation, so everybody who already had an account was shut out — while
+     * ADR-0024 and the deployment guide described this as a thing you could do.
+     */
+    const anna = await withAccount('anna-link@example.org');
+
+    const { cookie, state, nonce } = await start(anna.cookie);
+    nextClaims = claimsFor('link-subject-1', nonce, 'anna-link@example.org');
+
+    const res = await callback(`${cookie}; ${anna.cookie}`, state);
+    assert.equal(res.status, 302);
+    assert.match(res.headers.get('location') ?? '', /settings\/sign-in/);
+
+    const linked = await db.query<{ user_id: string }>(
+      `SELECT user_id::text AS user_id FROM oidc_identities WHERE subject = $1`,
+      ['link-subject-1'],
+    );
+    assert.equal(linked.rows[0]?.user_id, anna.userId, 'attached to the account they had');
+
+    // And the account keeps its password: connecting adds a way in, it does
+    // not replace one.
+    const still = await db.query<{ has: boolean }>(
+      `SELECT password_hash IS NOT NULL AS has FROM users WHERE id = $1`,
+      [anna.userId],
+    );
+    assert.equal(still.rows[0]?.has, true);
+  });
+
+  test('a link finished in somebody else´s browser is refused', async () => {
+    /*
+     * The blob says whose attempt this is; the cookie says who is holding the
+     * browser. Both have to agree, or completing a link somewhere else would
+     * attach your provider identity to their account — and then your provider
+     * is a door into it.
+     */
+    const anna = await withAccount('anna-two@example.org');
+    const bert = await withAccount('bert@example.org');
+
+    const { cookie, state, nonce } = await start(anna.cookie);
+    nextClaims = claimsFor('link-subject-2', nonce, 'anna-two@example.org');
+
+    const res = await callback(`${cookie}; ${bert.cookie}`, state);
+    assert.equal(res.status, 403);
+
+    const none = await db.query(`SELECT 1 FROM oidc_identities WHERE subject = $1`, [
+      'link-subject-2',
+    ]);
+    assert.equal(none.rowCount, 0);
+  });
+
+  test('a provider identity already used here cannot be linked again', async () => {
+    // Refused rather than moved: an identity pointing at two accounts is a
+    // question with no good answer at sign-in time.
+    const clara = await withAccount('clara@example.org');
+    const { cookie, state, nonce } = await start(clara.cookie);
+    // 'provider-subject-1' belongs to the account made by the first test.
+    nextClaims = claimsFor('provider-subject-1', nonce, 'neu@example.org');
+
+    const res = await callback(`${cookie}; ${clara.cookie}`, state);
+    assert.equal(res.status, 409);
+  });
+
+  test('linking without a session is a sign-in, not a link', async () => {
+    // `?link=1` with no session is refused rather than quietly downgraded: the
+    // two do different things, and guessing which was meant is how somebody
+    // ends up with an account they did not want.
+    const res = await fetch(`${base}/api/auth/oidc/start?link=1`, { redirect: 'manual' });
+    assert.equal(res.status, 401);
+  });
+
+  test('a connected account can disconnect, and one with no password cannot', async () => {
+    const dora = await withAccount('dora@example.org');
+    const { cookie, state, nonce } = await start(dora.cookie);
+    nextClaims = claimsFor('link-subject-3', nonce, 'dora@example.org');
+    await callback(`${cookie}; ${dora.cookie}`, state);
+
+    const shown = await (
+      await fetch(`${base}/api/auth/oidc/link`, { headers: { cookie: dora.cookie } })
+    ).json();
+    assert.equal((shown as { linked: unknown }).linked !== null, true);
+    assert.equal((shown as { canUnlink: boolean }).canUnlink, true);
+
+    const off = await fetch(`${base}/api/auth/oidc/link`, {
+      method: 'DELETE',
+      headers: { cookie: dora.cookie },
+    });
+    assert.equal(off.status, 200);
+
+    /*
+     * And the door cannot be closed from the inside with nobody outside it.
+     *
+     * An account created *by* the provider has no password, so disconnecting
+     * would leave no way in at all.
+     */
+    await db.query(`UPDATE users SET password_hash = NULL WHERE id = $1`, [dora.userId]);
+    const relink = await start(dora.cookie);
+    nextClaims = claimsFor('link-subject-3', relink.nonce, 'dora@example.org');
+    await callback(`${relink.cookie}; ${dora.cookie}`, relink.state);
+
+    const refused = await fetch(`${base}/api/auth/oidc/link`, {
+      method: 'DELETE',
+      headers: { cookie: dora.cookie },
+    });
+    assert.equal(refused.status, 409);
   });
 });

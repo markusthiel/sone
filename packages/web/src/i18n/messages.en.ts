@@ -138,6 +138,14 @@ export const en = {
   'action.save': 'Save',
   'action.create': 'Create',
   'error.invalid_value': 'That value does not fit this column.',
+  'error.not_your_link': 'That connection was begun for a different account.',
+  'error.no_other_way_in':
+    'That is the only way into this account. Set a password first, or you would ' +
+    'be locking yourself out.',
+  'error.already_linked_elsewhere':
+    'That provider account is already connected to somebody else here.',
+  'error.already_have_one':
+    'This account already has a provider connected. Disconnect that one first.',
   'error.too_many_files': 'That is more files than one cell holds.',
   'error.unknown_option': 'That option is not one of this column´s.',
   'error.field_is_derived': 'That column is computed, so it cannot be written to.',
@@ -449,6 +457,18 @@ export const en = {
   'you.profile': 'Profile',
   'you.profile.hint': 'Your name, address and picture',
   'you.signIn': 'Signing in',
+  'you.sso': 'Single sign-on',
+  'you.sso.note':
+    'Sign in with the provider this instance is configured for, instead of your ' +
+    'password. Your password keeps working; connecting one adds a second way in ' +
+    'rather than replacing the first.',
+  'you.sso.connected': 'Connected to',
+  'you.sso.connect': 'Connect',
+  'you.sso.disconnect': 'Disconnect',
+  'you.sso.justLinked': 'Connected. You can sign in with it from now on.',
+  'you.sso.onlyWayIn':
+    'This is the only way into this account. Set a password first, or you would ' +
+    'be locking yourself out.',
   'you.signIn.hint': 'Your password',
   'you.appearance': 'Appearance',
   'you.appearance.hint': 'How SONE looks to you',
