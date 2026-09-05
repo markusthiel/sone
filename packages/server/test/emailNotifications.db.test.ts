@@ -175,14 +175,56 @@ describe('claiming notifications for email', () => {
     await waiting({ kind: 'mention' });
 
     const claimed = await claimForEmail(db);
-    // Only the mention: the reply waits for eight in a timezone it is not
-    // eight in.
-    assert.equal(claimed.length, 1, 'the mention alone');
+    /*
+     * The *notification* count, not the batch count (ADR-0081).
+     *
+     * `claimForEmail` groups by (user_id, workspace_id), and both of these
+     * belong to the same person in the same workspace — so `claimed.length ===
+     * 1` was true whether the reply was claimed or not. The assertion could not
+     * fail, which means it was not testing the thing it names. The test one
+     * screen up gets this right and checks `ids.length`.
+     */
+    assert.equal(claimed.length, 1, 'one batch for one person in one workspace');
+    assert.deepEqual(
+      claimed[0]?.ids.length,
+      1,
+      'the mention alone — the reply waits for eight in a timezone it is not eight in',
+    );
 
     await db.query(
       `UPDATE users SET replies_when = 'off', timezone = NULL WHERE id = $1`,
       [recipient],
     );
+  });
+
+  test('one put off until later is not mailed about', async () => {
+    /*
+     * Asleep is absent (ADR-0075, ADR-0081).
+     *
+     * "Later" takes a notification out of the inbox and out of the badge. This
+     * query never learned it, so putting something off until Monday still sent
+     * the mail about it that afternoon — the loudest possible way to tell
+     * somebody they cannot put it off.
+     */
+    await db.query(
+      `UPDATE users SET mentions_when = 'immediately' WHERE id = $1`,
+      [recipient],
+    );
+    const id = await waiting({ kind: 'mention' });
+    await db.query(`UPDATE notifications SET snoozed_until = now() + interval '2 days'
+                     WHERE id = $1`, [id]);
+
+    const asleep = await claimForEmail(db);
+    assert.ok(
+      !asleep.some((one) => one.ids.includes(id)),
+      'nothing goes out while it is asleep',
+    );
+
+    // And the moment it wakes, a mail is exactly right again.
+    await db.query(`UPDATE notifications SET snoozed_until = now() - interval '1 minute'
+                     WHERE id = $1`, [id]);
+    const awake = await claimForEmail(db);
+    assert.ok(awake.some((one) => one.ids.includes(id)), 'and it is claimed once it wakes');
   });
 
   /*

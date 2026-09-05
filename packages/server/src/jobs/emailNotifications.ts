@@ -22,7 +22,7 @@
 import { composeNotificationEmail, type Waiting } from '../mail/compose.js';
 import { replyAddress, replyToken } from '../mail/replyToken.js';
 import { sendMail, type Relay } from '../mail/send.js';
-import { queryRows } from '../db/pool.js';
+import { queryRows, withTransaction, type Db } from '../db/pool.js';
 import { enqueue, type JobHandler } from './runner.js';
 import type { Pool } from 'pg';
 
@@ -64,7 +64,7 @@ interface Candidate {
  * that were already waiting, and a preference read at write time would have
  * decided their next week.
  */
-export async function claimForEmail(pool: Pool): Promise<Candidate[]> {
+export async function claimForEmail(pool: Db): Promise<Candidate[]> {
   return queryRows<Candidate>(
     pool,
     `WITH ready AS (
@@ -74,6 +74,18 @@ export async function claimForEmail(pool: Pool): Promise<Candidate[]> {
     LEFT JOIN users a ON a.id = n.actor_id
         WHERE n.emailed_at IS NULL
           AND n.read_at IS NULL
+          -- Asleep is absent, here too (ADR-0075, ADR-0081).
+          --
+          -- "Later" takes a notification out of the inbox and out of the badge,
+          -- which is the whole point: a count that includes what somebody
+          -- deliberately put off is a count nobody believes. This query never
+          -- learned that, so putting something off until Monday still sent the
+          -- mail about it that afternoon — the loudest possible way to say "you
+          -- cannot put this off".
+          --
+          -- Not "snoozed_until IS NULL": when the moment passes the row wakes,
+          -- and a mail is then exactly right.
+          AND (n.snoozed_until IS NULL OR n.snoozed_until <= now())
           -- When this kind of thing is worth a mail, for this person
           -- (ADR-0061, amended).
           --
@@ -125,18 +137,32 @@ export async function claimForEmail(pool: Pool): Promise<Candidate[]> {
 export async function sweepForEmail(pool: Pool, settings: MailSettings): Promise<number> {
   if (!settings.relay) return 0;
 
-  const batches = await claimForEmail(pool);
-  for (const batch of batches) {
-    await enqueue(pool, {
-      workspaceId: batch.workspace_id,
-      kind: EMAIL_NOTIFICATIONS,
-      payload: { userId: batch.user_id, notificationIds: batch.ids },
-      // Nobody asked for it: this job exists because a notification aged, not
-      // because a person pressed something.
-      createdBy: null,
-    });
-  }
-  return batches.length;
+  /*
+   * Claiming and queueing in one transaction (ADR-0081).
+   *
+   * The claim marks every batch `emailed_at = now()` in a single statement, and
+   * the queueing was a loop after it. A throw on the third batch left the
+   * fourth onwards marked as emailed with no job to send them — and
+   * `emailed_at IS NULL` is the only way back in, so those mails were gone
+   * permanently. Nothing retried them, because nothing knew they existed.
+   *
+   * One transaction makes the pair all-or-nothing: either a notification is
+   * marked and queued, or it is neither and the next sweep finds it.
+   */
+  return withTransaction(pool, async (client) => {
+    const batches = await claimForEmail(client);
+    for (const batch of batches) {
+      await enqueue(client, {
+        workspaceId: batch.workspace_id,
+        kind: EMAIL_NOTIFICATIONS,
+        payload: { userId: batch.user_id, notificationIds: batch.ids },
+        // Nobody asked for it: this job exists because a notification aged, not
+        // because a person pressed something.
+        createdBy: null,
+      });
+    }
+    return batches.length;
+  });
 }
 
 /**
@@ -230,22 +256,30 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
     if (!composed) return { result: { skipped: 'nothing to say' } };
 
     /*
-     * One reply address for the batch, naming its first notification.
+     * One reply address for the batch, naming a notification that can take one.
      *
      * A mail can list several things waiting; a reply to it can only be about
-     * one, and the first is the one the subject line names. Honest rather than
-     * clever: the alternative is guessing which of four threads somebody meant.
+     * one. It used to be the batch's *oldest* item, always — and an assignment
+     * carries no thread, so a batch whose oldest item happened to be an
+     * assignment got no reply address at all, however many replyable mentions
+     * were underneath it. Silently, per batch (ADR-0081).
+     *
+     * The old reasoning was "the first is the one the subject line names",
+     * which holds for a batch of one and only then: with several, the subject
+     * is "3 things in <workspace>" and names none of them. So one item is
+     * chosen, the earliest that can actually be answered.
      */
+    const answerable = rows.find((one) => one.thread_id !== null) ?? null;
     const replyTo =
-      settings.replyMailbox && settings.secret
+      answerable && settings.replyMailbox && settings.secret
         ? replyAddress(
             settings.replyMailbox,
             replyToken(
               {
-                threadId: first.thread_id ?? '',
-                messageId: first.message_id ?? '',
+                threadId: answerable.thread_id ?? '',
+                messageId: answerable.message_id ?? '',
                 userId,
-                internal: first.internal === true,
+                internal: answerable.internal === true,
               },
               settings.secret,
             ),
@@ -256,7 +290,19 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
       to: first.email,
       subject: composed.subject,
       body: composed.body,
-      ...(replyTo && first.thread_id ? { replyTo } : {}),
+      ...(replyTo ? { replyTo } : {}),
+      /*
+       * The header ADR-0058 said was already here (ADR-0081).
+       *
+       * The record states "a `List-Unsubscribe` header is included for mail
+       * clients that offer the button", and the comment describing exactly that
+       * still sits in `send.ts` — above the line that turned into
+       * `Auto-Submitted`. The whole repository contained the string once, in
+       * the record. It points at the authenticated settings page, which is
+       * worse than one click and is the version that cannot be used against the
+       * recipient.
+       */
+      unsubscribeUrl: `${settings.baseUrl}/settings/notifications`,
     });
 
     return { result: { sent: 1, notifications: rows.length } };
