@@ -726,10 +726,165 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       requireEmpty: false,
       log: () => {},
     });
+    /*
+     * The intent is unchanged — the operator must be told attachments are not
+     * in the archive — and the wording is not: `filesPath: null` means S3, and
+     * the warning now says so instead of "archive contains no files. If the
+     * source used S3 storage…", which was addressed to everybody and accurate
+     * for one of them (ADR-0079).
+     */
     assert.ok(
-      report.warnings.some((w) => w.includes('no files')),
-      'the operator must be told attachments are not in the archive',
+      report.warnings.some((w) => /S3/.test(w) && /not in this archive/.test(w)),
+      'the operator must be told attachments are not in the archive, and why',
     );
+    assert.ok(
+      report.warnings.some((w) => /backup of its own/.test(w)),
+      'and that the bucket is a backup problem of its own',
+    );
+  });
+
+  test('an instance with an empty file directory is not told to find a bucket', async () => {
+    // The other half of the same warning. A local instance that simply has no
+    // attachments yet used to be sent looking for an S3 configuration it never
+    // had.
+    await makePage(uuid(1), 'Local, empty', uuid(509));
+    const out = path.join(workDir, 'localempty');
+    await createBackup({
+      pool: db,
+      databaseUrl: testDatabaseUrl(),
+      outputDir: out,
+      // A path that does not exist: nothing has ever been uploaded.
+      filesPath: path.join(workDir, 'never-created'),
+      appVersion: '0.1.0',
+      documentSchemaVersion: SCHEMA_VERSION,
+      log: () => {},
+    });
+
+    const report = await restoreBackup({
+      pool: db,
+      archiveDir: await findArchive(out),
+      databaseUrl: testDatabaseUrl(),
+      filesPath: path.join(workDir, 'target'),
+      requireEmpty: false,
+      log: () => {},
+    });
+    assert.ok(
+      report.warnings.some((w) => /no attachments/.test(w)),
+      'said plainly',
+    );
+    assert.ok(!report.warnings.some((w) => /S3/.test(w)), 'and no bucket is mentioned');
+  });
+
+  test('a file directory that cannot be read refuses the backup', async () => {
+    /*
+     * "Not there" and "cannot look" used to be one `.catch(() => null)`, so a
+     * volume that failed to mount produced a cheerful backup with no
+     * attachments in it and no indication that any were missing.
+     */
+    /*
+     * ENOTDIR, not EACCES. The obvious version of this test chmods a directory
+     * to 000 — and passes only where the suite is not running as root, which is
+     * exactly where CI runs it. A path whose parent is a regular file is the
+     * same class of answer from `stat` ("I cannot look there"), it is a
+     * misconfiguration somebody really does make, and no user can walk past it.
+     */
+    const notADirectory = path.join(workDir, 'a-file');
+    await writeFile(notADirectory, 'kein Verzeichnis');
+
+    await assert.rejects(
+      createBackup({
+        pool: db,
+        databaseUrl: testDatabaseUrl(),
+        outputDir: path.join(workDir, 'refused'),
+        filesPath: path.join(notADirectory, 'files'),
+        appVersion: '0.1.0',
+        documentSchemaVersion: SCHEMA_VERSION,
+        log: () => {},
+      }),
+      (err: unknown) =>
+        err instanceof BackupError && /silently omit attachments/.test(err.message),
+    );
+  });
+
+  test('a backup interrupted before its manifest is not mistaken for one', async () => {
+    /*
+     * The archive is built under a `.incomplete` name and renamed once the
+     * manifest is in it, so a killed backup leaves something visibly unusable
+     * rather than a directory that looks like an archive and fails at the
+     * moment it is needed — with a raw ENOENT naming a JSON file (ADR-0079).
+     */
+    const half = path.join(workDir, 'sone-2026-01-01.incomplete');
+    await mkdir(half, { recursive: true });
+    await writeFile(path.join(half, 'database.dump'), 'nicht fertig');
+
+    await assert.rejects(
+      restoreBackup({
+        pool: db,
+        archiveDir: half,
+        databaseUrl: testDatabaseUrl(),
+        filesPath: null,
+        requireEmpty: false,
+        log: () => {},
+      }),
+      (err: unknown) =>
+        err instanceof BackupError &&
+        err.code === 'unknown_format' &&
+        /interrupted before it finished/.test(err.message),
+    );
+  });
+
+  test('a failed restore leaves the database as it was', async () => {
+    /*
+     * `--single-transaction`. pg_restore does exit non-zero when it ignores
+     * errors — checked against pg_restore 16 rather than assumed — so this was
+     * never a silent failure. It was a *partial* one: the throw arrived after
+     * half the objects had been dropped and recreated.
+     *
+     * A dump the restore cannot apply, over a database with something in it:
+     * afterwards the something must still be there.
+     */
+    const out = path.join(workDir, 'rollback');
+    await makePage(uuid(1), 'Vor dem Versuch', uuid(510));
+    await createBackup({
+      pool: db,
+      databaseUrl: testDatabaseUrl(),
+      outputDir: out,
+      filesPath: null,
+      appVersion: '0.1.0',
+      documentSchemaVersion: SCHEMA_VERSION,
+      log: () => {},
+    });
+    const dir = await findArchive(out);
+
+    // A view on a table the restore drops. pg_restore's DROP fails on the
+    // dependency, which is an error it would otherwise carry on past.
+    await db.query(`CREATE VIEW restore_blocker AS SELECT id FROM pages`);
+    const manifest = JSON.parse(
+      await readFile(path.join(dir, MANIFEST_NAME), 'utf8'),
+    ) as { database: { file: string } };
+
+    await assert.rejects(
+      restoreBackup({
+        pool: db,
+        archiveDir: dir,
+        databaseUrl: testDatabaseUrl(),
+        filesPath: null,
+        requireEmpty: false,
+        log: () => {},
+      }),
+      (err: unknown) => err instanceof BackupError && err.code === 'pg_restore_failed',
+    );
+    assert.ok(manifest.database.file, 'the archive itself was fine');
+
+    // The point: the page is still there, rather than the database being
+    // halfway between two states.
+    const still = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM pages WHERE id = $1`,
+      [uuid(1)],
+    );
+    assert.equal(still.rows[0]!.n, '1', 'the previous state survived the failure');
+
+    await db.query(`DROP VIEW IF EXISTS restore_blocker`);
   });
 });
 

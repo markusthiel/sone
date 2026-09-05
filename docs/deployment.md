@@ -431,6 +431,49 @@ storage"; files restored without the database are unreferenced bytes. The backup
 command captures files before the database, so a restore never references a file
 that was not captured.
 
+## Restoring a backup
+
+**Stop SONE first.** A backup runs against a live instance on purpose; a restore
+does not, and the reason is not caution: rooms in memory hold documents that
+would no longer match the database being replaced underneath them, and the first
+edit after that writes the old document back over the restored one.
+
+```sh
+docker compose stop app
+docker compose run --rm app node packages/server/scripts/restore.mjs --archive /var/lib/sone/backups/sone-<stamp>
+docker compose start app
+```
+
+The restore verifies both checksums before it touches anything, and applies the
+dump in **one transaction**: if it fails, the database is as it was.
+
+Three things the restore does not do, said here because each has surprised
+somebody:
+
+- **It does not run migrations.** Start the SONE version named in the output, or
+  a newer one, and migrations run on start as usual.
+- **`--force` does not empty the database.** It skips the "target is not empty"
+  refusal, nothing more. The dump drops and recreates only what is in it, so
+  restoring an *older* backup over a *newer* schema leaves the newer tables in
+  place while `schema_migrations` is rewound — and the next start fails on a
+  column that already exists. Use `--force` to restore over the same instance's
+  own data; use a fresh database to go backwards.
+- **It does not carry your secrets.** `SONE_SECRET_KEY`, `SONE_SMTP_PASSWORD`
+  and `SONE_OIDC_CLIENT_SECRET` live in the environment and are deliberately not
+  in the archive. Restoring with a *different* `SONE_SECRET_KEY` succeeds and
+  then quietly fails to read anything sealed with the old one — second factors
+  and share links stop working, one account at a time, with no error. Keep the
+  key with the backup, somewhere the backup is not.
+
+**Attachments on S3 are not in the archive.** The backup says so loudly while it
+runs, and the manifest records it, but it bears repeating: an instance with
+`SONE_S3_*` set has a database backup and a bucket, and the bucket needs a
+backup of its own.
+
+A directory whose name ends in `.incomplete` is a backup that was interrupted
+before it finished. It cannot be restored, and the restore says so rather than
+failing on a missing file.
+
 ## Backups and the Postgres client version
 
 `pg_dump` refuses to dump a server newer than itself. The image pins

@@ -15,14 +15,23 @@
  *                   no file. Result: a page referencing an attachment that
  *                   does not exist. User-visible corruption.
  *
- * The cheap failure is chosen deliberately. An orphaned-file report is part of
- * the restore output so the harmless case is still visible.
+ * The cheap failure is chosen deliberately, and the restore says so rather than
+ * counting it: comparing the extracted tar against the `files` table would be a
+ * second inventory to keep correct, for a few wasted kilobytes. This comment
+ * used to promise an orphaned-file report that was never written (ADR-0079).
+ *
+ * **An archive is a directory that has a manifest in it.** The manifest is
+ * written last, and the directory is named `.incomplete` until it is — so a
+ * backup killed halfway through is visibly not a backup, rather than a
+ * directory that looks like one and fails at the moment it is needed.
  */
 
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 
 import type { Pool } from 'pg';
 
@@ -44,6 +53,19 @@ export interface BackupManifest {
   instanceId: string | null;
   database: { file: string; bytes: number; sha256: string };
   files: { file: string; bytes: number; sha256: string; count: number } | null;
+  /**
+   * Why `files` is null, when it is.
+   *
+   * `null` files used to mean three different things — the instance keeps its
+   * attachments in S3, the directory was empty, or nobody could look at the
+   * directory — and the restore had to guess, so it told every operator with a
+   * file-less archive to "point this instance at the same bucket" whether or
+   * not there had ever been a bucket. The backup knows which it was; it just
+   * threw the answer away.
+   *
+   * Optional, so an archive written before this field still restores.
+   */
+  fileStorage?: 'local' | 's3' | 'none';
   counts: {
     workspaces: number;
     users: number;
@@ -60,7 +82,7 @@ export class BackupError extends Error {
       | 'pg_dump_failed'
       /** The client is older than the server. Actionable; see the message. */
       | 'version_mismatch'
-      | 'psql_failed'
+      | 'pg_restore_failed'
       | 'unknown_format'
       | 'checksum_mismatch'
       | 'not_empty'
@@ -90,8 +112,13 @@ async function run(
     child.on('error', (err) => {
       reject(
         new BackupError(
-          `${command} could not be executed: ${err.message}. ` +
-            `Is the postgresql-client package installed in the image?`,
+          `${command} could not be executed: ${err.message}.` +
+            // `tar` is also spawned here, and telling somebody to install
+            // postgresql-client because tar is missing sends them a day away
+            // from the actual problem.
+            (command === 'tar'
+              ? ''
+              : ` Is the postgresql-client package installed in the image?`),
           'pg_dump_missing',
         ),
       );
@@ -129,19 +156,35 @@ async function run(
         return;
       }
 
+      /*
+       * Named after what actually ran. `psql` is never spawned here, so that
+       * branch was dead and every pg_restore failure was reported as
+       * `pg_dump_failed` — a code that sends a reader to the wrong half of the
+       * file.
+       */
       reject(
         new BackupError(
           `${command} exited with code ${code}: ${detail}`,
-          command === 'psql' ? 'psql_failed' : 'pg_dump_failed',
+          command === 'pg_restore' ? 'pg_restore_failed' : 'pg_dump_failed',
         ),
       );
     });
   });
 }
 
+/**
+ * The checksum of a file, read as a stream.
+ *
+ * It used to `readFile` the whole artefact into memory. A dump is the largest
+ * thing this project ever produces, and above Node's buffer limit — two
+ * gigabytes — that throws outright: the backup of the instance big enough to
+ * need one is the backup that cannot be made. Below the limit it still asks a
+ * container for as much RAM as the database is large, at both ends, and the
+ * restore end is the one that runs on the day something has already gone wrong.
+ */
 async function sha256File(file: string): Promise<string> {
   const hash = createHash('sha256');
-  hash.update(await readFile(file));
+  await pipeline(createReadStream(file), hash);
   return hash.digest('hex');
 }
 
@@ -160,14 +203,37 @@ export interface BackupOptions {
 export async function createBackup(opts: BackupOptions): Promise<BackupManifest> {
   const log = opts.log ?? console.log;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const dir = path.join(opts.outputDir, `sone-${stamp}`);
+  const finalDir = path.join(opts.outputDir, `sone-${stamp}`);
+  // Built under a name nothing will mistake for an archive, and renamed once
+  // the manifest is in it. See the note at the top of this file.
+  const dir = `${finalDir}.incomplete`;
+  await rm(dir, { recursive: true, force: true });
   await mkdir(dir, { recursive: true });
 
   // --- files first. See the note at the top of this file. -----------------
   let files: BackupManifest['files'] = null;
+  let fileStorage: NonNullable<BackupManifest['fileStorage']> = opts.filesPath ? 'none' : 's3';
   if (opts.filesPath) {
-    const exists = await stat(opts.filesPath).catch(() => null);
+    /*
+     * "Not there" and "cannot look" are different answers.
+     *
+     * This was one `.catch(() => null)`, so a directory that could not be read
+     * — a permission, a volume that failed to mount — produced the same quiet
+     * "not present, skipping" as one that genuinely holds nothing, and the
+     * backup succeeded without its attachments. A backup that omits things is
+     * only allowed to do so on purpose (ADR-0079).
+     */
+    const exists = await stat(opts.filesPath).catch((err: unknown) => {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw new BackupError(
+        `file storage ${opts.filesPath} could not be read: ${
+          err instanceof Error ? err.message : String(err)
+        }. Refusing to write a backup that would silently omit attachments.`,
+        'io',
+      );
+    });
     if (exists?.isDirectory()) {
+      fileStorage = 'local';
       const archive = path.join(dir, 'files.tar.gz');
       log('[backup] archiving files');
       await run('tar', ['-czf', archive, '-C', opts.filesPath, '.']);
@@ -183,7 +249,20 @@ export async function createBackup(opts: BackupOptions): Promise<BackupManifest>
       log(`[backup] file storage ${opts.filesPath} not present, skipping`);
     }
   } else {
-    log('[backup] S3 storage in use; files are not included in this archive');
+    /*
+     * Loud, and recorded in the manifest.
+     *
+     * An S3 instance's backup is the database and nothing else, which is a
+     * defensible thing to produce and an indefensible thing to produce quietly:
+     * the operator finds out on the day they restore, when the attachments are
+     * the half that is missing. The bucket is somebody else's backup problem,
+     * and this says so at the moment it is being skipped.
+     */
+    log(
+      '[backup] WARNING: attachments are in S3 and are NOT in this archive. ' +
+        'The bucket needs a backup of its own; this archive restores the ' +
+        'database only.',
+    );
   }
 
   // --- database ------------------------------------------------------------
@@ -222,6 +301,7 @@ export async function createBackup(opts: BackupOptions): Promise<BackupManifest>
       sha256: await sha256File(dumpFile),
     },
     files,
+    fileStorage,
     counts,
   };
 
@@ -231,8 +311,12 @@ export async function createBackup(opts: BackupOptions): Promise<BackupManifest>
     'utf8',
   );
 
+  // The last act, and the one that makes the directory an archive.
+  await rm(finalDir, { recursive: true, force: true });
+  await rename(dir, finalDir);
+
   log(
-    `[backup] complete: ${dir}\n` +
+    `[backup] complete: ${finalDir}\n` +
       `          ${counts.pages} page(s), ${counts.documents} document(s), ` +
       `${counts.users} user(s) in ${counts.workspaces} workspace(s)`,
   );
@@ -295,7 +379,29 @@ export async function restoreBackup(opts: RestoreOptions): Promise<RestoreReport
   const warnings: string[] = [];
 
   const manifestPath = path.join(opts.archiveDir, MANIFEST_NAME);
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as BackupManifest;
+  /*
+   * A directory with no manifest is not an archive.
+   *
+   * It used to arrive as a raw ENOENT naming a JSON file, which is a puzzle at
+   * the worst possible moment. A backup interrupted before its manifest was
+   * written leaves exactly this — and now leaves it under a `.incomplete`
+   * name, so the message can say which of the two it is.
+   */
+  const raw = await readFile(manifestPath, 'utf8').catch(() => null);
+  if (raw === null) {
+    throw new BackupError(
+      `${opts.archiveDir} holds no ${MANIFEST_NAME}, so it is not a SONE archive. ` +
+        `A directory whose name ends in .incomplete is a backup that was ` +
+        `interrupted before it finished, and cannot be restored.`,
+      'unknown_format',
+    );
+  }
+  let manifest: BackupManifest;
+  try {
+    manifest = JSON.parse(raw) as BackupManifest;
+  } catch {
+    throw new BackupError(`${manifestPath} is not readable JSON`, 'unknown_format');
+  }
 
   if (manifest.backupFormatVersion > BACKUP_FORMAT_VERSION) {
     throw new BackupError(
@@ -329,7 +435,13 @@ export async function restoreBackup(opts: RestoreOptions): Promise<RestoreReport
     if (row && Number(row.n) > 0) {
       throw new BackupError(
         `target database is not empty (${row.n} table(s)). Restore into a fresh ` +
-          `database, or pass --force to drop and recreate the public schema.`,
+          `database.\n\n` +
+          `--force skips this check; it does NOT empty the database. The restore ` +
+          `drops and recreates only what the dump contains, so anything this ` +
+          `version of SONE added since the backup was taken stays behind while ` +
+          `schema_migrations is rewound — and the next start fails on a column ` +
+          `that already exists. Use it to restore over the SAME instance's own ` +
+          `data, not to move a database backwards.`,
         'not_empty',
       );
     }
@@ -339,11 +451,27 @@ export async function restoreBackup(opts: RestoreOptions): Promise<RestoreReport
   // reverse: a row without its file is the failure mode to avoid, so the files
   // land last and the window closes on the safe side.
   log('[restore] restoring database');
+  /*
+   * `--single-transaction`: the restore happens or it does not.
+   *
+   * Without it, pg_restore carries on past an error and reports the count at
+   * the end. It does exit non-zero — I checked that against pg_restore 16
+   * rather than believing a claim that it exits 0, and the claim was wrong — so
+   * this was never a silent failure. What it was is a *partial* one: the throw
+   * arrived after half the objects had been dropped and recreated, leaving a
+   * database in a state nothing describes, on the day somebody is already
+   * having a bad one. One transaction means the previous state is still there
+   * when the message appears.
+   *
+   * It implies --exit-on-error, and it rules out --jobs, which this has never
+   * used.
+   */
   await run('pg_restore', [
     '--no-owner',
     '--no-privileges',
     '--clean',
     '--if-exists',
+    '--single-transaction',
     '--dbname',
     opts.databaseUrl,
     dumpFile,
@@ -366,9 +494,22 @@ export async function restoreBackup(opts: RestoreOptions): Promise<RestoreReport
         'attachments will be missing',
     );
   } else if (!manifest.files) {
+    /*
+     * The right sentence for the right reason. This said "if the source used
+     * S3 storage, point this instance at the same bucket" to everybody,
+     * including instances that had never seen a bucket — advice that sends an
+     * operator looking for a configuration that does not exist. The backup
+     * knew which case it was and now records it.
+     */
     warnings.push(
-      'archive contains no files. If the source used S3 storage, point this ' +
-        'instance at the same bucket.',
+      manifest.fileStorage === 's3'
+        ? 'the source kept attachments in S3, so they are not in this archive: ' +
+            'point this instance at that bucket, and make sure the bucket has a ' +
+            'backup of its own'
+        : manifest.fileStorage === 'none'
+          ? 'the source had no attachments at the time of the backup'
+          : 'archive contains no files. If the source used S3 storage, point this ' +
+            'instance at the same bucket.',
     );
   }
 
