@@ -777,6 +777,26 @@ export const en = {
     'Limits what is possible here at most, including for the people given more below. Whoever administers the workspace is exempt; otherwise a ceiling could never be lifted.',
   'cap.inherited': '“{from}” already applies here: {level}.',
 
+  // --- Sharing overview -------------------------------------------------------
+  'shares.title': 'Shares',
+  'shares.note':
+    'What is shared out of this workspace — and what has been shared with you. Both can be withdrawn from here.',
+  'shares.links': 'Links',
+  'shares.links.note':
+    'Anybody holding the link gets in. Review these first: a link leaves the building.',
+  'shares.granted': 'Shared by you',
+  'shares.received': 'Shared with you',
+  'shares.nothing': 'Nothing.',
+  'shares.subtree': 'with subpages',
+  'shares.onlyPage': 'this page only',
+  'shares.viaGroup': 'through the group “{name}”',
+  'shares.by': 'from {name}',
+  'shares.protected': 'password protected',
+  'shares.expires': 'expires {date}',
+  'shares.mine': 'yours',
+  'shares.revoke': 'Revoke',
+  'shares.open': 'Open page',
+
   'perm.people': 'People',
   'perm.peopleHere': 'People in this workspace',
   'perm.groups': 'Groups',
