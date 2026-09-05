@@ -152,6 +152,12 @@ three buttons made things, unconditionally. Optional handlers rather than a
 > because the page tree carries no per-entry role for the shell to ask. Giving
 > it one is a route change and a wider decision than this report. Named so it is
 > not discovered twice.
+>
+> > **Done in ADR-0095, and the estimate was wrong in a useful direction.** It
+> > is a route change; it is not a wider decision, because the route was
+> > *already computing the role* for every row — to decide which rows to send —
+> > and throwing it away. The third value in this codebase to be computed, used
+> > for a filter, and dropped before anybody could see it.
 
 **The guest saw "somebody who is no longer here".** The authors list was
 refetched when `threads.length` changed, and a **reply** does not change it. So

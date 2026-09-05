@@ -36,6 +36,7 @@ import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { EntryMenu } from './EntryMenu.tsx';
 import { AddEntryMenu } from './AddEntryMenu.tsx';
+import { mayEdit, mayManage } from '../entryRights.ts';
 import type { Mode } from './modes.tsx';
 import { WorkspaceMenu } from './WorkspaceMenu.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
@@ -679,6 +680,18 @@ function TreeLevel({
          * it "so the interface can hide it" would be sending it.
          */
         const isPath = node.pathOnly === true;
+        /*
+         * May they change this entry (ADR-0095)?
+         *
+         * A narrower version of the rule above it: a path row offers nothing
+         * because there is nothing here they may do, and a row they may read
+         * and not write offers everything about *reading* — the link, the
+         * title, the icon, the twisty — and none of the verbs. Before the tree
+         * carried a role there was nothing to ask, so a viewer got the rename
+         * field, the "new inside this" menu and a drag gesture, all of which
+         * the server refuses.
+         */
+        const canEdit = mayEdit(node);
         const title = node.title || (isFolder ? 'Untitled folder' : 'Untitled');
 
         return (
@@ -700,7 +713,11 @@ function TreeLevel({
               // Not draggable: moving a page needs rights on it, and this is a
               // page somebody has none on. A gesture that can only be refused
               // is worse than one that is not offered.
-              {...(isPath ? {} : { onPointerDown: drag.onPointerDown })}
+              //
+              // The same sentence covers a viewer, who has *some* rights and
+              // not this one — which is why the condition is now the role
+              // rather than the path flag (ADR-0095).
+              {...(canEdit ? { onPointerDown: drag.onPointerDown } : {})}
               data-drop={
                 drag.target?.rowId === node.id && drag.dragging
                   ? drag.target.intent
@@ -734,7 +751,7 @@ function TreeLevel({
                 // twisty beside it reads as a fault. This says what it is —
                 // and says nothing about the page, which is the point.
                 <span className="tree-link tree-path-only">{t('tree.pathOnly')}</span>
-              ) : node.id === renaming ? (
+              ) : node.id === renaming && canEdit ? (
                 <RenameField
                   initial={node.title ?? ''}
                   onCommit={(next) => onRename(node.id, next)}
@@ -772,8 +789,10 @@ function TreeLevel({
                 <>
                   {/* Only a folder offers "new inside this". A page contains
                       nothing (ADR-0019), so offering it there would produce a
-                      refusal the person could not have predicted. */}
-                  {isFolder && (
+                      refusal the person could not have predicted — and neither
+                      does a folder somebody may only read, for exactly the same
+                      reason (ADR-0095). */}
+                  {isFolder && canEdit && (
                     <AddEntryMenu
                       title={title}
                       workspaceId={workspaceId}
@@ -784,6 +803,12 @@ function TreeLevel({
                   )}
                   <EntryMenu
                     node={node}
+                    // What the menu may offer. Passed rather than read from the
+                    // node inside, so there is one reading of the role per row
+                    // and the menu cannot answer differently from the row it
+                    // hangs off (ADR-0095).
+                    canEdit={canEdit}
+                    canManage={mayManage(node)}
                     onChanged={onReloadTree}
                     onRename={onRename}
                     onCreate={onCreatePage}

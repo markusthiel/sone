@@ -276,6 +276,27 @@ export function ColourRow({
 
 interface EntryMenuProps {
   node: PageNode;
+  /**
+   * May they change this entry (ADR-0095)?
+   *
+   * Passed rather than read from `node` here, so one row has one reading of its
+   * role and the menu cannot answer differently from the row it hangs off.
+   *
+   * What it gates is the verbs: rename, reorder, appearance, new inside, move,
+   * import, lock, delete. What it does **not** gate is what somebody who may
+   * read this entry is entitled to anyway — starring it, watching it, exporting
+   * it. Those are either personal or a read, and hiding them would be taking
+   * something away rather than telling the truth about a refusal.
+   */
+  canEdit: boolean;
+  /**
+   * May they decide who else gets in?
+   *
+   * Stricter than `canEdit`, and matching `requirePageAdmin`, which is what the
+   * sharing routes actually use: an editor may write this page and may not hand
+   * it to somebody else.
+   */
+  canManage: boolean;
   /** Reloads the tree after an icon or colour changed. */
   onChanged: () => void;
   onRename: (pageId: string, title: string) => void;
@@ -307,6 +328,8 @@ export function countDescendants(node: PageNode): number {
 
 export function EntryMenu({
   node,
+  canEdit,
+  canManage,
   onChanged,
   onCreate,
   onDelete,
@@ -426,19 +449,24 @@ export function EntryMenu({
               </button>
             )}
 
-            <button
-              type="button"
-              role="menuitem"
-              className="entry-menu-action"
-              title={t('entry.rename')}
-              aria-label={t('entry.rename')}
-              onClick={() => {
-                setOpen(false);
-                onStartRename(node.id);
-              }}
-            >
-              <PencilIcon />
-            </button>
+            {/* A verb, so it needs the rights for it (ADR-0095). The star and
+                the bell above and below stay: one is personal and the other is
+                a subscription, and neither writes to the entry. */}
+            {canEdit && (
+              <button
+                type="button"
+                role="menuitem"
+                className="entry-menu-action"
+                title={t('entry.rename')}
+                aria-label={t('entry.rename')}
+                onClick={() => {
+                  setOpen(false);
+                  onStartRename(node.id);
+                }}
+              >
+                <PencilIcon />
+              </button>
+            )}
 
             <button
               type="button"
@@ -455,54 +483,68 @@ export function EntryMenu({
               <StarIcon data-filled={isFavourite ? 'true' : 'false'} />
             </button>
 
-            <button
-              type="button"
-              role="menuitem"
-              className="entry-menu-action"
-              title={t('entry.share')}
-              aria-label={t('entry.share')}
-              onClick={() => {
-                setOpen(false);
-                onStartShare(node.id);
-              }}
-            >
-              <ShareIcon />
-            </button>
+            {/* Handing this to somebody else, which is the one thing an
+                editor may not do: the sharing routes are guarded by
+                `requirePageAdmin` (ADR-0095). */}
+            {canManage && (
+              <button
+                type="button"
+                role="menuitem"
+                className="entry-menu-action"
+                title={t('entry.share')}
+                aria-label={t('entry.share')}
+                onClick={() => {
+                  setOpen(false);
+                  onStartShare(node.id);
+                }}
+              >
+                <ShareIcon />
+              </button>
+            )}
 
             {/* Reordering without dragging.
              *
              * Dragging is a pointer-device feature — iOS never fires those
              * events — so on a tablet these two are the only way to reorder at
-             * all. They also work with a keyboard, which dragging does not. */}
-            <button
-              type="button"
-              role="menuitem"
-              className="entry-menu-action"
-              disabled={!canMoveUp}
-              title={t('entry.moveUp')}
-              aria-label={t('entry.moveUp')}
-              onClick={() => {
-                setOpen(false);
-                onReorder(node.id, 'up');
-              }}
-            >
-              <ArrowUpIcon />
-            </button>
+             * all. They also work with a keyboard, which dragging does not.
+             *
+             * Hidden rather than disabled when they may not (ADR-0095):
+             * `disabled` here means "not at this end of the list", which is a
+             * fact about position, and using the same appearance for "not
+             * yours" would make one word answer two questions. */}
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="entry-menu-action"
+                  disabled={!canMoveUp}
+                  title={t('entry.moveUp')}
+                  aria-label={t('entry.moveUp')}
+                  onClick={() => {
+                    setOpen(false);
+                    onReorder(node.id, 'up');
+                  }}
+                >
+                  <ArrowUpIcon />
+                </button>
 
-            <button
-              type="button"
-              role="menuitem"
-              className="entry-menu-action"
-              disabled={!canMoveDown}
-              title={t('entry.moveDown')}
-              aria-label={t('entry.moveDown')}
-              onClick={() => {
-                setOpen(false);
-                onReorder(node.id, 'down');
-              }}
-            >
-              <ArrowDownIcon />
-            </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="entry-menu-action"
+                  disabled={!canMoveDown}
+                  title={t('entry.moveDown')}
+                  aria-label={t('entry.moveDown')}
+                  onClick={() => {
+                    setOpen(false);
+                    onReorder(node.id, 'down');
+                  }}
+                >
+                  <ArrowDownIcon />
+                </button>
+              </>
+            )}
           </div>
 
           {/* What can be put inside, as three marks under one word.
@@ -510,7 +552,7 @@ export function EntryMenu({
             * The same three the `+` offers and in the same order (page, canvas,
             * folder) — two menus offering the same things in two orders is two
             * things to learn. */}
-          {isFolder && (
+          {isFolder && canEdit && (
             <div className="entry-menu-new">
               <span className="entry-menu-label">{t('entry.new')}</span>
               <div className="entry-menu-actions">
@@ -546,17 +588,19 @@ export function EntryMenu({
 
           </div>
 
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onStartMove(node.id);
-            }}
-          >
-            <MoveIcon /> {t('entry.move')}
-          </button>
+          {canEdit && (
+            <button
+              className="entry-menu-item"
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onStartMove(node.id);
+              }}
+            >
+              <MoveIcon /> {t('entry.move')}
+            </button>
+          )}
 
           {/* Out of this workspace entirely (ADR-0038).
             *
@@ -564,17 +608,19 @@ export function EntryMenu({
             * it is a different decision: a move within a workspace loses
             * nothing, and this one revokes share links, drops restrictions and
             * severs links to what stays behind. */}
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onStartMoveToWorkspace(node.id);
-            }}
-          >
-            <MoveIcon /> {t('entry.moveToWorkspace')}
-          </button>
+          {canEdit && (
+            <button
+              className="entry-menu-item"
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onStartMoveToWorkspace(node.id);
+              }}
+            >
+              <MoveIcon /> {t('entry.moveToWorkspace')}
+            </button>
+          )}
 
           {/* Handing the page's contents back (ADR-0044).
             *
@@ -593,14 +639,17 @@ export function EntryMenu({
             <DownloadIcon /> {t('entry.export')}
           </button>
 
-          {/* Beside the export.
+          {/* Beside the export, and gated where the export is not (ADR-0095).
             *
-            * Offered unconditionally, like every other write in this menu —
-            * rename, move, delete. This menu has no notion of rights and I was
-            * about to invent one for a single entry; the server refuses an
-            * import somebody may not make, and one item guarded differently
-            * from its neighbours would be a lie about the other four. */}
-          <button
+            * This was offered unconditionally, with a note saying so: "this
+            * menu has no notion of rights and I was about to invent one for a
+            * single entry — one item guarded differently from its neighbours
+            * would be a lie about the other four." That was the right call at
+            * the time and it is the wrong one now: the menu has a notion of
+            * rights, given to it rather than invented, and all five neighbours
+            * ask it. Writing into somebody else's folder is a write. */}
+          {canEdit && (
+            <button
               className="entry-menu-item"
               type="button"
               role="menuitem"
@@ -609,8 +658,9 @@ export function EntryMenu({
                 onStartImport(node.id);
               }}
             >
-            <UploadIcon /> {t('entry.import')}
-          </button>
+              <UploadIcon /> {t('entry.import')}
+            </button>
+          )}
 
           {/* Offered as a shape to start from (ADR-0045).
             *
@@ -618,7 +668,7 @@ export function EntryMenu({
             * else: whether this page is a shape is a fact about this page, and
             * it is decided while looking at it. Only for pages and canvases —
             * a folder has no document to copy. */}
-          {!isFolder && (
+          {!isFolder && canEdit && (
             <button
               className="entry-menu-item"
               type="button"
@@ -636,76 +686,85 @@ export function EntryMenu({
             </button>
           )}
 
-          <hr className="entry-menu-rule" />
+          {/* The consequential half, for whoever may change this entry
+              (ADR-0095). Kept together rather than gated one by one, so the
+              two rules that separate it are not left drawing lines around
+              nothing. */}
+          {canEdit && (
+            <>
+            <hr className="entry-menu-rule" />
 
-          {/* Appearance last, above the trash.
-            *
-            * It was in the middle, and it is by far the largest block here — a
-            * search field, thirty-odd icons and two rows of colours. Anything
-            * that big in the middle pushes everything below it out of reach: on
-            * a phone the trash needed scrolling past the icon grid to find.
-            *
-            * It is also the rarest thing anybody comes here for. Frequent and
-            * reversible at the top, rare and consequential at the bottom, and
-            * the big rare block belongs with the second group. */}
-          {/* Icon and the two colours.
-            *
-            * In the menu the entry already has rather than a dialog: choosing
-            * an icon is a small decision, and making somebody open a window for
-            * it turns a moment into a task. The menu stays open while choosing,
-            * because people try several before settling. */}
-          <EntryAppearance node={node} onChanged={onChanged} />
+            {/* Appearance last, above the trash.
+              *
+              * It was in the middle, and it is by far the largest block here — a
+              * search field, thirty-odd icons and two rows of colours. Anything
+              * that big in the middle pushes everything below it out of reach: on
+              * a phone the trash needed scrolling past the icon grid to find.
+              *
+              * It is also the rarest thing anybody comes here for. Frequent and
+              * reversible at the top, rare and consequential at the bottom, and
+              * the big rare block belongs with the second group. */}
+            {/* Icon and the two colours.
+              *
+              * In the menu the entry already has rather than a dialog: choosing
+              * an icon is a small decision, and making somebody open a window for
+              * it turns a moment into a task. The menu stays open while choosing,
+              * because people try several before settling. */}
+            <EntryAppearance node={node} onChanged={onChanged} />
 
-          <hr className="entry-menu-rule" />
+            <hr className="entry-menu-rule" />
 
-          {/* Locking, in the group above the trash (ADR-0049).
-            *
-            * Consequential and reversible, which is the group the trash is in —
-            * and above it, because it is the lesser of the two. A checkbox item
-            * rather than two entries, so the state is visible without opening
-            * anything.
-            *
-            * The wording says "against accidental changes" rather than
-            * "protected": anybody who may edit can lift it, and a lock that
-            * anybody can lift must not read like a permission. */}
-          <button
-            className="entry-menu-item"
-            type="button"
-            role="menuitemcheckbox"
-            aria-checked={isLocked}
-            title={isLocked ? t('entry.unlock.hint') : t('entry.lock.hint')}
-            onClick={() => {
-              setOpen(false);
-              void api
-                .setPageLocked(node.id, !isLocked)
-                .then(() => onChanged())
-                .catch(() => onChanged());
-            }}
-          >
-            {/* Short. The full sentence is the title, because `white-space:
-                nowrap` on a menu item means a long label does not wrap — it
-                leaves the panel, which is what mine did. A menu is a column of
-                verbs; the explanation belongs on hover and in the record. */}
-            <LockIcon /> {isLocked ? t('entry.unlock') : t('entry.lock')}
-          </button>
+            {/* Locking, in the group above the trash (ADR-0049).
+              *
+              * Consequential and reversible, which is the group the trash is in —
+              * and above it, because it is the lesser of the two. A checkbox item
+              * rather than two entries, so the state is visible without opening
+              * anything.
+              *
+              * The wording says "against accidental changes" rather than
+              * "protected": anybody who may edit can lift it, and a lock that
+              * anybody can lift must not read like a permission. */}
+            <button
+              className="entry-menu-item"
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={isLocked}
+              title={isLocked ? t('entry.unlock.hint') : t('entry.lock.hint')}
+              onClick={() => {
+                setOpen(false);
+                void api
+                  .setPageLocked(node.id, !isLocked)
+                  .then(() => onChanged())
+                  .catch(() => onChanged());
+              }}
+            >
+              {/* Short. The full sentence is the title, because `white-space:
+                  nowrap` on a menu item means a long label does not wrap — it
+                  leaves the panel, which is what mine did. A menu is a column of
+                  verbs; the explanation belongs on hover and in the record. */}
+              <LockIcon /> {isLocked ? t('entry.unlock') : t('entry.lock')}
+            </button>
 
-          <button
-            className="entry-menu-item destructive"
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onDelete(node.id, descendants);
-            }}
-          >
-            <TrashIcon />{' '}
-            {/* The count is stated here rather than only in a confirmation,
-                because it changes whether someone opens the confirmation at
-                all. */}
-            {descendants > 0
-              ? t('entry.deleteWithChildren', { count: descendants })
-              : t('entry.delete')}
-          </button>
+            <button
+              className="entry-menu-item destructive"
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onDelete(node.id, descendants);
+              }}
+            >
+              <TrashIcon />{' '}
+              {/* The count is stated here rather than only in a confirmation,
+                  because it changes whether someone opens the confirmation at
+                  all. */}
+              {descendants > 0
+                ? t('entry.deleteWithChildren', { count: descendants })
+                : t('entry.delete')}
+            </button>
+            </>
+          )}
+
         </div>
       )}
     </div>
