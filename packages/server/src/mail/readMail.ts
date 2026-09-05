@@ -60,7 +60,25 @@ function decodeBody(body: string, encoding: string, charset: string): string {
       'latin1',
     );
   } else {
-    bytes = Buffer.from(body, 'utf8');
+    /*
+     * `latin1`, not `utf8` — and this was wrong, in the language most of the
+     * people using this instance write in (ADR-0078).
+     *
+     * The mail arrives over a socket read as latin1, one byte to one character,
+     * which is how the IMAP client keeps a message's bytes intact through a
+     * JavaScript string (see `imap.ts`). Recovering the bytes therefore means
+     * reading that string back as latin1. Reading it as utf8 *re-encodes* every
+     * character above 127 into two bytes, so a body that really was utf-8
+     * arrives doubled: `ä` comes back as `Ã¤`.
+     *
+     * The other two branches were already right — base64 decodes to bytes, and
+     * quoted-printable explicitly says `latin1` for the same reason — which is
+     * why every umlaut test in `readMail.test.ts` passed. Both of those
+     * encodings exist precisely because a mail contains non-ASCII, so the
+     * charset cases got written for them and never for the plain 8-bit body a
+     * phone sends.
+     */
+    bytes = Buffer.from(body, 'latin1');
   }
 
   const which = charset.toLowerCase();
@@ -149,4 +167,36 @@ export function deliveredAddresses(headers: Map<string, string>): string[] {
     if (value) out.push(...value.split(',').map((one) => one.trim()));
   }
   return out;
+}
+
+/**
+ * The bare address out of a header that may carry a display name.
+ *
+ * `From: Anna Beispiel <anna@example.org>` is an address with a label on it,
+ * and the label is not part of it. This existed nowhere, and the whole header
+ * was handed to `sendMail` when a reply had to be refused — producing
+ * `RCPT TO:<Anna Beispiel <anna@example.org>>`, which every relay rejects. The
+ * throw happened *before* the message was marked read, so the mail stayed
+ * unread, the rest of the batch was abandoned, and the same failure repeated
+ * every two minutes for as long as that mail sat there. A refusal is the one
+ * mail SONE sends to an address it did not choose, so this is the one place
+ * that has to parse one.
+ *
+ * Returns null rather than a guess. Somebody who cannot be written to is a
+ * thing to record, not to approximate.
+ */
+export function addressIn(value: string | null | undefined): string | null {
+  if (!value) return null;
+
+  // The last angle bracket pair wins: a display name may itself contain one
+  // ("Anna <the good one> Beispiel" <anna@example.org>), and the address is
+  // always the final group.
+  const angled = /<([^<>]*)>\s*$/.exec(value.trim());
+  const candidate = (angled?.[1] ?? value).trim();
+
+  // No whitespace, one @, something either side, and nothing that could break
+  // a header line. Deliberately stricter than RFC 5322 allows: an address this
+  // rejects is one SONE declines to write to, not one it mangles.
+  if (!/^[^\s<>,;:"\\]+@[^\s<>,;:"\\@]+\.[^\s<>,;:"\\@]+$/.test(candidate)) return null;
+  return candidate;
 }
