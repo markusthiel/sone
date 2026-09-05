@@ -58,6 +58,16 @@ server to write archives of its own database, and an operator who has not
 arranged backups is better served by being told so than by a button that half
 does it.
 
+> **Correction, 2026-09-05 (ADR-0079).** The paragraph above describes a screen
+> that was never built. The Administration area reports the last maintenance run
+> and nothing else: there is no backup entry, no link to `docs/deployment.md`,
+> and no word about the file store — the whole web package contains one mention
+> of the word "backup", in an unrelated warning about OIDC secrets. The
+> reasoning stands and the description does not, which is the worse of the two
+> ways for a record to be wrong: it reads as a description of the product. The
+> screen is not built here either; this note is so that the next reader knows
+> which sentences are a decision and which are a plan.
+
 ### Exports are jobs, and there is no job runner yet
 
 This is the prerequisite, and naming it is most of this record's value.
