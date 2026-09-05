@@ -41,6 +41,19 @@ interface SelectionToolbarProps {
    * rather than appearing and refusing.
    */
   onComment?: (anchor: CommentAnchor) => void;
+  /**
+   * Whether the buttons that change the text belong here (ADR-0049).
+   *
+   * False on a locked page, where the toolbar itself stays: a locked page under
+   * review is the case comments exist for, and a comment is about the page
+   * rather than part of it. Bold, italic and link are not.
+   *
+   * The buttons are removed rather than disabled because the plugin below them
+   * would refuse the change anyway (editGuard), and a row of greyed-out letters
+   * over a selection says less than an empty space does. Defaults to true so a
+   * caller that has no lock to consider says nothing.
+   */
+  canFormat?: boolean;
   /** Bumped on every transaction, so the toolbar follows the selection. */
   revision: number;
 }
@@ -52,6 +65,7 @@ export function SelectionToolbar({
   view,
   revision,
   onComment,
+  canFormat = true,
 }: SelectionToolbarProps): ReactElement | null {
   const { t } = useT();
   const [box, setBox] = useState<{ top: number; left: number; above: boolean } | null>(null);
@@ -176,7 +190,7 @@ export function SelectionToolbar({
       // screen cancels the gesture before the tap can become a click.
       {...keepsEditorSelection}
     >
-      {editingLink ? (
+      {editingLink && canFormat ? (
         <div className="link-editor">
           <input
             value={href}
@@ -220,28 +234,32 @@ export function SelectionToolbar({
         </div>
       ) : (
         <>
-          {marks.map((mark) => {
-            const type = schema.marks[mark.name];
-            if (!type) return null;
-            const active = isMarkActive(state, mark.name);
-            return (
-              <button
-                key={mark.name}
-                type="button"
-                title={t(mark.title)}
-                aria-pressed={active}
-                className="toolbar-button"
-                style={mark.style}
-                onClick={() => run(toggleMark(type))}
-              >
-                {mark.label}
-              </button>
-            );
-          })}
+          {canFormat &&
+            marks.map((mark) => {
+              const type = schema.marks[mark.name];
+              if (!type) return null;
+              const active = isMarkActive(state, mark.name);
+              return (
+                <button
+                  key={mark.name}
+                  type="button"
+                  title={t(mark.title)}
+                  aria-pressed={active}
+                  className="toolbar-button"
+                  style={mark.style}
+                  onClick={() => run(toggleMark(type))}
+                >
+                  {mark.label}
+                </button>
+              );
+            })}
 
           {onComment && (
             <>
-              <span className="toolbar-divider" aria-hidden="true" />
+              {/* No divider before the first thing in the bar: on a locked page
+                  the formatting buttons are gone and a rule would hang there
+                  against nothing. */}
+              {canFormat && <span className="toolbar-divider" aria-hidden="true" />}
               <button
                 type="button"
                 className="toolbar-button"
@@ -259,21 +277,25 @@ export function SelectionToolbar({
             </>
           )}
 
-          <span className="toolbar-divider" aria-hidden="true" />
+          {canFormat && (
+            <>
+              <span className="toolbar-divider" aria-hidden="true" />
 
-          <button
-            type="button"
-            title={t('format.link')}
-            className="toolbar-button"
-            disabled={!canLink(state)}
-            aria-pressed={existingLink !== null}
-            onClick={() => {
-              setHref(existingLink?.href ?? '');
-              setEditingLink(true);
-            }}
-          >
-            {t('format.linkWord')}
-          </button>
+              <button
+                type="button"
+                title={t('format.link')}
+                className="toolbar-button"
+                disabled={!canLink(state)}
+                aria-pressed={existingLink !== null}
+                onClick={() => {
+                  setHref(existingLink?.href ?? '');
+                  setEditingLink(true);
+                }}
+              >
+                {t('format.linkWord')}
+              </button>
+            </>
+          )}
 
           {/* Only when the selection is in code, block or inline.
            *
