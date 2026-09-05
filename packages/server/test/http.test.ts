@@ -340,7 +340,7 @@ describe('maintenance (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
       await appendUpdate(db, uuid(1), Y.encodeStateAsUpdate(doc, before), null);
     }
 
-    const compacted = await compactBacklog(db);
+    const compacted = (await compactBacklog(db)).compacted;
     assert.equal(compacted, 1);
 
     const snapshot = await db.query<{ n: string }>(
@@ -363,7 +363,11 @@ describe('maintenance (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     appendBlocks(doc, [{ id: uuid(400), type: 'paragraph', text: 'only' }]);
     await appendUpdate(db, uuid(1), Y.encodeStateAsUpdate(doc), null);
 
-    assert.equal(await compactBacklog(db), 0, 'compaction is not free; do not run it eagerly');
+    assert.equal(
+      (await compactBacklog(db)).compacted,
+      0,
+      'compaction is not free; do not run it eagerly',
+    );
     doc.destroy();
   });
 

@@ -160,9 +160,25 @@ export async function loadVersion(
  * A retention window is a promise, so it is a setting and the interface says
  * what it is rather than letting somebody find the limit when they need it.
  */
-export const VERSION_RETENTION_DAYS = Number(
-  process.env['SONE_VERSION_RETENTION_DAYS'] ?? 90,
-);
+export const VERSION_RETENTION_DAYS = (() => {
+  /*
+   * Clamped, and this was not (ADR-0080).
+   *
+   * `SONE_VERSION_RETENTION_DAYS=0` made the predicate below `taken_at <
+   * now()`, which is every version there is: one five-minute tick would delete
+   * the entire history of every page on the instance except restores, in one
+   * unrecoverable statement. A typo, a templating mistake, or somebody reading
+   * "0" as "no limit" — and history is not a thing you get back.
+   *
+   * A non-number was worse in a quieter way: `NaN` reached Postgres as the
+   * string "NaN days" and threw inside a task whose failures are swallowed.
+   *
+   * The floor is one day rather than zero, matching `workspaceRetentionDays`
+   * in `config.ts`, which had this clamp from the start.
+   */
+  const asked = Number(process.env['SONE_VERSION_RETENTION_DAYS'] ?? 90);
+  return Number.isFinite(asked) ? Math.max(1, Math.floor(asked)) : 90;
+})();
 
 /**
  * Thin the versions of every page.

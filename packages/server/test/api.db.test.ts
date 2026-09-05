@@ -17,6 +17,7 @@ import { SCHEMA_VERSION } from '@sone/core';
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
 import { createHash } from 'node:crypto';
 
+import { documentIdsFor } from '../src/doc/deleteDocuments.js';
 import { zip } from '../src/export/zip.js';
 import { registerExportRoutes } from '../src/export/routes.js';
 import { registerImportRoutes } from '../src/import/routes.js';
@@ -2232,6 +2233,47 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       pageId,
     ]);
     assert.equal(updates.rowCount, 0, 'no updates left to rebuild from');
+  });
+
+  test('destroying takes the internal comments with it too', async () => {
+    /*
+     * The half this file did not ask about (ADR-0080).
+     *
+     * A page's internal comments live in their own document (ADR-0057), whose
+     * id is *derived* from the page's rather than equal to it. The route
+     * deleted by page id, so those rows survived every "delete this page" —
+     * and internal comments are the ones written where the page's readers
+     * cannot see them, which makes this the copy of a deletion most worth
+     * actually performing.
+     *
+     * Written directly rather than through the editor: a comment thread needs
+     * an anchor from a live document, and what is under test is the deletion.
+     */
+    const session = await setup();
+    const folder = await createFolder(session, 'Folder');
+    const pageId = await createPage(session, 'Mit interner Notiz', folder);
+    const [, internalId] = documentIdsFor([pageId]);
+
+    await db.query(
+      `INSERT INTO doc_updates (doc_id, seq, payload)
+       VALUES ($1, nextval('doc_update_seq'), '\\x0102')`,
+      [internalId],
+    );
+    await db.query(
+      `INSERT INTO doc_snapshots (doc_id, through_seq, state, state_vector)
+       VALUES ($1, 1, '\\x0102', '\\x03')`,
+      [internalId],
+    );
+
+    await archive(session, pageId);
+    await destroy(session, pageId);
+
+    const left = await db.query(
+      `SELECT 1 FROM doc_updates WHERE doc_id = $1
+        UNION ALL SELECT 1 FROM doc_snapshots WHERE doc_id = $1`,
+      [internalId],
+    );
+    assert.equal(left.rowCount, 0, 'the internal comments are gone as well');
   });
 
   test('an editor cannot destroy, only archive', async () => {

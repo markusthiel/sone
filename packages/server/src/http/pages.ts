@@ -43,6 +43,7 @@ import {
   resolveSessionClaims,
   type AccessClaims,
 } from '../auth/claims.js';
+import { deleteDocumentsFor } from '../doc/deleteDocuments.js';
 import { appendUpdate } from '../doc/docStore.js';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { collateClause, workspaceI18n } from '../i18n/locale.js';
@@ -1867,33 +1868,23 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       return;
     }
 
-    // The documents have to go explicitly.
-    //
-    // `doc_updates.doc_id` and `doc_snapshots.doc_id` carry no foreign key to
-    // `pages` — deliberately, because a CRDT update can arrive before the row it
-    // belongs to and a constraint would reject data that is merely early
-    // (migration 0003). The consequence here is that deleting the page alone
-    // would remove the entry and leave its entire content behind as rows nothing
-    // references: invisible, unreclaimable, and still growing the database.
-    //
-    // Found by a test asserting the updates were gone, which they were not.
+    // The documents have to go explicitly — see `deleteDocumentsFor`, which is
+    // where the reason lives now, because this was true in two other places as
+    // well (ADR-0080). One of them was this route: it deleted by page id, and a
+    // page's *internal comments* document has an id derived from the page's
+    // rather than equal to it, so those survived every "delete this page".
     const removed = await withTransaction(deps.pool, async (client) => {
       const ids = await queryRows<{ id: string }>(
         client,
         `SELECT id FROM pages WHERE id = $1 OR $1 = ANY(ancestor_ids)`,
         [pageId],
       );
-      const docIds = ids.map((row) => row.id);
+      const pageIds = ids.map((row) => row.id);
 
-      await client.query(`DELETE FROM doc_updates WHERE doc_id = ANY($1::uuid[])`, [
-        docIds,
-      ]);
-      await client.query(`DELETE FROM doc_snapshots WHERE doc_id = ANY($1::uuid[])`, [
-        docIds,
-      ]);
+      await deleteDocumentsFor(client, pageIds);
       const result = await client.query(
         `DELETE FROM pages WHERE id = ANY($1::uuid[])`,
-        [docIds],
+        [pageIds],
       );
       return result.rowCount ?? 0;
     });

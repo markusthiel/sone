@@ -21,6 +21,35 @@ was being written. They are on `forgejo.thiel.tools/thiel/sone` and can be
 pulled without credentials. A released tag's notes are not rewritten
 (ADR-0013), so the correction lives here.
 
+**A deleted workspace is now actually deleted.** *(Operators: read this one.)*
+
+Deleting a workspace marks it, and after 30 days the maintenance job removes it
+for good. It removed the entries and **left every page's content in the
+database** — invisible to every screen, unreachable by any means, and permanent.
+The promise in `docs/deployment.md` about "deleted" meaning what people take it
+to mean when they ask whether their notes are still on the server was not being
+kept. It is now. The same gap existed for a page's *internal comments* — the
+ones written where the page's readers cannot see them — which survived every
+"delete this page" because their document is stored under a different id.
+
+**This release stops the leak; it does not clean up after it.** An instance that
+has purged a workspace before today still holds that content. Removing it safely
+needs a sweep with no workspace, page or owner to join against, which is one
+mistake away from deleting live data — so it gets its own change, with a dry run
+that reports before it removes, rather than being bolted on here.
+
+**`SONE_VERSION_RETENTION_DAYS=0` would have deleted all page history.** Not
+"kept none from now on" — deleted every existing version of every page on the
+instance, on the next maintenance pass, unrecoverably. The setting is clamped to
+at least one day now, and anything that is not a number falls back to 90.
+
+**Maintenance says when it failed.** A pass in which every task threw looked
+exactly like a clean one: "compacted 0 documents", which is also what a healthy
+instance says. Failures are shown in the Administration panel now, and a
+document that will not compact no longer sits silently at the head of the queue
+starving the others. The panel's summary line is also translated, which it was
+not.
+
 **Backups say what they contain, and a failed restore leaves your database
 alone.**
 
