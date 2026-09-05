@@ -314,6 +314,12 @@ export const en = {
   'admin.maintenance.note':
     'This pass runs on its own every few minutes. Pressing it is for when waiting is ' +
     'not acceptable — after fixing whatever made a projection fail, typically.',
+  'admin.maintenance.ran':
+    'Recovered {recovered, plural, one {# projection} other {# projections}}, ' +
+    'compacted {compacted, plural, one {# document} other {# documents}}.',
+  // A pass in which every task threw used to render exactly like a clean one.
+  'admin.maintenance.failed':
+    '{count, plural, one {# task failed} other {# tasks failed}} in this pass:',
   'admin.replies': 'Replying by email',
   'admin.replies.hint':
     'With a mailbox here, a notification can be answered by replying to it. ' +

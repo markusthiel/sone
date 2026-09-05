@@ -33,6 +33,41 @@ describe('retry backoff', () => {
   test('a zeroth attempt does not produce a negative delay', () => {
     assert.ok(retryDelayMs(0) > 0);
   });
+
+  test(
+    'the database computes the same curve this function describes',
+    { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not set' : false },
+    async () => {
+      /*
+       * The two tests above proved a function with **no callers** (ADR-0080).
+       *
+       * The backoff that actually runs is an SQL expression inside
+       * `retryFailedProjections`, written there so the database does the
+       * filtering rather than fetching every failure and discarding most of
+       * them. `retryDelayMs` is the readable statement of the same rule — and
+       * for as long as both existed, the suite checked the copy nobody runs.
+       *
+       * Two implementations of one rule is the arrangement this project keeps
+       * finding (ADR-0077, ADR-0078). Deleting the function would leave the SQL
+       * unchecked; keeping it as a specification and binding the two together
+       * is the version where a divergence fails a test.
+       */
+      const pool = await getTestPool();
+      const { rows } = await pool.query<{ attempts: number; minutes: string }>(
+        `SELECT a AS attempts,
+                least(power(2, greatest(a - 1, 0)), 60)::text AS minutes
+           FROM generate_series(0, 12) AS a`,
+      );
+
+      for (const row of rows) {
+        assert.equal(
+          Number(row.minutes) * 60_000,
+          retryDelayMs(row.attempts),
+          `attempt ${row.attempts}: the query and the function disagree`,
+        );
+      }
+    },
+  );
 });
 
 describe(
