@@ -18,6 +18,15 @@ import { isGuestKey, type CommentThread } from '@sone/core';
 import { visiblePagesCondition } from '../pages/access.js';
 
 /** A few words, so an inbox can be read without opening every page. */
+/**
+ * A uuid, for a column that holds one.
+ *
+ * A mention node's `userId` is written by a client, so it is whatever a client
+ * put there — and the projection is not the place to find that out from
+ * Postgres.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const EXCERPT = 140;
 
 interface Candidate {
@@ -181,9 +190,25 @@ export function assignmentsFor(
  * Never to the person who wrote it. Somebody who has just typed a colleague's
  * name knows they typed it, and a mention of *yourself* is a note to self —
  * which is a fine thing to write and not a thing to be told about.
+ *
+ * **Who wrote it comes from the document, not from the actor** (ADR-0091). This
+ * compared against `actorId`, which is the projection's actor — set in the sync
+ * room on every inbound message from every connection, before the
+ * write-permission check, and kept for the next flush. So it was not "who typed
+ * this", it was "who last said anything": whoever had the page open when the
+ * flush ran. And the person most likely to have a page open the moment somebody
+ * names them is the person being named — whose own mention was then dropped as
+ * a note to self, permanently, because `ON CONFLICT DO NOTHING` prevents a
+ * duplicate and never fills a gap.
+ *
+ * `writtenBy` is null when the document does not say — an old page, or
+ * attribution pruned after the writer's other words went (ADR-0022). Then
+ * nothing is filtered, and a self-mention notifies once. That is the right way
+ * round: telling somebody about their own sentence is a small annoyance, and
+ * silently dropping everybody else's is the bug this replaces.
  */
 export function textMentionsFor(
-  mentions: Array<{ userId: string; blockId: string }>,
+  mentions: Array<{ userId: string; blockId: string; writtenBy?: string | null }>,
   blocks: Array<{ id: string; plainText: string }>,
   actorId: string | null,
 ): Candidate[] {
@@ -191,10 +216,26 @@ export function textMentionsFor(
   const textOf = new Map(blocks.map((block) => [block.id, block.plainText]));
 
   return mentions
-    .filter((one) => one.userId !== actorId)
+    .filter((one) => {
+      // A guest key is not an account and the column is a uuid: inserting one
+      // aborts the whole projection with `invalid input syntax for type uuid`,
+      // which takes the page's comment counts and search row down with it.
+      // `notificationsFor` and `assignmentsFor` both drop these; this did not.
+      if (isGuestKey(one.userId) || !UUID.test(one.userId)) return false;
+      // Written by somebody, and that somebody is not the person named.
+      return one.writtenBy == null || one.writtenBy !== one.userId;
+    })
     .map((one) => ({
       userId: one.userId,
-      actorId,
+      /*
+       * Who to name as "X mentioned you", and the document knows better than
+       * the flush does. Falls back to the actor when it does not — and never
+       * uses a guest key, which the column cannot hold.
+       */
+      actorId:
+        one.writtenBy && !isGuestKey(one.writtenBy) && UUID.test(one.writtenBy)
+          ? one.writtenBy
+          : actorId,
       kind: 'mention' as const,
       // No thread. The uniqueness constraint is NULLS NOT DISTINCT over
       // (user_id, kind, thread_id, message_id), so the block id alone keeps

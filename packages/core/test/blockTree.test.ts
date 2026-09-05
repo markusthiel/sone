@@ -220,9 +220,11 @@ test('mentionsIn names who was mentioned, and in which block', () => {
   paragraphWithMention(doc, 'p1', { userId: 'u1', label: 'Anna' });
   paragraphWithMention(doc, 'p2', { userId: 'u2', label: 'Bert' });
 
+  // `writtenBy` is null here because this document carries no attribution
+  // mapping — see the test below, which is where it comes from.
   assert.deepEqual(mentionsIn(doc), [
-    { userId: 'u1', blockId: 'p1' },
-    { userId: 'u2', blockId: 'p2' },
+    { userId: 'u1', blockId: 'p1', writtenBy: null },
+    { userId: 'u2', blockId: 'p2', writtenBy: null },
   ]);
   doc.destroy();
 });
@@ -243,8 +245,55 @@ test('the same person twice in one block is one mention', () => {
   }
   fragment.push([paragraph]);
 
-  assert.deepEqual(mentionsIn(doc), [{ userId: 'u1', blockId: 'p1' }]);
+  assert.deepEqual(mentionsIn(doc), [{ userId: 'u1', blockId: 'p1', writtenBy: null }]);
   doc.destroy();
+});
+
+test('a mention says who put the name there', () => {
+  /*
+   * The field the notification rule actually needs (ADR-0091).
+   *
+   * A mention is not announced to the person who wrote it, and until this
+   * existed there was nothing in the document saying who that was — so the
+   * projection substituted its own actor, which is "whoever last sent a sync
+   * message" and not "who typed this". The person most likely to have a page
+   * open when somebody names them is the person being named, whose mention was
+   * then dropped as a note to self.
+   *
+   * The CRDT knew all along: the item holding the node carries the client that
+   * inserted it, and the attribution mapping says whose client that is
+   * (ADR-0022).
+   */
+  const doc = new Y.Doc();
+  new Y.PermanentUserData(doc).setUserMapping(doc, doc.clientID, 'u9');
+  paragraphWithMention(doc, 'p1', { userId: 'u1', label: 'Anna' });
+
+  assert.deepEqual(mentionsIn(doc), [
+    { userId: 'u1', blockId: 'p1', writtenBy: 'u9' },
+  ]);
+  doc.destroy();
+});
+
+test('two people, and each mention keeps its own author', () => {
+  // The case the substituted actor could never get right: one flush, two
+  // writers. Whichever of them spoke last, each name still belongs to whoever
+  // typed it.
+  const a = new Y.Doc();
+  const b = new Y.Doc();
+  new Y.PermanentUserData(a).setUserMapping(a, a.clientID, 'anna');
+  paragraphWithMention(a, 'p1', { userId: 'u1', label: 'Eins' });
+  Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+
+  new Y.PermanentUserData(b).setUserMapping(b, b.clientID, 'bert');
+  paragraphWithMention(b, 'p2', { userId: 'u2', label: 'Zwei' });
+  Y.applyUpdate(a, Y.encodeStateAsUpdate(b, Y.encodeStateVector(a)));
+
+  assert.deepEqual(mentionsIn(a), [
+    { userId: 'u1', blockId: 'p1', writtenBy: 'anna' },
+    { userId: 'u2', blockId: 'p2', writtenBy: 'bert' },
+  ]);
+  a.destroy();
+  b.destroy();
 });
 
 test('a mention with no id names nobody', () => {
