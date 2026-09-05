@@ -251,6 +251,19 @@ export interface ShareTokenResolution {
   claims: AccessClaims;
   /** True when the token is password protected and no password was supplied. */
   passwordRequired: boolean;
+  /**
+   * True when the link grants nothing to a nameless visitor (ADR-0101).
+   *
+   * `allow_anonymous: false` means the link exists and admits people with
+   * accounts — so this is a **state**, like `passwordRequired` beside it, and
+   * not a failure. It used to throw, and the HTTP route did not catch it: the
+   * answer was 500, and the interface offered the "what is your name" form for
+   * a link that would never let a nameless visitor in.
+   *
+   * The claims are still filled in, because a signed-in caller resolving the
+   * same token is admitted by the branch that runs before this one.
+   */
+  signInRequired: boolean;
 }
 
 /**
@@ -280,6 +293,18 @@ export async function resolveShareTokenClaims(
      * fresh session named "Guest".
      */
     track?: boolean;
+    /**
+     * The caller has established that an account is present (ADR-0101).
+     *
+     * `allow_anonymous: false` requires an **account**, not membership: the
+     * link is how somebody gets in, and the point of the flag is that it
+     * records who. Whether an account is present is a question about a second
+     * credential, and this resolver is given a share token and nothing else —
+     * so the caller answers it and says so here, rather than this function
+     * learning to read cookies and every caller's answer then depending on
+     * which ones happened to be on the request.
+     */
+    signedIn?: boolean;
   } = {},
 ): Promise<ShareTokenResolution | null> {
   const row = await queryOne<{
@@ -307,6 +332,7 @@ export async function resolveShareTokenClaims(
       // Report the requirement without leaking anything about the target.
       return {
         passwordRequired: true,
+        signInRequired: false,
         claims: {
           principal: { kind: 'anonymous', sessionId: '', displayName: '' },
           workspaceId: row.workspace_id,
@@ -325,10 +351,31 @@ export async function resolveShareTokenClaims(
     if (!valid) throw new AuthError('incorrect link password', 'invalid_credentials');
   }
 
-  if (!row.allow_anonymous) {
-    // The link exists but requires an account; the caller must sign in and
-    // then claim the grant.
-    throw new AuthError('this link requires signing in', 'invalid_credentials');
+  if (!row.allow_anonymous && opts.signedIn !== true) {
+    /*
+     * The link exists and requires an account.
+     *
+     * Reported rather than thrown (ADR-0101). A throw makes every caller decide
+     * what an exception from a resolver means, and one of them — the HTTP route
+     * that a visitor's browser hits first — decided nothing and answered 500.
+     * As a state it is the same shape as `passwordRequired` directly above,
+     * which every caller already handles.
+     */
+    return {
+      passwordRequired: false,
+      signInRequired: true,
+      // Nothing is authorised, so there is nothing to describe. The same empty
+      // claims the password branch above returns, and for the same reason: the
+      // answer must not leak anything about the page behind the link.
+      claims: {
+        principal: { kind: 'anonymous', sessionId: '', displayName: '' },
+        workspaceId: row.workspace_id,
+        workspaceRole: null,
+        pageLevel: null,
+        grants: [],
+        caps: [],
+      },
+    };
   }
 
   /*
@@ -397,6 +444,7 @@ export async function resolveShareTokenClaims(
 
   return {
     passwordRequired: false,
+    signInRequired: false,
     claims: {
       principal: { kind: 'anonymous', sessionId: shareSessionId, displayName },
       workspaceId: row.workspace_id,

@@ -1142,10 +1142,21 @@ export async function claimsForRequest(
     // Not a visit: this is a picture loading or a comment being posted, and it
     // cannot say which visitor it belongs to. See `track` for what tracking it
     // anyway cost.
-    const resolved = await resolveShareTokenClaims(pool, shareToken, { track: false });
+    /*
+     * Signed in, but not into this workspace — which a link with
+     * `allow_anonymous: false` still admits (ADR-0101). The session was tried
+     * first above and gave nothing here; that it exists at all is the fact this
+     * link asks for.
+     */
+    const resolved = await resolveShareTokenClaims(pool, shareToken, {
+      track: false,
+      signedIn: Boolean(sessionToken),
+    });
     // A link needing a password is not authenticated by the cookie alone. The
     // sync connection handles unlocking; an ordinary request is not the place to.
-    if (resolved && !resolved.passwordRequired) {
+    // Neither a password nor an account still owing: both are "this link has
+    // not admitted anybody yet" (ADR-0101).
+    if (resolved && !resolved.passwordRequired && !resolved.signInRequired) {
       if (resolved.claims.workspaceId === workspaceId) {
         return { kind: 'ok', claims: resolved.claims };
       }
