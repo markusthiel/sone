@@ -76,14 +76,10 @@ export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): vo
           -- its title in their sidebar, which is the quietest kind of leak —
           -- nobody looks at a list they have had for months.
           --
-          -- No admin shortcut here: this is one person's own list, so the
-          -- workspace role is looked up per row rather than passed in.
-          AND ${visiblePagesCondition('p', '$1', `EXISTS (
-            SELECT 1 FROM workspace_members wm
-             WHERE wm.workspace_id = p.workspace_id
-               AND wm.user_id = $1
-               AND wm.role IN ('owner','admin')
-          )`)}
+          -- The workspace role is looked up per row rather than passed in,
+          -- which the condition now does for every caller (ADR-0087) — this
+          -- was the call site that got it right and had to write it out.
+          AND ${visiblePagesCondition('p', '$1')}
           AND ($2::uuid IS NULL OR p.workspace_id = $2)
         ORDER BY f.idx, f.page_id`,
       [auth.userId, scope],
@@ -176,7 +172,10 @@ export function registerFavouriteRoutes(router: Router, deps: FavouriteDeps): vo
             SELECT 1 FROM workspace_members m
              WHERE m.workspace_id = p.workspace_id AND m.user_id = $2
           )
-          AND ${visiblePagesCondition('p', '$2', 'false')}`,
+          -- This passed a literal false for "does their role give them
+          -- everything", so an owner could not watch a restricted page they
+          -- could plainly see. The condition asks for itself now (ADR-0087).
+          AND ${visiblePagesCondition('p', '$2')}`,
       [pageId, auth.userId],
     );
     if (!visible) {

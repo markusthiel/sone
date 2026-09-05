@@ -37,7 +37,9 @@ import {
   loadPageLocation,
   resolveSessionClaims,
   revalidateClaims,
+  roleIn,
 } from '../src/auth/claims.js';
+import { loadWorkspaceStanding } from '../src/auth/standing.js';
 import { createSession } from '../src/auth/session.js';
 import { getTestPool, hasDatabase } from './support/db.js';
 
@@ -245,6 +247,91 @@ describe('the two access resolvers agree (database)', { concurrency: 1, skip: !h
       colleague,
     ]);
     await db.query(`DELETE FROM page_group_permissions WHERE group_id = $1`, [team]);
+  });
+
+  test('a custom role is not mistaken for somebody who is not here', async () => {
+    /*
+     * A role is a row now (ADR-0087), and a custom role has no name in the old
+     * four-word vocabulary. `roleIn` used to return that name, and half its
+     * callers read null as "not in this workspace" — so the obvious version of
+     * this change would have thrown every member holding a custom role out of
+     * the workspace entirely.
+     *
+     * There is no route that creates one yet, which is exactly why this test
+     * inserts the row directly: the landmine is reachable from the database
+     * before it is reachable from the interface.
+     */
+    const role = await db.query<{ id: string }>(
+      `INSERT INTO roles (workspace_id, name, page_level, rights)
+       VALUES ($1, 'Lektorat', 'commenter', '{}') RETURNING id`,
+      [workspace],
+    );
+    const custom = role.rows[0]!.id;
+    await db.query(`UPDATE workspace_members SET role_id = $3 WHERE workspace_id = $1 AND user_id = $2`, [
+      workspace,
+      colleague,
+      custom,
+    ]);
+
+    const standing = await loadWorkspaceStanding(db, colleague, workspace);
+    assert.equal(standing.isMember, true, 'still a member');
+    assert.equal(standing.role, null, 'and not one of the four');
+    assert.equal(standing.pageLevel, 'commenter');
+    assert.equal(await roleIn(db, workspace, colleague), 'custom', 'a word, not null');
+
+    // And the level the role carries reaches both resolvers, on an ordinary
+    // page, with no grant anywhere.
+    await agree(section, 'commenter', 'a custom role');
+
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'guest')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspace, colleague],
+    );
+    await db.query(`DELETE FROM roles WHERE id = $1`, [custom]);
+  });
+
+  test('a role held through a group raises the page level', async () => {
+    // The union-and-maximum rule (ADR-0087), which is ADR-0026's "the more
+    // permissive wins" applied one level up. A group can carry a role, and
+    // holding one must never take anything away.
+    const role = await db.query<{ id: string }>(
+      `INSERT INTO roles (workspace_id, name, page_level, rights)
+       VALUES ($1, 'Redaktion', 'editor', '{}') RETURNING id`,
+      [workspace],
+    );
+    const editorRole = role.rows[0]!.id;
+    await db.query(`UPDATE groups SET role_id = $2 WHERE id = $1`, [team, editorRole]);
+
+    // The colleague is still a guest, whose role gives nothing at all.
+    await agree(section, 'editor', 'a role held through a group');
+
+    await db.query(`UPDATE groups SET role_id = NULL WHERE id = $1`, [team]);
+    await db.query(`DELETE FROM roles WHERE id = $1`, [editorRole]);
+    await agree(section, null, 'and gone when the group loses it');
+  });
+
+  test('a restricted page still withholds what the role gives', async () => {
+    // Unchanged by roles, and the half that was once missing from the claims
+    // side: the tree stopped listing a restricted page while sync went on
+    // serving its document to anybody who knew the id.
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'member')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspace, colleague],
+    );
+    await agree(section, 'editor', 'an ordinary member');
+
+    await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [section]);
+    await agree(section, null, 'and nothing once the section is restricted');
+    await agree(below, null, 'nor below it');
+
+    await db.query(`UPDATE pages SET restricted = false WHERE id = $1`, [section]);
+    await db.query(
+      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = 'guest')
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [workspace, colleague],
+    );
   });
 
   test('re-resolving a live connection sees group grants too', async () => {

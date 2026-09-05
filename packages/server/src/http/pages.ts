@@ -331,7 +331,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
               -- A page somebody reaches only as the path to a child they were
               -- granted. It appears, and the interface draws it without its
               -- title (ADR-0026).
-              NOT ${visiblePagesCondition('p', '$4', '$3')} AS path_only
+              NOT ${visiblePagesCondition('p', '$3')} AS path_only
          FROM pages p
         WHERE p.workspace_id = $1
           AND ($2 OR p.archived_at IS NULL)
@@ -343,16 +343,17 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           -- has anywhere to sit in a tree of pages.
           AND p.kind NOT IN ('row', 'container')
           AND (
-            ${visiblePagesCondition('p', '$4', '$3')}
-            OR ${isPathOnlyCondition('p', '$4')}
+            ${visiblePagesCondition('p', '$3')}
+            OR ${isPathOnlyCondition('p', '$3')}
           )
         ORDER BY p.idx, p.id`,
       [
         workspaceId,
         includeArchived,
-        // Owners and admins see the whole workspace, restricted or not: they
-        // are the people who have to be able to undo a restriction.
-        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
+        // No "and are they an admin" any more: whoever the workspace makes a
+        // page admin sees it all, restricted or not, and the condition asks
+        // that for itself rather than trusting each caller to work it out
+        // (ADR-0087).
         claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
       ],
     );
@@ -592,12 +593,11 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           -- The same visibility condition as the tree and search. A quotation
           -- from a page somebody may not read is a disclosure, and this list is
           -- made of quotations.
-          AND ${visiblePagesCondition('p', '$3', '$2')}
+          AND ${visiblePagesCondition('p', '$2')}
         ORDER BY c.last_message_at DESC NULLS LAST, c.thread_id
         LIMIT 200`,
       [
         workspaceId,
-        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
         claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
       ],
     );
@@ -645,11 +645,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           -- The same condition the tree and search use, rather than a second
           -- one: its own comment says the copy that drifts is a disclosure, and
           -- a template's title discloses as much as a search result's.
-          AND ${visiblePagesCondition('p', '$3', '$2')}
+          AND ${visiblePagesCondition('p', '$2')}
         ORDER BY p.title, p.id`,
       [
         workspaceId,
-        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
         claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
       ],
     );
@@ -2125,7 +2124,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
          -- written by the materialiser for exactly this.
          LEFT JOIN LATERAL (
            SELECT b.id AS block_id,
-                  ts_headline($3::regconfig, b.plain_text, q.stemmed, $7) AS snippet
+                  ts_headline($3::regconfig, b.plain_text, q.stemmed, $6) AS snippet
              FROM blocks b
             WHERE b.page_id = p.id
               AND b.plain_text <> ''
@@ -2139,29 +2138,29 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           -- With no words left, the filters are the search: the text condition
           -- is skipped rather than matched against an empty query, which would
           -- match nothing at all.
-          AND ($8::boolean OR ps.tsv @@ q.stemmed OR ps.tsv @@ q.simple)
+          AND ($7::boolean OR ps.tsv @@ q.stemmed OR ps.tsv @@ q.simple)
           -- Every tag named, not any of them: two tags in one query means
           -- "both", which is what somebody narrowing a list expects.
-          AND ($9::text[] IS NULL OR EXISTS (
+          AND ($8::text[] IS NULL OR EXISTS (
                 SELECT 1 FROM page_tags pt
-                 WHERE pt.page_id = p.id AND pt.tag_key = ANY($9::text[])
-                HAVING count(*) = cardinality($9::text[])
+                 WHERE pt.page_id = p.id AND pt.tag_key = ANY($8::text[])
+                HAVING count(*) = cardinality($8::text[])
               ))
           -- Pages holding a task assigned to one of these people (ADR-0052).
           --
           -- An id match rather than a prefix, unlike the author filter: the
           -- names here come from a picker in the interface and "me" is resolved
           -- before the query runs, so there is nothing to guess at.
-          AND ($13::uuid[] IS NULL OR EXISTS (
+          AND ($12::uuid[] IS NULL OR EXISTS (
                 SELECT 1 FROM blocks b
                  WHERE b.page_id = p.id
                    AND b.type = 'todo'
-                   AND (b.props ->> 'assignee')::uuid = ANY($13::uuid[])
+                   AND (b.props ->> 'assignee')::uuid = ANY($12::uuid[])
               ))
           -- A prefix against any of the page's authors: nobody types a whole
           -- name to narrow a list.
-          AND ($10::text[] IS NULL OR EXISTS (
-                SELECT 1 FROM unnest(ps.authors) AS name, unnest($10::text[]) AS wanted
+          AND ($9::text[] IS NULL OR EXISTS (
+                SELECT 1 FROM unnest(ps.authors) AS name, unnest($9::text[]) AS wanted
                  WHERE lower(name) LIKE wanted || '%'
               ))
           -- The page's last edit, by day.
@@ -2176,8 +2175,8 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           --
           -- Inclusive at both ends, because "before 2026-09-01" meaning "up to
           -- the 31st" is a boundary nobody would guess.
-          AND ($11::date IS NULL OR p.last_edited_at::date >= $11::date)
-          AND ($12::date IS NULL OR p.last_edited_at::date <= $12::date)
+          AND ($10::date IS NULL OR p.last_edited_at::date >= $10::date)
+          AND ($11::date IS NULL OR p.last_edited_at::date <= $11::date)
           -- Under one of the folders the in: filter named (ADR-0050).
           --
           -- ancestor_ids rather than the parent: naming a folder means anywhere
@@ -2192,7 +2191,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           -- Written as SQL comments and without backticks: a backtick inside a
           -- template literal ends the literal, and this project has now made
           -- that mistake five times.
-          AND ($14::uuid[] IS NULL OR p.ancestor_ids && $14::uuid[])
+          AND ($13::uuid[] IS NULL OR p.ancestor_ids && $13::uuid[])
           -- The same condition the tree uses (ADR-0026).
           --
           -- Filtering after the query would still have been correct here, and
@@ -2203,7 +2202,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
           -- No path-only case: a page nobody may read has nothing to match, and
           -- surfacing it as a nameless result would say something exists
           -- without saying what.
-          AND ${visiblePagesCondition('p', '$5', '$6')}
+          AND ${visiblePagesCondition('p', '$5')}
         ORDER BY rank DESC, p.last_edited_at DESC
         LIMIT $4`,
       [
@@ -2212,7 +2211,6 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         i18n.searchConfig,
         limit,
         claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
-        claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
         headline,
         raw.length < 2,
         filters.tags.length > 0 ? filters.tags : null,
@@ -2308,7 +2306,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
                 -- longer than the query, and similarity() punishes it for the
                 -- part that is not being searched for.
                 AND word_similarity($3, p.title) >= ${SIMILARITY_FLOOR}
-                AND ${visiblePagesCondition('p', '$4', '$5')}
+                AND ${visiblePagesCondition('p', '$4')}
               ORDER BY word_similarity($3, p.title) DESC, p.last_edited_at DESC
               LIMIT ${SIMILAR_LIMIT}`,
             [
@@ -2316,7 +2314,6 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
               visible.map((row) => row.page_id),
               raw,
               claims.principal.kind === 'anonymous' ? null : claims.principal.userId,
-              claims.workspaceRole === 'owner' || claims.workspaceRole === 'admin',
             ],
           );
 

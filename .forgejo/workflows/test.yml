@@ -136,6 +136,13 @@ jobs:
         # who has lost both their phone and their recovery codes.
         run: node scripts/check-routes-reachable.mjs
 
+      - name: Check every right is actually consulted
+        # A role is a name for a set of rights, and the set is edited in a
+        # settings screen. A switch there that gates nothing is worse than a
+        # missing feature: somebody turns it off, believes they have taken
+        # something away, and has not. Nothing in the type system can notice.
+        run: node scripts/check-rights-enforced.mjs
+
       - name: Check every cited record exists
         # I cited a record that did not exist, twice, with a wrong number. A
         # citation is a promise that somebody can go and read the reasoning,

@@ -25,6 +25,58 @@ export const atLeast = (have: Role, need: Role) =>
 
 export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'guest';
 
+/**
+ * The rights a role can carry (ADR-0087).
+ *
+ * A closed list, and short on purpose: it holds exactly the rights that gate
+ * something on the server today. `scripts/check-rights-enforced.mjs` fails the
+ * build when an entry here is not consulted by any check, because a right
+ * nobody checks is a lie — and a lie in a permission screen is worse than a
+ * missing feature, since somebody turns the switch off and believes something.
+ *
+ * So the way to add one is: write the check first, then the entry. Rights for
+ * things nobody guards yet — creating pages, emptying the trash, exporting —
+ * are deliberately absent. Exporting in particular is worth naming: today any
+ * member may export a whole workspace, and tightening that is a change to what
+ * SONE does rather than a rename of it, so it does not belong in the change
+ * that only moves checks around.
+ */
+export const RIGHTS = [
+  /** Add and remove members, change what role they hold, manage invitations. */
+  'people.manage',
+  /** Create groups and change who is in them. */
+  'groups.manage',
+  /** The workspace's name, mark, typography and appearance. */
+  'workspace.settings',
+] as const;
+
+export type Right = (typeof RIGHTS)[number];
+
+/**
+ * What somebody holds in a workspace: one page level, one set of rights.
+ *
+ * Two parts because the two halves of "what may this person do" have different
+ * shapes. `pageLevel` is a ladder — a page is a CRDT document the server either
+ * serves or does not, so "may edit but not view" is meaningless — and null is
+ * ADR-0087's `none`: nothing without an explicit grant. `rights` is a set,
+ * because "may manage groups" and "may change the typography" have no order
+ * between them.
+ *
+ * Where somebody holds several roles — their own and their groups' — this is
+ * the union of the rights and the maximum of the page levels. Never a
+ * subtraction, for ADR-0026's reason unchanged: being added to a group must
+ * never reduce what somebody could already do.
+ */
+export interface WorkspaceStanding {
+  /** Null when they are not in the workspace at all. */
+  role: WorkspaceRole | null;
+  /** Null for a role that grants nothing by default, and for a non-member. */
+  pageLevel: Role | null;
+  rights: ReadonlySet<Right>;
+  /** Transferring and deleting the workspace, which is not a right. */
+  isOwner: boolean;
+}
+
 export interface WorkspaceMember {
   workspaceId: WorkspaceId;
   userId: UserId;

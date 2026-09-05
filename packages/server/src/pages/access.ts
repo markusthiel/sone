@@ -10,6 +10,7 @@
 import type { Pool, PoolClient } from 'pg';
 
 import { queryOne } from '../db/pool.js';
+import { fullAccessCondition, loadWorkspaceStanding } from '../auth/standing.js';
 
 /**
  * The levels a grant can carry.
@@ -42,6 +43,12 @@ export const morePermissive = (
  * The default that page rules widen or, on a restricted page, replace. A guest
  * gets nothing by role: being in a workspace as a guest means being shown
  * particular things, not everything.
+ *
+ * @deprecated A role is a row now, and what it gives on a page is a column on
+ * that row (ADR-0087). This switch is the shape that made a role's meaning
+ * impossible to change without editing two files, and it is kept only until
+ * the last caller outside tests is gone. `loadWorkspaceStanding` is the
+ * question this used to answer.
  */
 export function accessFromRole(role: string | null): PageAccess | null {
   switch (role) {
@@ -78,7 +85,7 @@ export async function resolvePageAccess(
   input: { pageId: string; userId: string },
 ): Promise<Resolution> {
   const row = await queryOne<{
-    role: string | null;
+    workspace_id: string;
     restricted: boolean;
     granted: PageAccess | null;
     owns_workspace: boolean;
@@ -114,7 +121,13 @@ export async function resolvePageAccess(
           AND (gp.include_subtree OR gp.page_id = $1)
      )
      SELECT
-       m.role::text AS role,
+       -- Not the role. What somebody holds in a workspace is loaded by
+       -- loadWorkspaceStanding and nowhere else (ADR-0087), so this query
+       -- returns the workspace and asks that question separately. One query
+       -- became two, and one rule stopped having two implementations.
+       -- (No backticks in here. That mistake has now ended a template literal
+       -- nine times in this project.)
+       p.workspace_id,
        -- Restriction is inherited: a page under a restricted section is
        -- restricted, or the section's rules would end at its first child.
        EXISTS (SELECT 1 FROM ancestry WHERE restricted) AS restricted,
@@ -129,8 +142,6 @@ export async function resolvePageAccess(
        FROM ancestry a
        JOIN pages p ON p.id = a.id
        JOIN workspaces w ON w.id = p.workspace_id
-       LEFT JOIN workspace_members m
-              ON m.workspace_id = p.workspace_id AND m.user_id = $2
       WHERE a.parent_page_id IS NULL
       LIMIT 1`,
     [input.pageId, input.userId],
@@ -142,13 +153,14 @@ export async function resolvePageAccess(
   // set on a page inside it.
   if (row.owns_workspace) return { access: 'admin', reason: 'role' };
 
-  const byRole = accessFromRole(row.role);
+  const standing = await loadWorkspaceStanding(db, input.userId, row.workspace_id);
+  const byRole = standing.pageLevel;
 
   if (row.restricted) {
-    // A restricted page ignores the member default. Owners and admins keep
-    // manage, or a restriction would be able to lock out the people who have
-    // to be able to undo it.
-    const keep = row.role === 'owner' || row.role === 'admin' ? 'admin' : null;
+    // A restricted page ignores the role's default. Anybody the workspace
+    // makes a page admin keeps manage, or a restriction would be able to lock
+    // out the people who have to be able to undo it.
+    const keep = byRole === 'admin' ? 'admin' : null;
     const access = morePermissive(keep, row.granted);
     return {
       access,
@@ -179,16 +191,25 @@ export async function resolvePageAccess(
  * Uses `ancestor_ids`, which the page rows already carry, so it is a condition
  * rather than a walk.
  *
- * The caller supplies two placeholders: the user's id, and whether they hold
- * owner or admin in the workspace.
+ * The caller supplies one placeholder: the user's id.
+ *
+ * It used to supply a second — whether this person holds full access — and
+ * that was a mistake worth recording. Every caller had to compute it, thirteen
+ * did, and `PUT /api/pages/:id/watch` passed the literal `false`: an owner
+ * could not watch a restricted page they could plainly see. A parameter every
+ * caller has to compute correctly is a parameter one caller computes wrongly,
+ * so the question is asked here now (ADR-0087).
+ *
+ * The restriction test comes first because most pages are not restricted, and
+ * a page nothing restricts needs no lookup at all.
  */
-export const visiblePagesCondition = (alias: string, userParam: string, adminParam: string): string => `(
-  ${adminParam}
-  OR NOT EXISTS (
+export const visiblePagesCondition = (alias: string, userParam: string): string => `(
+  NOT EXISTS (
     SELECT 1 FROM pages r
      WHERE r.id = ANY(array_append(${alias}.ancestor_ids, ${alias}.id))
        AND r.restricted
   )
+  OR ${fullAccessCondition(alias, userParam)}
   OR EXISTS (
     SELECT 1 FROM page_permissions pp
      WHERE pp.user_id = ${userParam}

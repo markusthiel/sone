@@ -757,6 +757,7 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
       principal: { kind: 'anonymous', sessionId: 's', displayName: 'V' },
       workspaceId: 'ws',
       workspaceRole: null,
+      pageLevel: null,
       grants: [
         { scopePageId: 'root', includeSubtree: true, role: 'commenter', source: 'share_token' },
       ],
