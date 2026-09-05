@@ -20,9 +20,10 @@
 
 import type { Pool } from 'pg';
 
-import { queryRows } from '../db/pool.js';
+import { queryRows, withTransaction } from '../db/pool.js';
 import { pruneAuthTables } from '../auth/session.js';
 import { pruneShareSessions } from '../auth/share.js';
+import { deleteDocumentsFor } from '../doc/deleteDocuments.js';
 import { compactDoc, loadDoc } from '../doc/docStore.js';
 import { expireJobs } from '../jobs/runner.js';
 import {
@@ -58,6 +59,18 @@ export const RETRY_BATCH = 20;
  * Exponential from a minute to about an hour. A transient failure — a lock, a
  * dependency still starting — clears on the first retry; a real one should not
  * be hammered.
+ *
+ * **This is the definition; the rule that runs is the SQL in
+ * `retryFailedProjections`**, which computes the same curve with
+ * `least(power(2, ...), 60) * interval '1 minute'` so the database does the
+ * filtering rather than fetching every failure and discarding most of them.
+ *
+ * Two copies of one rule is the arrangement this project keeps finding and
+ * removing (ADR-0077, ADR-0078), and for a while this was the worse version of
+ * it: the function had two tests and no callers, so the suite proved the copy
+ * nobody runs. Rather than delete it and leave the SQL unchecked, the test now
+ * asserts the two agree — it is the shipped expression that is under test, and
+ * this is the readable statement of what it should say (ADR-0080).
  */
 export function retryDelayMs(attempts: number): number {
   return Math.min(60_000 * 2 ** Math.max(0, attempts - 1), 60 * 60_000);
@@ -65,7 +78,11 @@ export function retryDelayMs(attempts: number): number {
 
 export interface MaintenanceOptions {
   /**
-   * How long a deleted workspace is kept before it is removed (ADR-0027).
+   * How long a deleted workspace is kept before it is removed.
+   *
+   * Cited as ADR-0027 here and in two other places; ADR-0027 is about the
+   * administration screens and contains no retention decision (ADR-0080). The
+   * rule's only record is `docs/deployment.md`.
    *
    * A month by default: long enough for somebody to notice a mistake, short
    * enough that "deleted" means what people take it to mean.
@@ -89,7 +106,7 @@ export interface MaintenanceReport {
   prunedSessions: number;
   prunedAttempts: number;
   prunedShareSessions: number;
-  /** Workspaces marked for deletion long enough ago to be removed (ADR-0027). */
+  /** Workspaces marked for deletion long enough ago to be removed. */
   purgedWorkspaces: number;
   compactedDocuments: number;
   /** Pages a version was taken of because their sitting ended (ADR-0047). */
@@ -229,7 +246,11 @@ export class Maintenance {
     });
 
     await guard('compact documents', async () => {
-      report.compactedDocuments = await compactBacklog(this.opts.pool);
+      const outcome = await compactBacklog(this.opts.pool);
+      report.compactedDocuments = outcome.compacted;
+      for (const failure of outcome.failures) {
+        report.errors.push(`compact documents — ${failure}`);
+      }
     });
 
     // Freeing what expired jobs left behind. Here rather than in the runner's
@@ -270,7 +291,10 @@ export class Maintenance {
       // that is minutes old is probably still resolving.
       const misplaced = await queryRows<{ n: string }>(
         this.opts.pool,
-        `SELECT count(*)::text AS n FROM pages_inside_pages`,
+        // The condition the comment above has always described and the query
+        // never had (migration 0056, ADR-0080).
+        `SELECT count(*)::text AS n FROM pages_inside_pages
+          WHERE created_at < now() - interval '1 hour'`,
       );
       report.entriesInsidePages = Number(misplaced[0]?.n ?? 0);
     });
@@ -454,10 +478,16 @@ export async function retryFailedProjections(
  * cost is actually growing. Bounded per run so one busy instance does not spend
  * every pass compacting.
  */
+export interface CompactionOutcome {
+  compacted: number;
+  /** One line per document that would not compact. Reported, not just logged. */
+  failures: string[];
+}
+
 export async function compactBacklog(
   pool: Pool,
   batchSize = COMPACT_BATCH,
-): Promise<number> {
+): Promise<CompactionOutcome> {
   const candidates = await queryRows<{ doc_id: string; pending: string }>(
     pool,
     `SELECT u.doc_id, count(*)::text AS pending
@@ -472,23 +502,36 @@ export async function compactBacklog(
   );
 
   let compacted = 0;
+  const failures: string[] = [];
   for (const candidate of candidates) {
     try {
       if (await compactDoc(pool, candidate.doc_id)) compacted++;
     } catch (err) {
-      // One document failing to compact is not worth abandoning the batch;
-      // the snapshot is an optimisation, not correctness.
-      console.error(`[maintenance] compaction failed for ${candidate.doc_id}`, err);
+      /*
+       * One document failing to compact is not worth abandoning the batch; the
+       * snapshot is an optimisation, not correctness. But it *is* worth
+       * reporting: this wrote to `console.error` and nowhere else, so a pass in
+       * which all twenty-five compactions failed returned `errors: []` and the
+       * administration panel said "compacted 0 documents" — which is also what
+       * a healthy instance with nothing to compact says (ADR-0080).
+       *
+       * The batch is ordered by backlog size, so a document that always fails
+       * sits at the top of it forever and starves the live ones. That is
+       * invisible without this line.
+       */
+      const message = `${candidate.doc_id}: ${err instanceof Error ? err.message : String(err)}`;
+      console.error(`[maintenance] compaction failed for ${message}`);
+      failures.push(message);
     }
   }
-  return compacted;
+  return { compacted, failures };
 }
 
 /**
  * Remove workspaces marked for deletion long enough ago.
  *
  * Deleting one marks it and takes it out of sight; this is the half that
- * actually removes it (ADR-0027). Keeping the data forever was also a decision,
+ * actually removes it. Keeping the data forever was also a decision,
  * and not one anybody made deliberately.
  *
  * The retention period is what makes the mark useful: somebody who deletes the
@@ -496,23 +539,57 @@ export async function compactBacklog(
  * "deleted" is normally understood — which matters when somebody asks whether
  * their notes are still on this server.
  *
- * Everything else follows by cascade: pages, members, invitations, groups and
- * page grants all reference the workspace. Files on disk do not, and are left
- * to the orphan sweep that already exists rather than deleted here, where a
- * mistake would take somebody else's attachment with it.
+ * Most of it follows by cascade: pages, members, invitations, groups and page
+ * grants all reference the workspace. **The documents do not**, and this said
+ * they did (ADR-0080). `doc_updates` and `doc_snapshots` carry no foreign key
+ * to `pages`, so a bare `DELETE FROM workspaces` removed every page row and
+ * left every page's content in the database permanently — unreachable by any
+ * view or route, and directly contradicting the paragraph above about what
+ * "deleted" means when somebody asks whether their notes are still here. They
+ * are removed explicitly now, through the one function that also knows about a
+ * page's internal comments document.
+ *
+ * Files on disk are still left alone rather than deleted here, where a mistake
+ * would take somebody else's attachment with it. There is no orphan sweep to
+ * leave them to, whatever the previous version of this comment said; that is
+ * named in ADR-0080 rather than quietly implied.
  */
 export async function purgeDeletedWorkspaces(
   pool: Pool,
   retentionDays: number,
 ): Promise<number> {
-  const result = await pool.query(
-    `DELETE FROM workspaces
-      WHERE deleted_at IS NOT NULL
-        AND deleted_at < now() - ($1 || ' days')::interval
-        -- Never a personal one, whatever its mark says. It goes with its
-        -- account, and an account is removed elsewhere.
-        AND personal_for IS NULL`,
-    [String(Math.max(1, retentionDays))],
-  );
-  return result.rowCount ?? 0;
+  return withTransaction(pool, async (client) => {
+    /*
+     * The pages are read before the workspaces go, because afterwards there is
+     * nothing left to ask which documents belonged to them — the cascade has
+     * already removed the only link. One transaction, so a failure between the
+     * two leaves the workspace marked and intact rather than emptied of its
+     * content and still listed.
+     */
+    const doomed = await queryRows<{ id: string }>(
+      client,
+      `SELECT p.id
+         FROM pages p
+         JOIN workspaces w ON w.id = p.workspace_id
+        WHERE w.deleted_at IS NOT NULL
+          AND w.deleted_at < now() - ($1 || ' days')::interval
+          AND w.personal_for IS NULL`,
+      [String(Math.max(1, retentionDays))],
+    );
+    await deleteDocumentsFor(
+      client,
+      doomed.map((row) => row.id),
+    );
+
+    const result = await client.query(
+      `DELETE FROM workspaces
+        WHERE deleted_at IS NOT NULL
+          AND deleted_at < now() - ($1 || ' days')::interval
+          -- Never a personal one, whatever its mark says. It goes with its
+          -- account, and an account is removed elsewhere.
+          AND personal_for IS NULL`,
+      [String(Math.max(1, retentionDays))],
+    );
+    return result.rowCount ?? 0;
+  });
 }

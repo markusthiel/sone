@@ -867,6 +867,16 @@ export function MaintenancePanel(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<string | null>(null);
+  /**
+   * What went wrong in the last pass, if anything.
+   *
+   * The report has always carried `errors`; nothing read them, so a pass in
+   * which every task threw rendered exactly like a clean one — "compacted 0
+   * documents", which is also what a healthy instance with nothing to do says
+   * (ADR-0080). An unattended job whose failures are invisible is a job nobody
+   * can tell is failing.
+   */
+  const [lastErrors, setLastErrors] = useState<string[]>([]);
   const [retried, setRetried] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
@@ -895,10 +905,11 @@ export function MaintenancePanel(): ReactElement {
       const result = await api.adminRunMaintenance();
       const recovered = Number(result.report['recoveredProjections'] ?? 0);
       const compacted = Number(result.report['compactedDocuments'] ?? 0);
-      setLastRun(
-        `Recovered ${recovered} projection${recovered === 1 ? '' : 's'}, ` +
-          `compacted ${compacted} document${compacted === 1 ? '' : 's'}.`,
-      );
+      // Through `t`, because this sentence was built here in English with an
+      // `s` appended by hand — a screen that is otherwise translated.
+      setLastRun(t('admin.maintenance.ran', { recovered, compacted }));
+      const failures = result.report['errors'];
+      setLastErrors(Array.isArray(failures) ? failures.map(String) : []);
       await load();
       setError(null);
     } catch (err) {
@@ -951,6 +962,18 @@ export function MaintenancePanel(): ReactElement {
         </button>
         {lastRun && <span className="muted">{lastRun}</span>}
       </div>
+      {lastErrors.length > 0 && (
+        <div className="admin-alert">
+          <p className="admin-alert-title">
+            {t('admin.maintenance.failed', { count: lastErrors.length })}
+          </p>
+          {lastErrors.map((failure) => (
+            <p className="admin-alert-detail" key={failure}>
+              {failure}
+            </p>
+          ))}
+        </div>
+      )}
       <p className="muted settings-note">
         {t('admin.maintenance.note')}
       </p>

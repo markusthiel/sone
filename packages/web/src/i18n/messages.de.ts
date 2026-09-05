@@ -337,6 +337,11 @@ export const de: Record<keyof typeof en, string> = {
     'Dieser Durchgang läuft von selbst alle paar Minuten. Der Knopf ist für den Fall, ' +
     'dass Warten nicht in Frage kommt — meist, nachdem behoben wurde, woran eine ' +
     'Projektion gescheitert ist.',
+  'admin.maintenance.ran':
+    '{recovered, plural, one {# Projektion} other {# Projektionen}} wiederhergestellt, ' +
+    '{compacted, plural, one {# Dokument} other {# Dokumente}} verdichtet.',
+  'admin.maintenance.failed':
+    '{count, plural, one {# Aufgabe} other {# Aufgaben}} in diesem Durchgang gescheitert:',
   'admin.replies': 'Antworten per E-Mail',
   'admin.replies.hint':
     'Mit einem Postfach hier lässt sich eine Benachrichtigung durch Antworten ' +
