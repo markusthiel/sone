@@ -234,7 +234,7 @@ export function PageView({
         <nav className="breadcrumb" aria-label={t('folder.location')}>
           {trail.map((ancestor) => (
             <span key={ancestor.id}>
-              <a href={paths.page(ancestor.id, ancestor.title)}>
+              <a href={paths.page(ancestor.id, ancestor.title ?? undefined)}>
                 {ancestor.title || t('folder.untitled')}
               </a>
               <span aria-hidden="true"> / </span>

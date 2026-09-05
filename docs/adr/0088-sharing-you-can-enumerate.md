@@ -119,14 +119,31 @@ grant one level up walks through it. Changing it would change what every existin
 subtree grant does, so it is recorded here and in a test that says what actually
 happens, for a decision of its own.
 
-**And one the tree route still has.** `path_only` is computed for a page somebody
+**And one the tree route had.** `path_only` was computed for a page somebody
 reaches only as the path to a child they were granted, exactly as ADR-0026
-requires — and the very next line filters those rows out, because their
-`effectiveRole` is null. The column is computed, documented, and discarded;
-`PageSummary` has no field for it and types `title` as non-null. The client
-compensates by treating an orphan as a root, which is why nobody noticed. Named
-here rather than fixed, because it is a change to what the sidebar shows and
-belongs with a decision about how a granted subpage should appear.
+requires — and the very next line filtered those rows out, because their
+`effectiveRole` is null. The column was computed, documented, and discarded;
+`PageSummary` had no field for it and typed `title` as non-null.
+
+> **Fixed, 2026-09-05.** The filter now keeps a row that is a path, and
+> `PageSummary` types `title` as `string | null` with a `pathOnly` flag beside
+> it — which turned out to be the useful half of the change, because the
+> compiler then named all ten places that draw a title and each had to say what
+> it draws instead.
+>
+> Why nobody noticed is the part worth keeping: a **member** survived by
+> accident. The filter was told `restricted: false` — on the grounds that "the
+> listing condition already excluded restricted pages", which is true of every
+> row except the ones `path_only` exists for — so the member's role answered
+> `editor` for the restricted ancestor and the row stayed. Only a **guest**,
+> the entire case the feature is for, lost the path and found the page they were
+> given floating at the top of the sidebar. A test of the resolver would have
+> agreed with the resolver; only asking the route what a *guest* receives shows
+> it, which is where the test for it lives.
+>
+> The row draws as a muted word rather than an empty space, and offers nothing:
+> no link, no rename, no menu, no drag. A nameless row with a twisty beside it
+> reads as a fault; a word that says why it has no name reads as a rung.
 
 ## Alternatives considered
 
