@@ -72,6 +72,10 @@ export const NotifyScope = {
    * and restoring belong to both lists, renaming belongs only to the tree.
    */
   Trash: 'trash',
+  /**
+   * The workspace's shares screen (ADR-0098): links, granted, received.
+   */
+  Shares: 'shares',
 } as const;
 
 export type Role = 'viewer' | 'commenter' | 'editor' | 'admin';
