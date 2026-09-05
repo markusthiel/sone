@@ -66,6 +66,8 @@ describe(
 
     /** Restricted, so a member reaches it only through a grant (ADR-0089). */
     const SECRET = uuid(1);
+    /** Ordinary, so what a member gets on it is whatever their role gives. */
+    const OPEN_PAGE = uuid(2);
 
     before(async () => {
       db = await getTestPool();
@@ -113,6 +115,11 @@ describe(
         `INSERT INTO pages (id, workspace_id, title, idx, kind, restricted)
          VALUES ($1,$2,'Personalakte','a0','page',true)`,
         [SECRET, fx.workspaceId],
+      );
+      await db.query(
+        `INSERT INTO pages (id, workspace_id, title, idx, kind)
+         VALUES ($1,$2,'Die Zahlen','a1','page')`,
+        [OPEN_PAGE, fx.workspaceId],
       );
     });
 
@@ -169,6 +176,37 @@ describe(
           (m.type === ServerMessage.Error && m.requestId === requestId),
       );
       return answer.type === ServerMessage.OpenAck;
+    }
+
+    /** A custom role in this workspace, and somebody holding it (ADR-0087). */
+    async function makeRole(pageLevel: string | null): Promise<string> {
+      const role = await db.query<{ id: string }>(
+        `INSERT INTO roles (workspace_id, name, page_level, rights)
+         VALUES ($1,'Redaktion',$2,'{}') RETURNING id`,
+        [fx.workspaceId, pageLevel],
+      );
+      return role.rows[0]!.id;
+    }
+
+    async function holds(userId: string, roleId: string): Promise<void> {
+      await db.query(`UPDATE workspace_members SET role_id = $1 WHERE user_id = $2`, [
+        roleId,
+        userId,
+      ]);
+    }
+
+    /** Open the ordinary page, which is whatever the role gives. */
+    async function openOrdinary(
+      client: TestClient,
+      requestId: number,
+    ): Promise<string | null> {
+      client.send(encodeOpen(requestId, OPEN_PAGE));
+      const answer = await client.waitFor(
+        (m) =>
+          (m.type === ServerMessage.OpenAck && m.requestId === requestId) ||
+          (m.type === ServerMessage.Error && m.requestId === requestId),
+      );
+      return answer.type === ServerMessage.OpenAck ? answer.role : null;
     }
 
     async function makeGroupWithGrant(role = 'editor'): Promise<string> {
@@ -307,6 +345,143 @@ describe(
     });
 
     // --- and what must not set this off ------------------------------------
+
+    // --- what a role *means*, changed underneath somebody (ADR-0100) -------
+
+    test('lowering a role´s page level reaches the documents it opened', async () => {
+      /*
+       * The last thing ADR-0099 left out, and it named the reason: a system
+       * role is held in every workspace, so one edit would revalidate the whole
+       * instance. A **custom** role is held in one, and the settings screen
+       * exists to edit exactly those (ADR-0087).
+       *
+       * What makes this different from a grant: nothing about the page changed
+       * and nothing about the membership changed. What changed is what the word
+       * on the membership *means*.
+       */
+      const anna = await makeMember('anna@example.org');
+      const roleId = await makeRole('editor');
+      await holds(anna, roleId);
+
+      const client = await connectAs(anna);
+      assert.equal(await openOrdinary(client, 10), 'editor');
+
+      await db.query(`UPDATE roles SET page_level = 'viewer' WHERE id = $1`, [roleId]);
+
+      const changed = await client.waitFor((m) => m.type === ServerMessage.RoleChanged);
+      if (changed.type !== ServerMessage.RoleChanged) return;
+      assert.equal(changed.role, 'viewer');
+    });
+
+    test('and taking the level away closes them', async () => {
+      // `page_level` null is ADR-0087's "none": nothing at all without an
+      // explicit grant, which is what `guest` is. On an open document that is a
+      // revocation, and it has to arrive like one.
+      const anna = await makeMember('anna@example.org');
+      const roleId = await makeRole('editor');
+      await holds(anna, roleId);
+
+      const client = await connectAs(anna);
+      assert.equal(await openOrdinary(client, 11), 'editor');
+
+      await db.query(`UPDATE roles SET page_level = NULL WHERE id = $1`, [roleId]);
+
+      await client.waitFor((m) => m.type === ServerMessage.Closed);
+    });
+
+    test('changing which role a group holds is the same act', async () => {
+      /*
+       * A group can hold a role, which is how "assign a role to a group" works
+       * (ADR-0087) — and `loadWorkspaceStanding` reads it. So pointing a group
+       * at a different role changes what every member of it gets, without
+       * touching a membership, a grant or a page.
+       *
+       * The same family as the role edit above, one join further out, and it
+       * had the same five-minute window.
+       */
+      const anna = await makeMember('anna@example.org');
+      const editors = await makeRole('editor');
+      const group = await db.query<{ id: string }>(
+        `INSERT INTO groups (workspace_id, name, role_id) VALUES ($1,'Redaktion',$2) RETURNING id`,
+        [fx.workspaceId, editors],
+      );
+      const groupId = group.rows[0]!.id;
+      await db.query(`INSERT INTO group_members (group_id, user_id) VALUES ($1,$2)`, [
+        groupId,
+        anna,
+      ]);
+      // Their own membership gives nothing, so the group is the whole story.
+      await db.query(
+        `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key='guest')
+          WHERE user_id = $1`,
+        [anna],
+      );
+
+      const client = await connectAs(anna);
+      assert.equal(await openOrdinary(client, 12), 'editor');
+
+      await db.query(`UPDATE groups SET role_id = NULL WHERE id = $1`, [groupId]);
+
+      await client.waitFor((m) => m.type === ServerMessage.Closed);
+    });
+
+    test('a system role reaches the workspaces that hold it', async () => {
+      /*
+       * ADR-0099 left this out with a reason: a system role is held in every
+       * workspace, so one edit would revalidate the instance. That is true and
+       * it is not an argument for silence — it is an argument for the
+       * notification to name the workspaces that actually hold the role, which
+       * is a query, and for the edit to be as rare as it is: the settings
+       * screen refuses to touch a built-in role, so this only happens by hand
+       * or by migration.
+       */
+      const anna = await makeMember('anna@example.org');
+      const client = await connectAs(anna);
+      assert.equal(await openOrdinary(client, 13), 'editor', 'what `member` gives');
+
+      await db.query(
+        `UPDATE roles SET page_level = 'viewer' WHERE workspace_id IS NULL AND key = 'member'`,
+      );
+
+      const changed = await client.waitFor((m) => m.type === ServerMessage.RoleChanged);
+      if (changed.type !== ServerMessage.RoleChanged) return;
+      assert.equal(changed.role, 'viewer');
+    });
+
+    test('changing what a role may *administer* is not an access change', async () => {
+      /*
+       * The cost guard, and the honest line between the two halves of a role
+       * (ADR-0087): `page_level` is what it gives on a page, `rights` is what
+       * it may administer — members, groups, settings, roles.
+       *
+       * Rights are read per request by the HTTP routes that check them. They
+       * have nothing to do with a document, so revalidating every connection in
+       * a workspace because somebody ticked a box in the roles screen is work
+       * done to confirm that nothing changed.
+       */
+      const anna = await makeMember('anna@example.org');
+      const roleId = await makeRole('editor');
+      await holds(anna, roleId);
+      const client = await connectAs(anna);
+      assert.equal(await openOrdinary(client, 14), 'editor');
+
+      // Move the level without the triggers seeing it, then change only the
+      // rights. A revalidation would correct the stale level and send a frame.
+      await db.query(`ALTER TABLE roles DISABLE TRIGGER USER`);
+      await db.query(`UPDATE roles SET page_level = 'viewer' WHERE id = $1`, [roleId]);
+      await db.query(`ALTER TABLE roles ENABLE TRIGGER USER`);
+
+      await db.query(`UPDATE roles SET rights = ARRAY['people.manage'] WHERE id = $1`, [
+        roleId,
+      ]);
+      await settle();
+
+      assert.equal(
+        client.frames.some((m) => m.type === ServerMessage.RoleChanged),
+        false,
+        'rights are administered, not read',
+      );
+    });
 
     test('a rename does not revalidate anybody', async () => {
       /*
