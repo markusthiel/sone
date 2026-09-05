@@ -48,7 +48,39 @@ export interface CommentActions {
   removeReply: (threadId: string, messageId: string) => void;
 }
 
-export function useComments(doc: Y.Doc | null, author: string): CommentActions {
+/**
+ * How a message reaches the document when this person may not write it.
+ *
+ * `post` returns once the server has written the thread; the room's update bus
+ * then sends it back over sync, so it arrives here by the same path a
+ * colleague's would. Nothing has to be inserted locally and reconciled — which
+ * is the version of this that produces two threads when the round trip is slow.
+ */
+export interface CommentTransport {
+  start: (input: {
+    from: Uint8Array;
+    to: Uint8Array;
+    quote: string;
+    item?: string;
+    text: string;
+  }) => Promise<void>;
+  reply: (threadId: string, text: string) => Promise<void>;
+}
+
+/**
+ * @param transport used **instead of** writing the document, when given.
+ *
+ * The branch is here rather than at the call sites because there are several —
+ * the panel's composer, the margin, the canvas — and each of them asking "may I
+ * write this document" is how one of them ends up asking wrongly. They call
+ * `start` and `reply`; which wire it goes down is this hook's business
+ * (ADR-0090).
+ */
+export function useComments(
+  doc: Y.Doc | null,
+  author: string,
+  transport?: CommentTransport | null,
+): CommentActions {
   const [threads, setThreads] = useState<CommentThread[]>([]);
   // The author of the next message. In a ref so the callbacks below do not have
   // to be rebuilt when a name changes — and so a reply cannot be attributed to
@@ -107,6 +139,16 @@ export function useComments(doc: Y.Doc | null, author: string): CommentActions {
       mentions?: string[],
     ) => {
       if (!doc || text.trim() === '') return;
+      if (transport) {
+        void transport.start({
+          from: anchor.from,
+          to: anchor.to,
+          quote: anchor.quote,
+          ...(anchor.item ? { item: anchor.item } : {}),
+          text: text.trim(),
+        });
+        return;
+      }
       addThread(doc, {
         id: newId(),
         from: anchor.from,
@@ -123,12 +165,16 @@ export function useComments(doc: Y.Doc | null, author: string): CommentActions {
         ...(mentions && mentions.length > 0 ? { mentions } : {}),
       });
     },
-    [doc],
+    [doc, transport],
   );
 
   const reply = useCallback(
     (threadId: string, text: string, mentions?: string[]) => {
       if (!doc || text.trim() === '') return;
+      if (transport) {
+        void transport.reply(threadId, text.trim());
+        return;
+      }
       addMessage(doc, threadId, {
         id: newId(),
         author: who.current,
@@ -136,7 +182,7 @@ export function useComments(doc: Y.Doc | null, author: string): CommentActions {
         ...(mentions && mentions.length > 0 ? { mentions } : {}),
       });
     },
-    [doc],
+    [doc, transport],
   );
 
   const setResolved = useCallback(

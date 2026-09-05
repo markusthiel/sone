@@ -13,6 +13,35 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Wer eine Seite zum Kommentieren freigegeben bekommt, kann jetzt auch
+kommentieren.** Klingt selbstverständlich und war es nicht: die Stufe
+„Kommentieren" gab es in der Freigabe seit es Links gibt, und sie hat nie etwas
+bewirkt — der Schreibschutz der Sync-Verbindung gilt für das ganze Dokument, und
+darunter ging gar nichts. Das betraf **nicht nur Gäste**: auch ein Mitglied, dem
+eine Seite mit „Kommentieren" gegeben wurde, konnte nichts sagen.
+
+Jetzt: Text markieren, kommentieren, antworten — im Workspace und über einen
+Freigabelink. Ein Gast unterschreibt mit dem Namen, den er beim Öffnen des Links
+angegeben hat.
+
+**Keine neue Freigabe-Option.** Die Stufe des Links sagt es schon: ein
+Viewer-Link bekommt weder den Reiter noch den Knopf, ein Kommentar-Link beides.
+
+Ein paar bewusste Grenzen: löschen darf weiterhin nur, wer die Seite bearbeiten
+darf — auch die eigene Nachricht nicht, denn eine Nachricht, die man nach der
+Antwort zurücknehmen kann, ist ein Gespräch, das sich umschreiben lässt.
+Auflösen bleibt ebenfalls, wo es war. Und ein Gast kann niemanden per @ ansprechen:
+er kann die Leute hier nicht kennen. Nötig ist es nicht — eine Antwort erreicht
+ohnehin alle, die schon im Faden sind.
+
+Wer eine Seite per Link freigegeben hat, wird über den ersten Faden eines
+Besuchers benachrichtigt. Vorher hätte es niemand erfahren.
+
+Namen in den Kommentaren sieht ein Gast nur von den Leuten, die auf **dieser
+Seite** geschrieben haben — nicht die Mitgliederliste des Workspace.
+
+Nichts zu tun beim Aktualisieren.
+
 **Der Seitenbaum eines Freigabelinks ist jetzt eine Seitenleiste.** Er kam als
 breites Menü quer über die Seite heraus — und sah außerdem aus wie ein zweites,
 eigenes Ding neben dem Seitenbaum im Workspace. Jetzt ist es dieselbe

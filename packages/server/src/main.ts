@@ -41,6 +41,7 @@ import { installSecondFactorGate, registerAuthRoutes } from './http/auth.js';
 import { factsFor, reachableWhileBlocked, standingOf } from './auth/requirement.js';
 import { registerHealthRoutes, SONE_COMMIT, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
+import { registerCommentRoutes } from './comments/routes.js';
 import { serveRefusal } from './http/refusal.js';
 import { Router } from './http/router.js';
 import { registerWorkspaceRoutes } from './http/workspaces.js';
@@ -419,6 +420,7 @@ async function main(): Promise<void> {
     secureCookies: config.publicUrl.startsWith('https://'),
   });
   registerPageRoutes(router, { pool });
+  registerCommentRoutes(router, { pool });
   registerWorkspaceRoutes(router, { pool });
   registerFavouriteRoutes(router, { pool });
   registerShareRoutes(router, {

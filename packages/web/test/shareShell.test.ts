@@ -112,8 +112,24 @@ test('the right panel is the page\'s, not the workspace\'s', () => {
    */
   const shell = app().slice(app().indexOf('function ShareSession'));
   assert.match(shell, /<RightSidebar/);
-  assert.match(shell, /tabs=\{PAGE_TABS\}/);
   assert.match(shell, /<RightPanelToggle open=\{rightOpen\}/);
+
+  /*
+   * `shareTabs`, which is `PAGE_TABS` plus the discussion when the link allows
+   * one (ADR-0090). Still no setting: a **commenter** link exists to invite
+   * somebody into the conversation, and a viewer link does not get the tab —
+   * the level in the sharing dialog already said which, it just never did
+   * anything until now.
+   */
+  assert.match(shell, /tabs=\{shareTabs\}/);
+  assert.match(
+    shell,
+    /const shareTabs = handle\?\.canComment \? \[\.\.\.PAGE_TABS, 'comments' as const\] : PAGE_TABS;/,
+  );
+
+  // And the four workspace-describing tabs stay out however the link is
+  // graded: `PAGE_TABS` is the base in both branches.
+  assert.doesNotMatch(shell, /'history'|'people'|'properties'/);
 
   // Closed on arrival, and not from the workspace's remembered setting: that
   // key is per browser, so a member opening a link in their own browser would

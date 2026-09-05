@@ -219,3 +219,15 @@ export const ROLE_ORDER: readonly Role[] = ['viewer', 'commenter', 'editor', 'ad
 
 export const canWrite = (role: Role): boolean =>
   ROLE_ORDER.indexOf(role) >= ROLE_ORDER.indexOf('editor');
+
+/**
+ * May this role say something, without changing anything.
+ *
+ * Its own question, because `commenter` had no consequence anywhere in the
+ * client: `canWrite` answered the only question anybody asked, so the level
+ * named after commenting was indistinguishable from `viewer` — the comment
+ * button was gated on edit rights, with a note saying so "until there is a role
+ * that separates them" (ADR-0046). This is the separation (ADR-0090).
+ */
+export const canComment = (role: Role): boolean =>
+  ROLE_ORDER.indexOf(role) >= ROLE_ORDER.indexOf('commenter');
