@@ -13,6 +13,18 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Eine freigegebene Unterseite steht jetzt an ihrem Platz im Seitenbaum.** Wer
+eine Seite tief in einem beschränkten Bereich freigegeben bekommt, sah sie
+bisher ganz oben in der Seitenleiste stehen, außerhalb des Bereichs, in dem sie
+liegt — der Ordner darüber fehlte einfach. Jetzt erscheint er, als Sprosse:
+ohne Namen, ohne Menü, ohne Link, mit dem Hinweis „Nicht freigegeben". Der Name
+war absichtlich zurückgehalten, und ihn mitzuschicken, damit die Oberfläche ihn
+verstecken kann, wäre ihn mitzuschicken.
+
+Betroffen waren Gäste. Für Mitglieder ging es zufällig gut.
+
+Nichts zu tun beim Aktualisieren.
+
 **Ein Freigabelink auf einen Ordner öffnet jetzt auch, was darin liegt.** Wer
 einen Ordner geteilt hat, teilte damit bisher eine leere Seite mit einem Namen
 darüber: die geteilte Ansicht zeigte genau eine Seite und hatte keine

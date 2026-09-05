@@ -797,6 +797,7 @@ export const en = {
   'shares.revoke': 'Revoke',
   'shares.open': 'Open page',
 
+  'tree.pathOnly': 'Not shared with you',
   'perm.people': 'People',
   'perm.peopleHere': 'People in this workspace',
   'perm.groups': 'Groups',
