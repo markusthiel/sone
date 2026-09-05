@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { deliveredAddresses, readMail } from '../src/mail/readMail.js';
+import { addressIn, deliveredAddresses, readMail } from '../src/mail/readMail.js';
 
 const crlf = (...lines: string[]): string => lines.join('\r\n');
 
@@ -136,4 +136,61 @@ test('a second From does not overwrite the first', () => {
     crlf('From: echt@example.org', 'From: gefaelscht@example.org', '', 'Text'),
   );
   assert.equal(mail.headers.get('from'), 'echt@example.org');
+});
+
+test('an unencoded utf-8 body keeps its umlauts', () => {
+  /*
+   * The 8-bit case, which is what a phone sends and what nothing here tested.
+   *
+   * The mail arrives over a socket read as latin1 — one byte, one character —
+   * so a utf-8 body reaches the reader as the *bytes* of that text. Reading
+   * those back as utf8 re-encodes everything above 127 and doubles it: `Grüße`
+   * became `GrÃ¼ÃŸe` in the page, for as long as replying by mail existed
+   * (ADR-0078).
+   *
+   * Base64 and quoted-printable were always right, and both umlaut tests above
+   * are written for those — which is exactly why this went unseen: those two
+   * encodings exist *because* a mail has non-ASCII in it, so that is where
+   * anyone thinks to put a charset test.
+   */
+  const bytes = Buffer.from(
+    crlf('From: anna@example.org', 'Content-Type: text/plain; charset=utf-8', '', 'Grüße, schön!'),
+    'utf8',
+  ).toString('latin1');
+
+  assert.equal(readMail(bytes).text, 'Grüße, schön!');
+});
+
+test('a latin-1 body is still read as latin-1', () => {
+  // The other side of the same change: an older client that says iso-8859-1
+  // means one byte per character, and must not be decoded as utf-8.
+  const bytes = Buffer.from(
+    crlf('From: anna@example.org', 'Content-Type: text/plain; charset=iso-8859-1', '', 'Grüße'),
+    'latin1',
+  ).toString('latin1');
+
+  assert.equal(readMail(bytes).text, 'Grüße');
+});
+
+test('an address is taken out of a header that carries a name', () => {
+  /*
+   * A refusal is the one mail SONE sends to an address it did not choose, and
+   * the whole header used to be handed to the relay — producing
+   * `RCPT TO:<Anna Beispiel <anna@example.org>>`, which every relay rejects
+   * (ADR-0078).
+   */
+  assert.equal(addressIn('anna@example.org'), 'anna@example.org');
+  assert.equal(addressIn('Anna Beispiel <anna@example.org>'), 'anna@example.org');
+  assert.equal(addressIn('"Beispiel, Anna" <anna@example.org>'), 'anna@example.org');
+  assert.equal(addressIn('  =?utf-8?q?Gr=C3=BC=C3=9Fe?= <anna@example.org>  '), 'anna@example.org');
+});
+
+test('an address that cannot be written to is null, not a guess', () => {
+  // Somebody who cannot be written to is a thing to record, not to approximate.
+  assert.equal(addressIn(null), null);
+  assert.equal(addressIn(''), null);
+  assert.equal(addressIn('Anonymous'), null);
+  assert.equal(addressIn('undisclosed-recipients:;'), null);
+  // A newline in a recipient is a header injection waiting for a relay.
+  assert.equal(addressIn('anna@example.org\r\nBcc: alle@example.org'), null);
 });

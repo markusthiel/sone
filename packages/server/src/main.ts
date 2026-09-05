@@ -496,7 +496,24 @@ async function main(): Promise<void> {
       secret: config.secretKey,
       refuse: async (to, reason) => {
         const current = await mailSettings();
-        if (!current.relay || to === '') return;
+        /*
+         * A refusal that cannot be sent is said out loud instead.
+         *
+         * It used to `return` here, silently, while the poll went on to mark
+         * the message read — so an instance with IMAP configured and no relay
+         * ate every unusable reply and told nobody: not the sender, not the
+         * operator, not a log. That is the exact outcome ADR-0060 exists to
+         * prevent, arrived at by a different road (ADR-0078).
+         */
+        if (!current.relay || to === null) {
+          console.warn(
+            `[replies] could not refuse a reply (${reason}): ` +
+              (to === null
+                ? 'the From header holds no address that can be written to'
+                : 'no mail relay is configured'),
+          );
+          return;
+        }
         /*
          * One short mail, and it says which of the reasons it was.
          *
@@ -541,13 +558,44 @@ async function main(): Promise<void> {
    * rather than hidden: a reply appears in the page up to that late, and
    * nothing in the interface may suggest otherwise.
    */
+  /*
+   * One poll at a time.
+   *
+   * A poll can legitimately take longer than the interval — up to fifty
+   * messages, each with its own step timeout — and two overlapping polls both
+   * `SEARCH UNSEEN`, both find the same message, and both can post it before
+   * either marks it read. The reply appears twice, as two comments, because
+   * nothing dedupes on the mail's own Message-ID. A flag is the whole fix
+   * (ADR-0078).
+   */
+  let polling = false;
   const replyTimer = setInterval(() => {
+    if (polling) return;
+    polling = true;
     void replySettings()
       .then((current) => (current ? pollReplies(current) : null))
-      .catch(() => {
-        // A mailbox that cannot be reached is tried again in two minutes.
-        // Throwing here would take the process down for somebody else's
-        // outage.
+      .then((result) => {
+        // Said, because it was not. The counts were computed, returned and
+        // dropped on the floor, so nothing anywhere recorded that a reply had
+        // been posted — or that fifty had been refused.
+        if (result && result.posted + result.refused > 0) {
+          console.log(
+            `[replies] posted ${result.posted}, refused ${result.refused}, ignored ${result.ignored}`,
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        /*
+         * A mailbox that cannot be reached is tried again in two minutes.
+         * Throwing here would take the process down for somebody else's outage
+         * — but swallowing it without a word made an unreachable mailbox, a
+         * wrong password and a database error identical and invisible, and
+         * comments silently stopped arriving with nothing to look at.
+         */
+        console.error('[replies] poll failed', err);
+      })
+      .finally(() => {
+        polling = false;
       });
   }, 120_000);
   replyTimer.unref();

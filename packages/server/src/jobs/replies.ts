@@ -20,7 +20,8 @@ import { createHash } from 'node:crypto';
 import { postReply } from '../comments/postReply.js';
 import { queryOne } from '../db/pool.js';
 import { fetchUnread, type Mailbox } from '../mail/imap.js';
-import { deliveredAddresses, readMail } from '../mail/readMail.js';
+import { addressIn, deliveredAddresses, readMail } from '../mail/readMail.js';
+import { atLeast, resolvePageAccess } from '../pages/access.js';
 import { readReplyToken, tokenFromAddress, type ReplyTarget } from '../mail/replyToken.js';
 import { trimReply } from '../mail/trimReply.js';
 import type { Pool } from 'pg';
@@ -32,8 +33,15 @@ export interface ReplyDeps {
   pool: Pool;
   mailbox: Mailbox;
   secret: string;
-  /** Tell somebody their reply could not be used. One mail, never more. */
-  refuse: (to: string, reason: RefusalReason) => Promise<void>;
+  /**
+   * Tell somebody their reply could not be used. One mail, never more.
+   *
+   * `to` is null when the `From` header holds nothing that can be written to.
+   * The refusal still happens — it is the caller's business what to do when it
+   * cannot be delivered, and quietly doing nothing is not one of the options
+   * (ADR-0078).
+   */
+  refuse: (to: string | null, reason: RefusalReason) => Promise<void>;
 }
 
 export type RefusalReason =
@@ -57,9 +65,15 @@ async function locate(
 ): Promise<{ pageId: string; workspaceId: string } | null> {
   return queryOne<{ pageId: string; workspaceId: string }>(
     pool,
-    `SELECT page_id::text AS "pageId", workspace_id::text AS "workspaceId"
-       FROM notifications
-      WHERE thread_id = $1 AND message_id = $2 AND user_id = $3`,
+    `SELECT n.page_id::text AS "pageId", n.workspace_id::text AS "workspaceId"
+       FROM notifications n
+       JOIN pages p ON p.id = n.page_id
+       JOIN workspaces w ON w.id = n.workspace_id
+      WHERE n.thread_id = $1 AND n.message_id = $2 AND n.user_id = $3
+        -- A page in the trash and a workspace on its way out are not places to
+        -- write to. The same condition the inbox route uses, for the same
+        -- reason and in the same words.
+        AND p.archived_at IS NULL AND w.deleted_at IS NULL`,
     [target.threadId, target.messageId, target.userId],
   );
 }
@@ -71,18 +85,23 @@ async function locate(
  * somebody removed from a workspace in the meantime must not be able to post
  * from an old mail. This is the one place where a fortnight-long token could
  * otherwise outlive the access it was issued under.
+ *
+ * **It asks the same question the inbox route asks, in the same words.** It did
+ * not: it took any row in `workspace_members` as permission, which is a weaker
+ * rule than the one the rest of SONE enforces, and weaker in two ways that
+ * matter. A **guest** is a member of a workspace and gets nothing by role
+ * (ADR-0026) — but was accepted here. A **restricted** page ignores the member
+ * default and grants only what was granted explicitly — but this never looked
+ * at `restricted`, at `page_permissions`, or at `page_group_permissions`, so a
+ * plain member could answer by mail on a page they cannot open in SONE.
+ *
+ * Being mentioned on a page is what produces the notification, and the
+ * notification is what carries the token. Losing access afterwards is exactly
+ * the case this function exists for, and it was the case it got wrong.
  */
 async function mayComment(pool: Pool, pageId: string, userId: string): Promise<boolean> {
-  const row = await queryOne<{ allowed: boolean }>(
-    pool,
-    `SELECT true AS allowed
-       FROM pages p
-       JOIN workspace_members m
-         ON m.workspace_id = p.workspace_id AND m.user_id = $2
-      WHERE p.id = $1 AND p.archived_at IS NULL`,
-    [pageId, userId],
-  );
-  return row?.allowed === true;
+  const { access } = await resolvePageAccess(pool, { pageId, userId });
+  return atLeast(access, 'commenter');
 }
 
 /** One poll. Returns what it did, for the job's result. */
@@ -97,7 +116,10 @@ export async function pollReplies(deps: ReplyDeps): Promise<{
 
   await fetchUnread(deps.mailbox, async (message) => {
     const mail = readMail(message.raw);
-    const sender = mail.headers.get('from') ?? '';
+    // The bare address, not the header. See `addressIn`: handing the whole
+    // header to the relay produced an envelope every relay rejects, and the
+    // throw left the mail unread to be tried again forever.
+    const sender = addressIn(mail.headers.get('from'));
 
     const token = deliveredAddresses(mail.headers)
       .map((address) => tokenFromAddress(address))
