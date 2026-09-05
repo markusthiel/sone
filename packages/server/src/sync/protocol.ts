@@ -126,6 +126,21 @@ export const WORKSPACE_SCOPES: readonly string[] = [
   NotifyScope.Shares,
 ];
 
+/**
+ * A scope the **server** acts on and never forwards (ADR-0099).
+ *
+ * Somebody's access changed somewhere in this workspace. No client wants to
+ * know that as such — what a client sees is a document closing, or a role
+ * changing, or a tree that now has an entry in it — so this one is handled and
+ * dropped rather than put on the wire.
+ *
+ * It is on the same channel as the others because it comes from the same kind
+ * of trigger and is addressed the same way. Deliberately not in `NotifyScope`,
+ * which is the set of things a client can subscribe to: a name in that
+ * enumeration that nothing may subscribe to is a name somebody will try.
+ */
+export const ACCESS_SCOPE = 'access';
+
 export type NotifyScopeValue = (typeof NotifyScope)[keyof typeof NotifyScope];
 
 export type ClientMessageType = (typeof ClientMessage)[keyof typeof ClientMessage];
