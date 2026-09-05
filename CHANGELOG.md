@@ -21,6 +21,30 @@ was being written. They are on `ghcr.io/markusthiel/sone` and can be
 pulled without credentials. A released tag's notes are not rewritten
 (ADR-0013), so the correction lives here.
 
+**Replies that arrive by email: umlauts, and who is allowed to send one.**
+
+An answer typed on a phone arrived with its accented letters doubled — "Grüße"
+landed in the page as "GrÃ¼ÃŸe" — for as long as replying by mail has existed.
+Mail sent as base64 or quoted-printable, which is what most desktop clients
+send, was always correct; the plain kind a phone sends was not. Comments already
+written that way stay as they are: nothing rewrites somebody's words afterwards.
+
+The permission check on those replies was also weaker than the one everywhere
+else in SONE, in two ways that matter. A **guest** could answer by mail on a
+page they cannot open — the inbox has always refused them. And a member could
+answer on a **restricted** page they were never granted access to, because the
+check looked only at workspace membership and never at the page's own rules.
+Both are refused now, by the same rule the rest of SONE uses. Anyone in that
+position gets "You no longer have access to that page" — accurate about what
+happens next, if generous about the history.
+
+Three smaller repairs on the same path: a reply SONE could not use produced a
+refusal addressed to the sender's *display name*, which every mail server
+rejects — and because that happened before the message was filed, the same
+failure repeated every two minutes and blocked everything behind it. A refusal
+that cannot be sent at all is now written to the log instead of vanishing. And
+two overlapping mail checks can no longer post the same answer twice.
+
 **The test pipeline had not run a test in five days.** It failed on 295
 consecutive runs — through eight merges and the 0.11.0 release — on one line
 asking for a tool the project never installed at its root. Every run stopped

@@ -12,97 +12,10 @@
  */
 
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
-import { createServer as createTlsServer } from 'node:tls';
 
 import { fetchUnread } from '../src/mail/imap.js';
-
-/** A self-signed certificate, made once, so the client can speak TLS to it. */
-function certificate(): { key: string; cert: string } {
-  const dir = mkdtempSync(join(tmpdir(), 'sone-imap-'));
-  const key = join(dir, 'key.pem');
-  const cert = join(dir, 'cert.pem');
-  execFileSync('openssl', [
-    'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-    '-keyout', key, '-out', cert, '-days', '1',
-    '-subj', '/CN=localhost',
-  ]);
-  return { key: readFileSync(key, 'utf8'), cert: readFileSync(cert, 'utf8') };
-}
-
-interface FakeImap {
-  port: number;
-  close: () => Promise<void>;
-  said: string[];
-}
-
-async function fakeImap(messages: string[]): Promise<FakeImap> {
-  const { key, cert } = certificate();
-  const said: string[] = [];
-  const stored = new Set<number>();
-
-  const server = createTlsServer({ key, cert }, (socket) => {
-    let buffer = '';
-    socket.setEncoding('latin1');
-    socket.write('* OK fake IMAP ready\r\n');
-
-    socket.on('data', (chunk: string) => {
-      buffer += chunk;
-      for (;;) {
-        const end = buffer.indexOf('\r\n');
-        if (end === -1) return;
-        const line = buffer.slice(0, end);
-        buffer = buffer.slice(end + 2);
-        said.push(line);
-
-        const [tag, verb, ...rest] = line.split(' ');
-        const upper = (verb ?? '').toUpperCase();
-
-        if (upper === 'LOGIN') socket.write(`${tag} OK logged in\r\n`);
-        else if (upper === 'SELECT') socket.write(`* 2 EXISTS\r\n${tag} OK selected\r\n`);
-        else if (upper === 'SEARCH') {
-          const unseen = messages.map((_, at) => at + 1).filter((n) => !stored.has(n));
-          socket.write(`* SEARCH ${unseen.join(' ')}\r\n${tag} OK done\r\n`);
-        } else if (upper === 'FETCH') {
-          const seq = Number(rest[0]);
-          const body = messages[seq - 1] ?? '';
-          // A literal, the way a real server answers: a byte count, then
-          // exactly that many bytes, whatever they contain.
-          socket.write(`* ${seq} FETCH (BODY[] {${Buffer.byteLength(body, 'latin1')}}\r\n`);
-          socket.write(body);
-          socket.write(`)\r\n${tag} OK fetched\r\n`);
-        } else if (upper === 'STORE') {
-          stored.add(Number(rest[0]));
-          socket.write(`${tag} OK stored\r\n`);
-        } else if (upper === 'LOGOUT') {
-          socket.write(`* BYE\r\n${tag} OK bye\r\n`);
-          socket.end();
-        } else socket.write(`${tag} OK\r\n`);
-      }
-    });
-    socket.on('error', () => {});
-  });
-
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-  return {
-    port: typeof address === 'object' && address ? address.port : 0,
-    said,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  };
-}
-
-const mailbox = (port: number) => ({
-  host: 'localhost',
-  port,
-  user: 'sone@example.org',
-  password: 'geheim',
-  folder: 'INBOX',
-});
+import { fakeImap, mailboxAt as mailbox } from './support/imap.js';
 
 // The client verifies certificates, and this one is self-signed.
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
