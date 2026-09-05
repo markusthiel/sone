@@ -24,6 +24,8 @@ import {
 import type { CommentActions } from '../hooks/useComments.ts';
 import { useFoldedThreads } from '../hooks/useFoldedThreads.ts';
 import { CheckSquareIcon, ChevronRightIcon, TrashIcon } from './icons.tsx';
+import { MentionDraftInput } from './MentionDraftInput.tsx';
+import { mentionsInDraft, type Picked } from './mentionDraft.ts';
 
 /** A person's name, or what can honestly be said instead. */
 function nameOf(author: string, members: WorkspaceMember[]): { name: string; guest: boolean } {
@@ -53,6 +55,22 @@ function Thread({
 }): ReactElement {
   const { t } = useT();
   const [draft, setDraft] = useState('');
+  // Beside the draft, and for the same reason it is here: the people named in a
+  // comment are part of it until it is sent (ADR-0085).
+  const [picked, setPicked] = useState<readonly Picked[]>([]);
+
+  /**
+   * Send the reply, from Enter or from the button.
+   *
+   * One function for both. They were two copies of the same two lines, and the
+   * button — which cannot see what the composer knows — would otherwise send
+   * the text without the people named in it (ADR-0085).
+   */
+  const sendReply = (): void => {
+    comments.reply(thread.id, draft, mentionsInDraft(draft, picked));
+    setDraft('');
+    setPicked([]);
+  };
 
   return (
     <li
@@ -159,22 +177,19 @@ function Thread({
               (ADR-0046). It quotes nothing and needs no identity beyond what the
               message it answers already carries, so it cannot reach the wrong
               person. */}
-          <textarea
-            className="comment-draft"
+          {/* An `@` names somebody, and the notification says which sentence
+              (ADR-0085). The Enter rule moved into the component with it: while
+              the list is open Enter picks a person, and otherwise it sends. */}
+          <MentionDraftInput
             value={draft}
-            placeholder={t('comment.replyPlaceholder')}
-            aria-label={t('comment.replyPlaceholder')}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              // Enter sends, shift+enter breaks the line: a comment is usually
-              // one sentence, and reaching for a button for one sentence is the
-              // friction that stops people commenting.
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                comments.reply(thread.id, draft);
-                setDraft('');
-              }
+            picked={picked}
+            onChange={(text, chosen) => {
+              setDraft(text);
+              setPicked(chosen);
             }}
+            people={members}
+            placeholder={t('comment.replyPlaceholder')}
+            onSend={sendReply}
           />
           {/* A button, not only Enter.
             *
@@ -187,10 +202,7 @@ function Thread({
               type="button"
               className="btn primary"
               disabled={draft.trim() === ''}
-              onClick={() => {
-                comments.reply(thread.id, draft);
-                setDraft('');
-              }}
+              onClick={sendReply}
             >
               {t('comment.reply')}
             </button>
@@ -257,6 +269,9 @@ export function CommentsPanel({
 }): ReactElement {
   const { t } = useT();
   const [draft, setDraft] = useState('');
+  // Beside the draft, and for the same reason it is here: the people named in a
+  // comment are part of it until it is sent (ADR-0085).
+  const [picked, setPicked] = useState<readonly Picked[]>([]);
 
   /**
    * Which threads are folded, remembered per page (ADR-0046).
@@ -297,12 +312,26 @@ export function CommentsPanel({
     setStartInternal(false);
   }, [pageId]);
 
-  const startThread = (text: string): void => {
+  /**
+   * Start the thread, from Enter or from the button.
+   *
+   * One function for both, because the two used to be two copies of the same
+   * three lines — and the button, which cannot see what the composer knows,
+   * would otherwise send the text without the people named in it (ADR-0085).
+   */
+  const send = (): void => {
+    startThread(draft, mentionsInDraft(draft, picked));
+    setDraft('');
+    setPicked([]);
+    onCancelPending();
+  };
+
+  const startThread = (text: string, mentions: string[]): void => {
     if (!pending) return;
     // The document the choice names, not whichever set the panel was handed:
     // this is the line that decides who can read what follows.
     const into = startInternal && internal ? internal : comments;
-    into.start(pending, text);
+    into.start(pending, text, mentions);
   };
 
   const start = pending ? (
@@ -314,26 +343,22 @@ export function CommentsPanel({
         <p className="comment-quote" aria-hidden={pending.item ? undefined : true}>
           {pending.item ? t('comment.aboutItem') : pending.quote}
         </p>
-        <textarea
-          className="comment-draft"
+        <MentionDraftInput
           value={draft}
+          picked={picked}
+          onChange={(text, chosen) => {
+            setDraft(text);
+            setPicked(chosen);
+          }}
+          people={members}
           autoFocus
           placeholder={t('comment.startPlaceholder')}
-          aria-label={t('comment.startPlaceholder')}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              onCancelPending();
-              setDraft('');
-              return;
-            }
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault();
-              startThread(draft);
-              setDraft('');
-              onCancelPending();
-            }
+          onEscape={() => {
+            onCancelPending();
+            setDraft('');
+            setPicked([]);
           }}
+          onSend={send}
         />
         {/* Who will be able to read it, beside the button that starts it.
           *
@@ -358,9 +383,7 @@ export function CommentsPanel({
             className="btn primary"
             disabled={draft.trim() === ''}
             onClick={() => {
-              startThread(draft);
-              setDraft('');
-              onCancelPending();
+              send();
             }}
           >
             {t('comment.start')}

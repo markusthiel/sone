@@ -36,6 +36,22 @@ deliberate: the provider did the authenticating and has its own. The password
 door still asks. Worth knowing when you connect one — somebody who takes your
 provider account gets in without your code.
 
+**You can mention somebody.** Type `@` in a page or in a comment and a list of
+the people in the workspace appears; pick one and they are told, with the
+sentence they were named in and a way straight to it.
+
+This is not an improvement to mentions — **there was no way to make one.** The
+field in the document, the notification kind, the "Erwähnungen" setting on your
+mail preferences, the inbox filter and the sentence in the notification mail
+have all been in place since mentions were designed. The `@` was the missing
+part, so all of it has been waiting for something that could never happen.
+
+An `@` in the middle of a word is still an email address and does nothing —
+writing down a colleague's address does not offer to turn it into a mention. In
+a page the name is stored as a thing rather than as text: it survives being
+searched for, and it is deleted in one keystroke rather than letter by letter.
+Somebody who cannot see the page is not told, whatever the sentence says.
+
 **The block handles stay with the text when the sidebar moves.**
 
 Collapsing or expanding the sidebar, or dragging its width, left the `+` and

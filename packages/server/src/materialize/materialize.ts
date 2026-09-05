@@ -326,7 +326,7 @@ export async function materializeDocument(
   const assigned = parsed.blocks.filter(
     (block) => block.type === 'todo' && typeof block.props['assignee'] === 'string',
   );
-  if (parsed.comments.length > 0 || assigned.length > 0) {
+  if (parsed.comments.length > 0 || assigned.length > 0 || parsed.mentions.length > 0) {
     // The actor comes along for an assignment: a todo records who it is for and
     // not who gave it, so the person whose edit produced this projection is the
     // honest answer (ADR-0058).
@@ -335,8 +335,20 @@ export async function materializeDocument(
       pageId,
       opts.workspaceId,
       parsed.commentThreads,
-      assigned,
+      /*
+       * Every block, not the assigned ones (ADR-0085).
+       *
+       * `assignmentsFor` filters for todos with an assignee itself, so handing
+       * it the pre-filtered list was a second copy of the same rule — and a
+       * mention's excerpt is looked up in this list, so with only the todos in
+       * it every mention in a paragraph came out with an empty excerpt. The
+       * filter above still decides whether there is anything to do at all.
+       */
+      parsed.blocks,
       opts.actorId ?? null,
+      // Mentions in the page's own text (ADR-0085), which is what somebody
+      // means when they type an @ into a paragraph rather than into a comment.
+      parsed.mentions,
     );
   }
 
