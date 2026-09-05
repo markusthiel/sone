@@ -75,6 +75,13 @@ That is the third time in this sequence that widening the question found
 something the narrower one had missed, and it is the argument for writing the
 table above before writing the trigger.
 
+> **And the fourth time was checking this one.** ADR-0099 asked whether the
+> nudge added here actually leads anywhere — whether somebody added to a group
+> can then *open* what their tree now shows. They could not: claims are a
+> snapshot from authentication, and the only thing refreshing it was a
+> five-minute sweep. Asserting that a nudge arrives is not asserting that the
+> chain works.
+
 ## Consequences
 
 **`notify_trash_changed` is now `notify_archived_changed`.** It speaks for two
