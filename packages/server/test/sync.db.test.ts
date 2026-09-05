@@ -878,8 +878,19 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     await client.waitForType(ServerMessage.AuthAck);
     const { handle } = await openDoc(client, uuid(1));
 
+    /*
+     * No `sync.revokeAccess(...)` here any more, and that is the change
+     * (ADR-0099).
+     *
+     * This test used to revoke the link and then call the server's own method
+     * to make the revocation take effect — which proved the method worked and
+     * hid that **nothing in the application called it**. The only refresh was
+     * the maintenance sweep, every five minutes, so an anonymous editor with an
+     * open socket kept writing for that long. The revocation now travels the
+     * way it does in production: a trigger, the workspace channel, the
+     * `access` scope.
+     */
     await revokeShareLink(db, link.shareTokenId);
-    await sync.revokeAccess(uuid(1));
 
     const closed = await client.waitForType(ServerMessage.Closed);
     assert.equal(closed.type, ServerMessage.Closed);
@@ -910,8 +921,8 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
       `UPDATE page_permissions SET role = 'viewer' WHERE page_id = $1 AND user_id = $2`,
       [uuid(1), userId],
     );
-    await sync.revokeAccess(uuid(1));
 
+    // Through the trigger, like everything else now (ADR-0099).
     const changed = await client.waitForType(ServerMessage.RoleChanged);
     if (changed.type === ServerMessage.RoleChanged) {
       assert.equal(changed.handle, handle);
@@ -945,9 +956,10 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
 
     const link = await createShareLink(db, { pageId: uuid(1), createdBy: fx.userId });
     await revokeShareLink(db, link.shareTokenId);
-    await sync.revokeAccess(uuid(1));
 
-    await sleep(200);
+    // Generous, because the revalidation is now asynchronous: it arrives over
+    // LISTEN/NOTIFY rather than being called inline by the test (ADR-0099).
+    await sleep(800);
     assert.ok(
       !member.frames.some((f) => f.type === ServerMessage.Closed),
       'a member must keep the document open',
