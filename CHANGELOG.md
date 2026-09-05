@@ -13,6 +13,30 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Ein Freigabelink auf einen Ordner öffnet jetzt auch, was darin liegt.** Wer
+einen Ordner geteilt hat, teilte damit bisher eine leere Seite mit einem Namen
+darüber: die geteilte Ansicht zeigte genau eine Seite und hatte keine
+Navigation. Jetzt steht daneben eine Liste dessen, was der Link erreicht — und
+nur das. Wer einen Link hat, ist kein Mitglied und erfährt weiterhin nichts
+darüber, was es sonst in diesem Workspace gibt.
+
+Ein Link auf eine einzelne Seite zeigt keine Liste; da gibt es nichts zu
+navigieren.
+
+**Neuer Menüpunkt „Freigaben", neben Papierkorb und Posteingang.** Drei Listen:
+Links, von mir freigegeben, für mich freigegeben. In der Reihenfolge, weil ein
+Link das Einzige ist, was das Haus bereits verlassen hat.
+
+Bisher war eine Freigabe nur *von der Seite aus* zu sehen. Das beantwortet „wer
+kann diese Seite sehen" und nicht die Frage, die man tatsächlich hat: was habe
+ich hinausgelassen. Eine Regel, die niemand aufzählen kann, prüft auch niemand.
+
+Links lassen sich hier zurückziehen. Eine Zugriffsstufe zu ändern nicht — das
+ist eine Entscheidung über eine bestimmte Seite und wird dort getroffen, sonst
+gäbe es zwei Orte für Rechte und damit irgendwann zwei Antworten.
+
+Nichts zu tun beim Aktualisieren.
+
 **Eine Seite oder ein Bereich lässt sich jetzt deckeln: „hier höchstens
 lesen".** Im Freigabe-Bereich einer Seite, unter der Beschränkung. Die
 Obergrenze gilt für die Seite und alles darunter — auch für Leute, denen weiter

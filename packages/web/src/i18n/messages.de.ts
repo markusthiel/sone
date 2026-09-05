@@ -851,6 +851,34 @@ export const de: Record<keyof typeof en, string> = {
     'Begrenzt, was hier höchstens geht — auch für die, die unten mehr bekommen. Wer den Workspace verwaltet, ist ausgenommen; sonst könnte eine Obergrenze niemand mehr aufheben.',
   'cap.inherited': 'Von „{from}" gilt hier bereits: {level}.',
 
+  // --- Freigaben-Überblick ---------------------------------------------------
+  //
+  // Bisher war eine Freigabe nur **von der Seite aus** zu sehen. Das reicht,
+  // um eine Seite zu prüfen, und hilft nicht bei der Frage, die man
+  // tatsächlich hat: was habe ich hinausgelassen, und wofür bin ich zuständig.
+  'shares.title': 'Freigaben',
+  // In der ersten Person, nicht in der Anrede: „von mir / für mich" umgeht die
+  // Du-Sie-Frage ganz und ist genau die Formulierung, in der die Frage gestellt
+  // wurde — „welche Seiten man selbst freigegeben hat und welche für mich
+  // freigegeben wurden".
+  'shares.note':
+    'Was aus diesem Workspace heraus geteilt ist — und was für mich freigegeben wurde. Von hier aus lässt sich beides zurücknehmen.',
+  'shares.links': 'Links',
+  'shares.links.note':
+    'Wer den Link hat, kommt hinein. Als Erstes durchsehen: Links verlassen das Haus.',
+  'shares.granted': 'Von mir freigegeben',
+  'shares.received': 'Für mich freigegeben',
+  'shares.nothing': 'Nichts.',
+  'shares.subtree': 'mit Unterseiten',
+  'shares.onlyPage': 'nur diese Seite',
+  'shares.viaGroup': 'über die Gruppe „{name}"',
+  'shares.by': 'von {name}',
+  'shares.protected': 'mit Passwort',
+  'shares.expires': 'läuft ab {date}',
+  'shares.mine': 'von mir',
+  'shares.revoke': 'Zurückziehen',
+  'shares.open': 'Seite öffnen',
+
   'perm.people': 'Leute',
   'perm.peopleHere': 'Leute in diesem Workspace',
   'perm.groups': 'Gruppen',
