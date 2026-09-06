@@ -533,3 +533,70 @@ test('an assignment is written once however often the page is projected', async 
   );
   assert.equal(count.unread, 1, 'three projections, one notification');
 });
+
+// --- taking a row off the list (ADR-0115) ------------------------------------
+
+test('a notification can be removed, and only by the person it is for', async () => {
+  /*
+   * There was no way to. Reading keeps a row, snoozing brings it back, and the
+   * one-year ceiling on a snooze exists precisely so that putting something
+   * aside cannot quietly become deleting it — which left "I do not want this
+   * row any more" with no answer at all.
+   */
+  const anna = await person('dora');
+  const bert = await person('emil');
+  const hers = await notify(anna, 'Ihre Frage');
+  const his = await notify(bert, 'Seine Frage');
+
+  const gone = await expectJson<{ removed: number }>(
+    await fetch(`${base}/api/inbox/remove`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: anna.cookie },
+      body: JSON.stringify({ ids: [hers, his] }),
+    }),
+    200,
+  );
+  // Both ids were sent and one of them is not hers. It matches nothing rather
+  // than being an error, which is the same answer as an id that never existed —
+  // and it is the whole of the authorisation, so it is worth asserting.
+  assert.equal(gone.removed, 1);
+
+  const mine = await expectJson<{ notifications: unknown[] }>(
+    await fetch(`${base}/api/inbox`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.deepEqual(mine.notifications, []);
+
+  const theirs = await expectJson<{ notifications: Array<{ excerpt: string }> }>(
+    await fetch(`${base}/api/inbox`, { headers: { cookie: bert.cookie } }),
+    200,
+  );
+  assert.deepEqual(
+    theirs.notifications.map((one) => one.excerpt),
+    ['Seine Frage'],
+    'somebody else’s row is untouched',
+  );
+});
+
+test('removing nothing is refused rather than removing everything', async () => {
+  // The shape that matters: `read` with no ids means "all of them", so an empty
+  // body here would be a plausible reading of "clear the inbox" — and this is
+  // the one act in the list that cannot be undone.
+  const anna = await person('frieda');
+  await notify(anna, 'Bleibt');
+
+  for (const body of ['{}', '{"ids":[]}']) {
+    const res = await fetch(`${base}/api/inbox/remove`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: anna.cookie },
+      body,
+    });
+    assert.equal(res.status, 422, `expected a refusal for ${body}`);
+  }
+
+  const mine = await expectJson<{ notifications: unknown[] }>(
+    await fetch(`${base}/api/inbox`, { headers: { cookie: anna.cookie } }),
+    200,
+  );
+  assert.equal(mine.notifications.length, 1, 'and nothing was removed');
+});

@@ -44,6 +44,7 @@ export const en = {
   'inbox.snooze.tomorrow': 'Tomorrow morning',
   'inbox.snooze.nextWeek': 'Next week',
   'inbox.wake': 'Bring it back',
+  'inbox.remove': 'Remove',
   'inbox.answer': 'Reply',
   'inbox.answer.placeholder': 'Write a reply… Enter sends, Shift+Enter makes a line.',
   'inbox.answer.send': 'Send',
