@@ -9,7 +9,7 @@
  * One Y.Doc per page:
  *
  *   meta        Y.Map          schemaVersion, createdWith
- *   page        Y.Map          title, icon, coverUrl, parentPageId,
+ *   page        Y.Map          title, icon, cover, parentPageId,
  *                              collectionId, idx, archivedAt
  *   content     Y.XmlFragment  the page body — the entire block tree
  *   properties  Y.Map          fieldId -> StoredValue (collection rows only)
@@ -177,7 +177,15 @@ export const PAGE_KEYS = {
    * nothing more. What restricts other people is a permission (ADR-0026).
    */
   locked: 'locked',
-  coverUrl: 'coverUrl',
+  /**
+   * A picture, a colour or a gradient above the heading (ADR-0117).
+   *
+   * `coverUrl` until then, a string, read by the projection and written by
+   * nothing since the first migration. Renamed rather than kept because the
+   * value is no longer a URL — a colour is not one — and no document carries
+   * the old key: nothing ever wrote it, so there is nothing to migrate.
+   */
+  cover: 'cover',
   parentPageId: 'parentPageId',
   /** Fractional index among sibling pages, not among blocks. */
   idx: 'idx',
