@@ -230,8 +230,14 @@ export interface BackupOptions {
   databaseUrl: string;
   /** Directory the archive is written into. Created if absent. */
   outputDir: string;
-  /** Local file storage path, or null when using S3. */
-  filesPath: string | null;
+  /**
+   * Where attachments are kept on disk (ADR-0107).
+   *
+   * Not nullable any more. `null` meant "this instance uses S3", a backend that
+   * was configurable and never existed — and it is what made the backup omit
+   * every attachment while telling the operator they were in a bucket.
+   */
+  filesPath: string;
   appVersion: string;
   documentSchemaVersion: number;
   /**
@@ -258,8 +264,16 @@ export async function createBackup(opts: BackupOptions): Promise<BackupManifest>
 
   // --- files first. See the note at the top of this file. -----------------
   let files: BackupManifest['files'] = null;
-  let fileStorage: NonNullable<BackupManifest['fileStorage']> = opts.filesPath ? 'none' : 's3';
-  if (opts.filesPath) {
+  /*
+   * `'none'` until a directory with something in it is found — and never
+   * `'s3'` any more (ADR-0107).
+   *
+   * It used to start at `'s3'` whenever no path was given, which is how an
+   * archive came to say "the source kept attachments in S3" about an instance
+   * whose attachments were on the disk this backup did not look at.
+   */
+  let fileStorage: NonNullable<BackupManifest['fileStorage']> = 'none';
+  {
     /*
      * "Not there" and "cannot look" are different answers.
      *
@@ -294,21 +308,6 @@ export async function createBackup(opts: BackupOptions): Promise<BackupManifest>
     } else {
       log(`[backup] file storage ${opts.filesPath} not present, skipping`);
     }
-  } else {
-    /*
-     * Loud, and recorded in the manifest.
-     *
-     * An S3 instance's backup is the database and nothing else, which is a
-     * defensible thing to produce and an indefensible thing to produce quietly:
-     * the operator finds out on the day they restore, when the attachments are
-     * the half that is missing. The bucket is somebody else's backup problem,
-     * and this says so at the moment it is being skipped.
-     */
-    log(
-      '[backup] WARNING: attachments are in S3 and are NOT in this archive. ' +
-        'The bucket needs a backup of its own; this archive restores the ' +
-        'database only.',
-    );
   }
 
   // --- database ------------------------------------------------------------
@@ -401,7 +400,8 @@ async function countFiles(pool: Pool): Promise<number> {
 export interface RestoreOptions {
   archiveDir: string;
   databaseUrl: string;
-  filesPath: string | null;
+  /** Where attachments are restored to. Always a path (ADR-0107). */
+  filesPath: string;
   /** Refuse unless the target database is empty. */
   requireEmpty?: boolean;
   /** This instance's `SONE_SECRET_KEY`, checked against the archive (ADR-0105). */
@@ -604,13 +604,29 @@ export async function restoreBackup(opts: RestoreOptions): Promise<RestoreReport
      */
     warnings.push(
       manifest.fileStorage === 's3'
-        ? 'the source kept attachments in S3, so they are not in this archive: ' +
-            'point this instance at that bucket, and make sure the bucket has a ' +
-            'backup of its own'
+        ? /*
+           * A legacy archive, and the honest thing to say about it changed
+           * (ADR-0107).
+           *
+           * This used to read "point this instance at that bucket, and make
+           * sure the bucket has a backup of its own". There was no bucket:
+           * `backend: 's3'` was configurable, validated and never implemented,
+           * so the source's attachments were on its local disk — and this
+           * archive, taken with no files path, does not contain them.
+           *
+           * Sending somebody to look for the bucket is the worst of the three
+           * possible messages: it is confident, actionable and wrong, and it
+           * costs them the hour in which the old volume might still exist.
+           */
+          'the source was configured for S3 storage, which no build of SONE has ' +
+            'ever implemented (ADR-0107). Its attachments were on the source´s ' +
+            'own disk — usually /var/lib/sone/files — and this archive does not ' +
+            'contain them. There is no bucket to point at: copy that directory ' +
+            'across if the source still exists.'
         : manifest.fileStorage === 'none'
           ? 'the source had no attachments at the time of the backup'
-          : 'archive contains no files. If the source used S3 storage, point this ' +
-            'instance at the same bucket.',
+          : 'archive contains no files, and does not say why. It was written by ' +
+            'a build too old to record which storage the source used.',
     );
   }
 

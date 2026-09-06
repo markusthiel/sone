@@ -41,7 +41,7 @@ try {
     pool,
     archiveDir: values.archive,
     databaseUrl: config.databaseUrl,
-    filesPath: config.storage.backend === 'local' ? config.storage.path : null,
+    filesPath: config.storage.path,
     requireEmpty: !values.force,
     secretKey: config.secretKey,
     allowDifferentKey: values['different-key'],

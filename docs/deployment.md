@@ -309,8 +309,8 @@ the password has to be in `.env`.
 
 **And `.env` alone is not enough.** Compose does not forward the host's
 environment: a variable has to be named in the service's `environment:` block to
-reach the container. Both secrets are named there now, along with the S3 settings
-and the workspace retention — fourteen variables were missing, so an operator who
+reach the container. Both secrets are named there now, along with the workspace
+retention — fourteen variables were missing, so an operator who
 filled in an SMTP password got a server that never saw it and mail that failed to
 authenticate with no visible cause. `node scripts/check-env-reaches-container.mjs`
 now fails if a variable the server reads is not reachable, and CI runs it.
@@ -454,6 +454,9 @@ also means a file is never rewritten in place, so the volume only grows —
 deleting a page removes its rows, and reclaiming the bytes is not implemented
 yet.
 
+**Local is the only backend.** Object storage is not supported, and the server
+refuses to start if it is configured (ADR-0107).
+
 **Back this volume up with the database, not separately.** A database restored
 without its files leaves image blocks that report "recorded but missing from
 storage"; files restored without the database are unreferenced bytes. The backup
@@ -503,10 +506,19 @@ somebody:
   no fingerprint, so the restore says it could not check rather than passing
   quietly.
 
-**Attachments on S3 are not in the archive.** The backup says so loudly while it
-runs, and the manifest records it, but it bears repeating: an instance with
-`SONE_S3_*` set has a database backup and a bucket, and the bucket needs a
-backup of its own.
+**There is no S3 backend, and there never was** (ADR-0107). This paragraph used
+to say that an instance with `SONE_S3_*` set "has a database backup and a
+bucket, and the bucket needs a backup of its own". There was no bucket: the
+setting was accepted, its five companions were validated, and `main.ts` built a
+local store anyway — so uploads went to the volume while the backup skipped that
+volume *because of the same setting*. Anybody who followed that advice was
+backing up an empty bucket.
+
+The server now refuses to start with `SONE_STORAGE_BACKEND=s3` and says where
+the files actually are. If you have an archive taken while it was set, it
+contains no attachments: they are on the source's disk under
+`SONE_STORAGE_PATH`, and the restore says so instead of sending you to a
+bucket.
 
 A directory whose name ends in `.incomplete` is a backup that was interrupted
 before it finished. It cannot be restored, and the restore says so rather than

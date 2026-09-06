@@ -215,9 +215,11 @@ async function main(): Promise<void> {
   // Maintenance object is: a closure that captures a const declared later works
   // only until somebody changes the ordering, and this project has already lost
   // an afternoon to exactly that.
-  const fileStore = new LocalFileStore(
-    config.storage.backend === 'local' ? config.storage.path : '/var/lib/sone/files',
-  );
+  // One backend, and the configured path is always the configured path. It used
+  // to be a ternary falling back to the default for `backend: 's3'` — which is
+  // how uploads went to local disk while the operator believed they were in a
+  // bucket (ADR-0107).
+  const fileStore = new LocalFileStore(config.storage.path);
 
   // Checked once, loudly, at startup.
   //

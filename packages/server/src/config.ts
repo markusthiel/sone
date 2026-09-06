@@ -44,17 +44,16 @@ export interface Config {
   oidcClientSecret: string | null;
   /** Days a deleted workspace is kept before it is removed. */
   workspaceRetentionDays: number;
-  storage:
-    | { backend: 'local'; path: string }
-    | {
-        backend: 's3';
-        endpoint: string;
-        region: string;
-        bucket: string;
-        accessKeyId: string;
-        secretAccessKey: string;
-        forcePathStyle: boolean;
-      };
+  /**
+   * Where attachments are kept. Local, and only local (ADR-0107).
+   *
+   * There was a second branch here, with an endpoint, a bucket and credentials
+   * — for a backend that does not exist. `store.ts` says so plainly in its own
+   * header ("so an S3 backend can implement it later"), and `main.ts` built a
+   * `LocalFileStore` whatever this said. The type is what made an operator
+   * believe otherwise, so the type is what changed.
+   */
+  storage: { backend: 'local'; path: string };
 }
 
 export class ConfigError extends Error {
@@ -94,27 +93,57 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     );
   }
 
+  /*
+   * `s3` is named here so the refusal below can be specific (ADR-0107).
+   *
+   * Left in the list rather than removed: an unknown value gets "must be one of
+   * local, s3", which for somebody who set `s3` on purpose is a message that
+   * makes no sense. They get their own, and it is the one worth writing.
+   */
   const backend = oneOf(
     'SONE_STORAGE_BACKEND',
     optional(env, 'SONE_STORAGE_BACKEND', 'local'),
     ['local', 's3'] as const,
   );
 
-  const storage: Config['storage'] =
-    backend === 'local'
-      ? {
-          backend: 'local',
-          path: optional(env, 'SONE_STORAGE_PATH', '/var/lib/sone/files'),
-        }
-      : {
-          backend: 's3',
-          endpoint: required(env, 'SONE_S3_ENDPOINT'),
-          region: optional(env, 'SONE_S3_REGION', 'us-east-1'),
-          bucket: required(env, 'SONE_S3_BUCKET'),
-          accessKeyId: required(env, 'SONE_S3_ACCESS_KEY_ID'),
-          secretAccessKey: required(env, 'SONE_S3_SECRET_ACCESS_KEY'),
-          forcePathStyle: optional(env, 'SONE_S3_FORCE_PATH_STYLE', 'true') === 'true',
-        };
+  if (backend === 's3') {
+    /*
+     * Refused, and the whole point is *where* it is refused.
+     *
+     * This branch used to require `SONE_S3_ENDPOINT`, `SONE_S3_BUCKET` and two
+     * credentials, and hand back an object holding them — which is the
+     * strongest possible statement that a feature exists. Nothing implemented
+     * it. `main.ts` built a `LocalFileStore` pointed at the default path, so
+     * uploads went to the container's disk while the operator believed they
+     * were in a bucket.
+     *
+     * That would merely be a wasted setting if the backup did not read the same
+     * flag: `backup.mjs` passes no files path for a non-local backend, so the
+     * archive contained the database and **none of the attachments**, and the
+     * restore then told whoever ran it to point at the bucket.
+     *
+     * So this must not start. The message says where the files are, because
+     * they are all still there and the fix costs one variable and moves
+     * nothing — and somebody reading "S3 is not implemented" without that
+     * sentence would reasonably conclude their attachments are gone.
+     */
+    throw new ConfigError(
+      'SONE_STORAGE_BACKEND=s3 is not implemented in this build, and was never ' +
+        'wired to anything: uploads have been written to the local disk at ' +
+        '/var/lib/sone/files the whole time, whatever the S3 settings said.\n\n' +
+        'Nothing has to move. Set SONE_STORAGE_BACKEND=local (and ' +
+        'SONE_STORAGE_PATH=/var/lib/sone/files, or wherever the volume is ' +
+        'mounted) and the same files are served from the same place.\n\n' +
+        'Check your backups: an archive taken while this was set contains no ' +
+        'attachments at all. The next one, taken with the setting corrected, ' +
+        'will.',
+    );
+  }
+
+  const storage: Config['storage'] = {
+    backend: 'local',
+    path: optional(env, 'SONE_STORAGE_PATH', '/var/lib/sone/files'),
+  };
 
   const publicUrl = optional(env, 'SONE_PUBLIC_URL', 'http://localhost:3000').replace(
     /\/+$/,
