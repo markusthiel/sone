@@ -408,9 +408,38 @@ from a purge, and occasionally a document that arrived a moment before the page
 row it belongs to. Only writes older than a week are considered
 (`--older-than-hours`), and `--limit` keeps a first run small enough to read.
 
+### Numbers the environment sets
+
 `SONE_VERSION_RETENTION_DAYS` (how long page history is kept, 90 by default) is
-clamped to at least one day. It was not: `0` meant "delete every version of
-every page on the next maintenance pass".
+refused below one day. It used to be accepted: `0` meant "delete every version
+of every page on the next maintenance pass".
+
+Five more settings are read the same way, and were not checked at all until
+ADR-0111. All six now behave alike: a value that is not usable is **refused**,
+the server writes one line at startup naming the variable and what was in it,
+and the built-in default is used. Nothing else about the instance changes, and
+a correctly configured deployment sees no difference.
+
+| | default | refused |
+|---|---|---|
+| `SONE_VERSION_RETENTION_DAYS` | 90 | below 1, or not a whole number |
+| `SONE_VERSION_QUIET_MINUTES` | 10 | below 1 — every changed page would be versioned every five minutes |
+| `SONE_JOB_RESULT_HOURS` | 24 | below 1 — an export would expire before its link is shown |
+| `SONE_EMAIL_DELAY_MINUTES` | 5 | below 0; `0` is allowed and means "send at once" |
+| `SONE_DB_POOL_MAX` | 10 | below 1 |
+| `SONE_PASSWORD_COST` | 16 | outside 10–20 |
+
+None of the six reached a Compose deployment at all until ADR-0112 — the
+service's `environment:` block did not name them, and Compose does not forward
+the host's environment. If you had one of these in `.env` and wondered why
+nothing changed, that is why; it works now, so check the values you set before
+upgrading.
+
+The one worth knowing about is `SONE_JOB_RESULT_HOURS`. Set to something that is
+not a number, it used to produce an invalid timestamp in the statement that
+records a job as **finished** — so exports and imports that had run perfectly
+were written down as failed and retried until they ran out of attempts, and
+nothing in the message pointed at a setting about retention.
 
 ## Single sign-on
 

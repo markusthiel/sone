@@ -130,6 +130,13 @@ jobs:
         # beyond the feature not working.
         run: node scripts/check-env-reaches-container.mjs
 
+      - name: Check every number from the environment is bounded
+        # Number('') is 0 and Number('ten') is NaN, and both typecheck. Six
+        # settings were read that way; one of them turned a typo into every
+        # finished job being recorded as failed, with nothing anywhere pointing
+        # at the environment (ADR-0111).
+        run: node scripts/check-env-numbers.mjs
+
       - name: Check every route is reachable from the interface
         # Two features were built, tested and recorded as done while being
         # reachable only with curl — including the only way back for somebody
