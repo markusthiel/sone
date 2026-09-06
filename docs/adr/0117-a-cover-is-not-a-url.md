@@ -96,15 +96,36 @@ A **page** writes its cover straight into the document it already has open. A
 **folder** writes it through `PATCH /api/pages/:id`, the route that already
 carries the title, the icon, the width and the lock.
 
-That is not a preference. The folder view has no document open at all — it
-renders the tree node it was handed and renames through that route. And the page
-cannot use the route, because **a sync room reads its document once and never
-re-reads `doc_updates`**: a cover set over HTTP on a page somebody is looking at
-would not appear until the page was opened again.
+The folder half is not a preference: the folder view has no document open at
+all — it renders the tree node it was handed and renames through that route.
 
-Both go through `readEntryCover`, so neither transport decides for itself what a
-cover may be. The split is the same one the title already has, for the same
-reason, and it stops at `onChange` — everything above it is one component.
+> **Correction, written the same day.** This decision originally said the page
+> *could not* use the route, because "a sync room reads its document once and
+> never re-reads `doc_updates`". **That is false.** I checked `room.ts` for a
+> listener and `appendUpdate` for a notify, found neither, and stopped — but the
+> mechanism is a database trigger: `doc_updates_notify` (migration 0001) →
+> `pg_notify` → `UpdateBus` → `SyncServer.onRemoteUpdate` →
+> `room.applyRemoteUpdate`. It has a test of its own, named *a write made
+> outside a room reaches the people in it*, and that test renames a page through
+> `applyToDocument` — exactly the path a cover over HTTP would take. ADR-0076
+> records the last time I claimed this same thing was impossible and was wrong
+> about it.
+>
+> So the page could use the route. It does not, and the real reasons are
+> smaller and true: **the title beside it on the same heading already writes
+> straight into the document**, and going out to HTTP for the cover would make
+> two neighbouring fields on one line behave differently for no reason a reader
+> could see; and the route costs a rematerialise and a full tree refetch per
+> click, which a page has no use for. The bus makes the route *correct* for a
+> page, not preferable.
+>
+> Left as a correction rather than a rewrite. The wrong reason is the more
+> useful record: it is the second time I have talked myself out of the update
+> bus by reading two files and not the migration.
+
+Both transports go through `readEntryCover`, so neither decides for itself what
+a cover may be. The split is the same one the title already has, and it stops at
+`onChange` — everything above it is one component.
 
 The cover therefore rides on the tree row, withheld with the title for a
 path-only page: a picture is a fact about a page somebody was told nothing about.
@@ -174,7 +195,9 @@ reassemble them. The whole reason `icon` is one jsonb field is that a fourth
 kind becomes possible without a migration, and a reader that does not know it
 draws nothing rather than breaking.
 
-**Have the page use the route too, for one writer.** It is one *rule* either
-way — `readEntryCover` — and the route cannot reach an open sync room, so this
-would trade a real defect (the cover does not appear until reload) for a
-tidiness that the shared reader already provides.
+**Have the page use the route too, for one writer.** Available — the update bus
+carries an HTTP write into an open room, which is the correction above — and it
+is one *rule* either way, since both transports share `readEntryCover`. It would
+put the cover on a different footing from the title six pixels below it, and
+spend a rematerialise and a tree refetch on every colour click. Rejected on
+those, not on the impossibility I first claimed.

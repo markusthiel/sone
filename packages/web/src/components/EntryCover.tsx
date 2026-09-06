@@ -7,10 +7,11 @@
  *
  * ## One component, two callers, and why
  *
- * A page has its document open and writes its own cover into it: instant, and
- * it reaches everybody else through sync like any other edit. A folder has no
- * document open at all — the folder view renders a tree node and renames
- * through a route — so it writes through `api.setEntryCover`.
+ * A page has its document open and writes its own cover into it, the way the
+ * title beside it does: instant, and it reaches everybody else through sync
+ * like any other edit. A folder has no document open at all — the folder view
+ * renders a tree node and renames through a route — so it writes through
+ * `api.setEntryCover`.
  *
  * That difference stops at `onChange`. Everything above it — what a cover may
  * be, what it looks like, how it is chosen — is here once, because a folder
