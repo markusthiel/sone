@@ -177,6 +177,8 @@ export const de: Record<keyof typeof en, string> = {
   'error.a_row_cannot_hold_a_collection': 'Eine Zeile kann keine eigene Kollektion halten.',
   'error.invalid_tag': 'Dieses Schlagwort ist nicht verwendbar.',
   'error.invalid_width': 'Diese Seitenbreite ist keine der zwei.',
+  'error.invalid_landing':
+    'So kann eine Startseite nicht festgelegt werden (ADR-0119).',
   'error.invalid_cover':
     'Das ist kein Titelbild, das hier gespeichert werden kann. Bilder müssen '
     + 'hierher hochgeladen sein (ADR-0117).',
@@ -522,8 +524,6 @@ export const de: Record<keyof typeof en, string> = {
   'you.appearance': 'Aussehen',
   'you.appearance.hint':
     'Wie SONE {address, select, formal {für Sie} other {für dich}} aussieht',
-  'you.landing': '{address, select, formal {Wo Sie landen} other {Wo du landest}}',
-  'you.landing.hint': 'Die Seite, mit der jeder Workspace öffnet',
   'you.notifications': 'Benachrichtigungen',
   // Beugt sich nach der Anredeform, wie jede Nachricht, die jemanden anspricht
   // (ADR-0041): eine Instanz, die „Sie" gewählt hat, darf hier nicht duzen.
@@ -664,6 +664,8 @@ export const de: Record<keyof typeof en, string> = {
   'workspace.nameAndMark': 'Name und Zeichen',
   'workspace.nameAndMark.hint': 'Wie dieser Workspace heißt und woran man ihn erkennt',
   'workspace.typography': 'Typografie',
+  'workspace.landing': 'Standard-Seite',
+  'workspace.landing.hint': 'Womit dieser Workspace für alle öffnet.',
   'workspace.typography.hint': 'Wie dieser Workspace liest',
   'workspace.people': 'Leute',
   'workspace.people.hint': 'Wer in diesem Workspace ist, mit welcher Rolle, und wie man einlädt',
@@ -826,7 +828,13 @@ export const de: Record<keyof typeof en, string> = {
   'role.edit': 'Ändern',
   'role.delete': 'Löschen',
   'role.builtIn': 'Fest eingebaut',
-  'role.heldBy': '{members} Personen, {groups} Gruppen',
+  'role.heldBy':
+    '{members, plural, =0 {Keine Person} one {Eine Person} other {# Personen}}' +
+    '{groups, plural, =0 {} one {, eine Gruppe} other {, # Gruppen}}',
+  'role.heldByNobody': 'Hat noch niemand',
+  'role.card.onPages': 'Auf Seiten',
+  'role.card.inWorkspace': 'Im Workspace',
+  'role.card.noRights': 'Verwaltet nichts',
   'role.confirmDelete': '„{name}" löschen?',
   'role.forGroup': 'Rolle dieser Gruppe',
   'role.groupNone': 'Keine Rolle',
@@ -998,8 +1006,20 @@ export const de: Record<keyof typeof en, string> = {
   'landing.fixedPage': 'Eine bestimmte Seite',
   'landing.fixedPage.hint':
     'Immer dieselbe, egal was {address, select, formal {Sie gerade taten} other {du gerade getan hast}}.',
+  'landing.top': 'Die oberste Seite',
+  'landing.top.hint': 'Die erste im Baum. Ändert sich, wenn jemand umsortiert.',
+  'landing.newest': 'Die zuletzt bearbeitete Seite',
+  'landing.newest.hint': 'Dort, wo gerade gearbeitet wird — nicht die zuletzt angelegte.',
   'landing.page': 'Seite',
   'landing.choose': 'Eine Seite wählen…',
+  // --- und die eigene Abweichung (ADR-0119) ------------------------------
+  'landing.mine':
+    '{address, select, formal {Für Sie} other {Für dich}}',
+  'landing.mine.note':
+    'Gilt nur {address, select, formal {für Sie} other {für dich}} und nur in diesem ' +
+    'Workspace. Alle anderen folgen weiter dem, was oben steht.',
+  'landing.follow': 'Wie der Workspace',
+  'landing.follow.hint': 'Zurzeit: {what}',
 
   // --- das Zeichen eines Workspace ---------------------------------------
   'mark.icon': 'Symbol',
@@ -1192,6 +1212,11 @@ export const de: Record<keyof typeof en, string> = {
   'access.example': 'jemand@example.org',
   'access.address': 'E-Mail-Adresse',
   'access.address.hint': 'Die Adresse, mit der sich die Person hier anmeldet.',
+  // --- jemanden finden statt eine Adresse tippen (ADR-0119) -----------------
+  'access.person': 'Person',
+  'access.person.hint': 'Name oder E-Mail-Adresse. Ab zwei Zeichen kommen Vorschläge.',
+  'access.alreadyHere': 'ist schon dabei',
+  'access.willAdd': '{name} ({email}) bekommt Zugriff.',
   'access.as': 'Kommt herein als',
   'access.give': 'Zugriff geben',
   'access.given': '{email} hat jetzt Zugriff.',

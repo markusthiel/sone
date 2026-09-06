@@ -22,6 +22,7 @@ import { paths } from '../routes/paths.ts';
 import { GroupsPanel } from './GroupsPanel.tsx';
 import { useT } from '../i18n/useT.tsx';
 import { resolveSection } from './SectionNav.tsx';
+import { LandingSettings } from './LandingSettings.tsx';
 import { ThemeSettings } from './ThemeSettings.tsx';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { WorkspaceExport } from './WorkspaceExport.tsx';
@@ -35,6 +36,14 @@ export const SECTIONS = [
   // removed from that screen's list, so the per-workspace heading sizes and text
   // scale could not be opened at all (ADR-0032).
   { id: 'typography', label: 'workspace.typography', hint: 'workspace.typography.hint' },
+  /*
+   * Where members land (ADR-0119).
+   *
+   * It was a personal setting — and it held per-workspace data, so it could only
+   * offer pages from the workspace somebody happened to be standing in. Here it
+   * knows which workspace it is talking about, which is the whole of the fix.
+   */
+  { id: 'landing', label: 'workspace.landing', hint: 'workspace.landing.hint' },
   { id: 'people', label: 'workspace.people', hint: 'workspace.people.hint' },
   // Unreachable for the same reason.
   { id: 'groups', label: 'workspace.groups', hint: 'workspace.groups.hint' },
@@ -166,6 +175,9 @@ export function WorkspaceSettingsScreen({
 
       {current === 'typography' && (
         <ThemeSettings workspaceId={workspaceId} canEdit={canEdit} />
+      )}
+      {current === 'landing' && (
+        <LandingSettings workspaceId={workspaceId} canEdit={canEdit} />
       )}
       {current === 'people' && (
         <section className="settings-section">

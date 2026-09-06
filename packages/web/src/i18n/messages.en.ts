@@ -164,6 +164,7 @@ export const en = {
   'error.a_row_cannot_hold_a_collection': 'A row cannot hold a collection of its own.',
   'error.invalid_tag': 'That tag cannot be used.',
   'error.invalid_width': 'That page width is not one of the two.',
+  'error.invalid_landing': 'That is not a way to set a first page (ADR-0119).',
   'error.invalid_cover':
     'That is not a cover this can store. A picture has to be one uploaded here '
     + '(ADR-0117).',
@@ -487,8 +488,6 @@ export const en = {
   'you.signIn.hint': 'Your password',
   'you.appearance': 'Appearance',
   'you.appearance.hint': 'How SONE looks to you',
-  'you.landing': 'Where you land',
-  'you.landing.hint': 'The page each workspace opens on',
   'you.notifications': 'Notifications',
   'you.notifications.hint': 'When SONE should email you.',
   'you.notifications.contents':
@@ -610,6 +609,8 @@ export const en = {
   'workspace.nameAndMark': 'Name and mark',
   'workspace.nameAndMark.hint': 'What this workspace is called and how it is recognised',
   'workspace.typography': 'Typography',
+  'workspace.landing': 'First page',
+  'workspace.landing.hint': 'What this workspace opens with, for everybody.',
   'workspace.typography.hint': 'How this workspace reads',
   'workspace.people': 'People',
   'workspace.people.hint': 'Who is in this workspace, their roles, and inviting more',
@@ -759,7 +760,13 @@ export const en = {
   'role.edit': 'Change',
   'role.delete': 'Delete',
   'role.builtIn': 'Built in',
-  'role.heldBy': '{members} people, {groups} groups',
+  'role.heldBy':
+    '{members, plural, =0 {No people} one {One person} other {# people}}' +
+    '{groups, plural, =0 {} one {, one group} other {, # groups}}',
+  'role.heldByNobody': 'Nobody has it yet',
+  'role.card.onPages': 'On pages',
+  'role.card.inWorkspace': 'In the workspace',
+  'role.card.noRights': 'Manages nothing',
   'role.confirmDelete': 'Delete “{name}”?',
   'role.forGroup': 'This group’s role',
   'role.groupNone': 'No role',
@@ -900,8 +907,19 @@ export const en = {
   'landing.lastPage.hint': 'Follows you: whatever you had open in this workspace.',
   'landing.fixedPage': 'A particular page',
   'landing.fixedPage.hint': 'Always the same one, whatever you were doing.',
+  'landing.top': 'The top page',
+  'landing.top.hint': 'The first in the tree. It changes when somebody reorders.',
+  'landing.newest': 'The most recently edited page',
+  'landing.newest.hint': 'Where the work is — not the one created last.',
   'landing.page': 'Page',
   'landing.choose': 'Choose a page…',
+  // --- and a person's own answer (ADR-0119) ------------------------------
+  'landing.mine': 'For you',
+  'landing.mine.note':
+    'Only for you, and only in this workspace. Everybody else keeps following what is ' +
+    'set above.',
+  'landing.follow': 'Whatever the workspace says',
+  'landing.follow.hint': 'Currently: {what}',
 
   // --- a workspace's own mark --------------------------------------------
   'mark.icon': 'Icon',
@@ -1095,6 +1113,11 @@ export const en = {
   'access.example': 'someone@example.org',
   'access.address': 'Email address',
   'access.address.hint': 'The address they sign in here with.',
+  // --- finding somebody rather than typing an address (ADR-0119) ------------
+  'access.person': 'Person',
+  'access.person.hint': 'A name or an email address. Suggestions from two characters.',
+  'access.alreadyHere': 'is already here',
+  'access.willAdd': '{name} ({email}) will get access.',
   'access.as': 'They come in as',
   'access.give': 'Give access',
   'access.given': '{email} has access now.',
