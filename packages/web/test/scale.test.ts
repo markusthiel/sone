@@ -2584,24 +2584,27 @@ test('the workspace list is one list, and the server decides its length', () => 
   assert.doesNotMatch(panel, /paths\.workspaceSettings\(\)/);
 });
 
-test('the workspace screen is exactly as strict as the route it mirrors', () => {
+test('the workspace screen has a name for a workspace the session does not carry', () => {
   /*
-   * It was stricter. `canEdit` read the workspace role alone, while the route
-   * has always accepted the role **or** the workspace-management right — which
-   * is how somebody administers a workspace they are not in. So an
-   * administrator opening a foreign workspace found every control disabled
-   * while the server would have accepted the save (ADR-0067).
+   * Before, a foreign one read "Untitled" with everything greyed out. The list
+   * route is scoped by the same rights, so asking it asks the one source that
+   * already knows.
    *
-   * A disabled control produces no failure to read, which is why this was found
-   * by reading the route rather than by anything going wrong.
+   * **The strictness half of this test has moved** to
+   * `workspaceRights.test.ts` (ADR-0102). It asserted the source read
+   * `const canEdit = … || manages;`, and that line is now a call to
+   * `mayEditWorkspace` — the rule came out into a module of its own the way
+   * `entryRights.ts` did, because the browser had to start asking for a named
+   * right rather than comparing a word.
+   *
+   * Which is the third time a source-text assertion here has broken on a change
+   * that left its subject intact (ADR-0095 moved two). A test of the source
+   * checks *where* a rule is written; the rule is what anybody cares about.
+   * Kept here only for this one, which is genuinely about a call being made at
+   * all rather than about what it decides.
    */
   const screen = codeOf(
     new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
   );
-  assert.match(screen, /canManageWorkspaces/);
-  assert.match(screen, /const canEdit =[\s\S]{0,120}\|\| manages;/);
-
-  // And it has a name to show for a workspace the session does not carry:
-  // before, a foreign one read "Untitled" with everything greyed out.
   assert.match(screen, /api\s*\n?\s*\.adminWorkspaces\(\)/);
 });

@@ -205,7 +205,13 @@ describe('client end to end', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not
     );
     workspaceId = ws.rows[0]!.id;
     await db.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'owner')`,
+      // The role row and the ownership column, as the server writes them. The
+      // enum this used to write is gone (ADR-0102), and this is the second
+      // harness — the one the note in `standing.ts` warns about, because
+      // "empty every table" was once written in two places and only one of them
+      // was fixed.
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'owner' AND workspace_id IS NULL),true)`,
       [workspaceId, userId],
     );
 

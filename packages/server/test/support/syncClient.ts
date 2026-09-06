@@ -91,6 +91,21 @@ export class TestClient {
     return this.received;
   }
 
+  /**
+   * Forget everything received so far (ADR-0102).
+   *
+   * For the assertions that are about absence. Setting somebody up is itself a
+   * change — putting them in a workspace nudges that workspace — and a nudge
+   * set off by the fixture crosses the bus while the connection is being made,
+   * so it lands on either side of the AuthAck depending on the day. Counting
+   * from a mark instead of from the beginning is the difference between an
+   * assertion that means "this change told nobody" and one that means it most
+   * of the time.
+   */
+  forget(): void {
+    this.received.length = 0;
+  }
+
   close(): void {
     this.socket.close();
   }

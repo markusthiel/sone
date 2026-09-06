@@ -135,7 +135,8 @@ describe(
       );
       // A member of it, deliberately: that is the case that used to fail.
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
         [session.workspaceId, manager.rows[0]!.id],
       );
 
@@ -180,11 +181,15 @@ describe(
       );
       const created = (await res.json()) as { id: string };
 
-      const member = await db.query<{ role: string }>(
-        `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+      const member = await db.query<{ role: string; is_owner: boolean }>(
+        // The role row, not the enum word, which is gone (ADR-0102).
+        `SELECT r.key AS role, m.is_owner
+           FROM workspace_members m JOIN roles r ON r.id = m.role_id
+          WHERE m.workspace_id = $1 AND m.user_id = $2`,
         [created.id, session.userId],
       );
       assert.equal(member.rows[0]?.role, 'owner');
+      assert.equal(member.rows[0]?.is_owner, true);
     });
 
     test('a new workspace starts with a folder', async () => {
@@ -311,7 +316,8 @@ describe(
         [hash],
       );
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
         [session.workspaceId, other.rows[0]!.id],
       );
 
@@ -465,7 +471,8 @@ describe(
         [hash],
       );
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
         [session.workspaceId, member.rows[0]!.id],
       );
       const login = await fetch(

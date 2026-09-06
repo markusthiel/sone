@@ -291,7 +291,23 @@ test('a guest cannot answer by mail, though a guest is a member', { skip: !hasDa
    * always refused them. The mail path accepted them for as long as it existed.
    */
   const anna = await scene('jana');
-  await db.query(`UPDATE workspace_members SET role = 'guest' WHERE user_id = $1`, [anna.userId]);
+  /*
+   * Demoted the way the members route demotes somebody: the role row and the
+   * ownership column (ADR-0102).
+   *
+   * This line used to write the enum word alone, and it worked — because the
+   * fixture wrote the word alone too, so the compatibility bridge was reading
+   * it. Production has written `role_id` since ADR-0087, so the demotion this
+   * test performed was a demotion the running server never performs, and the
+   * guest refusal below was being proved against a shape that does not occur.
+   */
+  await db.query(
+    `UPDATE workspace_members
+        SET role_id = (SELECT id FROM roles WHERE key = 'guest' AND workspace_id IS NULL),
+            is_owner = false
+      WHERE user_id = $1`,
+    [anna.userId],
+  );
 
   const { result, refusals } = await poll([mailTo(anna.token, 'Als Gast.')]);
   assert.deepEqual(result, { posted: 0, refused: 1, ignored: 0 });
@@ -320,7 +336,8 @@ test('a restricted page refuses a member with no grant on it', { skip: !hasDatab
   );
   const memberId = other.rows[0]!.id;
   await db.query(
-    `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'member')`,
+    `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
     [anna.workspaceId, memberId],
   );
   await db.query(

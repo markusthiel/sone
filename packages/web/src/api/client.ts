@@ -145,7 +145,21 @@ export interface SessionInfo {
   workspaces: Array<{
     id: string;
     name: string;
+    /** One of the four system words, or 'custom' for a role this workspace made. */
     role: string;
+    /** What that role is called. A custom role has a name and no word (ADR-0102). */
+    roleName: string;
+    /**
+     * What the caller may administer here — their own role's rights and every
+     * group's, unioned as the server unions them (ADR-0026).
+     *
+     * Sent so a screen can ask the question the route asks. Deciding from
+     * `role` instead is how somebody holding `workspace.settings` through a
+     * custom role got a screen of disabled controls (ADR-0102).
+     */
+    rights: string[];
+    /** Transferring and deleting the workspace. Not a right (ADR-0087). */
+    isOwner: boolean;
     default_locale: string;
     /** Null until somebody chooses one (ADR-0030). */
     icon: WorkspaceIcon | null;
@@ -488,7 +502,12 @@ export interface AppliedFilters {
 export interface WorkspaceSummary {
   id: string;
   name: string;
+  /** One of the four system words, or 'custom' (ADR-0102). */
   role: string;
+  roleName: string;
+  /** The union of the caller's own role's rights and their groups' (ADR-0102). */
+  rights: string[];
+  isOwner: boolean;
   defaultLocale: string;
   pageCount: number;
   memberCount: number;

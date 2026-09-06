@@ -21,6 +21,7 @@
  */
 
 import qr from 'qrcode-generator';
+import { roleLabel } from '../workspaceRights.ts';
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 
 import {
@@ -239,7 +240,9 @@ function Profile({
           </span>
           <span className="muted">
             {workspace?.name ?? '—'}
-            {workspace ? ` · ${workspace.role}` : ''}
+            {/* The role's name, not the old enum word: somebody holding
+                "Redaktion" was being told they are a member (ADR-0102). */}
+            {workspace ? ` · ${roleLabel(workspace, '')}` : ''}
           </span>
         </div>
       </div>

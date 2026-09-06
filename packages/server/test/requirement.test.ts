@@ -166,18 +166,21 @@ test('a membership lookup lives in one place', () => {
   walk(server);
 
   /*
-   * One, and it was two.
+   * None, and it was five.
    *
-   * The shared helper's own copy is gone: `roleIn` asks
-   * `loadWorkspaceStanding` now, because a role is a row and what it *gives*
-   * is a column on that row rather than a switch statement (ADR-0087). What
-   * remains is the one statement that asks a genuinely different question —
-   * whether somebody is one of two roles, answered in the database rather than
-   * by fetching a value to compare in JavaScript.
+   * `roleIn` asks `loadWorkspaceStanding`, because a role is a row and what it
+   * *gives* is a column on that row rather than a switch statement (ADR-0087).
+   *
+   * The last one went with the enum column (ADR-0102). It was the invitation
+   * withdrawal, kept because it "asks whether somebody is one of two roles,
+   * which is a different question" — a defence of the SQL that said nothing
+   * about the question. Its four sibling routes asked for the `people.manage`
+   * right, so somebody holding that right through a custom role could create an
+   * invitation and not withdraw it. It asks for the right now, like the others.
    *
    * The requirement is unchanged and this number is not the requirement: the
    * point is that a membership lookup is not copied around, and the assertion
    * counts copies so that a sixth cannot appear quietly.
    */
-  assert.equal(copies, 1, 'only the one that asks something else');
+  assert.equal(copies, 0, 'the membership lookup lives in the loader');
 });
