@@ -38,7 +38,9 @@ import {
   type ShareLinkSummary,
 } from '../auth/share.js';
 import { commentAuthorsOf } from '../comments/routes.js';
+import { addressLocale } from '../i18n/locale.js';
 import type { Letter } from '../mail/letter.js';
+import { words, type AddressForm } from '../mail/words.js';
 import { decryptShareToken } from '../auth/shareTokenStore.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { atLeast as pageAtLeast, resolvePageAccess } from '../pages/access.js';
@@ -67,6 +69,8 @@ export interface ShareDeps {
   /** How much a mail may name (ADR-0058). Absent is the cautious answer. */
   emailDetail?: () => Promise<'title' | 'workspace'>;
   instanceName?: () => Promise<string>;
+  /** „du" or „Sie", one setting for everything this instance says (ADR-0133). */
+  addressForm?: () => Promise<AddressForm>;
   sendLetter?: (to: string, letter: Letter) => Promise<void>;
 }
 
@@ -809,13 +813,15 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       title: string;
       workspace_name: string;
       sender: string;
+      workspace_id: string;
     }>(
       deps.pool,
       // One query, because every part of the letter comes from the same three
       // rows and a second round trip would be a second chance to describe a
       // different link than the one being sent.
       `SELECT t.token_encrypted, t.expires_at, t.password_hash,
-              p.title, w.name AS workspace_name, u.display_name AS sender
+              p.title, w.name AS workspace_name, u.display_name AS sender,
+              w.id AS workspace_id
          FROM share_tokens t
          JOIN pages p ON p.id = t.scope_page_id
          JOIN workspaces w ON w.id = p.workspace_id
@@ -841,8 +847,21 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
     const url = `${deps.publicUrl.replace(/\/$/, '')}/s/${token}/p/${pageId}`;
     const where = detail === 'title' ? row.title || 'a page' : row.workspace_name;
 
+    /*
+     * Which language (ADR-0133).
+     *
+     * The old note here said English *„because the recipient of a share mail
+     * usually has no account here, so there is nobody to ask what they read"*.
+     * Usually. A colleague on this instance being sent a link has an account
+     * with a language on it, and asking costs one query; where there is truly
+     * nobody, the workspace the page lives in is a better guess than English,
+     * for the same reason a workspace has a language at all.
+     */
+    const locale = await addressLocale(deps.pool, to, row.workspace_id);
+    const say = words(locale, (await deps.addressForm?.()) ?? 'informal');
+
     const lines: Array<{ text: string; url?: string }> = [
-      { text: `${row.sender} shared ${where} with you.` },
+      { text: say('share.line', { by: row.sender, what: where }) },
     ];
     // The sender's own sentence, and the only content in the letter — their
     // words rather than the page's, which is the distinction that keeps this an
@@ -855,28 +874,27 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       // Announced, never included. A link with a password and the password in
       // the same message is a link with no password — and adding it is the
       // obvious "helpful" thing for a later change to do.
-      lines.push({ text: 'This link is protected by a password. Ask whoever sent it.' });
+      lines.push({ text: say('share.password') });
     }
     if (row.expires_at) {
-      lines.push({ text: `The link works until ${row.expires_at.toISOString().slice(0, 10)}.` });
+      lines.push({
+        text: say('share.until', { when: row.expires_at.toISOString().slice(0, 10) }),
+      });
     }
 
     await deps.sendLetter(to, {
       // The subject names the sender and not the page: it is the half that is
       // never in doubt, and a subject line is the part of a mail most likely to
       // be read over somebody's shoulder.
-      subject: `${row.sender} shared something with you`,
+      subject: say('share.subject', { by: row.sender }),
+      // The instance's own name, which is not a sentence and has no
+      // translation — it is whatever the operator called this server.
       heading: `${await (deps.instanceName?.() ?? Promise.resolve('SONE'))}`,
       lines,
-      action: { label: 'Open the page', url },
-      footer: [
-        'You are receiving this because somebody sent you a link. There is ' +
-          'nothing to unsubscribe from.',
-      ],
+      action: { label: say('share.action'), url },
+      footer: [say('share.footer')],
       baseUrl: deps.publicUrl,
-      // English, the gap ADR-0121 named: the recipient of a share mail usually
-      // has no account here, so there is nobody to ask what they read.
-      locale: 'en',
+      locale,
     });
 
     ctx.send(200, { sent: true });

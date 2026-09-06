@@ -14,7 +14,17 @@
 
 import { queryRows } from '../db/pool.js';
 import { visiblePagesCondition } from '../pages/access.js';
+import {
+  FALLBACK_LOCALE,
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+} from '../i18n/locale.js';
 import { renderHtml, renderText, type Letter, type LetterLine } from '../mail/letter.js';
+import { words, type AddressForm, type Say } from '../mail/words.js';
+
+/** One column, without a second query per reader (ADR-0133). */
+const localeOf = (value: string | null): SupportedLocale =>
+  SUPPORTED_LOCALES.find((l) => l === (value ?? '').toLowerCase()) ?? FALLBACK_LOCALE;
 import { sendMail, type Relay } from '../mail/send.js';
 import type { Pool } from 'pg';
 
@@ -143,7 +153,9 @@ export function composeDigest(
   detail: 'title' | 'workspace',
   baseUrl: string,
   period: 'daily' | 'weekly',
+  voice: { say: Say; locale: SupportedLocale } = { say: words('en'), locale: 'en' },
 ): Letter | null {
+  const { say } = voice;
   if (pages.length === 0) return null;
 
   const shown = pages.slice(0, MAX_LINES);
@@ -169,7 +181,7 @@ export function composeDigest(
   const lines: LetterLine[] = [];
   for (const [, group] of byWorkspace) {
     const list = group.pages;
-    lines.push({ text: `${group.name}:` });
+    lines.push({ text: say('digest.workspace', { workspace: group.name }) });
     for (const page of list) {
       /*
        * The instance's detail setting is honoured here too (ADR-0058).
@@ -179,31 +191,40 @@ export function composeDigest(
        * for a mail that happens to list more of them.
        */
       if (detail === 'workspace') continue;
-      const who =
+      /*
+       * The whole line from the catalogue, not a title with a suffix glued on.
+       *
+       * It was `${title}${who}` where `who` was ` — Anna and 2 other(s)`, which
+       * is three separate things a translator cannot reach: the dash, the
+       * conjunction, and a count in brackets. A language that puts the
+       * attribution somewhere else in the sentence cannot express it at all.
+       */
+      const others = page.editors - 1;
+      const text =
         page.editors > 1
-          ? ` — ${page.lastEditor ?? 'somebody'} and ${page.editors - 1} other(s)`
+          ? say('digest.bySeveral', {
+              title: page.title,
+              who: page.lastEditor ?? say('digest.somebody'),
+              others,
+            })
           : page.lastEditor
-            ? ` — ${page.lastEditor}`
-            : '';
-      lines.push({ text: `${page.title}${who}`, url: `${baseUrl}/p/${page.pageId}`, under: true });
+            ? say('digest.byOne', { title: page.title, who: page.lastEditor })
+            : page.title;
+      lines.push({ text, url: `${baseUrl}/p/${page.pageId}`, under: true });
     }
     if (detail === 'workspace') {
-      lines.push({ text: `${list.length} page(s) changed`, under: true });
+      lines.push({ text: say('digest.changed', { count: list.length }), under: true });
     }
   }
-  if (more > 0) lines.push({ text: `and ${more} more.` });
+  if (more > 0) lines.push({ text: say('digest.more', { count: more }) });
 
   return {
-    subject:
-      period === 'weekly' ? 'SONE: what changed this week' : 'SONE: what changed yesterday',
+    subject: say(period === 'weekly' ? 'digest.subject.weekly' : 'digest.subject.daily'),
     lines,
-    action: { label: 'Open SONE', url: baseUrl },
-    footer: [
-      'To stop these emails, sign in and change it under You → Notifications:',
-      `${baseUrl}/settings/notifications`,
-    ],
+    action: { label: say('digest.action'), url: baseUrl },
+    footer: [say('notify.footer.stop'), `${baseUrl}/settings/notifications`],
     baseUrl,
-    locale: 'en',
+    locale: voice.locale,
   };
 }
 
@@ -212,6 +233,8 @@ export interface ActivityDigestDeps {
   relay: Relay | null;
   detail: 'title' | 'workspace';
   baseUrl: string;
+  /** „du" or „Sie", one setting for everything this instance says (ADR-0133). */
+  addressForm?: AddressForm;
 }
 
 /**
@@ -229,6 +252,7 @@ export async function sendActivityDigests(
   const due = await queryRows<{
     id: string;
     email: string;
+    locale: string | null;
     is_instance_admin: boolean;
     activity_digest: 'daily' | 'weekly';
     digest_scope: 'all' | 'watched';
@@ -237,6 +261,7 @@ export async function sendActivityDigests(
     deps.pool,
     `SELECT u.id::text AS id,
             u.email,
+            u.locale,
             u.is_instance_admin,
             u.activity_digest,
             u.digest_scope,
@@ -288,12 +313,18 @@ export async function sendActivityDigests(
         scope: reader.digest_scope,
       });
 
-      const composed = composeDigest(
-        pages,
-        deps.detail,
-        deps.baseUrl,
-        reader.activity_digest,
-      );
+      /*
+       * The reader's own language (ADR-0133).
+       *
+       * No workspace fallback here, and deliberately: a digest spans every
+       * workspace a person can see, so there is no one place whose language
+       * would be the better guess. Their setting, or English.
+       */
+      const locale = localeOf(reader.locale);
+      const composed = composeDigest(pages, deps.detail, deps.baseUrl, reader.activity_digest, {
+        locale,
+        say: words(locale, deps.addressForm ?? 'informal'),
+      });
 
       if (!composed) {
         /*

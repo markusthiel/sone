@@ -19,7 +19,13 @@
  * anyway.
  */
 
+import {
+  FALLBACK_LOCALE,
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+} from '../i18n/locale.js';
 import { composeNotificationEmail, type Waiting } from '../mail/compose.js';
+import type { AddressForm } from '../mail/words.js';
 import { replyAddress, replyToken } from '../mail/replyToken.js';
 import { renderHtml, renderText } from '../mail/letter.js';
 import { sendMail, type Relay } from '../mail/send.js';
@@ -56,7 +62,13 @@ export interface MailSettings {
    */
   replyMailbox?: string | null;
   secret?: string;
+  /** „du" or „Sie", one setting for everything this instance says (ADR-0133). */
+  addressForm?: AddressForm;
 }
+
+/** One column, without a second query per batch (ADR-0133). */
+const localeOf = (value: string | null): SupportedLocale =>
+  SUPPORTED_LOCALES.find((l) => l === (value ?? '').toLowerCase()) ?? FALLBACK_LOCALE;
 
 interface Candidate {
   user_id: string;
@@ -230,7 +242,11 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
               ) AS internal,
               w.name AS workspace_name,
               u.email,
-              u.locale
+              -- The reader's own language, and the workspace's where they have
+              -- not chosen one (ADR-0133). It was the user column alone, so
+              -- somebody with no setting in a German workspace got English —
+              -- a hand-rolled half of recipientLocale, missing its second step.
+              coalesce(u.locale, w.default_locale) AS locale
          FROM notifications n
          JOIN pages p ON p.id = n.page_id AND p.archived_at IS NULL
          JOIN workspaces w ON w.id = n.workspace_id
@@ -264,7 +280,8 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
       workspaceName: first.workspace_name,
       detail: settings.detail,
       baseUrl: settings.baseUrl,
-      locale: first.locale === 'de' ? 'de' : 'en',
+      locale: localeOf(first.locale),
+      ...(settings.addressForm ? { address: settings.addressForm } : {}),
     });
     if (!composed) return { result: { skipped: 'nothing to say' } };
 
