@@ -178,11 +178,9 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     }
 
     await deps.pool.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
-       -- The role named twice: as the enum the old column wants, and as the
-       -- text the role row is found by.
-       VALUES ($1,$2,$3,(SELECT id FROM roles WHERE key = $4),$4 = 'owner')`,
-      [workspaceId, account.id, role, role],
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = $3),$3 = 'owner')`,
+      [workspaceId, account.id, role],
     );
     ctx.send(201, { userId: account.id, role });
   });
@@ -358,18 +356,18 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
 
     await deps.pool.query(
       /*
-       * The row is what everything reads; the old enum column is kept in step
-       * only so a rolled-back release still sees something sensible, and it
-       * cannot hold a custom role — `member` is the nearest of the four words,
-       * and it is the safe direction to be wrong in, since the column is only
-       * read by a server that predates roles being rows.
+       * The row, and ownership beside it. The enum column is gone (ADR-0102).
+       *
+       * It used to be written here too, "kept in step so a rolled-back release
+       * still sees something sensible" — and because it cannot name a custom
+       * role, assigning one wrote the word `member`. Two live listings then
+       * read that word and told the person they were a member.
        */
       `UPDATE workspace_members
-          SET role = $3::workspace_role,
-              role_id = $4,
-              is_owner = ($5 = 'owner')
+          SET role_id = $3,
+              is_owner = ($4 = 'owner')
         WHERE workspace_id = $1 AND user_id = $2`,
-      [workspaceId, target, role ?? 'member', chosen.id, role ?? ''],
+      [workspaceId, target, chosen.id, role ?? ''],
     );
     ctx.send(200, { ok: true });
   });
@@ -456,27 +454,31 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       return;
     }
 
-    const allowed = invitation.workspace_id
-      ? await queryOne<{ role: WorkspaceRole }>(
-          deps.pool,
-          // Left as its own statement, not `roleIn`: this asks whether
-          // somebody is one of two roles, which is a different question from
-          // which role they are — and it answers it in the database rather than
-          // fetching a value to compare in JavaScript.
-          `SELECT role FROM workspace_members
-            WHERE workspace_id = $1 AND user_id = $2 AND role IN ('owner','admin')`,
-          [invitation.workspace_id, user.userId],
-        )
-      : await queryOne<{ is_instance_admin: boolean }>(
-          deps.pool,
-          `SELECT is_instance_admin FROM users
-            WHERE id = $1 AND is_instance_admin = true`,
-          [user.userId],
-        );
-
-    if (!allowed) {
-      ctx.fail(403, 'forbidden');
-      return;
+    if (invitation.workspace_id) {
+      /*
+       * The right, like every other route in this file (ADR-0102).
+       *
+       * This one asked `role IN ('owner','admin')` on the enum column while its
+       * four siblings asked `people.manage` — so somebody holding that right
+       * through a custom role or a group could **create** an invitation and not
+       * withdraw it. The comment defending the hand-written statement made a
+       * case about SQL and none about the question being asked.
+       *
+       * Found by removing the column, which is the only reason anybody read
+       * this line again.
+       */
+      if (!(await mayAdminister(deps.pool, ctx, invitation.workspace_id, user.userId))) return;
+    } else {
+      const admin = await queryOne<{ is_instance_admin: boolean }>(
+        deps.pool,
+        `SELECT is_instance_admin FROM users
+          WHERE id = $1 AND is_instance_admin = true`,
+        [user.userId],
+      );
+      if (!admin) {
+        ctx.fail(403, 'forbidden');
+        return;
+      }
     }
 
     await revokeInvitation(deps.pool, ctx.params['invitationId'] ?? '');

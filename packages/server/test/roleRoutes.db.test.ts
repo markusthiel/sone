@@ -117,8 +117,8 @@ describe(
       );
       colleagueId = colleague.rows[0]!.id;
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
-         VALUES ($1,$2,'member',(SELECT id FROM roles WHERE key='member'),false)`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+         VALUES ($1,$2,(SELECT id FROM roles WHERE key='member'),false)`,
         [workspaceId, colleagueId],
       );
     });

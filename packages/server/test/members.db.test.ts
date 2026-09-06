@@ -32,8 +32,9 @@ describe('workspace membership (database)', { concurrency: 1, skip: !hasDatabase
     );
     workspace = ws.rows[0]!.id;
     await db.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role)
-       VALUES ($1,$2,'owner'), ($1,$3,'member')`,
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'owner' AND workspace_id IS NULL),true),
+              ($1,$3,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL),false)`,
       [workspace, owner, member],
     );
   });
@@ -46,9 +47,12 @@ describe('workspace membership (database)', { concurrency: 1, skip: !hasDatabase
   test('a workspace always keeps an owner', async () => {
     // Demoting the last one leaves a workspace nobody can transfer or delete,
     // and the person who did it is usually the person who cannot undo it.
+    // Counted over `is_owner`, the column, exactly as the route counts it:
+    // ownership is not a role and does not travel with one (ADR-0087), and the
+    // enum word it used to count is gone (ADR-0102).
     const others = await db.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM workspace_members
-        WHERE workspace_id = $1 AND role = 'owner' AND user_id <> $2`,
+        WHERE workspace_id = $1 AND is_owner AND user_id <> $2`,
       [workspace, owner],
     );
     assert.equal(others.rows[0]?.n, 0, 'so this demotion must be refused');
@@ -81,7 +85,8 @@ describe('workspace membership (database)', { concurrency: 1, skip: !hasDatabase
     assert.equal(left.rowCount, 0);
 
     await db.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
       [workspace, member],
     );
   });

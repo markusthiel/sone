@@ -94,8 +94,8 @@ describe(
       );
       workspace = ws.rows[0]!.id;
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
-         VALUES ($1,$2,'owner',(SELECT id FROM roles WHERE key='owner'),true)`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+         VALUES ($1,$2,(SELECT id FROM roles WHERE key='owner'),true)`,
         [workspace, owner],
       );
 
@@ -286,9 +286,9 @@ describe(
          VALUES ('s@example.org','Silke','x') RETURNING id`,
       );
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id) VALUES
-           ($1,$2,'member',(SELECT id FROM roles WHERE key='member')),
-           ($1,$3,'member',(SELECT id FROM roles WHERE key='member'))`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id) VALUES
+           ($1,$2,(SELECT id FROM roles WHERE key='member')),
+           ($1,$3,(SELECT id FROM roles WHERE key='member'))`,
         [workspace, wrote.rows[0]!.id, silent.rows[0]!.id],
       );
 

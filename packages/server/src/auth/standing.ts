@@ -149,8 +149,7 @@ export async function loadWorkspaceStanding(
        -- regular expression and cannot see a CTE, and a guard that reports a
        -- column which does not exist is a guard people learn to ignore.
        SELECT m.role_id AS held_role_id,
-              m.is_owner AS owns_it,
-              m.role::text AS role_word
+              m.is_owner AS owns_it
          FROM workspace_members m
         WHERE m.workspace_id = $2 AND m.user_id = $1
      ),
@@ -158,25 +157,6 @@ export async function loadWorkspaceStanding(
        SELECT r.key, r.page_level, r.rights
          FROM member me
          JOIN roles r ON r.id = me.held_role_id
-       UNION ALL
-       /*
-        * The bridge, and the reason it is here rather than in a backfill.
-        *
-        * The migration points every existing membership at a role. What it
-        * cannot do is point at rows that do not exist yet: during a rolling
-        * deploy the previous server is still inserting memberships with only
-        * the enum column, and a restored dump or a rolled-back release does
-        * the same. Without this those people are members holding no role,
-        * which resolves to no access at all — a permission failure that looks
-        * exactly like being thrown out of the workspace.
-        *
-        * It reads the column this change otherwise stops reading, and it goes
-        * when that column is dropped.
-        */
-       SELECT r.key, r.page_level, r.rights
-         FROM member me
-         JOIN roles r ON r.key = me.role_word
-        WHERE me.held_role_id IS NULL
        UNION ALL
        SELECT NULL AS key, r.page_level, r.rights
          FROM group_members gm
@@ -187,12 +167,7 @@ export async function loadWorkspaceStanding(
      )
      SELECT
        EXISTS (SELECT 1 FROM member) AS is_member,
-       -- The same bridge for ownership: a membership written by the previous
-       -- server carries the word and not the column.
-       COALESCE(
-         (SELECT me.owns_it OR me.role_word = 'owner' FROM member me),
-         false
-       ) AS is_owner,
+       COALESCE((SELECT me.owns_it FROM member me), false) AS is_owner,
        (SELECT key FROM held WHERE key IS NOT NULL LIMIT 1) AS role_key,
        (SELECT page_level FROM held
          WHERE page_level IS NOT NULL
@@ -264,6 +239,58 @@ export async function loadWorkspaceStanding(
 }
 
 /**
+ * What a workspace listing says about the caller's own standing (ADR-0102).
+ *
+ * Both listings — `/api/workspaces` and `/api/auth/session` — used to select
+ * `m.role`, the enum ADR-0087 superseded and migration 0058 declared unread.
+ * It reached the browser, where the settings screen decided from it whether to
+ * disable every control and the move dialog decided which workspaces to offer.
+ * Somebody holding `workspace.settings` through a custom role got the word
+ * `member` and a screen of dead inputs.
+ *
+ * So the listings send what the server would decide from: the role's key or
+ * `'custom'`, its name, its rights, and whether the membership owns the place.
+ * The same move as ADR-0095 one layer out — the answer was being computed and
+ * thrown away, and the interface was guessing at what it had already been
+ * told.
+ *
+ * Written once here rather than in both routes, for the reason
+ * `WORKSPACE_ORDER_SQL` is: the two listings have to agree, and the half of
+ * them that was not shared is the half that drifted.
+ *
+ * Interpolated into a query whose membership table is aliased `m`; it supplies
+ * its own join, so the caller adds nothing but the columns.
+ */
+export const STANDING_COLUMNS = `COALESCE(mr.key, 'custom') AS role,
+              mr.name AS role_name,
+              m.is_owner,
+              /*
+               * The rights are the **union** with every group's, exactly as the
+               * loader computes them (ADR-0026): being added to a group must
+               * never reduce what somebody can do, so a listing that reported
+               * only the membership's own role would understate whoever holds a
+               * right through a group — which is the same "interface stricter
+               * than the rule it mirrors" fault this whole change is about.
+               *
+               * The name above is deliberately *not* unioned: "your role" on
+               * the settings screen means the one on the membership, and a
+               * group's role is shown where groups are.
+               */
+              (SELECT COALESCE(array_agg(DISTINCT one), '{}')
+                 FROM (
+                   SELECT unnest(mr.rights) AS one
+                   UNION ALL
+                   SELECT unnest(gr.rights)
+                     FROM group_members gm
+                     JOIN groups g ON g.id = gm.group_id
+                     JOIN roles gr ON gr.id = g.role_id
+                    WHERE gm.user_id = m.user_id AND g.workspace_id = m.workspace_id
+                 ) AS all_rights) AS rights`;
+
+/** The join `STANDING_COLUMNS` needs. Separate because it goes in another clause. */
+export const STANDING_JOIN = `JOIN roles mr ON mr.id = m.role_id`;
+
+/**
  * SQL for "this person's role in this page's workspace gives them everything".
  *
  * The listing queries paste a visibility condition into a dozen `WHERE`
@@ -278,13 +305,9 @@ export async function loadWorkspaceStanding(
 export const fullAccessCondition = (alias: string, userParam: string): string => `EXISTS (
   SELECT 1
     FROM workspace_members m
-    -- Their role, or — for a membership written before role_id existed, or by
-    -- a server that has not restarted during a rolling deploy — the row their
-    -- old enum value names. The same bridge as in the loader above, and it
-    -- goes when that column is dropped.
-    LEFT JOIN roles r
-           ON r.id = m.role_id
-           OR (m.role_id IS NULL AND r.key = m.role::text)
+    -- The role they hold. A membership must point at one (ADR-0102), so this
+    -- is a plain join and no longer falls back to the enum word.
+    JOIN roles r ON r.id = m.role_id
    WHERE m.workspace_id = ${alias}.workspace_id
      AND m.user_id = ${userParam}
      AND (r.page_level = 'admin' OR EXISTS (
