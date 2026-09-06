@@ -1263,10 +1263,10 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
      *
      * Through the route rather than only through the open document, because a
      * **folder** has no open document: the folder view renders a tree node and
-     * renames through this same route. A page writes its own — it has the
-     * document in hand, and going out to HTTP for it would mean the cover
-     * somebody just chose does not appear until the page is reopened, since a
-     * sync room reads its document once and never re-reads `doc_updates`.
+     * renames through this same route. A page writes its own instead — it has
+     * the document in hand, and the title beside it on the same heading does
+     * the same. This route would reach an open page too, through the update
+     * bus (ADR-0076); it would cost a rematerialise and a tree refetch.
      *
      * Two transports, one rule: both go through `readEntryCover`, so neither
      * can decide for itself what a cover may be — which is the half that keeps

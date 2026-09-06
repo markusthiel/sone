@@ -163,9 +163,11 @@ export function PageView({
    * (ADR-0117).
    *
    * Written straight into the document rather than through the route a folder
-   * uses: this component has the document in hand, and a sync room reads its
-   * document once and never re-reads `doc_updates` — so a cover set over HTTP
-   * would not appear until the page was opened again.
+   * uses, for the reason the title beside it does: this component has the
+   * document in hand, and two neighbouring fields on one heading should not
+   * behave differently. The route would work — the update bus carries an HTTP
+   * write into an open room (ADR-0076) — at the cost of a rematerialise and a
+   * tree refetch per click.
    */
   const [cover, setCover] = useState<EntryCover | null>(() =>
     readEntryCover(pageMap.get(PAGE_KEYS.cover)),
