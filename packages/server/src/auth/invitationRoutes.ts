@@ -25,13 +25,10 @@ import {
   listInvitations,
   revokeInvitation,
 } from './registration.js';
-import type { WorkspaceRole } from './registration.js';
 
 export interface InvitationDeps {
   pool: Pool;
 }
-
-const ROLES: readonly string[] = ['admin', 'member', 'guest'];
 
 /**
  * May this person administer this workspace?
@@ -57,6 +54,65 @@ async function mayAdminister(
   // may not invite here" confirms the workspace exists.
   ctx.fail(member ? 403 : 404, member ? 'forbidden' : 'not_found');
   return false;
+}
+
+/**
+ * The role a request names, whichever way it names it (ADR-0103).
+ *
+ * Two routes put a role on somebody — giving access and changing a member's —
+ * and until now only the second could name a role this workspace defined. The
+ * first offered three words, so letting a colleague in as "Redaktion" meant
+ * adding them as a **member** (which is `editor` on every page here) and moving
+ * them afterwards: an intermediate grant nobody asked for, as a required step.
+ *
+ * One function, because the alternative is the shape this repository keeps
+ * removing from itself — the same question answered in two places, and answered
+ * differently the day one of them grows a condition (ADR-0086).
+ *
+ * Fails the request itself, like `mayAdminister` above: every caller's answer
+ * to "this role is not usable here" is the same 422, and a caller that has to
+ * remember to write it is a caller that forgets.
+ */
+async function chooseRole(
+  pool: Pool,
+  ctx: Parameters<typeof requireSession>[1],
+  workspaceId: string,
+  body: { role?: unknown; roleId?: unknown },
+): Promise<{ id: string; key: string | null; name: string } | null> {
+  /*
+   * Both spellings, rather than only ids: `role` is what every existing client
+   * sends and what a share of the tests assert, and the four words are still
+   * the names of real rows. A request naming both is answered as invalid rather
+   * than picking one — two answers to "what should this person be" is not a
+   * thing to guess at.
+   */
+  const word = typeof body.role === 'string' ? body.role : '';
+  const roleId = typeof body.roleId === 'string' && body.roleId !== '' ? body.roleId : '';
+  if (word !== '' && roleId !== '') {
+    ctx.fail(422, 'invalid_role');
+    return null;
+  }
+  if (word !== '' && !['owner', 'admin', 'member', 'guest'].includes(word)) {
+    ctx.fail(422, 'invalid_role');
+    return null;
+  }
+
+  const chosen = await queryOne<{ id: string; key: string | null; name: string }>(
+    pool,
+    roleId !== ''
+      ? // A system role or one of this workspace's own — the same bound the
+        // group route states: anything else would be another workspace's rule
+        // reaching in here.
+        `SELECT id, key, name FROM roles
+          WHERE id = $1 AND (workspace_id IS NULL OR workspace_id = $2)`
+      : `SELECT id, key, name FROM roles WHERE key = $1 AND workspace_id IS NULL`,
+    roleId !== '' ? [roleId, workspaceId] : [word],
+  );
+  if (!chosen) {
+    ctx.fail(422, 'invalid_role');
+    return null;
+  }
+  return chosen;
 }
 
 export function registerInvitationRoutes(router: Router, deps: InvitationDeps): void {
@@ -130,7 +186,7 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     const workspaceId = ctx.params['workspaceId'] ?? '';
     if (!(await mayAdminister(deps.pool, ctx, workspaceId, user.userId))) return;
 
-    let body: { email?: unknown; role?: unknown };
+    let body: { email?: unknown; role?: unknown; roleId?: unknown };
     try {
       body = await ctx.json();
     } catch {
@@ -143,9 +199,44 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       ctx.fail(422, 'invalid_email');
       return;
     }
-    const role = typeof body.role === 'string' && ROLES.includes(body.role)
-      ? (body.role as WorkspaceRole)
-      : 'member';
+
+    /*
+     * Any role this workspace can use, not three words (ADR-0103).
+     *
+     * It offered `admin | member | guest` and quietly fell back to `member` for
+     * anything else — so letting somebody in as a role this workspace defined
+     * was impossible, and the way round it was to add them as a member and
+     * change it afterwards. A member is `editor` on every page here, so the
+     * workaround grants write access to somebody who was meant to have less,
+     * for as long as it takes to make the second request.
+     *
+     * Falling back is gone with it. A named role the server does not recognise
+     * is refused, for the reason the roles screen refuses an unknown right
+     * (ADR-0087): a request that asked for one thing and quietly got another is
+     * how a permission comes to half-work.
+     */
+    const chosen = await chooseRole(deps.pool, ctx, workspaceId, {
+      // The default lives here rather than in the resolver, because the other
+      // caller has no default: changing somebody's role to nothing in
+      // particular is not a thing to interpret.
+      role: body.role === undefined && body.roleId === undefined ? 'member' : body.role,
+      roleId: body.roleId,
+    });
+    if (!chosen) return;
+
+    /*
+     * Owner is still not on offer (ADR-0073).
+     *
+     * "A second owner is a decision about who may delete the workspace. It
+     * stays a separate act on the row." It used to be refused by not appearing
+     * in a list of three, which is a refusal by omission — and accepting an id
+     * would have been a second door to the same room, opened by this change
+     * and by nothing that names it.
+     */
+    if (chosen.key === 'owner') {
+      ctx.fail(422, 'invalid_role');
+      return;
+    }
 
     /*
      * A real account, in use.
@@ -177,12 +268,23 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       return;
     }
 
+    // One statement, one role. `is_owner` is written false rather than derived,
+    // because the refusal above is what decides it and a second expression
+    // deciding it again is a second place to be wrong.
     await deps.pool.query(
       `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
-       VALUES ($1,$2,(SELECT id FROM roles WHERE key = $3),$3 = 'owner')`,
-      [workspaceId, account.id, role],
+       VALUES ($1,$2,$3,false)`,
+      [workspaceId, account.id, chosen.id],
     );
-    ctx.send(201, { userId: account.id, role });
+    // The row, named the way the members listing names it: `key` for one of the
+    // four, `'custom'` for a role this workspace made, and its own name beside
+    // it because a custom role has no word to translate.
+    ctx.send(201, {
+      userId: account.id,
+      role: chosen.key ?? 'custom',
+      roleId: chosen.id,
+      roleName: chosen.name,
+    });
   });
 
   /**
@@ -288,42 +390,12 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
 
     const target = ctx.params['userId'] ?? '';
 
-    /*
-     * One of the four words, or the id of a role this workspace defined
-     * (ADR-0087).
-     *
-     * Both, rather than only ids: `role` is what every existing client sends
-     * and what a share of the tests assert, and the four words are still the
-     * names of real rows. A request naming both is answered as invalid rather
-     * than picking one — two answers to "what should this person be" is not a
-     * thing to guess at.
-     */
-    const word = typeof body.role === 'string' ? body.role : '';
-    const roleId = typeof body.roleId === 'string' && body.roleId !== '' ? body.roleId : '';
-    if (word !== '' && roleId !== '') {
-      ctx.fail(422, 'invalid_role');
-      return;
-    }
-    if (word !== '' && !['owner', 'admin', 'member', 'guest'].includes(word)) {
-      ctx.fail(422, 'invalid_role');
-      return;
-    }
-
-    // The row, whichever way it was named. A custom role never carries
-    // ownership: that is a column on the membership, so that "a workspace
-    // keeps an owner" stays one query (ADR-0087).
-    const chosen = await queryOne<{ id: string; key: string | null }>(
-      deps.pool,
-      roleId !== ''
-        ? `SELECT id, key FROM roles
-            WHERE id = $1 AND (workspace_id IS NULL OR workspace_id = $2)`
-        : `SELECT id, key FROM roles WHERE key = $1 AND workspace_id IS NULL`,
-      roleId !== '' ? [roleId, workspaceId] : [word],
-    );
-    if (!chosen) {
-      ctx.fail(422, 'invalid_role');
-      return;
-    }
+    // One of the four words, or the id of a role this workspace defined
+    // (ADR-0087), resolved the same way the route above resolves it
+    // (ADR-0103). A custom role never carries ownership: that is a column on
+    // the membership, so "a workspace keeps an owner" stays one query.
+    const chosen = await chooseRole(deps.pool, ctx, workspaceId, body);
+    if (!chosen) return;
     const role = chosen.key;
 
     const current = await roleIn(deps.pool, workspaceId, target);
