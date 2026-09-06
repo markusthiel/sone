@@ -14,6 +14,7 @@
 
 import type { Pool } from 'pg';
 
+import { envNumber } from '../env.js';
 import { queryOne, type Db } from '../db/pool.js';
 
 export interface Job {
@@ -44,7 +45,23 @@ export type JobHandler = (
  * of a workspace nobody remembers making, and the longer it sits the more likely
  * it outlives the permissions that produced it.
  */
-export const JOB_RESULT_HOURS = Number(process.env['SONE_JOB_RESULT_HOURS'] ?? 24);
+/*
+ * The worst of the family (ADR-0111).
+ *
+ * It is multiplied into a `Date`, and `new Date(Date.now() + NaN)` is an
+ * Invalid Date, which node-postgres sends as
+ * `0NaN-NaN-NaNTNaN:NaN:NaN.NaN+NaN:NaN`. Postgres rejects it — so the
+ * statement that records a *successful* job as done fails, the catch below
+ * marks the job failed, and the work is retried until its attempts run out.
+ * An export that ran perfectly, four times, reported as broken, because of a
+ * typo in an unrelated setting.
+ *
+ * A floor of one hour rather than zero: zero is "the result expires the moment
+ * it is written", so the download link is dead before anybody is shown it.
+ */
+export const JOB_RESULT_HOURS = envNumber('SONE_JOB_RESULT_HOURS', 24, {
+  min: 1,
+});
 
 /**
  * How many times a job is attempted before it is left alone.
