@@ -35,6 +35,19 @@ export const SECTIONS = [
   // Unreachable until now. It was rendered by the old screen and had been
   // removed from that screen's list, so the per-workspace heading sizes and text
   // scale could not be opened at all (ADR-0032).
+  /*
+   * Two sections, because a theme says two unrelated things (ADR-0120).
+   *
+   * Reported as: *„der Bereich Typografie [sollte] aufgeteilt werden. Schrift
+   * Design kann gerne alleine stehen, aber die Oberfläche, Tönung,
+   * Akzent-Farbe gehört da nicht hin."* Right — the surfaces and the type scale
+   * have nothing to do with each other, and only the second is typography.
+   *
+   * `typography` keeps its id, because `/workspace/typography` is a URL
+   * somebody may have bookmarked and a URL is a public contract (ADR-0016). It
+   * is the *type* half now; the colours are the new one.
+   */
+  { id: 'colours', label: 'workspace.colours', hint: 'workspace.colours.hint' },
   { id: 'typography', label: 'workspace.typography', hint: 'workspace.typography.hint' },
   /*
    * Where members land (ADR-0119).
@@ -174,7 +187,10 @@ export function WorkspaceSettingsScreen({
       )}
 
       {current === 'typography' && (
-        <ThemeSettings workspaceId={workspaceId} canEdit={canEdit} />
+        <ThemeSettings workspaceId={workspaceId} canEdit={canEdit} show="type" />
+      )}
+      {current === 'colours' && (
+        <ThemeSettings workspaceId={workspaceId} canEdit={canEdit} show="colour" />
       )}
       {current === 'landing' && (
         <LandingSettings workspaceId={workspaceId} canEdit={canEdit} />

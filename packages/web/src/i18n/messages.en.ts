@@ -608,10 +608,12 @@ export const en = {
   // --- this workspace's settings -----------------------------------------
   'workspace.nameAndMark': 'Name and mark',
   'workspace.nameAndMark.hint': 'What this workspace is called and how it is recognised',
-  'workspace.typography': 'Typography',
+  'workspace.typography': 'Type',
+  'workspace.typography.hint': 'Sizes and spacing for headings, text and code.',
+  'workspace.colours': 'Colours & surfaces',
+  'workspace.colours.hint': 'Tint, accent, and the eight colour names.',
   'workspace.landing': 'First page',
   'workspace.landing.hint': 'What this workspace opens with, for everybody.',
-  'workspace.typography.hint': 'How this workspace reads',
   'workspace.people': 'People',
   'workspace.people.hint': 'Who is in this workspace, their roles, and inviting more',
   'workspace.groups': 'Groups',
@@ -875,9 +877,12 @@ export const en = {
   'action.done': 'Done',
 
   // --- a workspace's typography ------------------------------------------
-  'type.note':
-    'Defaults for this workspace. A block that carries its own size or colour keeps ' +
-    'it — these apply where nobody has chosen.',
+  'type.note.type':
+    'Sizes and spacing for this workspace. A block that carries its own size or colour ' +
+    'keeps it — these apply where nobody has chosen.',
+  'type.note.colour':
+    'How this workspace looks: the tint on its surfaces, the accent, and what the eight ' +
+    'colour names mean. Applies wherever nobody has chosen something of their own.',
   'type.palette.note':
     'What each colour name looks like here. Everything that uses a name — tags, ' +
     'columns, blocks, folder icons — follows.',
@@ -986,6 +991,8 @@ export const en = {
   'search.saved': 'Kept',
   'search.facet.tags': 'Tags',
   'search.facet.people': 'People',
+  'search.facet.who': 'Find a person',
+  'search.facet.whoPlaceholder': 'Type a name…',
   'search.facet.assignedMe': 'Assigned to you',
   'search.facet.writtenBy': 'By {name}',
   'search.facet.in': 'In folder',

@@ -2846,17 +2846,31 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   padding: var(--sone-space-3) var(--sone-space-2) var(--sone-space-6);
 }
 
+/*
+ * One gutter per section rather than one per control.
+ *
+ * Every control in a facet used to carry its own `padding-inline` or
+ * `margin-inline`, so a new one arrived without it — which is how a select, two
+ * date fields and a row of chips ended up on four different left edges.
+ */
 .search-facet {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sone-space-2);
+  padding-inline: var(--sone-space-4);
 }
+/* The rows are their own control and keep their own padding, so a hover
+   highlight reaches the edge of the panel rather than stopping at the gutter. */
+.search-facet .search-facet-row {
+  margin-inline: calc(var(--sone-space-4) * -1);
+  inline-size: auto;
+}
+.search-facet .sidebar-label { padding-inline: 0; }
 
 .search-facet-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  padding-inline: var(--sone-space-4);
 }
 
 .search-facet-tag {
@@ -2902,24 +2916,54 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   font-weight: 600;
 }
 
-.search-facet-select {
-  margin-inline: var(--sone-space-4);
+/*
+ * One width for every field in the panel (ADR-0120).
+ *
+ * The date fields were narrower than the folder chooser, which were narrower
+ * again than the panel — three widths in a column eight centimetres wide, and
+ * the eye reads the ragged edge before it reads the labels. Reported as
+ * *„gleich große Input Felder"*.
+ *
+ * `inline-size: 100%` inside a padded section rather than a margin on each
+ * control: a margin has to be repeated and will be forgotten by the fourth
+ * field, and this way the section decides its own gutter once.
+ */
+.search-facet-select,
+.search-facet-input,
+.search-facet-date input {
+  inline-size: 100%;
+  min-inline-size: 0;
   font: inherit;
   font-size: var(--sone-text-sm);
 }
 
+.search-facet-input { margin-block-start: 4px; }
+
+/*
+ * The date rows: label on one line, field under it.
+ *
+ * Side by side, "Ab" took a fifth of the row and the field the rest, so the two
+ * rows had different field widths — and on a narrow panel the field shrank to
+ * where a German date no longer fits.
+ */
 .search-facet-date {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sone-space-2);
-  padding-inline: var(--sone-space-4);
+  flex-direction: column;
+  gap: 2px;
   font-size: var(--sone-text-sm);
   color: var(--sone-text-muted);
 }
-.search-facet-date input { font: inherit; font-size: var(--sone-text-xs); }
 
-.search-facet-clear { align-self: start; margin-inline-start: var(--sone-space-4); }
+/* Somebody the field is offering, in a box of its own so the chosen ones above
+   it stay distinguishable from the ones on offer. */
+.search-facet-matches {
+  display: flex;
+  flex-direction: column;
+  margin-block-start: 2px;
+  border-inline-start: 2px solid var(--sone-border);
+}
+
+.search-facet-clear { align-self: start; }
 
 /* The field above the tree (ADR-0118). It was a link to a screen with a field
    on it; the icon stays as the mark, and the row is the field. */
