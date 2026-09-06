@@ -1011,8 +1011,18 @@ export const api = {
    * the server would make every workspace owner a reader of the instance's
    * directory, which the administration keeps on purpose.
    */
-  addMember: (workspaceId: string, input: { email: string; role?: string }) =>
-    request<{ userId: string; role: string }>(
+  /**
+   * Let an existing account into a workspace, as any role it can use.
+   *
+   * `roleId` for a role this workspace defined, `role` for one of the four
+   * words — the same two spellings `setMemberRole` accepts, and naming both is
+   * refused rather than guessed at (ADR-0103).
+   */
+  addMember: (
+    workspaceId: string,
+    input: { email: string; role?: string; roleId?: string },
+  ) =>
+    request<{ userId: string; role: string; roleId: string; roleName: string }>(
       `/api/workspaces/${workspaceId}/members`,
       { method: 'POST', body: JSON.stringify(input) },
     ),
