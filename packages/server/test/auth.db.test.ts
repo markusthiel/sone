@@ -105,7 +105,8 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
     );
     const userId = user.rows[0]!.id;
     await db.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,$3)`,
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = $3 AND workspace_id IS NULL), $3 = 'owner')`,
       [fx.workspaceId, userId, role],
     );
     return userId;
@@ -307,11 +308,15 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
     });
 
     assert.equal(result.workspaceId, fx.workspaceId);
-    const member = await db.query<{ role: string }>(
-      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+    // The role row, not the enum word, which is gone (ADR-0102).
+    const member = await db.query<{ role: string; is_owner: boolean }>(
+      `SELECT r.key AS role, m.is_owner
+         FROM workspace_members m JOIN roles r ON r.id = m.role_id
+        WHERE m.workspace_id = $1 AND m.user_id = $2`,
       [fx.workspaceId, result.userId],
     );
     assert.equal(member.rows[0]!.role, 'member');
+    assert.equal(member.rows[0]!.is_owner, false);
   });
 
   test('an email-bound invitation refuses a different address', async () => {
@@ -463,11 +468,15 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
       workspaceName: 'My workspace',
     });
     assert.ok(result.workspaceId);
-    const member = await db.query<{ role: string }>(
-      `SELECT role FROM workspace_members WHERE user_id = $1`,
+    const member = await db.query<{ role: string; is_owner: boolean }>(
+      `SELECT r.key AS role, m.is_owner
+         FROM workspace_members m JOIN roles r ON r.id = m.role_id
+        WHERE m.user_id = $1`,
       [result.userId],
     );
     assert.equal(member.rows[0]!.role, 'owner');
+    // Ownership is a column beside the role, not a word inside it (ADR-0087).
+    assert.equal(member.rows[0]!.is_owner, true);
   });
 
   // --- capability resolution ----------------------------------------------
@@ -792,11 +801,14 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
     assert.equal(rows.rows[0]?.name, 'Own');
     assert.equal(result.workspaceId, rows.rows[0]?.id, 'and lands there');
 
-    const member = await db.query<{ role: string }>(
-      `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+    const member = await db.query<{ role: string; is_owner: boolean }>(
+      `SELECT r.key AS role, m.is_owner
+         FROM workspace_members m JOIN roles r ON r.id = m.role_id
+        WHERE m.workspace_id = $1 AND m.user_id = $2`,
       [rows.rows[0]?.id, result.userId],
     );
     assert.equal(member.rows[0]?.role, 'owner');
+    assert.equal(member.rows[0]?.is_owner, true);
   });
 
   test('being invited somewhere does not cost somebody their own workspace', async () => {

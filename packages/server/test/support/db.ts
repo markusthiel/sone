@@ -191,12 +191,31 @@ export async function resetDatabase(db: Pool): Promise<void> {
   // naming this function instead of hanging until something kills the job.
   await db.query(`SET lock_timeout = '10s'`);
 
-  await db.query(`
+  /*
+   * Truncate everything, in a stable order, and retry a deadlock (ADR-0102).
+   *
+   * `TRUNCATE a, b, c` takes ACCESS EXCLUSIVE on each table in the order given,
+   * and `string_agg` over `pg_tables` had no `ORDER BY` — so the order came out
+   * differently between runs. Meanwhile a sync server left connected by the
+   * previous test is reading `workspace_members` and then `roles` to revalidate
+   * somebody. Two lock orders, and eventually they cross.
+   *
+   * Rare before, and less rare once every fixture membership referenced a
+   * `roles` row: the FK check and the role lookup are two more readers of the
+   * table the truncate wants. It surfaced as one flaky absence assertion,
+   * failing with a deadlock inside this hook rather than anything in the test.
+   *
+   * So: a fixed order, which costs nothing and removes our half of the
+   * disagreement, and one retry, because the other half is a live server whose
+   * lock order this cannot dictate. A deadlock is transient by definition —
+   * Postgres aborts one side precisely so the other proceeds.
+   */
+  const truncate = `
     DO $$
     DECLARE
       tables text;
     BEGIN
-      SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
+      SELECT string_agg(format('%I.%I', schemaname, tablename), ', ' ORDER BY tablename)
         INTO tables
         FROM pg_tables
        WHERE schemaname = 'public'
@@ -205,7 +224,15 @@ export async function resetDatabase(db: Pool): Promise<void> {
         EXECUTE 'TRUNCATE TABLE ' || tables || ' RESTART IDENTITY CASCADE';
       END IF;
     END $$;
-  `);
+  `;
+  try {
+    await db.query(truncate);
+  } catch (err) {
+    // 40P01 only. Anything else is a real failure and must not be retried into
+    // a confusing second error.
+    if ((err as { code?: string }).code !== '40P01') throw err;
+    await db.query(truncate);
+  }
   await db.query(`SELECT setval('doc_update_seq', 1, false)`);
 
   /*
@@ -245,12 +272,41 @@ export async function seedWorkspace(db: Pool, name = 'Test workspace'): Promise<
   );
   const workspaceId = workspace.rows[0]!.id;
 
-  await db.query(
-    `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'owner')`,
-    [workspaceId, userId],
-  );
+  await addMember(db, workspaceId, userId, 'owner');
 
   return { workspaceId, userId };
+}
+
+/**
+ * Put somebody in a workspace, the way the application does (ADR-0102).
+ *
+ * Thirty fixtures used to write this by hand as
+ * `INSERT INTO workspace_members (workspace_id, user_id, role)` — the enum
+ * column and nothing else. Production has written `role_id` and `is_owner`
+ * since ADR-0087, so every one of those rows was a shape the running server
+ * never produces, and every access assertion built on them was resolved
+ * through the compatibility bridge rather than through the path under test.
+ *
+ * Nobody could see it, because the bridge answered correctly. It surfaced only
+ * when the column was removed and a third of the suite went red at once.
+ *
+ * So this is the only way a test puts somebody in a workspace, and it is a
+ * function rather than a remembered rule: the previous arrangement was a
+ * remembered rule.
+ */
+export async function addMember(
+  db: Pool,
+  workspaceId: string,
+  userId: string,
+  key: 'owner' | 'admin' | 'member' | 'guest' = 'member',
+): Promise<void> {
+  await db.query(
+    // Ownership is a column, not a role (ADR-0087), and the two are written
+    // together here for the same reason the routes write them together.
+    `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+     VALUES ($1, $2, (SELECT id FROM roles WHERE key = $3 AND workspace_id IS NULL), $3 = 'owner')`,
+    [workspaceId, userId, key],
+  );
 }
 
 /** Deterministic uuid so failures are reproducible from the test source. */

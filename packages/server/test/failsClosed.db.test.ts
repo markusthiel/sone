@@ -248,8 +248,8 @@ describe(
       );
       const userId = user.rows[0]!.id;
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id)
-         VALUES ($1,$2,'member',(SELECT id FROM roles WHERE key='member'))`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id)
+         VALUES ($1,$2,(SELECT id FROM roles WHERE key='member'))`,
         [fx.workspaceId, userId],
       );
       return userId;

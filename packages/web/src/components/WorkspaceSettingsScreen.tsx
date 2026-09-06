@@ -17,6 +17,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { api, type SessionInfo, type WorkspaceIcon } from '../api/client.ts';
+import { mayEditWorkspace, roleLabel } from '../workspaceRights.ts';
 import { paths } from '../routes/paths.ts';
 import { GroupsPanel } from './GroupsPanel.tsx';
 import { useT } from '../i18n/useT.tsx';
@@ -103,7 +104,14 @@ export function WorkspaceSettingsScreen({
       });
   }, [own, workspaceId]);
 
-  const workspace = own ?? (fetched ? { ...fetched, role: 'unknown' as const } : undefined);
+  const workspace =
+    own ??
+    // A foreign workspace: the name and icon are all the list route gives,
+    // and the standing is genuinely unknown — whoever is looking is here on
+    // the instance-wide right, which `manages` below answers for.
+    (fetched
+      ? { ...fetched, role: 'unknown', roleName: 'unknown', rights: [] as string[], isOwner: false }
+      : undefined);
   const canAdminister =
     session.user.isInstanceAdmin || session.user.canManageWorkspaces;
 
@@ -119,9 +127,20 @@ export function WorkspaceSettingsScreen({
    *
    * Found by reading the route rather than by a failure, because a disabled
    * control produces no failure to read.
+   *
+   * **And the other half of it, one ADR later** (ADR-0102).
+   *
+   * `role === 'owner' || role === 'admin'` is not the rule the route enforces:
+   * the route asks for the `workspace.settings` **right**. The two agreed only
+   * for as long as the four system roles were the only roles — so somebody
+   * holding that right through a custom role, or through a group, got every
+   * control disabled and no explanation — the same failure, found the same way.
+   *
+   * The rights now come with the session, so the screen asks what the server
+   * asks.
    */
   const manages = session.user.isInstanceAdmin || session.user.canManageWorkspaces;
-  const canEdit = workspace?.role === 'owner' || workspace?.role === 'admin' || manages;
+  const canEdit = mayEditWorkspace(workspace, manages);
 
   return (
     <div className="settings-body">
@@ -131,7 +150,7 @@ export function WorkspaceSettingsScreen({
           workspaceId={workspaceId}
           name={workspace?.name ?? ''}
           icon={workspace?.icon ?? null}
-          role={workspace?.role ?? 'unknown'}
+          role={roleLabel(workspace, 'unknown')}
           canEdit={canEdit}
         />
       )}

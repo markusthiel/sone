@@ -132,7 +132,8 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     );
     const userId = user.rows[0]!.id;
     await db.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,$3)`,
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = $3 AND workspace_id IS NULL), $3 = 'owner')`,
       [fx.workspaceId, userId, role],
     );
     return userId;

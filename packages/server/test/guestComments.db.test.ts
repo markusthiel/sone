@@ -148,9 +148,9 @@ describe(
       );
       workspace = ws.rows[0]!.id;
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner) VALUES
-           ($1,$2,'owner',(SELECT id FROM roles WHERE key='owner'),true),
-           ($1,$3,'guest',(SELECT id FROM roles WHERE key='guest'),false)`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner) VALUES
+           ($1,$2,(SELECT id FROM roles WHERE key='owner'),true),
+           ($1,$3,(SELECT id FROM roles WHERE key='guest'),false)`,
         [workspace, owner, reader],
       );
 

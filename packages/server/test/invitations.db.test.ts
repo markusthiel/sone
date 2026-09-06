@@ -293,7 +293,18 @@ describe(
         `${base}/api/invitations/${invitation.invitationId}`,
         auth(other, { method: 'DELETE' }),
       );
-      await expectStatus(res, 403);
+      /*
+       * Not found, and it was forbidden (ADR-0102).
+       *
+       * This route used to answer with its own hand-written check against the
+       * enum column; it asks `mayAdminister` now, like the four routes beside
+       * it, and that answers 404 for somebody who is not in the workspace on
+       * purpose: "you may not withdraw this" confirms the invitation exists.
+       *
+       * The change of code is the point rather than a cost — the four sibling
+       * routes have always answered this way.
+       */
+      await expectStatus(res, 404);
 
       // And it still works afterwards, which is the thing that would matter.
       assert.equal((await workspaceList(session.cookie, session.workspaceId)).length, 1);
@@ -389,7 +400,8 @@ describe(
         ])
       ).rows[0]!.id;
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
         [session.workspaceId, otherId],
       );
       await signUp('third@example.org');

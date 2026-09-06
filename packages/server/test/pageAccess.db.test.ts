@@ -64,8 +64,10 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
     workspace = ws.rows[0]!.id;
 
     await db.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES
-         ($1,$2,'owner'), ($1,$3,'member'), ($1,$4,'guest')`,
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner) VALUES
+         ($1,$2,(SELECT id FROM roles WHERE key = 'owner' AND workspace_id IS NULL),true),
+         ($1,$3,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL),false),
+         ($1,$4,(SELECT id FROM roles WHERE key = 'guest' AND workspace_id IS NULL),false)`,
       [workspace, owner, member, guest],
     );
 

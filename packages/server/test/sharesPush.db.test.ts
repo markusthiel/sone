@@ -101,7 +101,8 @@ describe(
       );
       const userId = user.rows[0]!.id;
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
         [fx.workspaceId, userId],
       );
       return userId;
@@ -120,6 +121,22 @@ describe(
         }),
       );
       await client.waitForType(ServerMessage.AuthAck);
+
+      /*
+       * Drain what the fixture set off before counting anything (ADR-0102).
+       *
+       * `makeMember` inserts a membership, and a membership insert is an access
+       * change: it nudges `pages` for the whole workspace, on purpose. That
+       * nudge crosses the bus while this connection is being made, so it could
+       * land either side of the AuthAck — and the three tests that assert a
+       * scope was **not** nudged count every frame the connection ever saw.
+       *
+       * Which made them pass because the timing usually went one way. An
+       * absence assertion that depends on a race is the assertion most worth
+       * making deterministic: the day it goes red it will be read as a flake.
+       */
+      await settle();
+      client.forget();
       return client;
     }
 
