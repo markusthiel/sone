@@ -17,6 +17,7 @@
 import {
   COLOR_SCHEMES,
   CORNERS,
+  FONT_PAIRS,
   SIZE_STEPS,
   SPACE_STEPS,
   SURFACE_TREATMENTS,
@@ -504,6 +505,46 @@ export function ThemeSettings({
 
       {show === 'type' && (
         <>
+        {/* The typeface, before the elements (ADR-0127).
+          *
+          * On this half and not the other: it is the one thing on these two
+          * screens that is unambiguously typography, which is what the split
+          * was asked for.
+          *
+          * A named pair rather than a family: a font typed into a box is a font
+          * somebody's machine may not have, and the person who typed it sees
+          * their own machine and cannot tell. */}
+        <h3 className="settings-heading">{t('type.fonts')}</h3>
+        <p className="settings-note">{t('type.fonts.note')}</p>
+
+        <div className="theme-surfaces">
+          <label className="theme-surface">
+            <span>{t('type.fonts')}</span>
+            <select
+              value={theme.fonts ?? 'designed'}
+              disabled={!canEdit}
+              onChange={(event) => {
+                setSaved(false);
+                const chosen = event.target.value;
+                setTheme((current) => {
+                  const { fonts: _dropped, ...rest } = current;
+                  const next: WorkspaceTheme = { ...rest };
+                  if (chosen !== 'designed') {
+                    next.fonts = chosen as Exclude<(typeof FONT_PAIRS)[number], 'designed'>;
+                  }
+                  return next;
+                });
+              }}
+            >
+              {FONT_PAIRS.map((pair) => (
+                <option key={pair} value={pair}>
+                  {t(`type.fonts.${pair}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <h3 className="settings-heading">{t('type.elements')}</h3>
 
         <table className="theme-table">
