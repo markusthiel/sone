@@ -268,8 +268,17 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
   });
 
   test('the condition agrees with resolving one page', async () => {
-    // Two answers to one question is how a listing leaks a title the page
-    // itself would refuse. This is the check that they stay the same answer.
+    /*
+     * Two answers to one question is how a listing leaks a title the page
+     * itself would refuse. This is the check that they stay the same answer.
+     *
+     * The four pairs it was written with were all pairs on a **restricted**
+     * page, and for two years that was the whole of it: the one shape where the
+     * two answers differed — an ordinary page and somebody whose role gives
+     * them nothing on one — was not among them, and so this test passed
+     * throughout (ADR-0110). The unrestricted pairs are the last two, and the
+     * guest one is the case.
+     */
     await db.query(`UPDATE pages SET restricted = true WHERE id = $1`, [child]);
     await db.query(
       `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'viewer')`,
@@ -281,6 +290,8 @@ describe('page access (database)', { concurrency: 1, skip: !hasDatabase }, () =>
       [guest, child],
       [guest, grandchild],
       [member, root],
+      [guest, root],
+      [owner, root],
     ] as const) {
       const listed = await db.query<{ id: string }>(
         `SELECT p.id FROM pages p
