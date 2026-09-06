@@ -68,6 +68,8 @@ export function SearchPanel({
   /** Naming the current search to keep it (ADR-0050). */
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
+  /** What is typed into the people field. Filters the members already fetched. */
+  const [who, setWho] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +115,26 @@ export function SearchPanel({
       if (at === -1) list.push(value.toLowerCase());
       else list.splice(at, 1);
     });
+
+  /*
+   * Whom the people field is offering.
+   *
+   * Filtered here rather than fetched: the members list is already in hand for
+   * this workspace, and a request per keystroke would be a request for
+   * something already loaded. Nothing is offered until two characters, and
+   * never more than eight — the same shape the people picker on the members
+   * screen has, for the same reason.
+   */
+  const matching =
+    who.trim().length < 2
+      ? []
+      : members
+          .filter(
+            (member) =>
+              member.displayName.toLowerCase().includes(who.trim().toLowerCase()) &&
+              !has(filters.authors, member.displayName),
+          )
+          .slice(0, 8);
 
   const chosenFolders = foldersIn(folders);
   const anything =
@@ -250,19 +272,64 @@ export function SearchPanel({
         >
           {t('search.facet.assignedMe')}
         </button>
-        {members.map((member) => (
+
+        {/* Chosen, not listed (ADR-0120).
+          *
+          * Every member was a row, which is fine at four and unusable at forty —
+          * *„die wird sonst irgendwann zu groß"*. A field that filters as you
+          * type has the same first keystroke either way and does not grow.
+          *
+          * Whoever is already chosen stays visible above it: a filter you cannot
+          * see is a filter you cannot take off. */}
+        {filters.authors.map((name) => (
           <button
-            key={member.userId}
+            key={name}
             type="button"
             className="search-facet-row"
-            // The display name, because `author:` is a prefix match against the
-            // names a page carries — a whole name is a prefix of itself.
-            aria-pressed={has(filters.authors, member.displayName)}
-            onClick={() => toggle((f) => f.authors, member.displayName)}
+            aria-pressed="true"
+            onClick={() => toggle((f) => f.authors, name)}
           >
-            {t('search.facet.writtenBy', { name: member.displayName })}
+            {/* Called what they are called, not what the query spells.
+              *
+              * The filter is stored lowercased — `author:` is a case-insensitive
+              * prefix match (ADR-0050) — so reading it straight back put "By
+              * anna weber" on screen. The member list is in hand; when it knows
+              * the name, it is the one to show. */}
+            {t('search.facet.writtenBy', {
+              name:
+                members.find((one) => one.displayName.toLowerCase() === name)?.displayName ??
+                name,
+            })}
           </button>
         ))}
+
+        <input
+          type="search"
+          className="search-facet-input"
+          value={who}
+          placeholder={t('search.facet.whoPlaceholder')}
+          aria-label={t('search.facet.who')}
+          onChange={(event) => setWho(event.target.value)}
+        />
+        {matching.length > 0 && (
+          <div className="search-facet-matches">
+            {matching.map((member) => (
+              <button
+                key={member.userId}
+                type="button"
+                className="search-facet-row"
+                // The display name, because `author:` is a prefix match against
+                // the names a page carries — a whole name is a prefix of itself.
+                onClick={() => {
+                  toggle((f) => f.authors, member.displayName);
+                  setWho('');
+                }}
+              >
+                {t('search.facet.writtenBy', { name: member.displayName })}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {chosenFolders.length > 0 && (
