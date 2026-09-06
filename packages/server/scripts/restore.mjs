@@ -9,7 +9,10 @@
  * instance leaves rooms in memory holding documents that no longer match the
  * database.
  *
- * Refuses a non-empty target database unless --force is given.
+ * Refuses a non-empty target database unless --force is given, and an archive
+ * sealed with a different SONE_SECRET_KEY unless --different-key is given
+ * (ADR-0105). Two flags rather than one: they are different risks, and a flag
+ * that answers both is one people pass without reading either.
  */
 import { parseArgs } from 'node:util';
 
@@ -21,11 +24,12 @@ const { values } = parseArgs({
   options: {
     archive: { type: 'string' },
     force: { type: 'boolean', default: false },
+    'different-key': { type: 'boolean', default: false },
   },
 });
 
 if (!values.archive) {
-  console.error('usage: restore.mjs --archive <directory> [--force]');
+  console.error('usage: restore.mjs --archive <directory> [--force] [--different-key]');
   process.exit(2);
 }
 
@@ -39,6 +43,8 @@ try {
     databaseUrl: config.databaseUrl,
     filesPath: config.storage.backend === 'local' ? config.storage.path : null,
     requireEmpty: !values.force,
+    secretKey: config.secretKey,
+    allowDifferentKey: values['different-key'],
   });
   for (const warning of report.warnings) {
     console.warn(`[restore] warning: ${warning}`);
