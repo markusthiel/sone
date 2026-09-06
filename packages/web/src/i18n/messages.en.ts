@@ -928,7 +928,8 @@ export const en = {
   'trash.view.expiring': 'Going soon',
   'trash.view.pages': 'Pages',
   'trash.view.folders': 'Folders',
-  'trash.scope': '{workspace} · kept for 30 days',
+  // Retention only: which workspace is the chooser above it (ADR-0114).
+  'trash.scope': 'Kept for 30 days',
   'trash.daysLeft': '{count, plural, one {# day left} other {# days left}}',
   'trash.note':
     'Deleted entries stay here until they are destroyed. Nothing is removed on a ' +

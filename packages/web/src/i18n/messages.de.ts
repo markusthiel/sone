@@ -1026,7 +1026,10 @@ export const de: Record<keyof typeof en, string> = {
   'trash.view.expiring': 'Bald endgültig weg',
   'trash.view.pages': 'Seiten',
   'trash.view.folders': 'Ordner',
-  'trash.scope': '{workspace} · 30 Tage',
+  // Nur die Aufbewahrung: welcher Workspace steht seit ADR-0114 im Wähler
+  // darüber, und zweimal derselbe Name in zwei Zeilen liest sich wie zwei
+  // verschiedene Angaben.
+  'trash.scope': '30 Tage aufbewahrt',
   'trash.daysLeft': '{count, plural, one {noch # Tag} other {noch # Tage}}',
   'trash.note':
     'Gelöschte Einträge bleiben hier, bis sie vernichtet werden. Nichts wird nach einem ' +
