@@ -201,7 +201,18 @@ describe(
        * (ADR-0106): `store.put` happens *before* the `INSERT INTO files`, so
        * between them a live upload has bytes and no row.
        */
-      const arriving = await stored('9', '0 seconds');
+      /*
+       * Two seconds, not zero.
+       *
+       * It was written with the current time, and the comparison is
+       * `modifiedAt < now - grace`: with no grace those are the same
+       * millisecond whenever the walk between them is quick enough, and the
+       * file is then not a candidate. It failed once in a loaded full run,
+       * which is exactly how often a knife-edge like that fails — and a test
+       * that fails one run in fifty is one people learn to re-run rather than
+       * read. Two seconds is still far inside the window a real grace hides.
+       */
+      const arriving = await stored('9', '2 seconds');
 
       // Zero grace, which is the setting nobody should use and the one that
       // makes the window visible: the file is there, and only the age hides it.
@@ -284,7 +295,10 @@ describe(
       await mkdir(path.dirname(target), { recursive: true });
       await writeFile(target, `bytes-${seed}`, 'utf8');
 
-      const seconds = age === '0 seconds' ? 0 : Number(age.split(' ')[0]) * 86_400;
+      // "<n> seconds" or "<n> days", so a fixture can sit just inside a window
+      // as well as far outside one.
+      const amount = Number(age.split(' ')[0]);
+      const seconds = age.endsWith('seconds') ? amount : amount * 86_400;
       const when = new Date(Date.now() - seconds * 1000);
       await utimes(target, when, when);
       return key;

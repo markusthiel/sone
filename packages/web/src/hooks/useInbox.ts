@@ -49,6 +49,8 @@ export function useInbox(
   setRead: (ids: string[], read: boolean) => void;
   /** Aside until a moment, or back now with null (ADR-0075). */
   snooze: (ids: string[], until: Date | null) => void;
+  /** Off the list for good (ADR-0115). Not reversible, unlike the rest. */
+  remove: (ids: string[]) => void;
   /** Answer where you are (ADR-0076). Resolves when the server has it. */
   reply: (id: string, text: string) => Promise<void>;
   /** How many are waiting, for the badge on the bell. */
@@ -175,6 +177,28 @@ export function useInbox(
   }, []);
 
   /*
+   * Off the list, and **not** optimistic (ADR-0115).
+   *
+   * The other three are, because the worst a failed one costs is a row in the
+   * wrong view, recoverable by looking again. This one cannot be undone by the
+   * person or by the code: a row that vanished from the screen and stayed on
+   * the server would come back on the next refresh with no explanation, and a
+   * row that vanished from both when the request failed would be a deletion
+   * that did not happen and cannot be retried.
+   *
+   * So the list is re-read from the server, and what the server did is what the
+   * screen shows.
+   */
+  const remove = useCallback((ids: string[]) => {
+    void api
+      .removeFromInbox(ids)
+      .then(() => {
+        setItems((current) => (current ?? []).filter((one) => !ids.includes(one.id)));
+      })
+      .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'));
+  }, []);
+
+  /*
    * Not optimistic, and that is the difference.
    *
    * Marking read and putting aside are decisions about a row in a list, and the
@@ -213,5 +237,5 @@ export function useInbox(
       (one.snoozedUntil === null || new Date(one.snoozedUntil).getTime() <= Date.now()),
   ).length;
 
-  return { items, error, markRead, setRead, snooze, reply, unread, refresh };
+  return { items, error, markRead, setRead, snooze, remove, reply, unread, refresh };
 }

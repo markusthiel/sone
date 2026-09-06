@@ -267,6 +267,59 @@ export function registerInboxRoutes(router: Router, deps: InboxDeps): void {
   });
 
   /**
+   * Take rows off the list for good (ADR-0115).
+   *
+   * There was no way to. Reading a row keeps it, snoozing brings it back, and
+   * the one-year ceiling on a snooze is there precisely so that putting
+   * something aside cannot quietly become deleting it — which left "I do not
+   * want this row any more" with no answer at all. Asked for as exactly that,
+   * about two notifications for pages that no longer exist.
+   *
+   * By id only, and never "delete everything": marking the list read is the
+   * bankruptcy declaration, and it is reversible. This one is not, so it says
+   * what it removes.
+   *
+   * A hard delete rather than a `dismissed_at` column. A notification is a
+   * message about somebody else's writing, not a record of anything — the
+   * comment and the page are the record, and both outlive this row. Keeping a
+   * tombstone would mean the table grows forever to remember what somebody
+   * asked to stop seeing.
+   */
+  router.post('/api/inbox/remove', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    let body: { ids?: unknown };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const ids = Array.isArray(body.ids)
+      ? body.ids.filter((one): one is string => typeof one === 'string')
+      : null;
+    if (ids === null || ids.length === 0) {
+      ctx.fail(422, 'ids_required');
+      return;
+    }
+
+    const { rowCount } = await deps.pool.query(
+      `DELETE FROM notifications
+        WHERE user_id = $1
+          -- Scoped to this person: an id from somebody else's inbox matches
+          -- nothing rather than being an error, which is the same answer as an
+          -- id that never existed. It is also the whole of the authorisation
+          -- here, so it is not a nicety.
+          AND id = ANY($2::uuid[])`,
+      [session.userId, ids],
+    );
+
+    ctx.send(200, { removed: rowCount ?? 0 });
+  });
+
+  /**
    * Answer a notification without leaving the inbox (ADR-0076).
    *
    * By notification rather than by thread. The inbox is the one place in SONE

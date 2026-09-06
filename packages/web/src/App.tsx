@@ -1064,9 +1064,19 @@ function Workspace({
             items={inbox.items}
             view={inboxView}
             error={inbox.error}
+            here={workspaceId}
             onRead={inbox.setRead}
             onSnooze={inbox.snooze}
             onReply={inbox.reply}
+            onRemove={inbox.remove}
+            /* Switching is part of opening (ADR-0115).
+             *
+             * The mechanism already existed for the workspace switcher and the
+             * inbox did not use it, so a notification about a page in another
+             * workspace opened the right address on a connection bound to the
+             * wrong one — and the page said "you no longer have access to this
+             * page", which was not true and pointed nowhere useful. */
+            onGoTo={(id, to) => onSwitchWorkspace(id, to)}
           />
         )}
 
