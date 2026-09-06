@@ -328,6 +328,9 @@ function Routes({
       // the resolution lives above this component, so the way to apply a new
       // answer is to let it happen again.
       reloadSession={reload}
+      // Whether this instance has a relay, for the controls that only make
+      // sense with one (ADR-0126).
+      canSendMail={state.instance.canSendMail === true}
       route={route}
       navigate={navigate}
       onSwitchWorkspace={(id, to = paths.home()) => {
@@ -363,6 +366,7 @@ function Workspace({
   displayName,
   session,
   reloadSession,
+  canSendMail,
   route,
   navigate,
   onSwitchWorkspace,
@@ -374,6 +378,8 @@ function Workspace({
   session: import('./api/client.ts').SessionInfo;
   /** Re-reads the session, for a setting the whole interface is drawn from. */
   reloadSession: () => Promise<void> | void;
+  /** Whether this instance can send mail at all (ADR-0126). */
+  canSendMail: boolean;
   route: ReturnType<typeof useRoute>['route'];
   /** With `replace`, for the redirect of an old settings URL (ADR-0032). */
   navigate: (to: string, options?: { replace?: boolean }) => void;
@@ -1220,6 +1226,9 @@ function Workspace({
           // meaningful for the page somebody is looking at, which is the only
           // page this dialog is opened for.
           threadCount={sharingId === pageId ? comments.threads.length : 0}
+          // Offering to mail a link where no mail can be sent would be a
+          // control that can only ever fail (ADR-0059, ADR-0126).
+          canSendMail={canSendMail}
           onClose={() => setSharingId(null)}
         />
       )}

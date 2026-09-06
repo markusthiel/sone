@@ -5950,6 +5950,22 @@ select {
   font-size: var(--sone-text-xs);
 }
 
+/* Sending a link to somebody (ADR-0126).
+ *
+ * Under the link it belongs to and inset from it, because "which link" is the
+ * whole question: a page can carry a viewer link and an editor link, and a form
+ * floating between them is a form somebody fills in for the wrong one. */
+.share-send {
+  grid-column: 1 / -1;
+  margin-block-start: var(--sone-space-4);
+  padding: var(--sone-space-4);
+  border-inline-start: 2px solid var(--border-default);
+  background: var(--surface-sunken);
+  border-radius: var(--sone-radius);
+}
+.share-send .field { margin-block-end: var(--sone-space-4); }
+.share-send input { inline-size: 100%; }
+
 /* The button and, beside it, when it last ran.
  *
  * `margin-block-end: 2px` was fine while the note below carried a negative top

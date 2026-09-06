@@ -33,6 +33,14 @@ interface ShareDialogProps {
   pageTitle: string;
   /** For the list of people who could be given access. */
   workspaceId: string;
+  /**
+   * Whether this instance has a mail relay (ADR-0126).
+   *
+   * Without one the send form is *absent* rather than disabled — ADR-0059's
+   * rule for the password reset, applied to the other thing that needs a relay.
+   * A control that can only ever fail is worse than one that is not there.
+   */
+  canSendMail?: boolean;
   onClose: () => void;
 }
 
@@ -58,6 +66,7 @@ export function ShareDialog({
   threadCount,
   pageTitle,
   workspaceId,
+  canSendMail,
   onClose,
 }: ShareDialogProps): ReactElement {
   const { t } = useT();
@@ -114,7 +123,39 @@ export function ShareDialog({
   const [role, setRole] = useState('viewer');
   const [includeSubtree, setIncludeSubtree] = useState(true);
   const [password, setPassword] = useState('');
-  const [expiry, setExpiry] = useState('never');
+  /*
+   * Thirty days, not never (ADR-0126).
+   *
+   * A link with no expiry is a permanent grant made in a hurry, and the person
+   * making it is usually thinking about the next twenty minutes. Both answers
+   * are one dropdown apart; the difference is which one somebody gets by not
+   * deciding, and a grant that lapses is the safer of the two to leave
+   * undecided.
+   */
+  const [expiry, setExpiry] = useState('30');
+
+  /** Sending a link to somebody (ADR-0126). */
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [to, setTo] = useState('');
+  const [note, setNote] = useState('');
+  /** Which link went to whom, so the note appears under that link and no other. */
+  const [sentTo, setSentTo] = useState<{ linkId: string; to: string } | null>(null);
+
+  const sendLink = async (linkId: string): Promise<void> => {
+    setBusy(true);
+    try {
+      await api.sendShareLink(pageId, linkId, { to: to.trim(), note: note.trim() });
+      setSentTo({ linkId, to: to.trim() });
+      setTo('');
+      setNote('');
+      setSendingId(null);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -350,6 +391,19 @@ export function ShareDialog({
                 >
                   {revealed?.linkId === link.id ? 'Shown' : 'Show link'}
                 </button>
+                {/* Absent without a relay, not disabled (ADR-0059). */}
+                {canSendMail && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      setSentTo(null);
+                      setSendingId(sendingId === link.id ? null : link.id);
+                    }}
+                  >
+                    {t('share.byMail')}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn destructive"
@@ -358,6 +412,52 @@ export function ShareDialog({
                   {t('share.revoke')}
                 </button>
               </div>
+
+              {/* Sending it (ADR-0126).
+                *
+                * Per link rather than one form at the foot, because "which
+                * link" is the whole question: a page can carry a viewer link
+                * and an editor link, and mailing the wrong one hands somebody
+                * more than was meant.
+                *
+                * The link itself is not in this form and never leaves the
+                * browser: the server decrypts the one it holds. */}
+              {sendingId === link.id && (
+                <div className="share-send">
+                  <p className="settings-note">{t('share.byMail.note')}</p>
+                  <div className="field">
+                    <label htmlFor={`share-to-${link.id}`}>{t('share.byMail.to')}</label>
+                    <input
+                      id={`share-to-${link.id}`}
+                      type="email"
+                      autoComplete="email"
+                      value={to}
+                      onChange={(event) => setTo(event.target.value)}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor={`share-note-${link.id}`}>{t('share.byMail.message')}</label>
+                    <input
+                      id={`share-note-${link.id}`}
+                      value={note}
+                      maxLength={500}
+                      onChange={(event) => setNote(event.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    disabled={busy || to.trim().length === 0}
+                    onClick={() => void sendLink(link.id)}
+                  >
+                    {t('share.byMail.send')}
+                  </button>
+                </div>
+              )}
+
+              {sentTo?.linkId === link.id && sendingId === null && (
+                <p className="muted">{t('share.byMail.sent', { to: sentTo.to })}</p>
+              )}
 
               {revealed?.linkId === link.id && (
                 <div className="share-revealed">

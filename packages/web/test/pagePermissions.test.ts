@@ -17,6 +17,40 @@ test('access for people inside sits with links for people outside', () => {
   assert.match(dialog, /<PagePermissions pageId=\{pageId\}/);
 });
 
+// --- handing a link over by mail (ADR-0126) ----------------------------------
+
+test('a new link expires by default', () => {
+  /*
+   * It was `never`. Both answers are one dropdown apart; what changed is which
+   * one somebody gets by not deciding — and a link with no expiry is a
+   * permanent grant made by a person who was thinking about the next twenty
+   * minutes.
+   */
+  assert.match(dialog, /useState\('30'\)/);
+  // And never is still there: a link to a page a team lives in should not
+  // quietly stop working.
+  assert.match(dialog, /value="never"/);
+});
+
+test('the send form is absent without a relay, not disabled', () => {
+  // ADR-0059's rule for the password reset, applied to the other thing that
+  // needs a relay: a control that can only ever fail is worse than one that is
+  // not there.
+  assert.match(dialog, /canSendMail && \(/);
+});
+
+test('and the link is not in the request that mails it', () => {
+  /*
+   * The server decrypts the one it already holds. A route that took a URL to
+   * mail would be a route that mails *any* URL from an authenticated account —
+   * asserted here as well as on the server, because this is the side that
+   * would be tempted to "helpfully" pass the URL it has on screen.
+   */
+  const call = /api\.sendShareLink\(([^)]*)\)/.exec(dialog)?.[1] ?? '';
+  assert.ok(call, 'the dialog sends links');
+  assert.doesNotMatch(call, /url/i);
+});
+
 test('an inherited grant is shown but not editable here', () => {
   // Editing it here would silently change access to everything else under the
   // ancestor it was set on.

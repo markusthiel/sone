@@ -975,6 +975,16 @@ export const de: Record<keyof typeof en, string> = {
     'Der neue Link. {address, select, formal {Sie können ihn} other {Du kannst ihn}} ' +
     'unten jederzeit wieder kopieren.',
   'share.create': 'Link erstellen',
+  'share.byMail': 'Per Mail senden',
+  'share.byMail.note':
+    'Die Mail enthält den Link, wer ihn schickt, wann er abläuft — und den ' +
+    'Satz unten, falls einer da steht. Kein Seiteninhalt.',
+  'share.byMail.to': 'An',
+  'share.byMail.message': 'Ein Satz dazu (optional)',
+  'share.byMail.send': 'Senden',
+  'share.byMail.sent': 'An {to} gesendet.',
+  'error.invalid_address': 'Das sieht nicht nach einer E-Mail-Adresse aus.',
+  'error.no_relay': 'Diese Instanz kann keine Mails senden.',
   'share.revoke': 'Widerrufen',
   'share.subpages.hint':
     'Standardmäßig an: ein Link, der aufhört zu funktionieren, sobald jemand eine ' +
