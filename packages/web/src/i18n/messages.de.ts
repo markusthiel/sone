@@ -1001,6 +1001,29 @@ export const de: Record<keyof typeof en, string> = {
   'type.spaceBelow': 'Abstand unten',
   'type.asDesigned': 'Wie entworfen',
 
+  // --- einzelne Flächen (ADR-0122) ---------------------------------------
+  'type.surfaces': 'Flächen',
+  'type.surfaces.note':
+    'Einzelne Teile der Oberfläche können anders behandelt werden als der ' +
+    'Rest — die schmale Leiste dunkel, der Rest hell. Gewählt wird eine ' +
+    'Beziehung und keine Farbe: „umgekehrt" ist im hellen Design dunkel und ' +
+    'im dunklen hell, aus einem gespeicherten Wert.',
+  'type.surface.rail': 'Schmale Leiste',
+  'type.surface.sidebar': 'Seitenleiste',
+  'type.surface.panel': 'Rechtes Panel',
+  'type.treatment.follow': 'Wie entworfen',
+  'type.treatment.raised': 'Erhoben',
+  'type.treatment.sunken': 'Vertieft',
+  'type.treatment.inverted': 'Umgekehrt',
+  'type.treatment.accent': 'Akzentfarbe',
+  'type.corners': 'Ecken',
+  'type.corners.note':
+    'Drei Stufen statt einer Zahl: alle drei Radien bewegen sich zusammen, ' +
+    'damit ein kleines Bedienelement nicht versehentlich zur Pille wird.',
+  'type.corners.sharp': 'Scharf',
+  'type.corners.soft': 'Wie entworfen',
+  'type.corners.round': 'Rund',
+
   // --- womit ein Workspace öffnet ----------------------------------------
   'landing.title': 'Wo {address, select, formal {Sie landen} other {du landest}}',
   'landing.lastPage':

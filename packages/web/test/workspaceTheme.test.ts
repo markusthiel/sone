@@ -25,7 +25,19 @@ test('properties are removed as well as set', () => {
   // the last colour anybody chose would survive its own deletion — the same
   // class of mistake as storing an explicit default.
   assert.match(hook, /removeProperty/);
-  assert.match(hook, /startsWith\('--sone-theme-'\)/);
+  /*
+   * And every prefix, not one of them.
+   *
+   * It was `--sone-theme-` alone, while `themeProperties` has always also
+   * emitted `--accent`, `--accent-contrast` and `--sone-palette-*` — set and
+   * never removed, so leaving a workspace with an accent for one without left
+   * the first one's accent on the page. What the setter can produce is
+   * asserted where it is produced (`core/test/surfaces.test.ts`); this is the
+   * remover being able to recognise all of it.
+   */
+  for (const prefix of ['--sone-theme-', '--sone-palette-', '--sone-radius', '--accent']) {
+    assert.match(hook, new RegExp(`'${prefix}'`), `${prefix} is removed too`);
+  }
 });
 
 test('a workspace does not follow somebody into the next one', () => {
@@ -52,6 +64,73 @@ test('every theme property has a fallback in the stylesheet', () => {
   assert.ok(uses.length > 0, 'the properties are used at all');
   for (const [, name, rest] of uses) {
     assert.match(rest, /,\s*\S/, `${name} has no fallback`);
+  }
+});
+
+// --- treating one piece of furniture (ADR-0122) ------------------------------
+
+test('a treated surface redefines the names its own contents read', () => {
+  /*
+   * The mechanism, stated so a later tidy-up has to argue with it.
+   *
+   * Nothing inside the sidebar is told that the sidebar was treated. The
+   * container redefines `--text-primary` and friends for its own subtree, and
+   * every row, label and line inside follows — the alternative was adding a
+   * fallback to each of the several dozen rules that name a colour in there,
+   * and the one that was forgotten is a row nobody can read.
+   *
+   * The fallback is `--sone-base-*` and not the name itself, because
+   * `--text-primary: var(--text-primary)` is a cycle: both sides become
+   * invalid and the whole interface loses its text colour.
+   */
+  for (const [area, surface] of [
+    ['\\.icon-rail', 'rail'],
+    ['\\.sidebar', 'sidebar'],
+    ['\\.right-panel', 'panel'],
+  ] as const) {
+    const rule = new RegExp(`${area} \\{[^}]*\\}`).exec(css)?.[0] ?? '';
+    for (const [name, base] of [
+      ['--text-primary', 'ink'],
+      ['--text-muted', 'muted'],
+      ['--border-subtle', 'border'],
+      ['--surface-hover', 'hover'],
+    ]) {
+      assert.ok(
+        rule.includes(`${name}: var(--sone-theme-${surface}-${base}, var(--sone-base-${base}))`),
+        `${area} redefines ${name}`,
+      );
+    }
+    assert.doesNotMatch(rule, /var\(--text-primary\)\s*;/, 'and never from itself');
+  }
+});
+
+test('a popup goes back to what the page means', () => {
+  // It floats above the page on the overlay surface, and the overlay surface is
+  // not treated — so a menu opening out of an inverted rail would be drawn
+  // light and handed the rail's light text.
+  const rule =
+    /:is\(\.icon-rail, \.sidebar, \.right-panel\)\s*:is\([^)]*\) \{[^}]*\}/.exec(css)?.[0] ?? '';
+  assert.match(rule, /--text-primary: var\(--sone-base-ink\)/);
+  assert.match(rule, /\.sidebar-account-menu/);
+});
+
+test('a treatment is a relationship, and each theme says what it means', () => {
+  // The half that makes one stored `inverted` right for both readers. Declared
+  // in each theme rather than computed once, so "the other end" is dark against
+  // light and light against dark — a stored `#161615` would be a black bar
+  // against a black page for everybody reading in the dark.
+  //
+  // That both themes declare all five is what `tokens.test.ts` enforces; this
+  // is that they exist at all, and that neither is a literal.
+  for (const part of ['bg', 'ink', 'muted', 'border', 'hover']) {
+    assert.match(css, new RegExp(`--sone-inverse-${part}: var\\(--ink-`), part);
+  }
+  // And the accented pair mixes into the accent itself, never into
+  // `transparent` — a mix with transparent pulls towards black, so a faded
+  // white on a pale accent comes out grey (the trap `brand.test.ts` records).
+  for (const name of ['--sone-accent-muted', '--sone-accent-hover']) {
+    const value = new RegExp(`${name}: ([^;]+);`).exec(css)?.[1] ?? '';
+    assert.match(value, /var\(--accent\)\s*\)$/, `${name} falls back to the accent`);
   }
 });
 
