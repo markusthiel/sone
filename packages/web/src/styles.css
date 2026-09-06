@@ -4159,7 +4159,18 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 
 .block-gutter {
   position: fixed;
-  z-index: 30;
+  /* Above the page, and under everything that covers the page (ADR-0134).
+   *
+   * It was 30, chosen so the controls would win against the block they sit on —
+   * which they still do: nothing drawn inside the reading column goes past 5.
+   * What 30 also won against was the sidebar drawer at 20 and the dimming at
+   * 10, so opening the sidebar on a narrow screen left a `+` and a grip
+   * floating over the folder list. Reported twice.
+   *
+   * The number is not the decision; the order is, and it is written down as
+   * pairs in `test/layers.test.ts` because a stylesheet has nowhere to say
+   * which of two elements is the page and which is the thing on top of it. */
+  z-index: 6;
   /* The gutter sits over the text column, so a touch meant for the handle must
      not start a selection in the block underneath.
    *
@@ -4252,17 +4263,17 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   color: var(--sone-text);
 }
 
-/* On a touch device the gutter is as visible as it gets.
+/* On a touch device the gutter does not wait to be pointed at.
  *
  * The faded state exists so the controls stay out of the way until somebody
- * points at them, and there is nothing to point with here — a permanently
- * half-visible control reads as disabled.
+ * approaches them, and there is nothing to approach with here — a control that
+ * is permanently half-visible reads as disabled.
+ *
+ * There were two of these blocks, `opacity: 1` and then `opacity: 0.7`, so the
+ * first has never applied to anything: later wins, and the comment above it
+ * described a value no phone has ever rendered. One block, and 0.7 is the value
+ * it has actually had.
  */
-@media (hover: none) {
-  .block-insert,
-  .block-handle { opacity: 1; }
-}
-
 @media (hover: none) {
   .block-insert,
   .block-handle { opacity: 0.7; }
