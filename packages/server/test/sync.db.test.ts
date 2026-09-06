@@ -383,6 +383,13 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     // the fear was already answered: the insert joins `workspace_members`, so
     // only a member can be a recipient and a share-link visitor has no row
     // there (ADR-0057).
+    //
+    // "And only a member" was the wrong half to be reassured by, and this
+    // title claimed more than the fixture asks: a **guest** is a member, and
+    // was told about pages the test two hundred lines below asserts they
+    // cannot open. `whoMayBeTold.db.test.ts` is where that is asked now
+    // (ADR-0110); what is left here is the internal-comments path reaching the
+    // one writer at all.
     await makePage(uuid(1));
     const author = await makeMember('mentioner@example.org');
     const mentioned = await makeMember('mentioned@example.org');

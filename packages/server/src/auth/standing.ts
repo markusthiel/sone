@@ -291,32 +291,78 @@ export const STANDING_COLUMNS = `COALESCE(mr.key, 'custom') AS role,
 export const STANDING_JOIN = `JOIN roles mr ON mr.id = m.role_id`;
 
 /**
- * SQL for "this person's role in this page's workspace gives them everything".
+ * SQL for "what the workspace gives this person on its pages", as a test.
  *
  * The listing queries paste a visibility condition into a dozen `WHERE`
- * clauses and cannot call the loader above, so they need this one derived
- * question in SQL. Written out once here rather than passed in by each caller,
- * because it used to be passed in and one caller passed the literal `false` —
+ * clauses and cannot call the loader above, so they need their derived
+ * questions in SQL. Written out once here rather than passed in by each caller,
+ * because they used to be passed in and one caller passed the literal `false` —
  * so an owner could not watch a restricted page they could plainly see.
  *
  * A parameter every caller has to compute correctly is a parameter one caller
  * computes wrongly.
+ *
+ * `test` is a predicate on `page_level`, applied to the membership's own role
+ * **and** to every group's, because a group must never take something away
+ * (ADR-0026). Two callers, both below; nothing outside this module composes it.
+ *
+ * The aliases are prefixed rather than `m`, `r`, `g`: this fragment is pasted
+ * into statements that already join `workspace_members m` — `writeNotifications`
+ * does — and a subquery that shadows an outer alias is legal SQL and a trap for
+ * the next reader. `activityDigest` has the same note about `w`.
  */
-export const fullAccessCondition = (alias: string, userParam: string): string => `EXISTS (
+const workspaceLevelCondition = (
+  alias: string,
+  userParam: string,
+  test: string,
+): string => `EXISTS (
   SELECT 1
-    FROM workspace_members m
+    FROM workspace_members wm
     -- The role they hold. A membership must point at one (ADR-0102), so this
     -- is a plain join and no longer falls back to the enum word.
-    JOIN roles r ON r.id = m.role_id
-   WHERE m.workspace_id = ${alias}.workspace_id
-     AND m.user_id = ${userParam}
-     AND (r.page_level = 'admin' OR EXISTS (
+    JOIN roles wr ON wr.id = wm.role_id
+   WHERE wm.workspace_id = ${alias}.workspace_id
+     AND wm.user_id = ${userParam}
+     AND (wr.page_level ${test} OR EXISTS (
        SELECT 1
-         FROM group_members gm
-         JOIN groups g ON g.id = gm.group_id
-         JOIN roles gr ON gr.id = g.role_id
-        WHERE gm.user_id = ${userParam}
-          AND g.workspace_id = ${alias}.workspace_id
-          AND gr.page_level = 'admin'
+         FROM group_members wgm
+         JOIN groups wg ON wg.id = wgm.group_id
+         JOIN roles wgr ON wgr.id = wg.role_id
+        WHERE wgm.user_id = ${userParam}
+          AND wg.workspace_id = ${alias}.workspace_id
+          AND wgr.page_level ${test}
      ))
+)`;
+
+/** SQL for "this person's role in this page's workspace gives them everything". */
+export const fullAccessCondition = (alias: string, userParam: string): string =>
+  workspaceLevelCondition(alias, userParam, `= 'admin'`);
+
+/**
+ * SQL for "this person's role in this page's workspace gives them *anything*".
+ *
+ * The question a listing has to ask before it decides that an unrestricted page
+ * is therefore visible, and the one it did not ask for two years (ADR-0110).
+ *
+ * A `guest` holds a role whose `page_level` is null: being in a workspace as a
+ * guest means being shown particular things, not everything. So does any custom
+ * role configured that way. Membership was treated as the whole of the
+ * question — and a guest is a member.
+ */
+export const anyPageLevelCondition = (alias: string, userParam: string): string =>
+  workspaceLevelCondition(alias, userParam, `IS NOT NULL`);
+
+/**
+ * SQL for "this person is in this page's workspace at all".
+ *
+ * Not the same question as the one above, and needed beside it: a page **grant**
+ * is access in its own right, held by a row that outlives nothing in particular.
+ * Removing somebody deletes their grants and their group memberships — the
+ * route does that deliberately, so that rejoining does not silently restore
+ * what they had — but a check that is only correct because another route
+ * behaved is a check that is correct by luck.
+ */
+export const isWorkspaceMemberCondition = (alias: string, userParam: string): string => `EXISTS (
+  SELECT 1 FROM workspace_members wmm
+   WHERE wmm.workspace_id = ${alias}.workspace_id AND wmm.user_id = ${userParam}
 )`;

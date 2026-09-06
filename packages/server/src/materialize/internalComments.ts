@@ -69,10 +69,16 @@ export async function projectInternalComments(
    *
    * The record left this out as the safe direction — "a mention nobody is told
    * about is a smaller fault than one told to somebody who cannot read the
-   * thread". Reading the write showed the fear was already answered: the insert
-   * joins `workspace_members`, so only a member can ever be a recipient, and a
-   * share-link visitor has no row there. The visibility condition on the page
-   * applies on top of that.
+   * thread". Reading the write showed the fear was answered for the case it
+   * named: the insert joins `workspace_members`, so a share-link visitor, who
+   * has no row there, can never be a recipient.
+   *
+   * It was not answered for a **member** who may not read the page (ADR-0110).
+   * "Only a member can be a recipient" was doing the work of "only somebody who
+   * may open it", and a guest is a member. The visibility condition is what
+   * separates those two, and it did not: it has been corrected rather than a
+   * second check added here, because a second check here is how the two answers
+   * to this question got out of step in the first place.
    *
    * So this is one call, not a second notification path. The thread ids come
    * from a different document and cannot collide with the page's own, which is
