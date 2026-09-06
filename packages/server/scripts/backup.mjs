@@ -30,7 +30,7 @@ try {
     pool,
     databaseUrl: config.databaseUrl,
     outputDir: values.out,
-    filesPath: config.storage.backend === 'local' ? config.storage.path : null,
+    filesPath: config.storage.path,
     appVersion: SONE_VERSION,
     documentSchemaVersion: SCHEMA_VERSION,
     // Recorded as a fingerprint, never as itself, so a restore can tell whether

@@ -476,7 +476,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -501,7 +501,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -521,7 +521,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       archiveDir: dir,
       databaseUrl: testDatabaseUrl(),
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       requireEmpty: true,
       secretKey: KEY_A,
       log: () => {},
@@ -555,7 +555,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -570,7 +570,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       archiveDir: dir,
       databaseUrl: testDatabaseUrl(),
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       requireEmpty: false,
       secretKey: KEY_A,
       log: () => {},
@@ -627,7 +627,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: path.join(workDir, 'fingerprint'),
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -654,7 +654,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -666,7 +666,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       archiveDir: dir,
       databaseUrl: testDatabaseUrl(),
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       requireEmpty: false,
       secretKey: KEY_B,
       log: () => {},
@@ -698,7 +698,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -711,7 +711,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       archiveDir: dir,
       databaseUrl: testDatabaseUrl(),
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       requireEmpty: true,
       secretKey: KEY_A,
       log: () => {},
@@ -741,7 +741,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -754,7 +754,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       archiveDir: dir,
       databaseUrl: testDatabaseUrl(),
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       requireEmpty: true,
       secretKey: KEY_B,
       allowDifferentKey: true,
@@ -786,7 +786,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -805,7 +805,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       archiveDir: dir,
       databaseUrl: testDatabaseUrl(),
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       requireEmpty: true,
       secretKey: KEY_B,
       log: () => {},
@@ -842,7 +842,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
         pool: db,
         databaseUrl: testDatabaseUrl(),
         outputDir: path.join(workDir, 'mismatch'),
-        filesPath: null,
+        filesPath: path.join(workDir, 'no-files'),
         appVersion: '0.1.0',
         documentSchemaVersion: SCHEMA_VERSION,
         secretKey: KEY_A,
@@ -879,7 +879,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       archiveDir: dir,
       databaseUrl: testDatabaseUrl(),
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       secretKey: KEY_A,
       log: () => {},
     })
@@ -897,7 +897,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -909,7 +909,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       archiveDir: dir,
       databaseUrl: testDatabaseUrl(),
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       requireEmpty: true,
       secretKey: KEY_A,
       log: () => {},
@@ -965,7 +965,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -983,19 +983,78 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       log: () => {},
     });
     /*
-     * The intent is unchanged — the operator must be told attachments are not
-     * in the archive — and the wording is not: `filesPath: null` means S3, and
-     * the warning now says so instead of "archive contains no files. If the
-     * source used S3 storage…", which was addressed to everybody and accurate
-     * for one of them (ADR-0079).
+     * The intent is unchanged and the wording has now moved twice.
+     *
+     * ADR-0079 replaced "archive contains no files. If the source used S3
+     * storage…", addressed to everybody and accurate for one of them, with a
+     * warning that said which case it was — deciding it from `filesPath: null`,
+     * which "means S3".
+     *
+     * It never meant S3 (ADR-0107). There is one backend, so a path with
+     * nothing at it means exactly what it says: this instance had no
+     * attachments. Precision about the wrong thing was worse than the vague
+     * version it replaced, because it sent people looking for a bucket.
      */
     assert.ok(
-      report.warnings.some((w) => /S3/.test(w) && /not in this archive/.test(w)),
-      'the operator must be told attachments are not in the archive, and why',
+      report.warnings.some((w) => /no attachments/.test(w)),
+      'the operator must be told there is nothing here, and why',
     );
+    assert.ok(!report.warnings.some((w) => /S3/i.test(w)), 'and no bucket is invented');
+  });
+
+  test('an archive that claims S3 is told the truth about it', async () => {
+    /*
+     * The one that matters on somebody's disk today (ADR-0107).
+     *
+     * Archives written before this build carry `fileStorage: 's3'` whenever the
+     * instance had `SONE_STORAGE_BACKEND=s3` set — which was configurable,
+     * validated, documented and wired to nothing. Their attachments were on the
+     * source's local disk, and the archive skipped that directory because of
+     * the same flag.
+     *
+     * So the restore used to answer the worst of the three possible messages:
+     * confident, actionable and wrong. "Point this instance at that bucket"
+     * costs whoever reads it the hour in which the old volume might still be
+     * mounted somewhere.
+     */
+    await makePage(uuid(1), 'Claims a bucket', uuid(516));
+    const out = path.join(workDir, 'claims-s3');
+    await createBackup({
+      pool: db,
+      databaseUrl: testDatabaseUrl(),
+      outputDir: out,
+      filesPath: path.join(workDir, 'no-files'),
+      appVersion: '0.1.0',
+      documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
+      log: () => {},
+    });
+    const dir = await findArchive(out);
+
+    // Rewritten as an instance with the setting would have written it. Nothing
+    // produces this any more, which is why it has to be forged to be tested.
+    const manifestPath = path.join(dir, MANIFEST_NAME);
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as Record<string, unknown>;
+    manifest['fileStorage'] = 's3';
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+
+    const report = await restoreBackup({
+      pool: db,
+      archiveDir: dir,
+      databaseUrl: testDatabaseUrl(),
+      filesPath: path.join(workDir, 'target'),
+      requireEmpty: false,
+      secretKey: KEY_A,
+      log: () => {},
+    });
+
+    const warning = report.warnings.find((one) => /S3/.test(one));
+    assert.ok(warning, 'the claim is addressed rather than ignored');
+    assert.match(warning, /never implemented|no build of SONE/i);
+    assert.match(warning, /own disk/i, 'and says where the attachments actually were');
     assert.ok(
-      report.warnings.some((w) => /backup of its own/.test(w)),
-      'and that the bucket is a backup problem of its own',
+      !/point this instance at that bucket/i.test(warning),
+      'and does not send anybody looking for a bucket',
     );
   });
 
@@ -1081,7 +1140,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
         pool: db,
         archiveDir: half,
         databaseUrl: testDatabaseUrl(),
-        filesPath: null,
+        filesPath: path.join(workDir, 'no-files'),
         requireEmpty: false,
         secretKey: KEY_A,
         log: () => {},
@@ -1109,7 +1168,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       pool: db,
       databaseUrl: testDatabaseUrl(),
       outputDir: out,
-      filesPath: null,
+      filesPath: path.join(workDir, 'no-files'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
       secretKey: KEY_A,
@@ -1129,7 +1188,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
         pool: db,
         archiveDir: dir,
         databaseUrl: testDatabaseUrl(),
-        filesPath: null,
+        filesPath: path.join(workDir, 'no-files'),
         requireEmpty: false,
         secretKey: KEY_A,
         log: () => {},

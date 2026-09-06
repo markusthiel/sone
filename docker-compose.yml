@@ -54,7 +54,8 @@ services:
       # who filled in SONE_SMTP_PASSWORD — which `.env.example` invites — got a
       # server that never saw it, and mail that failed to authenticate for no
       # visible reason. Fourteen variables were in that state, including both
-      # secrets and the whole of the S3 backend.
+      # secrets and the six S3 settings — which have since gone, because they
+      # configured a backend that was never implemented (ADR-0107).
       #
       # Empty rather than unset, because the server reads an empty SMTP host as
       # "no mail configured", which is the right default.
@@ -79,12 +80,6 @@ services:
       SONE_OIDC_CLIENT_SECRET: ${SONE_OIDC_CLIENT_SECRET:-}
 
       # Object storage, when SONE_STORAGE_BACKEND is s3.
-      SONE_S3_ENDPOINT: ${SONE_S3_ENDPOINT:-}
-      SONE_S3_REGION: ${SONE_S3_REGION:-}
-      SONE_S3_BUCKET: ${SONE_S3_BUCKET:-}
-      SONE_S3_ACCESS_KEY_ID: ${SONE_S3_ACCESS_KEY_ID:-}
-      SONE_S3_SECRET_ACCESS_KEY: ${SONE_S3_SECRET_ACCESS_KEY:-}
-      SONE_S3_FORCE_PATH_STYLE: ${SONE_S3_FORCE_PATH_STYLE:-}
 
       # How long a deleted workspace can be restored (ADR-0027).
       SONE_WORKSPACE_RETENTION_DAYS: ${SONE_WORKSPACE_RETENTION_DAYS:-30}
