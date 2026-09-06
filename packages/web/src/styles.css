@@ -253,6 +253,12 @@
   --sone-inverse-muted: var(--ink-400);
   --sone-inverse-border: var(--ink-700);
   --sone-inverse-hover: var(--ink-800);
+  /* The other scheme's accent, because an inverted surface is that scheme's
+     ground standing in this one: `--accent-500` on near-black is the same
+     too-dark green the dark theme already replaces (ADR-0131). */
+  --sone-inverse-accent: var(--accent-300);
+  --sone-inverse-accent-contrast: var(--ink-950);
+  --sone-inverse-accent-quiet: var(--accent-950);
 
   /* Depth, named rather than typed out.
    *
@@ -317,6 +323,9 @@
   --sone-inverse-muted: var(--ink-500);
   --sone-inverse-border: var(--ink-200);
   --sone-inverse-hover: var(--ink-100);
+  --sone-inverse-accent: var(--accent-500);
+  --sone-inverse-accent-contrast: var(--ink-000);
+  --sone-inverse-accent-quiet: var(--accent-050);
 
   --sone-shadow-sm: 0 1px 3px rgb(0 0 0 / 30%);
   --sone-shadow-md: 0 4px 16px rgb(0 0 0 / 40%);
@@ -361,6 +370,9 @@
   --sone-base-muted: var(--text-muted);
   --sone-base-border: var(--border-subtle);
   --sone-base-hover: var(--surface-hover);
+  --sone-base-accent: var(--accent);
+  --sone-base-accent-ink: var(--accent-contrast);
+  --sone-base-accent-quiet: var(--accent-quiet);
 
   --sone-accent-muted: color-mix(in srgb, var(--accent-contrast) 70%, var(--accent));
   --sone-accent-hover: color-mix(in srgb, var(--accent-contrast) 14%, var(--accent));
@@ -505,6 +517,9 @@
     --sone-inverse-muted: var(--ink-500);
     --sone-inverse-border: var(--ink-200);
     --sone-inverse-hover: var(--ink-100);
+    --sone-inverse-accent: var(--accent-500);
+    --sone-inverse-accent-contrast: var(--ink-000);
+    --sone-inverse-accent-quiet: var(--accent-050);
 
     --sone-shadow-sm: 0 1px 3px rgb(0 0 0 / 30%);
     --sone-shadow-md: 0 4px 16px rgb(0 0 0 / 40%);
@@ -747,6 +762,16 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   --text-muted: var(--sone-theme-sidebar-muted, var(--sone-base-muted));
   --border-subtle: var(--sone-theme-sidebar-border, var(--sone-base-border));
   --surface-hover: var(--sone-theme-sidebar-hover, var(--sone-base-hover));
+  /* The accent pair too (ADR-0131). The mark's third bar and every filled
+     control are drawn in it, so a surface that does not carry its own is a
+     surface where the mark and the buttons belong to the page behind it. */
+  --accent: var(--sone-theme-sidebar-accent, var(--sone-base-accent));
+  --accent-contrast: var(--sone-theme-sidebar-accent-ink, var(--sone-base-accent-ink));
+  /* The outward alias is resolved at the root, so it cannot see the line above
+     it — restated here or every rule using the old name keeps the page's. */
+  --sone-accent: var(--sone-theme-sidebar-accent, var(--sone-base-accent));
+  /* The quiet ground an avatar's initials sit on, which is inside the rail. */
+  --accent-quiet: var(--sone-theme-sidebar-accent-quiet, var(--sone-base-accent-quiet));
   border-inline-end: 1px solid var(--border-subtle);
   background: var(--sone-theme-sidebar-bg, var(--surface-chrome));
   /* Visible, and it has to be: the account menu hangs out of a 56px column, and
@@ -900,6 +925,16 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   --text-muted: var(--sone-theme-rail-muted, var(--sone-base-muted));
   --border-subtle: var(--sone-theme-rail-border, var(--sone-base-border));
   --surface-hover: var(--sone-theme-rail-hover, var(--sone-base-hover));
+  /* The accent pair too (ADR-0131). The mark's third bar and every filled
+     control are drawn in it, so a surface that does not carry its own is a
+     surface where the mark and the buttons belong to the page behind it. */
+  --accent: var(--sone-theme-rail-accent, var(--sone-base-accent));
+  --accent-contrast: var(--sone-theme-rail-accent-ink, var(--sone-base-accent-ink));
+  /* The outward alias is resolved at the root, so it cannot see the line above
+     it — restated here or every rule using the old name keeps the page's. */
+  --sone-accent: var(--sone-theme-rail-accent, var(--sone-base-accent));
+  /* The quiet ground an avatar's initials sit on, which is inside the rail. */
+  --accent-quiet: var(--sone-theme-rail-accent-quiet, var(--sone-base-accent-quiet));
   border-inline-end: 1px solid var(--border-subtle);
   background: var(--sone-theme-rail-bg, var(--surface-chrome));
   /* Visible, and it has to be: the account menu hangs out of a 56px column, and
@@ -4872,6 +4907,16 @@ select {
   --text-muted: var(--sone-theme-panel-muted, var(--sone-base-muted));
   --border-subtle: var(--sone-theme-panel-border, var(--sone-base-border));
   --surface-hover: var(--sone-theme-panel-hover, var(--sone-base-hover));
+  /* The accent pair too (ADR-0131). The mark's third bar and every filled
+     control are drawn in it, so a surface that does not carry its own is a
+     surface where the mark and the buttons belong to the page behind it. */
+  --accent: var(--sone-theme-panel-accent, var(--sone-base-accent));
+  --accent-contrast: var(--sone-theme-panel-accent-ink, var(--sone-base-accent-ink));
+  /* The outward alias is resolved at the root, so it cannot see the line above
+     it — restated here or every rule using the old name keeps the page's. */
+  --sone-accent: var(--sone-theme-panel-accent, var(--sone-base-accent));
+  /* The quiet ground an avatar's initials sit on, which is inside the rail. */
+  --accent-quiet: var(--sone-theme-panel-accent-quiet, var(--sone-base-accent-quiet));
   /* `--border-subtle` and not `--sone-border`: the alias is resolved at the
      root, so it cannot see the redefinition three lines above it. */
   border-inline-start: 1px solid var(--border-subtle);
@@ -4895,6 +4940,10 @@ select {
   --text-muted: var(--sone-base-muted);
   --border-subtle: var(--sone-base-border);
   --surface-hover: var(--sone-base-hover);
+  --accent: var(--sone-base-accent);
+  --accent-contrast: var(--sone-base-accent-ink);
+  --accent-quiet: var(--sone-base-accent-quiet);
+  --sone-accent: var(--sone-base-accent);
 }
 
 /* Closed means gone, not narrow: a zero-width column still draws its border.
