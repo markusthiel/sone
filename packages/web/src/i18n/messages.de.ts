@@ -425,6 +425,20 @@ export const de: Record<keyof typeof en, string> = {
   'admin.emailDetail.title': 'Den Seitentitel',
   'admin.emailDetail.workspace': 'Nur den Workspace',
   'admin.instanceName': 'Name der Instanz',
+  'admin.brand': 'Erscheinungsbild',
+  'admin.brand.section.hint': 'Logo und Basis-Design dieser Instanz.',
+  'admin.brand.hint':
+    'Beides ist schon vor der Anmeldung zu sehen — das ist der Sinn davon.',
+  'admin.brand.choose': 'Logo wählen',
+  'admin.brand.remove': 'Logo entfernen',
+  'admin.brand.logo.note':
+    'Am besten quadratisch, PNG, JPEG oder WebP. Ein fast quadratisches Bild ' +
+    'wird eingepasst, nicht verzerrt. Ohne Logo zeichnet die Oberfläche ihre ' +
+    'eigene Marke.',
+  'admin.brand.design': 'Basis-Design',
+  'admin.brand.design.hint':
+    'Gilt überall dort, wo ein Workspace nichts eigenes eingestellt hat. Ein ' +
+    'Workspace füllt darüber auf; er ersetzt es nicht.',
   'admin.signup': 'Wer ein Konto anlegen darf',
   'admin.signup.open': 'Jeder, der die Adresse hat',
   'admin.signup.invite': 'Nur mit Einladung',

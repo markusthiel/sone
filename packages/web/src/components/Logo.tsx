@@ -25,7 +25,23 @@
  * default accent rather than the workspace's.
  */
 
-import type { ReactElement } from 'react';
+import { createContext, useContext, type ReactElement } from 'react';
+
+/**
+ * The instance's own mark, when it has one (ADR-0123).
+ *
+ * A context rather than a prop, because the mark is drawn in the rail, in the
+ * mode bar, on the sign-in screen and beside every workspace in the switcher —
+ * threading a URL through all of them is four chances to draw two different
+ * logos on one screen.
+ *
+ * Null is the ordinary state and means the drawing below, which is why nothing
+ * here waits for an answer: an instance with no logo and an instance whose
+ * `/api/instance` has not arrived yet look the same, and both are correct.
+ */
+const BrandLogoContext = createContext<string | null>(null);
+
+export const BrandLogo = BrandLogoContext.Provider;
 
 export function SoneMark({
   size = 26,
@@ -35,6 +51,31 @@ export function SoneMark({
   /** Given only where the mark is the sole content of a link or button. */
   title?: string;
 }): ReactElement {
+  const logo = useContext(BrandLogoContext);
+
+  /*
+   * An instance's own mark replaces the drawing rather than sitting beside it.
+   *
+   * `object-fit: contain` and a square box: a logo is asked for square, and a
+   * near-square one is letterboxed rather than stretched. Refusing a 1000×980
+   * file would be refusing somebody's logo over twenty pixels.
+   *
+   * No `width`/`height` attributes beyond the box, and `alt` carries whatever
+   * the drawing would have said — the mark is often the only content of a link.
+   */
+  if (logo) {
+    return (
+      <img
+        className="brand-logo"
+        src={logo}
+        width={size}
+        height={size}
+        alt={title ?? ''}
+        aria-hidden={title ? undefined : true}
+      />
+    );
+  }
+
   return (
     <svg
       viewBox="0 0 100 100"

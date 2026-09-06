@@ -399,6 +399,19 @@ export const en = {
   'admin.emailDetail.title': 'The page title',
   'admin.emailDetail.workspace': 'Only the workspace',
   'admin.instanceName': 'Instance name',
+  'admin.brand': 'Appearance',
+  'admin.brand.section.hint': 'This instance’s logo and base design.',
+  'admin.brand.hint':
+    'Both are visible before anybody signs in, which is the point of them.',
+  'admin.brand.choose': 'Choose a logo',
+  'admin.brand.remove': 'Remove the logo',
+  'admin.brand.logo.note':
+    'Square is best; PNG, JPEG or WebP. A nearly square picture is fitted ' +
+    'rather than stretched. With no logo the interface draws its own mark.',
+  'admin.brand.design': 'Base design',
+  'admin.brand.design.hint':
+    'Used wherever a workspace has set nothing of its own. A workspace fills ' +
+    'in over it rather than replacing it.',
   'admin.signup': 'Who may create an account',
   'admin.signup.open': 'Anyone with the address',
   'admin.signup.invite': 'Only with an invitation',

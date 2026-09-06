@@ -75,8 +75,24 @@ const SIZE_LABELS: Record<number, string> = {
   3: 'Largest',
 };
 
+/**
+ * Where a theme is read from and written to (ADR-0123).
+ *
+ * A pair of functions rather than a workspace id, because there are two owners
+ * now: a workspace, and the instance underneath every workspace. The form is
+ * the same form — the same controls, the same "as designed" meaning the same
+ * thing — and a second copy of it for the instance would be the screen where
+ * one of the two forgets a control.
+ */
+export interface ThemeOwner {
+  /** Something stable per owner, so a change of owner refetches. */
+  key: string;
+  load: () => Promise<{ theme: WorkspaceTheme }>;
+  save: (theme: WorkspaceTheme) => Promise<{ theme: WorkspaceTheme }>;
+}
+
 interface ThemeSettingsProps {
-  workspaceId: string;
+  owner: ThemeOwner;
   /** Owners and admins may change it; everybody else sees what it says. */
   canEdit: boolean;
   /**
@@ -95,7 +111,7 @@ interface ThemeSettingsProps {
 }
 
 export function ThemeSettings({
-  workspaceId,
+  owner,
   canEdit,
   show,
 }: ThemeSettingsProps): ReactElement {
@@ -108,8 +124,8 @@ export function ThemeSettings({
 
   useEffect(() => {
     let cancelled = false;
-    void api
-      .workspaceTheme(workspaceId)
+    void owner
+      .load()
       .then((result) => {
         if (!cancelled) setTheme(result.theme);
       })
@@ -119,7 +135,10 @@ export function ThemeSettings({
     return () => {
       cancelled = true;
     };
-  }, [workspaceId]);
+    // The key and not the pair: `owner` is rebuilt on every render of the
+    // screen above, and depending on it would refetch the theme forever.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner.key]);
 
   /**
    * Change one property of one element.
@@ -170,8 +189,8 @@ export function ThemeSettings({
   const save = (): void => {
     setBusy(true);
     setError(null);
-    void api
-      .setWorkspaceTheme(workspaceId, theme)
+    void owner
+      .save(theme)
       // What comes back is what was stored, which can differ from what was sent
       // if something was not usable. Shown rather than kept, so the form never
       // claims a setting the server dropped.

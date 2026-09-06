@@ -27,6 +27,7 @@ import {
   UsersPanel,
   useIsInstanceAdmin,
   MailPanel,
+  BrandPanel,
 } from './Admin.tsx';
 import { InvitePanel } from './InvitePanel.tsx';
 import { OidcPanel } from './OidcPanel.tsx';
@@ -82,6 +83,19 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     hint: 'admin.mail.section.hint',
     admin: true,
   },
+  {
+    /*
+     * The instance's own look (ADR-0123).
+     *
+     * Its own section rather than two more rows under "who may sign up": a
+     * logo and a base design are a subject, and an operator looking for "how do
+     * I put our mark on this" should find a place called Appearance.
+     */
+    id: 'brand',
+    label: 'admin.brand',
+    hint: 'admin.brand.section.hint',
+    admin: true,
+  },
   { id: 'maintenance', label: 'admin.maintenance', hint: 'admin.maintenance.hint', admin: true },
 ];
 
@@ -131,6 +145,7 @@ export function AdminScreen({
       {current === 'invite' && <InvitePanel />}
       {current === 'sso' && <OidcPanel />}
       {current === 'mail' && <MailPanel />}
+      {current === 'brand' && <BrandPanel />}
       {current === 'maintenance' && <MaintenancePanel />}
     </div>
   );

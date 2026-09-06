@@ -86,6 +86,14 @@ const ALLOWED_WHILE_BLOCKED = [
   '/api/auth/session',
   '/api/auth/logout',
   '/api/instance',
+  /*
+   * The instance's mark (ADR-0123).
+   *
+   * A blocked account still sees the screen telling it to enrol, and that
+   * screen is drawn with this instance's logo on it. Refusing the picture would
+   * be refusing the branding of the page doing the refusing.
+   */
+  '/api/instance/logo',
 ];
 
 export const reachableWhileBlocked = (path: string): boolean =>
