@@ -175,3 +175,49 @@ export function hasSearchCriteria(filters: SearchFilters): boolean {
     filters.before !== null
   );
 }
+
+/**
+ * Write filters back out as a query somebody could have typed (ADR-0118).
+ *
+ * The filter panel edits filters; the field edits a string; they are the same
+ * search. So the panel parses what is in the field, changes one thing, and
+ * writes it back through here rather than composing `tag:` itself.
+ *
+ * This is the same argument ADR-0050 made for putting the *parser* in core:
+ *
+ * > two parsers would eventually disagree about what somebody typed, which is
+ * > the worst possible thing for a search box to be uncertain about
+ *
+ * A writer that disagrees with the reader is that fault with the halves
+ * swapped, and it has a nastier shape: pressing a tag in the panel would
+ * silently change something else in the field.
+ *
+ * **What could not be read is not written back.** `before:tuesday` is reported
+ * as unreadable and struck through; re-asserting it on every edit would carry a
+ * filter the search has already refused through the rest of the session, with
+ * no way to be rid of it.
+ *
+ * The words go last, so somebody watching the field while pressing a tag sees
+ * their words where they left them.
+ */
+export function buildSearchQuery(filters: SearchFilters): string {
+  const parts: string[] = [];
+
+  // Quoted only when it has to be. `tag:budget` is what somebody would type,
+  // and `tag:"budget"` invites the question of whether the quotes mean
+  // something — they do not, and a query that looks unlike the one you typed is
+  // one you stop trusting.
+  const write = (prefix: string, value: string): void => {
+    parts.push(`${prefix}:${/[\s"]/.test(value) ? `"${value.replace(/"/g, '')}"` : value}`);
+  };
+
+  for (const tag of filters.tags) write('tag', tag);
+  for (const name of filters.in) write('in', name);
+  for (const author of filters.authors) write('author', author);
+  for (const who of filters.assigned) write('assigned', who);
+  if (filters.after) write('after', filters.after);
+  if (filters.before) write('before', filters.before);
+  if (filters.text !== '') parts.push(filters.text);
+
+  return parts.join(' ');
+}

@@ -48,14 +48,24 @@ function withWord(query: string, word: string): string {
 
 export function SearchScreen({
   workspaceId,
-  initialQuery,
+  query,
+  onQuery,
 }: {
   workspaceId: string;
-  initialQuery: string;
+  /**
+   * The whole query, from the URL (ADR-0118).
+   *
+   * Not local state any more. The panel beside this screen edits the same
+   * string through its filters, and the field above the tree writes it too —
+   * a copy here would be a second answer to what is being searched for, and the
+   * chips would describe one search while the panel showed another.
+   */
+  query: string;
+  onQuery: (query: string, options?: { commit?: boolean }) => void;
 }): ReactElement {
   const pageLink = usePageLink();
   const { t } = useT();
-  const [query, setQuery] = useState(initialQuery);
+  const setQuery = onQuery;
   const [results, setResults] = useState<SearchResult[]>([]);
   /** Names that are close, offered only when the search found little. */
   const [similar, setSimilar] = useState<SimilarName[]>([]);
@@ -71,24 +81,6 @@ export function SearchScreen({
   const [applied, setApplied] = useState<AppliedFilters | null>(null);
   /** Spellings that exist here, when the search found little (ADR-0051). */
   const [corrections, setCorrections] = useState<string[]>([]);
-  /** Searches this person has kept here (ADR-0050). */
-  const [saved, setSaved] = useState<Array<{ id: string; name: string; query: string }>>([]);
-  const [naming, setNaming] = useState(false);
-  const [name, setName] = useState('');
-
-  const reloadSaved = useCallback(() => {
-    void api
-      .savedSearches(workspaceId)
-      .then((result) => setSaved(result.searches))
-      .catch(() => {
-        // A list that cannot be fetched is drawn as no list: it is a
-        // convenience, and an error about it would sit above the search
-        // somebody came to run.
-        setSaved([]);
-      });
-  }, [workspaceId]);
-
-  useEffect(reloadSaved, [reloadSaved]);
   const [searching, setSearching] = useState(false);
   const requestId = useRef(0);
 
@@ -203,85 +195,15 @@ export function SearchScreen({
         </div>
       )}
 
-      {/* What has been kept, under an empty field.
+      {/* What has been kept is in the panel beside this now (ADR-0118).
         *
-        * Here rather than in the sidebar: this is where somebody is when they
-        * want to run one again, and a third sidebar section is a decision about
-        * the sidebar rather than about searches (ADR-0050). */}
-      {query === '' && saved.length > 0 && (
-        <ul className="saved-searches">
-          {saved.map((one) => (
-            <li key={one.id}>
-              <button type="button" className="saved-search" onClick={() => setQuery(one.query)}>
-                <span className="saved-search-name">{one.name}</span>
-                {/* The query as well as the name: a name is memorable and a
-                    query is readable, and neither substitutes for the other. */}
-                <span className="saved-search-query">{one.query}</span>
-              </button>
-              <button
-                type="button"
-                className="saved-search-forget"
-                aria-label={t('search.forget', { name: one.name })}
-                onClick={() => void api.forgetSearch(one.id).then(reloadSaved)}
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Keeping this one, offered only when there is something to keep. */}
-      {hasSearchCriteria(parsed) && !naming && (
-        <button
-          type="button"
-          className="btn subtle search-keep"
-          onClick={() => {
-            setName(query.trim().slice(0, 80));
-            setNaming(true);
-          }}
-        >
-          {t('search.keep')}
-        </button>
-      )}
-
-      {naming && (
-        <div className="search-naming">
-          <input
-            className="search-name"
-            autoFocus
-            value={name}
-            placeholder={t('search.nameIt')}
-            aria-label={t('search.nameIt')}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setNaming(false);
-              if (event.key === 'Enter' && name.trim() !== '') {
-                void api.saveSearch(workspaceId, name.trim(), query.trim()).then(() => {
-                  setNaming(false);
-                  reloadSaved();
-                });
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="btn primary"
-            disabled={name.trim() === ''}
-            onClick={() =>
-              void api.saveSearch(workspaceId, name.trim(), query.trim()).then(() => {
-                setNaming(false);
-                reloadSaved();
-              })
-            }
-          >
-            {t('action.save')}
-          </button>
-          <button type="button" className="btn subtle" onClick={() => setNaming(false)}>
-            {t('action.cancel')}
-          </button>
-        </div>
-      )}
+        * It was here, under an empty field, on the reasoning that "a third
+        * sidebar section is a decision about the sidebar rather than about
+        * searches" (ADR-0050). It was a decision about the sidebar, and it has
+        * been made: a list you return to by name is a menu, and a menu belongs
+        * in the column that navigates. Here it disappeared the moment anybody
+        * typed, which is the moment somebody comparing two kept searches needs
+        * it. */}
 
       {/* The syntax, once, under the field — not a help page somebody has to
           find, and not a permanent panel either: it disappears as soon as

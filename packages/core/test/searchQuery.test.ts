@@ -103,3 +103,71 @@ test('a folder is named, not identified', () => {
   // question about a place.
   assert.ok(hasSearchCriteria(parseSearchQuery('in:Projekte')));
 });
+
+// --- writing one back (ADR-0118) -------------------------------------------
+
+import { buildSearchQuery } from '../src/search/query.js';
+
+/**
+ * The filter panel edits filters and the field edits a string, and they are the
+ * same search.
+ *
+ * So the panel does not compose `tag:` by hand: it parses what is in the field,
+ * changes one thing, and writes it back through this. Two places assembling the
+ * syntax is the arrangement ADR-0050 already refused for *reading* it — "two
+ * parsers would eventually disagree about what somebody typed, which is the
+ * worst possible thing for a search box to be uncertain about" — and a writer
+ * that disagrees with the reader is the same fault with the halves swapped.
+ */
+
+test('what is written back parses to what went in', () => {
+  const filters = parseSearchQuery(
+    'tag:budget tag:"rechnung 2026" in:Finanzen author:markus assigned:me ' +
+      'after:2026-01-01 before:2026-12-31 quartal prüfen',
+  );
+
+  const again = parseSearchQuery(buildSearchQuery(filters));
+
+  assert.deepEqual(again.tags, filters.tags);
+  assert.deepEqual(again.in, filters.in);
+  assert.deepEqual(again.authors, filters.authors);
+  assert.deepEqual(again.assigned, filters.assigned);
+  assert.equal(again.after, filters.after);
+  assert.equal(again.before, filters.before);
+  assert.equal(again.text, filters.text);
+});
+
+test('a value with a space comes back quoted, or it is two filters', () => {
+  // The one case that cannot survive a naive join, and the reason this is a
+  // function rather than a template string at each call site.
+  const written = buildSearchQuery(parseSearchQuery('tag:"rechnung 2026"'));
+  assert.match(written, /tag:"rechnung 2026"/);
+  assert.deepEqual(parseSearchQuery(written).tags, ['rechnung 2026']);
+});
+
+test('the words come last, so a half-typed filter is still readable', () => {
+  // Somebody watching the field while pressing a tag in the panel should see
+  // their words where they left them, not shuffled into the middle.
+  const written = buildSearchQuery(parseSearchQuery('quartal tag:budget prüfen'));
+  assert.equal(written, 'tag:budget quartal prüfen');
+});
+
+test('nothing chosen is an empty string, not a string of nothings', () => {
+  // The field has to be *empty* for the saved searches and the syntax note to
+  // appear under it, and " " is not empty.
+  assert.equal(buildSearchQuery(parseSearchQuery('')), '');
+});
+
+test('what could not be read is not written back', () => {
+  /*
+   * `before:tuesday` is reported to the person as unreadable and struck through
+   * (ADR-0050). Writing it back would mean pressing a tag in the panel silently
+   * re-asserting a filter the search had already told them it could not use —
+   * and it would never go away, because every edit would carry it forward.
+   */
+  const filters = parseSearchQuery('before:tuesday tag:budget');
+  assert.equal(filters.unreadable.length, 1);
+
+  const written = buildSearchQuery(filters);
+  assert.equal(written, 'tag:budget');
+});

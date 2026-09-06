@@ -5,7 +5,14 @@
  * about all of those at once; everything else takes what it needs as props.
  */
 
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from 'react';
 
 import { LoginScreen, SetupScreen, SignupScreen, useMessage, ResetScreen,
   SecondFactorRequired,
@@ -36,6 +43,7 @@ import {
   RightSidebar,
   readRightPanelOpen,
 } from './components/RightSidebar.tsx';
+import { SearchPanel } from './components/SearchPanel.tsx';
 import { SearchScreen } from './components/Search.tsx';
 import { LocaleProvider, resolveLocale, useT } from './i18n/useT.tsx';
 import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
@@ -328,6 +336,29 @@ function Workspace({
   const pageLink = usePageLink();
   const message = useMessage();
   const { t } = useT();
+
+  /**
+   * What is being searched for, which lives in the URL (ADR-0118).
+   *
+   * One string, three writers: the field above the tree, the field on the
+   * search screen, and every control in the search panel. A copy of it in
+   * component state would be a second answer to what is being searched for, and
+   * the panel and the field would drift apart the moment either was used.
+   *
+   * In the URL rather than in a `useState` here because a search is a place: it
+   * can be linked to, and `parseRoute` has read `?q=` since the screen existed.
+   *
+   * `replace` while typing, `push` on Enter. A keystroke is not somewhere to go
+   * back to, and pushing one per character would bury whatever came before the
+   * search under forty history entries — but the search somebody *committed* is
+   * a place they should be able to leave and return to.
+   */
+  const onSearch = useCallback(
+    (query: string, options?: { commit?: boolean }) => {
+      navigate(paths.search(query), { replace: options?.commit !== true });
+    },
+    [navigate],
+  );
 
   // Whether there is anything above the fold, for the line under the bar at the
   // top (ADR-0042).
@@ -695,7 +726,9 @@ function Workspace({
       <Sidebar
         mode={mode}
         panelTitle={
-          mode === 'inbox'
+          mode === 'search'
+            ? t('search.title')
+            : mode === 'inbox'
             ? t('inbox.title')
             : mode === 'trash'
               ? t('trash.title')
@@ -743,7 +776,7 @@ function Workspace({
               current={workspaceCurrentHref}
               onChoose={onSwitchWorkspace}
             />
-          ) : mode === 'shares' || mode === 'trash' ? (
+          ) : mode === 'shares' || mode === 'trash' || mode === 'search' ? (
             <WorkspaceMenu
               currentIcon={session.workspaces.find((one) => one.id === workspaceId)?.icon ?? null}
               currentId={workspaceId}
@@ -767,6 +800,8 @@ function Workspace({
             </button>
           ) : undefined
         }
+        searchQuery={route.kind === 'search' ? route.query : ''}
+        onSearch={onSearch}
         onStartExport={setExportingId}
         onStartImport={setImportingId}
         currentIcon={
@@ -839,6 +874,15 @@ function Workspace({
         )}
         {mode === 'shares' && (
           <SharesPanel counts={shareCounts} view={sharesView} onPick={setSharesView} />
+        )}
+        {mode === 'search' && (
+          <SearchPanel
+            workspaceId={workspaceId}
+            query={route.kind === 'search' ? route.query : ''}
+            onQuery={onSearch}
+            folders={tree}
+            userId={session.user.id}
+          />
         )}
       </Sidebar>
 
@@ -981,7 +1025,7 @@ function Workspace({
         )}
 
         {route.kind === 'search' && (
-          <SearchScreen workspaceId={workspaceId} initialQuery={route.query} />
+          <SearchScreen workspaceId={workspaceId} query={route.query} onQuery={onSearch} />
         )}
 
         {route.kind === 'trash' && (

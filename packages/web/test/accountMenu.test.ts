@@ -72,11 +72,20 @@ test('every entry carries a mark', () => {
   for (const icon of ['WorkspacesIcon', 'TrashIcon', 'BellIcon']) {
     assert.match(places, new RegExp(`<${icon} />`), `${icon} is with its place`);
   }
-  // And search is in neither list: it has the labelled row above the tree, at
-  // both widths, which is the more findable of the two ways it could have had.
+  /*
+   * And search is a place too now (ADR-0118), with its own mark in that same
+   * list — but not in the account menu, which is the rule this test is about.
+   *
+   * It said "search is in neither list: it has the labelled row above the
+   * tree". The row is still there and is a *field* now; what changed is that
+   * the search it lands you in has a panel of filters and saved searches
+   * beside it, which is a place rather than a screen.
+   */
+  assert.match(places, /paths\.search\(\)/, 'search is a place');
+  assert.match(places, /<SearchIcon \/>/, 'with its own mark');
+  assert.doesNotMatch(sidebar, /paths\.search\(\)/, 'and not in the account menu');
   const tree = codeOf(new URL('../src/components/Sidebar.tsx', import.meta.url));
-  assert.match(tree, /className="sidebar-search"/);
-  assert.doesNotMatch(places, /paths\.search\(\)/);
+  assert.match(tree, /className="sidebar-search"/, 'the way in is still above the tree');
 
 
   // A person, not people: "your settings" and "the people in this workspace" are
