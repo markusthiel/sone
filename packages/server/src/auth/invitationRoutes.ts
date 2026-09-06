@@ -207,6 +207,116 @@ function accessLetter(
   };
 }
 
+/**
+ * The other half of being let in (ADR-0128).
+ *
+ * `accessLetter` says "you can now work in X". These two say the opposite, and
+ * they are the more important ones: gaining access shows up as a workspace
+ * appearing, while losing it shows up as a bookmark that stops working — and
+ * the first guess is that something is broken rather than that something was
+ * decided.
+ *
+ * **Who and where, never what** (ADR-0058) holds exactly as it does above: the
+ * workspace's name is where, and a list of what they can no longer see would be
+ * the content leaving along with the access.
+ */
+function removalLetter(
+  deps: InvitationDeps,
+  where: string,
+  about: { workspace: string; by: string | null },
+): Letter {
+  const base = deps.baseUrl ?? '';
+  return {
+    subject: `${where}: your access to ${about.workspace} has ended`,
+    heading: `You no longer have access to ${about.workspace}.`,
+    lines: [
+      {
+        text: about.by
+          ? `${about.by} removed your access.`
+          : 'Your access was removed.',
+      },
+      {
+        text:
+          'Anything shared with you inside it has gone with it. If this is ' +
+          'unexpected, ask whoever runs that workspace.',
+      },
+    ],
+    // No action, deliberately: there is nothing left for them to open, and a
+    // button here would lead to the 404 this letter exists to explain.
+    baseUrl: base,
+    locale: 'en',
+  };
+}
+
+function roleChangeLetter(
+  deps: InvitationDeps,
+  where: string,
+  about: { workspace: string; by: string | null; role: string },
+): Letter {
+  const base = deps.baseUrl ?? '';
+  return {
+    subject: `${where}: your role in ${about.workspace} has changed`,
+    heading: `You are now ${about.role} in ${about.workspace}.`,
+    lines: [
+      {
+        text: about.by
+          ? `${about.by} changed your role.`
+          : 'Your role was changed.',
+      },
+      // A role decides what somebody may do, and the honest thing to say is
+      // that it may now be less rather than leaving them to find out.
+      { text: 'What you can do there may have changed with it.' },
+    ],
+    action: { label: 'Open it', url: base },
+    baseUrl: base,
+    locale: 'en',
+  };
+}
+
+/**
+ * Tell somebody what happened to their access, if there is anybody to tell.
+ *
+ * Three reasons there may not be, and all three are ordinary rather than
+ * errors: no relay on this instance (ADR-0059), an account with no address at
+ * all — a guest (ADR-0033) — and **the actor acting on their own row**, because
+ * somebody who just pressed the button knows what they did. A confirmation for
+ * every act is what teaches people to filter mail from this instance, which is
+ * what would then hide the letter that matters.
+ *
+ * A failed send never undoes the act, the rule ADR-0121 states: they have lost
+ * the access whether or not their mailbox took a message about it.
+ */
+async function tellAbout(
+  deps: InvitationDeps,
+  actorId: string,
+  targetId: string,
+  build: (where: string, to: { display_name: string }) => Letter,
+): Promise<void> {
+  if (!deps.sendLetter || actorId === targetId) return;
+
+  const target = await queryOne<{ email: string | null }>(
+    deps.pool,
+    `SELECT email FROM users WHERE id = $1`,
+    [targetId],
+  );
+  if (!target?.email) return;
+
+  const actor = await queryOne<{ display_name: string }>(
+    deps.pool,
+    `SELECT display_name FROM users WHERE id = $1`,
+    [actorId],
+  );
+
+  await deps
+    .sendLetter(
+      target.email,
+      build(deps.instanceName ? await deps.instanceName() : 'SONE', {
+        display_name: actor?.display_name ?? '',
+      }),
+    )
+    .catch(() => undefined);
+}
+
 export function registerInvitationRoutes(router: Router, deps: InvitationDeps): void {
   /**
    * What a token is for, before anybody commits to it.
@@ -675,6 +785,19 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       }
     }
 
+    /*
+     * What they hold now, read before the write (ADR-0128).
+     *
+     * A role set to the one somebody already has is not a change, and telling
+     * them about it is the saving-a-form case: an administrator opens the
+     * members screen, presses save, and everybody gets a letter about nothing.
+     */
+    const held = await queryOne<{ role_id: string }>(
+      deps.pool,
+      `SELECT role_id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+      [workspaceId, target],
+    );
+
     await deps.pool.query(
       /*
        * The row, and ownership beside it. The enum column is gone (ADR-0102).
@@ -690,6 +813,22 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
         WHERE workspace_id = $1 AND user_id = $2`,
       [workspaceId, target, chosen.id, role ?? ''],
     );
+
+    if (held?.role_id !== chosen.id) {
+      const where = await queryOne<{ name: string }>(
+        deps.pool,
+        `SELECT name FROM workspaces WHERE id = $1`,
+        [workspaceId],
+      );
+      await tellAbout(deps, user.userId, target, (instance, actor) =>
+        roleChangeLetter(deps, instance, {
+          workspace: where?.name ?? '',
+          by: actor.display_name || null,
+          role: chosen.name,
+        }),
+      );
+    }
+
     ctx.send(200, { ok: true });
   });
 
@@ -754,6 +893,25 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
         USING groups g
         WHERE gm.group_id = g.id AND g.workspace_id = $1 AND gm.user_id = $2`,
       [workspaceId, target],
+    );
+
+    /*
+     * And tell them (ADR-0128).
+     *
+     * The counterpart of the mail ADR-0121 sends when somebody is let in, and
+     * the more important of the two: this one is otherwise discovered as a
+     * bookmark that stops working.
+     */
+    const where = await queryOne<{ name: string }>(
+      deps.pool,
+      `SELECT name FROM workspaces WHERE id = $1`,
+      [workspaceId],
+    );
+    await tellAbout(deps, user.userId, target, (instance, actor) =>
+      removalLetter(deps, instance, {
+        workspace: where?.name ?? '',
+        by: actor.display_name || null,
+      }),
     );
 
     ctx.send(200, { ok: true });
