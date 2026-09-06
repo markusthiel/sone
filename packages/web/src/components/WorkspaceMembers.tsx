@@ -65,7 +65,21 @@ export function WorkspaceMembers({
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
   const [roles, setRoles] = useState<WorkspaceRoleRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * What is typed into the person field, and what came back for it (ADR-0119).
+   *
+   * `email` is still the value the request carries, because the route takes an
+   * address — what changed is how somebody arrives at one. `picked` is set when
+   * a suggestion is chosen, and it is what turns the button on: an address
+   * typed by hand still works, and a person chosen from the list is confirmed
+   * before the click rather than after it.
+   */
   const [email, setEmail] = useState('');
+  const [lookup, setLookup] = useState('');
+  const [found, setFound] = useState<
+    Array<{ id: string; displayName: string; email: string; member: boolean }>
+  >([]);
+  const [picked, setPicked] = useState<{ displayName: string; email: string } | null>(null);
   const [role, setRole] = useState('member');
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
@@ -127,6 +141,35 @@ export function WorkspaceMembers({
    * question — and a form that offers less than the control beside it is a form
    * that makes people do the thing in two steps (ADR-0103).
    */
+  /*
+   * Look, as they type.
+   *
+   * Debounced and superseded rather than cancelled, the same discipline the
+   * search screen uses: an out-of-order reply from a slower earlier query would
+   * otherwise overwrite the newer one, which looks like the wrong person being
+   * suggested.
+   */
+  useEffect(() => {
+    const wanted = lookup.trim();
+    if (wanted.length < 2) {
+      setFound([]);
+      return undefined;
+    }
+    let live = true;
+    const timer = setTimeout(() => {
+      void api.findPeople(workspaceId, wanted).then(
+        (result) => live && setFound(result.people),
+        // Silent: the field still takes an address, so a failed lookup costs a
+        // convenience rather than the ability to add anybody.
+        () => live && setFound([]),
+      );
+    }, 200);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [lookup, workspaceId]);
+
   const offered = roles.filter((one) => one.key !== 'owner');
   const usingIds = offered.length > 0;
   /** The system word for whatever is selected, or null for a custom role. */
@@ -146,6 +189,9 @@ export function WorkspaceMembers({
       .addMember(workspaceId, usingIds ? { email: address, roleId: role } : { email: address, role })
       .then(() => {
         setEmail('');
+        setLookup('');
+        setPicked(null);
+        setFound([]);
         setAdded(address);
         load();
       })
@@ -171,25 +217,89 @@ export function WorkspaceMembers({
           <h3 className="settings-heading">{t('access.add')}</h3>
           <p className="muted">{t('access.note')}</p>
           <div className="settings-card">
-            <label className="settings-row">
+            {/* A person, found by name or by address (ADR-0119).
+              *
+              * It was an address field, and the answer to "is that the right
+              * person, and do they even exist" arrived after the button, as an
+              * error. A name is what somebody has in mind; an address is what
+              * they have to look up first.
+              *
+              * The field still accepts a typed address — the route takes one,
+              * and somebody who has been given an address by mail should not
+              * have to search for a name they do not know. */}
+            <div className="settings-row">
               <span className="settings-row-label">
-                <b>{t('access.address')}</b>
-                <span>{t('access.address.hint')}</span>
+                <b>{t('access.person')}</b>
+                <span>{t('access.person.hint')}</span>
               </span>
-              <input
-                type="email"
-                value={email}
-                placeholder={t('access.example')}
-                aria-label={t('access.address')}
-                onChange={(event) => setEmail(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    add();
-                  }
-                }}
-              />
-            </label>
+              <div className="person-picker">
+                <input
+                  type="text"
+                  value={lookup}
+                  placeholder={t('access.example')}
+                  aria-label={t('access.person')}
+                  autoComplete="off"
+                  role="combobox"
+                  aria-expanded={found.length > 0}
+                  aria-controls="person-suggestions"
+                  onChange={(event) => {
+                    setLookup(event.target.value);
+                    // Typing after choosing somebody un-chooses them: the field
+                    // and the person it named have to agree, or the button
+                    // would add whoever was picked three edits ago.
+                    setPicked(null);
+                    setEmail(event.target.value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      add();
+                    }
+                  }}
+                />
+                {found.length > 0 && (
+                  <ul className="person-suggestions" id="person-suggestions" role="listbox">
+                    {found.map((person) => (
+                      <li key={person.id}>
+                        <button
+                          type="button"
+                          className="person-suggestion"
+                          role="option"
+                          aria-selected={picked?.email === person.email}
+                          /* Somebody already here is shown and refused rather
+                             than hidden. Hidden, they read as "no such person",
+                             which is the confusion this change is fixing. */
+                          disabled={person.member}
+                          onClick={() => {
+                            setPicked(person);
+                            setEmail(person.email);
+                            setLookup(person.displayName);
+                            setFound([]);
+                          }}
+                        >
+                          <span className="person-suggestion-name">{person.displayName}</span>
+                          <span className="person-suggestion-mail">{person.email}</span>
+                          {person.member && (
+                            <span className="person-suggestion-here">
+                              {t('access.alreadyHere')}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {/* Who is about to be added, in words, above the button.
+                  *
+                  * The confirmation the report asked for: not "the address is
+                  * well-formed" but "this is the person, by name". */}
+                {picked && (
+                  <p className="person-picked muted">
+                    {t('access.willAdd', { name: picked.displayName, email: picked.email })}
+                  </p>
+                )}
+              </div>
+            </div>
             <label className="settings-row">
               <span className="settings-row-label">
                 <b>{t('access.as')}</b>

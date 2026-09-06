@@ -14,7 +14,7 @@ import type { Pool } from 'pg';
 
 import type { Router } from '../http/router.js';
 import { roleIn } from './claims.js';
-import { queryOne } from '../db/pool.js';
+import { queryOne, queryRows } from '../db/pool.js';
 import { requireSession } from '../http/auth.js';
 import { holdsRight } from './rights.js';
 import { AuthError } from './password.js';
@@ -157,6 +157,99 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       }
       throw error;
     }
+  });
+
+  /**
+   * Find the person you mean, before adding them (ADR-0119).
+   *
+   * Reported as: typing an address gives no sign whether it worked or whether
+   * it is the right person — *„beim Eingeben der Email ist es nicht intuitiv ob
+   * es auch wirklich geklappt hat und ob es die richtige Person ist"*. The form
+   * took an address, and the answer arrived after the button, as an error.
+   *
+   * ## This supersedes half of ADR-0073, which refused it
+   *
+   * > By address rather than from a list of everybody. An owner adding a
+   * > colleague knows their address; a picker of every account on the server
+   * > would turn every workspace owner into a reader of the instance's
+   * > directory, which is a right the administration keeps on purpose
+   * > (ADR-0032).
+   *
+   * The concern is right and the conclusion was too strong, for a reason
+   * written twenty lines below it: the adding route already answers
+   * `no_such_account` for any address given, *plainly*, "because the people who
+   * can ask this question are the ones already trusted with who is in the
+   * workspace". Address → account was therefore never protected from this
+   * caller. What is genuinely new here is **name → address**, which is why this
+   * takes the same right and not a looser one.
+   *
+   * **Two characters, and nothing without them.** That is the whole difference
+   * between confirming a person and listing the instance: with no query there
+   * are no results, so this is never a directory being read — it is an answer
+   * to a name somebody already has in mind. A determined caller could still
+   * walk prefixes; the honest statement is that this makes the directory
+   * *awkward* to enumerate rather than impossible, and that the caller could
+   * already do it one address at a time.
+   *
+   * **Somebody already here is returned and marked**, not filtered out. Hidden,
+   * they read as "no such person" — which is the same confusion this round is
+   * fixing, arriving from the other side. `already_member` is what the adding
+   * route says; this is that answer moved to before the click.
+   */
+  router.get('/api/workspaces/:workspaceId/people', async (ctx) => {
+    const user = await requireSession(deps.pool, ctx);
+    if (!user) return;
+
+    const workspaceId = ctx.params['workspaceId'] ?? '';
+    if (!(await mayAdminister(deps.pool, ctx, workspaceId, user.userId))) return;
+
+    const query = (ctx.url.searchParams.get('q') ?? '').trim();
+    // Two, and an empty answer rather than a refusal: somebody who has typed
+    // one letter is mid-word, not in error.
+    if (query.length < 2) {
+      ctx.send(200, { people: [] });
+      return;
+    }
+
+    const rows = await queryRows<{
+      id: string;
+      display_name: string;
+      email: string;
+      member: boolean;
+    }>(
+      deps.pool,
+      // The same two exclusions the adding route makes, for the same reasons: a
+      // share-link guest has no account of their own, and an account that has
+      // been turned off must not be brought back by adding it somewhere.
+      //
+      // `ILIKE '%…%'` on the name and the address. A prefix match would be
+      // cheaper and would miss a surname, which is what half of a search for a
+      // person is.
+      `SELECT u.id, u.display_name, u.email,
+              EXISTS (
+                SELECT 1 FROM workspace_members m
+                 WHERE m.workspace_id = $2 AND m.user_id = u.id
+              ) AS member
+         FROM users u
+        WHERE NOT u.is_guest AND u.disabled_at IS NULL
+          AND (u.display_name ILIKE $1 OR u.email ILIKE $1)
+        ORDER BY u.display_name, u.email
+        LIMIT 8`,
+      // Escaped, or a name with a percent sign in it matches everybody — which
+      // is the listing this route exists not to be.
+      [`%${query.replace(/[\\%_]/g, (one) => `\\${one}`)}%`, workspaceId],
+    );
+
+    ctx.send(200, {
+      people: rows.map((row) => ({
+        id: row.id,
+        displayName: row.display_name,
+        // Beside the name rather than instead of it: a name is what somebody
+        // recognises, and an address is what tells two people of one name apart.
+        email: row.email,
+        member: row.member,
+      })),
+    });
   });
 
   /**

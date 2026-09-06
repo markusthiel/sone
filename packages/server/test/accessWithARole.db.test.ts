@@ -149,6 +149,120 @@ describe(
       assert.equal(row?.is_owner, false);
     });
 
+    // --- finding the person first (ADR-0119) ---------------------------------
+
+    function look(query: string, as = cookie): Promise<Response> {
+      return fetch(
+        `${base}/api/workspaces/${fx.workspaceId}/people?q=${encodeURIComponent(query)}`,
+        { headers: { cookie: as } },
+      );
+    }
+
+    test('somebody can be found by name, not only by address', async () => {
+      /*
+       * Reported as: typing an address gives no sign whether it worked or
+       * whether it is the right person — *„beim Eingeben der Email ist es nicht
+       * intuitiv ob es auch wirklich geklappt hat und ob es die richtige Person
+       * ist"*.
+       *
+       * A name is what somebody has in mind; an address is what they have to
+       * look up first. Both come back on the row, because a name is what you
+       * recognise and an address is what tells two people of the same name
+       * apart.
+       */
+      await named('anna@example.org', 'Anna Weber');
+
+      const body = await expectJson<{
+        people: Array<{ id: string; displayName: string; email: string }>;
+      }>(await look('anna'), 200);
+
+      assert.equal(body.people.length, 1);
+      assert.equal(body.people[0]?.displayName, 'Anna Weber');
+      assert.equal(body.people[0]?.email, 'anna@example.org', 'and the address beside it');
+    });
+
+    test('and by address, which is what the form took before', async () => {
+      // The counterweight: an address somebody was given by mail still finds
+      // the account, and finds it whole rather than only as a validation.
+      await named('bert@example.org', 'Bert Klein');
+
+      const body = await expectJson<{ people: Array<{ displayName: string }> }>(
+        await look('bert@example'),
+        200,
+      );
+      assert.deepEqual(body.people.map((one) => one.displayName), ['Bert Klein']);
+    });
+
+    test('one letter finds nobody, however many accounts there are', async () => {
+      /*
+       * The whole difference between confirming a person and reading the
+       * directory (ADR-0119). Without this, an empty or one-letter query is a
+       * listing of the instance — which is the thing ADR-0073 refused when it
+       * chose an address field, and it is still refused.
+       */
+      await named('anna@example.org', 'Anna Weber');
+      await named('bert@example.org', 'Bert Klein');
+
+      for (const query of ['', ' ', 'a']) {
+        const body = await expectJson<{ people: unknown[] }>(await look(query), 200);
+        assert.deepEqual(body.people, [], `"${query}" is not a search`);
+      }
+    });
+
+    test('somebody already here is found and marked, not hidden', async () => {
+      /*
+       * Hidden, they read as "no such person" — which is the report this round
+       * answers, arriving from the other side. The row says they are here and
+       * the form refuses to add them twice; the route that adds already says
+       * `already_member`, and this is that answer moved to before the click.
+       */
+      const body = await expectJson<{
+        people: Array<{ id: string; member: boolean }>;
+      }>(await look('owner'), 200);
+
+      const me = body.people.find((one) => one.id === fx.userId);
+      assert.ok(me, 'the owner is an account like any other');
+      assert.equal(me.member, true);
+    });
+
+    test('a guest and a disabled account are not people to add', async () => {
+      // The same two the adding route refuses: a share-link guest has no
+      // account of their own, and turning an account off must not be undone by
+      // adding it somewhere.
+      await db.query(
+        `INSERT INTO users (email, display_name, is_guest) VALUES ($1,$2,true)`,
+        ['gast@example.org', 'Gast Gustav'],
+      );
+      await db.query(
+        `INSERT INTO users (email, display_name, disabled_at)
+         VALUES ($1,$2,now())`,
+        ['gustav@example.org', 'Gustav Ausgeschaltet'],
+      );
+
+      const body = await expectJson<{ people: unknown[] }>(await look('gust'), 200);
+      assert.deepEqual(body.people, []);
+    });
+
+    test('somebody who may not add people may not look either', async () => {
+      /*
+       * The right that guards this is the one that guards adding: anybody who
+       * can call the search can already ask the adding route whether an address
+       * has an account, one address at a time — it answers `no_such_account`
+       * plainly, "because the people who can ask this question are the ones
+       * already trusted with who is in the workspace".
+       *
+       * What is new is name → address, and that is why it is the same right and
+       * not a looser one.
+       */
+      const outsider = await account('outsider@example.org');
+      const theirs = await createSession(db, outsider, {});
+      const res = await look('anna', `${SESSION_COOKIE}=${encodeURIComponent(theirs.token)}`);
+
+      // Not found rather than forbidden, like every other refusal here: "you
+      // may not search here" confirms the workspace exists.
+      await expectStatus(res, 404);
+    });
+
     // --- what must not move --------------------------------------------------
 
     test('one of the four words still works', async () => {
@@ -257,6 +371,15 @@ describe(
         headers: { 'content-type': 'application/json', cookie },
         body: JSON.stringify(input),
       });
+    }
+
+    /** An account with a name of its own, for searching by it. */
+    async function named(email: string, displayName: string): Promise<string> {
+      const row = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name) VALUES ($1,$2) RETURNING id`,
+        [email, displayName],
+      );
+      return row.rows[0]!.id;
     }
 
     async function account(email: string): Promise<string> {

@@ -41,6 +41,15 @@ make every workspace owner a reader of the instance's directory, which the
 administration keeps on purpose. An owner adding a colleague knows their
 address.
 
+> **Superseded by ADR-0119**, and by the paragraph directly below this one. "No
+> such account is said plainly" means this same caller could already confirm any
+> address, one request at a time — so address → account was never protected from
+> them, and the address field bought nothing except making *is this the right
+> person* unanswerable before the click. The form finds people by name or
+> address now, taking the same right, and returns nothing at all for fewer than
+> two characters: a confirmation rather than a listing. What is genuinely new is
+> name → address, which is why the right did not loosen with it.
+
 **"No such account" is said plainly.** The alternative — one answer for a typo
 and for a success — leaves an owner unable to tell which happened. The people
 who may ask this question are already trusted with who is in the workspace, so

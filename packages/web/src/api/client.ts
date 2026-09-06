@@ -237,6 +237,8 @@ export interface PageSummary {
   lastEditedAt: string;
 }
 
+export type LandingMode = 'last' | 'top' | 'newest' | 'fixed';
+
 export interface PageDetail extends Omit<PageSummary, 'archived' | 'idx'> {
   /* kind is inherited from PageSummary. */
   workspaceId: string;
@@ -1032,6 +1034,18 @@ export const api = {
    * words — the same two spellings `setMemberRole` accepts, and naming both is
    * refused rather than guessed at (ADR-0103).
    */
+  /**
+   * Find an account to add, by name or by address (ADR-0119).
+   *
+   * Nothing without two characters — the server answers an empty list, because
+   * this confirms a person somebody has in mind rather than listing the
+   * instance.
+   */
+  findPeople: (workspaceId: string, query: string) =>
+    request<{
+      people: Array<{ id: string; displayName: string; email: string; member: boolean }>;
+    }>(`/api/workspaces/${workspaceId}/people?q=${encodeURIComponent(query)}`),
+
   addMember: (
     workspaceId: string,
     input: { email: string; role?: string; roleId?: string },
@@ -1095,19 +1109,45 @@ export const api = {
       body: JSON.stringify(settings),
     }),
 
-  /** Where to land in this workspace, already checked to be reachable. */
+  /**
+   * Where to land in this workspace, already checked to be reachable.
+   *
+   * Three answers in one (ADR-0119): `workspace` is what this place says,
+   * `mode`/`pageId` is this person's own answer or null for "follow the
+   * workspace", and `landOn` is the page that resolution produced.
+   */
   landing: (workspaceId: string) =>
-    request<{ mode: 'last' | 'fixed'; pageId: string | null; landOn: string | null }>(
-      `/api/workspaces/${workspaceId}/landing`,
-    ),
+    request<{
+      mode: LandingMode | null;
+      pageId: string | null;
+      workspace: { mode: LandingMode; pageId: string | null };
+      landOn: string | null;
+    }>(`/api/workspaces/${workspaceId}/landing`),
 
+  /**
+   * This person's own answer for this workspace, or where they are now.
+   *
+   * `mode` absent records only `lastPageId` — that call happens every few
+   * seconds while somebody reads, and it must not become an opinion. `mode:
+   * null` is the opinion "follow the workspace", said deliberately.
+   */
   setLanding: (
     workspaceId: string,
-    input: { mode?: 'last' | 'fixed'; pageId?: string | null; lastPageId?: string },
+    input: { mode?: LandingMode | null; pageId?: string | null; lastPageId?: string },
   ) =>
     request<{ ok: true }>(`/api/workspaces/${workspaceId}/landing`, {
       method: 'PUT',
       body: JSON.stringify(input),
+    }),
+
+  /** What the workspace says, which takes the right its name and icon take. */
+  setWorkspaceLanding: (
+    workspaceId: string,
+    landing: { mode: LandingMode; pageId: string | null },
+  ) =>
+    request<{ id: string }>(`/api/workspaces/${workspaceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ landing }),
     }),
 
   members: (workspaceId: string) =>

@@ -244,9 +244,15 @@ test('an old settings URL is redirected, not answered', () => {
   }
 
   // And nothing that still exists is redirected away from itself.
-  for (const kept of ['appearance', 'landing', 'about']) {
+  //
+  // `landing` left this list in ADR-0119: it no longer exists in the personal
+  // settings, because it was a per-workspace setting living on a screen with
+  // one workspace in scope. Its URL is a public contract like the others, so it
+  // is redirected rather than answered with a not-found.
+  for (const kept of ['appearance', 'about']) {
     assert.equal(MOVED_SETTINGS[kept], undefined, `${kept} stays where it is`);
   }
+  assert.equal(MOVED_SETTINGS['landing'], '/workspace/landing');
 
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
   assert.match(app, /navigate\(moved, \{ replace: true \}\)/, 'replaced, not pushed');
