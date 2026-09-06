@@ -18,6 +18,8 @@ import {
   type ScryptOptions,
 } from 'node:crypto';
 
+import { envNumber } from '../env.js';
+
 /**
  * Promisified scrypt.
  *
@@ -69,14 +71,13 @@ export const RECOMMENDED_COST = 16;
  * somebody set carelessly must be visible where they look and not only in a log
  * line from three deploys ago.
  */
-export const passwordCost = (): number => {
-  const asked = Number(process.env['SONE_PASSWORD_COST'] ?? RECOMMENDED_COST);
+export const passwordCost = (): number =>
   // A floor at 2^10 rather than none: below that scrypt is not slow enough to
   // be doing anything, and a typo of 1 should not silently produce a hash worth
-  // nothing.
-  if (!Number.isInteger(asked) || asked < 10 || asked > 20) return RECOMMENDED_COST;
-  return asked;
-};
+  // nothing. This clamp was here first and is now written the way the other
+  // five are (ADR-0111) — including the record of a refused value, which this
+  // one used to drop.
+  envNumber('SONE_PASSWORD_COST', RECOMMENDED_COST, { min: 10, max: 20, integer: true });
 
 const SCRYPT_PARAMS = { r: 8, p: 1, keylen: 32 } as const;
 const SALT_BYTES = 16;

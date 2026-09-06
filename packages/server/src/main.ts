@@ -56,6 +56,7 @@ import { WORKSPACE_EXPORT, workspaceExportHandler } from './export/workspaceJob.
 import { registerJobRoutes } from './jobs/routes.js';
 import { registerInboxRoutes } from './notifications/routes.js';
 import { RECOMMENDED_COST, passwordCost } from './auth/password.js';
+import { refusedEnvNumbers } from './env.js';
 import { sendMail } from './mail/send.js';
 import { pollReplies, type ReplyDeps } from './jobs/replies.js';
 import { sendActivityDigests } from './jobs/activityDigest.js';
@@ -254,6 +255,22 @@ async function main(): Promise<void> {
       `SONE_PASSWORD_COST is 2^${passwordCost()}, below the recommended ` +
         `2^${RECOMMENDED_COST}. Every password hashed now is cheaper to attack. ` +
         'Raising it again upgrades existing passwords on their next sign-in.',
+    );
+  }
+
+  /*
+   * And every other number the environment offered and did not get (ADR-0111).
+   *
+   * The same argument one paragraph up, for a duller set of settings: the
+   * instance runs on the documented default either way, and the difference
+   * between an operator who knows that and one who does not is this line. Said
+   * once, here, because these constants are read when their modules are
+   * imported and there is no later moment at which somebody is looking.
+   */
+  for (const { key, value } of refusedEnvNumbers()) {
+    console.warn(
+      `${key}=${JSON.stringify(value)} is not a usable number for that setting; ` +
+        'the built-in default is in use. Nothing else about this instance changes.',
     );
   }
 

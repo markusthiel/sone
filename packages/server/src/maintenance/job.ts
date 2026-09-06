@@ -20,6 +20,7 @@
 
 import type { Pool } from 'pg';
 
+import { envNumber } from '../env.js';
 import { queryRows, withTransaction } from '../db/pool.js';
 import { pruneAuthTables } from '../auth/session.js';
 import { pruneShareSessions } from '../auth/share.js';
@@ -265,7 +266,14 @@ export class Maintenance {
      * state either way; a different answer to "why does this version exist".
      */
     await guard('version quiet documents', async () => {
-      report.versionedDocuments = await versionQuietDocuments(this.opts.pool);
+      const outcome = await versionQuietDocuments(this.opts.pool);
+      report.versionedDocuments = outcome.taken;
+      // Word for word what the compaction task below does, which is the point:
+      // one document nobody can version is a line in the report rather than a
+      // silence (ADR-0111).
+      for (const failure of outcome.failures) {
+        report.errors.push(`version quiet documents — ${failure}`);
+      }
     });
 
     await guard('compact documents', async () => {
@@ -428,7 +436,24 @@ export interface RetryResult {
  * is keystrokes; too long and a version is never taken for somebody who works in
  * short bursts.
  */
-export const QUIET_MINUTES = Number(process.env['SONE_VERSION_QUIET_MINUTES'] ?? 10);
+/*
+ * Refused rather than taken on trust (ADR-0111).
+ *
+ * This lands in `($1 || ' minutes')::interval`, where a non-number arrives as
+ * the string "NaN minutes" and Postgres rejects the statement — so versioning
+ * stops entirely, on every pass, for a typo. And a value at or below zero puts
+ * the cut-off in the future, which makes *every* changed document quiet: a
+ * version of each of them every five minutes, which is exactly what the
+ * function below says it exists to avoid.
+ *
+ * `VERSION_RETENTION_DAYS` is the same shape and has been clamped since
+ * ADR-0080, with a paragraph explaining this hazard. It was clamped in the file
+ * where it was found.
+ */
+export const QUIET_MINUTES = envNumber('SONE_VERSION_QUIET_MINUTES', 10, {
+  min: 1,
+  integer: true,
+});
 
 /**
  * Take a version of every page that has changed and then gone quiet.
@@ -438,7 +463,26 @@ export const QUIET_MINUTES = Number(process.env['SONE_VERSION_QUIET_MINUTES'] ??
  * otherwise this would write an identical state every time it ran, which is how
  * a history table outgrows the documents it describes.
  */
-export async function versionQuietDocuments(pool: Pool): Promise<number> {
+export interface VersionOutcome {
+  taken: number;
+  /**
+   * Documents that could not be versioned, one message each.
+   *
+   * Returned rather than swallowed (ADR-0111). This loop used to catch and
+   * discard, with a comment saying the job's own guard would report it on the
+   * next pass — and the guard cannot: it wraps this function, so an exception
+   * caught in here never reaches it. A page whose document does not load is
+   * therefore never versioned and nobody is ever told, which is the whole of
+   * ADR-0047's promise quietly not being kept for that page.
+   *
+   * `compactBacklog`, the next task in the same list, has returned its failures
+   * this way from the start, and the job already knows how to put them in the
+   * report. Two functions with the same problem, one of which had solved it.
+   */
+  failures: string[];
+}
+
+export async function versionQuietDocuments(pool: Pool): Promise<VersionOutcome> {
   const candidates = await queryRows<{ doc_id: string; last_seq: string }>(
     pool,
     `SELECT u.doc_id, max(u.seq)::text AS last_seq
@@ -455,6 +499,7 @@ export async function versionQuietDocuments(pool: Pool): Promise<number> {
   );
 
   let taken = 0;
+  const failures: string[] = [];
   for (const row of candidates) {
     // One at a time and each on its own: a document that fails to load must not
     // stop the others, which is the same guard every task in this job has.
@@ -474,11 +519,13 @@ export async function versionQuietDocuments(pool: Pool): Promise<number> {
       } finally {
         loaded.doc.destroy();
       }
-    } catch {
-      // Reported by the job's own guard on the next pass if it persists.
+    } catch (err) {
+      // Carried out rather than dropped. The page id is the useful half: a
+      // document that will not load is a page somebody can open and look at.
+      failures.push(`${row.doc_id}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-  return taken;
+  return { taken, failures };
 }
 
 export async function retryFailedProjections(

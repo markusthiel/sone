@@ -11,6 +11,7 @@ import type { Pool, PoolClient } from 'pg';
 import * as Y from 'yjs';
 
 import { queryOne, queryRows } from '../db/pool.js';
+import { envNumber } from '../env.js';
 
 export interface VersionRow {
   id: string;
@@ -176,8 +177,7 @@ export const VERSION_RETENTION_DAYS = (() => {
    * The floor is one day rather than zero, matching `workspaceRetentionDays`
    * in `config.ts`, which had this clamp from the start.
    */
-  const asked = Number(process.env['SONE_VERSION_RETENTION_DAYS'] ?? 90);
-  return Number.isFinite(asked) ? Math.max(1, Math.floor(asked)) : 90;
+  return envNumber('SONE_VERSION_RETENTION_DAYS', 90, { min: 1, integer: true });
 })();
 
 /**
