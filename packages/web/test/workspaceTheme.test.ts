@@ -14,6 +14,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
+import { sanitiseTheme, themeProperties } from '@sone/core';
+
 import { codeOf, stylesOf } from './helpers/source.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -159,6 +161,47 @@ test('a treated surface redefines the names its own contents read', () => {
       );
     }
     assert.doesNotMatch(rule, /var\(--text-primary\)\s*;/, 'and never from itself');
+  }
+});
+
+test('the stylesheet reads every part a treatment sets', () => {
+  /*
+   * **The test the reported bug needed** (ADR-0131).
+   *
+   * The two halves are written in different files: the core decides what a
+   * treatment resolves to, and the stylesheet decides which of those a surface
+   * reads. ADR-0122 wrote `--sone-theme-<surface>-hover` into the stylesheet
+   * and never emitted it, so an inverted rail took the *page's* hover — a light
+   * box under a light icon, which is the icon vanishing when you point at it.
+   *
+   * Neither side's test could see it: each named its own four. This compares
+   * them, from what the core emits, so a part added on either side alone fails.
+   */
+  for (const surface of ['rail', 'sidebar', 'panel'] as const) {
+    const emitted = Object.keys(
+      themeProperties(sanitiseTheme({ surfaces: { [surface]: 'inverted' } })),
+    ).filter((name) => name.startsWith(`--sone-theme-${surface}-`));
+
+    assert.ok(emitted.length > 0, `${surface} is treatable`);
+    for (const name of emitted) {
+      assert.ok(css.includes(`var(${name},`), `${name} is read, with a fallback`);
+    }
+  }
+});
+
+test('and a treated surface carries its own accent', () => {
+  // The mark's third bar and every filled control are drawn in it. A surface
+  // that does not carry its own is one where the logo and the buttons belong to
+  // the page behind it — which on an accent-coloured rail is accent on accent.
+  for (const [area, surface] of [
+    ['\\.icon-rail', 'rail'],
+    ['\\.sidebar', 'sidebar'],
+    ['\\.right-panel', 'panel'],
+  ] as const) {
+    const rule = new RegExp(`${area} \\{[^}]*\\}`).exec(css)?.[0] ?? '';
+    for (const name of ['--accent', '--accent-contrast', '--sone-accent']) {
+      assert.ok(rule.includes(`${name}: var(--sone-theme-${surface}-accent`), `${area} ${name}`);
+    }
   }
 });
 
