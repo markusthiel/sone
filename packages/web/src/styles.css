@@ -258,6 +258,23 @@
   --border-strong: var(--ink-300);
 
   --accent: var(--accent-500);
+  /* The accent as something to *read*, which is not the same value as the
+   * accent as something to fill with (ADR-0136).
+   *
+   * The design has always had two accents — this one and `--accent-300` in the
+   * dark theme — because the one that works on white glows on black. A
+   * workspace that set an accent got one value for both, and nothing checked it
+   * against the surface it would be read on: a link is `color: var(--accent)`.
+   *
+   * So a workspace emits two derivations of the colour it chose and this picks
+   * the one for the scheme.
+   *
+   * **And the design needed the same split.** `--accent-500` — the fill — is
+   * 4.23:1 as text on a hovered row and 4.50:1 on a sunken one, both under AA,
+   * on every untinted light instance since links were first drawn in it. The
+   * step for it already existed and was used for nothing: 6.33:1 on the hovered
+   * row, and 4.67:1 against the darkest surface any tint can produce. */
+  --accent-text: var(--sone-theme-accent-on-light, var(--accent-600));
   --accent-quiet: var(--accent-050);
   --accent-contrast: var(--ink-000);
   --danger: var(--danger-500);
@@ -335,6 +352,7 @@
   --border-strong: var(--ink-600);
 
   --accent: var(--accent-300);
+  --accent-text: var(--sone-theme-accent-on-dark, var(--accent-300));
   --accent-quiet: var(--accent-950);
   --accent-contrast: var(--ink-950);
   --danger: var(--danger-300);
@@ -394,6 +412,10 @@
   --sone-base-hover: var(--surface-hover);
   --sone-base-accent: var(--accent);
   --sone-base-accent-ink: var(--accent-contrast);
+  /* What the accent means as *text* on the page (ADR-0136), so a treated
+     surface that carries no accent of its own goes back to the page's derived
+     one rather than to the raw colour a workspace chose. */
+  --sone-base-accent-text: var(--accent-text);
   --sone-base-accent-quiet: var(--accent-quiet);
 
   --sone-accent-muted: color-mix(in srgb, var(--accent-contrast) 70%, var(--accent));
@@ -530,6 +552,7 @@
     --border-strong: var(--ink-600);
 
     --accent: var(--accent-300);
+    --accent-text: var(--sone-theme-accent-on-dark, var(--accent-300));
     --accent-quiet: var(--accent-950);
     --accent-contrast: var(--ink-950);
     --danger: var(--danger-300);
@@ -570,7 +593,7 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-a { color: var(--sone-accent); text-decoration: none; }
+a { color: var(--accent-text); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 /* Buttons.
@@ -792,6 +815,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   /* The outward alias is resolved at the root, so it cannot see the line above
      it — restated here or every rule using the old name keeps the page's. */
   --sone-accent: var(--sone-theme-sidebar-accent, var(--sone-base-accent));
+  /* Read *as* text inside this surface. A treated surface's accent was already
+     chosen for its own ground (ADR-0131), so it needs no second derivation —
+     what it must not do is keep the page's, which was derived for the page's
+     ground and not for this one. */
+  --accent-text: var(--sone-theme-sidebar-accent, var(--sone-base-accent-text));
   /* The quiet ground an avatar's initials sit on, which is inside the rail. */
   --accent-quiet: var(--sone-theme-sidebar-accent-quiet, var(--sone-base-accent-quiet));
   border-inline-end: 1px solid var(--border-subtle);
@@ -955,6 +983,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   /* The outward alias is resolved at the root, so it cannot see the line above
      it — restated here or every rule using the old name keeps the page's. */
   --sone-accent: var(--sone-theme-rail-accent, var(--sone-base-accent));
+  /* Read *as* text inside this surface. A treated surface's accent was already
+     chosen for its own ground (ADR-0131), so it needs no second derivation —
+     what it must not do is keep the page's, which was derived for the page's
+     ground and not for this one. */
+  --accent-text: var(--sone-theme-rail-accent, var(--sone-base-accent-text));
   /* The quiet ground an avatar's initials sit on, which is inside the rail. */
   --accent-quiet: var(--sone-theme-rail-accent-quiet, var(--sone-base-accent-quiet));
   border-inline-end: 1px solid var(--border-subtle);
@@ -2104,7 +2137,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .ProseMirror .sone-todo-marker:hover { border-color: var(--sone-text-muted); }
 .ProseMirror .sone-todo-marker[data-checked='true'] {
-  border-color: var(--sone-accent);
+  border-color: var(--accent);
   background: var(--sone-accent);
 }
 /* The tick is drawn rather than a character, so it sits correctly at every text
@@ -2369,7 +2402,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
      thing on the page that ignores it. The percentages are low because this
      sits inside a sentence — a chip would break the line's rhythm. */
   background: color-mix(in srgb, var(--sone-accent) 12%, transparent);
-  color: var(--sone-accent);
+  color: var(--accent-text);
   /* An atom: a caret goes round it, and selecting it selects the whole name. */
   white-space: nowrap;
 }
@@ -2600,7 +2633,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   border: 0;
   padding: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   cursor: pointer;
   text-decoration: underline;
@@ -3400,7 +3433,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--sone-text-xs);
   cursor: pointer;
 }
@@ -3972,7 +4005,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .canvas-handle-action svg { inline-size: 15px; block-size: 15px; }
 .canvas-handle-action:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
-.canvas-handle-action.current { color: var(--accent); }
+.canvas-handle-action.current { color: var(--accent-text); }
 .canvas-handle-action.destructive:hover {
   background: color-mix(in srgb, var(--sone-danger) 12%, transparent);
   color: var(--sone-danger);
@@ -4592,7 +4625,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 .entry-menu-action:disabled { opacity: 0.35; cursor: default; }
 /* A favourite that is one already: the star is filled, and the button says so
    too rather than leaving the fill to carry it alone. */
-.entry-menu-action.current { color: var(--accent); }
+.entry-menu-action.current { color: var(--accent-text); }
 
 .entry-menu-new {
   display: flex;
@@ -4948,6 +4981,11 @@ select {
   /* The outward alias is resolved at the root, so it cannot see the line above
      it — restated here or every rule using the old name keeps the page's. */
   --sone-accent: var(--sone-theme-panel-accent, var(--sone-base-accent));
+  /* Read *as* text inside this surface. A treated surface's accent was already
+     chosen for its own ground (ADR-0131), so it needs no second derivation —
+     what it must not do is keep the page's, which was derived for the page's
+     ground and not for this one. */
+  --accent-text: var(--sone-theme-panel-accent, var(--sone-base-accent-text));
   /* The quiet ground an avatar's initials sit on, which is inside the rail. */
   --accent-quiet: var(--sone-theme-panel-accent-quiet, var(--sone-base-accent-quiet));
   /* `--border-subtle` and not `--sone-border`: the alias is resolved at the
@@ -4974,6 +5012,7 @@ select {
   --border-subtle: var(--sone-base-border);
   --surface-hover: var(--sone-base-hover);
   --accent: var(--sone-base-accent);
+  --accent-text: var(--sone-base-accent-text);
   --accent-contrast: var(--sone-base-accent-ink);
   --accent-quiet: var(--sone-base-accent-quiet);
   --sone-accent: var(--sone-base-accent);
@@ -5115,7 +5154,7 @@ select {
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--accent-quiet);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--sone-text-xs);
 }
 
@@ -5467,7 +5506,7 @@ select {
   cursor: pointer;
 }
 .toolbar-button:hover:not(:disabled) { background: var(--sone-bg-hover); }
-.toolbar-button[aria-pressed='true'] { background: var(--sone-bg-hover); color: var(--sone-accent); }
+.toolbar-button[aria-pressed='true'] { background: var(--sone-bg-hover); color: var(--accent-text); }
 .toolbar-button:disabled { opacity: 0.35; cursor: default; }
 
 .toolbar-divider {
@@ -5680,7 +5719,7 @@ select {
   margin-block-start: 2px;
   inline-size: var(--sone-marker);
   block-size: var(--sone-marker);
-  accent-color: var(--sone-accent);
+  accent-color: var(--accent);
 }
 
 .task-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -6193,8 +6232,8 @@ select {
 .ProseMirror [data-block='code']:hover .sone-code-copy,
 .ProseMirror .sone-code-copy:focus-visible { opacity: 1; }
 .ProseMirror .sone-code-copy[data-state='done'] {
-  color: var(--sone-accent);
-  border-color: var(--sone-accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
   opacity: 1;
 }
 @media (hover: none) { .ProseMirror .sone-code-copy { opacity: 0.8; } }
@@ -6889,7 +6928,7 @@ select {
 }
 .collection-table input:hover:not(:disabled) { border-color: var(--sone-border); }
 .collection-table input:focus {
-  border-color: var(--sone-accent);
+  border-color: var(--accent);
   background: var(--sone-bg);
   outline: none;
 }
@@ -7409,7 +7448,7 @@ select {
   color: inherit;
 }
 .collection-search:focus {
-  border-color: var(--sone-accent);
+  border-color: var(--accent);
   outline: none;
 }
 
@@ -7597,7 +7636,7 @@ select {
 }
 .block-menu-choice:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
 .block-menu-choice.current {
-  border-color: var(--sone-accent);
+  border-color: var(--accent);
   color: var(--sone-text);
   font-weight: 600;
 }
@@ -7728,7 +7767,7 @@ select {
   color: var(--sone-text-muted);
   font-size: var(--sone-text-sm);
 }
-.pdf-fallback { color: var(--accent); }
+.pdf-fallback { color: var(--accent-text); }
 
 @media (max-width: 799px) {
   /* Taller on a phone, where there is nothing beside the document anyway. */
@@ -7827,7 +7866,7 @@ select {
 .file-menu-item[aria-checked='true']::after {
   content: '✓';
   margin-inline-start: auto;
-  color: var(--sone-accent);
+  color: var(--accent-text);
 }
 
 .file-block[data-state='pending'] {
@@ -7924,7 +7963,7 @@ select {
 }
 .contributor:hover { background: var(--sone-bg-hover); }
 .contributor.current {
-  border-color: var(--sone-accent);
+  border-color: var(--accent);
   background: color-mix(in srgb, var(--sone-accent) 10%, transparent);
 }
 
@@ -8138,7 +8177,7 @@ body {
 }
 .entry-icon:hover { background: var(--sone-bg-hover); color: var(--sone-text); }
 .entry-icon.current {
-  border-color: var(--sone-accent);
+  border-color: var(--accent);
   color: var(--sone-text);
 }
 .block-menu-swatch:disabled { opacity: 0.35; }
@@ -8812,7 +8851,7 @@ body {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--sone-accent);
+  color: var(--accent-text);
   font: inherit;
   text-align: start;
   cursor: pointer;
@@ -8948,7 +8987,7 @@ body {
   block-size: 22px;
   border-radius: 50%;
   background: var(--accent-quiet);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--sone-text-xs);
   font-weight: 600;
 }
@@ -9005,7 +9044,7 @@ body {
   block-size: 48px;
   border-radius: 50%;
   background: var(--accent-quiet);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 1.1rem;
   font-weight: 600;
   overflow: hidden;
@@ -9033,7 +9072,7 @@ body {
   block-size: 22px;
   border-radius: 6px;
   background: var(--accent-quiet);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--sone-text-xs);
   font-weight: 600;
 }
@@ -9049,7 +9088,7 @@ body {
 .workspace-mark-sample {
   font-size: var(--sone-text-xs);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The name cell in the workspace list: a mark, then the name. */
