@@ -15,6 +15,7 @@
  */
 
 import {
+  COLOR_SCHEMES,
   CORNERS,
   SIZE_STEPS,
   SPACE_STEPS,
@@ -386,6 +387,37 @@ export function ThemeSettings({
               </select>
             </label>
           ))}
+
+          {/* Light or dark, where nobody more specific has said (ADR-0124).
+            *
+            * On this screen and not on its own, because it is one more thing a
+            * theme says — an instance sets it, a workspace fills in over it,
+            * and a person overrides both from their own settings. Absent is a
+            * fourth state: "as the level above says". */}
+          <label className="theme-surface">
+            <span>{t('type.scheme')}</span>
+            <select
+              value={theme.scheme ?? ''}
+              disabled={!canEdit}
+              onChange={(event) => {
+                setSaved(false);
+                const chosen = event.target.value;
+                setTheme((current) => {
+                  const { scheme: _dropped, ...rest } = current;
+                  const next: WorkspaceTheme = { ...rest };
+                  if (chosen !== '') next.scheme = chosen as (typeof COLOR_SCHEMES)[number];
+                  return next;
+                });
+              }}
+            >
+              <option value="">{t('type.scheme.inherit')}</option>
+              {COLOR_SCHEMES.map((scheme) => (
+                <option key={scheme} value={scheme}>
+                  {t(`type.scheme.${scheme}`)}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label className="theme-surface">
             <span>{t('type.corners')}</span>

@@ -15,7 +15,7 @@
  */
 
 import { mergeThemes, themeProperties, type WorkspaceTheme } from '@sone/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '../api/client.ts';
 
@@ -65,6 +65,14 @@ export function useWorkspaceTheme(
 ): WorkspaceTheme {
   const [theme, setTheme] = useState<WorkspaceTheme>({});
 
+  /*
+   * The merged answer, memoised, because it is returned.
+   *
+   * Its caller resolves light or dark from it (ADR-0124), and a fresh object
+   * each render would make that a dependency that never settles.
+   */
+  const merged = useMemo(() => mergeThemes(base, theme), [base, theme]);
+
   useEffect(() => {
     if (!workspaceId) {
       setTheme({});
@@ -88,7 +96,7 @@ export function useWorkspaceTheme(
 
   useEffect(() => {
     const root = document.documentElement;
-    const properties = themeProperties(mergeThemes(base, theme));
+    const properties = themeProperties(merged);
 
     clearTheme(root, properties);
     for (const [name, value] of Object.entries(properties)) {
@@ -98,7 +106,16 @@ export function useWorkspaceTheme(
     // Cleared on unmount as well, so a workspace's look does not follow
     // somebody into the next one they open.
     return () => clearTheme(root, {});
-  }, [theme, base]);
+  }, [merged]);
 
-  return theme;
+  /**
+   * What is actually being drawn — the instance's design with this workspace's
+   * over it.
+   *
+   * The merged one and not the workspace's own, because the only caller wants
+   * to know what light-or-dark this adds up to (ADR-0124). The *settings* form
+   * reads the workspace's own theme from the route directly, which is what
+   * keeps it showing what the workspace set.
+   */
+  return merged;
 }

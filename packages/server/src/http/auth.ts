@@ -692,6 +692,7 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       replies_when: string;
       activity_digest: string;
       digest_scope: string;
+      color_scheme: string | null;
     }>(
       deps.pool,
       // The rights come with the session, so the interface can hide a section
@@ -699,7 +700,7 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       // (ADR-0027).
       `SELECT locale, timezone, is_instance_admin, can_manage_workspaces,
               mentions_when, assignments_when, replies_when, activity_digest,
-              digest_scope
+              digest_scope, color_scheme
          FROM users WHERE id = $1`,
       [auth.userId],
     );
@@ -747,6 +748,18 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         repliesWhen: user?.replies_when ?? 'off',
         activityDigest: user?.activity_digest ?? 'off',
         digestScope: user?.digest_scope ?? 'all',
+        /*
+         * Light or dark, as *this person* answered it (ADR-0124).
+         *
+         * Null is a state and not a missing value: it means "as the workspace
+         * says", which is a different answer from `system` — that one is the
+         * choice to let the device decide, and it overrides a workspace.
+         *
+         * Sent with the session because the interface paints the whole screen
+         * from it, and a second request would be a second moment at which the
+         * colours could change under somebody.
+         */
+        colorScheme: user?.color_scheme ?? null,
       },
       /*
        * Named, not passed through (ADR-0102).
@@ -1115,13 +1128,62 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       activityDigest?: 'off' | 'daily' | 'weekly';
       /** Everything visible, or only what is watched (ADR-0064). */
       digestScope?: 'all' | 'watched';
+      /**
+       * Light or dark, or null to follow the workspace (ADR-0124).
+       *
+       * The one field on this route with a **three-way**: absent, null, and a
+       * value are three different requests. `coalesce` cannot express that, so
+       * the two nullable fields are handled below with a sentinel.
+       */
+      colorScheme?: 'light' | 'dark' | 'system' | null;
     }>(ctx);
     if (!body) return;
+
+    /*
+     * Refused rather than stored, because the column has a CHECK on it: an
+     * unchecked write would be a 500 where this is a plain refusal, which is
+     * the rule the notification schedules already follow.
+     */
+    if (
+      'colorScheme' in body &&
+      body.colorScheme !== null &&
+      !['light', 'dark', 'system'].includes(body.colorScheme ?? '')
+    ) {
+      ctx.fail(422, 'invalid_color_scheme');
+      return;
+    }
+
+    /*
+     * Absent, null, and a value are three requests; `coalesce` knows two.
+     *
+     * Every field here is `coalesce($n, column)`, where absent and null are the
+     * same thing — which is right for a field that cannot be unset and wrong
+     * for one that can. The locale has been wrong since it was written: the
+     * appearance screen sends `locale: null` for "match my browser", and the
+     * old value survived it, so somebody who once chose German could never get
+     * back to following their browser. ADR-0041 is explicit that absence is a
+     * meaningful state there.
+     *
+     * A sentinel rather than a second UPDATE or a built statement: `''` is not
+     * a value either column may hold — the locale has a format CHECK and the
+     * scheme has a list — so "leave it alone" has a representation that cannot
+     * collide with a real one.
+     */
+    /** The new value, or `''` for "none given" — which absent and null both are. */
+    const given = (key: 'locale' | 'colorScheme'): string => {
+      const value = body[key];
+      return typeof value === 'string' ? value : '';
+    };
+    /** Whether the caller asked for it to be cleared, rather than saying nothing. */
+    const cleared = (key: 'locale' | 'colorScheme'): boolean =>
+      key in body && body[key] === null;
 
     await deps.pool.query(
       `UPDATE users
           SET display_name = coalesce($2, display_name),
-              locale = coalesce($3, locale),
+              -- Three-way (ADR-0124): $10 says "clear it", $3 empty says
+              -- "leave it", anything else is the new value.
+              locale = CASE WHEN $10 THEN NULL ELSE coalesce(nullif($3, ''), locale) END,
               timezone = coalesce($4, timezone),
               -- Checked against the three it may be rather than trusted: the
               -- column has a CHECK, and a rejected write there would be a 500
@@ -1130,12 +1192,14 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
               assignments_when = coalesce($6, assignments_when),
               replies_when = coalesce($7, replies_when),
               activity_digest = coalesce($8, activity_digest),
-              digest_scope = coalesce($9, digest_scope)
+              digest_scope = coalesce($9, digest_scope),
+              color_scheme =
+                CASE WHEN $11 THEN NULL ELSE coalesce(nullif($12, ''), color_scheme) END
         WHERE id = $1`,
       [
         auth.userId,
         body.displayName?.trim().slice(0, 128) || null,
-        body.locale ?? null,
+        given('locale'),
         body.timezone ?? null,
         when(body.mentionsWhen),
         when(body.assignmentsWhen),
@@ -1148,6 +1212,9 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         body.digestScope === 'all' || body.digestScope === 'watched'
           ? body.digestScope
           : null,
+        cleared('locale'),
+        cleared('colorScheme'),
+        given('colorScheme'),
       ],
     );
     ctx.sendEmpty(204);

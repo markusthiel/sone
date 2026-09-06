@@ -170,12 +170,34 @@ export type StoredTreatment = Exclude<SurfaceTreatment, 'follow'>;
 export const CORNERS = ['sharp', 'soft', 'round'] as const;
 export type Corners = (typeof CORNERS)[number];
 
+/**
+ * Light, dark, or whatever the device says (ADR-0124).
+ *
+ * **Four states are needed and only three are named here.** `system` is not the
+ * absence of a choice: it is the choice to let the device decide, and somebody
+ * who makes it is overriding a workspace that says dark. Absence — the field
+ * missing — is the other answer: "whatever the level above says". Collapsing
+ * the two costs exactly the case this exists for.
+ */
+export const COLOR_SCHEMES = ['light', 'dark', 'system'] as const;
+export type ColorScheme = (typeof COLOR_SCHEMES)[number];
+
 export type WorkspaceTheme = Partial<Record<ThemedElement, ElementTheme>> & {
   palette?: WorkspacePalette;
   /** Only the surfaces a workspace has actually treated. */
   surfaces?: Partial<Record<ThemedSurface, StoredTreatment>>;
   /** Absent means the design's own corners. */
   corners?: Exclude<Corners, 'soft'>;
+  /**
+   * Light or dark, where nobody more specific has said (ADR-0124).
+   *
+   * In the theme rather than beside it, so it layers with everything else: an
+   * instance's default and a workspace's override are one merge, not two.
+   *
+   * It emits no custom property — a scheme is an attribute on the root element
+   * and a whole second set of tokens, not a value.
+   */
+  scheme?: ColorScheme;
   /**
    * A hue mixed into the neutral surfaces — the sidebar, the panels, the menus.
    *
@@ -239,6 +261,9 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
   const corners = (input as Record<string, unknown>)['corners'];
   if (corners === 'sharp' || corners === 'round') out.corners = corners;
 
+  const scheme = (input as Record<string, unknown>)['scheme'];
+  if (inList(COLOR_SCHEMES, scheme)) out.scheme = scheme;
+
   for (const [key, raw] of Object.entries(input as Record<string, unknown>)) {
     if (!inList(THEMED_ELEMENTS, key)) continue;
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
@@ -298,6 +323,31 @@ export function mergeThemes(base: WorkspaceTheme, over: WorkspaceTheme): Workspa
   }
 
   return merged;
+}
+
+/**
+ * Light or dark, once every level has had its say (ADR-0124).
+ *
+ * Person, then workspace-over-instance, then the device. One function because
+ * there are two callers who must not disagree: the hook that applies it, and
+ * the line that applies the remembered answer before the application has
+ * loaded — an interface that changes colour a second after it appears is worse
+ * than one that was the wrong colour to begin with.
+ *
+ * An unusable stored value counts as nobody having said. Both arguments come
+ * out of storage — a column and a merged theme — and a person whose account
+ * holds a word from a future release should get the ordinary answer rather
+ * than an interface that cannot decide what colour it is.
+ */
+export function resolveScheme(
+  /** What the person chose. Null or absent: as the workspace says. */
+  personal: ColorScheme | null | undefined,
+  /** The instance's theme with the workspace's merged over it. */
+  theme: WorkspaceTheme,
+): ColorScheme {
+  if (inList(COLOR_SCHEMES, personal)) return personal;
+  if (inList(COLOR_SCHEMES, theme.scheme)) return theme.scheme;
+  return 'system';
 }
 
 /**
