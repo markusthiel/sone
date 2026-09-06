@@ -47,19 +47,34 @@ export function InboxScreen({
   items,
   view,
   error,
+  here,
   onRead,
   onSnooze,
   onReply,
+  onRemove,
+  onGoTo,
 }: {
   /** Everything; the view below decides what this shows. Null while loading. */
   items: InboxItem[] | null;
   view: InboxView;
   error: string | null;
+  /**
+   * The workspace this session is currently in (ADR-0115).
+   *
+   * The inbox spans workspaces and the URL of a page does not name one, so a
+   * row pointing somewhere else needs the switch to happen as part of opening
+   * it. This is what tells a row whether it is pointing at home or away.
+   */
+  here: string;
   onRead: (ids: string[], read: boolean) => void;
   /** Aside until a moment, or back now with null (ADR-0075). */
   onSnooze: (ids: string[], until: Date | null) => void;
   /** Answer the conversation a row is about (ADR-0076). */
   onReply: (id: string, text: string) => Promise<void>;
+  /** Take it off the list for good (ADR-0115). */
+  onRemove: (ids: string[]) => void;
+  /** Switch to that workspace and land on that page. */
+  onGoTo: (workspaceId: string, to: string) => void;
 }): ReactElement {
   const { t } = useT();
   const groups = items === null ? null : groupsIn(items, view);
@@ -172,9 +187,12 @@ export function InboxScreen({
               <Row
                 key={group.id}
                 group={group}
+                here={here}
                 onRead={onRead}
                 onSnooze={onSnooze}
                 onReply={onReply}
+                onRemove={onRemove}
+                onGoTo={onGoTo}
                 ref={(element) => {
                   rows.current[at] = element;
                 }}
@@ -189,15 +207,21 @@ export function InboxScreen({
 
 function Row({
   group,
+  here,
   onRead,
   onSnooze,
   onReply,
+  onRemove,
+  onGoTo,
   ref,
 }: {
   group: InboxGroup;
+  here: string;
   onRead: (ids: string[], read: boolean) => void;
   onSnooze: (ids: string[], until: Date | null) => void;
   onReply: (id: string, text: string) => Promise<void>;
+  onRemove: (ids: string[]) => void;
+  onGoTo: (workspaceId: string, to: string) => void;
   ref: (element: HTMLAnchorElement | null) => void;
 }): ReactElement {
   const pageLink = usePageLink();
@@ -223,12 +247,30 @@ function Row({
       <a
         ref={ref}
         href={pageLink(item.pageId, item.pageTitle)}
-        onClick={() => {
+        onClick={(event) => {
           // Read on opening, which is what "read" means here — and the whole
           // conversation, because that is what was opened. Fired without
           // waiting: the navigation matters more than the acknowledgement, and
           // a mark that fails is one row that stays bold.
           if (group.unread > 0) onRead(group.items.map((one) => one.id), true);
+
+          /*
+           * Somewhere else, so go there properly (ADR-0115).
+           *
+           * A page URL names no workspace, and the sync connection is bound to
+           * the one this session is in — so following this link plainly opened
+           * the right address on the wrong connection, and the page said "you
+           * no longer have access", which was not true.
+           *
+           * Only for a plain left click. A cmd-click opens a tab that starts
+           * its own session, and a switch here would move *this* window out
+           * from under somebody who asked for a second one.
+           */
+          if (item.workspaceId === here) return;
+          if (event.button !== 0) return;
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          onGoTo(item.workspaceId, event.currentTarget.getAttribute('href') ?? '');
         }}
       >
         <span className="inbox-what">
@@ -286,6 +328,20 @@ function Row({
             </button>
           )}
           <SnoozeMenu onChoose={(choice) => onSnooze(ids, snoozeUntil(choice))} />
+          {/* Gone for good, and only from an awake row (ADR-0115).
+            *
+            * Beside snoozing rather than behind it: putting something aside
+            * and getting rid of it are different decisions, and a menu called
+            * "later" is the wrong place to keep "never". A sleeping row offers
+            * only waking, for the reason above — a row somebody deliberately
+            * stopped looking at is not one to make decisions about. */}
+          <button
+            className="quiet inbox-mark"
+            type="button"
+            onClick={() => onRemove(ids)}
+          >
+            {t('inbox.remove')}
+          </button>
         </>
       )}
 

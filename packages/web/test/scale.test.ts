@@ -1822,7 +1822,22 @@ test('an inbox spans workspaces, so its route carries none', () => {
   // panel's view (ADR-0069), and the scope is deliberately absent.
   assert.match(app, /route\.kind === 'inbox' && \(/);
   assert.match(app, /items=\{inbox\.items\}/);
-  assert.doesNotMatch(app, /<InboxScreen[^>]*workspaceId/);
+
+  /*
+   * The scope is absent where it would matter: nothing about *fetching* the
+   * list names a workspace.
+   *
+   * This used to assert that no prop on `<InboxScreen>` mentioned a workspace
+   * at all, which was a claim about spelling rather than about scope — and it
+   * broke when the screen was given `here`, the workspace this session is
+   * standing in, so that a row pointing somewhere else can switch on the way
+   * (ADR-0115). That prop is the opposite of a scope: it exists because the
+   * list is global and the connection is not.
+   */
+  const client = codeOf(new URL('../src/api/client.ts', import.meta.url));
+  assert.match(client, /inbox: \(unreadOnly = false\) =>/, 'the fetch takes no workspace');
+  assert.match(client, /inboxCount: \(\) =>/, 'and neither does the badge');
+  assert.match(app, /here=\{workspaceId\}/, 'the screen is told where it is standing');
 
   const screen = codeOf(new URL('../src/components/InboxScreen.tsx', import.meta.url));
   /*

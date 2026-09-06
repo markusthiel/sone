@@ -51,6 +51,7 @@ export const de: Record<keyof typeof en, string> = {
   'inbox.snooze.tomorrow': 'Morgen früh',
   'inbox.snooze.nextWeek': 'Nächste Woche',
   'inbox.wake': 'Zurückholen',
+  'inbox.remove': 'Entfernen',
   'inbox.answer': 'Antworten',
   'inbox.answer.placeholder': 'Antwort schreiben… Enter sendet, Umschalt+Enter macht eine Zeile.',
   'inbox.answer.send': 'Senden',
