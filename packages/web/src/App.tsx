@@ -60,6 +60,15 @@ import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
 import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
+import { BrandLogo } from './components/Logo.tsx';
+
+/**
+ * One empty theme, not a new one per render (ADR-0123).
+ *
+ * It is a dependency of the effect that applies the theme, so a fresh `{}` each
+ * time would reapply every custom property on every render of the shell.
+ */
+const EMPTY_THEME: import('@sone/core').WorkspaceTheme = {};
 import { useWorkspaceTheme } from './hooks/useWorkspaceTheme.ts';
 import { useFavourites } from './hooks/useFavourites.ts';
 import { useWatching } from './hooks/useWatching.ts';
@@ -118,14 +127,24 @@ export function App(): ReactElement {
         'informal'
       }
     >
-      <Routes
-        state={state}
-        route={route}
-        navigate={navigate}
-        reload={reload}
-        logout={logout}
-        selectWorkspace={selectWorkspace}
-      />
+      {/*
+        * The instance's own mark, above everything that draws one (ADR-0123).
+        *
+        * Here rather than threaded as a prop: the mark appears in the rail, in
+        * the mode bar on a phone, on the sign-in screen and beside a workspace
+        * in the switcher, and four routes to it are four chances to show two
+        * different logos on one screen.
+        */}
+      <BrandLogo value={instance?.brand?.logo ?? null}>
+        <Routes
+          state={state}
+          route={route}
+          navigate={navigate}
+          reload={reload}
+          logout={logout}
+          selectWorkspace={selectWorkspace}
+        />
+      </BrandLogo>
     </LocaleProvider>
   );
 }
@@ -275,6 +294,8 @@ function Routes({
       }
       displayName={state.session.user.displayName}
       session={state.session}
+      // The design underneath this workspace's own (ADR-0123).
+      baseTheme={state.instance.brand?.theme ?? EMPTY_THEME}
       route={route}
       navigate={navigate}
       onSwitchWorkspace={(id, to = paths.home()) => {
@@ -309,6 +330,7 @@ function Workspace({
   workspaceName,
   displayName,
   session,
+  baseTheme,
   route,
   navigate,
   onSwitchWorkspace,
@@ -318,6 +340,8 @@ function Workspace({
   workspaceName: string;
   displayName: string;
   session: import('./api/client.ts').SessionInfo;
+  /** The instance's own design, which this workspace's fills in over (ADR-0123). */
+  baseTheme: import('@sone/core').WorkspaceTheme;
   route: ReturnType<typeof useRoute>['route'];
   /** With `replace`, for the redirect of an old settings URL (ADR-0032). */
   navigate: (to: string, options?: { replace?: boolean }) => void;
@@ -331,7 +355,7 @@ function Workspace({
   // root. Nothing else reads a theme: it changes what the existing variables
   // resolve to, and the stylesheet already falls back to its own answer where
   // one is absent (ADR-0023).
-  useWorkspaceTheme(workspaceId);
+  useWorkspaceTheme(workspaceId, baseTheme);
 
   const pageLink = usePageLink();
   const message = useMessage();

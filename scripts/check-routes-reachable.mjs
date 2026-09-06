@@ -74,6 +74,14 @@ const NOT_FOR_THE_INTERFACE = new Map([
   ['/api/pages/:x/move-to-workspace', 'sent by the move dialog with a built URL'],
   ['/api/workspaces/:x/comments', 'read through the sync connection'],
   ['/api/workspaces/:x/export', 'a download, opened as a link'],
+  [
+    '/api/instance/logo',
+    // The interface never writes this path: it draws whatever `/api/instance`
+    // gives it as the logo's address, and that address carries a cache-busting
+    // parameter derived from the storage key. A client building the URL itself
+    // would be a client showing last month's mark out of a proxy (ADR-0123).
+    'an <img src> the server hands out, with the key in the address',
+  ],
 ]);
 
 const unreachable = routes.filter((route) => {

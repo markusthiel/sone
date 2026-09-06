@@ -14,7 +14,7 @@
  * explicit default.
  */
 
-import { themeProperties, type WorkspaceTheme } from '@sone/core';
+import { mergeThemes, themeProperties, type WorkspaceTheme } from '@sone/core';
 import { useEffect, useState } from 'react';
 
 import { api } from '../api/client.ts';
@@ -51,7 +51,18 @@ function clearTheme(root: HTMLElement, keep: Record<string, string>): void {
  * appearance and never content, and an error banner about a heading colour
  * would be louder than the thing it is reporting.
  */
-export function useWorkspaceTheme(workspaceId: string | null): WorkspaceTheme {
+export function useWorkspaceTheme(
+  workspaceId: string | null,
+  /**
+   * The instance's own design, underneath this workspace's (ADR-0123).
+   *
+   * Merged here rather than by the server, because the settings form reads the
+   * workspace's theme from the same route and has to show what the *workspace*
+   * set: a form that displayed the instance's accent as its own would be a form
+   * where clearing a setting changes nothing visible.
+   */
+  base: WorkspaceTheme = {},
+): WorkspaceTheme {
   const [theme, setTheme] = useState<WorkspaceTheme>({});
 
   useEffect(() => {
@@ -77,7 +88,7 @@ export function useWorkspaceTheme(workspaceId: string | null): WorkspaceTheme {
 
   useEffect(() => {
     const root = document.documentElement;
-    const properties = themeProperties(theme);
+    const properties = themeProperties(mergeThemes(base, theme));
 
     clearTheme(root, properties);
     for (const [name, value] of Object.entries(properties)) {
@@ -87,7 +98,7 @@ export function useWorkspaceTheme(workspaceId: string | null): WorkspaceTheme {
     // Cleared on unmount as well, so a workspace's look does not follow
     // somebody into the next one they open.
     return () => clearTheme(root, {});
-  }, [theme]);
+  }, [theme, base]);
 
   return theme;
 }

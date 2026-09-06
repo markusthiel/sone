@@ -23,7 +23,7 @@ import { GroupsPanel } from './GroupsPanel.tsx';
 import { useT } from '../i18n/useT.tsx';
 import { resolveSection } from './SectionNav.tsx';
 import { LandingSettings } from './LandingSettings.tsx';
-import { ThemeSettings } from './ThemeSettings.tsx';
+import { ThemeSettings, type ThemeOwner } from './ThemeSettings.tsx';
 import { WorkspaceAppearance } from './WorkspaceAppearance.tsx';
 import { WorkspaceExport } from './WorkspaceExport.tsx';
 import { WorkspaceDeletion } from './WorkspaceDeletion.tsx';
@@ -187,10 +187,10 @@ export function WorkspaceSettingsScreen({
       )}
 
       {current === 'typography' && (
-        <ThemeSettings workspaceId={workspaceId} canEdit={canEdit} show="type" />
+        <ThemeSettings owner={workspaceThemeOwner(workspaceId)} canEdit={canEdit} show="type" />
       )}
       {current === 'colours' && (
-        <ThemeSettings workspaceId={workspaceId} canEdit={canEdit} show="colour" />
+        <ThemeSettings owner={workspaceThemeOwner(workspaceId)} canEdit={canEdit} show="colour" />
       )}
       {current === 'landing' && (
         <LandingSettings workspaceId={workspaceId} canEdit={canEdit} />
@@ -214,6 +214,18 @@ export function WorkspaceSettingsScreen({
     </div>
   );
 }
+
+/**
+ * This workspace, as an owner of a theme (ADR-0123).
+ *
+ * The other owner is the instance, on the administration screen. One form, two
+ * owners: a second copy of it would be the one where a control is forgotten.
+ */
+const workspaceThemeOwner = (workspaceId: string): ThemeOwner => ({
+  key: workspaceId,
+  load: () => api.workspaceTheme(workspaceId),
+  save: (theme) => api.setWorkspaceTheme(workspaceId, theme),
+});
 
 /**
  * What the workspace is called, and how it is recognised.

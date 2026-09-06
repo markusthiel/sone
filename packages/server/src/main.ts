@@ -69,7 +69,11 @@ import {
   sweepForEmail,
   type MailSettings,
 } from './jobs/emailNotifications.js';
-import { registerAvatarRoutes, registerFileRoutes } from './files/routes.js';
+import {
+  registerAvatarRoutes,
+  registerBrandRoutes,
+  registerFileRoutes,
+} from './files/routes.js';
 import { LocalFileStore } from './files/store.js';
 import { createStaticHandler } from './http/static.js';
 import { Maintenance } from './maintenance/job.js';
@@ -369,6 +373,14 @@ async function main(): Promise<void> {
   registerAuthRoutes(router, {
     pool,
     secretKey: config.secretKey,
+    /*
+     * What this instance looks like, on the one route that answers before
+     * anybody has signed in (ADR-0123).
+     *
+     * Read per request rather than captured, like everything else here: an
+     * administrator changes a logo while the process runs.
+     */
+    brand: () => settings.brand(),
     // What an authenticator app lists the entry under, so somebody with three
     // SONE instances can tell them apart (ADR-0063).
     instanceName: async () => (await settings.resolve()).values.instanceName,
@@ -794,6 +806,14 @@ async function main(): Promise<void> {
   registerAvatarRoutes(router, {
     pool,
     store: fileStore,
+    maxUploadBytes: config.maxUploadBytes,
+  });
+  // The same store again, and the only file on this instance served to nobody
+  // in particular: the mark is on the sign-in screen (ADR-0123).
+  registerBrandRoutes(router, {
+    pool,
+    store: fileStore,
+    settings,
     maxUploadBytes: config.maxUploadBytes,
   });
   // Handing a page's contents back (ADR-0044). Its own module because it is the

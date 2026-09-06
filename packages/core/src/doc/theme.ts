@@ -261,6 +261,46 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
 }
 
 /**
+ * An instance's theme with a workspace's on top of it (ADR-0123).
+ *
+ * The same sentence a theme has always been described with, one level up:
+ *
+ * > It fills gaps, it does not override.
+ *
+ * The instance says what things look like where nobody has said otherwise, a
+ * workspace fills in over it, and a workspace that has never opened its own
+ * settings looks exactly like the instance — which is what a base design means.
+ *
+ * The difficulty is entirely in the settings that are **maps**. A whole-value
+ * overwrite would mean a workspace that changed one palette colour discarded
+ * every other colour the instance chose, invisibly: its own settings screen
+ * would go on showing seven unset names.
+ *
+ * Both sides are expected to have been through `sanitiseTheme` already — this
+ * is not a second door into a theme, and it makes no checks of its own.
+ * Neither input is modified; both are held in state by whoever fetched them.
+ */
+export function mergeThemes(base: WorkspaceTheme, over: WorkspaceTheme): WorkspaceTheme {
+  const merged: WorkspaceTheme = { ...base, ...over };
+
+  if (base.palette || over.palette) {
+    merged.palette = { ...base.palette, ...over.palette };
+  }
+  if (base.surfaces || over.surfaces) {
+    merged.surfaces = { ...base.surfaces, ...over.surfaces };
+  }
+  for (const element of THEMED_ELEMENTS) {
+    // An element is a map of four properties in the same way: enlarging a
+    // heading is not a request to drop the colour the instance gave it.
+    if (base[element] && over[element]) {
+      merged[element] = { ...base[element], ...over[element] };
+    }
+  }
+
+  return merged;
+}
+
+/**
  * Black or white on this colour, whichever can be read.
  *
  * The sRGB relative luminance from WCAG, and the same threshold every
