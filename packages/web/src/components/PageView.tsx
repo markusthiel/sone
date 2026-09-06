@@ -12,8 +12,10 @@ import type { PageNode } from '../api/client.ts';
 import {
   DOC_KEYS,
   PAGE_KEYS,
+  readEntryCover,
   readEntryIcon,
   readTitleColor,
+  type EntryCover,
   type EntryIcon,
 } from '@sone/core';
 import { useEntryKind } from '../hooks/usePageWidth.ts';
@@ -32,6 +34,7 @@ import { CanvasSurface } from './CanvasSurface.tsx';
 import { VersionDiff } from './VersionDiff.tsx';
 import { VersionView } from './VersionView.tsx';
 import { EditorSurface } from './EditorSurface.tsx';
+import { EntryCoverHead } from './EntryCover.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
 
@@ -155,6 +158,19 @@ export function PageView({
     titleColor: string | null;
   }>(() => readIcon(pageMap.get(PAGE_KEYS.icon)));
 
+  /**
+   * The cover, from the document like the icon and for the same reasons
+   * (ADR-0117).
+   *
+   * Written straight into the document rather than through the route a folder
+   * uses: this component has the document in hand, and a sync room reads its
+   * document once and never re-reads `doc_updates` — so a cover set over HTTP
+   * would not appear until the page was opened again.
+   */
+  const [cover, setCover] = useState<EntryCover | null>(() =>
+    readEntryCover(pageMap.get(PAGE_KEYS.cover)),
+  );
+
   // Mirror remote title changes into local state. Guarded against writing back
   // what we just typed, which would fight the cursor.
   useEffect(() => {
@@ -172,6 +188,12 @@ export function PageView({
           current.titleColor === read.titleColor
           ? current
           : read;
+      });
+      // The same observer again, and compared the same way: the map fires for
+      // every key, and a cover chosen in another browser has to arrive here.
+      setCover((current) => {
+        const read = readEntryCover(pageMap.get(PAGE_KEYS.cover));
+        return JSON.stringify(current) === JSON.stringify(read) ? current : read;
       });
       // Reported for remote changes too, so a rename from another client
       // reaches the sidebar without a refetch.
@@ -245,24 +267,42 @@ export function PageView({
         </nav>
       )}
 
-      {/* The icon and the name on one line, the same shape a folder has. */}
-      <div className="entry-heading">
-        <span className="entry-heading-icon">
-          {/* The page's own kind, not "page" written into the markup. This is
-              the fourth place that hardcoded it, and the reason a canvas showed
-              a sheet on its own heading while showing a brush everywhere else. */}
-          <EntryIconView icon={icon.icon} kind={isCanvas ? 'canvas' : 'page'} />
-        </span>
-        <input
-          className="page-title"
-          style={titleColorStyle(icon.titleColor ? { titleColor: icon.titleColor } : null)}
-          value={title}
-          onChange={(e) => commitTitle(e.target.value)}
-          placeholder={t('page.untitled')}
-          readOnly={!handle.canEdit}
-          aria-label={t('page.title')}
-        />
-      </div>
+      {/* The cover, and the heading it sits above, in one hover region
+        * (ADR-0117). The control to add one appears on hovering the heading,
+        * which is why the two are wrapped rather than stacked. */}
+      <EntryCoverHead
+        cover={cover}
+        pageId={pageId}
+        {...(handle.canEdit
+          ? {
+              onChange: (next: EntryCover | null) => {
+                setCover(next);
+                if (next) pageMap.set(PAGE_KEYS.cover, next);
+                else pageMap.delete(PAGE_KEYS.cover);
+              },
+            }
+          : {})}
+      >
+        {/* The icon and the name on one line, the same shape a folder has. */}
+        <div className="entry-heading">
+          <span className="entry-heading-icon">
+            {/* The page's own kind, not "page" written into the markup. This is
+                the fourth place that hardcoded it, and the reason a canvas
+                showed a sheet on its own heading while showing a brush
+                everywhere else. */}
+            <EntryIconView icon={icon.icon} kind={isCanvas ? 'canvas' : 'page'} />
+          </span>
+          <input
+            className="page-title"
+            style={titleColorStyle(icon.titleColor ? { titleColor: icon.titleColor } : null)}
+            value={title}
+            onChange={(e) => commitTitle(e.target.value)}
+            placeholder={t('page.untitled')}
+            readOnly={!handle.canEdit}
+            aria-label={t('page.title')}
+          />
+        </div>
+      </EntryCoverHead>
 
       {/* Three states, told apart on purpose.
        *

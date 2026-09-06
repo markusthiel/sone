@@ -17,6 +17,7 @@ import type {
   UserId,
   WorkspaceId,
 } from './ids.js';
+import type { EntryCover } from '../doc/theme.js';
 
 
 /**
@@ -89,7 +90,8 @@ export interface Page {
   index: FractionalIndex;
   title: string;
   icon: PageIcon | null;
-  coverUrl: string | null;
+  /** A picture, colour or gradient above the heading (ADR-0117). */
+  cover: EntryCover | null;
   schemaVersion: SchemaVersion;
   archivedAt: Timestamp | null;
   createdAt: Timestamp;

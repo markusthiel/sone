@@ -534,3 +534,99 @@ export function readTitleColor(value: unknown): ChosenColor | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   return readChosenColor((value as Record<string, unknown>)['titleColor']);
 }
+
+/**
+ * A cover on a page or a folder (ADR-0117).
+ *
+ * `pages.cover_url` has been a column since the first migration and a document
+ * key for as long, read by the projection and written by nothing — the same
+ * history the icon column had, and it ends the same way: the shape is decided
+ * when there is finally something to put in it.
+ *
+ * `text` was not that shape. A cover may be a colour or a gradient as well as a
+ * picture, so the column becomes `jsonb` beside `icon` and this is what goes in
+ * it. The three kinds are one field rather than three, for the reason
+ * `readEntryIcon` gives about its own: a fourth becomes possible without a
+ * migration, and a reader that does not know it draws nothing rather than
+ * breaking.
+ */
+export type EntryCover =
+  | { kind: 'image'; url: string }
+  | { kind: 'color'; color: ChosenColor }
+  | { kind: 'gradient'; from: ChosenColor; to: ChosenColor };
+
+/**
+ * A file uploaded to this instance, and nothing else.
+ *
+ * Asked for in those words — *„nur eigene Bilder, kein Unsplash"* — and
+ * enforced here rather than in the picker, because a cover is drawn on every
+ * page load: a foreign URL in one is a page that reports every reader to
+ * somebody else's server, and the document is written by clients rather than by
+ * the picker alone.
+ *
+ * Anchored at both ends, so no `..` and no second path can ride along. The id
+ * is a uuid because `files.id` is one; a value that cannot name a row is not a
+ * picture, whatever it looks like.
+ */
+const FILE_URL = /^\/api\/files\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Read a cover from whatever is stored, or null.
+ *
+ * Unknown and malformed shapes yield null rather than throwing, the rule
+ * `readEntryIcon` states: an entry with a broken cover loses its cover and not
+ * its place in the tree.
+ */
+export function readEntryCover(value: unknown): EntryCover | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+
+  if (raw['kind'] === 'image') {
+    const url = raw['url'];
+    if (typeof url !== 'string' || !FILE_URL.test(url)) return null;
+    return { kind: 'image', url };
+  }
+
+  if (raw['kind'] === 'color') {
+    const color = readChosenColor(raw['color']);
+    return color ? { kind: 'color', color } : null;
+  }
+
+  if (raw['kind'] === 'gradient') {
+    // Both ends, or it is not a gradient. Filling the missing one in with a
+    // default would put a colour on the page that nobody chose.
+    const from = readChosenColor(raw['from']);
+    const to = readChosenColor(raw['to']);
+    return from && to ? { kind: 'gradient', from, to } : null;
+  }
+
+  return null;
+}
+
+/**
+ * What to paint behind the heading for a cover that is not a picture.
+ *
+ * Undefined for a picture, which is drawn as an `<img>` instead: a background
+ * image means building a CSS string out of a value from the document, and the
+ * escaping rules for that are their own subject, while an `<img src>` is
+ * escaped by the framework, can carry alternative text and can be told to load
+ * lazily.
+ *
+ * Here rather than in the component because a page and a folder both draw one,
+ * and two drawing sites are two chances to answer differently — which is how
+ * the same colour ends up looking like two colours.
+ */
+export function coverBackground(cover: EntryCover | null | undefined): string | undefined {
+  if (!cover) return undefined;
+  if (cover.kind === 'color') return colorValue(cover.color);
+  if (cover.kind === 'gradient') {
+    const from = colorValue(cover.from);
+    const to = colorValue(cover.to);
+    // Both resolved or neither: half a gradient drawn against the page's own
+    // background is a cover that looks like a rendering fault.
+    if (!from || !to) return undefined;
+    // Diagonal, so the two ends are both visible in a band this short.
+    return `linear-gradient(150deg, ${from}, ${to})`;
+  }
+  return undefined;
+}

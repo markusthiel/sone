@@ -27,6 +27,8 @@ import {
   canvasText,
   readThreads,
   writersIn,
+  readEntryCover,
+  type EntryCover,
   type CommentThread,
 } from '@sone/core';
 import * as Y from 'yjs';
@@ -56,7 +58,8 @@ export interface ReadPage {
   tags: string[];
   title: string;
   icon: unknown | null;
-  coverUrl: string | null;
+  /** A picture, a colour or a gradient above the heading (ADR-0117). */
+  cover: EntryCover | null;
   /** 'column' or 'full'; null means the reader's default. */
   width: 'column' | 'full' | null;
   /** Whether the page is offered as a template (ADR-0045). */
@@ -211,7 +214,7 @@ function readPageMeta(doc: Y.Doc, warnings: string[]): ReadPage {
     tags: readTags(doc),
     title: normaliseText(asString(map.get(PAGE_KEYS.title)) ?? ''),
     icon: map.get(PAGE_KEYS.icon) ?? null,
-    coverUrl: asString(map.get(PAGE_KEYS.coverUrl)),
+    cover: readEntryCover(map.get(PAGE_KEYS.cover)),
     // Only the two values, and anything else is treated as absent: a document is
     // written by clients and a width the stylesheet does not know would be a
     // page nobody can read.

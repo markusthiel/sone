@@ -51,12 +51,12 @@ function addBlock(doc: Y.Doc, block: NewBlock): void {
 
 test('reads page metadata', () => {
   const doc = makeDoc();
-  doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.coverUrl, 'https://example.org/c.png');
+  doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.cover, { kind: 'color', color: 'blue' });
   const parsed = readDocument(doc, 'page-1');
 
   assert.equal(parsed.page.title, 'Test page');
   assert.equal(parsed.page.idx, 'a0');
-  assert.equal(parsed.page.coverUrl, 'https://example.org/c.png');
+  assert.deepEqual(parsed.page.cover, { kind: 'color', color: 'blue' });
   assert.equal(parsed.page.parentPageId, null);
   assert.deepEqual(parsed.warnings, []);
 });

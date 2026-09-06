@@ -177,6 +177,9 @@ export const de: Record<keyof typeof en, string> = {
   'error.a_row_cannot_hold_a_collection': 'Eine Zeile kann keine eigene Kollektion halten.',
   'error.invalid_tag': 'Dieses Schlagwort ist nicht verwendbar.',
   'error.invalid_width': 'Diese Seitenbreite ist keine der zwei.',
+  'error.invalid_cover':
+    'Das ist kein Titelbild, das hier gespeichert werden kann. Bilder müssen '
+    + 'hierher hochgeladen sein (ADR-0117).',
   'error.unsupported_color': 'Diese Farbe ist keine der acht.',
   'error.invalid_level': 'Diese Stufe für Seiten gibt es nicht.',
   'error.invalid_right': 'Dieses Recht gibt es nicht.',
@@ -1395,6 +1398,16 @@ export const de: Record<keyof typeof en, string> = {
     'Jemanden anklicken, um zu sehen, was von ihm oder ihr in der Seite steht. Hier ' +
     'steht, wer geschrieben hat — nicht, wer gerade da ist; das zeigen die Kreise oben.',
   'panel.people.departed': 'Jemand, der nicht mehr dabei ist',
+
+  // --- ein Titelbild (ADR-0117) --------------------------------------------
+  'cover.add': 'Titelbild',
+  'cover.change': 'Titelbild ändern',
+  'cover.remove': 'Entfernen',
+  'cover.upload': 'Bild hochladen',
+  'cover.uploading': 'Wird hochgeladen…',
+  'cover.colors': 'Farbe',
+  'cover.gradients': 'Farbverlauf',
+  'cover.own': 'Eigene Farbe',
   // --- eine Fläche (ADR-0043) ---------------------------------------------
   'canvas.commented': '{count, plural, one {Ein Kommentar} other {# Kommentare}}',
   'canvas.commentedInternal':
