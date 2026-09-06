@@ -441,3 +441,70 @@ test('normaliseText truncates pathologically long content', () => {
   const cleaned = normaliseText('x'.repeat(200_000));
   assert.ok(cleaned.length <= 64 * 1024);
 });
+
+// --- who wrote the page (ADR-0116) -----------------------------------------
+
+/** Put a client id in the mapping the way opening a document does. */
+function record(doc: Y.Doc, userKey: string, clientId = doc.clientID): void {
+  const users = doc.getMap('users');
+  const existing = users.get(userKey);
+  const entry = existing instanceof Y.Map ? existing : new Y.Map();
+  if (!(existing instanceof Y.Map)) users.set(userKey, entry);
+  const ids = entry.get('ids');
+  const list: Y.Array<number> = ids instanceof Y.Array ? ids : new Y.Array<number>();
+  // Set through the widened map, because a fresh `Y.Map` has no value type yet
+  // and the union of its two `set` signatures is not callable.
+  if (!(ids instanceof Y.Array)) (entry as Y.Map<unknown>).set('ids', list);
+  list.push([clientId]);
+}
+
+/** A second session on the same page, as a colleague opening it is. */
+function joins(base: Y.Doc, userKey: string): Y.Doc {
+  const doc = new Y.Doc();
+  Y.applyUpdate(doc, Y.encodeStateAsUpdate(base));
+  record(doc, userKey);
+  return doc;
+}
+
+const merge = (into: Y.Doc, from: Y.Doc): void => {
+  Y.applyUpdate(into, Y.encodeStateAsUpdate(from, Y.encodeStateVector(into)));
+  Y.applyUpdate(from, Y.encodeStateAsUpdate(into, Y.encodeStateVector(from)));
+};
+
+test('the authors projected are who wrote, not who opened', () => {
+  /*
+   * `authorKeys` feeds the `author:` search filter, and it read the attribution
+   * mapping raw. That mapping is written when a document *opens* — it has to be,
+   * because attribution is not retroactive — so `author:anna` matched every page
+   * Anna had ever looked at (ADR-0116). The same fault as the People panel, in a
+   * second place, which is why the answer is now one function in core.
+   */
+  const base = makeDoc();
+
+  const anna = joins(base, uuid('a'));
+  addBlock(anna, { id: uuid('b1'), type: 'paragraph', text: 'geschrieben' });
+  merge(base, anna);
+
+  // Bo opens the page and reads it. His client writes nothing but the mapping.
+  const bo = joins(base, uuid('b'));
+  merge(base, bo);
+
+  assert.deepEqual(readDocument(base, 'page-1').authorKeys, [uuid('a')]);
+});
+
+test('and somebody whose writing has been deleted is no longer an author', () => {
+  // The pruning rule (ADR-0022) asked at the moment of projecting rather than
+  // whenever `applyToDocument` last happened to sweep. Otherwise how recently a
+  // page had been renamed decided who `author:` found on it, and two pages with
+  // the same history answered differently.
+  const base = makeDoc();
+  const anna = joins(base, uuid('a'));
+  addBlock(anna, { id: uuid('b1'), type: 'paragraph', text: 'geschrieben' });
+  merge(base, anna);
+  assert.deepEqual(readDocument(base, 'page-1').authorKeys, [uuid('a')]);
+
+  setPageBlocks(anna, []);
+  merge(base, anna);
+
+  assert.deepEqual(readDocument(base, 'page-1').authorKeys, []);
+});

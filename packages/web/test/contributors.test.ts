@@ -3,6 +3,13 @@
  *
  * Read from the page's own CRDT, which is already open and already syncing —
  * so no request, and it updates as somebody else joins and types.
+ *
+ * What the panel *says* is in `peoplePanel.test.tsx`, mounted. It had to move
+ * (ADR-0116): the assertion here was that the component called
+ * `attributionUsers`, and calling `attributionUsers` was the bug. A test that
+ * asserts a wire exists is not a test — it passes hardest when the wire goes to
+ * the wrong place. What is left below is the shape of the component, which a
+ * source read genuinely is the right tool for. Seventh such move.
  */
 
 import assert from 'node:assert/strict';
@@ -17,7 +24,6 @@ test('the list is read from the document, not fetched', () => {
   // The mapping is in the page's CRDT. Asking the server for it would be a
   // request for something already in memory, and it would not update when
   // somebody else starts typing.
-  assert.match(source, /attributionUsers\(/);
   assert.match(source, /doc\.on\('update', read\)/);
   assert.match(source, /doc\.off\('update', read\)/, 'and unsubscribes');
 });
@@ -28,10 +34,12 @@ test('names are looked up, never taken from the document', () => {
   assert.match(source, /\.members\(workspaceId\)/);
 });
 
-test('somebody who has left is still listed', () => {
+test('somebody who has left is still listed', async () => {
   // They wrote what they wrote. Dropping them would quietly rewrite who worked
   // on the page.
-  assert.match(source, /Somebody who has left/);
+  assert.match(source, /t\('panel\.people\.departed'\)/);
+  const { en } = await import('../src/i18n/messages.en.ts');
+  assert.match(en['panel.people.departed'], /has left/);
 });
 
 test('an empty list explains itself', async () => {
@@ -43,11 +51,12 @@ test('an empty list explains itself', async () => {
   assert.match(en['panel.noPeople'], /not listed here/);
 });
 
-test('it says it is not the presence list', () => {
+test('it says it is not the presence list', async () => {
   // Presence answers who is here now; this answers whose writing this is.
   // Conflating them would make a page look abandoned the moment everybody
   // closed their laptop.
-  assert.match(source, /whether or not they are here now/);
+  const { en } = await import('../src/i18n/messages.en.ts');
+  assert.match(en['panel.people.choose'], /not who is here now/);
 });
 
 test('a panel open before a page is does not throw', () => {

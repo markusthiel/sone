@@ -1388,6 +1388,13 @@ export const de: Record<keyof typeof en, string> = {
     'Noch niemand verzeichnet. Geschriebenes wird von dem Moment an zugeordnet, in dem ' +
     'es geschrieben wird — was vor Beginn dieser Aufzeichnung getippt wurde, steht hier ' +
     'nicht.',
+  'panel.people.marked':
+    'Was diese Person geschrieben hat, ist in der Seite markiert. Noch einmal ' +
+    'anklicken hebt die Markierung auf.',
+  'panel.people.choose':
+    'Jemanden anklicken, um zu sehen, was von ihm oder ihr in der Seite steht. Hier ' +
+    'steht, wer geschrieben hat — nicht, wer gerade da ist; das zeigen die Kreise oben.',
+  'panel.people.departed': 'Jemand, der nicht mehr dabei ist',
   // --- eine Fläche (ADR-0043) ---------------------------------------------
   'canvas.commented': '{count, plural, one {Ein Kommentar} other {# Kommentare}}',
   'canvas.commentedInternal':
