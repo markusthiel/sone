@@ -137,6 +137,13 @@ jobs:
         # at the environment (ADR-0111).
         run: node scripts/check-env-numbers.mjs
 
+      - name: Check every page link keeps its credential
+        # A component cannot tell whether it is rendering into the workspace
+        # shell or into somebody's share link. paths.page() always answers the
+        # first, so a click on a subpage inside a shared folder dropped the
+        # token and landed on the login screen (ADR-0113).
+        run: node scripts/check-page-links.mjs
+
       - name: Check every route is reachable from the interface
         # Two features were built, tested and recorded as done while being
         # reachable only with curl — including the only way back for somebody

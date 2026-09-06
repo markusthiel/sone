@@ -16,6 +16,7 @@ import type { ReactElement } from 'react';
 import { useT } from '../i18n/useT.tsx';
 import { type PageNode } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import { EntryIconView, entryKind, titleColorStyle } from './EntryIconView.tsx';
 import {
   BrushIcon, FolderPlusIcon, PlusIcon } from './icons.tsx';
@@ -47,6 +48,7 @@ export function FolderView({
   onCreate,
   onRename,
 }: FolderViewProps): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   const folders = folder.children.filter((child) => child.kind === 'folder');
   // Everything that is not a folder, rather than everything that says 'page'.
@@ -63,7 +65,7 @@ export function FolderView({
         <nav className="breadcrumb" aria-label={t('folder.location')}>
           {trail.map((ancestor) => (
             <span key={ancestor.id}>
-              <a href={paths.page(ancestor.id, ancestor.title ?? undefined)}>
+              <a href={pageLink(ancestor.id, ancestor.title ?? undefined)}>
                 {ancestor.title || 'Untitled folder'}
               </a>
               <span aria-hidden="true"> / </span>
@@ -160,7 +162,7 @@ export function FolderView({
               <ul className="folder-list">
                 {folders.map((child) => (
                   <li key={child.id}>
-                    <a href={paths.page(child.id, child.title ?? undefined)}>
+                    <a href={pageLink(child.id, child.title ?? undefined)}>
                       {/* The child's own icon and colour, for the same reason
                           the heading has them: a folder decorated in the tree
                           that is drawn plain in its parent's listing looks like
@@ -188,7 +190,7 @@ export function FolderView({
               <ul className="folder-list">
                 {pages.map((child) => (
                   <li key={child.id}>
-                    <a href={paths.page(child.id, child.title ?? undefined)}>
+                    <a href={pageLink(child.id, child.title ?? undefined)}>
                       <EntryIconView icon={child.icon} kind={entryKind(child.kind)} />
                       <span
                         className="folder-list-name"

@@ -1952,10 +1952,11 @@ test('a relation asks where it points, in a second step', () => {
   // "what could a relation from *here* point at" anyway.
   assert.match(table, /\.relationTargets\(collectionId\)/);
 
-  // The cell links to the other row, because a row is a page and getting to it
-  // is the point of a relation.
-  const cell = codeOf(new URL('../src/components/RelationCell.tsx', import.meta.url));
-  assert.match(cell, /href=\{paths\.page\(id, titles\.get\(id\) \?\? ''\)\}/);
+  // That the cell links to the other row is asserted where it can be seen:
+  // `shareLinks.test.tsx` mounts this cell and reads the href off the anchor.
+  // It was a source match for `paths.page(...)` here, which broke the moment
+  // the call was renamed and could never have said whether the URL was right —
+  // the sixth of these to move for exactly that reason (ADR-0113).
   // And an empty relation is no value, the shape every other cell uses.
   assert.match(cellFile, /next\.length > 0 \? \{ kind: 'relation', pageIds: next \} : null/);
 });

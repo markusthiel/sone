@@ -46,6 +46,7 @@ import type { MessageKey } from '../i18n/messages.en.ts';
 import { usePageLocked } from '../hooks/usePageWidth.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import { webVariant } from '../lib/imageVariant.ts';
 
 interface EditorSurfaceProps {
@@ -84,6 +85,7 @@ export function EditorSurface({
   markStyle,
   members,
 }: EditorSurfaceProps): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   // One uploader, shared by paste, drop and the Image slash item, so all three
   // report failures the same way.
@@ -566,7 +568,7 @@ export function EditorSurface({
       // navigating to it rather than expanding something here.
       nodeViews: soneNodeViews(
         (containerId) => {
-          window.location.assign(paths.page(containerId));
+          window.location.assign(pageLink(containerId));
         },
         {
           pdf: {

@@ -20,6 +20,7 @@ import { useEntryKind } from '../hooks/usePageWidth.ts';
 import { usePageWidth } from '../hooks/usePageWidth.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 
@@ -99,6 +100,7 @@ export function PageView({
   connectionState,
   onTitleChange,
 }: PageViewProps): ReactElement {
+  const pageLink = usePageLink();
   const isCanvas = useEntryKind(handle?.doc ?? null) === 'canvas';
   // From the document, so it arrives like any other edit (ADR-0028).
   const width = usePageWidth(handle?.doc ?? null);
@@ -234,7 +236,7 @@ export function PageView({
         <nav className="breadcrumb" aria-label={t('folder.location')}>
           {trail.map((ancestor) => (
             <span key={ancestor.id}>
-              <a href={paths.page(ancestor.id, ancestor.title ?? undefined)}>
+              <a href={pageLink(ancestor.id, ancestor.title ?? undefined)}>
                 {ancestor.title || t('folder.untitled')}
               </a>
               <span aria-hidden="true"> / </span>
