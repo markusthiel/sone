@@ -19,13 +19,26 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../api/client.ts';
 
-/** Every property a theme can set, so removing is as complete as setting. */
+/**
+ * Every property a theme can set, so removing is as complete as setting.
+ *
+ * It was `--sone-theme-` alone, and `themeProperties` has always also emitted
+ * `--accent`, `--accent-contrast` and `--sone-palette-*` — which were therefore
+ * set and never removed. Leaving a workspace that had chosen an accent for one
+ * that had not left the first one's accent on the page until a reload. The list
+ * is asserted against what `themeProperties` can produce (`surfaces.test.ts`),
+ * so a new prefix added there without being added here fails a test rather than
+ * leaking quietly.
+ */
+const THEME_PREFIXES = ['--sone-theme-', '--sone-palette-', '--sone-radius', '--accent'];
+
 function clearTheme(root: HTMLElement, keep: Record<string, string>): void {
   const stale: string[] = [];
 
   for (let i = 0; i < root.style.length; i++) {
     const name = root.style.item(i);
-    if (name.startsWith('--sone-theme-') && !(name in keep)) stale.push(name);
+    if (name in keep) continue;
+    if (THEME_PREFIXES.some((prefix) => name.startsWith(prefix))) stale.push(name);
   }
 
   for (const name of stale) root.style.removeProperty(name);

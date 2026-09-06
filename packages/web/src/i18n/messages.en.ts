@@ -906,6 +906,29 @@ export const en = {
   'type.spaceBelow': 'Space below',
   'type.asDesigned': 'As designed',
 
+  // --- one piece of furniture at a time (ADR-0122) ------------------------
+  'type.surfaces': 'Surfaces',
+  'type.surfaces.note':
+    'Single parts of the interface can be treated differently from the rest — ' +
+    'the narrow rail dark, everything else light. What is chosen is a ' +
+    'relationship and not a colour: “inverted” is dark in the light theme and ' +
+    'light in the dark one, from one stored value.',
+  'type.surface.rail': 'Narrow rail',
+  'type.surface.sidebar': 'Sidebar',
+  'type.surface.panel': 'Right panel',
+  'type.treatment.follow': 'As designed',
+  'type.treatment.raised': 'Raised',
+  'type.treatment.sunken': 'Sunken',
+  'type.treatment.inverted': 'Inverted',
+  'type.treatment.accent': 'Accent',
+  'type.corners': 'Corners',
+  'type.corners.note':
+    'Three steps rather than a number: all three radii move together, so a ' +
+    'small control does not become a pill by accident.',
+  'type.corners.sharp': 'Sharp',
+  'type.corners.soft': 'As designed',
+  'type.corners.round': 'Round',
+
   // --- where a workspace opens -------------------------------------------
   'landing.title': 'Where you land',
   'landing.lastPage': 'The page you were on last',
