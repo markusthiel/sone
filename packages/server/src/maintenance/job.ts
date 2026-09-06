@@ -126,6 +126,16 @@ export interface MaintenanceReport {
   orphanedPages: number;
   /** Entries whose parent is a page rather than a folder (ADR-0019). */
   entriesInsidePages: number;
+  /**
+   * CRDT documents belonging to no page (ADR-0106).
+   *
+   * Counted, never swept here. It is a report for the same reason the two above
+   * it are — the cause needs an operator, not a repair — and for one more: this
+   * is the deletion ADR-0080 called "one mistake away from deleting live data",
+   * so the thing that performs it is a script somebody runs and reads, not a
+   * task that runs every five minutes while nobody is looking.
+   */
+  orphanedDocuments: number;
   errors: string[];
   durationMs: number;
 }
@@ -181,6 +191,7 @@ export class Maintenance {
       staleSearchRows: 0,
       orphanedPages: 0,
       entriesInsidePages: 0,
+      orphanedDocuments: 0,
       errors: [],
       durationMs: 0,
     };
@@ -297,6 +308,19 @@ export class Maintenance {
           WHERE created_at < now() - interval '1 hour'`,
       );
       report.entriesInsidePages = Number(misplaced[0]?.n ?? 0);
+
+      // Content whose page is gone: what a purge left behind before ADR-0080,
+      // or a page creation that failed between its first update and its
+      // materialisation. An hour's grace like the two above, and for a sharper
+      // version of the same reason — `createEntry` writes the update outside
+      // the transaction that writes the row, so a document seconds old with no
+      // page is ordinary rather than orphaned (ADR-0106).
+      const strays = await queryRows<{ n: string }>(
+        this.opts.pool,
+        `SELECT count(*)::text AS n FROM orphaned_documents
+          WHERE last_written < now() - interval '1 hour'`,
+      );
+      report.orphanedDocuments = Number(strays[0]?.n ?? 0);
     });
 
     report.durationMs = Date.now() - started;
@@ -328,6 +352,15 @@ export class Maintenance {
       this.log(
         `${report.entriesInsidePages} entr(ies) sit inside a page rather than a ` +
           `folder; see the pages_inside_pages view`,
+      );
+    }
+    if (report.orphanedDocuments > 0) {
+      // Names the script, because unlike the three above it there is one, and
+      // an operator reading this line is the person who decides to run it.
+      this.log(
+        `${report.orphanedDocuments} document(s) belong to no page — content left ` +
+          `by a purge from before ADR-0080; see the orphaned_documents view, and ` +
+          `sweep-orphan-documents.mjs to remove it`,
       );
     }
 
