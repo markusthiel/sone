@@ -18,10 +18,37 @@
       is where anybody notices.
     -->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- The .ico is not legacy politeness: a bookmark bar, a Windows shortcut
+         and every feed reader written before 2020 ask for /favicon.ico by path
+         whether it is declared or not, and a 404 there is a blank page icon. It
+         carries 16, 32 and 48 — the small two three-barred, the 48 four. -->
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)" />
+
+    <!--
+      What a pasted link looks like.
+
+      A SONE instance is behind a login, so a crawler sees this shell and
+      nothing else — which is the point: the card describes the software, never
+      the page. A link to somebody's notes pasted into a chat must not preview
+      their title. og:url is deliberately absent for the same reason; the
+      instance's own address is not ours to write here.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SONE" />
+    <meta property="og:title" content="SONE" />
+    <meta
+      property="og:description"
+      content="Wissen strukturieren. Auf deinem Server."
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="SONE — Wissen strukturieren. Auf deinem Server." />
+    <meta name="twitter:card" content="summary_large_image" />
 
     <!--
       The two faces, asked for before the stylesheet is parsed.
