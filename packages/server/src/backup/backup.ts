@@ -27,7 +27,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, hkdfSync } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -66,12 +66,47 @@ export interface BackupManifest {
    * Optional, so an archive written before this field still restores.
    */
   fileStorage?: 'local' | 's3' | 'none';
+  /**
+   * Which `SONE_SECRET_KEY` sealed the data in this archive (ADR-0105).
+   *
+   * Share tokens, second-factor secrets and mail reply tokens are encrypted or
+   * signed with a key that lives in the environment, not in the database — so
+   * an archive restored under a different one comes back complete and
+   * *silently* missing all three. `decryptShareToken` answers `null` for a
+   * wrong key, which is indistinguishable from a link that was never made.
+   *
+   * Optional, so an archive written before this field still restores — and the
+   * restore says it could not check rather than passing quietly, which is the
+   * same distinction `fileStorage` above exists for.
+   */
+  secretKeyFingerprint?: string;
   counts: {
     workspaces: number;
     users: number;
     pages: number;
     documents: number;
   };
+}
+
+/**
+ * Which `SONE_SECRET_KEY` an archive was sealed under (ADR-0105).
+ *
+ * Not the key, and nothing a key can be recovered from: HKDF with a purpose
+ * string of its own, so this output and the one `shareTokenStore` derives for
+ * encryption are independent — knowing this one says nothing about that one.
+ * The archive it sits in contains the whole database, so the only thing worth
+ * being careful about is not making the *key* recoverable, and this does not.
+ *
+ * No salt, for the reason `shareTokenStore.keyFrom` gives: the secret is
+ * high-entropy by configuration (`loadConfig` refuses anything under 32
+ * characters), and a salt would have to be stored beside the value it protects.
+ */
+const FINGERPRINT_INFO = 'sone/backup/key-fingerprint/v1';
+
+export function secretKeyFingerprint(secretKey: string): string {
+  return Buffer.from(
+    hkdfSync('sha256', Buffer.from(secretKey, 'utf8'), Buffer.alloc(0), FINGERPRINT_INFO, 32),
+  ).toString('hex');
 }
 
 export class BackupError extends Error {
@@ -85,6 +120,8 @@ export class BackupError extends Error {
       | 'pg_restore_failed'
       | 'unknown_format'
       | 'checksum_mismatch'
+      /** The archive was sealed under a different SONE_SECRET_KEY (ADR-0105). */
+      | 'key_mismatch'
       | 'not_empty'
       | 'io',
   ) {
@@ -197,6 +234,15 @@ export interface BackupOptions {
   filesPath: string | null;
   appVersion: string;
   documentSchemaVersion: number;
+  /**
+   * The instance's `SONE_SECRET_KEY`, recorded as a fingerprint (ADR-0105).
+   *
+   * Required rather than optional: a backup that omits something is only
+   * allowed to do so on purpose, which is the rule the file-storage branch
+   * above was rewritten for, and an archive that cannot say which key sealed it
+   * is the case this field exists to end.
+   */
+  secretKey: string;
   log?: (msg: string) => void;
 }
 
@@ -302,6 +348,7 @@ export async function createBackup(opts: BackupOptions): Promise<BackupManifest>
     },
     files,
     fileStorage,
+    secretKeyFingerprint: secretKeyFingerprint(opts.secretKey),
     counts,
   };
 
@@ -357,6 +404,17 @@ export interface RestoreOptions {
   filesPath: string | null;
   /** Refuse unless the target database is empty. */
   requireEmpty?: boolean;
+  /** This instance's `SONE_SECRET_KEY`, checked against the archive (ADR-0105). */
+  secretKey: string;
+  /**
+   * Restore anyway when the archive was sealed under a different key.
+   *
+   * Its own flag rather than reusing `requireEmpty`'s `--force`: those are two
+   * different risks, and one flag answering both is a flag people pass without
+   * reading either. The case it exists for is real — the old key leaked, or is
+   * gone, and somebody is restoring knowing what it costs.
+   */
+  allowDifferentKey?: boolean;
   pool: Pool;
   log?: (msg: string) => void;
 }
@@ -425,6 +483,49 @@ export async function restoreBackup(opts: RestoreOptions): Promise<RestoreReport
     if ((await sha256File(archive)) !== manifest.files.sha256) {
       throw new BackupError(`file archive checksum mismatch`, 'checksum_mismatch');
     }
+  }
+
+  /*
+   * The key the archive was sealed under (ADR-0105).
+   *
+   * Checked here, beside the checksums, because it belongs to the same family:
+   * everything in this block is a reason to refuse **before** anything is
+   * touched. A wrong key discovered after the restore is a database that came
+   * back whole and quietly lost every share link, every second factor and every
+   * mail reply token — `decryptShareToken` answers `null` rather than throwing,
+   * so nothing anywhere reports it.
+   *
+   * Three states, three answers, deliberately not two: sealed under this key,
+   * sealed under another, and an archive too old to say. The middle one refuses
+   * and the last one warns, because "not checked" and "checked and fine" are
+   * different answers — the argument `fileStorage` was added for.
+   */
+  if (manifest.secretKeyFingerprint === undefined) {
+    warnings.push(
+      'this archive predates the key fingerprint, so it could not be checked whether ' +
+        'it was sealed with the SONE_SECRET_KEY this instance is using. If share links ' +
+        'or second factors stop working after the restore, that is why.',
+    );
+  } else if (manifest.secretKeyFingerprint !== secretKeyFingerprint(opts.secretKey)) {
+    if (!opts.allowDifferentKey) {
+      throw new BackupError(
+        'this archive was sealed with a different SONE_SECRET_KEY than the one this ' +
+          'instance is configured with.\n\n' +
+          'The restore would succeed and then silently lose everything sealed with the ' +
+          'old key: every share link, every second factor, and every mail reply token. ' +
+          'Nothing reports that — a link sealed with another key is indistinguishable ' +
+          'from a link that was never made.\n\n' +
+          'Set SONE_SECRET_KEY to the value the backed-up instance used. If that key is ' +
+          'gone and you are restoring anyway, --different-key proceeds and accepts the ' +
+          'loss.',
+        'key_mismatch',
+      );
+    }
+    warnings.push(
+      'restored under a different SONE_SECRET_KEY than the archive was sealed with. ' +
+        'Share links, second factors and mail reply tokens from before the backup will ' +
+        'not work; people with a second factor will have to set one up again.',
+    );
   }
 
   if (opts.requireEmpty !== false) {

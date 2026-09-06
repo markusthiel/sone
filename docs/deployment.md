@@ -472,10 +472,19 @@ somebody:
   own data; use a fresh database to go backwards.
 - **It does not carry your secrets.** `SONE_SECRET_KEY`, `SONE_SMTP_PASSWORD`
   and `SONE_OIDC_CLIENT_SECRET` live in the environment and are deliberately not
-  in the archive. Restoring with a *different* `SONE_SECRET_KEY` succeeds and
-  then quietly fails to read anything sealed with the old one — second factors
-  and share links stop working, one account at a time, with no error. Keep the
-  key with the backup, somewhere the backup is not.
+  in the archive. Keep the key with the backup, somewhere the backup is not.
+
+  Restoring with a *different* `SONE_SECRET_KEY` used to succeed and then
+  quietly fail to read anything sealed with the old one — second factors, share
+  links and mail reply tokens stopping one account at a time, with no error.
+  **The restore now refuses it.** The manifest carries a fingerprint of the key
+  the archive was sealed under (never the key itself), and a mismatch stops the
+  restore before anything is touched, naming what would have broken.
+
+  `--different-key` proceeds anyway, for the case where the old key is genuinely
+  gone; it warns, and the loss is real. An archive written before this field has
+  no fingerprint, so the restore says it could not check rather than passing
+  quietly.
 
 **Attachments on S3 are not in the archive.** The backup says so loudly while it
 runs, and the manifest records it, but it bears repeating: an instance with
