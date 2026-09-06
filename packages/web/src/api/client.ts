@@ -12,7 +12,14 @@
  * wrong, not for display.
  */
 
-import type { DiffBlock, EntryIcon, Role, WordChange, WorkspaceTheme } from '@sone/core';
+import type {
+  DiffBlock,
+  EntryCover,
+  EntryIcon,
+  Role,
+  WordChange,
+  WorkspaceTheme,
+} from '@sone/core';
 
 export class ApiError extends Error {
   constructor(
@@ -213,6 +220,14 @@ export interface PageSummary {
    */
   role: Role | null;
   icon: { kind: string; value: string; color?: string; titleColor?: string } | null;
+  /**
+   * A picture, a colour or a gradient above the heading (ADR-0117).
+   *
+   * On the tree row because a folder draws its own and has no document open —
+   * it renders this node, the same way it renames through a route. Absent for
+   * the great majority of entries, which have none.
+   */
+  cover?: EntryCover | null;
   kind: EntryKind;
   /** Offered as a shape to start from (ADR-0045). */
   template?: boolean;
@@ -225,7 +240,6 @@ export interface PageSummary {
 export interface PageDetail extends Omit<PageSummary, 'archived' | 'idx'> {
   /* kind is inherited from PageSummary. */
   workspaceId: string;
-  coverUrl: string | null;
   /** 'column' or 'full'; null follows the reader's default. */
   width?: 'column' | 'full' | null;
   archived: boolean;
@@ -1765,6 +1779,20 @@ export const api = {
     request<void>(`/api/pages/${pageId}`, {
       method: 'PATCH',
       body: JSON.stringify({ width }),
+    }),
+
+  /**
+   * Give an entry a cover, or take it off with null (ADR-0117).
+   *
+   * The same route the icon and the title use, and for the reason a folder
+   * makes plain: it has no open document to write into. A page writes its own
+   * cover straight into the document it already has — see `PageView` — so this
+   * is what a folder uses and what a page falls back on nowhere.
+   */
+  setEntryCover: (pageId: string, cover: EntryCover | null) =>
+    request<{ id: string; cover: EntryCover | null }>(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ cover }),
     }),
 
   renameEntry: (pageId: string, title: string) =>

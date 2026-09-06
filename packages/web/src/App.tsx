@@ -64,7 +64,7 @@ import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
 import { asInternalRequest, guestKey } from '@sone/core';
-import type { CommentThread, Role } from '@sone/core';
+import type { CommentThread, EntryCover, Role } from '@sone/core';
 import type { CommentAnchor, DrawnThread } from '@sone/editor';
 
 import { api, type PageNode, type WorkspaceMember } from './api/client.ts';
@@ -343,6 +343,7 @@ function Workspace({
     createPage,
     archivePage,
     renameEntry,
+    setEntryCover,
     moveEntry,
     applyTitle,
     reload: reloadPages,
@@ -918,6 +919,8 @@ function Workspace({
                   onCreate: (parent: string, kind: 'page' | 'folder' | 'canvas') =>
                     void onCreateEntry(parent, kind),
                   onRename: (id: string, title: string) => void renameEntry(id, title),
+                  onSetCover: (id: string, cover: EntryCover | null) =>
+                    void setEntryCover(id, cover),
                 }
               : {})}
           />

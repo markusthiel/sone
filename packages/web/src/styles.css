@@ -1459,6 +1459,131 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
  * for its kind — decorating a folder in the sidebar and then finding the plain
  * one on its own page is the report this answers.
  */
+/*
+ * A cover above the heading (ADR-0117).
+ *
+ * The cover and the heading are one hover region, because the control to add a
+ * cover is revealed by hovering the heading — asked for as „über der
+ * Seitenüberschrift, beim Drüberfahren". A control that appeared only over the
+ * cover would be unreachable on a page that has none, which is every page
+ * before the first one is chosen.
+ */
+.entry-head {
+  position: relative;
+}
+
+.entry-cover {
+  block-size: clamp(120px, 20vh, 210px);
+  margin-block-end: 18px;
+  border-radius: var(--sone-radius-lg, 10px);
+  overflow: hidden;
+  /* The band is decoration. Without this, a very light cover on a light theme
+     is an invisible gap somebody has to guess the edges of. */
+  box-shadow: inset 0 0 0 1px var(--sone-border-subtle, rgba(0, 0, 0, 0.06));
+}
+
+.entry-cover-image {
+  inline-size: 100%;
+  block-size: 100%;
+  /* Cropped rather than squashed: a cover is a band across a page, and no
+     photograph has that shape. */
+  object-fit: cover;
+  display: block;
+}
+
+/*
+ * The controls.
+ *
+ * In the document at all times and revealed by opacity, so Tab reaches them and
+ * `:focus-within` shows them — a control that exists only under a pointer is a
+ * control a keyboard cannot use, and this is the only way to remove a cover.
+ */
+.entry-cover-actions {
+  display: flex;
+  gap: 6px;
+  padding-inline-start: var(--sone-text-indent);
+  margin-block-end: 6px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.entry-head:hover .entry-cover-actions,
+.entry-head:focus-within .entry-cover-actions {
+  opacity: 1;
+}
+
+/* Over the cover itself once there is one, so it does not push the heading. */
+.entry-cover-actions[data-over='cover'] {
+  position: absolute;
+  inset-block-start: 10px;
+  inset-inline-end: 10px;
+  padding-inline-start: 0;
+  margin-block-end: 0;
+}
+
+.entry-cover-button {
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--sone-border, rgba(0, 0, 0, 0.12));
+  /* Its own surface rather than a transparent one: these sit on a picture
+     nobody chose for legibility. */
+  background: var(--sone-surface, #fff);
+  color: var(--sone-text);
+  cursor: pointer;
+}
+.entry-cover-button:hover {
+  background: var(--sone-surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+.entry-cover-picker {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
+  z-index: 20;
+  inline-size: 250px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--sone-border, rgba(0, 0, 0, 0.12));
+  background: var(--sone-surface, #fff);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+}
+
+.entry-cover-upload {
+  display: block;
+  margin-block-end: 10px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.entry-cover-upload input {
+  display: block;
+  inline-size: 100%;
+  margin-block-start: 5px;
+  font-size: 0.75rem;
+}
+
+.entry-cover-group {
+  margin: 10px 0 5px;
+  font-size: 0.75rem;
+  color: var(--sone-text-muted);
+}
+
+.entry-cover-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.entry-cover-swatch,
+.entry-cover-own {
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--sone-border, rgba(0, 0, 0, 0.12));
+  cursor: pointer;
+}
+
 .entry-heading {
   display: flex;
   align-items: center;

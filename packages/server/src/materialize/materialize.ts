@@ -211,7 +211,7 @@ export async function materializeDocument(
   await db.query(
     `INSERT INTO pages (
        id, workspace_id, parent_page_id, collection_id, idx, title, icon,
-       cover_url, schema_version, archived_at, last_edited_at, last_edited_by,
+       cover, schema_version, archived_at, last_edited_at, last_edited_by,
        ancestor_ids, kind, width, template, locked
      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), $11, $12, $13, $14, $15, $16)
      ON CONFLICT (id) DO UPDATE SET
@@ -220,7 +220,7 @@ export async function materializeDocument(
        idx            = EXCLUDED.idx,
        title          = EXCLUDED.title,
        icon           = EXCLUDED.icon,
-       cover_url      = EXCLUDED.cover_url,
+       cover          = EXCLUDED.cover,
        schema_version = EXCLUDED.schema_version,
        archived_at    = EXCLUDED.archived_at,
        last_edited_at = now(),
@@ -245,7 +245,7 @@ export async function materializeDocument(
       parsed.page.idx,
       parsed.page.title,
       parsed.page.icon === null ? null : JSON.stringify(parsed.page.icon),
-      parsed.page.coverUrl,
+      parsed.page.cover === null ? null : JSON.stringify(parsed.page.cover),
       parsed.schemaVersion,
       parsed.page.archivedAt,
       opts.actorId ?? null,

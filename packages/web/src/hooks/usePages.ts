@@ -16,6 +16,7 @@ import {
   type PageNode,
   type PageSummary,
 } from '../api/client.ts';
+import type { EntryCover } from '@sone/core';
 import { useNudge } from './useNudge.ts';
 
 export function usePages(
@@ -54,6 +55,8 @@ export function usePages(
   }) => Promise<string | null>;
   archivePage: (pageId: string) => Promise<void>;
   renameEntry: (pageId: string, title: string) => Promise<void>;
+  /** A cover on an entry, or null to take it off (ADR-0117). */
+  setEntryCover: (pageId: string, cover: EntryCover | null) => Promise<void>;
   moveEntry: (
     pageId: string,
     parentPageId: string | null,
@@ -186,6 +189,25 @@ export function usePages(
     [reload],
   );
 
+  /**
+   * A cover on an entry, then a reload.
+   *
+   * The reload is what the folder view draws from: it renders the tree node it
+   * was handed, so a cover that only changed on the server would appear at the
+   * next refetch and look as though the click had done nothing.
+   */
+  const setEntryCover = useCallback(
+    async (pageId: string, cover: EntryCover | null) => {
+      try {
+        await api.setEntryCover(pageId, cover);
+        await reload();
+      } catch (err) {
+        setError(err instanceof ApiError ? err.code : 'network_error');
+      }
+    },
+    [reload],
+  );
+
   const moveEntry = useCallback(
     async (pageId: string, parentPageId: string | null, afterPageId?: string | null) => {
       try {
@@ -208,6 +230,7 @@ export function usePages(
     createPage,
     archivePage,
     renameEntry,
+    setEntryCover,
     moveEntry,
   };
 }

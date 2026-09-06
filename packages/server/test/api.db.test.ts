@@ -2510,6 +2510,136 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.deepEqual(stored.rows[0]?.icon, { kind: 'icon', value: 'folder' });
   });
 
+  // --- a cover (ADR-0117) ---------------------------------------------------
+
+  /** Set something on an entry through the route both a page and a folder use. */
+  const patchEntry = (
+    session: Session,
+    pageId: string,
+    body: Record<string, unknown>,
+  ): Promise<Response> =>
+    fetch(`${base}/api/pages/${pageId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: session.cookie },
+      body: JSON.stringify(body),
+    });
+
+  /** What the projection is holding for this entry. */
+  async function storedCover(pageId: string): Promise<unknown> {
+    const row = await db.query<{ cover: unknown }>(
+      `SELECT cover FROM pages WHERE id = $1`,
+      [pageId],
+    );
+    return row.rows[0]?.cover ?? null;
+  }
+
+  /** What the tree says about it, which is what a folder draws from. */
+  async function treeCover(session: Session, pageId: string): Promise<unknown> {
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session),
+    );
+    await expectStatus(res, 200);
+    const body = (await res.json()) as { pages: Array<{ id: string; cover?: unknown }> };
+    const found = body.pages.find((one) => one.id === pageId);
+    assert.ok(found, 'the entry should be in the tree');
+    return found.cover ?? null;
+  }
+
+  test('a cover is stored, projected, and carried on the tree', async () => {
+    // The column has been here since the first migration, as `cover_url text`,
+    // and nothing ever wrote it — the same history the icon column had. It is
+    // `cover jsonb` now, because two of the three kinds are not URLs.
+    const session = await setup();
+    const page = await createPage(session, 'Konzept');
+
+    await expectStatus(
+      await patchEntry(session, page, { cover: { kind: 'gradient', from: 'blue', to: 'green' } }),
+      200,
+    );
+
+    assert.deepEqual(await storedCover(page), { kind: 'gradient', from: 'blue', to: 'green' });
+    assert.deepEqual(await treeCover(session, page), {
+      kind: 'gradient',
+      from: 'blue',
+      to: 'green',
+    });
+  });
+
+  test('and a folder gets one the same way, which is why this is a route', async () => {
+    /*
+     * **The reason the cover is not written straight into the document.**
+     *
+     * The folder view has no document open: it renders the tree node it was
+     * handed and renames through this same route. A cover that only a page
+     * could set would have been half the feature — and it was asked for as
+     * „auch für Ordner".
+     */
+    const session = await setup();
+    const res = await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Projekte', kind: 'folder', parentPageId: null })),
+    );
+    await expectStatus(res, 201);
+    const folder = ((await res.json()) as { id: string }).id;
+
+    await expectStatus(
+      await patchEntry(session, folder, { cover: { kind: 'color', color: 'red' } }),
+      200,
+    );
+
+    assert.deepEqual(await storedCover(folder), { kind: 'color', color: 'red' });
+  });
+
+  test('a picture from somewhere else is refused, and changes nothing', async () => {
+    /*
+     * „nur eigene Bilder, kein Unsplash", enforced on the value rather than in
+     * the picker. A cover is drawn on every page load, so a foreign URL in one
+     * is a page that reports every reader to somebody else's server.
+     *
+     * Refused rather than quietly cleared: null is how a cover is removed, and
+     * answering a malformed one by deleting the page's cover is the worst
+     * available reading of it.
+     */
+    const session = await setup();
+    const page = await createPage(session, 'Konzept');
+    await patchEntry(session, page, { cover: { kind: 'color', color: 'blue' } });
+
+    await expectStatus(
+      await patchEntry(session, page, {
+        cover: { kind: 'image', url: 'https://images.unsplash.com/photo-1' },
+      }),
+      422,
+    );
+
+    assert.deepEqual(await storedCover(page), { kind: 'color', color: 'blue' });
+  });
+
+  test('and null takes it off', async () => {
+    // Removed rather than stored as a null: an entry nobody has given a cover
+    // carries nothing, so the default stays the default.
+    const session = await setup();
+    const page = await createPage(session, 'Konzept');
+    await patchEntry(session, page, { cover: { kind: 'color', color: 'blue' } });
+
+    await expectStatus(await patchEntry(session, page, { cover: null }), 200);
+
+    assert.equal(await storedCover(page), null);
+  });
+
+  test('a rename does not disturb a cover', async () => {
+    // The counterweight the icon has, for the same reason: titles are renamed
+    // far more often than covers are chosen, and losing one to the other would
+    // be a quiet, repeated annoyance.
+    const session = await setup();
+    const page = await createPage(session, 'Konzept');
+    await patchEntry(session, page, { cover: { kind: 'color', color: 'blue' } });
+
+    await expectStatus(await patchEntry(session, page, { title: 'Anders' }), 200);
+
+    assert.deepEqual(await storedCover(page), { kind: 'color', color: 'blue' });
+  });
+
   test('a rename does not disturb an icon', async () => {
     // Titles are renamed far more often than icons are set, and losing one to
     // the other would be a quiet, repeated annoyance.
