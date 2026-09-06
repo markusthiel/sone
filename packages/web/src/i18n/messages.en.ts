@@ -948,6 +948,15 @@ export const en = {
   'type.treatment.sunken': 'Sunken',
   'type.treatment.inverted': 'Inverted',
   'type.treatment.accent': 'Accent',
+  'type.fonts': 'Type',
+  'type.fonts.note':
+    'What is chosen is a pair — the face for text and the one for code — not a ' +
+    'font name. Every face is served by this instance; “as the device” loads ' +
+    'none at all.',
+  'type.fonts.designed': 'As designed (Archivo)',
+  'type.fonts.reading': 'For reading (Literata)',
+  'type.fonts.plain': 'Plain (Inter)',
+  'type.fonts.system': 'As the device',
   'type.file': 'The theme as a file',
   'type.file.note':
     'A file holds the whole theme — colours, surfaces, corners, type and ' +

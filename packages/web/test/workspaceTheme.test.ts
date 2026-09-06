@@ -35,7 +35,13 @@ test('properties are removed as well as set', () => {
    * asserted where it is produced (`core/test/surfaces.test.ts`); this is the
    * remover being able to recognise all of it.
    */
-  for (const prefix of ['--sone-theme-', '--sone-palette-', '--sone-radius', '--accent']) {
+  for (const prefix of [
+    '--sone-theme-',
+    '--sone-palette-',
+    '--sone-radius',
+    '--sone-font',
+    '--accent',
+  ]) {
     assert.match(hook, new RegExp(`'${prefix}'`), `${prefix} is removed too`);
   }
 });

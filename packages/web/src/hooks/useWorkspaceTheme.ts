@@ -30,7 +30,13 @@ import { api } from '../api/client.ts';
  * so a new prefix added there without being added here fails a test rather than
  * leaking quietly.
  */
-const THEME_PREFIXES = ['--sone-theme-', '--sone-palette-', '--sone-radius', '--accent'];
+const THEME_PREFIXES = [
+  '--sone-theme-',
+  '--sone-palette-',
+  '--sone-radius',
+  '--sone-font',
+  '--accent',
+];
 
 function clearTheme(root: HTMLElement, keep: Record<string, string>): void {
   const stale: string[] = [];

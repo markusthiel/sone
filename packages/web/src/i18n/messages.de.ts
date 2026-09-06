@@ -1044,6 +1044,15 @@ export const de: Record<keyof typeof en, string> = {
   'type.treatment.sunken': 'Vertieft',
   'type.treatment.inverted': 'Umgekehrt',
   'type.treatment.accent': 'Akzentfarbe',
+  'type.fonts': 'Schrift',
+  'type.fonts.note':
+    'Gewählt wird ein Paar — die Schrift für Text und die für Code —, kein ' +
+    'Schriftname. Alle Schriften liefert diese Instanz selbst aus; „Wie das ' +
+    'Gerät" lädt gar keine.',
+  'type.fonts.designed': 'Wie entworfen (Archivo)',
+  'type.fonts.reading': 'Zum Lesen (Literata)',
+  'type.fonts.plain': 'Schlicht (Inter)',
+  'type.fonts.system': 'Wie das Gerät',
   'type.file': 'Theme als Datei',
   'type.file.note':
     'Eine Datei enthält das ganze Theme — Farben, Flächen, Ecken, Schrift und ' +
