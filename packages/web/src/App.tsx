@@ -60,7 +60,10 @@ import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
 import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
+import { resolveScheme } from '@sone/core';
+
 import { BrandLogo } from './components/Logo.tsx';
+import { useAppearance } from './hooks/useAppearance.ts';
 
 /**
  * One empty theme, not a new one per render (ADR-0123).
@@ -172,6 +175,33 @@ function Routes({
 }): ReactElement {
   const { t } = useT();
   const message = useMessage();
+
+  /*
+   * The look of the place, decided once, above every branch below (ADR-0124).
+   *
+   * Both of these were lower down before: the theme in `Workspace`, and light
+   * or dark in the appearance settings screen — the only caller of
+   * `useAppearance`, which is why a signed-out sign-in screen never carried the
+   * instance's colours at all.
+   *
+   * Here because there must be exactly **one** writer of `data-theme`. Applying
+   * the instance's answer at this level and refining it inside `Workspace`
+   * would be two, and two writers of one attribute is a screen that changes
+   * colour a moment after it appears.
+   *
+   * Hooks, so they run in the same order whatever branch is taken below.
+   */
+  const instance = 'instance' in state ? state.instance : null;
+  const theme = useWorkspaceTheme(
+    state.status === 'authenticated' ? state.workspaceId : null,
+    instance?.brand?.theme ?? EMPTY_THEME,
+  );
+  useAppearance(
+    resolveScheme(
+      state.status === 'authenticated' ? state.session.user.colorScheme : null,
+      theme,
+    ),
+  );
 
   // --- unauthenticated routes ---------------------------------------------
 
@@ -294,8 +324,10 @@ function Routes({
       }
       displayName={state.session.user.displayName}
       session={state.session}
-      // The design underneath this workspace's own (ADR-0123).
-      baseTheme={state.instance.brand?.theme ?? EMPTY_THEME}
+      // Re-read after a setting the whole interface is drawn from (ADR-0124):
+      // the resolution lives above this component, so the way to apply a new
+      // answer is to let it happen again.
+      reloadSession={reload}
       route={route}
       navigate={navigate}
       onSwitchWorkspace={(id, to = paths.home()) => {
@@ -330,7 +362,7 @@ function Workspace({
   workspaceName,
   displayName,
   session,
-  baseTheme,
+  reloadSession,
   route,
   navigate,
   onSwitchWorkspace,
@@ -340,8 +372,8 @@ function Workspace({
   workspaceName: string;
   displayName: string;
   session: import('./api/client.ts').SessionInfo;
-  /** The instance's own design, which this workspace's fills in over (ADR-0123). */
-  baseTheme: import('@sone/core').WorkspaceTheme;
+  /** Re-reads the session, for a setting the whole interface is drawn from. */
+  reloadSession: () => Promise<void> | void;
   route: ReturnType<typeof useRoute>['route'];
   /** With `replace`, for the redirect of an old settings URL (ADR-0032). */
   navigate: (to: string, options?: { replace?: boolean }) => void;
@@ -351,12 +383,6 @@ function Workspace({
   /* Null while an old settings URL is being replaced: rendering the wrong area
      for one frame would flash a heading nobody asked for. */
 }): ReactElement | null {
-  // The workspace's own defaults, applied as custom properties on the document
-  // root. Nothing else reads a theme: it changes what the existing variables
-  // resolve to, and the stylesheet already falls back to its own answer where
-  // one is absent (ADR-0023).
-  useWorkspaceTheme(workspaceId, baseTheme);
-
   const pageLink = usePageLink();
   const message = useMessage();
   const { t } = useT();
@@ -1097,6 +1123,7 @@ function Workspace({
             section={route.section}
             session={session}
             workspaceId={workspaceId}
+            reloadSession={reloadSession}
             onClose={() => navigate(paths.home())}
             onLogout={onLogout}
           />

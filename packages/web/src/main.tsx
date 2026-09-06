@@ -8,9 +8,17 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { applyAppearance } from './hooks/useAppearance.ts';
 import './styles.css';
 
-// Applied before React mounts, so the chosen theme is in place on the first
-// paint. Without this a dark-theme user gets a white flash on every load, and a
-// larger text scale visibly reflows.
+/*
+ * Applied before React mounts, so the remembered look is in place on the first
+ * paint. Without this a dark-theme reader gets a white flash on every load, and
+ * a larger text scale visibly reflows.
+ *
+ * Since ADR-0124 the scheme half of this is a **cache and not the answer**: the
+ * account decides, and the account is not known until the session has loaded.
+ * What is stored is what was resolved last time, which is right far more often
+ * than a default would be and wrong only for the moment after somebody changed
+ * it on another device — and then only until the session arrives.
+ */
 try {
   const stored = localStorage.getItem('sone.appearance');
   if (stored) applyAppearance(JSON.parse(stored) as Parameters<typeof applyAppearance>[0]);
