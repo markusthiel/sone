@@ -1685,6 +1685,15 @@ export const api = {
       until: until === null ? null : until.toISOString(),
     }),
 
+  /**
+   * Take notifications off the list for good (ADR-0115).
+   *
+   * By id only. Reading the list is the reversible bankruptcy; this is not, so
+   * it removes what it was given and nothing else.
+   */
+  removeFromInbox: (ids: string[]) =>
+    post<{ removed: number }>('/api/inbox/remove', { ids }),
+
   /** Ask for the whole workspace as an archive. It becomes a job (ADR-0044). */
   startWorkspaceExport: (workspaceId: string, attachments: boolean) =>
     post<{ jobId: string; alreadyRunning?: boolean }>(
