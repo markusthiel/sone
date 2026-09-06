@@ -24,7 +24,7 @@
 
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
 
@@ -57,6 +57,27 @@ export interface FileStore {
    * and that is the arithmetic the caller is already holding.
    */
   read(key: string, range?: { start: number; end: number }): Promise<Readable>;
+  /**
+   * Every object this store holds, with its age (ADR-0109).
+   *
+   * Added for the orphan sweep, which cannot ask "which of these does the
+   * database still name" without being able to say what *these* are.
+   *
+   * **Only what this store wrote.** A directory can hold things nobody put
+   * there through here — a `lost+found`, an editor's dotfile, a mount somebody
+   * made underneath — and a sweep that treated those as candidates would be
+   * deleting from a directory it does not own. The key pattern is the boundary,
+   * and it is the same one `resolve` refuses to look past.
+   */
+  list(): Promise<StoredObject[]>;
+}
+
+/** One object in the store, as a sweep needs to see it. */
+export interface StoredObject {
+  key: string;
+  sizeBytes: number;
+  /** Last written. What keeps an upload in flight out of a sweep's reach. */
+  modifiedAt: Date;
 }
 
 export class StorageError extends Error {
@@ -254,6 +275,31 @@ export class LocalFileStore implements FileStore {
       if (err instanceof StorageError) throw err;
       // Already gone is the desired state.
     }
+  }
+
+  /**
+   * Walk the two-level layout, keeping only what looks like one of our keys.
+   *
+   * One level of fan-out directories (`ab/`) and files inside them, which is
+   * what `put` writes. Anything else in the root — a file at the top level, a
+   * directory whose name is not two hex characters, a name that does not match
+   * the key pattern — is somebody else's and is not returned (ADR-0109).
+   */
+  async list(): Promise<StoredObject[]> {
+    const found: StoredObject[] = [];
+    const prefixes = await readdir(this.root, { withFileTypes: true }).catch(() => []);
+    for (const prefix of prefixes) {
+      if (!prefix.isDirectory() || !/^[0-9a-f]{2}$/.test(prefix.name)) continue;
+      const names = await readdir(path.join(this.root, prefix.name)).catch(() => []);
+      for (const name of names) {
+        const key = `${prefix.name}/${name}`;
+        if (!KEY_PATTERN.test(key)) continue;
+        const info = await stat(path.join(this.root, prefix.name, name)).catch(() => null);
+        if (!info?.isFile()) continue;
+        found.push({ key, sizeBytes: info.size, modifiedAt: info.mtime });
+      }
+    }
+    return found;
   }
 }
 

@@ -596,6 +596,11 @@ export function registerAvatarRoutes(router: Router, deps: FileDeps): void {
     // deleted here. Content-addressed keys mean two people with the same
     // picture share one file, and deleting on replace would take the other
     // person's.
+    //
+    // That sweep exists since ADR-0109, and it knows about `users.avatar_key` —
+    // which is not in the `files` table, and is therefore the thing a sweep
+    // reading only that table would collect. This comment asked for a
+    // mechanism for two years; the mechanism has a test named after it.
     await deps.pool.query(
       `UPDATE users SET avatar_key = $2, avatar_mime = $3 WHERE id = $1`,
       [auth.userId, stored.key, detected.mime],

@@ -130,6 +130,8 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
         },
         exists: (key: string) => Promise.resolve(stored.has(key)),
         size: (key: string) => Promise.resolve(stored.get(key)?.length ?? 0),
+        // Never listed here: these stubs serve routes, not the sweep (ADR-0109).
+        list: () => Promise.resolve([]),
         read: () => Promise.reject(new Error('not in this test')),
       },
     });
@@ -142,6 +144,8 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
         delete: () => Promise.reject(new Error('not in this test')),
         exists: () => Promise.resolve(false),
         size: () => Promise.reject(new Error('not in this test')),
+        // Never listed here: these stubs serve routes, not the sweep (ADR-0109).
+        list: () => Promise.resolve([]),
         read: () => Promise.reject(new Error('not in this test')),
       },
     });
