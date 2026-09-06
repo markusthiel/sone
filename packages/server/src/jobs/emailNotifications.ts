@@ -22,14 +22,26 @@
 import { composeNotificationEmail, type Waiting } from '../mail/compose.js';
 import { replyAddress, replyToken } from '../mail/replyToken.js';
 import { sendMail, type Relay } from '../mail/send.js';
+import { envNumber } from '../env.js';
 import { queryRows, withTransaction, type Db } from '../db/pool.js';
 import { enqueue, type JobHandler } from './runner.js';
 import type { Pool } from 'pg';
 
 export const EMAIL_NOTIFICATIONS = 'email_notifications';
 
-/** How long a notification waits before it is worth a mail. */
-export const EMAIL_DELAY_MINUTES = Number(process.env['SONE_EMAIL_DELAY_MINUTES'] ?? 5);
+/**
+ * How long a notification waits before it is worth a mail.
+ *
+ * Zero is allowed and means "send at once", which is a choice an operator can
+ * reasonably make; below zero is not a shorter delay but a comparison against a
+ * time in the future, and a non-number reaches Postgres as "NaN minutes" and
+ * throws — so no notification mail is ever sent, silently, until somebody
+ * notices the absence (ADR-0111).
+ */
+export const EMAIL_DELAY_MINUTES = envNumber('SONE_EMAIL_DELAY_MINUTES', 5, {
+  min: 0,
+  integer: true,
+});
 
 export interface MailSettings {
   relay: Relay | null;

@@ -9,6 +9,8 @@
 
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 
+import { envNumber } from '../env.js';
+
 export type Db = Pool | PoolClient;
 
 let pool: Pool | null = null;
@@ -17,7 +19,8 @@ export function createPool(databaseUrl: string): Pool {
   if (pool) return pool;
   pool = new Pool({
     connectionString: databaseUrl,
-    max: Number(process.env['SONE_DB_POOL_MAX'] ?? 10),
+    // A pool of NaN clients is not a pool (ADR-0111).
+    max: envNumber('SONE_DB_POOL_MAX', 10, { min: 1, integer: true }),
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
     // Fractional indices are compared byte-wise and the C collation is
