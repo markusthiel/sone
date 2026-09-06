@@ -46,6 +46,7 @@ import { SharesPanel, type SharesView } from './components/SharesPanel.tsx';
 import { WorkspaceListScreen } from './components/WorkspaceListScreen.tsx';
 import { ModeBar } from './components/ModeBar.tsx';
 import { WorkspaceChooser, WorkspacePanel } from './components/WorkspacePanel.tsx';
+import { WorkspaceMenu } from './components/WorkspaceMenu.tsx';
 import { WorkspaceSettingsScreen } from './components/WorkspaceSettingsScreen.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
@@ -707,7 +708,7 @@ function Workspace({
         }
         panelScope={
           mode === 'trash'
-            ? t('trash.scope', { workspace: workspaceName })
+            ? t('trash.scope')
             : mode === 'settings'
               ? t('settings.scope')
               : mode === 'admin'
@@ -716,9 +717,20 @@ function Workspace({
                   t('admin.scope')
                 : undefined
         }
-        /* The Workspaces mode says its scope with a control rather than a line:
-           which workspace is not a fact to read here, it is the choice the rest
-           of the column depends on (ADR-0070). */
+        /* A mode about one workspace says which with a control rather than a
+           line: which workspace is not a fact to read here, it is the choice the
+           rest of the column depends on (ADR-0070).
+         *
+         * Shares and the trash are that kind of mode and said nothing at all
+         * (ADR-0114). All three share lists are scoped to one workspace, and the
+         * screen named neither it nor a way to change it — so a link created a
+         * moment ago in another workspace was simply absent, which reads as the
+         * list being broken rather than as it being about somewhere else. The
+         * trash has the identical shape and is fixed with it.
+         *
+         * The inbox deliberately has none: it spans workspaces (ADR-0052) and
+         * filters by them in its own panel. A chooser there would be a second
+         * answer to a question that screen already answers better. */
         panelChooser={
           mode === 'workspaces' ? (
             <WorkspaceChooser
@@ -729,6 +741,17 @@ function Workspace({
               }
               current={workspaceCurrentHref}
               onChoose={onSwitchWorkspace}
+            />
+          ) : mode === 'shares' || mode === 'trash' ? (
+            <WorkspaceMenu
+              currentIcon={session.workspaces.find((one) => one.id === workspaceId)?.icon ?? null}
+              currentId={workspaceId}
+              currentName={workspaceName}
+              // Stay where you are, looking at the other workspace. The
+              // Workspaces mode carries its section across for the same reason:
+              // the question did not change, only what it is being asked about.
+              onSwitch={(id) => onSwitchWorkspace(id, window.location.pathname)}
+              onCreated={(id) => onSwitchWorkspace(id, window.location.pathname)}
             />
           ) : undefined
         }

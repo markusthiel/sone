@@ -462,9 +462,22 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       [workspaceId, session.userId],
     );
 
-    // What was given to them: their own grants and their groups'. Who granted
-    // it is named, because "who do I ask about this" is the question somebody
-    // has when they find a page they did not expect to have.
+    /*
+     * What was given to them: their own grants and their groups'. Who granted
+     * it is named, because "who do I ask about this" is the question somebody
+     * has when they find a page they did not expect to have.
+     *
+     * **Not what they gave themselves** (ADR-0114). The two lists were written
+     * as "grants I made" and "grants that reach me", which are not exclusive:
+     * share a page with a group you are in — the ordinary way to give a team
+     * access — and the same row is in both, the second one saying it was shared
+     * with you by yourself.
+     *
+     * Reported as "auf einmal sind da von mir geteilte Seiten dann für mich
+     * freigegebene Seiten", which is exactly what it is. The question this list
+     * answers is "who gave me this", and the answer "you did" is the one case
+     * where nobody needs to be told.
+     */
     const received = await queryRows<{
       page_id: string;
       title: string;
@@ -481,6 +494,11 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
          JOIN pages p ON p.id = pp.page_id
          LEFT JOIN users u ON u.id = pp.granted_by
         WHERE pp.user_id = $2 AND p.workspace_id = $1 AND p.archived_at IS NULL
+          -- IS DISTINCT FROM, not <>: granted_by is nullable (the granter's
+          -- account can be gone), and a null there compares to nothing.
+          -- (No backticks in here. That mistake has now ended a template
+          -- literal ten times in this project.)
+          AND pp.granted_by IS DISTINCT FROM $2
         UNION ALL
        SELECT gp.page_id, p.title, gp.role::text AS access, gp.include_subtree,
               gp.granted_at, u.display_name AS granted_by, g.name AS via_group
@@ -490,6 +508,7 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
          JOIN pages p ON p.id = gp.page_id
          LEFT JOIN users u ON u.id = gp.granted_by
         WHERE gm.user_id = $2 AND p.workspace_id = $1 AND p.archived_at IS NULL
+          AND gp.granted_by IS DISTINCT FROM $2
         ORDER BY granted_at DESC`,
       [workspaceId, session.userId],
     );
