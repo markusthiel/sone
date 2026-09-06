@@ -28,8 +28,6 @@
 
 import * as Y from 'yjs';
 
-import { liveClientIds } from '@sone/core';
-
 // From core, where the pruning that also needs it lives (ADR-0022). Two
 // spellings of one key is one typo away from a mapping nobody can find.
 import { USERS_KEY } from '@sone/core';
@@ -102,29 +100,27 @@ export function recordAttribution(
 }
 
 /**
- * Whether anything here was written by somebody the document cannot name.
+ * Whether anything here was written by somebody the document cannot name, and
+ * who has written what is still on the page.
  *
- * A share-link guest is deliberately not recorded (above), and until now that
- * was a silence: the panel listed whoever it could and said nothing about the
- * rest, so a page a guest had visibly written on looked like a page nobody had
- * written on. A reader cannot tell "nobody has written here" from "the person
- * who wrote here cannot be named", and the second is a fact worth stating.
+ * Both moved to core with ADR-0116, which is where they belong: the server
+ * projects a page's authors for the `author:` search filter and was reading the
+ * mapping raw, so there were two answers to one question and the wrong one had
+ * the callers. Re-exported here because this is where they have always been
+ * imported from.
  *
- * Live content only, and by the same pruning rule: a guest whose writing has all
- * been deleted is not a guest this page needs to mention.
+ * The mapping itself — `attributionUsers` below — is still the recording side's
+ * own business, and stays.
  */
-export function hasUnattributedWriting(doc: Y.Doc): boolean {
-  const mapped = new Set<number>();
-  for (const ids of attributionUsers(doc).values()) {
-    for (const id of ids) mapped.add(id);
-  }
-  for (const client of liveClientIds(doc)) {
-    if (!mapped.has(client)) return true;
-  }
-  return false;
-}
+export { hasUnattributedWriting, writersIn } from '@sone/core';
 
-/** Read the mapping without creating one. */
+/**
+ * Read the mapping without creating one.
+ *
+ * Everybody who has had this page open, which is not the same as everybody who
+ * has written on it (ADR-0116). `recordAttribution` uses it to see whether this
+ * session is already listed; anything asking *who wrote this* wants `writersIn`.
+ */
 export function attributionUsers(doc: Y.Doc): Map<string, number[]> {
   const out = new Map<string, number[]>();
   // Checked rather than created: `getMap` would make an empty one, which turns
