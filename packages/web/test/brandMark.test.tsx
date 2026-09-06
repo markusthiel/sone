@@ -100,6 +100,41 @@ describe('the mark', () => {
     assert.equal(img.getAttribute('alt'), 'Haus Thiel');
   });
 
+  test('the lockup sets the wordmark rather than drawing it', async () => {
+    /*
+     * The delivered files convert the wordmark to outlines because a *file*
+     * cannot assume a font. Inside the application the font is one of the two
+     * this instance serves itself (ADR-0068), so setting it is the same
+     * wordmark and not a second drawing of it — and it follows the theme, which
+     * a path cannot.
+     */
+    const { SoneLockup } = await import('../src/components/Logo.tsx');
+    const react = await import('react');
+
+    await render(react.createElement(SoneLockup, { size: 32 }));
+
+    assert.ok(container.querySelector('svg'), 'the mark');
+    assert.equal(container.querySelector('.sone-wordmark')?.textContent, 'SONE');
+  });
+
+  test('and an instance with its own mark is not signed “SONE”', async () => {
+    // Putting our wordmark beside somebody else's logo would be this software
+    // signing their letterhead.
+    const { SoneLockup, BrandLogo } = await import('../src/components/Logo.tsx');
+    const react = await import('react');
+
+    await render(
+      react.createElement(
+        BrandLogo,
+        { value: '/api/instance/logo?v=abc123' },
+        react.createElement(SoneLockup, { size: 32, name: 'Haus Thiel' }),
+      ),
+    );
+
+    assert.ok(container.querySelector('img'), 'their mark');
+    assert.equal(container.querySelector('.sone-wordmark')?.textContent, 'Haus Thiel');
+  });
+
   test('and says nothing when it is decoration', async () => {
     // `title` is given only where the mark is the sole content of a link or a
     // button; everywhere else it sits beside a label, and a screen reader
