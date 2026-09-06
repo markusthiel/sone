@@ -1694,9 +1694,25 @@ test('a workspace tint is mixed into the ramp, not set per surface', () => {
       assert.match(value, /color-mix\(in srgb, var\(--sone-theme-tint,/, `${name} in ${block}`);
     }
   }
-  // The chrome takes the most, because it is what somebody means by "the colour
-  // of the interface"; the page almost none.
-  assert.match(css, /--surface-chrome: color-mix\(in srgb, var\(--sone-theme-tint, [^)]*\)? ?\)? 16%/);
+  /*
+   * The chrome takes the most, because it is what somebody means by "the colour
+   * of the interface"; the page almost none.
+   *
+   * The proportions themselves are read rather than named. This asserted `16%`
+   * and would have gone on asserting it after the number was computed down to
+   * 15 to keep quiet labels readable on a tinted sidebar (ADR-0135) — a test
+   * that fails when a *deliberate* change is made and passes while the design
+   * is wrong is worse than no test. What has to hold is the ordering.
+   */
+  const percent = (name: string): number => {
+    const found = new RegExp(`${name}: color-mix\\(in srgb, var\\(--sone-theme-tint,[^;]*?(\\d+)%`).exec(css);
+    assert.ok(found, `${name} mixes the tint`);
+    return Number(found![1]);
+  };
+  assert.ok(
+    percent('--surface-chrome') > percent('--surface-page'),
+    'the furniture carries the workspace colour and the paper barely does',
+  );
   // A fallback at every use rather than a default declared once, which is the
   // rule this stylesheet already follows — `clearTheme` removes these from the
   // root, and a value living in a rule would survive its own deletion.
