@@ -55,6 +55,10 @@ describe(
     let cookie: string;
     /** "Redaktion": may write, may not administer anything. */
     let redaktion: string;
+    /** Every letter the routes handed to the sender. */
+    let posted: Array<{ to: string; letter: { subject: string; lines: Array<{ text: string }> } }>;
+    /** Makes the sender throw, for the case a relay refuses a message. */
+    let brokenSender = false;
 
     before(async () => {
       db = await getTestPool();
@@ -74,7 +78,18 @@ describe(
             facts: { hasSecondFactor: false, hasPassword: true },
           }),
       } as never);
-      registerInvitationRoutes(router, { pool: db } as never);
+      registerInvitationRoutes(router, {
+        pool: db,
+        baseUrl: 'https://sone.example.org',
+        instanceName: () => Promise.resolve('Thiel'),
+        // Watched rather than sent: what these tests are about is whether a
+        // letter is built and to whom, and a relay would test SMTP again.
+        sendLetter: (to: string, letter: unknown) => {
+          if (brokenSender) return Promise.reject(new Error('the relay refused it'));
+          posted.push({ to, letter: letter as never });
+          return Promise.resolve();
+        },
+      } as never);
 
       server = createServer((req, res) => {
         void router.handle(req, res, 'http://localhost').then((handled) => {
@@ -99,6 +114,8 @@ describe(
       const session = await createSession(db, fx.userId, {});
       cookie = `${SESSION_COOKIE}=${encodeURIComponent(session.token)}`;
       redaktion = await roleNamed(fx.workspaceId, 'Redaktion', 'editor', []);
+      posted = [];
+      brokenSender = false;
     });
 
     // --- the act -------------------------------------------------------------
@@ -261,6 +278,96 @@ describe(
       // Not found rather than forbidden, like every other refusal here: "you
       // may not search here" confirms the workspace exists.
       await expectStatus(res, 404);
+    });
+
+    // --- and telling them (ADR-0121) -----------------------------------------
+
+    test('somebody let in is told, and told nothing they must act on', async () => {
+      /*
+       * *„Hinzufügen zu Workspace per Email an das neue Mitglied bestätigen, da
+       * wäre dann ja nichts zu tun, aber eine Info per Mail macht Sinn."*
+       *
+       * So it is an announcement: the place, who let them in, the role, and the
+       * way there. **No token and no link to accept** — there is nothing to
+       * accept, and a mail that looks like an invitation would have somebody
+       * looking for a button that does not exist.
+       */
+      await named('anna@example.org', 'Anna Weber');
+
+      await expectStatus(await give({ email: 'anna@example.org', roleId: redaktion }), 201);
+
+      assert.equal(posted.length, 1);
+      assert.equal(posted[0]?.to, 'anna@example.org');
+      const said = (posted[0]?.letter.lines ?? []).map((one) => one.text).join('\n');
+      assert.match(said, /Redaktion/, 'the role it was given as');
+      assert.match(said, /Owner/, 'and who gave it');
+      assert.doesNotMatch(said, /token|accept the invitation/i);
+    });
+
+    test('and a mail that cannot be sent does not undo the access', async () => {
+      /*
+       * The important half. They have the access whether or not their mailbox
+       * took a message about it, and failing the request would be undoing a
+       * grant that succeeded — for a courtesy.
+       */
+      await named('bert@example.org', 'Bert Klein');
+
+      // The sender throws for this one call; the route still answers 201 and
+      // the row still exists.
+      brokenSender = true;
+      await expectStatus(await give({ email: 'bert@example.org', role: 'member' }), 201);
+      brokenSender = false;
+
+      const row = await queryOne<{ user_id: string }>(
+        db,
+        `SELECT user_id FROM workspace_members wm
+           JOIN users u ON u.id = wm.user_id
+          WHERE wm.workspace_id = $1 AND u.email = $2`,
+        [fx.workspaceId, 'bert@example.org'],
+      );
+      assert.ok(row, 'the access is there');
+    });
+
+    test('an instance invitation is sent, and says so', async () => {
+      /*
+       * Until now this route made a link and handed it back, and an
+       * administrator copied it into a mail of their own — *„Einladung Versand
+       * an neue Team Mitglieder per Email"*.
+       *
+       * `mailed` is in the reply rather than assumed, so a screen can offer the
+       * link to pass on by hand when no relay is configured instead of implying
+       * a mail arrived.
+       */
+      await db.query(`UPDATE users SET is_instance_admin = true WHERE id = $1`, [fx.userId]);
+
+      const res = await fetch(`${base}/api/admin/invitations`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({ email: 'neu@example.org' }),
+      });
+      const body = await expectJson<{ token: string; mailed: boolean }>(res, 201);
+
+      assert.equal(body.mailed, true);
+      assert.equal(posted[0]?.to, 'neu@example.org');
+      assert.match(posted[0]?.letter.subject ?? '', /Thiel/, 'the instance names itself');
+    });
+
+    test('an invitation with no address is a link to pass on, and mails nobody', async () => {
+      // The unchanged case, and the counterweight: a link with no address on it
+      // is exactly what it was, and `mailed: false` says so rather than the
+      // reply being silent about it.
+      await db.query(`UPDATE users SET is_instance_admin = true WHERE id = $1`, [fx.userId]);
+
+      const res = await fetch(`${base}/api/admin/invitations`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({}),
+      });
+      const body = await expectJson<{ token: string; mailed: boolean }>(res, 201);
+
+      assert.ok(body.token, 'there is still a link');
+      assert.equal(body.mailed, false);
+      assert.deepEqual(posted, []);
     });
 
     // --- what must not move --------------------------------------------------
