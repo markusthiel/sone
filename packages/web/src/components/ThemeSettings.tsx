@@ -74,9 +74,26 @@ interface ThemeSettingsProps {
   workspaceId: string;
   /** Owners and admins may change it; everybody else sees what it says. */
   canEdit: boolean;
+  /**
+   * Which half of the theme this instance of the screen is showing (ADR-0120).
+   *
+   * Reported as: *„der Bereich Typografie [sollte] aufgeteilt werden. Schrift
+   * Design kann gerne alleine stehen, aber die Oberfläche, Tönung,
+   * Akzent-Farbe gehört da nicht hin."*
+   *
+   * One component and not two, because it is one theme with one fetch and one
+   * save. Two components would be two copies of the state — and a workspace
+   * whose surfaces saved without its type, or the other way round, is two
+   * requests racing to write one row.
+   */
+  show: 'type' | 'colour';
 }
 
-export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): ReactElement {
+export function ThemeSettings({
+  workspaceId,
+  canEdit,
+  show,
+}: ThemeSettingsProps): ReactElement {
   const { t } = useT();
   const message = useMessage();
   const [theme, setTheme] = useState<WorkspaceTheme>({});
@@ -142,251 +159,257 @@ export function ThemeSettings({ workspaceId, canEdit }: ThemeSettingsProps): Rea
 
   return (
     <section className="settings-section">
-      <p className="muted">
-        {t('type.note')}
-      </p>
+      <p className="muted">{t(show === 'type' ? 'type.note.type' : 'type.note.colour')}</p>
 
       {error && <p className="error">{message(error)}</p>}
 
-      {/* The two whole-interface colours first, because they decide what
-        * everything else sits on and in. One tint rather than a colour per
-        * surface: the surfaces are a ramp of one grey, and setting them
-        * separately would let a workspace set them inconsistently — a sidebar
-        * that no longer belongs to the panel beside it (ADR-0023). */}
-      <h3 className="settings-heading">{t('type.base')}</h3>
-      <p className="muted">{t('type.base.note')}</p>
+      {show === 'colour' && (
+        <>
+        {/* The two whole-interface colours first, because they decide what
+          * everything else sits on and in. One tint rather than a colour per
+          * surface: the surfaces are a ramp of one grey, and setting them
+          * separately would let a workspace set them inconsistently — a sidebar
+          * that no longer belongs to the panel beside it (ADR-0023). */}
+        <h3 className="settings-heading">{t('type.base')}</h3>
+        <p className="muted">{t('type.base.note')}</p>
 
-      <div className="theme-base">
-        <label className="theme-base-entry">
-          <span>{t('type.tint')}</span>
-          <input
-            type="color"
-            disabled={!canEdit}
-            value={typeof theme.tint === 'string' && theme.tint.startsWith('#') ? theme.tint : '#f7f5f0'}
-            aria-label={t('type.tint')}
-            onChange={(event) => {
-              setSaved(false);
-              // Cast to the literal shape the type asks for: an `<input
-              // type="color">` yields a string and the theme wants `#…`, and the
-              // element cannot produce anything else.
-              const value = event.target.value as `#${string}`;
-              setTheme((current) => ({ ...current, tint: value }));
-            }}
-          />
-          {/* Removing it has to be possible, and it has to leave no trace: a
-              workspace that stops tinting must look like one that never did. */}
-          {theme.tint !== undefined && canEdit && (
-            <button
-              type="button"
-              className="btn quiet"
-              onClick={() => {
+        <div className="theme-base">
+          <label className="theme-base-entry">
+            <span>{t('type.tint')}</span>
+            <input
+              type="color"
+              disabled={!canEdit}
+              value={typeof theme.tint === 'string' && theme.tint.startsWith('#') ? theme.tint : '#f7f5f0'}
+              aria-label={t('type.tint')}
+              onChange={(event) => {
                 setSaved(false);
-                setTheme((current) => {
-                  const next = { ...current };
-                  delete next.tint;
-                  return next;
-                });
+                // Cast to the literal shape the type asks for: an `<input
+                // type="color">` yields a string and the theme wants `#…`, and the
+                // element cannot produce anything else.
+                const value = event.target.value as `#${string}`;
+                setTheme((current) => ({ ...current, tint: value }));
               }}
-            >
-              {t('type.clear')}
-            </button>
-          )}
-        </label>
-
-        <label className="theme-base-entry">
-          <span>{t('type.accent')}</span>
-          <input
-            type="color"
-            disabled={!canEdit}
-            value={
-              typeof theme.accent === 'string' && theme.accent.startsWith('#')
-                ? theme.accent
-                : '#4f7d6f'
-            }
-            aria-label={t('type.accent')}
-            onChange={(event) => {
-              setSaved(false);
-              const value = event.target.value as `#${string}`;
-              setTheme((current) => ({ ...current, accent: value }));
-            }}
-          />
-          {theme.accent !== undefined && canEdit && (
-            <button
-              type="button"
-              className="btn quiet"
-              onClick={() => {
-                setSaved(false);
-                setTheme((current) => {
-                  const next = { ...current };
-                  delete next.accent;
-                  return next;
-                });
-              }}
-            >
-              {t('type.clear')}
-            </button>
-          )}
-        </label>
-      </div>
-      {/* Said rather than left to be discovered: the text colour on a filled
-          button is computed from the accent, so a pale accent gets dark text
-          and nobody can make a button unreadable by choosing badly. */}
-      <p className="settings-note">{t('type.accent.note')}</p>
-
-      {/* The palette first.
-        *
-        * It is the setting the others are expressed in: an element's colour is
-        * one of these names, so deciding what the names look like comes before
-        * deciding which to use. */}
-      <h3 className="settings-heading">{t('type.palette')}</h3>
-      <p className="muted">
-        {t('type.palette.note')}
-      </p>
-
-      <div className="theme-palette">
-        {THEME_COLORS.map((name) => {
-          const value = theme.palette?.[name];
-          return (
-            <label key={name} className="theme-palette-entry">
-              <input
-                type="color"
-                disabled={!canEdit}
-                value={value ?? DEFAULT_PALETTE[name]}
-                aria-label={name}
-                onChange={(event) => {
+            />
+            {/* Removing it has to be possible, and it has to leave no trace: a
+                workspace that stops tinting must look like one that never did. */}
+            {theme.tint !== undefined && canEdit && (
+              <button
+                type="button"
+                className="btn quiet"
+                onClick={() => {
                   setSaved(false);
-                  setTheme((current) => ({
-                    ...current,
-                    palette: { ...(current.palette ?? {}), [name]: event.target.value },
-                  }));
+                  setTheme((current) => {
+                    const next = { ...current };
+                    delete next.tint;
+                    return next;
+                  });
                 }}
-              />
-              <span>{name}</span>
-              {value && canEdit && (
-                <button
-                  type="button"
-                  className="theme-palette-reset"
-                  aria-label={`Reset ${name}`}
-                  title={t('type.asDesigned')}
-                  onClick={() => {
-                    setSaved(false);
-                    setTheme((current) => {
-                      // Removed rather than set back to the design's value.
-                      // Stored, it would stop following a change to the design
-                      // — the same distinction every other setting here makes.
-                      const palette: Record<string, string> = {
-                        ...(current.palette ?? {}),
-                      };
-                      delete palette[name];
+              >
+                {t('type.clear')}
+              </button>
+            )}
+          </label>
 
-                      const { palette: _dropped, ...rest } = current;
-                      const next: WorkspaceTheme = { ...rest };
-                      if (Object.keys(palette).length > 0) {
-                        next.palette = palette as NonNullable<WorkspaceTheme['palette']>;
-                      }
-                      return next;
-                    });
-                  }}
-                >
-                  ×
-                </button>
-              )}
-            </label>
-          );
-        })}
-      </div>
+          <label className="theme-base-entry">
+            <span>{t('type.accent')}</span>
+            <input
+              type="color"
+              disabled={!canEdit}
+              value={
+                typeof theme.accent === 'string' && theme.accent.startsWith('#')
+                  ? theme.accent
+                  : '#4f7d6f'
+              }
+              aria-label={t('type.accent')}
+              onChange={(event) => {
+                setSaved(false);
+                const value = event.target.value as `#${string}`;
+                setTheme((current) => ({ ...current, accent: value }));
+              }}
+            />
+            {theme.accent !== undefined && canEdit && (
+              <button
+                type="button"
+                className="btn quiet"
+                onClick={() => {
+                  setSaved(false);
+                  setTheme((current) => {
+                    const next = { ...current };
+                    delete next.accent;
+                    return next;
+                  });
+                }}
+              >
+                {t('type.clear')}
+              </button>
+            )}
+          </label>
+        </div>
+        {/* Said rather than left to be discovered: the text colour on a filled
+            button is computed from the accent, so a pale accent gets dark text
+            and nobody can make a button unreadable by choosing badly. */}
+        <p className="settings-note">{t('type.accent.note')}</p>
 
-      <h3 className="settings-heading">{t('type.elements')}</h3>
+        {/* The palette first.
+          *
+          * It is the setting the others are expressed in: an element's colour is
+          * one of these names, so deciding what the names look like comes before
+          * deciding which to use. */}
+        <h3 className="settings-heading">{t('type.palette')}</h3>
+        <p className="muted">
+          {t('type.palette.note')}
+        </p>
 
-      <table className="theme-table">
-        <thead>
-          <tr>
-            <th>{t('type.element')}</th>
-            <th>{t('type.size')}</th>
-            <th>{t('type.colour')}</th>
-            <th>{t('type.spaceAbove')}</th>
-            <th>{t('type.spaceBelow')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {THEMED_ELEMENTS.map((element) => {
-            const entry = theme[element] ?? {};
+        <div className="theme-palette">
+          {THEME_COLORS.map((name) => {
+            const value = theme.palette?.[name];
             return (
-              <tr key={element}>
-                <th scope="row">{LABELS[element]}</th>
+              <label key={name} className="theme-palette-entry">
+                <input
+                  type="color"
+                  disabled={!canEdit}
+                  value={value ?? DEFAULT_PALETTE[name]}
+                  aria-label={name}
+                  onChange={(event) => {
+                    setSaved(false);
+                    setTheme((current) => ({
+                      ...current,
+                      palette: { ...(current.palette ?? {}), [name]: event.target.value },
+                    }));
+                  }}
+                />
+                <span>{name}</span>
+                {value && canEdit && (
+                  <button
+                    type="button"
+                    className="theme-palette-reset"
+                    aria-label={`Reset ${name}`}
+                    title={t('type.asDesigned')}
+                    onClick={() => {
+                      setSaved(false);
+                      setTheme((current) => {
+                        // Removed rather than set back to the design's value.
+                        // Stored, it would stop following a change to the design
+                        // — the same distinction every other setting here makes.
+                        const palette: Record<string, string> = {
+                          ...(current.palette ?? {}),
+                        };
+                        delete palette[name];
 
-                <td>
-                  <select
-                    value={entry.size ?? ''}
-                    disabled={!canEdit}
-                    aria-label={`${LABELS[element]} size`}
-                    onChange={(event) =>
-                      change(
-                        element,
-                        'size',
-                        event.target.value === '' ? undefined : Number(event.target.value),
-                      )
-                    }
+                        const { palette: _dropped, ...rest } = current;
+                        const next: WorkspaceTheme = { ...rest };
+                        if (Object.keys(palette).length > 0) {
+                          next.palette = palette as NonNullable<WorkspaceTheme['palette']>;
+                        }
+                        return next;
+                      });
+                    }}
                   >
-                    <option value="">{t('type.asDesigned')}</option>
-                    {SIZE_STEPS.filter((step) => step !== 0).map((step) => (
-                      <option key={step} value={step}>
-                        {SIZE_LABELS[step] ?? step}
-                      </option>
-                    ))}
-                  </select>
-                </td>
+                    ×
+                  </button>
+                )}
+              </label>
+            );
+          })}
+        </div>
+        </>
+      )}
 
-                <td>
-                  <select
-                    value={entry.color ?? ''}
-                    disabled={!canEdit}
-                    aria-label={`${LABELS[element]} colour`}
-                    onChange={(event) =>
-                      change(
-                        element,
-                        'color',
-                        event.target.value === '' ? undefined : event.target.value,
-                      )
-                    }
-                  >
-                    <option value="">{t('type.asDesigned')}</option>
-                    {THEME_COLORS.map((color) => (
-                      <option key={color} value={color}>
-                        {color}
-                      </option>
-                    ))}
-                  </select>
-                </td>
+      {show === 'type' && (
+        <>
+        <h3 className="settings-heading">{t('type.elements')}</h3>
 
-                {(['spaceAbove', 'spaceBelow'] as const).map((property) => (
-                  <td key={property}>
+        <table className="theme-table">
+          <thead>
+            <tr>
+              <th>{t('type.element')}</th>
+              <th>{t('type.size')}</th>
+              <th>{t('type.colour')}</th>
+              <th>{t('type.spaceAbove')}</th>
+              <th>{t('type.spaceBelow')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {THEMED_ELEMENTS.map((element) => {
+              const entry = theme[element] ?? {};
+              return (
+                <tr key={element}>
+                  <th scope="row">{LABELS[element]}</th>
+
+                  <td>
                     <select
-                      value={entry[property] ?? ''}
+                      value={entry.size ?? ''}
                       disabled={!canEdit}
-                      aria-label={`${LABELS[element]} ${property === 'spaceAbove' ? 'space above' : 'space below'}`}
+                      aria-label={`${LABELS[element]} size`}
                       onChange={(event) =>
                         change(
                           element,
-                          property,
+                          'size',
                           event.target.value === '' ? undefined : Number(event.target.value),
                         )
                       }
                     >
                       <option value="">{t('type.asDesigned')}</option>
-                      {SPACE_STEPS.filter((step) => step !== 0).map((step) => (
+                      {SIZE_STEPS.filter((step) => step !== 0).map((step) => (
                         <option key={step} value={step}>
-                          {'+'.repeat(step)}
+                          {SIZE_LABELS[step] ?? step}
                         </option>
                       ))}
                     </select>
                   </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+
+                  <td>
+                    <select
+                      value={entry.color ?? ''}
+                      disabled={!canEdit}
+                      aria-label={`${LABELS[element]} colour`}
+                      onChange={(event) =>
+                        change(
+                          element,
+                          'color',
+                          event.target.value === '' ? undefined : event.target.value,
+                        )
+                      }
+                    >
+                      <option value="">{t('type.asDesigned')}</option>
+                      {THEME_COLORS.map((color) => (
+                        <option key={color} value={color}>
+                          {color}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+
+                  {(['spaceAbove', 'spaceBelow'] as const).map((property) => (
+                    <td key={property}>
+                      <select
+                        value={entry[property] ?? ''}
+                        disabled={!canEdit}
+                        aria-label={`${LABELS[element]} ${property === 'spaceAbove' ? 'space above' : 'space below'}`}
+                        onChange={(event) =>
+                          change(
+                            element,
+                            property,
+                            event.target.value === '' ? undefined : Number(event.target.value),
+                          )
+                        }
+                      >
+                        <option value="">{t('type.asDesigned')}</option>
+                        {SPACE_STEPS.filter((step) => step !== 0).map((step) => (
+                          <option key={step} value={step}>
+                            {'+'.repeat(step)}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        </>
+      )}
 
       {canEdit && (
         <div className="settings-actions">
