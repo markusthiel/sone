@@ -38,6 +38,7 @@ import {
   type ShareLinkSummary,
 } from '../auth/share.js';
 import { commentAuthorsOf } from '../comments/routes.js';
+import type { Letter } from '../mail/letter.js';
 import { decryptShareToken } from '../auth/shareTokenStore.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { atLeast as pageAtLeast, resolvePageAccess } from '../pages/access.js';
@@ -54,7 +55,30 @@ export interface ShareDeps {
   secretKey: string;
   /** Whether the share cookie gets the Secure attribute. */
   secureCookies: boolean;
+  /*
+   * Handing a link over by mail (ADR-0126).
+   *
+   * All four are optional, so a suite that is not about mail need not supply
+   * them — and an instance with no relay is a normal instance rather than a
+   * broken one (ADR-0059). Functions rather than values, like everywhere else
+   * here: an operator configures the relay while the process runs.
+   */
+  canSendMail?: () => Promise<boolean>;
+  /** How much a mail may name (ADR-0058). Absent is the cautious answer. */
+  emailDetail?: () => Promise<'title' | 'workspace'>;
+  instanceName?: () => Promise<string>;
+  sendLetter?: (to: string, letter: Letter) => Promise<void>;
 }
+
+/**
+ * An address, minimally.
+ *
+ * Not a validator for the specification — nothing short of sending can decide
+ * that — but enough that an obvious typo is refused before a relay is asked to
+ * do something with it. A dot in the domain, because `a@b` is a local name and
+ * not an address anybody meant to type.
+ */
+const ADDRESS = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/;
 
 /** Roles a link may carry. `admin` is absent on purpose. */
 const SHARE_ROLES = new Set(['viewer', 'commenter', 'editor']);
@@ -728,6 +752,134 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
     ctx.send(200, {
       url: `${deps.publicUrl.replace(/\/$/, '')}/s/${token}/p/${pageId}`,
     });
+  });
+
+  /**
+   * Send the link to somebody (ADR-0126).
+   *
+   * Asked for as *„Seiten teilen per Mail, Links teilen per Mail, Gast-Links
+   * per Mail."* A guest link is one of these with `allowAnonymous` on, so it is
+   * this route as well — one form, one letter.
+   *
+   * **The token never travels in the request.** The browser says who to write
+   * to and may add a sentence; the server decrypts the link it already holds
+   * and builds the URL. A route that accepted a URL to mail would be a route
+   * that mails *any* URL, from an authenticated account, to anywhere.
+   *
+   * A share mail does not break ADR-0058 — it is an invitation **to** content
+   * rather than content — but it is the mail most likely to. What it may say is
+   * the link, who sent it, when it expires, and one sentence the sender typed.
+   */
+  router.post('/api/pages/:pageId/share-links/:linkId/send', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const auth = await requirePageAdmin(deps.pool, ctx, pageId);
+    if (!auth) return;
+
+    let body: { to?: string; note?: string };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    const to = (body.to ?? '').trim();
+    if (!ADDRESS.test(to) || to.length > 320) {
+      ctx.fail(422, 'invalid_address');
+      return;
+    }
+
+    /*
+     * Answered rather than assumed absent.
+     *
+     * The interface hides the control where there is no relay, and that is the
+     * right shape for it (ADR-0059). The route still has to answer, because an
+     * operator may switch mail off between the page loading and the button
+     * being pressed — and "sent" would be a lie the sender goes on to act on.
+     */
+    if (!deps.sendLetter || !(await deps.canSendMail?.())) {
+      ctx.fail(422, 'no_relay');
+      return;
+    }
+
+    const row = await queryOne<{
+      token_encrypted: Buffer | null;
+      expires_at: Date | null;
+      password_hash: string | null;
+      title: string;
+      workspace_name: string;
+      sender: string;
+    }>(
+      deps.pool,
+      // One query, because every part of the letter comes from the same three
+      // rows and a second round trip would be a second chance to describe a
+      // different link than the one being sent.
+      `SELECT t.token_encrypted, t.expires_at, t.password_hash,
+              p.title, w.name AS workspace_name, u.display_name AS sender
+         FROM share_tokens t
+         JOIN pages p ON p.id = t.scope_page_id
+         JOIN workspaces w ON w.id = p.workspace_id
+         JOIN users u ON u.id = $3
+        WHERE t.id = $1 AND t.scope_page_id = $2 AND t.revoked_at IS NULL`,
+      [ctx.params['linkId'] ?? '', pageId, auth.userId],
+    );
+    if (!row) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const token = row.token_encrypted && decryptShareToken(row.token_encrypted, deps.secretKey);
+    if (!token) {
+      // The same answer the "show it again" route gives: the link exists and
+      // this copy of it cannot be recovered, so the interface can offer to
+      // replace it rather than implying the link is gone.
+      ctx.fail(409, 'token_not_recoverable');
+      return;
+    }
+
+    const detail = (await deps.emailDetail?.()) ?? 'workspace';
+    const url = `${deps.publicUrl.replace(/\/$/, '')}/s/${token}/p/${pageId}`;
+    const where = detail === 'title' ? row.title || 'a page' : row.workspace_name;
+
+    const lines: Array<{ text: string; url?: string }> = [
+      { text: `${row.sender} shared ${where} with you.` },
+    ];
+    // The sender's own sentence, and the only content in the letter — their
+    // words rather than the page's, which is the distinction that keeps this an
+    // invitation rather than a leak. Never a link of its own: a URL somebody
+    // typed into a note is a URL this instance would be vouching for.
+    const note = (body.note ?? '').trim().slice(0, 500);
+    if (note) lines.push({ text: note });
+
+    if (row.password_hash) {
+      // Announced, never included. A link with a password and the password in
+      // the same message is a link with no password — and adding it is the
+      // obvious "helpful" thing for a later change to do.
+      lines.push({ text: 'This link is protected by a password. Ask whoever sent it.' });
+    }
+    if (row.expires_at) {
+      lines.push({ text: `The link works until ${row.expires_at.toISOString().slice(0, 10)}.` });
+    }
+
+    await deps.sendLetter(to, {
+      // The subject names the sender and not the page: it is the half that is
+      // never in doubt, and a subject line is the part of a mail most likely to
+      // be read over somebody's shoulder.
+      subject: `${row.sender} shared something with you`,
+      heading: `${await (deps.instanceName?.() ?? Promise.resolve('SONE'))}`,
+      lines,
+      action: { label: 'Open the page', url },
+      footer: [
+        'You are receiving this because somebody sent you a link. There is ' +
+          'nothing to unsubscribe from.',
+      ],
+      baseUrl: deps.publicUrl,
+      // English, the gap ADR-0121 named: the recipient of a share mail usually
+      // has no account here, so there is nobody to ask what they read.
+      locale: 'en',
+    });
+
+    ctx.send(200, { sent: true });
   });
 
   router.delete('/api/pages/:pageId/share-links/:linkId', async (ctx) => {

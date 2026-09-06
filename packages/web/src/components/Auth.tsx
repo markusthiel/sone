@@ -270,7 +270,7 @@ export function LoginScreen({
           * Without one the reset is absent, not broken — and a link to a form
           * that can only ever say "a link is on its way" about a mail nobody
           * will send is worse than no link: it teaches somebody to wait. */}
-        {instance.canResetPassword === true && (
+        {instance.canSendMail === true && (
           <p className="muted">
             <a href={paths.reset()}>{t('reset.forgot')}</a>
           </p>

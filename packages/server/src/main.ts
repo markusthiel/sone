@@ -484,6 +484,26 @@ async function main(): Promise<void> {
     // Derived the same way the auth routes derive it, rather than a second
     // setting that could disagree with the first.
     secureCookies: config.publicUrl.startsWith('https://'),
+    /*
+     * Handing a link over by mail (ADR-0126).
+     *
+     * The same four functions the invitation routes take, read per send rather
+     * than captured: an operator configures the relay while SONE runs, and how
+     * much a mail may name is a setting they can change on a Tuesday.
+     */
+    canSendMail: async () => (await mailSettings()).relay !== null,
+    emailDetail: async () => (await settings.resolve()).values.emailDetail,
+    instanceName: async () => (await settings.resolve()).values.instanceName,
+    sendLetter: async (to, letter) => {
+      const current = await mailSettings();
+      if (!current.relay) return;
+      await sendMail(current.relay, {
+        to,
+        subject: letter.subject,
+        body: renderText(letter),
+        html: renderHtml(letter),
+      });
+    },
   });
   registerCollectionRoutes(router, { pool });
 

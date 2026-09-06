@@ -879,6 +879,16 @@ export const en = {
   'share.inAYear': 'In a year',
   'share.created': 'Your new link. You can copy it again below at any time.',
   'share.create': 'Create link',
+  'share.byMail': 'Send by mail',
+  'share.byMail.note':
+    'The mail carries the link, who sent it and when it expires — plus the ' +
+    'sentence below, if there is one. No page content.',
+  'share.byMail.to': 'To',
+  'share.byMail.message': 'A sentence with it (optional)',
+  'share.byMail.send': 'Send',
+  'share.byMail.sent': 'Sent to {to}.',
+  'error.invalid_address': 'That does not look like an email address.',
+  'error.no_relay': 'This instance cannot send mail.',
   'share.revoke': 'Revoke',
   'share.subpages.hint':
     'On by default, because a link that stops working the moment somebody adds a ' +
