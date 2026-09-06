@@ -505,6 +505,26 @@ export function MailPanel(): ReactElement {
             </select>
           </div>
 
+          {/* The one mail with a switch (ADR-0130).
+            *
+            * Off unless somebody chose it: on an instance where an
+            * administrator makes accounts for colleagues and tells them in
+            * person, a welcome is a message about something they were just
+            * told. The unfamiliar-device notice beside it has no switch,
+            * because that one is the point. */}
+          <label className="settings-row">
+            <span className="settings-row-label">
+              <b>{t('admin.welcomeMail')}</b>
+              <span>{t('admin.welcomeMail.hint')}</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.welcomeMail}
+              disabled={saving}
+              onChange={(event) => void update({ welcomeMail: event.target.checked })}
+            />
+          </label>
+
 
         {/* `admin-subheading`, which this screen already has for the failure
             list below — `settings-subheading` was a second name I invented for

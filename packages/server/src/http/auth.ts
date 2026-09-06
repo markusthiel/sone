@@ -95,6 +95,19 @@ export interface AuthDeps {
    */
   brand?: () => Promise<BrandInfo>;
   /**
+   * Note the browser somebody signed in from, and write once if it is new
+   * (ADR-0130).
+   *
+   * Injected and optional, like every other mail here: a suite that is not
+   * about it need not supply one, and an instance with no relay still records
+   * the device — which is what keeps configuring mail later from delivering a
+   * burst of letters about old browsers.
+   */
+  noteSignIn?: (
+    userId: string,
+    meta: { userAgent: string | null; ipPrefix: string | null },
+  ) => Promise<unknown>;
+  /**
    * Where an account stands against the requirement (ADR-0065).
    *
    * Injected, for the same reason the gate is installed rather than imported:
@@ -550,6 +563,21 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       });
 
       /*
+       * Note the browser (ADR-0130).
+       *
+       * Swallowed and never awaited for its result: somebody who typed the
+       * right password is signed in whether or not their mailbox took a
+       * message about it, which is ADR-0121's rule for a grant applied to a
+       * session.
+       */
+      await deps
+        .noteSignIn?.(session.userId, {
+          userAgent: ctx.req.headers['user-agent'] ?? null,
+          ipPrefix: ipPrefix(ctx),
+        })
+        .catch(() => undefined);
+
+      /*
        * The password was checked in full before we got here (ADR-0063).
        *
        * Including its scrypt cost, which is the point: the second step must not
@@ -900,6 +928,16 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         userAgent: ctx.req.headers['user-agent'] ?? null,
         ipPrefix: ipPrefix(ctx),
       });
+      // The other sign-in path, and the same note (ADR-0130). Here rather than
+      // inside `createSession`, because a session is also made by registering
+      // and by accepting an invitation — where "a browser you have not used"
+      // is every browser and the letter would be noise.
+      await deps
+        .noteSignIn?.(userId, {
+          userAgent: ctx.req.headers['user-agent'] ?? null,
+          ipPrefix: ipPrefix(ctx),
+        })
+        .catch(() => undefined);
       setSessionCookie(ctx, session.token, deps.secureCookies);
       ctx.send(200, {
         // So somebody who has just spent their ninth code hears about it.

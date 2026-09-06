@@ -101,6 +101,17 @@ export const SETTING_KEYS = {
   requireSecondFactor: { type: 'boolean' },
   requireSecondFactorSince: { type: 'string', maxLength: 40 },
 
+  /**
+   * Whether a new account is welcomed by mail (ADR-0130).
+   *
+   * Off unless somebody chose it, unlike every other mail here. A welcome is
+   * the one that nobody needs: on an instance where an administrator makes
+   * accounts for colleagues and tells them in person, it is a message about
+   * something they were just told. The unfamiliar-device notice beside it has
+   * no switch, because that one is the point.
+   */
+  welcomeMail: { type: 'boolean' },
+
   imapHost: { type: 'string', maxLength: 253 },
   imapPort: { type: 'string', maxLength: 5 },
   imapUser: { type: 'string', maxLength: 320 },
@@ -198,6 +209,8 @@ export interface InstanceSettings {
   /** Empty host means no replies (ADR-0060). */
   requireSecondFactor: boolean;
   requireSecondFactorSince: string;
+  /** Whether a new account is welcomed by mail (ADR-0130). */
+  welcomeMail: boolean;
   imapHost: string;
   imapPort: string;
   imapUser: string;
@@ -215,9 +228,12 @@ export interface InstanceSettings {
  * an object and a logo is bytes, and neither belongs in a compose file. Empty
  * is what a fresh instance has.
  */
-const NO_ENVIRONMENT: Pick<InstanceSettings, 'brandTheme' | 'brandLogo'> = {
+const NO_ENVIRONMENT: Pick<InstanceSettings, 'brandTheme' | 'brandLogo' | 'welcomeMail'> = {
   brandTheme: {},
   brandLogo: null,
+  // Off, and not from the environment: a welcome mail is a decision somebody
+  // makes on a Tuesday, not a deployment choice (ADR-0130).
+  welcomeMail: false,
 };
 
 /** Where each value came from, so the interface can say so. */
