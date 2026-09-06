@@ -80,6 +80,17 @@ interface SidebarProps {
   panelAction?: ReactNode | undefined;
   /** The mode's menu. Ignored in the tree's mode. */
   children?: ReactNode | undefined;
+  /**
+   * What is in the search field above the tree, and what to do when it changes
+   * (ADR-0118).
+   *
+   * Held by the shell rather than here, because the query lives in the URL: a
+   * search is a place, it is shareable, and the panel of the search mode edits
+   * the same string. Two copies of it would be two answers to what is being
+   * searched for.
+   */
+  searchQuery: string;
+  onSearch: (query: string, options?: { commit?: boolean }) => void;
   workspaceId: string;
   workspaceName: string;
   onSwitchWorkspace: (workspaceId: string) => void;
@@ -258,6 +269,8 @@ export function Sidebar({
   panelChooser,
   panelAction,
   children,
+  searchQuery,
+  onSearch,
 }: SidebarProps): ReactElement {
   const pageLink = usePageLink();
   const { t } = useT();
@@ -444,9 +457,36 @@ export function Sidebar({
         <div className="panel-body">
           {mode === 'tree' ? (
             <>
-        <a className="sidebar-search" href={paths.search()}>
-          <SearchIcon /> {t('sidebar.search')}
-        </a>
+        {/* A field, not a link to a field (ADR-0118).
+          *
+          * It was a labelled row that opened the search screen, where the
+          * first thing anybody did was type — so the row was a door in front of
+          * a door. Typing here navigates into the search mode carrying what has
+          * been typed so far, which is the same landing the row produced with
+          * one fewer step.
+          *
+          * `replace` while typing: a keystroke is not a place to go back to,
+          * and pushing one per character would bury whatever came before the
+          * search under forty entries.
+          *
+          * Still `type="search"`, so a browser offers its own clear button and
+          * announces it as one. */}
+        <div className="sidebar-search">
+          <SearchIcon aria-hidden="true" />
+          <input
+            type="search"
+            className="sidebar-search-field"
+            value={searchQuery}
+            placeholder={t('sidebar.search')}
+            aria-label={t('sidebar.search')}
+            onChange={(event) => onSearch(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter is how somebody says "that one, now" — it commits the
+              // search as a place in the history rather than another replace.
+              if (event.key === 'Enter') onSearch(event.currentTarget.value, { commit: true });
+            }}
+          />
+        </div>
 
         {/* Above the tree, because a shortcut list is only useful if it is the
             first thing in reach. Hidden entirely when empty rather than shown

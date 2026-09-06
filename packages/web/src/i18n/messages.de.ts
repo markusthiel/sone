@@ -1065,6 +1065,18 @@ export const de: Record<keyof typeof en, string> = {
 
   // --- Suche -------------------------------------------------------------
   'search.title': 'Suche',
+  // --- Filter im Suchmodus (ADR-0118) ---------------------------------------
+  'search.saved': 'Gemerkt',
+  'search.facet.tags': 'Schlagwörter',
+  'search.facet.people': 'Leute',
+  'search.facet.assignedMe': '{address, select, formal {Ihnen zugewiesen} other {Dir zugewiesen}}',
+  'search.facet.writtenBy': 'Von {name}',
+  'search.facet.in': 'Im Ordner',
+  'search.facet.anywhere': 'Überall',
+  'search.facet.when': 'Zuletzt bearbeitet',
+  'search.facet.after': 'Ab',
+  'search.facet.before': 'Bis',
+  'search.facet.clear': 'Filter zurücksetzen',
   'search.field': 'Seiten suchen',
   'search.placeholder': 'Seiten suchen…',
   'search.folders': 'Ordner',
