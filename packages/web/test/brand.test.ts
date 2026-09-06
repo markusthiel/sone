@@ -8,7 +8,10 @@
  */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { test } from 'node:test';
+
+import { FONT_PAIRS, sanitiseTheme, themeProperties } from '@sone/core';
 
 import { stylesOf } from './helpers/source.ts';
 
@@ -64,6 +67,61 @@ test('the faces are served from here', () => {
   assert.match(css, /url\('\/fonts\/archivo-latin-wght-normal\.woff2'\)/);
   assert.match(css, /url\('\/fonts\/jetbrains-mono-latin-wght-normal\.woff2'\)/);
   assert.doesNotMatch(css, /src:\s*url\('https?:/);
+});
+
+/** The families this instance actually serves, and the file each comes from. */
+const served = new Map(
+  [...css.matchAll(/font-family: '([^']+)';[\s\S]*?src: url\('(\/fonts\/[^']+)'\)/g)].map(
+    (m) => [m[1] as string, m[2] as string],
+  ),
+);
+
+/** The face a stack actually asks for; the rest are what the machine already has. */
+const firstOf = (stack: string): string => {
+  const first = stack.split(',')[0]?.trim() ?? '';
+  return first.startsWith("'") ? first.slice(1, -1) : first;
+};
+
+test('every face a pair can name is one this instance serves', () => {
+  /*
+   * The failure this exists for (ADR-0127): a pair that names a font nobody
+   * ships. It costs nothing at build time and nothing in a test that reads only
+   * the core — the first sign of it is a workspace whose text quietly falls
+   * back to Georgia, on somebody else's machine.
+   *
+   * The *first* entry of each stack and not every quoted one: `'Times New
+   * Roman'` is quoted because it has spaces in it, not because anybody is
+   * fetching it. Everything after the first is what the reader already has.
+   */
+  for (const pair of FONT_PAIRS) {
+    const properties = themeProperties(sanitiseTheme({ fonts: pair }));
+    for (const name of ['--sone-font', '--sone-font-mono'] as const) {
+      const stack = properties[name];
+      if (!stack) continue;
+      const face = firstOf(stack);
+      // A stack starting with something the machine has — `-apple-system`, or
+      // `ui-monospace` — asks for no download at all, which is the whole point
+      // of the `system` pair.
+      if (!stack.trim().startsWith("'")) continue;
+
+      const file = served.get(face);
+      assert.ok(file, `${face} is declared for ${pair}`);
+      assert.ok(
+        existsSync(new URL(`../public${file}`, import.meta.url)),
+        `${file} is in the repository`,
+      );
+    }
+  }
+});
+
+test('the system pair asks for nothing to be downloaded', () => {
+  // The point of offering it: a reader on a metered connection, or an operator
+  // who would rather serve no webfont at all, gets an interface with none in
+  // it. It has to lead with a face the machine already has.
+  const properties = themeProperties(sanitiseTheme({ fonts: 'system' }));
+  for (const name of ['--sone-font', '--sone-font-mono'] as const) {
+    assert.equal(served.has(firstOf(properties[name] ?? '')), false, name);
+  }
 });
 
 test('a dragged sidebar keeps its width when the right panel opens', () => {
