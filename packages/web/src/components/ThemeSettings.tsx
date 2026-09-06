@@ -27,6 +27,9 @@ import {
   type StoredTreatment,
   type ThemedElement,
   type ThemedSurface,
+  readThemeFile,
+  themeFileName,
+  writeThemeFile,
   type WorkspaceTheme,
 } from '@sone/core';
 import { useT } from '../i18n/useT.tsx';
@@ -88,6 +91,8 @@ const SIZE_LABELS: Record<number, string> = {
 export interface ThemeOwner {
   /** Something stable per owner, so a change of owner refetches. */
   key: string;
+  /** What to call an exported file: the workspace's name, or the instance's. */
+  name: string;
   load: () => Promise<{ theme: WorkspaceTheme }>;
   save: (theme: WorkspaceTheme) => Promise<{ theme: WorkspaceTheme }>;
 }
@@ -122,6 +127,8 @@ export function ThemeSettings({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** The name of a file just read in, so the form says where its values came from. */
+  const [imported, setImported] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -185,6 +192,52 @@ export function ThemeSettings({
       if (Object.keys(surfaces).length > 0) next.surfaces = surfaces;
       return next;
     });
+  };
+
+  /**
+   * Hand the theme over as a file (ADR-0125).
+   *
+   * Built from what is *on the form*, unsaved changes included. Exporting the
+   * stored version instead would be a button that quietly ignores what somebody
+   * is looking at.
+   *
+   * A blob and a click rather than a route: there is nothing for the server to
+   * do — it holds the theme the browser is already showing.
+   */
+  const exportTheme = (): void => {
+    const blob = new Blob([writeThemeFile(owner.name, theme)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = themeFileName(owner.name);
+    link.click();
+    // Released on the next turn: revoking immediately can cancel the download
+    // in some browsers, and holding it for the life of the page is a leak.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
+  /**
+   * Read one in, into the form.
+   *
+   * Into the form and **not** straight to the server, so the last step is still
+   * somebody pressing Save — which is what makes an import undoable by walking
+   * away, and what keeps one path to writing a theme rather than two.
+   *
+   * It replaces the whole theme, including the half this screen is not showing:
+   * it is one theme, and a file that changed only the visible half would be a
+   * file that means something different depending on which tab was open.
+   */
+  const importTheme = (text: string): void => {
+    const file = readThemeFile(text);
+    if (!file) {
+      setImported(null);
+      setError('not_a_theme');
+      return;
+    }
+    setError(null);
+    setSaved(false);
+    setTheme(file.theme);
+    setImported(file.name || t('type.file.unnamed'));
   };
 
   const save = (): void => {
@@ -544,6 +597,36 @@ export function ThemeSettings({
         </table>
         </>
       )}
+
+      {/* A whole theme, in and out (ADR-0125).
+        *
+        * Under both halves rather than on a screen of its own, because a file
+        * is the *whole* theme — putting the control on one of the two screens
+        * would suggest it carried only that screen's half. */}
+      <h3 className="settings-heading">{t('type.file')}</h3>
+      <p className="settings-note">{t('type.file.note')}</p>
+      <div className="settings-actions">
+        <button type="button" className="btn quiet" onClick={exportTheme}>
+          {t('type.file.export')}
+        </button>
+        {canEdit && (
+          <label className="btn quiet">
+            {t('type.file.import')}
+            <input
+              type="file"
+              accept="application/json,.json"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                // Cleared so picking the same file twice fires again — which is
+                // exactly what somebody does after correcting it in an editor.
+                event.target.value = '';
+                if (file) void file.text().then(importTheme);
+              }}
+            />
+          </label>
+        )}
+        {imported && <span className="muted">{t('type.file.loaded', { name: imported })}</span>}
+      </div>
 
       {canEdit && (
         <div className="settings-actions">
