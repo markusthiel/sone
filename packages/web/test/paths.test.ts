@@ -273,7 +273,7 @@ test('a search result lands on the block, and the page waits for it', () => {
   // the sync connection a moment later. A link that works on a fast connection
   // and silently does nothing on a slow one is worse than no link.
   const search = codeOf(new URL('../src/components/Search.tsx', import.meta.url));
-  assert.match(search, /paths\.page\(result\.pageId, result\.title, result\.blockId\)/);
+  assert.match(search, /pageLink\(result\.pageId, result\.title, result\.blockId\)/);
 
   const page = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
   assert.match(page, /blockFromHash\(window\.location\.hash\)/);

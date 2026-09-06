@@ -23,6 +23,7 @@ import type {
 import { useT } from '../i18n/useT.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import { PaperclipIcon, PlusIcon } from './icons.tsx';
 import { RelationCell } from './RelationCell.tsx';
 import type { EditableOption } from './OptionEditor.tsx';
@@ -188,6 +189,7 @@ export function Cell({
   onUploaded: (file: CollectionFile) => void;
 }): ReactElement {
   // `Cell` had no translations of its own; the partial marker needs one.
+  const pageLink = usePageLink();
   const { t } = useT();
 
   /*
@@ -235,7 +237,7 @@ export function Cell({
           ? derived.rows.map((row, at) => (
               <span key={row.id}>
                 {at > 0 && ', '}
-                <a href={paths.page(row.id, row.title)}>{row.title || '—'}</a>
+                <a href={pageLink(row.id, row.title)}>{row.title || '—'}</a>
               </span>
             ))
           : (derived.number ?? '—')}
