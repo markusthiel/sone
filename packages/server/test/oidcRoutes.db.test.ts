@@ -185,6 +185,8 @@ const claimsFor = (sub: string, nonce: string, email: string) => ({
 });
 
 describe('single sign-on (routes)', { concurrency: 1, skip: !hasDatabase }, () => {
+  /** Extra servers a test stood up, closed together at the end. */
+  const extra: Server[] = [];
   test('a good token makes an account and a session', async () => {
     const { cookie, state, nonce } = await start();
     nextClaims = {
@@ -469,5 +471,83 @@ describe('single sign-on (routes)', { concurrency: 1, skip: !hasDatabase }, () =
       headers: { cookie: dora.cookie },
     });
     assert.equal(refused.status, 409);
+  });
+  // --- three states that answered as one (ADR-0108) ------------------------
+
+  /*
+   * Reached through the routes rather than the helper, because the helper is
+   * not what anybody sees.
+   *
+   * The interesting state is "enabled, and this process has no client secret".
+   * It happens when a container restarts without `SONE_OIDC_CLIENT_SECRET`:
+   * the settings screen goes on saying *enabled*, the sign-in button
+   * disappears, and every diagnostic says *not configured* — about a provider
+   * that is configured. Three states, one answer, and only one of them is a
+   * fault somebody can fix.
+   */
+  async function withSecret(secret: string | null): Promise<string> {
+    const server = createHttpServer();
+    const router = new Router();
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const at = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    registerOidcRoutes(router, {
+      pool: db,
+      clientSecret: secret,
+      publicUrl: at,
+      secureCookies: false,
+      secretKey: SECRET,
+    });
+    server.on('request', (req, res) => {
+      void router.handle(req, res, at).then((took) => {
+        if (!took) {
+          res.statusCode = 404;
+          res.end('{}');
+        }
+      });
+    });
+    extra.push(server);
+    return at;
+  }
+
+  after(async () => {
+    for (const server of extra) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  test('enabled with no client secret is its own answer', async () => {
+    const at = await withSecret(null);
+    const res = await fetch(`${at}/api/auth/oidc/start`, { redirect: 'manual' });
+
+    assert.equal(res.status, 503, 'configured and unusable is not the same as absent');
+    assert.equal(((await res.json()) as { error: string }).error, 'no_client_secret');
+  });
+
+  test('and a provider that is switched off is still "not configured"', async () => {
+    // Disabled and absent stay one answer on purpose: both mean "there is no
+    // sign-in here", and neither is a fault to report.
+    await db.query(`UPDATE oidc_settings SET enabled = false`);
+    try {
+      const at = await withSecret('the-client-secret');
+      const res = await fetch(`${at}/api/auth/oidc/start`, { redirect: 'manual' });
+      assert.equal(res.status, 404);
+      assert.equal(((await res.json()) as { error: string }).error, 'not_configured');
+    } finally {
+      await db.query(`UPDATE oidc_settings SET enabled = true`);
+    }
+  });
+
+  test('but the sign-in page is told nothing except yes or no', async () => {
+    /*
+     * The counterweight. `/config` is read by an anonymous browser, and which
+     * kind of not-configured this instance is, is nobody's business until they
+     * are signed in — the same argument this route already makes about not
+     * naming the issuer publicly.
+     */
+    const at = await withSecret(null);
+    const res = await fetch(`${at}/api/auth/oidc/config`);
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { enabled: false, buttonLabel: null });
   });
 });

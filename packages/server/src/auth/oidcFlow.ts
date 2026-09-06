@@ -27,6 +27,43 @@ export class OidcError extends Error {
   }
 }
 
+
+/**
+ * The three outbound calls, bounded (ADR-0108).
+ *
+ * Node's `fetch` has no default timeout. A provider that accepts the connection
+ * and then says nothing — a half-open firewall, an overloaded identity server,
+ * a name that now resolves somewhere quiet — leaves the request outstanding and
+ * the person waiting on a blank page. Nothing here was bounded.
+ *
+ * Both an `AbortSignal` and a race, for the reason `LocalFileStore.checkWritable`
+ * gives about the same pairing: the signal is what actually releases the socket,
+ * and the race is what makes the bound hold for a `fetchImpl` that ignores it —
+ * which every test's does, and which is exactly where a bound that only *looks*
+ * enforced would go unnoticed.
+ */
+export const PROVIDER_TIMEOUT_MS = 10_000;
+
+async function bounded<T>(
+  work: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  code: string,
+): Promise<T> {
+  const controller = new AbortController();
+  let timer: NodeJS.Timeout | undefined;
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new OidcError(code));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([work(controller.signal), expiry]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 type Fetch = typeof globalThis.fetch;
 
 /**
@@ -43,6 +80,7 @@ type Fetch = typeof globalThis.fetch;
 export async function discover(
   issuer: string,
   fetchImpl: Fetch = globalThis.fetch,
+  timeoutMs: number = PROVIDER_TIMEOUT_MS,
 ): Promise<Discovery> {
   const base = issuer.replace(/\/+$/, '');
   if (!base.startsWith('https://') && !base.startsWith('http://localhost')) {
@@ -51,9 +89,15 @@ export async function discover(
 
   let body: unknown;
   try {
-    const response = await fetchImpl(`${base}/.well-known/openid-configuration`);
-    if (!response.ok) throw new OidcError('discovery_failed');
-    body = await response.json();
+    body = await bounded(
+      async (signal) => {
+        const response = await fetchImpl(`${base}/.well-known/openid-configuration`, { signal });
+        if (!response.ok) throw new OidcError('discovery_failed');
+        return response.json();
+      },
+      timeoutMs,
+      'discovery_timeout',
+    );
   } catch (error) {
     throw error instanceof OidcError ? error : new OidcError('discovery_failed');
   }
@@ -157,6 +201,7 @@ export async function exchangeCode(
     verifier: string;
   },
   fetchImpl: Fetch = globalThis.fetch,
+  timeoutMs: number = PROVIDER_TIMEOUT_MS,
 ): Promise<TokenResponse> {
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
@@ -169,13 +214,22 @@ export async function exchangeCode(
 
   let response: Response;
   try {
-    response = await fetchImpl(discovery.token_endpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    });
-  } catch {
-    throw new OidcError('token_request_failed');
+    // Bounded like the other two, and this is the one in the middle of the
+    // flow: the authorization code has been handed over, so hanging here costs
+    // a code that cannot be used again (ADR-0108).
+    response = await bounded(
+      (signal) =>
+        fetchImpl(discovery.token_endpoint, {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+          signal,
+        }),
+      timeoutMs,
+      'token_request_timeout',
+    );
+  } catch (error) {
+    throw error instanceof OidcError ? error : new OidcError('token_request_failed');
   }
 
   if (!response.ok) throw new OidcError('token_request_failed');
@@ -201,14 +255,115 @@ export async function exchangeCode(
 export async function fetchKeys(
   discovery: Discovery,
   fetchImpl: Fetch = globalThis.fetch,
+  timeoutMs: number = PROVIDER_TIMEOUT_MS,
 ): Promise<unknown[]> {
   try {
-    const response = await fetchImpl(discovery.jwks_uri);
-    if (!response.ok) throw new OidcError('jwks_failed');
-    const body = (await response.json()) as { keys?: unknown[] };
-    if (!Array.isArray(body.keys)) throw new OidcError('jwks_failed');
-    return body.keys;
+    return await bounded(
+      async (signal) => {
+        const response = await fetchImpl(discovery.jwks_uri, { signal });
+        if (!response.ok) throw new OidcError('jwks_failed');
+        const body = (await response.json()) as { keys?: unknown[] };
+        if (!Array.isArray(body.keys)) throw new OidcError('jwks_failed');
+        return body.keys;
+      },
+      timeoutMs,
+      'jwks_timeout',
+    );
   } catch (error) {
     throw error instanceof OidcError ? error : new OidcError('jwks_failed');
+  }
+}
+
+/**
+ * What a provider says about itself, remembered for a little while (ADR-0108).
+ *
+ * ## Why this exists at all
+ *
+ * Not to save a request. A sign-in discovers twice — once at `/start`, and
+ * again at `/callback` **after the authorization code has been handed over**.
+ * A provider that is briefly unreachable at that second moment costs somebody a
+ * code that is now spent, and they begin again with no idea why. Remembering
+ * the document makes the callback depend on the provider being up once rather
+ * than twice.
+ *
+ * ## Why the keys are here too, and why that was the dangerous half
+ *
+ * `verifyIdToken` says this, and has said it since ADR-0024:
+ *
+ * > Providers rotate keys and publish the new one before using it, so an
+ * > unknown `kid` means "fetch again", not "reject" — but that decision belongs
+ * > to the caller holding the cache, and here it simply finds nothing.
+ *
+ * There was no caller holding a cache. Every sign-in fetched the keys afresh,
+ * so a rotation resolved itself and the sentence described a problem nobody
+ * had. **Caching the keys is what creates it**: between a rotation and the
+ * entry expiring, every sign-in would fail with `unknown_key`.
+ *
+ * So the cache and `refresh` are one change. The caller asks again, once, when
+ * verification fails for a key it has not seen — which is the decision that
+ * comment always said belonged to it.
+ *
+ * `refresh` is the caller's word rather than something decided here, because an
+ * unknown `kid` is also what a forged token looks like. A directory that
+ * refetched on its own would let anybody make this server call its provider as
+ * often as they liked; the caller is the one that knows it has already tried.
+ */
+export interface ProviderDirectoryOptions {
+  fetchImpl?: Fetch;
+  /** How long a document or a key set is trusted. Ten minutes by default. */
+  ttlMs?: number;
+  timeoutMs?: number;
+  /** Injectable so expiry can be tested without waiting for it. */
+  now?: () => number;
+}
+
+const DEFAULT_TTL_MS = 10 * 60 * 1000;
+
+export class ProviderDirectory {
+  private readonly fetchImpl: Fetch;
+  private readonly ttlMs: number;
+  private readonly timeoutMs: number;
+  private readonly now: () => number;
+
+  private readonly documents = new Map<string, { value: Discovery; until: number }>();
+  private readonly keySets = new Map<string, { value: unknown[]; until: number }>();
+
+  constructor(options: ProviderDirectoryOptions = {}) {
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
+    this.ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
+    this.timeoutMs = options.timeoutMs ?? PROVIDER_TIMEOUT_MS;
+    this.now = options.now ?? Date.now;
+  }
+
+  async discover(issuer: string): Promise<Discovery> {
+    const key = issuer.replace(/\/+$/, '');
+    const held = this.documents.get(key);
+    if (held && held.until > this.now()) return held.value;
+
+    const value = await discover(issuer, this.fetchImpl, this.timeoutMs);
+    this.documents.set(key, { value, until: this.now() + this.ttlMs });
+    return value;
+  }
+
+  /**
+   * The provider's signing keys.
+   *
+   * `refresh` skips the remembered set and replaces it — for the one caller
+   * that has a token naming a key it has never seen.
+   */
+  async keys(discovery: Discovery, opts: { refresh?: boolean } = {}): Promise<unknown[]> {
+    const key = discovery.jwks_uri;
+    const held = this.keySets.get(key);
+    if (!opts.refresh && held && held.until > this.now()) return held.value;
+
+    const value = await fetchKeys(discovery, this.fetchImpl, this.timeoutMs);
+    this.keySets.set(key, { value, until: this.now() + this.ttlMs });
+    return value;
+  }
+
+  /** Forget everything. For a test, and for a settings change. */
+  forget(): void {
+    this.documents.clear();
+    this.keySets.clear();
   }
 }
