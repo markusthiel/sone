@@ -83,6 +83,23 @@ services:
 
       # How long a deleted workspace can be restored (ADR-0027).
       SONE_WORKSPACE_RETENTION_DAYS: ${SONE_WORKSPACE_RETENTION_DAYS:-30}
+
+      # The numbers read outside config.ts, which nothing forwarded until
+      # ADR-0112 — so setting any of them in `.env` did nothing at all, and two
+      # of them are documented as settable. Each is refused if it is not a
+      # usable number, with a line at startup naming it (ADR-0111).
+      SONE_VERSION_RETENTION_DAYS: ${SONE_VERSION_RETENTION_DAYS:-90}
+      SONE_VERSION_QUIET_MINUTES: ${SONE_VERSION_QUIET_MINUTES:-10}
+      SONE_JOB_RESULT_HOURS: ${SONE_JOB_RESULT_HOURS:-24}
+      SONE_EMAIL_DELAY_MINUTES: ${SONE_EMAIL_DELAY_MINUTES:-5}
+      SONE_DB_POOL_MAX: ${SONE_DB_POOL_MAX:-10}
+      # Named here rather than kept out of reach. The old argument was that a
+      # line in compose is an invitation to lower it — but `.env.example` has
+      # invited it in a paragraph the whole time, so the effect of leaving it
+      # out was an operator who raised it and got nothing. What guards this is
+      # the startup warning and the maintenance anomaly (ADR-0010 amendment),
+      # not the absence of a line.
+      SONE_PASSWORD_COST: ${SONE_PASSWORD_COST:-16}
     volumes:
       - sone_files:/var/lib/sone/files
       # Backups land here. Mount a host path instead if you want them off the
