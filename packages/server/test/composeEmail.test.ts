@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { renderHtml, renderText } from '../src/mail/letter.js';
 import { composeNotificationEmail, type Waiting } from '../src/mail/compose.js';
 
 const waiting = (over: Partial<Waiting> = {}): Waiting => ({
@@ -31,7 +32,7 @@ test('the mail carries no comment text, whatever it is given', () => {
   // input rather than trusting the caller: there is nowhere to put one.
   const composed = composeNotificationEmail({ ...base, waiting: [waiting()] });
   assert.ok(composed);
-  const whole = `${composed.subject}\n${composed.body}`;
+  const whole = `${composed.subject}\n${renderText(composed)}`;
 
   // A secret nobody should be able to smuggle out: it is not in the input type,
   // so it cannot be in the output.
@@ -46,8 +47,8 @@ test('where, and a link — and who when that is known', () => {
   assert.ok(composed);
   assert.match(composed.subject, /Anna/);
   assert.match(composed.subject, /Q3 Planung/);
-  assert.match(composed.body, /hat dich erwähnt auf/);
-  assert.match(composed.body, /https:\/\/sone\.example\.org\/p\/00000000-/);
+  assert.match(renderText(composed), /hat dich erwähnt auf/);
+  assert.match(renderText(composed), /https:\/\/sone\.example\.org\/p\/00000000-/);
 });
 
 test('without an actor the page is the subject, and the sentence still reads', () => {
@@ -67,8 +68,8 @@ test('without an actor the page is the subject, and the sentence still reads', (
   });
   assert.ok(composed);
   assert.equal(composed.subject, '“Q3 Planung”');
-  assert.match(composed.body, /Du wurdest erwähnt auf “Q3 Planung”\./);
-  assert.doesNotMatch(composed.body, /^ hat|null|undefined/m);
+  assert.match(renderText(composed), /Du wurdest erwähnt auf “Q3 Planung”\./);
+  assert.doesNotMatch(renderText(composed), /^ hat|null|undefined/m);
 });
 
 test('an instance can withhold even the title', () => {
@@ -80,8 +81,8 @@ test('an instance can withhold even the title', () => {
     waiting: [waiting()],
   });
   assert.ok(composed);
-  assert.doesNotMatch(`${composed.subject}\n${composed.body}`, /Q3 Planung/);
-  assert.match(composed.body, /Thiel/);
+  assert.doesNotMatch(`${composed.subject}\n${renderText(composed)}`, /Q3 Planung/);
+  assert.match(renderText(composed), /Thiel/);
 });
 
 test('four notifications are one mail', () => {
@@ -98,7 +99,7 @@ test('four notifications are one mail', () => {
   assert.ok(composed);
   assert.match(composed.subject, /4 Benachrichtigungen in Thiel/);
   // Each one named, each with its own link.
-  assert.equal(composed.body.match(/\/p\//g)?.length, 4);
+  assert.equal(renderText(composed).match(/\/p\//g)?.length, 4);
 });
 
 test('nothing waiting is no mail', () => {
@@ -113,6 +114,6 @@ test('the unsubscribe route requires signing in', () => {
   // turning your notifications off (ADR-0058).
   const composed = composeNotificationEmail({ ...base, waiting: [waiting()] });
   assert.ok(composed);
-  assert.match(composed.body, /\/settings\/notifications/);
-  assert.doesNotMatch(composed.body, /token=|unsubscribe\?/);
+  assert.match(renderText(composed), /\/settings\/notifications/);
+  assert.doesNotMatch(renderText(composed), /token=|unsubscribe\?/);
 });

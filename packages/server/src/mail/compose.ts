@@ -13,6 +13,8 @@
  * relay, which is the part worth testing.
  */
 
+import type { Letter } from './letter.js';
+
 export interface Waiting {
   kind: 'mention' | 'reply' | 'assignment';
   /** The page's title, used only when the instance allows that much. */
@@ -45,11 +47,18 @@ export interface ComposeInput {
   locale: 'en' | 'de';
 }
 
-export interface Composed {
-  subject: string;
-  /** Plain text only: an HTML mail is a second thing to keep true. */
-  body: string;
-}
+/*
+ * What this returns is a `Letter` (ADR-0121).
+ *
+ * It returned `{ subject, body }` — a finished plain-text mail — under the
+ * rule "an HTML mail is a second thing to keep true". That rule is right about
+ * two *documents* and not about two renderings: a letter is a structure, and
+ * the text and the HTML are both produced from it, so a line reaching one and
+ * not the other is not a mistake that can be made.
+ *
+ * What decides how much a mail may say is still here, unchanged, which is the
+ * half ADR-0058 was actually protecting.
+ */
 
 const LINES = {
   en: {
@@ -66,8 +75,12 @@ const LINES = {
       actor === null ? where : `${actor} — ${where}`,
     subjectMany: (count: number, workspace: string) =>
       `${count} notifications in ${workspace}`,
-    footer: (url: string) =>
-      `\nOpen SONE: ${url}\n\nThis message contains no comment text on purpose.\nTo stop these emails, sign in and change it under You → Notifications:\n${url}/settings/notifications`,
+    open: 'Open SONE',
+    footer: (url: string) => [
+      'This message contains no comment text on purpose.',
+      'To stop these emails, sign in and change it under You → Notifications:',
+      `${url}/settings/notifications`,
+    ],
   },
   de: {
     /*
@@ -90,8 +103,12 @@ const LINES = {
       actor === null ? where : `${actor} — ${where}`,
     subjectMany: (count: number, workspace: string) =>
       `${count} Benachrichtigungen in ${workspace}`,
-    footer: (url: string) =>
-      `\nSONE öffnen: ${url}\n\nDiese Nachricht enthält absichtlich keinen Kommentartext.\nZum Abstellen anmelden und unter Du → Benachrichtigungen ändern:\n${url}/settings/notifications`,
+    open: 'SONE öffnen',
+    footer: (url: string) => [
+      'Diese Nachricht enthält absichtlich keinen Kommentartext.',
+      'Zum Abstellen anmelden und unter Du → Benachrichtigungen ändern:',
+      `${url}/settings/notifications`,
+    ],
   },
 } as const;
 
@@ -102,7 +119,7 @@ const LINES = {
  * restructured gets four mails, and the fourth teaches them to filter the
  * sender.
  */
-export function composeNotificationEmail(input: ComposeInput): Composed | null {
+export function composeNotificationEmail(input: ComposeInput): Letter | null {
   if (input.waiting.length === 0) return null;
 
   const words = LINES[input.locale];
@@ -127,19 +144,21 @@ export function composeNotificationEmail(input: ComposeInput): Composed | null {
       : words.subjectMany(input.waiting.length, input.workspaceName);
 
   /*
-   * A link per line, and the base URL at the end.
+   * A link per line, and the way in at the end.
    *
    * Plain URLs, not wrapped and not per-recipient: knowing whether somebody
    * followed a link is not worth becoming the kind of software that measures it
    * (ADR-0058).
    */
-  const body = [
-    ...lines.map((line, at) => {
-      const one = input.waiting[at]!;
-      return `${line}\n${input.baseUrl}/p/${one.pageId}`;
-    }),
-    words.footer(input.baseUrl),
-  ].join('\n\n');
-
-  return { subject, body };
+  return {
+    subject,
+    lines: lines.map((text, at) => ({
+      text,
+      url: `${input.baseUrl}/p/${input.waiting[at]!.pageId}`,
+    })),
+    action: { label: words.open, url: input.baseUrl },
+    footer: words.footer(input.baseUrl),
+    baseUrl: input.baseUrl,
+    locale: input.locale,
+  };
 }

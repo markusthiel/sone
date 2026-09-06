@@ -57,6 +57,7 @@ import { registerJobRoutes } from './jobs/routes.js';
 import { registerInboxRoutes } from './notifications/routes.js';
 import { RECOMMENDED_COST, passwordCost } from './auth/password.js';
 import { refusedEnvNumbers } from './env.js';
+import { renderHtml, renderText } from './mail/letter.js';
 import { sendMail } from './mail/send.js';
 import { pollReplies, type ReplyDeps } from './jobs/replies.js';
 import { sendActivityDigests } from './jobs/activityDigest.js';
@@ -306,7 +307,29 @@ async function main(): Promise<void> {
     addressForm: 'informal',
   });
 
-  registerInvitationRoutes(router, { pool });
+  registerInvitationRoutes(router, {
+    pool,
+    baseUrl: config.publicUrl,
+    instanceName: async () => (await settings.resolve()).values.instanceName,
+    /*
+     * Present only while a relay is configured (ADR-0121).
+     *
+     * Read per send rather than captured at boot, like every other mail here:
+     * an operator who configures the relay while SONE runs should not have to
+     * restart for an invitation to be sent — which is the same reason
+     * `sendResetMail` asks `mailSettings()` each time.
+     */
+    sendLetter: async (to, letter) => {
+      const current = await mailSettings();
+      if (!current.relay) return;
+      await sendMail(current.relay, {
+        to,
+        subject: letter.subject,
+        body: renderText(letter),
+        html: renderHtml(letter),
+      });
+    },
+  });
   registerPagePermissionRoutes(router, { pool });
   registerGroupRoutes(router, { pool });
   registerRoleRoutes(router, { pool });
