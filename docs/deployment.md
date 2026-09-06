@@ -386,9 +386,9 @@ what people take it to mean when they ask whether their notes are still here.
 That sentence was not true until 0.11.x. The purge removed the page entries and
 left every page's content in the database — invisible, unreachable and
 permanent, because the CRDT tables carry no foreign key to `pages` (ADR-0080).
-It removes both now. **One thing it still does not do**, said plainly rather
-than implied: attachments on disk are never removed, because there is no orphan
-sweep for files.
+It removes both now, and the attachments a purge leaves on disk can be reclaimed
+with `sweep-orphan-files.mjs` (ADR-0109) — deliberately not from the purge
+itself, which is not the moment to decide to delete bytes.
 
 Content left behind by a purge that ran on an *earlier* version can now be
 removed, and is not removed for you (ADR-0106). The maintenance job counts it —
@@ -450,9 +450,24 @@ Uploads land under `SONE_STORAGE_PATH` (`/var/lib/sone/files` in the image), and
 
 Storage is content-addressed: the key is the SHA-256 of the contents, so
 identical files are stored once no matter how many pages reference them. That
-also means a file is never rewritten in place, so the volume only grows —
-deleting a page removes its rows, and reclaiming the bytes is not implemented
-yet.
+also means a file is never rewritten in place: deleting a page removes its rows
+and leaves the bytes, and so does replacing a profile picture — deleting on
+replace could take the file somebody else's identical picture is using.
+
+**Reclaiming those bytes is a script you run** (ADR-0109). The maintenance job
+counts them — "N stored file(s) belong to no row" in the log — and:
+
+```sh
+# reports, and removes nothing
+docker compose exec app node packages/server/scripts/sweep-orphan-files.mjs
+# once the list looks right
+docker compose exec app node packages/server/scripts/sweep-orphan-files.mjs --apply
+```
+
+It knows about all three places a storage key lives — attachments, profile
+pictures (`users.avatar_key`, which is *not* in the files table) and a workspace
+export waiting to be downloaded — and it considers only files older than a week
+(`--older-than-hours`), which is what keeps an upload in flight out of reach.
 
 **Local is the only backend.** Object storage is not supported, and the server
 refuses to start if it is configured (ADR-0107).
