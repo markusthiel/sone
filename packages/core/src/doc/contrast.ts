@@ -120,3 +120,70 @@ export function mixSrgb(top: string | Rgb, percent: number, bottom: string | Rgb
  * border, a focus ring, the line under a field.
  */
 export const AA = { text: 4.5, large: 3, nonText: 3 } as const;
+
+/**
+ * The worst ground the interface can put text on, per scheme (ADR-0136).
+ *
+ * Not a colour the stylesheet declares — a **bound** on the ones it computes.
+ * Every surface is the workspace's tint mixed into the ramp, so the darkest
+ * light surface and the lightest dark surface both depend on a colour somebody
+ * picks out of a colour input. `web`'s `contrast.test.ts` walks the real
+ * surfaces over the whole colour cube and asserts none is worse than these, so
+ * this is a claim held against the stylesheet rather than a copy of it.
+ *
+ * Deliberately a shade past the real worst in each direction. A ground darker
+ * than any real light surface makes the derived colour darker than it needs to
+ * be, which is the harmless way to be wrong.
+ */
+export const WORST_GROUND = { light: '#d0cec9', dark: '#3a3a37' } as const;
+
+/**
+ * The same colour, moved only as far as it must be to be read on this ground.
+ *
+ * **An accent has two jobs.** It fills a button, where `readableOn` computes the
+ * text that goes on top of it; and it *is* text — a link, an active icon — on
+ * one of the page's own surfaces, where nothing computed anything. One value
+ * satisfies both only by luck, and a workspace picks that value out of a colour
+ * input (ADR-0136).
+ *
+ * The direction is the ground's, not the colour's: on a light ground the only
+ * way to gain contrast is down, and on a dark ground it is up. Down is a scale
+ * of the channels, which keeps the hue exactly; up is a mix toward white, which
+ * washes the hue out a little and is the operation that always terminates —
+ * scaling up cannot move a colour whose channel is already at 255.
+ *
+ * A colour that already reads is returned untouched, which is the ordinary case:
+ * a brand colour somebody chose to be visible usually is.
+ */
+export function readableInk(color: string, ground: string): string {
+  if (contrastRatio(color, ground) >= AA.text) return color;
+
+  const start = parseHex(color);
+  const towardsDark = luminance(ground) > luminance('#808080');
+  /*
+   * Rounded inside the search, not after it.
+   *
+   * The channels are floats and the answer is eight bits, so a search on the
+   * floats finds the exact crossing and then `toHex` rounds *back across it* —
+   * `#2f7d6f` came out at 4.47:1, under the floor the search had just cleared.
+   * Judging the value that will actually be returned is the whole fix.
+   */
+  const at = (amount: number): string =>
+    toHex(
+      towardsDark
+        ? { r: start.r * (1 - amount), g: start.g * (1 - amount), b: start.b * (1 - amount) }
+        : mixSrgb('#ffffff', amount * 100, start),
+    );
+
+  // Binary search for the smallest move that reaches AA. Both ends are
+  // reachable — black on a light ground and white on a dark one are the maxima
+  // — so this always converges, and twenty steps is finer than eight bits.
+  let low = 0;
+  let high = 1;
+  for (let step = 0; step < 20; step++) {
+    const middle = (low + high) / 2;
+    if (contrastRatio(at(middle), ground) >= AA.text) high = middle;
+    else low = middle;
+  }
+  return at(high);
+}

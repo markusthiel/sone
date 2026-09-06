@@ -31,7 +31,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
-import { AA, contrastRatio, mixSrgb, toHex } from '@sone/core';
+import { AA, WORST_GROUND, contrastRatio, luminance, mixSrgb, readableInk, toHex } from '@sone/core';
 
 const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8').replace(
   /\/\*[\s\S]*?\*\//g,
@@ -209,6 +209,103 @@ describe('the other end of a treated surface', () => {
       }
     });
   }
+});
+
+describe('the accent, read rather than filled', () => {
+  /*
+   * An accent has two jobs (ADR-0136). `readableOn` computes the text that goes
+   * **on** it; nothing computed the accent **as** text, and a link is
+   * `color: var(--accent-text)` on one of the page's own surfaces.
+   */
+  for (const [name, scope] of Object.entries(THEMES)) {
+    test(`${name}: the design's own accent reads on every surface`, () => {
+      for (const surface of SURFACES) {
+        const found = contrastRatio(
+          resolve(scope['--accent-text']!, scope, null),
+          resolve(scope[surface]!, scope, null),
+        );
+        assert.ok(found >= AA.text, `${name}: the accent is ${found.toFixed(2)}:1 on ${surface}`);
+      }
+    });
+  }
+
+  test('the worst ground core derives against is worse than any real surface', () => {
+    /*
+     * **The claim that makes the derivation sound.** `readableInk` is given a
+     * ground, and `@sone/core` cannot see this stylesheet — so it holds a bound
+     * rather than a copy, and this is where the bound is checked.
+     *
+     * A ground darker than every real light surface makes the derived colour
+     * darker than it strictly needs to be, which is the harmless direction; a
+     * ground lighter than one of them would make it too light, which is the bug
+     * the whole thing exists to prevent.
+     */
+    let darkestLight = 1;
+    let lightestDark = 0;
+    for (const tint of cube()) {
+      for (const surface of SURFACES) {
+        darkestLight = Math.min(
+          darkestLight,
+          luminance(resolve(THEMES.light[surface]!, THEMES.light, tint)),
+        );
+        lightestDark = Math.max(
+          lightestDark,
+          luminance(resolve(THEMES.dark[surface]!, THEMES.dark, tint)),
+        );
+      }
+    }
+    assert.ok(
+      luminance(WORST_GROUND.light) <= darkestLight,
+      `the stated light ground is ${luminance(WORST_GROUND.light).toFixed(4)}, lighter than the darkest surface at ${darkestLight.toFixed(4)}`,
+    );
+    assert.ok(
+      luminance(WORST_GROUND.dark) >= lightestDark,
+      `the stated dark ground is ${luminance(WORST_GROUND.dark).toFixed(4)}, darker than the lightest surface at ${lightestDark.toFixed(4)}`,
+    );
+  });
+
+  test('and any accent a workspace can pick reads on any surface', () => {
+    /*
+     * The whole point, walked rather than argued: a colour out of the input,
+     * derived for each scheme, checked against every surface that scheme can
+     * produce for every tint. Two free values at once, which is why the
+     * derivation has to be computed and not chosen.
+     */
+    const surfaces = (scope: Record<string, string>, tint: string) =>
+      SURFACES.map((one) => resolve(scope[one]!, scope, tint));
+
+    for (const accent of ['#ffff00', '#000000', '#ffffff', '#7c3aed', '#16a34a', '#2563eb']) {
+      for (const [name, scope, ground, emitted] of [
+        ['light', THEMES.light, WORST_GROUND.light, '--sone-theme-accent-on-light'],
+        ['dark', THEMES.dark, WORST_GROUND.dark, '--sone-theme-accent-on-dark'],
+      ] as const) {
+        const ink = readableInk(accent, ground);
+        // What the browser would resolve with that property set on the root.
+        const withAccent = { ...scope, [emitted]: ink };
+        for (const tint of ['#000000', '#ffffff', '#7c3aed']) {
+          for (const drawn of surfaces(withAccent, tint)) {
+            const found = contrastRatio(ink, drawn);
+            assert.ok(
+              found >= AA.text,
+              `${name}: the accent ${accent} reads as ${ink}, ${found.toFixed(2)}:1 on ${drawn}`,
+            );
+          }
+        }
+      }
+    }
+  });
+
+  test('a fill is still the colour somebody chose', () => {
+    // The derivation is for reading, and a button is not read *as* the accent —
+    // it is filled with it, and `readableOn` computes what goes on top. A
+    // workspace whose brand colour quietly became a darker one on its own
+    // buttons would be a workspace whose brand colour is not its brand colour.
+    assert.match(css, /--accent: var\(--accent-500\)/);
+    assert.doesNotMatch(css, /background: var\(--accent-text\)/);
+    // And a border beside an accent fill is the fill's colour, or the pair
+    // shows as a ring.
+    assert.doesNotMatch(css, /border-color: var\(--accent-text\)/);
+  });
 });
 
 test('the three declarations of dark agree on their values, not only their names', () => {

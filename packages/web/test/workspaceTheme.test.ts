@@ -16,6 +16,8 @@ import { test } from 'node:test';
 
 import { sanitiseTheme, themeProperties } from '@sone/core';
 
+import { PALETTE_DEFAULTS } from '@sone/core';
+
 import { codeOf, stylesOf } from './helpers/source.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -291,23 +293,24 @@ test('an element is set in steps and names, never in free values', () => {
 
 // --- the workspace palette --------------------------------------------------
 
-test('the editor shows the same defaults the stylesheet defines', () => {
-  // A colour input needs a value, so the editor carries what each unset name
-  // looks like — a second list of the same eight colours, which will otherwise
-  // drift from the first without anybody noticing.
-  const settingsSource = readFileSync(
-    path.resolve(here, '../src/components/ThemeSettings.tsx'),
-    'utf8',
-  );
-
-  for (const name of ['grey', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink']) {
-    const inEditor = new RegExp(`${name}: '(#[0-9a-f]{6})'`).exec(settingsSource)?.[1];
-    assert.ok(inEditor, `${name} missing from the editor`);
-
+test('the palette the code holds and the palette the stylesheet holds agree', () => {
+  /*
+   * A colour input needs a value, so the eight defaults exist as data as well
+   * as in the stylesheet — and since ADR-0136 the *server* needs them too: an
+   * accent stored as a name still has to have a contrast colour computed for
+   * it, and `var(--sone-palette-yellow)` has no luminance.
+   *
+   * So the data moved to `@sone/core`, where the measuring happens, and the
+   * settings form reads it from there. Two lists became one. The stylesheet is
+   * still a second place the same eight colours are written — it has to be,
+   * they are what the browser resolves — and this is what keeps the two in
+   * step.
+   */
+  for (const [name, inCode] of Object.entries(PALETTE_DEFAULTS)) {
     const inSheet = new RegExp(`--sone-palette-${name}: (#[0-9a-f]{6})`).exec(css)?.[1];
-    // Grey is defined from a variable rather than a literal, so it has no hex
-    // to compare — the check is that every other name agrees exactly.
-    if (inSheet) assert.equal(inEditor, inSheet, name);
+    // Grey is defined from the ink ramp rather than as a literal, so it has no
+    // hex to compare — the check is that every other name agrees exactly.
+    if (inSheet) assert.equal(inCode, inSheet, name);
   }
 });
 
