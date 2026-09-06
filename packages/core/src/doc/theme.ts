@@ -458,18 +458,33 @@ const TREATMENTS: Record<StoredTreatment, Record<string, string>> = {
     ink: 'var(--text-primary)',
     muted: 'var(--text-muted)',
     border: 'var(--border-subtle)',
+    hover: 'var(--surface-hover)',
+    accent: 'var(--accent)',
+    'accent-ink': 'var(--accent-contrast)',
+    'accent-quiet': 'var(--sone-base-accent-quiet)',
   },
   sunken: {
     bg: 'var(--surface-sunken)',
     ink: 'var(--text-primary)',
     muted: 'var(--text-muted)',
     border: 'var(--border-subtle)',
+    hover: 'var(--surface-hover)',
+    accent: 'var(--accent)',
+    'accent-ink': 'var(--accent-contrast)',
+    'accent-quiet': 'var(--sone-base-accent-quiet)',
   },
   inverted: {
     bg: 'var(--sone-inverse-bg)',
     ink: 'var(--sone-inverse-ink)',
     muted: 'var(--sone-inverse-muted)',
     border: 'var(--sone-inverse-border)',
+    hover: 'var(--sone-inverse-hover)',
+    // The *other* scheme's accent. `--accent-500` on near-black is the same
+    // too-dark green the dark theme already replaces with `--accent-300`, and
+    // an inverted surface is that theme's ground standing in this one.
+    accent: 'var(--sone-inverse-accent)',
+    'accent-ink': 'var(--sone-inverse-accent-contrast)',
+    'accent-quiet': 'var(--sone-inverse-accent-quiet)',
   },
   accent: {
     bg: 'var(--accent)',
@@ -481,6 +496,18 @@ const TREATMENTS: Record<StoredTreatment, Record<string, string>> = {
     // Its own colour, which is a surface with no line around it: a border in
     // some other colour would draw a frame nobody asked for.
     border: 'var(--accent)',
+    hover: 'var(--sone-accent-hover)',
+    /*
+     * Swapped, because accent on accent is nothing at all.
+     *
+     * The mark's third bar is `var(--accent)` and a filled button is drawn in
+     * it, so on an accent-coloured surface both disappear. The pair trades
+     * places: the button becomes the contrast colour with accent-coloured text,
+     * which is the same two colours the other way round and readable.
+     */
+    accent: 'var(--accent-contrast)',
+    'accent-ink': 'var(--accent)',
+    'accent-quiet': 'var(--sone-accent-hover)',
   },
 };
 
