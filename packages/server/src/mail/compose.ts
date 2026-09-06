@@ -13,7 +13,9 @@
  * relay, which is the part worth testing.
  */
 
+import type { SupportedLocale } from '../i18n/locale.js';
 import type { Letter } from './letter.js';
+import { words, type AddressForm } from './words.js';
 
 export interface Waiting {
   kind: 'mention' | 'reply' | 'assignment';
@@ -44,7 +46,9 @@ export interface ComposeInput {
   detail: 'title' | 'workspace';
   /** Where SONE lives, for the links. */
   baseUrl: string;
-  locale: 'en' | 'de';
+  locale: SupportedLocale;
+  /** „du" or „Sie" (ADR-0133). Absent is the informal default. */
+  address?: AddressForm;
 }
 
 /*
@@ -60,57 +64,20 @@ export interface ComposeInput {
  * half ADR-0058 was actually protecting.
  */
 
-const LINES = {
-  en: {
-    one: (actor: string | null, where: string, kind: string) =>
-      actor === null ? `${kind} ${where}.` : `${actor} ${kind} ${where}.`,
-    mention: 'mentioned you on',
-    reply: 'replied to a comment you are in, on',
-    assignment: 'gave you a task on',
-    mentionAlone: 'You were mentioned on',
-    replyAlone: 'There is a reply in a comment you are in, on',
-    assignmentAlone: 'You were given a task on',
-    // Without an actor the page is the subject, which is the useful half.
-    subjectOne: (actor: string | null, where: string) =>
-      actor === null ? where : `${actor} — ${where}`,
-    subjectMany: (count: number, workspace: string) =>
-      `${count} notifications in ${workspace}`,
-    open: 'Open SONE',
-    footer: (url: string) => [
-      'This message contains no comment text on purpose.',
-      'To stop these emails, sign in and change it under You → Notifications:',
-      `${url}/settings/notifications`,
-    ],
-  },
-  de: {
-    /*
-     * Two wordings per kind, not one with a name glued to the front.
-     *
-     * German cannot put a subject in front of "Du wurdest erwähnt" and stay
-     * grammatical, and English cannot either — "Anna You were mentioned on".
-     * The sentence changes, not the prefix, which is what a nullable actor
-     * actually costs.
-     */
-    one: (actor: string | null, where: string, kind: string) =>
-      actor === null ? `${kind} ${where}.` : `${actor} ${kind} ${where}.`,
-    mention: 'hat dich erwähnt auf',
-    reply: 'hat auf einen Kommentar geantwortet, in dem du bist, auf',
-    assignment: 'hat dir eine Aufgabe gegeben auf',
-    mentionAlone: 'Du wurdest erwähnt auf',
-    replyAlone: 'Es gibt eine Antwort in einem Kommentar, in dem du bist, auf',
-    assignmentAlone: 'Du hast eine Aufgabe bekommen auf',
-    subjectOne: (actor: string | null, where: string) =>
-      actor === null ? where : `${actor} — ${where}`,
-    subjectMany: (count: number, workspace: string) =>
-      `${count} Benachrichtigungen in ${workspace}`,
-    open: 'SONE öffnen',
-    footer: (url: string) => [
-      'Diese Nachricht enthält absichtlich keinen Kommentartext.',
-      'Zum Abstellen anmelden und unter Du → Benachrichtigungen ändern:',
-      `${url}/settings/notifications`,
-    ],
-  },
-} as const;
+/*
+ * The words are in the catalogue, not here (ADR-0133).
+ *
+ * This module had its own table of two languages — the only mail that ever had
+ * one — and it was right about everything except where it lived. Eleven other
+ * letters were written beside it in English, because a table private to one
+ * file is not a place anybody else adds a sentence to.
+ *
+ * What it was right about is kept, and it is the reason there are two keys per
+ * kind rather than one with a name in front: German cannot put a subject before
+ * *„Du wurdest erwähnt"* and stay grammatical, and neither can English —
+ * *„Anna You were mentioned on"*. The sentence changes, not the prefix, which
+ * is what a nullable actor actually costs.
+ */
 
 /**
  * One mail for everything waiting for one person in one workspace.
@@ -122,7 +89,7 @@ const LINES = {
 export function composeNotificationEmail(input: ComposeInput): Letter | null {
   if (input.waiting.length === 0) return null;
 
-  const words = LINES[input.locale];
+  const say = words(input.locale, input.address ?? 'informal');
   const named = (one: Waiting): string =>
     // The page's title only when the instance allows it. `workspace` is for an
     // operator who cannot accept even a title leaving — then a mail says where
@@ -130,18 +97,21 @@ export function composeNotificationEmail(input: ComposeInput): Letter | null {
     input.detail === 'title' ? `“${one.pageTitle}”` : input.workspaceName;
 
   const lines = input.waiting.map((one) =>
-    words.one(
-      one.actor,
-      named(one),
-      one.actor === null ? words[`${one.kind}Alone` as const] : words[one.kind],
-    ),
+    one.actor === null
+      ? say(`notify.${one.kind}Alone`, { what: named(one) })
+      : say(`notify.${one.kind}`, { by: one.actor, what: named(one) }),
   );
 
   const first = input.waiting[0]!;
   const subject =
     input.waiting.length === 1
-      ? words.subjectOne(first.actor, named(first))
-      : words.subjectMany(input.waiting.length, input.workspaceName);
+      ? first.actor === null
+        ? say('notify.subjectOne', { what: named(first) })
+        : say('notify.subjectOneBy', { by: first.actor, what: named(first) })
+      : say('notify.subjectMany', {
+          count: input.waiting.length,
+          workspace: input.workspaceName,
+        });
 
   /*
    * A link per line, and the way in at the end.
@@ -156,8 +126,12 @@ export function composeNotificationEmail(input: ComposeInput): Letter | null {
       text,
       url: `${input.baseUrl}/p/${input.waiting[at]!.pageId}`,
     })),
-    action: { label: words.open, url: input.baseUrl },
-    footer: words.footer(input.baseUrl),
+    action: { label: say('notify.action'), url: input.baseUrl },
+    footer: [
+      say('notify.footer.noText'),
+      say('notify.footer.stop'),
+      `${input.baseUrl}/settings/notifications`,
+    ],
     baseUrl: input.baseUrl,
     locale: input.locale,
   };

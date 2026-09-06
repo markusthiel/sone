@@ -15,7 +15,13 @@ import type { Pool } from 'pg';
 import type { Router } from '../http/router.js';
 import { roleIn } from './claims.js';
 import { queryOne, queryRows } from '../db/pool.js';
+import {
+  addressLocale,
+  recipientLocale,
+  type SupportedLocale,
+} from '../i18n/locale.js';
 import type { Letter } from '../mail/letter.js';
+import { words, type AddressForm, type Say } from '../mail/words.js';
 import { requireSession } from '../http/auth.js';
 import { holdsRight } from './rights.js';
 import { AuthError } from './password.js';
@@ -40,6 +46,47 @@ export interface InvitationDeps {
    * SONE runs — the same shape `main.ts` passes everywhere else it is needed.
    */
   instanceName?: () => Promise<string>;
+  /**
+   * How this instance addresses people — „du" or „Sie" (ADR-0133).
+   *
+   * A function for the same reason `instanceName` is one: it is a setting, and
+   * a letter built from a value read at startup would keep the old address
+   * until the process restarted.
+   */
+  addressForm?: () => Promise<AddressForm>;
+}
+
+/**
+ * A letter's language and the voice that writes it (ADR-0133).
+ *
+ * Carried together because they always travel together: the `Letter` needs the
+ * locale for its `lang` attribute, and every sentence in it needs the bound
+ * catalogue. Passing only the `say` would leave the structure's own locale to
+ * be worked out a second time, which is where the two would drift apart.
+ */
+interface Voice {
+  say: Say;
+  locale: SupportedLocale;
+}
+
+/** For somebody with an account: their language, then the workspace's. */
+async function voiceFor(
+  deps: InvitationDeps,
+  userId: string,
+  workspaceId?: string | null,
+): Promise<Voice> {
+  const locale = await recipientLocale(deps.pool, userId, workspaceId);
+  return { locale, say: words(locale, (await deps.addressForm?.()) ?? 'informal') };
+}
+
+/** For a mailbox: an account with that address if there is one, then the place. */
+async function voiceForAddress(
+  deps: InvitationDeps,
+  email: string,
+  workspaceId?: string | null,
+): Promise<Voice> {
+  const locale = await addressLocale(deps.pool, email, workspaceId);
+  return { locale, say: words(locale, (await deps.addressForm?.()) ?? 'informal') };
 }
 
 /**
@@ -145,17 +192,20 @@ async function chooseRole(
 }
 
 /**
- * The two letters this module sends (ADR-0121).
+ * The four letters this module sends (ADR-0121, ADR-0128).
  *
- * English only, and that is a gap rather than a decision: a notification mail
- * is written in the *reader's* language because the reader has an account with
- * a language on it (ADR-0041). Neither of these has one — an invitation goes to
- * somebody who has no account yet, and an access mail goes out before anybody
- * has asked the account which language it prefers. Named here so the next
- * person does not have to work out whether it was on purpose.
+ * They were English only, under a note saying that was a gap rather than a
+ * decision, because *„neither of these has an account with a language on it"*.
+ * **Half of that was wrong** (ADR-0133): three of the four go to somebody this
+ * instance already has a row for — `tellAbout` is handed their user id — so
+ * their language was one column away the whole time. Only the invitation goes
+ * to a mailbox with no account behind it, and even there an address is not the
+ * same thing as no account: a colleague being invited to a second workspace has
+ * one, and `addressLocale` asks.
  */
 function invitationLetter(
   deps: InvitationDeps,
+  voice: Voice,
   where: string,
   token: string,
   expiresAt: Date,
@@ -163,47 +213,40 @@ function invitationLetter(
   const base = deps.baseUrl ?? '';
   const days = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / 86_400_000));
   return {
-    subject: `${where}: you have been invited`,
-    heading: `You have been invited to ${where}.`,
-    lines: [
-      {
-        text:
-          'Follow the link to make an account. Nothing has been created for you yet — ' +
-          'the account exists once you have set a password.',
-      },
-      // Said, because a link that stops working without warning produces a
-      // question to somebody who cannot see the problem.
-      { text: `The link works for ${days} day(s).` },
-    ],
-    action: { label: 'Set up your account', url: `${base}/signup?token=${token}` },
-    footer: ['If you were not expecting this, you can ignore it. Nothing happens until you sign up.'],
+    subject: voice.say('invitation.subject', { where }),
+    heading: voice.say('invitation.heading', { where }),
+    lines: [{ text: voice.say('invitation.body') }, { text: voice.say('invitation.expires', { days }) }],
+    action: { label: voice.say('invitation.action'), url: `${base}/signup?token=${token}` },
+    footer: [voice.say('invitation.footer')],
     baseUrl: base,
-    locale: 'en',
+    locale: voice.locale,
   };
 }
 
 function accessLetter(
   deps: InvitationDeps,
+  voice: Voice,
   where: string,
   about: { workspace: string; by: string | null; role: string },
 ): Letter {
   const base = deps.baseUrl ?? '';
   return {
-    subject: `${where}: you have access to ${about.workspace}`,
-    heading: `You can now work in ${about.workspace}.`,
+    subject: voice.say('access.subject', { where, workspace: about.workspace }),
+    heading: voice.say('access.heading', { workspace: about.workspace }),
     lines: [
       {
+        // Two sentences, not one with a name in front of it: a language that
+        // cannot put a subject before its passive needs the whole sentence to
+        // change, which is why there are two keys rather than a prefix.
         text: about.by
-          ? `${about.by} gave you access, as ${about.role}.`
-          : `You were given access, as ${about.role}.`,
+          ? voice.say('access.by', { by: about.by, role: about.role })
+          : voice.say('access.anon', { role: about.role }),
       },
-      // No token and no link to accept: there is nothing to do, which is the
-      // whole reason this is an announcement rather than an invitation.
-      { text: 'There is nothing to accept — it is already yours to open.' },
+      { text: voice.say('access.nothing') },
     ],
-    action: { label: 'Open it', url: base },
+    action: { label: voice.say('access.action'), url: base },
     baseUrl: base,
-    locale: 'en',
+    locale: voice.locale,
   };
 }
 
@@ -222,54 +265,42 @@ function accessLetter(
  */
 function removalLetter(
   deps: InvitationDeps,
+  voice: Voice,
   where: string,
   about: { workspace: string; by: string | null },
 ): Letter {
   const base = deps.baseUrl ?? '';
   return {
-    subject: `${where}: your access to ${about.workspace} has ended`,
-    heading: `You no longer have access to ${about.workspace}.`,
+    subject: voice.say('removal.subject', { where, workspace: about.workspace }),
+    heading: voice.say('removal.heading', { workspace: about.workspace }),
     lines: [
-      {
-        text: about.by
-          ? `${about.by} removed your access.`
-          : 'Your access was removed.',
-      },
-      {
-        text:
-          'Anything shared with you inside it has gone with it. If this is ' +
-          'unexpected, ask whoever runs that workspace.',
-      },
+      { text: about.by ? voice.say('removal.by', { by: about.by }) : voice.say('removal.anon') },
+      { text: voice.say('removal.gone') },
     ],
     // No action, deliberately: there is nothing left for them to open, and a
     // button here would lead to the 404 this letter exists to explain.
     baseUrl: base,
-    locale: 'en',
+    locale: voice.locale,
   };
 }
 
 function roleChangeLetter(
   deps: InvitationDeps,
+  voice: Voice,
   where: string,
   about: { workspace: string; by: string | null; role: string },
 ): Letter {
   const base = deps.baseUrl ?? '';
   return {
-    subject: `${where}: your role in ${about.workspace} has changed`,
-    heading: `You are now ${about.role} in ${about.workspace}.`,
+    subject: voice.say('role.subject', { where, workspace: about.workspace }),
+    heading: voice.say('role.heading', { role: about.role, workspace: about.workspace }),
     lines: [
-      {
-        text: about.by
-          ? `${about.by} changed your role.`
-          : 'Your role was changed.',
-      },
-      // A role decides what somebody may do, and the honest thing to say is
-      // that it may now be less rather than leaving them to find out.
-      { text: 'What you can do there may have changed with it.' },
+      { text: about.by ? voice.say('role.by', { by: about.by }) : voice.say('role.anon') },
+      { text: voice.say('role.mayDiffer') },
     ],
-    action: { label: 'Open it', url: base },
+    action: { label: voice.say('role.action'), url: base },
     baseUrl: base,
-    locale: 'en',
+    locale: voice.locale,
   };
 }
 
@@ -290,7 +321,8 @@ async function tellAbout(
   deps: InvitationDeps,
   actorId: string,
   targetId: string,
-  build: (where: string, to: { display_name: string }) => Letter,
+  workspaceId: string | null,
+  build: (voice: Voice, where: string, to: { display_name: string }) => Letter,
 ): Promise<void> {
   if (!deps.sendLetter || actorId === targetId) return;
 
@@ -307,10 +339,20 @@ async function tellAbout(
     [actorId],
   );
 
+  /*
+   * **The target's language, never the actor's** (ADR-0133).
+   *
+   * The line `recipientLocale` was written for: a German administrator taking
+   * away a French colleague's access sends a French letter. Getting this the
+   * other way round would be a mail that is easier for the person who does not
+   * have to read it.
+   */
+  const voice = await voiceFor(deps, targetId, workspaceId);
+
   await deps
     .sendLetter(
       target.email,
-      build(deps.instanceName ? await deps.instanceName() : 'SONE', {
+      build(voice, deps.instanceName ? await deps.instanceName() : 'SONE', {
         display_name: actor?.display_name ?? '',
       }),
     )
@@ -596,11 +638,16 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       await deps
         .sendLetter(
           email,
-          accessLetter(deps, deps.instanceName ? await deps.instanceName() : 'SONE', {
-            workspace: where?.name ?? '',
-            by: inviter?.display_name ?? null,
-            role: chosen.name,
-          }),
+          accessLetter(
+            deps,
+            await voiceFor(deps, account.id, workspaceId),
+            deps.instanceName ? await deps.instanceName() : 'SONE',
+            {
+              workspace: where?.name ?? '',
+              by: inviter?.display_name ?? null,
+              role: chosen.name,
+            },
+          ),
         )
         // Swallowed: they have the access whether or not their mailbox took a
         // message about it, and failing the request would be undoing a grant
@@ -697,6 +744,17 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
               to,
               invitationLetter(
                 deps,
+                /*
+                 * Nobody has an account yet, usually — but "usually" is not
+                 * "never": a colleague being invited has one, with a language
+                 * on it (ADR-0133).
+                 *
+                 * And no workspace to fall back to, because this route is the
+                 * invitation to the *instance* — so somebody genuinely unknown
+                 * gets English, which is the honest end of the order rather
+                 * than a gap.
+                 */
+                await voiceForAddress(deps, to, null),
                 deps.instanceName ? await deps.instanceName() : 'SONE',
                 invitation.token,
                 invitation.expiresAt,
@@ -820,8 +878,8 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
         `SELECT name FROM workspaces WHERE id = $1`,
         [workspaceId],
       );
-      await tellAbout(deps, user.userId, target, (instance, actor) =>
-        roleChangeLetter(deps, instance, {
+      await tellAbout(deps, user.userId, target, workspaceId, (voice, instance, actor) =>
+        roleChangeLetter(deps, voice, instance, {
           workspace: where?.name ?? '',
           by: actor.display_name || null,
           role: chosen.name,
@@ -907,8 +965,8 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       `SELECT name FROM workspaces WHERE id = $1`,
       [workspaceId],
     );
-    await tellAbout(deps, user.userId, target, (instance, actor) =>
-      removalLetter(deps, instance, {
+    await tellAbout(deps, user.userId, target, workspaceId, (voice, instance, actor) =>
+      removalLetter(deps, voice, instance, {
         workspace: where?.name ?? '',
         by: actor.display_name || null,
       }),

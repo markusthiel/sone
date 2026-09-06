@@ -235,7 +235,10 @@ describe(
       assert.ok(composed);
       assert.doesNotMatch(renderText(composed), /Gehaltsrunde/);
       assert.match(renderText(composed), /Team/);
-      assert.match(renderText(composed), /1 page/);
+      // "one page changed", not "1 page(s) changed": the count is a plural in
+      // the catalogue now rather than a number with a bracket after it
+      // (ADR-0133), which is what let it be translated at all.
+      assert.match(renderText(composed), /one page changed/);
     });
 
     test('a page is one line however often it was edited', () => {

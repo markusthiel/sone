@@ -29,7 +29,9 @@ import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 
 import { queryOne } from '../db/pool.js';
+import { recipientLocale, type SupportedLocale } from '../i18n/locale.js';
 import type { Letter } from './letter.js';
+import { words, type AddressForm, type Say } from './words.js';
 
 export interface SignInMailDeps {
   pool: Pool;
@@ -38,6 +40,8 @@ export interface SignInMailDeps {
   /** Whether an instance sends a welcome at all. Off unless somebody chose it. */
   welcome?: () => Promise<boolean>;
   canSendMail?: () => Promise<boolean>;
+  /** How this instance addresses people (ADR-0133). */
+  addressForm?: () => Promise<AddressForm>;
   sendLetter?: (to: string, letter: Letter) => Promise<void>;
 }
 
@@ -94,12 +98,23 @@ export async function noteSignIn(
   if (!account?.email) return first ? 'first' : 'new';
 
   const instance = await deps.instanceName();
+  /*
+   * The reader's language, and it is theirs alone (ADR-0133).
+   *
+   * No workspace is passed: both of these are about the account rather than
+   * about a place, and somebody with no language set has no workspace here that
+   * is more theirs than another. `recipientLocale` then answers English, which
+   * is the honest end of its own order.
+   */
+  const locale = await recipientLocale(deps.pool, userId);
+  const say = words(locale, (await deps.addressForm?.()) ?? 'informal');
+
   await deps
     .sendLetter(
       account.email,
       first
-        ? welcomeLetter(deps, instance, account.display_name)
-        : newDeviceLetter(deps, instance, meta),
+        ? welcomeLetter(deps, say, locale, instance, account.display_name)
+        : newDeviceLetter(deps, say, locale, instance, meta),
     )
     .catch(() => undefined);
 
@@ -121,29 +136,33 @@ export async function noteSignIn(
  */
 function newDeviceLetter(
   deps: SignInMailDeps,
+  say: Say,
+  locale: SupportedLocale,
   instance: string,
   meta: { userAgent: string | null; ipPrefix: string | null },
 ): Letter {
   return {
-    subject: `${instance}: a new sign-in to your account`,
-    heading: 'Somebody signed in from a browser this account has not used.',
+    subject: say('device.subject', { where: instance }),
+    heading: say('device.heading'),
     lines: [
-      { text: `Just now, from ${meta.ipPrefix ?? 'an address this instance could not see'}.` },
-      ...(meta.userAgent ? [{ text: meta.userAgent.slice(0, 200), under: true }] : []),
       {
-        text:
-          'If that was you, there is nothing to do. If it was not, change your ' +
-          'password now and tell whoever runs this instance.',
+        text: meta.ipPrefix
+          ? say('device.where', { from: meta.ipPrefix })
+          : say('device.whereUnknown'),
       },
+      // The user agent as it was received. Not a sentence and not translated:
+      // it is a string somebody else's browser sent, and rendering it into
+      // German would be inventing a fact about it.
+      ...(meta.userAgent ? [{ text: meta.userAgent.slice(0, 200), under: true }] : []),
+      { text: say('device.otherwise') },
     ],
-    action: { label: 'Open your settings', url: `${deps.baseUrl.replace(/\/$/, '')}/settings` },
-    footer: [
-      // Said plainly, because the alternative is somebody trusting it to be
-      // more than it is.
-      'This is sent once per browser. A browser is not proof of who was using it.',
-    ],
+    action: {
+      label: say('device.action'),
+      url: `${deps.baseUrl.replace(/\/$/, '')}/settings`,
+    },
+    footer: [say('device.footer')],
     baseUrl: deps.baseUrl,
-    locale: 'en',
+    locale,
   };
 }
 
@@ -155,20 +174,22 @@ function newDeviceLetter(
  * and tells them in person, it is a message about something they were just
  * told. The operator who wants it is the one who switches it on.
  */
-function welcomeLetter(deps: SignInMailDeps, instance: string, name: string): Letter {
+function welcomeLetter(
+  deps: SignInMailDeps,
+  say: Say,
+  locale: SupportedLocale,
+  instance: string,
+  name: string,
+): Letter {
   return {
-    subject: `${instance}: welcome`,
-    heading: name ? `Welcome, ${name}.` : 'Welcome.',
+    subject: say('welcome.subject', { where: instance }),
+    heading: name ? say('welcome.headingNamed', { name }) : say('welcome.heading'),
     lines: [
-      { text: `Your account on ${instance} is ready and you are signed in.` },
-      {
-        text:
-          'Notes live in workspaces, and you will see the ones you have been ' +
-          'given. Everything you write stays on this server.',
-      },
+      { text: say('welcome.ready', { where: instance }) },
+      { text: say('welcome.workspaces') },
     ],
-    action: { label: 'Open SONE', url: deps.baseUrl },
+    action: { label: say('welcome.action'), url: deps.baseUrl },
     baseUrl: deps.baseUrl,
-    locale: 'en',
+    locale,
   };
 }
