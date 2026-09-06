@@ -79,8 +79,44 @@ test('what is drawn is the instance’s design with the workspace’s over it', 
    * *workspace* set. A form displaying the instance's accent as its own is a
    * form where clearing a setting appears to change nothing.
    */
-  assert.match(hook, /themeProperties\(mergeThemes\(base, theme\)\)/);
+  assert.match(hook, /useMemo\(\(\) => mergeThemes\(base, theme\)/);
+  assert.match(hook, /themeProperties\(merged\)/);
   assert.match(hook, /base: WorkspaceTheme = \{\}/, 'an instance with none is no instance');
+});
+
+// --- light and dark (ADR-0124) -----------------------------------------------
+
+const app = codeOf(new URL('../src/App.tsx', import.meta.url));
+const appearance = codeOf(new URL('../src/hooks/useAppearance.ts', import.meta.url));
+
+test('there is exactly one writer of the scheme', () => {
+  /*
+   * The decision the whole record turns on. Both the theme and the scheme are
+   * resolved once, above every branch of the router — applying the instance's
+   * answer at the top and refining it inside the workspace would be two
+   * writers of one attribute, which is a screen that changes colour a moment
+   * after it appears.
+   *
+   * It also fixes something that was quietly wrong before: `useAppearance` was
+   * called *only* by the appearance settings screen, so a signed-out sign-in
+   * screen never carried an instance's colours at all.
+   */
+  assert.equal(app.match(/useAppearance\(/g)?.length, 1, 'one caller');
+  assert.match(app, /useAppearance\(\s*resolveScheme\(/);
+  // And nothing else sets the attribute the scheme is expressed as.
+  assert.equal(appearance.match(/dataset\['theme'\]/g)?.length, 1);
+});
+
+test('the browser remembers the answer, and does not decide it', () => {
+  /*
+   * The first paint happens before the session has loaded, so something has to
+   * be painted from memory — but what is stored is a copy of what was resolved
+   * last time, never a preference. It is read only when there is no resolved
+   * answer yet, and overwritten as soon as there is.
+   */
+  assert.match(appearance, /scheme\?: ColorScheme/, 'the answer arrives from outside');
+  assert.match(appearance, /if \(!scheme\) return;/, 'and nothing is guessed before it does');
+  assert.doesNotMatch(appearance, /setTheme/, 'no way to choose one here any more');
 });
 
 // --- treating one piece of furniture (ADR-0122) ------------------------------

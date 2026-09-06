@@ -177,6 +177,7 @@ export const de: Record<keyof typeof en, string> = {
   'error.a_row_cannot_hold_a_collection': 'Eine Zeile kann keine eigene Kollektion halten.',
   'error.invalid_tag': 'Dieses Schlagwort ist nicht verwendbar.',
   'error.invalid_width': 'Diese Seitenbreite ist keine der zwei.',
+  'error.invalid_color_scheme': 'Hell oder dunkel — etwas anderes gibt es nicht.',
   'error.invalid_landing':
     'So kann eine Startseite nicht festgelegt werden (ADR-0119).',
   'error.invalid_cover':
@@ -651,13 +652,16 @@ export const de: Record<keyof typeof en, string> = {
     'formal {Sie sich anmelden} other {du dich anmeldest}}.',
   'you.language.system': 'Wie der Browser',
   'you.appearance.note':
-    'In diesem Browser gespeichert. Eine Schriftgröße, die auf einem Telefon passt, ' +
-    'ist auf einem großen Bildschirm falsch — deshalb folgen diese nicht dem Konto ' +
-    'von Gerät zu Gerät.',
+    'Hell oder dunkel gehört zum Konto und gilt überall, wo {address, select, ' +
+    'formal {Sie sich anmelden} other {du dich anmeldest}}. Die beiden ' +
+    'Schriftgrößen bleiben in diesem Browser: eine Größe, die auf einem Telefon ' +
+    'passt, ist auf einem großen Bildschirm falsch.',
   'you.theme': 'Erscheinungsbild',
   'you.theme.hint':
-    'Dem System zu folgen ist die Vorgabe. Eines wählen überschreibt das — wer draußen ' +
-    'in der Sonne sitzt, will hell, was das Gerät auch denkt.',
+    'Ohne eigene Wahl gilt, was der Workspace sagt. „Wie das System" ist selbst ' +
+    'eine Wahl und überschreibt ihn — wer draußen in der Sonne sitzt, will hell, ' +
+    'was der Workspace auch meint.',
+  'you.theme.workspace': 'Wie der Workspace',
   'you.theme.system': 'Wie das System',
   'you.theme.light': 'Hell',
   'you.theme.dark': 'Dunkel',
@@ -1030,6 +1034,11 @@ export const de: Record<keyof typeof en, string> = {
   'type.treatment.sunken': 'Vertieft',
   'type.treatment.inverted': 'Umgekehrt',
   'type.treatment.accent': 'Akzentfarbe',
+  'type.scheme': 'Hell oder dunkel',
+  'type.scheme.inherit': 'Wie die Instanz',
+  'type.scheme.light': 'Hell',
+  'type.scheme.dark': 'Dunkel',
+  'type.scheme.system': 'Wie das Gerät',
   'type.corners': 'Ecken',
   'type.corners.note':
     'Drei Stufen statt einer Zahl: alle drei Radien bewegen sich zusammen, ' +

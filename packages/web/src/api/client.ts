@@ -155,6 +155,14 @@ export interface SessionInfo {
     activityDigest?: 'off' | 'daily' | 'weekly';
     locale: string | null;
     timezone: string | null;
+    /**
+     * Light or dark, as this person answered it (ADR-0124).
+     *
+     * Null is a state and not a missing value: "as the workspace says", which
+     * is a different answer from `system` — that one is the choice to let the
+     * device decide, and it overrides a workspace.
+     */
+    colorScheme: 'light' | 'dark' | 'system' | null;
     isInstanceAdmin: boolean;
     /** May administer every workspace. Implied by isInstanceAdmin (ADR-0027). */
     canManageWorkspaces: boolean;
@@ -1991,6 +1999,14 @@ export const api = {
     mentionsWhen?: 'immediately' | 'daily' | 'off';
     assignmentsWhen?: 'immediately' | 'daily' | 'off';
     repliesWhen?: 'immediately' | 'daily' | 'off';
+    /**
+     * Light or dark, or null to follow the workspace (ADR-0124).
+     *
+     * Three states on the wire, and `JSON.stringify` is what makes that work:
+     * an absent key is left out of the body entirely and an explicit null is
+     * sent. The route distinguishes them.
+     */
+    colorScheme?: 'light' | 'dark' | 'system' | null;
   }) => request<void>('/api/auth/profile', { method: 'PATCH', body: JSON.stringify(input) }),
 };
 
