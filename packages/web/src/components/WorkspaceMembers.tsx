@@ -32,13 +32,22 @@ import { messageFor } from './Auth.tsx';
 import { PendingInvitations } from './PendingInvitations.tsx';
 
 /**
- * The roles somebody can be let in as.
+ * The roles somebody can be let in as, when the list could not be fetched.
  *
- * No owner. A second owner is a decision about who can delete the workspace,
- * and it is one to take deliberately in the table below rather than in the same
- * breath as "add this person".
+ * A fallback, not the offer (ADR-0103). This used to be the whole picker — a
+ * hardcoded three, ten lines above a table that lists every role this workspace
+ * has, by id, because "a role somebody defined is no less a role" (ADR-0087).
+ * So letting a colleague in as "Redaktion" meant adding them as a **member**
+ * first, which is `editor` on every page here, and moving them afterwards.
+ *
+ * Kept for the case where reading the roles genuinely failed: three words that
+ * certainly exist beat an empty picker on a form whose job is to add somebody.
+ *
+ * No owner, either way. A second owner is a decision about who can delete the
+ * workspace, and it is one to take deliberately in the table below rather than
+ * in the same breath as "add this person" (ADR-0073).
  */
-const ADDABLE: Array<{ id: string; label: MessageKey }> = [
+const FALLBACK: Array<{ id: string; label: MessageKey }> = [
   { id: 'member', label: 'role.member' },
   { id: 'admin', label: 'role.admin' },
   { id: 'guest', label: 'role.guest' },
@@ -72,16 +81,28 @@ export function WorkspaceMembers({
 
   useEffect(() => {
     /*
-     * The roles this workspace has, for the picker in the table.
+     * The roles this workspace has, for both pickers.
      *
-     * Failing quietly to an empty list: reading them needs `roles.manage`, and
-     * somebody may look after people without defining what roles mean. The
-     * picker then has nothing to offer, which is correct — and better than an
-     * error about a right they were not reaching for.
+     * **Either right reaches this list** — `roles.manage` or `people.manage`
+     * (ADR-0087), which is one route rather than two precisely so that whoever
+     * may give somebody a role can see the roles. This comment used to say the
+     * listing needed `roles.manage`, and that belief is why the form above the
+     * table offered a hardcoded three words for as long as it did.
+     *
+     * Failing quietly to an empty list all the same: a fetch can fail for
+     * ordinary reasons, and the form then falls back to the three system words
+     * rather than to an empty picker.
      */
     void api
       .roles(workspaceId)
-      .then((result) => setRoles(result.roles))
+      .then((result) => {
+        setRoles(result.roles);
+        // Default to `member`, which is what the word-shaped default meant.
+        // Set here rather than in `useState`, because the id is not known until
+        // the list arrives.
+        const fallbackMember = result.roles.find((one) => one.key === 'member');
+        if (fallbackMember) setRole(fallbackMember.id);
+      })
       .catch(() => setRoles([]));
   }, [workspaceId]);
 
@@ -99,6 +120,20 @@ export function WorkspaceMembers({
       .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'));
   };
 
+  /*
+   * What the form may offer: every role this workspace has, minus owner.
+   *
+   * The same list the table's picker draws from, because it is the same
+   * question — and a form that offers less than the control beside it is a form
+   * that makes people do the thing in two steps (ADR-0103).
+   */
+  const offered = roles.filter((one) => one.key !== 'owner');
+  const usingIds = offered.length > 0;
+  /** The system word for whatever is selected, or null for a custom role. */
+  const selectedKey = usingIds
+    ? (offered.find((one) => one.id === role)?.key ?? null)
+    : role;
+
   const add = (): void => {
     const address = email.trim();
     if (address === '') return;
@@ -106,7 +141,9 @@ export function WorkspaceMembers({
     setError(null);
     setAdded(null);
     void api
-      .addMember(workspaceId, { email: address, role })
+      // By id when the roles are known, and by word when they are not: a custom
+      // role has no word, and the three fallback words have no id here.
+      .addMember(workspaceId, usingIds ? { email: address, roleId: role } : { email: address, role })
       .then(() => {
         setEmail('');
         setAdded(address);
@@ -156,18 +193,32 @@ export function WorkspaceMembers({
             <label className="settings-row">
               <span className="settings-row-label">
                 <b>{t('access.as')}</b>
-                <span>{t(`role.${role}.hint` as MessageKey)}</span>
+                {/* The hint belongs to the four words, which are the only roles
+                    whose meaning is fixed enough to describe in advance. A role
+                    this workspace made says what it does on the roles screen,
+                    and inventing a sentence for it here would be a second
+                    description to keep in step. */}
+                <span>{selectedKey ? t(`role.${selectedKey}.hint` as MessageKey) : ''}</span>
               </span>
               <select
                 value={role}
                 aria-label={t('access.as')}
                 onChange={(event) => setRole(event.target.value)}
               >
-                {ADDABLE.map((one) => (
-                  <option key={one.id} value={one.id}>
-                    {t(one.label)}
-                  </option>
-                ))}
+                {usingIds
+                  ? offered.map((one) => (
+                      <option key={one.id} value={one.id}>
+                        {/* A system role is translated; a custom one is called
+                            what somebody called it (ADR-0087). The same rule as
+                            the picker in the table below. */}
+                        {one.key ? t(`role.${one.key}` as MessageKey) : one.name}
+                      </option>
+                    ))
+                  : FALLBACK.map((one) => (
+                      <option key={one.id} value={one.id}>
+                        {t(one.label)}
+                      </option>
+                    ))}
               </select>
             </label>
           </div>
