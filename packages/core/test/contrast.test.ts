@@ -12,8 +12,17 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { AA, contrastRatio, luminance, mixSrgb, parseHex, toHex } from '../src/doc/contrast.js';
-import { readableOn, sanitiseTheme, themeProperties } from '../src/doc/theme.js';
+import {
+  AA,
+  WORST_GROUND,
+  contrastRatio,
+  luminance,
+  mixSrgb,
+  parseHex,
+  readableInk,
+  toHex,
+} from '../src/doc/contrast.js';
+import { PALETTE_DEFAULTS, readableOn, sanitiseTheme, themeProperties } from '../src/doc/theme.js';
 
 describe('the arithmetic', () => {
   test('the two ends of the scale', () => {
@@ -123,5 +132,121 @@ describe('what readableOn guarantees', () => {
     assert.equal(properties['--accent'], '#ffff00');
     assert.equal(properties['--accent-contrast'], readableOn('#ffff00'));
     assert.ok(contrastRatio('#ffff00', properties['--accent-contrast']!) >= AA.text);
+  });
+});
+
+describe('the accent read as text (ADR-0136)', () => {
+  test('a colour that already reads is returned untouched', () => {
+    // The ordinary case: a brand colour somebody chose to be visible usually
+    // is. Moving it anyway would be changing a workspace's colour for no reason
+    // and then having to explain why the link is not quite the brand.
+    const readable = '#275f56';
+    assert.equal(readableInk(readable, WORST_GROUND.light), readable);
+    assert.ok(contrastRatio(readable, WORST_GROUND.light) >= AA.text);
+  });
+
+  test('and one that does not is moved only as far as it must be', () => {
+    /*
+     * Not to black, and not by a fixed amount. A fixed darkening is the thing
+     * that looks like it works: it is too little for yellow and far too much
+     * for a colour that was nearly there, and either way it is a number nobody
+     * can defend.
+     */
+    const moved = readableInk('#ffff00', WORST_GROUND.light);
+    assert.ok(contrastRatio(moved, WORST_GROUND.light) >= AA.text);
+    assert.notEqual(moved, '#000000', 'not all the way');
+    // One step back towards the original stops clearing it, which is what
+    // "only as far as it must be" means.
+    const parsed = parseHex(moved);
+    const lighter = toHex({ r: parsed.r + 4, g: parsed.g + 4, b: parsed.b + 4 });
+    assert.ok(contrastRatio(lighter, WORST_GROUND.light) < AA.text);
+  });
+
+  test('the direction belongs to the ground, not to the colour', () => {
+    // The same accent goes down for a light reader and up for a dark one, from
+    // one stored value — which is the whole reason there are two derivations
+    // rather than one (ADR-0122's argument about `inverted`, on the accent).
+    const chosen = '#2f7d6f';
+    assert.ok(luminance(readableInk(chosen, WORST_GROUND.light)) < luminance(chosen));
+    assert.ok(luminance(readableInk(chosen, WORST_GROUND.dark)) > luminance(chosen));
+  });
+
+  test('every colour in the cube reaches AA on both grounds', () => {
+    let worst = { ratio: Number.POSITIVE_INFINITY, color: '', scheme: '' };
+    for (let r = 0; r < 256; r += 17) {
+      for (let g = 0; g < 256; g += 17) {
+        for (let b = 0; b < 256; b += 17) {
+          const color = toHex({ r, g, b });
+          for (const [scheme, ground] of Object.entries(WORST_GROUND)) {
+            const found = contrastRatio(readableInk(color, ground), ground);
+            if (found < worst.ratio) worst = { ratio: found, color, scheme };
+          }
+        }
+      }
+    }
+    assert.ok(
+      worst.ratio >= AA.text,
+      `${worst.color} on the ${worst.scheme} ground is ${worst.ratio.toFixed(3)}:1`,
+    );
+  });
+
+  test('the rounding happens inside the search, not after it', () => {
+    /*
+     * **The bug this found.** The channels are floats and the answer is eight
+     * bits, so a search on the floats finds the exact crossing and `toHex`
+     * rounds back across it: `#2f7d6f` came out at 4.47:1, under the floor the
+     * search had just cleared. Three of eight sample colours landed under.
+     *
+     * Asserted as a property of the returned value rather than of the loop,
+     * because that is the thing that was wrong.
+     */
+    for (const color of ['#2f7d6f', '#ffff00', '#ff0000', '#0000ff', '#16a34a']) {
+      for (const ground of Object.values(WORST_GROUND)) {
+        const ink = readableInk(color, ground);
+        assert.match(ink, /^#[0-9a-f]{6}$/, `${ink} is a colour a stylesheet can hold`);
+        assert.ok(contrastRatio(ink, ground) >= AA.text, `${color} → ${ink}`);
+      }
+    }
+  });
+
+  test('a theme emits one accent and two ways to read it', () => {
+    const properties = themeProperties(sanitiseTheme({ accent: '#ffff00' }));
+    assert.equal(properties['--accent'], '#ffff00', 'the fill is what was chosen');
+    assert.equal(properties['--sone-theme-accent-on-light'], readableInk('#ffff00', WORST_GROUND.light));
+    assert.equal(properties['--sone-theme-accent-on-dark'], readableInk('#ffff00', WORST_GROUND.dark));
+  });
+
+  test('a name is resolved to a colour before anything is measured', () => {
+    /*
+     * **The bug this found.** `readableOn` was handed
+     * `var(--sone-palette-yellow)`, whose luminance is `NaN`, whose comparison
+     * against the threshold is false — so *every* accent stored as a name got
+     * white text on it. On yellow that is 3.0:1, and nothing said so, because a
+     * wrong answer and no answer looked the same.
+     */
+    for (const name of ['yellow', 'blue', 'purple'] as const) {
+      const properties = themeProperties(sanitiseTheme({ accent: name }));
+      assert.equal(properties['--accent'], `var(--sone-palette-${name})`, 'still a name in CSS');
+      const hex = PALETTE_DEFAULTS[name];
+      assert.equal(properties['--accent-contrast'], readableOn(hex));
+      assert.ok(contrastRatio(hex, properties['--accent-contrast']!) >= AA.text, name);
+      assert.equal(properties['--sone-theme-accent-on-light'], readableInk(hex, WORST_GROUND.light));
+    }
+    // Yellow is the one that was wrong, so it is named.
+    assert.equal(
+      themeProperties(sanitiseTheme({ accent: 'yellow' }))['--accent-contrast'],
+      '#000000',
+      'dark text on a pale accent, which is what it never was',
+    );
+  });
+
+  test('and a workspace that redefined the name means its own colour', () => {
+    // `blue` is whatever this workspace says blue is, so that is what has to be
+    // measured — otherwise the contrast is computed for a colour nobody will see.
+    const properties = themeProperties(
+      sanitiseTheme({ accent: 'blue', palette: { blue: '#f0e68c' } }),
+    );
+    assert.equal(properties['--accent-contrast'], readableOn('#f0e68c'));
+    assert.equal(properties['--sone-theme-accent-on-dark'], readableInk('#f0e68c', WORST_GROUND.dark));
   });
 });

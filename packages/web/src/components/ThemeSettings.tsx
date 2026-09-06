@@ -18,6 +18,7 @@ import {
   COLOR_SCHEMES,
   CORNERS,
   FONT_PAIRS,
+  PALETTE_DEFAULTS,
   SIZE_STEPS,
   SPACE_STEPS,
   SURFACE_TREATMENTS,
@@ -40,23 +41,17 @@ import { ApiError, api } from '../api/client.ts';
 import { useMessage } from './Auth.tsx';
 
 /**
- * What the stylesheet makes of each name, shown when a workspace has not
- * chosen. A colour input needs *a* value, and showing black for every unset
- * name would suggest the palette is black.
+ * What the design makes of each name, shown when a workspace has not chosen. A
+ * colour input needs *a* value, and showing black for every unset name would
+ * suggest the palette is black.
  *
- * Kept in step with the stylesheet by a test, because two lists of the same
- * eight colours will otherwise drift.
+ * From `@sone/core` rather than typed here (ADR-0136): the server has to
+ * measure these now — an accent stored as a name still needs a contrast colour
+ * computed — so the list moved to where the measuring happens, and this is the
+ * same list rather than a second one. The stylesheet's own values are still
+ * compared against it by a test, because those two genuinely are two.
  */
-const DEFAULT_PALETTE: Record<string, string> = {
-  grey: '#8a8a8a',
-  red: '#d64545',
-  orange: '#d97706',
-  yellow: '#ca8a04',
-  green: '#16a34a',
-  blue: '#2563eb',
-  purple: '#7c3aed',
-  pink: '#db2777',
-};
+const DEFAULT_PALETTE: Record<string, string> = PALETTE_DEFAULTS;
 
 /** What each element is called, in words somebody writing would use. */
 const LABELS: Record<ThemedElement, string> = {

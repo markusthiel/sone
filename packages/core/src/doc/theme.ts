@@ -20,7 +20,7 @@
  * every workspace rendered before themes existed.
  */
 
-import { luminance } from './contrast.js';
+import { luminance, readableInk, WORST_GROUND } from './contrast.js';
 
 /** The kinds of element a theme can speak about. */
 export const THEMED_ELEMENTS = [
@@ -84,6 +84,30 @@ export const isPaletteName = (value: unknown): value is ThemeColor =>
   inList(THEME_COLORS, value);
 
 /** A colour of one's own. Six digits only: shorthand and alpha are not offered. */
+/**
+ * What the design makes of each of the eight names (ADR-0136).
+ *
+ * Here rather than in the settings form, where it used to live, because
+ * something now has to *measure* these: an accent stored as a name still needs a
+ * contrast colour computed for it, and `var(--sone-palette-yellow)` has no
+ * luminance. The stylesheet declares them too — it has to, they are what the
+ * browser resolves — and `web`'s own test compares the two lists, which is the
+ * arrangement that was already there and is unchanged.
+ *
+ * Grey is the exception the stylesheet makes: it is defined from the ink ramp
+ * rather than as a literal, so the test that compares them skips it.
+ */
+export const PALETTE_DEFAULTS: Record<ThemeColor, `#${string}`> = {
+  grey: '#8a8a8a',
+  red: '#d64545',
+  orange: '#d97706',
+  yellow: '#ca8a04',
+  green: '#16a34a',
+  blue: '#2563eb',
+  purple: '#7c3aed',
+  pink: '#db2777',
+};
+
 export const isCustomColor = (value: unknown): value is `#${string}` =>
   typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 
@@ -571,7 +595,47 @@ export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
     // Computed, never chosen. A pale accent needs dark text on it and a deep one
     // needs light text, and a workspace that picked the wrong one would have a
     // button nobody can read.
-    properties['--accent-contrast'] = readableOn(accent);
+    /*
+     * The literal behind whatever was chosen.
+     *
+     * A name is a name in the browser and a colour here, and it has to be a
+     * colour here or nothing can be computed from it. **`readableOn` was being
+     * handed `var(--sone-palette-yellow)`**, whose luminance parses as `NaN`,
+     * whose comparison against the threshold is false — so every accent stored
+     * as a name got white text on it, including yellow, at 3.0:1 (ADR-0136).
+     * Silent, because a wrong answer and no answer looked the same.
+     *
+     * The workspace's own override first, because a workspace that redefined
+     * `blue` means its blue.
+     */
+    const literal = isCustomColor(theme.accent)
+      ? theme.accent
+      : isPaletteName(theme.accent)
+        ? (theme.palette?.[theme.accent] ?? PALETTE_DEFAULTS[theme.accent])
+        : undefined;
+
+    if (literal) properties['--accent-contrast'] = readableOn(literal);
+
+    /*
+     * And the accent as *text*, which is a different question (ADR-0136).
+     *
+     * `--accent-contrast` is what goes **on** the accent; this is the accent
+     * **as** a colour to read — a link, an active icon — on one of the page's
+     * own surfaces. One value cannot satisfy both except by luck, and the
+     * design already knows it: it gives itself `--accent-500` in light and
+     * `--accent-300` in dark, *because the one that works on white glows on
+     * black*. A workspace that set an accent got one value for both.
+     *
+     * Two derivations rather than one, because a stored value cannot know which
+     * scheme its reader is in — the same shape `inverted` has (ADR-0122). The
+     * stylesheet declares which of the two `--accent-text` means, once per
+     * scheme, and one stored accent then reads correctly for both.
+     *
+     */
+    if (literal) {
+      properties['--sone-theme-accent-on-light'] = readableInk(literal, WORST_GROUND.light);
+      properties['--sone-theme-accent-on-dark'] = readableInk(literal, WORST_GROUND.dark);
+    }
   }
 
   for (const [name, value] of Object.entries(theme.palette ?? {})) {
