@@ -142,6 +142,23 @@ describe('the html rendering', () => {
     assert.match(renderHtml(letter()), /max-width:\s*600px|width="600"/);
   });
 
+  test('carries a mark the message brought with it', () => {
+    /*
+     * The rule ADR-0121 set, kept while adding the picture it said would come
+     * one day: **no remote images**. A `cid:` names an attachment travelling in
+     * the same message, so nothing is fetched and nobody learns when the mail
+     * was opened.
+     *
+     * On a pale chip, because a client in dark mode darkens the paper and
+     * cannot recolour a picture — a dark-inked logo would vanish into it.
+     */
+    const html = renderHtml(letter({ logoCid: 'sone-mark', logoAlt: 'Haus Thiel' }));
+
+    assert.match(html, /<img src="cid:sone-mark"/);
+    assert.match(html, /alt="Haus Thiel"/, 'and says what it is when it cannot be shown');
+    assert.doesNotMatch(html, /src="https?:/, 'nothing is fetched');
+  });
+
   test('and says who it is from without fetching anything', () => {
     /*
      * No remote images — not a logo, not a spacer, not a tracking pixel. A
