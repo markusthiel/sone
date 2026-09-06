@@ -67,6 +67,22 @@ test('every theme property has a fallback in the stylesheet', () => {
   }
 });
 
+// --- an instance underneath the workspace (ADR-0123) -------------------------
+
+test('what is drawn is the instance’s design with the workspace’s over it', () => {
+  /*
+   * The merge is in `@sone/core` and tested there; what matters here is that
+   * this hook is what applies it — and that it merges rather than choosing.
+   *
+   * The other direction is the one that has to stay wrong: the settings form
+   * reads the workspace's theme from the same route and has to show what the
+   * *workspace* set. A form displaying the instance's accent as its own is a
+   * form where clearing a setting appears to change nothing.
+   */
+  assert.match(hook, /themeProperties\(mergeThemes\(base, theme\)\)/);
+  assert.match(hook, /base: WorkspaceTheme = \{\}/, 'an instance with none is no instance');
+});
+
 // --- treating one piece of furniture (ADR-0122) ------------------------------
 
 test('a treated surface redefines the names its own contents read', () => {

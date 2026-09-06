@@ -8095,6 +8095,38 @@ body {
   background: transparent;
 }
 
+/* The instance's own mark (ADR-0123).
+ *
+ * A square box with the picture fitted inside it: a logo is asked for square,
+ * and a near-square one is letterboxed rather than stretched — refusing a
+ * 1000x980 file would be refusing somebody's logo over twenty pixels. */
+.brand-logo {
+  object-fit: contain;
+  display: block;
+}
+
+.brand-logo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-6);
+  margin-block: var(--sone-space-5);
+}
+.brand-logo-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 56px;
+  block-size: 56px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius);
+  background: var(--surface-chrome);
+  color: var(--text-primary);
+}
+.brand-logo-actions { display: flex; gap: var(--sone-space-4); align-items: center; }
+/* The file input is the label; showing the browser's own control beside a
+   button that does the same thing is two controls for one choice. */
+.brand-logo-actions input[type='file'] { display: none; }
+
 /* One row per piece of furniture (ADR-0122). A grid rather than a flex wrap so
    the four selects line up under each other: read down the labels and the list
    is what the interface is made of. */

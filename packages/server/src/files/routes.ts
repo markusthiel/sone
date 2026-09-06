@@ -556,6 +556,129 @@ export function parseRange(
 export { readBinary, safeFilename };
 
 /**
+ * The instance's own mark (ADR-0123).
+ *
+ * Registered here for the reason the avatar is — it needs the file store — and
+ * apart from both the attachment routes and the avatar for a reason of its own:
+ * **it is the only file on this instance served to nobody in particular.**
+ *
+ * An attachment is authorised through its page and a face through a session.
+ * The logo is drawn on the sign-in screen, so requiring a session to see it
+ * would be requiring a session to see the sign-in screen. It leaks that the
+ * instance has a logo, which is visible from that screen regardless.
+ *
+ * No `files` row: a logo belongs to no workspace and no page, so it is a key on
+ * a setting, exactly as an avatar is a key on a person. That makes it the
+ * **fourth** place a storage key lives, and the orphan sweep has to know — the
+ * one that does not would collect the logo a week after it was uploaded
+ * (ADR-0109).
+ */
+export function registerBrandRoutes(
+  router: Router,
+  deps: FileDeps & { settings: BrandSettings },
+): void {
+  router.put('/api/admin/brand/logo', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+    if (!(await isInstanceAdmin(deps.pool, auth.userId))) {
+      // The same answer an unknown route gives, as everywhere else in
+      // administration: the difference would confirm the route exists.
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    // A quarter of the attachment limit, the bound a profile picture uses. A
+    // mark drawn at a few hundred pixels is tens of kilobytes.
+    const body = await readBinary(ctx.req, Math.floor(deps.maxUploadBytes / 4));
+    if (body === 'too_large') {
+      ctx.fail(413, 'file_too_large');
+      ctx.req.destroy();
+      return;
+    }
+    if (body.length === 0) {
+      ctx.fail(422, 'empty_file');
+      return;
+    }
+
+    // The bytes decide, as everywhere else here. A browser sends `image/png`
+    // for anything, and this file is served to everybody who reaches the
+    // sign-in screen — including people who are not signed in at all.
+    const detected = detectType(body);
+    if (!detected || !/^image\/(jpeg|png|webp)$/.test(detected.mime)) {
+      ctx.fail(415, 'unsupported_file_type');
+      return;
+    }
+
+    const stored = await deps.store.put(body, detected.extension);
+    // The previous one is left for the orphan sweep rather than deleted, the
+    // rule the avatar states: keys are content hashes, so deleting on replace
+    // could take bytes something else still names.
+    await deps.settings.set('brandLogo', { key: stored.key, mime: detected.mime }, auth.userId);
+
+    ctx.send(200, { ok: true });
+  });
+
+  router.delete('/api/admin/brand/logo', async (ctx) => {
+    const auth = await requireSession(deps.pool, ctx);
+    if (!auth) return;
+    if (!(await isInstanceAdmin(deps.pool, auth.userId))) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    // `null` deletes the row rather than storing null, so "no logo" has one
+    // representation — the settings store's own rule.
+    await deps.settings.set('brandLogo', null, auth.userId);
+    ctx.send(200, { ok: true });
+  });
+
+  /**
+   * The mark itself, to anybody who asks.
+   *
+   * The `?v=` the instance hands out is not read here: the key is in the
+   * setting, and the parameter exists so that a *new* logo is a new address.
+   * That is what makes the long cache safe — the bytes at a key never change,
+   * but this path does not name a key.
+   */
+  router.get('/api/instance/logo', async (ctx) => {
+    const logo = (await deps.settings.get('brandLogo')) as { key: string; mime: string } | null;
+    if (!logo) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    let bytes: Buffer;
+    try {
+      bytes = await deps.store.get(logo.key);
+    } catch {
+      // The setting names bytes that are gone — a restored database against a
+      // fresh storage directory, say. A missing mark is not an error worth a
+      // 500 on the sign-in screen; the interface draws its own.
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    ctx.res.writeHead(200, {
+      'content-type': logo.mime,
+      'content-length': String(bytes.length),
+      // Public, unlike an avatar: it is on a page nobody has signed in to, and
+      // a shared cache holding it is the correct outcome rather than a leak.
+      'cache-control': 'public, max-age=604800, immutable',
+      // Served from the application's own origin like every other uploaded
+      // file, so it carries the same refusal to be anything but an image.
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      'x-content-type-options': 'nosniff',
+    });
+    ctx.res.end(bytes);
+  });
+}
+
+/** Only the two things the brand routes do to settings. */
+export interface BrandSettings {
+  get(key: 'brandLogo'): Promise<unknown>;
+  set(key: 'brandLogo', value: unknown, actorId: string | null): Promise<void>;
+}
+
+/**
  * A profile picture.
  *
  * Registered here because it needs the file store, and kept apart from the

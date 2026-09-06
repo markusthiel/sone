@@ -5,11 +5,17 @@
  * named and left: purging a deleted workspace removes the `files` rows by
  * cascade and leaves every attachment on the disk, permanently.
  *
- * ## Three places hold a storage key, and missing one deletes live data
+ * ## Four places hold a storage key, and missing one deletes live data
  *
  *   `files.storage_key`      attachments
  *   `users.avatar_key`       profile pictures — **not in the files table**
  *   `jobs.result->>'key'`    a workspace export waiting to be downloaded
+ *   `instance_settings`      the instance's own logo (ADR-0123)
+ *
+ * The fourth was added after the other three, which is the shape this file
+ * warns about: a place added without this query knowing it is a file that
+ * disappears a week later, and the logo would disappear from the sign-in
+ * screen of an instance nobody had touched.
  *
  * The avatar is the one the application points at. `files/routes.ts`, on
  * replacing a picture: *"The previous one is left in storage for the orphan
@@ -89,7 +95,13 @@ export async function sweepOrphanFiles(
      -- An export archive, while the job that made it still exists. The
      -- maintenance job deletes these when they expire; until then they are
      -- somebody's download.
-     SELECT result->>'key' FROM jobs WHERE result ? 'key'`,
+     SELECT result->>'key' FROM jobs WHERE result ? 'key'
+      UNION
+     -- The instance's logo (ADR-0123). Not in the files table either, and it
+     -- belongs to no workspace and no page — a key on a setting, exactly as an
+     -- avatar is a key on a person.
+     SELECT value->>'key' FROM instance_settings
+      WHERE key = 'brandLogo' AND value ? 'key'`,
   );
   const live = new Set(rows.map((row) => row.key));
 
