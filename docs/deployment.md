@@ -386,10 +386,27 @@ what people take it to mean when they ask whether their notes are still here.
 That sentence was not true until 0.11.x. The purge removed the page entries and
 left every page's content in the database — invisible, unreachable and
 permanent, because the CRDT tables carry no foreign key to `pages` (ADR-0080).
-It removes both now. **Two things it still does not do**, said plainly rather
+It removes both now. **One thing it still does not do**, said plainly rather
 than implied: attachments on disk are never removed, because there is no orphan
-sweep; and content left behind by a purge that ran on an earlier version stays
-where it is — this release stops the leak, it does not clean up after it.
+sweep for files.
+
+Content left behind by a purge that ran on an *earlier* version can now be
+removed, and is not removed for you (ADR-0106). The maintenance job counts it —
+"N document(s) belong to no page" in the log and the `orphaned_documents`
+view — and a script does the removing:
+
+```sh
+# reports, and removes nothing
+docker compose exec app node packages/server/scripts/sweep-orphan-documents.mjs
+# once the list looks right
+docker compose exec app node packages/server/scripts/sweep-orphan-documents.mjs --apply
+```
+
+It reports by default because the query behind it is the one thing in this area
+worth being careful about: a document belonging to no page is *usually* content
+from a purge, and occasionally a document that arrived a moment before the page
+row it belongs to. Only writes older than a week are considered
+(`--older-than-hours`), and `--limit` keeps a first run small enough to read.
 
 `SONE_VERSION_RETENTION_DAYS` (how long page history is kept, 90 by default) is
 clamped to at least one day. It was not: `0` meant "delete every version of
