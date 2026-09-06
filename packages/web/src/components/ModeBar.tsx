@@ -9,9 +9,14 @@
  * ADR-0069 sketched it as "Seiten · Suchen · Posteingang · Du". That set is not
  * the rail's, and the difference is what makes it wrong: a phone would offer
  * fewer places than a desktop, with no way to reach the missing ones — the
- * workspaces and the trash would exist and be unreachable. Searching is not a
- * place you are; it stays the labelled row above the tree, where it is at both
- * widths.
+ * workspaces and the trash would exist and be unreachable.
+ *
+ * The sketch was also right about one thing this rejected at the time. Search
+ * *is* here now (ADR-0118) — not because a search is an action you take here,
+ * but because ADR-0050 gave it saved searches, and a list you return to by name
+ * is a place. The row above the tree is still the way in; it is a field now,
+ * and it lands you in this mode. Seven slots across a phone rather than six is
+ * the cost, and it is why the labels ellipsise.
  *
  * It is fixed to the bottom, which is where a thumb is. That costs the height of
  * the bar at the foot of the reading column, and the main area pays it back as
