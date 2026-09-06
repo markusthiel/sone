@@ -455,16 +455,22 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       // screen is addressed too and there is nobody to ask yet.
       addressForm: (await deps.addressForm?.()) ?? 'informal',
       /*
-       * Whether a forgotten password can be reset at all (ADR-0059).
+       * Whether this instance can send mail at all (ADR-0059, ADR-0126).
        *
-       * With no relay the reset is absent rather than broken, and the sign-in
-       * screen must not offer a link to a form that can only ever say "a link
-       * is on its way" about a mail nobody will send.
+       * It was `canResetPassword`, which named one consequence of the fact
+       * rather than the fact. A second reader arrived — the share dialog, which
+       * offers to mail a link only where there is a relay — and two fields
+       * carrying one boolean is the duplication this codebase keeps removing.
+       *
+       * What ADR-0059 decided is unchanged: with no relay the reset is
+       * *absent* rather than broken, and the sign-in screen must not offer a
+       * link to a form that can only ever say "a link is on its way" about a
+       * mail nobody will send.
        *
        * Sent with the instance for the same reason as the form of address:
        * there is nobody to ask yet.
        */
-      canResetPassword: await deps.canSendMail(),
+      canSendMail: await deps.canSendMail(),
       /*
        * What this instance looks like (ADR-0123).
        *

@@ -2403,7 +2403,7 @@ test('the reset screen shows one answer, and its link appears only with a relay'
   // And the link is absent without a relay, because the reset is absent — a
   // link to a form that can only ever promise a mail nobody will send teaches
   // somebody to wait.
-  assert.match(auth, /instance\.canResetPassword === true &&/);
+  assert.match(auth, /instance\.canSendMail === true &&/);
 
   // The token lands before the sign-in screen: somebody arriving from a mail
   // must not be shown a form for the password they are replacing.

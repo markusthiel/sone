@@ -118,8 +118,14 @@ export interface InstanceInfo {
   suggestedLocale: string;
   /** "du" or "Sie", where a language distinguishes it (ADR-0041). */
   addressForm?: 'informal' | 'formal';
-  /** Whether a forgotten password can be reset — false with no relay (ADR-0059). */
-  canResetPassword?: boolean;
+  /**
+   * Whether this instance has a mail relay at all (ADR-0059, ADR-0126).
+   *
+   * Two screens read it: the sign-in screen, which offers the password reset
+   * only where a mail can arrive, and the share dialog, which offers to send a
+   * link the same way.
+   */
+  canSendMail?: boolean;
   /** What this instance looks like (ADR-0123). */
   brand?: Brand;
 }
@@ -1503,6 +1509,19 @@ export const api = {
     request<CreatedShareLink>(`/api/pages/${pageId}/share-links`, {
       method: 'POST',
       body: JSON.stringify(options),
+    }),
+
+  /**
+   * Send an existing link to somebody (ADR-0126).
+   *
+   * The link is not in this request and never leaves the browser: the server
+   * decrypts the one it already holds. A route that took a URL to mail would
+   * be a route that mails any URL from an authenticated account.
+   */
+  sendShareLink: (pageId: string, linkId: string, input: { to: string; note: string }) =>
+    request<{ sent: true }>(`/api/pages/${pageId}/share-links/${linkId}/send`, {
+      method: 'POST',
+      body: JSON.stringify(input),
     }),
 
   revokeShareLink: (pageId: string, linkId: string) =>
