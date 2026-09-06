@@ -366,6 +366,12 @@ export const de: Record<keyof typeof en, string> = {
     '{compacted, plural, one {# Dokument} other {# Dokumente}} verdichtet.',
   'admin.maintenance.failed':
     '{count, plural, one {# Aufgabe} other {# Aufgaben}} in diesem Durchgang gescheitert:',
+  'admin.welcomeMail': 'Willkommensmail',
+  'admin.welcomeMail.hint':
+    'Eine kurze Mail bei der ersten Anmeldung. Aus, solange sie niemand ' +
+    'einschaltet — wer Konten für Kolleginnen anlegt und es ihnen persönlich ' +
+    'sagt, braucht sie nicht. Der Hinweis auf eine Anmeldung von einem ' +
+    'unbekannten Browser hat bewusst keinen Schalter.',
   'admin.replies': 'Antworten per E-Mail',
   'admin.replies.hint':
     'Mit einem Postfach hier lässt sich eine Benachrichtigung durch Antworten ' +

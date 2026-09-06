@@ -47,6 +47,7 @@ import { Router } from './http/router.js';
 import { registerWorkspaceRoutes } from './http/workspaces.js';
 import { registerFavouriteRoutes } from './http/favourites.js';
 import { registerShareRoutes } from './http/share.js';
+import { noteSignIn } from './mail/signIn.js';
 import { registerCollectionRoutes } from './http/collections.js';
 import { registerAdminRoutes } from './admin/routes.js';
 import { SettingsStore } from './admin/settings.js';
@@ -381,6 +382,34 @@ async function main(): Promise<void> {
      * administrator changes a logo while the process runs.
      */
     brand: () => settings.brand(),
+    /*
+     * Note the browser somebody signed in from (ADR-0130).
+     *
+     * Every part read per call, like the rest of the mail here: an operator
+     * switches the welcome on while the process runs.
+     */
+    noteSignIn: (userId, meta) =>
+      noteSignIn(
+        {
+          pool,
+          baseUrl: config.publicUrl,
+          instanceName: async () => (await settings.resolve()).values.instanceName,
+          welcome: async () => (await settings.resolve()).values.welcomeMail,
+          canSendMail: async () => (await mailSettings()).relay !== null,
+          sendLetter: async (to, letter) => {
+            const current = await mailSettings();
+            if (!current.relay) return;
+            await sendMail(current.relay, {
+              to,
+              subject: letter.subject,
+              body: renderText(letter),
+              html: renderHtml(letter),
+            });
+          },
+        },
+        userId,
+        meta,
+      ),
     // What an authenticator app lists the entry under, so somebody with three
     // SONE instances can tell them apart (ADR-0063).
     instanceName: async () => (await settings.resolve()).values.instanceName,
