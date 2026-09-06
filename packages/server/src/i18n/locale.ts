@@ -154,15 +154,53 @@ export async function recipientLocale(
     [userId, workspaceId ?? null],
   );
   if (!row) return FALLBACK_LOCALE;
+  return supported(row.user_locale) ?? supported(row.workspace_locale) ?? FALLBACK_LOCALE;
+}
 
-  for (const candidate of [row.user_locale, row.workspace_locale]) {
-    if (!candidate) continue;
-    const supported =
-      SUPPORTED_LOCALES.find((l) => l === candidate.toLowerCase()) ??
-      SUPPORTED_LOCALES.find((l) => primaryLanguage(l) === primaryLanguage(candidate));
-    if (supported) return supported;
-  }
-  return FALLBACK_LOCALE;
+/**
+ * The locale to address somebody known only by their address (ADR-0133).
+ *
+ * Two letters go to a mailbox rather than to an account: an invitation, which
+ * exists because there is no account yet, and a shared link, which usually goes
+ * outside. Both said English, and both said it for a reason that is only half
+ * true — **an address is not the same thing as no account**. A colleague on
+ * this instance who is sent a link has a row in `users` with a language on it,
+ * and asking costs one query.
+ *
+ * Where there is genuinely nobody, the workspace decides. That is not the
+ * sender's language dressed up: a workspace has a language of its own, chosen
+ * for the place rather than for the person, and a page in a German workspace is
+ * more likely to be read in German than in English. It is a guess, and so was
+ * "always English" — this is the better one, and it is the second step
+ * `recipientLocale` already takes for exactly the same reason.
+ */
+export async function addressLocale(
+  db: Pool | PoolClient,
+  email: string | null | undefined,
+  workspaceId?: string | null,
+): Promise<SupportedLocale> {
+  const row = await queryOne<{ user_locale: string | null; workspace_locale: string | null }>(
+    db,
+    // Lowercased on both sides: addresses are compared case-insensitively
+    // everywhere else here, and a colleague who typed one capital letter is
+    // still the same person.
+    `SELECT (SELECT u.locale FROM users u
+              WHERE lower(u.email) = lower($1) AND u.deactivated_at IS NULL
+              LIMIT 1) AS user_locale,
+            (SELECT w.default_locale FROM workspaces w WHERE w.id = $2) AS workspace_locale`,
+    [email ?? '', workspaceId ?? null],
+  );
+  return supported(row?.user_locale) ?? supported(row?.workspace_locale) ?? FALLBACK_LOCALE;
+}
+
+/** One candidate, exactly or by its language. Null when this server has neither. */
+function supported(candidate: string | null | undefined): SupportedLocale | null {
+  if (!candidate) return null;
+  return (
+    SUPPORTED_LOCALES.find((l) => l === candidate.toLowerCase()) ??
+    SUPPORTED_LOCALES.find((l) => primaryLanguage(l) === primaryLanguage(candidate)) ??
+    null
+  );
 }
 
 export interface WorkspaceI18n {
