@@ -129,6 +129,16 @@ export const MOVED_SETTINGS: Record<string, string> = {
   account: '/settings/profile',
   theme: '/workspace/typography',
   groups: '/workspace/groups',
+  /*
+   * Where you land moved to the workspace (ADR-0119).
+   *
+   * It was a personal setting holding per-workspace data, so it could only ever
+   * offer pages from wherever somebody happened to be standing. The workspace
+   * now says where members land and each person may differ — both on the
+   * workspace's own screen, which is the one that knows which workspace it is
+   * talking about.
+   */
+  landing: '/workspace/landing',
   // These two were never in the navigation and were reachable only by typing
   // the URL. Redirected anyway: somebody following an old note is exactly who
   // would have typed one.

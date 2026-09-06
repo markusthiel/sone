@@ -30,7 +30,14 @@ test('arriving and pressing the mark are different questions', () => {
    */
   assert.match(app, /const arrived = useRef<string \| null>\(null\);/);
   assert.match(app, /const again = arrived\.current === workspaceId;/);
-  assert.match(app, /again && landing\.mode !== 'fixed' \? first : \(landing\.landOn \?\? first\)/);
+  /*
+   * Only `last` is skipped on a repeat arrival (ADR-0119). It used to read
+   * "anything but fixed", which was the same rule while there were two modes —
+   * `top` and `newest` are answers to "where does this workspace open", and
+   * they mean it every time.
+   */
+  assert.match(app, /const mode = landing\.mode \?\? landing\.workspace\.mode;/);
+  assert.match(app, /again && mode === 'last' \? first : \(landing\.landOn \?\? first\)/);
   // Per workspace, not per session: switching is an arrival in the new one, and
   // "the page I was last on" is the whole reason somebody switches back.
   assert.match(app, /arrived\.current = workspaceId;/);
@@ -53,10 +60,30 @@ test('a chosen page that goes out of reach falls back rather than refusing', () 
   assert.match(panel, /t\('landing\.gone'\)/);
 });
 
-test('the fixed page is chosen per workspace', () => {
-  // A page in one workspace is no use in another.
+test('the setting is where the workspace is', () => {
+  /*
+   * A page in one workspace is no use in another — and the screen used to live
+   * in the personal settings, which have exactly one workspace in scope,
+   * whichever the person was standing in (ADR-0119). It edited that workspace's
+   * row while looking like a preference about the person.
+   */
   assert.match(panel, /workspaceId: string/);
-  assert.match(panel, /\.setLanding\(workspaceId, next\)/);
+  assert.match(panel, /\.setWorkspaceLanding\(workspaceId, next\)/, 'what the place says');
+  assert.match(panel, /\.setLanding\(workspaceId, next\)/, 'and what one person says instead');
+
+  const you = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
+  assert.doesNotMatch(you, /LandingSettings/, 'and it is not in the personal settings');
+  const workspace = codeOf(
+    new URL('../src/components/WorkspaceSettingsScreen.tsx', import.meta.url),
+  );
+  assert.match(workspace, /<LandingSettings/);
+});
+
+test('somebody who may only read sees what the workspace does', () => {
+  // The rights decide whether a control can be used, not whether it is there:
+  // the workspace's answer is the thing a person's own setting departs from,
+  // so hiding it would leave "for you" with nothing to be different from.
+  assert.match(panel, /disabled=\{!canEdit\}/);
 });
 
 test('the choice is a card of rows, like the account page', () => {
@@ -71,8 +98,19 @@ test('each choice says what it does, not just what it is called', () => {
   // name only once you already know the difference.
   // The sentences live in the catalogue now (ADR-0041); what this test means is
   // that each choice has an explanation at all.
-  assert.match(panel, /t\('landing\.lastPage\.hint'\)/);
-  assert.match(panel, /t\('landing\.fixedPage\.hint'\)/);
+  assert.match(panel, /t\(one\.hint\)/, 'every mode carries one');
+  for (const key of [
+    'landing.lastPage.hint',
+    'landing.top.hint',
+    'landing.newest.hint',
+    'landing.fixedPage.hint',
+  ] as const) {
+    assert.ok(en[key], `${key} exists`);
+  }
   assert.match(en['landing.lastPage.hint'], /Follows you/);
   assert.match(en['landing.fixedPage.hint'], /whatever you were doing/);
+  // And the one that needed saying: "neuste" is the page most recently
+  // *edited*, not the one created last — an import would otherwise decide where
+  // everybody lands.
+  assert.match(en['landing.newest.hint'], /not the one created last/);
 });

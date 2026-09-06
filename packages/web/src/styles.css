@@ -994,12 +994,20 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
     margin-inline-start: 0;
   }
   /* Upwards, because there is nothing below it. Pinned to both edges of the
-     screen rather than to the button, which is a fifth of it wide. */
+     screen rather than to the button, which is a seventh of it wide.
+     *
+     * `inline-size: auto` is the half that was missing (ADR-0119). The base
+     * rule gives the menu 200px, and a box with both insets set *and* a width
+     * is over-constrained — so the browser dropped `inset-inline-end` and put a
+     * 200px menu against the left edge, under an avatar sitting at the right.
+     * Which is exactly what it looked like: "das Menü sitzt ganz links, also
+     * nicht über dem Profil". */
   .bar-account .sidebar-account-menu {
     position: fixed;
     inset-block-end: calc(var(--sone-bar) + env(safe-area-inset-bottom, 0px) + 4px);
     inset-inline: 8px;
     inset-block-start: auto;
+    inline-size: auto;
   }
 
   /* What the bar covers, given back: content that ends underneath it is
@@ -8068,9 +8076,25 @@ body {
  * screen is three lists and not one: links, what I gave, what I was given, and
  * the gap is what says they are three answers rather than one long one.
  */
+/*
+ * The shares screen, in the reading column like every other screen in the
+ * content area (ADR-0119).
+ *
+ * It had its own copy of the measure — `max-width: 46rem; margin-inline: auto`
+ * — and not the gutter that goes with it. On a window wider than 46rem the auto
+ * margins hid that; on a phone there are no auto margins left to give, so the
+ * text sat flush against both edges of the screen.
+ *
+ * A second definition of one measure, which is the shape this project keeps
+ * finding: the copy had two of the three lines and the missing one was the one
+ * that only matters at the width nobody was testing at. `.page-body` is the
+ * column now, and this rule holds only what is this screen's own.
+ */
 .shares {
-  max-width: 46rem;
-  margin-inline: auto;
+  /* Wider than prose, because the rows are a label on one side and controls on
+     the other — the same reason `.settings-body` is wider than 42rem. */
+  max-width: 52rem;
+  padding-block-end: var(--sone-space-8);
 }
 
 .shares h2 { margin-block-start: var(--sone-space-7); }
@@ -8153,6 +8177,158 @@ body {
   min-block-size: var(--sone-control-lg);
 }
 .permission-list li > span:first-child { flex: 1 1 auto; }
+
+/*
+ * Finding the person before adding them (ADR-0119).
+ *
+ * The field was an address input, and whether the address belonged to anybody —
+ * and to whom — was answered after the button, as an error.
+ */
+.person-picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-inline-size: 16rem;
+}
+
+.person-suggestions {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 0;
+  z-index: 20;
+  margin: 2px 0 0;
+  padding: 4px;
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius);
+  background: var(--sone-surface, #fff);
+  box-shadow: var(--sone-shadow-lg);
+  list-style: none;
+}
+
+.person-suggestion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sone-space-2);
+  inline-size: 100%;
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.person-suggestion:hover:not(:disabled) { background: var(--sone-bg-hover); }
+/* Shown and refused, not hidden: hidden reads as "no such person", which is the
+   confusion this whole change is fixing. */
+.person-suggestion:disabled { cursor: default; opacity: 0.65; }
+
+.person-suggestion-name { font-weight: 600; }
+.person-suggestion-mail {
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.person-suggestion-here {
+  margin-inline-start: auto;
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+
+.person-picked { font-size: var(--sone-text-sm); }
+
+/*
+ * A role, as a card (ADR-0119).
+ *
+ * They were rows in `.permission-list`, which is one flex line: right for a
+ * share, whose shape is a label and a control, and wrong for a role, which says
+ * two different things and then a count and then whether it may be edited. Four
+ * items on one line wrap wherever they run out of room, and on a narrow window
+ * that split "0 Personen, 0" from "Gruppen".
+ */
+.role-cards {
+  display: grid;
+  gap: var(--sone-space-3);
+  margin: var(--sone-space-4) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-3);
+  padding: var(--sone-space-4);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius-lg);
+  background: var(--sone-bg-subtle);
+}
+
+.role-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sone-space-3);
+}
+.role-card-name { font-size: var(--sone-text-lg, 1.05rem); }
+
+/* Quiet, because it is a fact about the row and not a warning: a built-in role
+   is the ordinary case, and four loud badges would be the loudest thing on the
+   screen. */
+.role-card-badge {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--sone-bg-hover);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+}
+
+/*
+ * The two halves of what a role means, labelled.
+ *
+ * `role.note` opens the screen by saying a role is a page level *and* a set of
+ * rights, and the list under it was the one place that ran the two together
+ * with a middle dot.
+ */
+.role-card-facts {
+  display: grid;
+  grid-template-columns: minmax(6rem, max-content) 1fr;
+  gap: 4px var(--sone-space-4);
+  margin: 0;
+}
+.role-card-facts dt {
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-sm);
+}
+.role-card-facts dd { margin: 0; font-size: var(--sone-text-sm); }
+
+.role-card-rights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.role-card-right {
+  padding: 1px 8px;
+  border: 1px solid var(--sone-border);
+  border-radius: 999px;
+  font-size: var(--sone-text-xs);
+}
+
+.role-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sone-space-3);
+  /* Wraps rather than squeezing: the count and two buttons do not fit beside
+     each other on a phone, and a button shrunk to its ellipsis is worse than a
+     button on its own line. */
+  flex-wrap: wrap;
+  font-size: var(--sone-text-sm);
+}
+.role-card-actions { display: flex; gap: var(--sone-space-2); }
 
 /* A protected section, in a page.
  *

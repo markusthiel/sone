@@ -122,47 +122,87 @@ export function RolesPanel({ workspaceId }: { workspaceId: string }): ReactEleme
 
       {error && <p className="error">{messageFor(error)}</p>}
 
-      <ul className="permission-list">
+      {/* A card each (ADR-0119).
+        *
+        * They were rows in `.permission-list`, which is a flex line with a
+        * label on one side and controls on the other — right for a share and
+        * wrong here, because a role says *two* things and then a count and then
+        * whether it can be edited. Four things on one line wrap wherever they
+        * run out of room, which put "0 Personen, 0" above "Gruppen" and split
+        * "Fest eingebaut" in half.
+        *
+        * The two things a role says are labelled rather than run together with
+        * a middle dot: `role.note` opens the screen by saying a role means a
+        * page level *and* a set of rights, and the list underneath was the one
+        * place that did not make the distinction visible.
+        *
+        * The system roles get cards too, asked for in those words. They are in
+        * the list because the choice is between all of them; what they do not
+        * get is an edit control, and an absent control says more plainly than a
+        * disabled one why it cannot be changed. */}
+      <ul className="role-cards">
         {roles.map((role) => (
-          <li key={role.id}>
-            <span>
-              <b>{role.key ? t(`role.${role.key}` as MessageKey) : role.name}</b>{' '}
-              <span className="muted">{levelLabel(role.pageLevel)}</span>
-              {role.rights.length > 0 && (
-                <span className="muted">
-                  {' · '}
-                  {role.rights.map((one) => t(`right.${one}` as MessageKey)).join(', ')}
+          <li className="role-card" key={role.id}>
+            <div className="role-card-head">
+              <b className="role-card-name">
+                {role.key ? t(`role.${role.key}` as MessageKey) : role.name}
+              </b>
+              {role.key !== null && <span className="role-card-badge">{t('role.builtIn')}</span>}
+            </div>
+
+            <dl className="role-card-facts">
+              <dt>{t('role.card.onPages')}</dt>
+              <dd>{levelLabel(role.pageLevel)}</dd>
+              <dt>{t('role.card.inWorkspace')}</dt>
+              <dd>
+                {role.rights.length === 0 ? (
+                  // Said rather than left blank: an empty cell reads as
+                  // something that failed to load, and "manages nothing" is a
+                  // fact about the role.
+                  <span className="muted">{t('role.card.noRights')}</span>
+                ) : (
+                  <span className="role-card-rights">
+                    {role.rights.map((one) => (
+                      <span className="role-card-right" key={one}>
+                        {t(`right.${one}` as MessageKey)}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </dd>
+            </dl>
+
+            <div className="role-card-foot">
+              {/* Counted in words rather than as "0 Personen, 0 Gruppen", which
+                  is three numbers to read before learning that the answer is
+                  nobody. */}
+              <span className="muted">
+                {role.members + role.groups === 0
+                  ? t('role.heldByNobody')
+                  : t('role.heldBy', { members: role.members, groups: role.groups })}
+              </span>
+              {role.key === null && (
+                <span className="role-card-actions">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() =>
+                      setDraft({
+                        id: role.id,
+                        name: role.name,
+                        pageLevel: role.pageLevel ?? '',
+                        rights: [...role.rights],
+                      })
+                    }
+                  >
+                    {t('role.edit')}
+                  </button>
+                  <button type="button" className="btn" onClick={() => remove(role)}>
+                    {t('role.delete')}
+                  </button>
                 </span>
               )}
-            </span>
-            <span className="muted">
-              {t('role.heldBy', { members: role.members, groups: role.groups })}
-            </span>
-            {role.key === null && (
-              <>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() =>
-                    setDraft({
-                      id: role.id,
-                      name: role.name,
-                      pageLevel: role.pageLevel ?? '',
-                      rights: [...role.rights],
-                    })
-                  }
-                >
-                  {t('role.edit')}
-                </button>
-                <button type="button" className="btn" onClick={() => remove(role)}>
-                  {t('role.delete')}
-                </button>
-              </>
-            )}
-            {/* No edit control for a system role. It is in the list because the
-                choice is between all of them, and absent controls say more
-                plainly than disabled ones why it cannot be changed. */}
-            {role.key !== null && <span className="muted">{t('role.builtIn')}</span>}
+            </div>
           </li>
         ))}
       </ul>
