@@ -21,14 +21,13 @@ import { requireSession, setSessionCookie } from '../http/auth.js';
 import { createSession } from './session.js';
 import {
   OidcError,
+  ProviderDirectory,
   authorizationUrl,
   beginSignIn,
-  discover,
   exchangeCode,
-  fetchKeys,
   statesMatch,
 } from './oidcFlow.js';
-import { verifyIdToken, type Jwk } from './oidcToken.js';
+import { TokenError, verifyIdToken, type Jwk } from './oidcToken.js';
 
 export interface OidcDeps {
   pool: Pool;
@@ -48,6 +47,14 @@ export interface OidcDeps {
    * only this instance can have produced.
    */
   secretKey: string;
+  /**
+   * What the provider says about itself, remembered between calls (ADR-0108).
+   *
+   * Optional so every existing caller keeps working; one is made here when none
+   * is supplied, which is the right default for a process that has exactly one
+   * provider. A test that wants to watch the requests passes its own.
+   */
+  directory?: ProviderDirectory;
 }
 
 interface Settings {
@@ -64,19 +71,58 @@ const PENDING_COOKIE = 'sone_oidc';
 const redirectUri = (publicUrl: string): string =>
   `${publicUrl.replace(/\/+$/, '')}/api/auth/oidc/callback`;
 
-async function settingsFor(pool: Pool, deps: OidcDeps): Promise<Settings | null> {
+/**
+ * Three states, told apart (ADR-0108).
+ *
+ * This answered `null` for all of them, and two routes turned that into one
+ * `404 not_configured`:
+ *
+ *   absent      nobody has ever configured a provider
+ *   disabled    somebody configured one and turned it off
+ *   no_secret   it is enabled, and `SONE_OIDC_CLIENT_SECRET` is not set
+ *
+ * Only the third is a fault, and it is the one that reads as the other two.
+ * It happens when a container restarts without the variable: the settings screen
+ * still says "enabled", the sign-in button disappears, and every diagnostic says
+ * "not configured" — about a provider that is configured.
+ *
+ * "Configured but with no secret is not configured" was the old comment, and it
+ * is right about what to *do* and wrong about what to *say*.
+ */
+type Standing =
+  | { kind: 'ok'; settings: Settings }
+  | { kind: 'absent' }
+  | { kind: 'disabled' }
+  | { kind: 'no_secret' };
+
+async function standingFor(pool: Pool, deps: OidcDeps): Promise<Standing> {
   const row = await queryOne<Settings>(
     pool,
     `SELECT issuer, client_id, button_label, allow_signup, enabled FROM oidc_settings`,
   );
-  // Configured but with no secret is not configured. Refused here rather than
-  // at the moment somebody clicks the button, which is the worst time to find
-  // out (ADR-0024).
-  if (!row || !row.enabled || !deps.clientSecret) return null;
-  return row;
+  if (!row) return { kind: 'absent' };
+  if (!row.enabled) return { kind: 'disabled' };
+  // Refused here rather than at the moment somebody clicks the button, which is
+  // the worst time to find out (ADR-0024).
+  if (!deps.clientSecret) return { kind: 'no_secret' };
+  return { kind: 'ok', settings: row };
+}
+
+/**
+ * The same question where only the answer yes/no matters.
+ *
+ * `/config` is read by an anonymous sign-in page, and the three states are one
+ * answer there on purpose: which kind of not-configured this instance is, is
+ * nobody's business until they are signed in.
+ */
+async function settingsFor(pool: Pool, deps: OidcDeps): Promise<Settings | null> {
+  const standing = await standingFor(pool, deps);
+  return standing.kind === 'ok' ? standing.settings : null;
 }
 
 export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
+  const directory = deps.directory ?? new ProviderDirectory();
+
   /**
    * What the sign-in page needs.
    *
@@ -103,11 +149,20 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
    * field in the sealed blob.
    */
   router.get('/api/auth/oidc/start', async (ctx) => {
-    const settings = await settingsFor(deps.pool, deps);
-    if (!settings) {
+    const standing = await standingFor(deps.pool, deps);
+    if (standing.kind !== 'ok') {
+      // `no_secret` is a misconfiguration an operator can fix and the other two
+      // are not, so it gets its own code (ADR-0108). 503, because the provider
+      // is configured and this instance cannot use it — which is a different
+      // sentence from "there is no provider".
+      if (standing.kind === 'no_secret') {
+        ctx.fail(503, 'no_client_secret');
+        return;
+      }
       ctx.fail(404, 'not_configured');
       return;
     }
+    const settings = standing.settings;
 
     let linkTo: string | null = null;
     if (ctx.url.searchParams.get('link') === '1') {
@@ -118,7 +173,7 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
 
     let discovery;
     try {
-      discovery = await discover(settings.issuer);
+      discovery = await directory.discover(settings.issuer);
     } catch (error) {
       ctx.fail(502, error instanceof OidcError ? error.code : 'discovery_failed');
       return;
@@ -150,11 +205,19 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
 
   /** And what to do when they come back. */
   router.get('/api/auth/oidc/callback', async (ctx) => {
-    const settings = await settingsFor(deps.pool, deps);
-    if (!settings || !deps.clientSecret) {
+    const standing = await standingFor(deps.pool, deps);
+    if (standing.kind !== 'ok' || !deps.clientSecret) {
+      if (standing.kind === 'no_secret') {
+        // The worst moment for this: the person is coming *back* from the
+        // provider, having signed in there. "Not configured" would be the last
+        // thing anybody would check.
+        ctx.fail(503, 'no_client_secret');
+        return;
+      }
       ctx.fail(404, 'not_configured');
       return;
     }
+    const settings = standing.settings;
 
     const pending = readPending(ctx, deps.secretKey);
     clearPending(ctx, deps);
@@ -177,7 +240,10 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
     }
 
     try {
-      const discovery = await discover(settings.issuer);
+      // Remembered from `/start`, so this half does not need the provider to be
+      // reachable a second time — after the code has already been handed over
+      // (ADR-0108).
+      const discovery = await directory.discover(settings.issuer);
       const tokens = await exchangeCode(discovery, {
         code,
         clientId: settings.client_id,
@@ -186,12 +252,34 @@ export function registerOidcRoutes(router: Router, deps: OidcDeps): void {
         verifier: pending.verifier,
       });
 
-      const claims = verifyIdToken(tokens.id_token, {
-        issuer: settings.issuer.replace(/\/+$/, ''),
-        clientId: settings.client_id,
-        nonce: pending.nonce,
-        keys: (await fetchKeys(discovery)) as Jwk[],
-      });
+      /*
+       * Verified against the remembered keys, and once more against fresh ones
+       * if the token names a key this instance has not seen (ADR-0108).
+       *
+       * This is the decision `verifyIdToken` has always said belongs here:
+       * "an unknown `kid` means fetch again, not reject — but that decision
+       * belongs to the caller holding the cache". Until this change no caller
+       * held one, so there was nowhere for it to live.
+       *
+       * Exactly once. An unknown `kid` is also what a forged token looks like,
+       * and a refetch on every one of them would let anybody make this server
+       * call its provider as often as they liked.
+       */
+      const verify = (keys: unknown[]) =>
+        verifyIdToken(tokens.id_token, {
+          issuer: settings.issuer.replace(/\/+$/, ''),
+          clientId: settings.client_id,
+          nonce: pending.nonce,
+          keys: keys as Jwk[],
+        });
+
+      let claims;
+      try {
+        claims = verify(await directory.keys(discovery));
+      } catch (error) {
+        if (!(error instanceof TokenError) || error.code !== 'unknown_key') throw error;
+        claims = verify(await directory.keys(discovery, { refresh: true }));
+      }
 
       /*
        * Attaching a provider to an account that already exists (ADR-0084).
