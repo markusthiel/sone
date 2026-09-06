@@ -342,6 +342,12 @@ export const en = {
   // A pass in which every task threw used to render exactly like a clean one.
   'admin.maintenance.failed':
     '{count, plural, one {# task failed} other {# tasks failed}} in this pass:',
+  'admin.welcomeMail': 'Welcome mail',
+  'admin.welcomeMail.hint':
+    'A short mail on somebody’s first sign-in. Off unless you turn it on — an ' +
+    'instance where an administrator makes accounts for colleagues and tells ' +
+    'them in person does not need it. The notice about a sign-in from an ' +
+    'unfamiliar browser deliberately has no switch.',
   'admin.replies': 'Replying by email',
   'admin.replies.hint':
     'With a mailbox here, a notification can be answered by replying to it. ' +

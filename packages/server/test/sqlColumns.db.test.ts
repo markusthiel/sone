@@ -223,6 +223,10 @@ describe(
     // a reminder was already claimed, and the timestamp is for an operator
     // asking when this instance last chased somebody.
     'reminders.sent_at',
+    // And once more (ADR-0130): the code needs only whether a browser was
+    // already known, and the timestamp is for an operator or a person reading
+    // their own row.
+    'known_devices.first_seen_at',
     // The four superseded mail columns were here, allowed for one release with
     // "drop after 0.7.0" written beside them. 0053 dropped them and these four
     // lines went in the same commit.
