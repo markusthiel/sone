@@ -164,6 +164,7 @@ export const en = {
   'error.a_row_cannot_hold_a_collection': 'A row cannot hold a collection of its own.',
   'error.invalid_tag': 'That tag cannot be used.',
   'error.invalid_width': 'That page width is not one of the two.',
+  'error.invalid_color_scheme': 'Light or dark — there is nothing else to be.',
   'error.invalid_landing': 'That is not a way to set a first page (ADR-0119).',
   'error.invalid_cover':
     'That is not a cover this can store. A picture has to be one uploaded here '
@@ -598,12 +599,15 @@ export const en = {
     'it is your language wherever you sign in.',
   'you.language.system': 'Match the browser',
   'you.appearance.note':
-    'Stored in this browser. A text size that suits a phone is wrong on a large ' +
-    'monitor, so these do not follow your account between devices.',
+    'Light or dark belongs to your account and applies wherever you sign in. ' +
+    'The two text sizes stay in this browser: a size that suits a phone is ' +
+    'wrong on a large monitor.',
   'you.theme': 'Theme',
   'you.theme.hint':
-    'Following the system is the default. Choose one to override it — somebody outside ' +
-    'in the sun wants light whatever their laptop thinks.',
+    'With no choice of your own, the workspace decides. “Match the system” is ' +
+    'itself a choice and overrides it — somebody outside in the sun wants light ' +
+    'whatever their workspace thinks.',
+  'you.theme.workspace': 'As the workspace says',
   'you.theme.system': 'Match the system',
   'you.theme.light': 'Light',
   'you.theme.dark': 'Dark',
@@ -934,6 +938,11 @@ export const en = {
   'type.treatment.sunken': 'Sunken',
   'type.treatment.inverted': 'Inverted',
   'type.treatment.accent': 'Accent',
+  'type.scheme': 'Light or dark',
+  'type.scheme.inherit': 'As the instance says',
+  'type.scheme.light': 'Light',
+  'type.scheme.dark': 'Dark',
+  'type.scheme.system': 'As the device says',
   'type.corners': 'Corners',
   'type.corners.note':
     'Three steps rather than a number: all three radii move together, so a ' +

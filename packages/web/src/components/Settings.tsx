@@ -48,6 +48,8 @@ interface SettingsProps {
   section: string;
   session: SessionInfo;
   workspaceId: string;
+  /** Re-reads the session, for a setting the whole interface is drawn from. */
+  reloadSession: () => Promise<void> | void;
   /** Back to the notes. Settings is a screen of its own (ADR-0027). */
   onClose: () => void;
   /** Signing out, which the account menu at the foot of the column offers. */
@@ -81,6 +83,7 @@ export function Settings({
   section,
   session,
   workspaceId,
+  reloadSession,
   onClose,
   onLogout,
 }: SettingsProps): ReactElement {
@@ -105,7 +108,9 @@ export function Settings({
           <SecondFactorSettings session={session} />
         </>
       )}
-      {current === 'appearance' && <AppearanceSettings session={session} />}
+      {current === 'appearance' && (
+        <AppearanceSettings session={session} reload={reloadSession} />
+      )}
       {current === 'notifications' && <NotificationSettings session={session} />}
       {current === 'about' && <About />}
     </div>
@@ -680,9 +685,39 @@ function SignIn(): ReactElement {
   );
 }
 
-function AppearanceSettings({ session }: { session: SessionInfo }): ReactElement {
+function AppearanceSettings({
+  session,
+  reload,
+}: {
+  session: SessionInfo;
+  /** Re-reads the session, so a new scheme reaches the whole interface. */
+  reload: () => Promise<void> | void;
+}): ReactElement {
   const { t, locale, setLocale } = useT();
-  const { appearance, setTheme, setUiScale, setEditorScale } = useAppearance();
+  const { appearance, setUiScale, setEditorScale } = useAppearance();
+
+  /**
+   * Light or dark, saved to the account (ADR-0124).
+   *
+   * The same shape as the language above it, and for the same reason: a
+   * preference for dark is a property of the person, not of the machine they
+   * happen to be at. The two sizes below stay per browser, and the hints say
+   * which is which.
+   *
+   * Four options, not three. `''` is "as the workspace says" and `system` is
+   * "this device decides" — different answers, and the difference is the whole
+   * point: somebody in a dark workspace who wants their laptop's own setting
+   * has to be able to say so without picking light or dark by hand.
+   */
+  const chooseScheme = (value: string): void => {
+    void api
+      .updateProfile({ colorScheme: value === '' ? null : (value as 'light' | 'dark' | 'system') })
+      // Reloaded rather than applied here: the resolution needs the workspace's
+      // theme and the instance's under it, and that is done in one place
+      // (ADR-0124). A second answer computed on this screen is how two parts of
+      // an interface end up disagreeing about what colour it is.
+      .then(() => reload());
+  };
 
   /**
    * The language, saved to the account rather than to this browser.
@@ -747,9 +782,10 @@ function AppearanceSettings({ session }: { session: SessionInfo }): ReactElement
           <select
             id="theme"
             aria-label={t('you.theme')}
-            value={appearance.theme}
-            onChange={(event) => setTheme(event.target.value as ThemePreference)}
+            value={session.user.colorScheme ?? ''}
+            onChange={(event) => chooseScheme(event.target.value)}
           >
+            <option value="">{t('you.theme.workspace')}</option>
             <option value="system">{t('you.theme.system')}</option>
             <option value="light">{t('you.theme.light')}</option>
             <option value="dark">{t('you.theme.dark')}</option>

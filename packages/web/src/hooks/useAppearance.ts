@@ -1,27 +1,38 @@
 /**
  * SONE web — appearance.
  *
- * Theme and two independent text scales: one for the interface, one for the
- * editor. Independent because they answer different questions. Someone who
- * wants a denser sidebar does not necessarily want smaller prose, and someone
- * writing long documents may want larger prose without a larger sidebar.
+ * Two independent text scales, one for the interface and one for the editor,
+ * and the light-or-dark scheme.
  *
- * Stored per browser, not per account. A text size is a property of the screen
- * being read — a scale that suits a phone is wrong on a 27-inch monitor, and
- * syncing it would make one device's setting the other's problem.
+ * **The scales are per browser and the scheme is not**, and that split is the
+ * subject of ADR-0124. A text size is a property of the screen being read: a
+ * scale that suits a phone is wrong on a 27-inch monitor, and syncing it would
+ * make one device's setting the other's problem. A preference for dark is a
+ * property of the *person*, and keeping it here meant somebody who chose dark
+ * on their laptop signed in on their phone and got light.
  *
- * Instance-wide *defaults* are a different thing and belong in an admin area:
- * that is what an administrator setting the look of a deployment means. This is
- * the per-person layer that sits on top.
+ * So the scheme is resolved elsewhere — person, then workspace over instance,
+ * then the device (ADR-0124) — and arrives here already decided. What is kept
+ * in storage is a **copy of the answer**, not the answer: the first paint
+ * happens before the session has loaded, and a dark-theme reader must not be
+ * shown a white screen for the half-second it takes to find out.
  *
  * Applied as attributes and custom properties on <html> rather than through
  * React context, so the whole document responds — including anything
  * ProseMirror renders, which React does not own.
  */
 
+import type { ColorScheme } from '@sone/core';
 import { useCallback, useEffect, useState } from 'react';
 
-export type ThemePreference = 'system' | 'light' | 'dark';
+/**
+ * What a person may choose for themselves.
+ *
+ * Null is a fourth state and not a missing one: "as the workspace says". It is
+ * different from `system`, which is the choice to let the device decide and
+ * overrides a workspace that says dark.
+ */
+export type ThemePreference = ColorScheme;
 
 /**
  * Text scale.
@@ -34,7 +45,8 @@ export const TEXT_SCALES = ['small', 'default', 'large', 'larger'] as const;
 export type TextScale = (typeof TEXT_SCALES)[number];
 
 export interface Appearance {
-  theme: ThemePreference;
+  /** The resolved scheme — what to paint, not what anybody chose. */
+  theme: ColorScheme;
   uiScale: TextScale;
   editorScale: TextScale;
 }
@@ -75,8 +87,8 @@ const isScale = (value: unknown): value is TextScale =>
  * Apply to the document.
  *
  * Exported and called before React mounts as well as from the hook, so the
- * chosen theme is in place on the first paint. Without that, a dark-theme user
- * gets a white flash on every load.
+ * remembered scheme is in place on the first paint. Without that, a dark-theme
+ * reader gets a white flash on every load.
  */
 export function applyAppearance(appearance: Appearance): void {
   const root = document.documentElement;
@@ -90,13 +102,35 @@ export function applyAppearance(appearance: Appearance): void {
     appearance.theme === 'system' ? 'light dark' : appearance.theme;
 }
 
-export function useAppearance(): {
+export function useAppearance(
+  /**
+   * The resolved scheme, once it is known (ADR-0124).
+   *
+   * Undefined while the session is still loading, and then the stored copy of
+   * last time's answer is what is painted — which is right far more often than
+   * a default would be, and wrong only for the moment after somebody changes it
+   * on another device.
+   */
+  scheme?: ColorScheme,
+): {
   appearance: Appearance;
-  setTheme: (theme: ThemePreference) => void;
   setUiScale: (scale: TextScale) => void;
   setEditorScale: (scale: TextScale) => void;
 } {
   const [appearance, setAppearance] = useState<Appearance>(read);
+
+  /*
+   * The resolved answer replaces the remembered one.
+   *
+   * Written back to storage by the effect below, so the next first paint starts
+   * from what this account actually says rather than from what somebody once
+   * chose in this browser. That is what makes the stored value a cache: it is
+   * never read in preference to the resolved answer, only before there is one.
+   */
+  useEffect(() => {
+    if (!scheme) return;
+    setAppearance((previous) => (previous.theme === scheme ? previous : { ...previous, theme: scheme }));
+  }, [scheme]);
 
   useEffect(() => {
     applyAppearance(appearance);
@@ -114,7 +148,6 @@ export function useAppearance(): {
 
   return {
     appearance,
-    setTheme: (theme) => update({ theme }),
     setUiScale: (uiScale) => update({ uiScale }),
     setEditorScale: (editorScale) => update({ editorScale }),
   };
