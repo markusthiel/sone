@@ -153,6 +153,7 @@ describe('what a theme leaves behind', () => {
         tint: 'blue',
         accent: '#336699',
         corners: 'round',
+        fonts: 'reading',
         palette: { blue: '#001122' },
         surfaces: { rail: 'inverted', sidebar: 'accent', panel: 'sunken' },
         heading1: { size: 2, color: 'red' },
@@ -163,7 +164,7 @@ describe('what a theme leaves behind', () => {
     for (const name of Object.keys(everything)) {
       assert.match(
         name,
-        /^--(sone-theme-|sone-palette-|sone-radius|accent)/,
+        /^--(sone-theme-|sone-palette-|sone-radius|sone-font|accent)/,
         `${name} is recognisable as a theme's doing`,
       );
     }

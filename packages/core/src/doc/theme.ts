@@ -182,12 +182,62 @@ export type Corners = (typeof CORNERS)[number];
 export const COLOR_SCHEMES = ['light', 'dark', 'system'] as const;
 export type ColorScheme = (typeof COLOR_SCHEMES)[number];
 
+/**
+ * The typefaces a workspace may choose between (ADR-0127).
+ *
+ * A **named pair** — the face body text is set in and the one code is set in —
+ * for the reason every other value here is a name rather than a value: a font
+ * family typed into a box is a font somebody's machine may not have, and the
+ * person who typed it sees their own machine and cannot tell.
+ *
+ * A short, closed list on purpose. Every face is a file this instance serves
+ * itself (ADR-0068), so an open list is an open-ended download.
+ *
+ * `designed` is what the design does today and is therefore stored as nothing,
+ * the rule `follow` and `soft` already follow.
+ */
+export const FONT_PAIRS = ['designed', 'reading', 'plain', 'system'] as const;
+export type FontPair = (typeof FONT_PAIRS)[number];
+
+/**
+ * What each pair resolves to.
+ *
+ * Every stack ends in something the machine already has. A downloaded face can
+ * fail — a slow network, a blocked request, a reader who turned webfonts off —
+ * and the fallback is what they read in the meantime; a stack that ends in the
+ * family name alone ends in whatever the browser decides, which is usually
+ * Times.
+ */
+const PAIRS: Record<Exclude<FontPair, 'designed'>, { text: string; mono: string }> = {
+  reading: {
+    text: "'Literata Var', Georgia, 'Times New Roman', serif",
+    mono: "'Jetbrains Mono Var', ui-monospace, SFMono-Regular, Menlo, monospace",
+  },
+  plain: {
+    text: "'Inter Var', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+    mono: "'Jetbrains Mono Var', ui-monospace, SFMono-Regular, Menlo, monospace",
+  },
+  /*
+   * The machine's own type, and the only pair that downloads nothing.
+   *
+   * It names no face this instance ships, which is the whole point: somebody
+   * on a metered connection, or an operator who would rather serve no fonts at
+   * all, gets an interface with no webfont in it.
+   */
+  system: {
+    text: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+    mono: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  },
+};
+
 export type WorkspaceTheme = Partial<Record<ThemedElement, ElementTheme>> & {
   palette?: WorkspacePalette;
   /** Only the surfaces a workspace has actually treated. */
   surfaces?: Partial<Record<ThemedSurface, StoredTreatment>>;
   /** Absent means the design's own corners. */
   corners?: Exclude<Corners, 'soft'>;
+  /** The typefaces, by pair name. Absent means the design's own (ADR-0127). */
+  fonts?: Exclude<FontPair, 'designed'>;
   /**
    * Light or dark, where nobody more specific has said (ADR-0124).
    *
@@ -263,6 +313,9 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
 
   const scheme = (input as Record<string, unknown>)['scheme'];
   if (inList(COLOR_SCHEMES, scheme)) out.scheme = scheme;
+
+  const fonts = (input as Record<string, unknown>)['fonts'];
+  if (inList(FONT_PAIRS, fonts) && fonts !== 'designed') out.fonts = fonts;
 
   for (const [key, raw] of Object.entries(input as Record<string, unknown>)) {
     if (!inList(THEMED_ELEMENTS, key)) continue;
@@ -498,6 +551,14 @@ export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
     for (const [part, value] of Object.entries(TREATMENTS[treatment])) {
       properties[`--sone-theme-${surface}-${part}`] = value;
     }
+  }
+
+  if (theme.fonts) {
+    // Both halves, because a pair is two faces: answering only the first is how
+    // a workspace ends up with a serif page and the design's own grotesque in
+    // every code block — a mismatch nobody chose.
+    properties['--sone-font'] = PAIRS[theme.fonts].text;
+    properties['--sone-font-mono'] = PAIRS[theme.fonts].mono;
   }
 
   if (theme.corners) {
