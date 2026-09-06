@@ -43,6 +43,38 @@ const BrandLogoContext = createContext<string | null>(null);
 
 export const BrandLogo = BrandLogoContext.Provider;
 
+/**
+ * The mark with the wordmark beside it — the horizontal lockup (ADR-0132).
+ *
+ * Set in Archivo at 600 with the brand package's tracking, rather than drawn as
+ * paths. The delivered files convert the wordmark to outlines because *a file
+ * cannot assume a font*; inside the application the font is one of the two this
+ * instance serves itself (ADR-0068), so setting it is the same wordmark and not
+ * a second drawing of it.
+ *
+ * An instance with a logo of its own gets that logo and its own name: putting
+ * "SONE" beside somebody else's mark would be this software signing their
+ * letterhead.
+ */
+export function SoneLockup({
+  size = 28,
+  name,
+}: {
+  size?: number;
+  /** What this instance calls itself, shown where it has a mark of its own. */
+  name?: string;
+}): ReactElement {
+  const logo = useContext(BrandLogoContext);
+  return (
+    <span className="sone-lockup">
+      <SoneMark size={size} />
+      <span className="sone-wordmark" style={{ fontSize: `${Math.round(size * 0.72)}px` }}>
+        {logo ? (name ?? '') : 'SONE'}
+      </span>
+    </span>
+  );
+}
+
 export function SoneMark({
   size = 26,
   title,

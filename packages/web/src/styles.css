@@ -8178,6 +8178,29 @@ body {
   display: block;
 }
 
+/* The horizontal lockup (ADR-0132).
+ *
+ * Archivo 600 with the brand package's +7.5% tracking, which is what that
+ * package's outlines were made from — the same wordmark, set rather than
+ * redrawn. The gap is 0.278 of the mark's height, from the same construction
+ * sheet. */
+.sone-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.278em;
+  font-size: inherit;
+}
+.sone-wordmark {
+  font-weight: 600;
+  letter-spacing: 0.075em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+/* Above the heading rather than beside it: the lockup is the subject of the
+   screen, and a mark inside a heading competes with the words in it. */
+.instance-mark { margin: 0 0 var(--sone-space-6); }
+
 .brand-logo-row {
   display: flex;
   align-items: center;

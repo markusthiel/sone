@@ -52,6 +52,17 @@ export interface Message {
    */
   html?: string;
   /**
+   * Pictures the HTML part refers to by `cid:` (ADR-0132).
+   *
+   * Attachments, never links. A remote image in a mail reports when it was
+   * opened and roughly from where, and this project does not measure that
+   * (ADR-0058) — so the one picture a mail carries travels with it.
+   *
+   * Present only where the HTML part actually names them: an attachment nobody
+   * refers to shows up in some clients as a paperclip and a file to download.
+   */
+  inline?: Array<{ cid: string; mime: string; base64: string }>;
+  /**
    * Where a reply should go, when one can be accepted (ADR-0060).
    *
    * A per-notification address carrying a signed token, so the address a reply
@@ -273,6 +284,19 @@ export async function sendMail(relay: Relay, message: Message, now = new Date())
      * title eventually contains, and the failure is silent.
      */
     const boundary = `sone-${randomBytes(16).toString('hex')}`;
+    /*
+     * A second boundary, for the layer around it (ADR-0132).
+     *
+     * `multipart/related` holds the message *and the pictures it names*;
+     * `multipart/alternative` holds the two renderings of the message. They
+     * nest that way round and not the other: the alternatives are alternatives
+     * to each other, and the picture is an alternative to nothing.
+     *
+     * Distinct from the inner one, because a part ends at *its own* boundary
+     * and a shared string would end both at once.
+     */
+    const related = `sone-rel-${randomBytes(16).toString('hex')}`;
+    const inline = message.html === undefined ? [] : (message.inline ?? []);
 
     const headers = [
       `From: ${relay.from}`,
@@ -282,7 +306,12 @@ export async function sendMail(relay: Relay, message: Message, now = new Date())
       'MIME-Version: 1.0',
       message.html === undefined
         ? 'Content-Type: text/plain; charset=utf-8'
-        : `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        : inline.length === 0
+          ? `Content-Type: multipart/alternative; boundary="${boundary}"`
+          : // `type` names what the related parts are related *to*, which is how
+            // a client knows which part to show rather than guessing the first.
+            `Content-Type: multipart/related; type="multipart/alternative"; ` +
+            `boundary="${related}"`,
       // For clients that offer the button. It points at the authenticated
       // settings page, which is worse than one click and is the version that
       // cannot be used against the recipient (ADR-0058).
@@ -309,20 +338,45 @@ export async function sendMail(relay: Relay, message: Message, now = new Date())
      * every graphical client would show the plain text — which is why this is
      * the one thing about MIME worth a comment.
      */
+    const alternative = [
+      `--${boundary}`,
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      forData(message.body),
+      `--${boundary}`,
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      forData(message.html ?? ''),
+      `--${boundary}--`,
+    ].join('\r\n');
+
     const content =
       message.html === undefined
         ? forData(message.body)
-        : [
-            `--${boundary}`,
-            'Content-Type: text/plain; charset=utf-8',
-            '',
-            forData(message.body),
-            `--${boundary}`,
-            'Content-Type: text/html; charset=utf-8',
-            '',
-            forData(message.html),
-            `--${boundary}--`,
-          ].join('\r\n');
+        : inline.length === 0
+          ? alternative
+          : [
+              `--${related}`,
+              `Content-Type: multipart/alternative; boundary="${boundary}"`,
+              '',
+              alternative,
+              ...inline.flatMap((picture) => [
+                `--${related}`,
+                `Content-Type: ${headerSafe(picture.mime)}`,
+                // The angle brackets are the syntax: `cid:sone-mark` in the
+                // HTML refers to `Content-ID: <sone-mark>`, and a client that
+                // does not find the brackets does not find the picture.
+                `Content-ID: <${headerSafe(picture.cid)}>`,
+                'Content-Disposition: inline',
+                'Content-Transfer-Encoding: base64',
+                '',
+                // Already base64, so nothing here needs dot-stuffing — but it
+                // goes through the same writer as everything else rather than
+                // being trusted to contain no line that starts with a dot.
+                forData(picture.base64.replace(/(.{76})/g, '$1\n')),
+              ]),
+              `--${related}--`,
+            ].join('\r\n');
 
     session.write(`${headers}\r\n\r\n${content}\r\n.\r\n`);
     await session.reply().then((reply) => {

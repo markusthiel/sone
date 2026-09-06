@@ -58,7 +58,8 @@ import { registerJobRoutes } from './jobs/routes.js';
 import { registerInboxRoutes } from './notifications/routes.js';
 import { RECOMMENDED_COST, passwordCost } from './auth/password.js';
 import { refusedEnvNumbers } from './env.js';
-import { renderHtml, renderText } from './mail/letter.js';
+import { renderHtml, renderText, type Letter } from './mail/letter.js';
+import { SONE_MARK_MIME, SONE_MARK_PNG } from './mail/mark.js';
 import { sendMail } from './mail/send.js';
 import { pollReplies, type ReplyDeps } from './jobs/replies.js';
 import { sendActivityDigests } from './jobs/activityDigest.js';
@@ -81,6 +82,15 @@ import { Maintenance } from './maintenance/job.js';
 import { PROTOCOL_VERSION } from './sync/protocol.js';
 import { SyncServer } from './sync/server.js';
 import { queryOne, queryRows } from './db/pool.js';
+
+/**
+ * What the mark is called inside a message (ADR-0132).
+ *
+ * One name, because there is one picture: the HTML says `cid:sone-mark` and the
+ * attachment answers to it. Two spellings would be a mail with a paperclip and
+ * a broken image.
+ */
+const MARK_CID = 'sone-mark';
 
 /** Time allowed for a graceful shutdown before the process is forced down. */
 const SHUTDOWN_GRACE_MS = 20_000;
@@ -325,14 +335,7 @@ async function main(): Promise<void> {
      * `sendResetMail` asks `mailSettings()` each time.
      */
     sendLetter: async (to, letter) => {
-      const current = await mailSettings();
-      if (!current.relay) return;
-      await sendMail(current.relay, {
-        to,
-        subject: letter.subject,
-        body: renderText(letter),
-        html: renderHtml(letter),
-      });
+      await deliver(to, letter);
     },
   });
   registerPagePermissionRoutes(router, { pool });
@@ -397,14 +400,7 @@ async function main(): Promise<void> {
           welcome: async () => (await settings.resolve()).values.welcomeMail,
           canSendMail: async () => (await mailSettings()).relay !== null,
           sendLetter: async (to, letter) => {
-            const current = await mailSettings();
-            if (!current.relay) return;
-            await sendMail(current.relay, {
-              to,
-              subject: letter.subject,
-              body: renderText(letter),
-              html: renderHtml(letter),
-            });
+            await deliver(to, letter);
           },
         },
         userId,
@@ -524,14 +520,7 @@ async function main(): Promise<void> {
     emailDetail: async () => (await settings.resolve()).values.emailDetail,
     instanceName: async () => (await settings.resolve()).values.instanceName,
     sendLetter: async (to, letter) => {
-      const current = await mailSettings();
-      if (!current.relay) return;
-      await sendMail(current.relay, {
-        to,
-        subject: letter.subject,
-        body: renderText(letter),
-        html: renderHtml(letter),
-      });
+      await deliver(to, letter);
     },
   });
   registerCollectionRoutes(router, { pool });
@@ -569,14 +558,7 @@ async function main(): Promise<void> {
        */
       canSendMail: async () => (await mailSettings()).relay !== null,
       sendLetter: async (to, letter) => {
-        const current = await mailSettings();
-        if (!current.relay) return;
-        await sendMail(current.relay, {
-          to,
-          subject: letter.subject,
-          body: renderText(letter),
-          html: renderHtml(letter),
-        });
+        await deliver(to, letter);
       },
     },
   });
@@ -619,6 +601,54 @@ async function main(): Promise<void> {
       replyMailbox: resolved.values.imapHost.trim() === '' ? null : resolved.values.replyMailbox,
       secret: config.secretKey,
     };
+  };
+
+  /**
+   * Hand one letter to the relay, with the mark attached (ADR-0132).
+   *
+   * One function, because there were four copies of these four lines and a
+   * fifth thing to say — the picture — would have been four more. A letter that
+   * carried a mark from three senders and not the fourth is exactly the drift
+   * ADR-0121 built one structure to prevent.
+   *
+   * The instance's own logo where it has one, and SONE's otherwise. Read per
+   * send rather than captured: an administrator uploads a mark while the
+   * process runs, and a mail is the last place anybody would notice a stale one.
+   *
+   * A failure to read the logo is not a failure to send. The mark is decoration
+   * and the letter is the message; a storage hiccup must not swallow somebody's
+   * password reset.
+   */
+  const deliver = async (to: string, letter: Letter): Promise<void> => {
+    const current = await mailSettings();
+    if (!current.relay) return;
+
+    const resolved = await settings.resolve();
+    let picture: { cid: string; mime: string; base64: string } | null = null;
+    try {
+      const own = resolved.values.brandLogo;
+      picture = own
+        ? { cid: MARK_CID, mime: own.mime, base64: (await fileStore.get(own.key)).toString('base64') }
+        : { cid: MARK_CID, mime: SONE_MARK_MIME, base64: SONE_MARK_PNG };
+    } catch {
+      // The bytes named by the setting are gone — a restored database against a
+      // fresh storage directory. The wordmark as text is what the letter falls
+      // back to, which is what every mail looked like before this.
+      picture = { cid: MARK_CID, mime: SONE_MARK_MIME, base64: SONE_MARK_PNG };
+    }
+
+    const drawn: Letter = {
+      ...letter,
+      logoCid: MARK_CID,
+      logoAlt: resolved.values.instanceName,
+    };
+    await sendMail(current.relay, {
+      to,
+      subject: drawn.subject,
+      body: renderText(drawn),
+      html: renderHtml(drawn),
+      inline: [picture],
+    });
   };
 
   /*

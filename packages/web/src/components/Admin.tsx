@@ -23,7 +23,7 @@ import {
 } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 import { messageFor } from './Auth.tsx';
-import { SoneMark } from './Logo.tsx';
+import { SoneLockup, SoneMark } from './Logo.tsx';
 import { ThemeSettings, type ThemeOwner } from './ThemeSettings.tsx';
 
 /** Bytes in a form a person can judge at a glance. */
@@ -119,6 +119,13 @@ export function InstancePanel(): ReactElement {
   return (
     <>
       <section className="settings-section">
+        {/* The full lockup, where the screen is about this instance itself
+          * (ADR-0132) — the mark alone is what the rail wears, and a screen
+          * whose subject is the software is where the wordmark belongs. An
+          * instance with a logo of its own gets that, and its own name. */}
+        <p className="instance-mark">
+          <SoneLockup size={32} name={settings.instanceName} />
+        </p>
         <h2>{t('admin.instance')}</h2>
         <dl className="settings-list">
           <dt>{t('admin.version')}</dt>
