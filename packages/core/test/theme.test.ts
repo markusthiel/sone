@@ -231,7 +231,12 @@ test('a tint and an accent survive, and their contrast is computed', () => {
   assert.equal(properties['--accent'], '#eedd55');
   // A pale accent needs dark text on it. Computed, never chosen: offering the
   // choice would be offering a way to make a button unreadable.
-  assert.equal(properties['--accent-contrast'], '#141210');
+  //
+  // Black rather than the warm `#141210` it used to be (ADR-0135): the
+  // threshold beside it was computed for pure black, and a near-black moves the
+  // crossover far enough that the worst case drops to 4.08:1. The guarantee is
+  // in `contrast.test.ts`; this is that the pair is emitted at all.
+  assert.equal(properties['--accent-contrast'], '#000000');
   assert.equal(themeProperties({ accent: '#1b4d3e' })['--accent-contrast'], '#ffffff');
 
   // The tint is one property; the stylesheet holds the proportions, because that
