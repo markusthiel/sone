@@ -338,3 +338,65 @@ test('a mail with no html part is a plain one, as before', async () => {
     await fake.close();
   }
 });
+
+test('a picture travels inside the message, wrapped around the two renderings', async () => {
+  /*
+   * The nesting is the decision (ADR-0132). `multipart/related` holds the
+   * message *and the pictures it names*; `multipart/alternative` holds the two
+   * renderings of the message. They go that way round and not the other: the
+   * alternatives are alternatives to each other, and the picture is an
+   * alternative to nothing.
+   *
+   * A client that got it inside out shows the logo as a second version of the
+   * mail and offers it instead of the text.
+   */
+  const fake = await fakeRelay();
+  try {
+    await sendMail(relay(fake.port), {
+      to: 'a@example.org',
+      subject: 'x',
+      body: 'y',
+      html: '<p><img src="cid:sone-mark"></p>',
+      inline: [{ cid: 'sone-mark', mime: 'image/png', base64: 'aGVsbG8=' }],
+    });
+
+    const outer = /Content-Type: multipart\/related; type="multipart\/alternative"; boundary="([^"]+)"/.exec(
+      fake.data,
+    )?.[1];
+    const inner = /Content-Type: multipart\/alternative; boundary="([^"]+)"/.exec(fake.data)?.[1];
+    assert.ok(outer && inner, 'both layers are there');
+    assert.notEqual(outer, inner, 'and a shared boundary would end both at once');
+
+    // The angle brackets are the syntax: `cid:sone-mark` finds `<sone-mark>`.
+    assert.match(fake.data, /Content-ID: <sone-mark>/);
+    assert.match(fake.data, /Content-Transfer-Encoding: base64/);
+    assert.match(fake.data, /Content-Disposition: inline/);
+    // And the alternative part still comes before the picture, so a client
+    // reading in order meets the message first.
+    assert.ok(
+      fake.data.indexOf('text/html') < fake.data.indexOf('Content-ID:'),
+      'the message, then what it refers to',
+    );
+  } finally {
+    await fake.close();
+  }
+});
+
+test('and a mail with no picture keeps the shape it had', async () => {
+  // The counterweight again: an attachment nobody refers to shows up in some
+  // clients as a paperclip and a file to download.
+  const fake = await fakeRelay();
+  try {
+    await sendMail(relay(fake.port), {
+      to: 'a@example.org',
+      subject: 'x',
+      body: 'y',
+      html: '<p>y</p>',
+    });
+
+    assert.doesNotMatch(fake.data, /multipart\/related/);
+    assert.doesNotMatch(fake.data, /Content-ID:/);
+  } finally {
+    await fake.close();
+  }
+});

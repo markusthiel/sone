@@ -63,6 +63,19 @@ export interface Letter {
    * already a literal or nothing at all.
    */
   accent?: string;
+  /**
+   * The mark at the top, as an attachment this message carries (ADR-0132).
+   *
+   * A `cid`, never a URL. ADR-0121 refused remote images and refuses them
+   * still: one would tell the sender when the mail was opened and roughly from
+   * where. An attachment tells nobody anything.
+   *
+   * Absent falls back to the wordmark as text, which is what every mail sent
+   * before this looked like and what an instance with no logo still gets.
+   */
+  logoCid?: string;
+  /** What the mark says when it cannot be shown: the instance's name. */
+  logoAlt?: string;
   /** Where SONE lives, for the wordmark. */
   baseUrl: string;
   locale: 'en' | 'de';
@@ -180,6 +193,28 @@ export function renderHtml(letter: Letter): string {
 
   const home = safeUrl(letter.baseUrl) ?? '';
 
+  /*
+   * The mark, or the wordmark as text (ADR-0132).
+   *
+   * `cid:` and never a URL — an attachment the message carries, so nothing is
+   * fetched and nobody learns when it was opened (ADR-0058, ADR-0121).
+   *
+   * On a pale chip rather than straight on the paper: a client in dark mode
+   * darkens the paper by the query below and cannot recolour a picture, so the
+   * chip is what keeps a dark-inked logo legible in both. The chip is *not* in
+   * the dark-mode query for the same reason — it has to stay pale.
+   */
+  const mark = letter.logoCid
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
+      `<td style="background:${PAPER};border-radius:4px;padding:8px 10px">` +
+      `<a href="${escape(home)}" style="text-decoration:none">` +
+      `<img src="cid:${escape(letter.logoCid)}" alt="${escape(letter.logoAlt ?? 'SONE')}" ` +
+      `height="26" style="display:block;border:0;height:26px;width:auto"></a>` +
+      `</td></tr></table>`
+    : // Text, which is what every mail looked like before an instance could
+      // carry a mark of its own.
+      `<a href="${escape(home)}" class="sone-muted" style="font-size:13px;letter-spacing:0.12em;text-transform:uppercase;color:${MUTED};text-decoration:none">SONE</a>`;
+
   return `<!doctype html>
 <html lang="${letter.locale}">
 <head>
@@ -202,9 +237,7 @@ export function renderHtml(letter: Letter): string {
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:100%;max-width:600px">
         <tr>
           <td style="padding:0 0 12px">
-            <!-- Text, not an image: a remote image in a mail reports when it
-                 was opened, and this project does not measure that. -->
-            <a href="${escape(home)}" class="sone-muted" style="font-size:13px;letter-spacing:0.12em;text-transform:uppercase;color:${MUTED};text-decoration:none">SONE</a>
+${mark}
           </td>
         </tr>
         <tr>
