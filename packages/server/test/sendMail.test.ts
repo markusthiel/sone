@@ -267,3 +267,74 @@ test('the unsubscribe header ADR-0058 promised is actually sent', async () => {
     await without.close();
   }
 });
+
+// --- the html part (ADR-0121) ------------------------------------------------
+
+test('a mail with an html part is multipart, and the text comes first', async () => {
+  /*
+   * `multipart/alternative` means "the same thing, twice" — and the order is
+   * the contract: a client shows the **last** part it can display, so the text
+   * goes first and the HTML after it. Reversed, every graphical client would
+   * show the plain text.
+   *
+   * The text part is not decoration. A text-only client, a screen reader set to
+   * prefer it, and a mailing list that strips HTML all get the same letter.
+   */
+  const fake = await fakeRelay();
+  try {
+    await sendMail(relay(fake.port), {
+      to: 'a@example.org',
+      subject: 'x',
+      body: 'Anna hat dich erwähnt.',
+      html: '<p>Anna hat dich erwähnt.</p>',
+    });
+
+    const boundary = /boundary="([^"]+)"/.exec(fake.data)?.[1];
+    assert.ok(boundary, 'a boundary is declared');
+    assert.match(fake.data, /Content-Type: multipart\/alternative/);
+    assert.ok(
+      fake.data.indexOf('text/plain') < fake.data.indexOf('text/html'),
+      'text first, html last — a client shows the last part it understands',
+    );
+    assert.match(fake.data, new RegExp(`--${boundary}--`), 'and the last boundary is closed');
+  } finally {
+    await fake.close();
+  }
+});
+
+test('the boundary is not a constant a body could contain', async () => {
+  /*
+   * A body containing the boundary string would end the part early, and the
+   * rest of somebody's mail would arrive as MIME wreckage. Random per message
+   * is the answer; the property worth asserting is that it is not fixed.
+   */
+  const first = await fakeRelay();
+  const second = await fakeRelay();
+  try {
+    const one = { to: 'a@example.org', subject: 'x', body: 'y', html: '<p>y</p>' };
+    await sendMail(relay(first.port), one);
+    await sendMail(relay(second.port), one);
+
+    const a = /boundary="([^"]+)"/.exec(first.data)?.[1];
+    const b = /boundary="([^"]+)"/.exec(second.data)?.[1];
+    assert.ok(a && b);
+    assert.notEqual(a, b, 'a fixed boundary is one a body can contain');
+  } finally {
+    await first.close();
+    await second.close();
+  }
+});
+
+test('a mail with no html part is a plain one, as before', async () => {
+  // The counterweight. Most mails this server sends have no HTML, and they must
+  // not grow MIME machinery for nothing.
+  const fake = await fakeRelay();
+  try {
+    await sendMail(relay(fake.port), { to: 'a@example.org', subject: 'x', body: 'y' });
+
+    assert.match(fake.data, /Content-Type: text\/plain; charset=utf-8/);
+    assert.doesNotMatch(fake.data, /multipart/);
+  } finally {
+    await fake.close();
+  }
+});

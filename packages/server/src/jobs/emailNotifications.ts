@@ -21,6 +21,7 @@
 
 import { composeNotificationEmail, type Waiting } from '../mail/compose.js';
 import { replyAddress, replyToken } from '../mail/replyToken.js';
+import { renderHtml, renderText } from '../mail/letter.js';
 import { sendMail, type Relay } from '../mail/send.js';
 import { envNumber } from '../env.js';
 import { queryRows, withTransaction, type Db } from '../db/pool.js';
@@ -301,7 +302,11 @@ export function emailNotificationsHandler(pool: Pool, settings: MailSettings): J
     await sendMail(settings.relay, {
       to: first.email,
       subject: composed.subject,
-      body: composed.body,
+      // One letter, two renderings (ADR-0121). The text part is not a fallback
+      // — it says everything the drawn one says, because both come from the
+      // same structure.
+      body: renderText(composed),
+      html: renderHtml(composed),
       ...(replyTo ? { replyTo } : {}),
       /*
        * The header ADR-0058 said was already here (ADR-0081).

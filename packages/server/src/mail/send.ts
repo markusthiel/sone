@@ -18,6 +18,7 @@
  * inside a session. One mail per connection, and the job queue owns retries.
  */
 
+import { randomBytes } from 'node:crypto';
 import { createConnection, type Socket } from 'node:net';
 import { connect as tlsConnect, type TLSSocket } from 'node:tls';
 
@@ -33,8 +34,23 @@ export interface Relay {
 export interface Message {
   to: string;
   subject: string;
-  /** Plain text. An HTML part is a second thing to keep true. */
+  /**
+   * Plain text, always.
+   *
+   * Not a fallback: a text-only client, a screen reader set to prefer it and a
+   * mailing list that strips HTML all get this, and it says everything the
+   * other part says — both are rendered from one letter (ADR-0121).
+   */
   body: string;
+  /**
+   * The same letter, drawn (ADR-0121).
+   *
+   * Optional, and most mails have none. The file said "an HTML part is a second
+   * thing to keep true", which is right about two *documents*: here both parts
+   * come from one structure, so a line reaching one and not the other is not a
+   * mistake that can be made.
+   */
+  html?: string;
   /**
    * Where a reply should go, when one can be accepted (ADR-0060).
    *
@@ -248,13 +264,25 @@ export async function sendMail(relay: Relay, message: Message, now = new Date())
     await session.say(`RCPT TO:<${to}>`, [250, 251]);
     await session.say('DATA', [354]);
 
+    /*
+     * A boundary no body can contain (ADR-0121).
+     *
+     * A part ends at a line that is the boundary, so a message containing that
+     * string would end early and the rest would arrive as MIME wreckage. Random
+     * per message rather than a constant: a constant is one somebody's page
+     * title eventually contains, and the failure is silent.
+     */
+    const boundary = `sone-${randomBytes(16).toString('hex')}`;
+
     const headers = [
       `From: ${relay.from}`,
       `To: ${to}`,
       `Subject: ${headerSafe(message.subject)}`,
       `Date: ${now.toUTCString()}`,
       'MIME-Version: 1.0',
-      'Content-Type: text/plain; charset=utf-8',
+      message.html === undefined
+        ? 'Content-Type: text/plain; charset=utf-8'
+        : `Content-Type: multipart/alternative; boundary="${boundary}"`,
       // For clients that offer the button. It points at the authenticated
       // settings page, which is worse than one click and is the version that
       // cannot be used against the recipient (ADR-0058).
@@ -273,7 +301,30 @@ export async function sendMail(relay: Relay, message: Message, now = new Date())
       ...(message.replyTo ? [`Reply-To: ${headerSafe(message.replyTo)}`] : []),
     ].join('\r\n');
 
-    session.write(`${headers}\r\n\r\n${forData(message.body)}\r\n.\r\n`);
+    /*
+     * Text first, HTML last.
+     *
+     * `multipart/alternative` means "the same thing, twice", and the order is
+     * the contract: a client shows the **last** part it can display. Reversed,
+     * every graphical client would show the plain text — which is why this is
+     * the one thing about MIME worth a comment.
+     */
+    const content =
+      message.html === undefined
+        ? forData(message.body)
+        : [
+            `--${boundary}`,
+            'Content-Type: text/plain; charset=utf-8',
+            '',
+            forData(message.body),
+            `--${boundary}`,
+            'Content-Type: text/html; charset=utf-8',
+            '',
+            forData(message.html),
+            `--${boundary}--`,
+          ].join('\r\n');
+
+    session.write(`${headers}\r\n\r\n${content}\r\n.\r\n`);
     await session.reply().then((reply) => {
       if (reply.code !== 250) {
         throw new SmtpError(`the relay refused the message: ${reply.code} ${reply.text}`, reply.code);
