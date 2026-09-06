@@ -521,6 +521,35 @@ async function main(): Promise<void> {
     workspaceRetentionDays: config.workspaceRetentionDays,
     // For freeing what an expired export left in storage (ADR-0044).
     store: fileStore,
+    /*
+     * The three mails with no moment to hang on (ADR-0129).
+     *
+     * Here because this is the loop that comes round: an invitation nobody
+     * redeemed and a link about to expire are true for days at a stretch, and
+     * neither has a request to be sent from.
+     */
+    reminders: {
+      baseUrl: config.publicUrl,
+      instanceName: async () => (await settings.resolve()).values.instanceName,
+      emailDetail: async () => (await settings.resolve()).values.emailDetail,
+      /*
+       * Asked before anything is claimed, and not the same question as having
+       * a sender: the sender below exists always and quietly does nothing
+       * without a relay, which would mark every reminder as sent while sending
+       * none.
+       */
+      canSendMail: async () => (await mailSettings()).relay !== null,
+      sendLetter: async (to, letter) => {
+        const current = await mailSettings();
+        if (!current.relay) return;
+        await sendMail(current.relay, {
+          to,
+          subject: letter.subject,
+          body: renderText(letter),
+          html: renderHtml(letter),
+        });
+      },
+    },
   });
 
   /*

@@ -27,6 +27,7 @@ import { pruneShareSessions } from '../auth/share.js';
 import { deleteDocumentsFor } from '../doc/deleteDocuments.js';
 import { compactDoc, loadDoc } from '../doc/docStore.js';
 import { expireJobs } from '../jobs/runner.js';
+import { sendReminders, type ReminderDeps } from '../mail/reminders.js';
 import { sweepOrphanFiles } from '../files/sweepOrphanFiles.js';
 import type { FileStore } from '../files/store.js';
 import {
@@ -102,6 +103,16 @@ export interface MaintenanceOptions {
    * would make every existing caller pass one for a step it does not use.
    */
   store?: Pick<FileStore, 'delete'> & Partial<Pick<FileStore, 'list'>>;
+  /**
+   * Letters about something that did not happen (ADR-0129).
+   *
+   * Optional, and the step is skipped without it: these three reminders need a
+   * relay and an instance name, and a maintenance job in a test has neither.
+   * They belong here rather than anywhere else because they are the only mails
+   * with no moment to hang on — each is true for days, and this is the loop
+   * that comes round.
+   */
+  reminders?: Omit<ReminderDeps, 'pool'>;
   log?: (msg: string, meta?: unknown) => void;
 }
 
@@ -118,6 +129,8 @@ export interface MaintenanceReport {
   thinnedVersions: number;
   /** Job results whose time was up (ADR-0044). */
   expiredJobs: number;
+  /** Reminders sent this pass, by kind (ADR-0129). */
+  reminders: { invitations: number; links: number; outages: number };
   /** Failed projections attempted again this pass. */
   retriedProjections: number;
   /** Of those, the ones that succeeded. */
@@ -196,6 +209,7 @@ export class Maintenance {
       versionedDocuments: 0,
       thinnedVersions: 0,
       expiredJobs: 0,
+      reminders: { invitations: 0, links: 0, outages: 0 },
       retriedProjections: 0,
       recoveredProjections: 0,
       abandonedProjections: 0,
@@ -295,6 +309,11 @@ export class Maintenance {
 
     await guard('thin versions', async () => {
       report.thinnedVersions = await thinVersions(this.opts.pool);
+    });
+
+    await guard('send reminders', async () => {
+      if (!this.opts.reminders) return;
+      report.reminders = await sendReminders({ pool: this.opts.pool, ...this.opts.reminders });
     });
 
     // Reported, not fixed: both conditions need an operator decision. A stale
