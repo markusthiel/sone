@@ -1787,7 +1787,9 @@ export const api = {
    * The same route the icon and the title use, and for the reason a folder
    * makes plain: it has no open document to write into. A page writes its own
    * cover straight into the document it already has — see `PageView` — so this
-   * is what a folder uses and what a page falls back on nowhere.
+   * is the folder's path. A page could use it too (an HTTP write reaches an
+   * open room through the update bus, ADR-0076); it would just cost a
+   * rematerialise and a tree refetch for something the document does at once.
    */
   setEntryCover: (pageId: string, cover: EntryCover | null) =>
     request<{ id: string; cover: EntryCover | null }>(`/api/pages/${pageId}`, {
