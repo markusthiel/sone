@@ -641,5 +641,113 @@ describe(
       );
       assert.equal(body.expiresAt, null);
     });
+
+    // --- the overview, and which list a grant belongs in (ADR-0114) ----------
+
+    /** What `GET /api/workspaces/:id/shares` says, for this person. */
+    async function overview(
+      cookie: string,
+      workspaceId: string,
+    ): Promise<{
+      granted: Array<{ pageId: string; subject: string }>;
+      received: Array<{ pageId: string; grantedBy: string | null; viaGroup: string | null }>;
+    }> {
+      const res = await fetch(`${base}/api/workspaces/${workspaceId}/shares`, {
+        headers: { cookie },
+      });
+      return expectJson(res, 200);
+    }
+
+    /** A group in this workspace, with the given people in it. */
+    async function makeGroup(workspaceId: string, members: string[]): Promise<string> {
+      const group = await db.query<{ id: string }>(
+        `INSERT INTO groups (workspace_id, name, role_id)
+         VALUES ($1,'Redaktion',(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL))
+         RETURNING id`,
+        [workspaceId],
+      );
+      for (const userId of members) {
+        await db.query(`INSERT INTO group_members (group_id, user_id) VALUES ($1,$2)`, [
+          group.rows[0]!.id,
+          userId,
+        ]);
+      }
+      return group.rows[0]!.id;
+    }
+
+    /** Somebody else in the same workspace. */
+    async function colleague(workspaceId: string, email: string): Promise<string> {
+      const hash = await hashPassword(PASSWORD);
+      const user = await db.query<{ id: string }>(
+        `INSERT INTO users (email, display_name, password_hash)
+         VALUES ($1,'Kollegin',$2) RETURNING id`,
+        [email, hash],
+      );
+      await db.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+         VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL),false)`,
+        [workspaceId, user.rows[0]!.id],
+      );
+      return user.rows[0]!.id;
+    }
+
+    test('a page I shared with a group I am in is not also shared with me', async () => {
+      /*
+       * The two lists were "grants I made" and "grants that reach me", which
+       * are not exclusive. Sharing a page with a team you are on — the ordinary
+       * way to give a team access — put the same row in both, the second one
+       * saying it was shared with you by yourself.
+       */
+      const session = await setup();
+      const group = await makeGroup(session.workspaceId, [session.userId]);
+      await db.query(
+        `INSERT INTO page_group_permissions (page_id, group_id, role, granted_by)
+         VALUES ($1,$2,'editor',$3)`,
+        [session.pageId, group, session.userId],
+      );
+
+      const body = await overview(session.cookie, session.workspaceId);
+      assert.equal(body.granted.length, 1, 'it is something I shared');
+      assert.equal(body.granted[0]!.subject, 'Redaktion');
+      assert.deepEqual(body.received, [], 'and not something I was given');
+    });
+
+    test('and somebody else sharing with that group still reaches me', async () => {
+      // The counterweight, and the whole point of the list: a fix that emptied
+      // "shared with me" would pass the test above.
+      const session = await setup();
+      const other = await colleague(session.workspaceId, 'kollegin@example.org');
+      const group = await makeGroup(session.workspaceId, [session.userId]);
+      await db.query(
+        `INSERT INTO page_group_permissions (page_id, group_id, role, granted_by)
+         VALUES ($1,$2,'viewer',$3)`,
+        [session.pageId, group, other],
+      );
+
+      const body = await overview(session.cookie, session.workspaceId);
+      assert.deepEqual(body.granted, [], 'I did not share it');
+      assert.equal(body.received.length, 1);
+      assert.equal(body.received[0]!.viaGroup, 'Redaktion', 'and why I have it');
+      assert.equal(body.received[0]!.grantedBy, 'Kollegin', 'and who to ask');
+    });
+
+    test('a grant whose author is gone is still one I was given', async () => {
+      /*
+       * `granted_by` is `ON DELETE SET NULL`, so a grant outlives the account
+       * that made it. `IS DISTINCT FROM` rather than `<>` for that reason: a
+       * null compares to nothing, so the plain comparison would have dropped
+       * every one of these out of the list silently.
+       */
+      const session = await setup();
+      await db.query(
+        `INSERT INTO page_permissions (page_id, user_id, role, granted_by)
+         VALUES ($1,$2,'viewer',NULL)`,
+        [session.pageId, session.userId],
+      );
+
+      const body = await overview(session.cookie, session.workspaceId);
+      assert.equal(body.received.length, 1);
+      assert.equal(body.received[0]!.grantedBy, null);
+    });
   },
 );
