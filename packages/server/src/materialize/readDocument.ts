@@ -26,7 +26,7 @@ import {
   type StoredValue,
   canvasText,
   readThreads,
-  USERS_KEY,
+  writersIn,
   type CommentThread,
 } from '@sone/core';
 import * as Y from 'yjs';
@@ -148,10 +148,13 @@ export interface ReadDocument {
   /**
    * Who has writing in this page, as the document names them (ADR-0050).
    *
-   * The keys of the attribution mapping: a user id, or a `guest:` key. Read
-   * here because this is where the document is open — the materialiser is handed
-   * this result and not the document, which is why the keys travel rather than
-   * the map.
+   * A user id, or a `guest:` key. Read here because this is where the document
+   * is open — the materialiser is handed this result and not the document, which
+   * is why the keys travel rather than the map.
+   *
+   * Whose writing is *still here*, from `writersIn` rather than from the raw
+   * mapping (ADR-0116): the mapping lists everybody who has opened the page, so
+   * read raw this made `author:` a filter for who had looked.
    */
   authorKeys: string[];
   properties: Map<string, StoredValue>;
@@ -409,7 +412,9 @@ export function readDocument(doc: Y.Doc, pageId: string | null): ReadDocument {
     page,
     blocks: readBlocks(doc, warnings),
     canvasText: canvasText(doc),
-    authorKeys: [...doc.getMap(USERS_KEY).keys()],
+    // Who has writing here, not who has had the page open (ADR-0116). Read raw,
+    // `author:markus` matched every page he had ever looked at.
+    authorKeys: [...writersIn(doc).keys()],
     commentThreads: readThreads(doc),
     mentions: mentionsIn(doc),
     comments: readThreads(doc).map((thread) => ({

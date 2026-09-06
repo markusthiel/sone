@@ -10,8 +10,29 @@
 
 import * as Y from 'yjs';
 
+import { DOC_KEYS } from './docSchema.js';
+
 /** Where Y.PermanentUserData keeps its mapping. */
 export const USERS_KEY = 'users';
+
+/**
+ * The roots a route writes, which are therefore not evidence of a person.
+ *
+ * `applyToDocument` loads its own `Y.Doc` with its own client id, so a rename,
+ * a move, an icon, a lock or an import is live content from a client the
+ * mapping has never heard of (ADR-0116). Every one of those writes lands in
+ * `page` or `meta` and nowhere else — the body goes through the editor.
+ *
+ * Used when asking whether somebody *unnameable* has written, and not when
+ * pruning: dropping a mapping entry is destructive and the conservative answer
+ * there is to keep it.
+ */
+export const STRUCTURAL_ROOTS: readonly string[] = [DOC_KEYS.meta, DOC_KEYS.page];
+
+export interface LiveClientOptions {
+  /** Roots whose content does not count as somebody's writing. */
+  skipRoots?: readonly string[];
+}
 
 /**
  * Which client ids are still represented by live content.
@@ -25,7 +46,8 @@ export const USERS_KEY = 'users';
  * Live, not "ever existed": the point of pruning is precisely that deleted text
  * should not keep somebody's name in the record.
  */
-export function liveClientIds(doc: Y.Doc): Set<number> {
+export function liveClientIds(doc: Y.Doc, options: LiveClientOptions = {}): Set<number> {
+  const skip = options.skipRoots ?? [];
   const seen = new Set<number>();
 
   // `any` in the parameter, deliberately: Yjs types a shared type by the event
@@ -67,10 +89,90 @@ export function liveClientIds(doc: Y.Doc): Set<number> {
     // The mapping itself is not content: counting it would keep every entry
     // alive by its own existence, which is the opposite of pruning.
     if (key === USERS_KEY) continue;
+    if (skip.includes(key)) continue;
     walk(type);
   }
 
   return seen;
+}
+
+/**
+ * Who has written what is still on this page (ADR-0116).
+ *
+ * The mapping answers a different question. `recordAttribution` runs when a
+ * document *opens*, and it has to: attribution is not retroactive, so the
+ * mapping must be in place before the first keystroke rather than after it.
+ * What it therefore holds is everybody who has had the page open — everybody
+ * who *might* have written — and reading it as the answer lists a colleague who
+ * glanced at the page beside the person who wrote it.
+ *
+ * The other half is already here. Intersecting the mapping with `liveClientIds`
+ * is the same rule pruning has used since ADR-0022, asked at the moment
+ * somebody wants the answer rather than whenever a server-side mutation
+ * happened to run last — which is why two pages with the same history could
+ * list different people.
+ *
+ * The client ids are kept, not just the names: the panel marks a person's
+ * writing in the editor with them, and a name with no ids is a name nobody can
+ * click.
+ *
+ * All roots, including the structural ones: somebody who did nothing here but
+ * give the page its title did write the title.
+ */
+export function writersIn(doc: Y.Doc): Map<string, number[]> {
+  const out = new Map<string, number[]>();
+  // Checked rather than created: `getMap` would make an empty one, which turns
+  // a read into a write and would sync an empty map to everybody.
+  if (!doc.share.has(USERS_KEY)) return out;
+
+  const live = liveClientIds(doc);
+  for (const [userKey, value] of doc.getMap(USERS_KEY).entries()) {
+    const ids = value instanceof Y.Map ? value.get('ids') : null;
+    const list = ids instanceof Y.Array ? (ids.toArray() as unknown[]) : [];
+    const mine = list.filter(
+      (entry): entry is number => typeof entry === 'number' && live.has(entry),
+    );
+    // Absent rather than present-and-empty: a caller that has to remember to
+    // check the length is a caller that will forget once.
+    if (mine.length > 0) out.set(userKey, mine);
+  }
+  return out;
+}
+
+/**
+ * Whether anything still here was written by somebody the document cannot name.
+ *
+ * A share-link guest is deliberately not recorded (ADR-0022), and until that was
+ * said out loud it was a silence: a page a guest had visibly written on looked
+ * like a page nobody had written on. A reader cannot tell "nobody has written
+ * here" from "the person who wrote here cannot be named", and the second is a
+ * fact worth stating.
+ *
+ * Structural roots excluded, which is the correction ADR-0116 makes. A rename
+ * over HTTP is a write by a client id no mapping has ever heard of, so one
+ * rename made this true — and it is true on very nearly every page. A note that
+ * is always there says nothing, and this one named two causes, neither of which
+ * was the usual one.
+ *
+ * Live content only, by the same rule as everything else here: a guest whose
+ * writing has all been deleted is not a guest this page needs to mention.
+ */
+export function hasUnattributedWriting(doc: Y.Doc): boolean {
+  const mapped = new Set<number>();
+  if (doc.share.has(USERS_KEY)) {
+    for (const value of doc.getMap(USERS_KEY).values()) {
+      const ids = value instanceof Y.Map ? value.get('ids') : null;
+      if (!(ids instanceof Y.Array)) continue;
+      for (const entry of ids.toArray() as unknown[]) {
+        if (typeof entry === 'number') mapped.add(entry);
+      }
+    }
+  }
+
+  for (const client of liveClientIds(doc, { skipRoots: STRUCTURAL_ROOTS })) {
+    if (!mapped.has(client)) return true;
+  }
+  return false;
 }
 
 /**
