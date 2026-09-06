@@ -1034,6 +1034,16 @@ export const de: Record<keyof typeof en, string> = {
   'type.treatment.sunken': 'Vertieft',
   'type.treatment.inverted': 'Umgekehrt',
   'type.treatment.accent': 'Akzentfarbe',
+  'type.file': 'Theme als Datei',
+  'type.file.note':
+    'Eine Datei enthält das ganze Theme — Farben, Flächen, Ecken, Schrift und ' +
+    'hell/dunkel. Beim Laden landet sie zuerst im Formular; gespeichert wird ' +
+    'sie erst mit „Speichern".',
+  'type.file.export': 'Exportieren',
+  'type.file.import': 'Importieren',
+  'type.file.loaded': '„{name}" geladen — noch nicht gespeichert.',
+  'type.file.unnamed': 'Ohne Namen',
+  'error.not_a_theme': 'Das ist keine SONE-Theme-Datei.',
   'type.scheme': 'Hell oder dunkel',
   'type.scheme.inherit': 'Wie die Instanz',
   'type.scheme.light': 'Hell',

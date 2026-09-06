@@ -9,6 +9,7 @@ export * from './doc/collection.js';
 export * from './doc/migrations.js';
 export * from './doc/attribution.js';
 export * from './doc/theme.js';
+export * from './doc/themeFile.js';
 export * from './video/links.js';
 export * from './search/query.js';
 export * from './doc/diff.js';

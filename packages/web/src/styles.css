@@ -8127,6 +8127,11 @@ body {
    button that does the same thing is two controls for one choice. */
 .brand-logo-actions input[type='file'] { display: none; }
 
+/* A theme in and out (ADR-0125). Same reason as the logo above: the label is
+   the control, and the browser's own file box beside a button that does the
+   same thing is two controls for one choice. */
+.settings-actions input[type='file'] { display: none; }
+
 /* One row per piece of furniture (ADR-0122). A grid rather than a flex wrap so
    the four selects line up under each other: read down the labels and the list
    is what the interface is made of. */

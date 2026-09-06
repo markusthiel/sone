@@ -938,6 +938,16 @@ export const en = {
   'type.treatment.sunken': 'Sunken',
   'type.treatment.inverted': 'Inverted',
   'type.treatment.accent': 'Accent',
+  'type.file': 'The theme as a file',
+  'type.file.note':
+    'A file holds the whole theme — colours, surfaces, corners, type and ' +
+    'light-or-dark. Loading one fills in the form; nothing is stored until you ' +
+    'press Save.',
+  'type.file.export': 'Export',
+  'type.file.import': 'Import',
+  'type.file.loaded': '“{name}” loaded — not saved yet.',
+  'type.file.unnamed': 'Unnamed',
+  'error.not_a_theme': 'That is not a SONE theme file.',
   'type.scheme': 'Light or dark',
   'type.scheme.inherit': 'As the instance says',
   'type.scheme.light': 'Light',

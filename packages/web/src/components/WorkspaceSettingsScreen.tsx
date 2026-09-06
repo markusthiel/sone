@@ -187,10 +187,10 @@ export function WorkspaceSettingsScreen({
       )}
 
       {current === 'typography' && (
-        <ThemeSettings owner={workspaceThemeOwner(workspaceId)} canEdit={canEdit} show="type" />
+        <ThemeSettings owner={workspaceThemeOwner(workspaceId, workspace?.name ?? '')} canEdit={canEdit} show="type" />
       )}
       {current === 'colours' && (
-        <ThemeSettings owner={workspaceThemeOwner(workspaceId)} canEdit={canEdit} show="colour" />
+        <ThemeSettings owner={workspaceThemeOwner(workspaceId, workspace?.name ?? '')} canEdit={canEdit} show="colour" />
       )}
       {current === 'landing' && (
         <LandingSettings workspaceId={workspaceId} canEdit={canEdit} />
@@ -221,8 +221,9 @@ export function WorkspaceSettingsScreen({
  * The other owner is the instance, on the administration screen. One form, two
  * owners: a second copy of it would be the one where a control is forgotten.
  */
-const workspaceThemeOwner = (workspaceId: string): ThemeOwner => ({
+const workspaceThemeOwner = (workspaceId: string, name: string): ThemeOwner => ({
   key: workspaceId,
+  name,
   load: () => api.workspaceTheme(workspaceId),
   save: (theme) => api.setWorkspaceTheme(workspaceId, theme),
 });

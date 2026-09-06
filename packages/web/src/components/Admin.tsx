@@ -870,11 +870,12 @@ export function UsersPanel(): ReactElement {
  * control is forgotten, and this is the layer everybody sees who has set
  * nothing.
  */
-const INSTANCE_THEME: ThemeOwner = {
+const instanceThemeOwner = (name: string): ThemeOwner => ({
   key: 'instance',
+  name,
   load: () => api.brandTheme(),
   save: (theme) => api.setBrandTheme(theme),
-};
+});
 
 /**
  * The mark and the base design.
@@ -889,6 +890,8 @@ const INSTANCE_THEME: ThemeOwner = {
 export function BrandPanel(): ReactElement {
   const { t } = useT();
   const [logo, setLogo] = useState<string | null>(null);
+  /** What this instance calls itself, which is also what an exported theme is called. */
+  const [name, setName] = useState('SONE');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -904,6 +907,7 @@ export function BrandPanel(): ReactElement {
     try {
       const instance = await api.instance();
       setLogo(instance.brand?.logo ?? null);
+      setName(instance.brand?.name ?? 'SONE');
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -993,8 +997,8 @@ export function BrandPanel(): ReactElement {
         <h2>{t('admin.brand.design')}</h2>
         <p className="settings-note">{t('admin.brand.design.hint')}</p>
       </section>
-      <ThemeSettings owner={INSTANCE_THEME} canEdit show="colour" />
-      <ThemeSettings owner={INSTANCE_THEME} canEdit show="type" />
+      <ThemeSettings owner={instanceThemeOwner(name)} canEdit show="colour" />
+      <ThemeSettings owner={instanceThemeOwner(name)} canEdit show="type" />
     </>
   );
 }
