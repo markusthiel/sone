@@ -20,11 +20,12 @@
  *
  * ## What it actually has to know
  *
- * Three columns hold a storage key, and missing any one deletes live data:
+ * Four places hold a storage key, and missing any one deletes live data:
  *
  *   files.storage_key       attachments
  *   users.avatar_key        profile pictures — **not in the files table at all**
  *   jobs.result->>'key'     a workspace export waiting to be downloaded
+ *   instance_settings       the instance's own logo (ADR-0123)
  *
  * The avatar is the one the code points at: `files/routes.ts` says a replaced
  * picture is "left in storage for the orphan sweep rather than deleted here".
@@ -151,6 +152,24 @@ describe(
 
       const report = await sweepOrphanFiles(db, store, { olderThanHours: 1 });
       assert.deepEqual(report.sample, []);
+    });
+
+    test('the instance’s own logo is not an orphan either', async () => {
+      /*
+       * The fourth place, and the newest — which is exactly the shape this file
+       * warns about. A logo belongs to no workspace and no page, so it is a key
+       * on a setting rather than a `files` row (ADR-0123), and a sweep that did
+       * not learn about it would take the mark off the sign-in screen of an
+       * instance nobody had touched, a week after it was uploaded.
+       */
+      const mark = await stored('f', '30 days');
+      await db.query(
+        `INSERT INTO instance_settings (key, value) VALUES ('brandLogo', $1::jsonb)`,
+        [JSON.stringify({ key: mark, mime: 'image/png' })],
+      );
+
+      const report = await sweepOrphanFiles(db, store, { olderThanHours: 1 });
+      assert.deepEqual(report.sample, [], 'the logo is live');
     });
 
     test('a file two rows share survives losing one of them', async () => {

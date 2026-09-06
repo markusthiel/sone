@@ -11,6 +11,7 @@
 
 import type { Pool } from 'pg';
 
+import type { BrandInfo } from '../admin/settings.js';
 import { AuthError, verifyPassword } from '../auth/password.js';
 import { issueReset, redeemReset } from '../auth/reset.js';
 import {
@@ -81,6 +82,18 @@ export interface AuthDeps {
   secretKey: string;
   /** What an authenticator app calls this instance (ADR-0063). */
   instanceName: () => Promise<string>;
+  /**
+   * What the instance looks like (ADR-0123).
+   *
+   * Injected like everything else here, and read per request rather than
+   * captured: an administrator changes a logo while the process runs, and a
+   * value taken at startup would show the old mark until a restart.
+   *
+   * Optional, so a suite that is not about branding need not supply one — the
+   * answer is then an instance with a name and nothing else, which is what a
+   * fresh instance has.
+   */
+  brand?: () => Promise<BrandInfo>;
   /**
    * Where an account stands against the requirement (ADR-0065).
    *
@@ -452,6 +465,20 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
        * there is nobody to ask yet.
        */
       canResetPassword: await deps.canSendMail(),
+      /*
+       * What this instance looks like (ADR-0123).
+       *
+       * Here rather than on the session, because that is the point of it: an
+       * instance's look that only appears once somebody is inside is branding
+       * for people who already know where they are. This is the one route that
+       * answers with nobody signed in, which is why the form of address travels
+       * on it too.
+       */
+      brand: (await deps.brand?.()) ?? {
+        name: await deps.instanceName(),
+        theme: {},
+        logo: null,
+      },
     });
   });
 

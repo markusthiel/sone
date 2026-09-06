@@ -19,6 +19,7 @@
  * change monthly.
  */
 
+import { sanitiseTheme, type WorkspaceTheme } from '@sone/core';
 import type { Pool } from 'pg';
 
 import { queryRows } from '../db/pool.js';
@@ -105,7 +106,79 @@ export const SETTING_KEYS = {
   imapUser: { type: 'string', maxLength: 320 },
   imapFolder: { type: 'string', maxLength: 64 },
   replyMailbox: { type: 'string', maxLength: 320 },
+
+  /*
+   * What the instance looks like where nobody has said otherwise (ADR-0123).
+   *
+   * The two settings here are the first that cannot come from the environment,
+   * and that is not an oversight: a theme is an object and a logo is bytes,
+   * neither of which belongs in a compose file. They resolve from a fixed
+   * default instead — empty, which is what a fresh instance has and renders
+   * exactly as every instance rendered before there was branding.
+   *
+   * The theme goes through the same `sanitiseTheme` a workspace's does, so an
+   * administrator cannot express anything a workspace could not. That matters
+   * more here than there: this is the one everybody sees who has set nothing.
+   */
+  brandTheme: { type: 'json', check: checkTheme },
+  /*
+   * The mark, as a storage key and the type its bytes actually are.
+   *
+   * One value and not two settings, because they must not drift: a key stored
+   * beside the wrong type is a PNG served as a JPEG, and the browser that
+   * refuses it is right.
+   */
+  brandLogo: { type: 'json', check: checkLogo },
 } as const;
+
+/**
+ * A theme, filtered rather than trusted — and rejected if it is not one at all.
+ *
+ * Both halves matter and they answer different questions. *Inside* an object,
+ * an unusable field is dropped: a theme arrives from a form, and one stale
+ * value must not cost an instance the rest of its settings. But a value that is
+ * not an object is a caller sending the wrong thing, and `sanitiseTheme` would
+ * turn it into `{}` — which would quietly clear the instance's whole
+ * appearance because a client had a bug.
+ */
+function checkTheme(value: unknown): WorkspaceTheme | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return sanitiseTheme(value);
+}
+
+/** A storage key, in the storage layer's own shape. Anything else names nothing. */
+const LOGO_KEY = /^[0-9a-f]{2}\/[0-9a-f]{62}(\.[a-z0-9]{1,8})?$/;
+const LOGO_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']);
+
+export interface BrandLogo {
+  key: string;
+  mime: string;
+}
+
+function checkLogo(value: unknown): BrandLogo | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const key = raw['key'];
+  const mime = raw['mime'];
+  if (typeof key !== 'string' || !LOGO_KEY.test(key)) return undefined;
+  if (typeof mime !== 'string' || !LOGO_TYPES.has(mime)) return undefined;
+  return { key, mime };
+}
+
+/** What a sign-in screen needs to look like this instance. */
+export interface BrandInfo {
+  name: string;
+  theme: WorkspaceTheme;
+  /**
+   * Where the logo is, with the key in the address.
+   *
+   * The bytes at a storage key never change — the key is their hash — so the
+   * answer may be cached hard. That is only safe because the *address* moves: a
+   * new logo is a new URL, and nobody is shown last month's mark out of a
+   * proxy.
+   */
+  logo: string | null;
+}
 
 export type SettingKey = keyof typeof SETTING_KEYS;
 
@@ -130,7 +203,22 @@ export interface InstanceSettings {
   imapUser: string;
   imapFolder: string;
   replyMailbox: string;
+  /** What the instance looks like where nobody said otherwise (ADR-0123). */
+  brandTheme: WorkspaceTheme;
+  brandLogo: BrandLogo | null;
 }
+
+/**
+ * The two that have no environment behind them.
+ *
+ * Every other setting falls back to a value the deployment supplied; a theme is
+ * an object and a logo is bytes, and neither belongs in a compose file. Empty
+ * is what a fresh instance has.
+ */
+const NO_ENVIRONMENT: Pick<InstanceSettings, 'brandTheme' | 'brandLogo'> = {
+  brandTheme: {},
+  brandLogo: null,
+};
 
 /** Where each value came from, so the interface can say so. */
 export type SettingSource = 'database' | 'environment';
@@ -189,7 +277,7 @@ export class SettingsStore {
     );
 
     const stored = new Map(rows.map((row) => [row.key, row.value]));
-    const values: InstanceSettings = { ...this.defaults };
+    const values: InstanceSettings = { ...this.defaults, ...NO_ENVIRONMENT };
     const sources = {
       signupMode: 'environment',
       instanceName: 'environment',
@@ -214,6 +302,25 @@ export class SettingsStore {
     this.cached = { values, sources };
     this.cachedAt = Date.now();
     return this.cached;
+  }
+
+  /**
+   * What this instance looks like, for the screen that draws it (ADR-0123).
+   *
+   * Assembled here rather than at each caller: the sign-in screen and the
+   * application both want it, and the logo's address is derived from the key
+   * rather than stored — two places building that URL is two places to get the
+   * cache-busting wrong.
+   */
+  async brand(): Promise<BrandInfo> {
+    const values = (await this.resolve()).values;
+    return {
+      name: values.instanceName,
+      theme: values.brandTheme,
+      logo: values.brandLogo
+        ? `/api/instance/logo?v=${values.brandLogo.key.replace('/', '').slice(0, 12)}`
+        : null,
+    };
   }
 
   /** Read one setting. */
@@ -282,6 +389,12 @@ export function validate(key: SettingKey, value: unknown): unknown | undefined {
     if (typeof value !== 'string') return undefined;
     const trimmed = value.trim();
     return trimmed.length > 0 && trimmed.length <= spec.maxLength ? trimmed : undefined;
+  }
+  if (spec.type === 'json') {
+    // The check belongs to the key rather than to the type: a theme and a logo
+    // are both objects and share nothing else. `undefined` from a check is a
+    // refusal, exactly as it is for the other three.
+    return spec.check(value);
   }
   return undefined;
 }

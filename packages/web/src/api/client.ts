@@ -104,6 +104,14 @@ const post = <T>(path: string, body?: unknown): Promise<T> =>
 
 // --- types -----------------------------------------------------------------
 
+/** What an instance looks like, before anybody has signed in (ADR-0123). */
+export interface Brand {
+  name: string;
+  theme: WorkspaceTheme;
+  /** Where the mark is, with the storage key in the address. Null: draw ours. */
+  logo: string | null;
+}
+
 export interface InstanceInfo {
   needsSetup: boolean;
   signupMode: 'open' | 'invite' | 'closed';
@@ -112,6 +120,8 @@ export interface InstanceInfo {
   addressForm?: 'informal' | 'formal';
   /** Whether a forgotten password can be reset — false with no relay (ADR-0059). */
   canResetPassword?: boolean;
+  /** What this instance looks like (ADR-0123). */
+  brand?: Brand;
 }
 
 /** How a workspace is recognised in a list (ADR-0030). */
@@ -288,6 +298,8 @@ export interface InstanceSettings {
   smtpFrom: string;
   smtpSecurity: 'starttls' | 'tls' | 'none';
   emailDetail: 'title' | 'workspace';
+  /** The base design every workspace's theme sits on (ADR-0123). */
+  brandTheme: WorkspaceTheme;
   /** Whether everybody needs a second factor, and since when (ADR-0065). */
   requireSecondFactor: boolean;
   requireSecondFactorSince: string;
@@ -1866,6 +1878,40 @@ export const api = {
   },
 
   removeAvatar: () => request<{ ok: true }>('/api/auth/avatar', { method: 'DELETE' }),
+
+  /**
+   * The instance's own mark (ADR-0123).
+   *
+   * The same shape as the avatar above and for the same reason: bytes go in a
+   * body, not in a JSON field, because base64 in a request is a third larger
+   * and has to be decoded on the way out.
+   */
+  setBrandLogo: async (file: File | Blob): Promise<void> => {
+    const response = await fetch('/api/admin/brand/logo', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: file,
+    });
+    if (!response.ok) throw new ApiError(response.status, 'upload_failed');
+  },
+
+  removeBrandLogo: () =>
+    request<{ ok: true }>('/api/admin/brand/logo', { method: 'DELETE' }),
+
+  /**
+   * The instance's base design, which every workspace's theme sits on.
+   *
+   * Read and written through the settings the administration screen already
+   * uses, rather than a route of its own: it is one more instance setting, and
+   * a second endpoint would be a second place a theme is validated.
+   */
+  brandTheme: () => api.adminOverview().then((result) => ({ theme: result.settings.brandTheme })),
+
+  setBrandTheme: (theme: WorkspaceTheme) =>
+    api.adminUpdateSettings({ brandTheme: theme }).then((result) => ({
+      theme: result.settings.brandTheme,
+    })),
 
   uploadFile: async (
     pageId: string,

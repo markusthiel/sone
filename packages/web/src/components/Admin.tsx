@@ -23,6 +23,8 @@ import {
 } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 import { messageFor } from './Auth.tsx';
+import { SoneMark } from './Logo.tsx';
+import { ThemeSettings, type ThemeOwner } from './ThemeSettings.tsx';
 
 /** Bytes in a form a person can judge at a glance. */
 function formatBytes(bytes: number): string {
@@ -855,6 +857,145 @@ export function UsersPanel(): ReactElement {
         {t('admin.accounts.note')}
       </p>
     </section>
+  );
+}
+
+// --- what the instance looks like (ADR-0123) ---------------------------------
+
+/**
+ * The instance, as an owner of a theme.
+ *
+ * The other owner is a workspace, on its own settings screen. The same form
+ * draws both — a second copy of it for the instance would be the one where a
+ * control is forgotten, and this is the layer everybody sees who has set
+ * nothing.
+ */
+const INSTANCE_THEME: ThemeOwner = {
+  key: 'instance',
+  load: () => api.brandTheme(),
+  save: (theme) => api.setBrandTheme(theme),
+};
+
+/**
+ * The mark and the base design.
+ *
+ * Asked for as *„dass man ein Logo festlegen kann, quadratisch, und ein
+ * Basis-Design das genutzt wird, wenn im Workspace nichts eingestellt ist."*
+ *
+ * Both are visible before anybody signs in, which is the point of them: an
+ * instance's look that only appears once somebody is inside is branding for
+ * people who already know where they are.
+ */
+export function BrandPanel(): ReactElement {
+  const { t } = useT();
+  const [logo, setLogo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  /*
+   * Read from `/api/instance` rather than from the administration overview.
+   *
+   * It is the answer everybody else's browser gets, so what is shown here is
+   * what a visitor to the sign-in screen sees — including the cache-busting
+   * address, which is the part that would otherwise be easy to get wrong in a
+   * second place.
+   */
+  const refresh = useCallback(async (): Promise<void> => {
+    try {
+      const instance = await api.instance();
+      setLogo(instance.brand?.logo ?? null);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const choose = async (file: File): Promise<void> => {
+    setBusy(true);
+    try {
+      await api.setBrandLogo(file);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.code : 'network_error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <section className="settings-section">
+        <h2>{t('admin.brand')}</h2>
+        <p className="settings-note">{t('admin.brand.hint')}</p>
+
+        {error && <p className="error">{messageFor(error)}</p>}
+
+        <div className="brand-logo-row">
+          {/* Drawn as the interface draws it, at the size the rail uses: a
+              preview at some other size is a preview of something else. The
+              mark falls back to ours when there is no logo, which is exactly
+              what everybody else would see. */}
+          <span className="brand-logo-preview">
+            {logo ? (
+              <img className="brand-logo" src={logo} width={40} height={40} alt="" />
+            ) : (
+              <SoneMark size={40} />
+            )}
+          </span>
+
+          <div className="brand-logo-actions">
+            <label className="btn quiet">
+              {t('admin.brand.choose')}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={busy}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  // Cleared so choosing the same file twice fires again, which
+                  // it does not otherwise — and re-uploading after a failure is
+                  // exactly when somebody picks the same file.
+                  event.target.value = '';
+                  if (file) void choose(file);
+                }}
+              />
+            </label>
+            {logo && (
+              <button
+                type="button"
+                className="btn quiet"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  void api
+                    .removeBrandLogo()
+                    .then(refresh)
+                    .catch((err: unknown) =>
+                      setError(err instanceof ApiError ? err.code : 'network_error'),
+                    )
+                    .finally(() => setBusy(false));
+                }}
+              >
+                {t('admin.brand.remove')}
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="muted">{t('admin.brand.logo.note')}</p>
+      </section>
+
+      {/* The base design, in the same form a workspace uses (ADR-0123). */}
+      <section className="settings-section">
+        <h2>{t('admin.brand.design')}</h2>
+        <p className="settings-note">{t('admin.brand.design.hint')}</p>
+      </section>
+      <ThemeSettings owner={INSTANCE_THEME} canEdit show="colour" />
+      <ThemeSettings owner={INSTANCE_THEME} canEdit show="type" />
+    </>
   );
 }
 
