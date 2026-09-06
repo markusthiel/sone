@@ -116,7 +116,18 @@ test('a workspace gives access to accounts that exist, and invites nobody', () =
    * which is the owner's. Conflating them meant a workspace owner could quietly
    * create people on the instance.
    */
-  assert.match(members, /api\s*\n?\s*\.addMember\(workspaceId, \{ email: address, role \}\)/);
+  /*
+   * **The `addMember` half of this has moved** to `giveAccess.test.tsx`
+   * (ADR-0103). It asserted the source read
+   * `api.addMember(workspaceId, { email: address, role })`, and the call now
+   * sends a role id — so the assertion broke on a change that made the form do
+   * more of what this test is about, while the two assertions below, which are
+   * about things being *absent*, still say exactly what they meant.
+   *
+   * Fourth source-text assertion in this repository to break that way
+   * (ADR-0095 moved two, ADR-0102 one). A source test checks where a call is
+   * written; nobody cares where.
+   */
   const client = codeOf(new URL('../src/api/client.ts', import.meta.url));
   assert.doesNotMatch(client, /inviteToWorkspace/, 'and the way to do it is gone');
   const screen = codeOf(
@@ -133,14 +144,18 @@ test('access is given by address, not from a list of everybody', () => {
   assert.doesNotMatch(members, /adminUsers/);
 });
 
-test('a workspace cannot let somebody in as an owner in one step', () => {
-  // A second owner is a decision about who can delete the workspace, and it is
-  // one to take deliberately in the table rather than in the same breath as
-  // "add this person".
-  assert.match(members, /const ADDABLE:[\s\S]{0,200}?\];/);
-  const addable = /const ADDABLE:[\s\S]*?\];/.exec(members)?.[0] ?? '';
-  assert.doesNotMatch(addable, /'owner'/);
-});
+/*
+ * **"Not as an owner in one step" has moved** to `giveAccess.test.tsx`
+ * (ADR-0103).
+ *
+ * It read the hardcoded `ADDABLE` list and asserted `'owner'` was not in it.
+ * The offer now comes from the server and *does* contain owner, so the absence
+ * became something this screen decides rather than something it inherits from a
+ * short list — which is precisely when it stops being provable from the source
+ * and starts needing a rendered picker to look at.
+ *
+ * The server refuses it too, by word and by id, in `accessWithARole.db.test.ts`.
+ */
 
 // --- seeing and withdrawing what was sent (ADR-0025) -------------------------
 
