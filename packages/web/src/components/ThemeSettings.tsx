@@ -15,12 +15,17 @@
  */
 
 import {
+  CORNERS,
   SIZE_STEPS,
   SPACE_STEPS,
+  SURFACE_TREATMENTS,
   THEMED_ELEMENTS,
+  THEMED_SURFACES,
   THEME_COLORS,
   type ElementTheme,
+  type StoredTreatment,
   type ThemedElement,
+  type ThemedSurface,
   type WorkspaceTheme,
 } from '@sone/core';
 import { useT } from '../i18n/useT.tsx';
@@ -137,6 +142,27 @@ export function ThemeSettings({
       const next: WorkspaceTheme = { ...current };
       if (Object.keys(entry).length === 0) delete next[element];
       else next[element] = entry;
+      return next;
+    });
+  };
+
+  /**
+   * Treat one surface, or stop treating it.
+   *
+   * `follow` removes the entry, and an empty set removes `surfaces` entirely —
+   * the same rule an element follows, so "has a theme" and "has settings" go on
+   * meaning the same thing here too.
+   */
+  const treat = (surface: ThemedSurface, treatment: string): void => {
+    setSaved(false);
+    setTheme((current) => {
+      const surfaces = { ...(current.surfaces ?? {}) };
+      if (treatment === 'follow') delete surfaces[surface];
+      else surfaces[surface] = treatment as StoredTreatment;
+
+      const { surfaces: _dropped, ...rest } = current;
+      const next: WorkspaceTheme = { ...rest };
+      if (Object.keys(surfaces).length > 0) next.surfaces = surfaces;
       return next;
     });
   };
@@ -312,6 +338,63 @@ export function ThemeSettings({
             );
           })}
         </div>
+
+        {/* One piece of furniture at a time (ADR-0122).
+          *
+          * Asked for against the complaint that a theme which only recolours
+          * everything at once is what every tool already has. What is offered
+          * is a relationship rather than a colour — a chosen `#101010` would be
+          * black in both schemes, and a black rail against a black page for
+          * everybody reading in the dark. The page itself is deliberately not
+          * in the list: inverting what you read on is the reader's decision. */}
+        <h3 className="settings-heading">{t('type.surfaces')}</h3>
+        <p className="muted">{t('type.surfaces.note')}</p>
+
+        <div className="theme-surfaces">
+          {THEMED_SURFACES.map((surface) => (
+            <label key={surface} className="theme-surface">
+              <span>{t(`type.surface.${surface}`)}</span>
+              <select
+                value={theme.surfaces?.[surface] ?? 'follow'}
+                disabled={!canEdit}
+                onChange={(event) => treat(surface, event.target.value)}
+              >
+                {SURFACE_TREATMENTS.map((treatment) => (
+                  <option key={treatment} value={treatment}>
+                    {t(`type.treatment.${treatment}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+
+          <label className="theme-surface">
+            <span>{t('type.corners')}</span>
+            <select
+              // `soft` is the design's own and is stored as nothing, so an
+              // unset theme shows it selected without it ever being written.
+              value={theme.corners ?? 'soft'}
+              disabled={!canEdit}
+              onChange={(event) => {
+                setSaved(false);
+                const chosen = event.target.value;
+                setTheme((current) => {
+                  const { corners: _dropped, ...rest } = current;
+                  const next: WorkspaceTheme = { ...rest };
+                  if (chosen === 'sharp' || chosen === 'round') next.corners = chosen;
+                  return next;
+                });
+              }}
+            >
+              {CORNERS.map((corner) => (
+                <option key={corner} value={corner}>
+                  {t(`type.corners.${corner}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="settings-note">{t('type.corners.note')}</p>
         </>
       )}
 

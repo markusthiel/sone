@@ -122,8 +122,60 @@ export interface ElementTheme {
  */
 export type WorkspacePalette = Partial<Record<ThemeColor, `#${string}`>>;
 
+/**
+ * The pieces of furniture a theme may treat separately (ADR-0122).
+ *
+ * Asked for as *„einzelne Elemente behandeln, z.B. die neue schmale Leiste
+ * dunkel und Rest hell"*, against the complaint that a theme which only
+ * recolours everything at once is what every tool already has.
+ *
+ * The page is not among them. Inverting the reading surface is "dark mode for
+ * this workspace", and that is the reader's choice rather than the workspace's
+ * — somebody outside in the sun wants light whatever a workspace prefers, which
+ * is the argument the stylesheet already makes for `prefers-color-scheme`. The
+ * top bar is not among them either: it sits on the page surface on purpose, so
+ * the title reads as part of what is under it rather than as a header above it.
+ */
+export const THEMED_SURFACES = ['rail', 'sidebar', 'panel'] as const;
+export type ThemedSurface = (typeof THEMED_SURFACES)[number];
+
+/**
+ * What a surface may be told to be.
+ *
+ * A **relationship**, never a colour. `#101010` on the rail is black in both
+ * schemes, so a workspace that set it would have a black bar against a black
+ * page for everybody reading in the dark. `inverted` is the whole argument in
+ * one word: light-on-dark for a reader in the light theme and dark-on-light for
+ * a reader in the dark one, from one stored value.
+ *
+ * `follow` is the design's own answer, and it is stored as nothing at all —
+ * absent and "as the design decides" are the same state (ADR-0021), and a
+ * stored default stops being right the moment the design changes underneath it.
+ */
+export const SURFACE_TREATMENTS = ['follow', 'raised', 'sunken', 'inverted', 'accent'] as const;
+export type SurfaceTreatment = (typeof SURFACE_TREATMENTS)[number];
+
+/** What a surface is actually stored as: everything but the deferral. */
+export type StoredTreatment = Exclude<SurfaceTreatment, 'follow'>;
+
+/**
+ * How round everything is.
+ *
+ * Three steps rather than a length, for the reason every other value here is a
+ * step: a small control with a large radius reads as a pill by accident, and
+ * the person who set it cannot see that is what happened. `soft` is what the
+ * design does today and is therefore stored as nothing, the same rule `follow`
+ * follows.
+ */
+export const CORNERS = ['sharp', 'soft', 'round'] as const;
+export type Corners = (typeof CORNERS)[number];
+
 export type WorkspaceTheme = Partial<Record<ThemedElement, ElementTheme>> & {
   palette?: WorkspacePalette;
+  /** Only the surfaces a workspace has actually treated. */
+  surfaces?: Partial<Record<ThemedSurface, StoredTreatment>>;
+  /** Absent means the design's own corners. */
+  corners?: Exclude<Corners, 'soft'>;
   /**
    * A hue mixed into the neutral surfaces — the sidebar, the panels, the menus.
    *
@@ -178,6 +230,15 @@ export function sanitiseTheme(input: unknown): WorkspaceTheme {
   const palette = sanitisePalette((input as Record<string, unknown>)['palette']);
   if (Object.keys(palette).length > 0) out.palette = palette;
 
+  const surfaces = sanitiseSurfaces((input as Record<string, unknown>)['surfaces']);
+  if (Object.keys(surfaces).length > 0) out.surfaces = surfaces;
+
+  // `soft` is the design's own, so it is dropped along with everything
+  // unrecognised: a theme that stored it would keep today's radii after the
+  // design had moved on.
+  const corners = (input as Record<string, unknown>)['corners'];
+  if (corners === 'sharp' || corners === 'round') out.corners = corners;
+
   for (const [key, raw] of Object.entries(input as Record<string, unknown>)) {
     if (!inList(THEMED_ELEMENTS, key)) continue;
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
@@ -224,6 +285,67 @@ export function readableOn(color: string): string {
   // 0.179 is where white and black are equally readable by the WCAG ratio.
   return luminance > 0.179 ? '#141210' : '#ffffff';
 }
+
+/** The three surfaces, and only a treatment somebody could have meant. */
+function sanitiseSurfaces(input: unknown): Partial<Record<ThemedSurface, StoredTreatment>> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+
+  const out: Partial<Record<ThemedSurface, StoredTreatment>> = {};
+  for (const [name, value] of Object.entries(input as Record<string, unknown>)) {
+    if (!inList(THEMED_SURFACES, name)) continue;
+    // `follow` falls out here with everything unrecognised, which is the point:
+    // it is the absence of a treatment rather than one of them.
+    if (!inList(SURFACE_TREATMENTS, value) || value === 'follow') continue;
+    out[name] = value;
+  }
+  return out;
+}
+
+/**
+ * What each treatment resolves to.
+ *
+ * Every value is an indirection, and that is the half that makes dark mode
+ * free: the stylesheet defines each of these twice, once per scheme, so one
+ * stored `inverted` reaches opposite ends depending on where the reader is.
+ * A literal colour here would be the same colour in both.
+ */
+const TREATMENTS: Record<StoredTreatment, Record<string, string>> = {
+  raised: {
+    bg: 'var(--surface-raised)',
+    ink: 'var(--text-primary)',
+    muted: 'var(--text-muted)',
+    border: 'var(--border-subtle)',
+  },
+  sunken: {
+    bg: 'var(--surface-sunken)',
+    ink: 'var(--text-primary)',
+    muted: 'var(--text-muted)',
+    border: 'var(--border-subtle)',
+  },
+  inverted: {
+    bg: 'var(--sone-inverse-bg)',
+    ink: 'var(--sone-inverse-ink)',
+    muted: 'var(--sone-inverse-muted)',
+    border: 'var(--sone-inverse-border)',
+  },
+  accent: {
+    bg: 'var(--accent)',
+    // Computed, never chosen — the rule the accent itself follows. A pale
+    // accent needs dark text on it, and a workspace that could choose would be
+    // a workspace that can make a rail nobody can read.
+    ink: 'var(--accent-contrast)',
+    muted: 'var(--sone-accent-muted)',
+    // Its own colour, which is a surface with no line around it: a border in
+    // some other colour would draw a frame nobody asked for.
+    border: 'var(--accent)',
+  },
+};
+
+/** Three radii from one choice, because the relationship between them is the design. */
+const RADII: Record<Exclude<Corners, 'soft'>, [string, string, string]> = {
+  sharp: ['0px', '0px', '0px'],
+  round: ['4px', '6px', '10px'],
+};
 
 /** The eight names, and what this workspace makes of them. */
 function sanitisePalette(input: unknown): WorkspacePalette {
@@ -276,6 +398,23 @@ export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
     // The same variable the stylesheet defines, overridden for this workspace.
     // Everything that stored the *name* follows without knowing this happened.
     properties[`--sone-palette-${name}`] = value;
+  }
+
+  for (const surface of THEMED_SURFACES) {
+    const treatment = theme.surfaces?.[surface];
+    if (!treatment) continue;
+    // A surface nobody treated emits nothing, so the stylesheet's own fallback
+    // is what draws it — gaps filled, not a replacement design.
+    for (const [part, value] of Object.entries(TREATMENTS[treatment])) {
+      properties[`--sone-theme-${surface}-${part}`] = value;
+    }
+  }
+
+  if (theme.corners) {
+    const [sm, base, lg] = RADII[theme.corners];
+    properties['--sone-radius-sm'] = sm;
+    properties['--sone-radius'] = base;
+    properties['--sone-radius-lg'] = lg;
   }
 
   for (const element of THEMED_ELEMENTS) {

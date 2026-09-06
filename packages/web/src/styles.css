@@ -183,6 +183,20 @@
   --accent-contrast: var(--ink-000);
   --danger: var(--danger-500);
 
+  /* The other end (ADR-0122).
+   *
+   * A piece of furniture a workspace has asked to be inverted: dark against
+   * this theme's light, and light against the dark theme's dark. One role,
+   * filled twice — which is what lets a workspace store the word `inverted`
+   * once and have it mean the right thing for both readers. A stored `#161615`
+   * would be a black bar against a black page for everybody reading in the
+   * dark. */
+  --sone-inverse-bg: var(--ink-900);
+  --sone-inverse-ink: var(--ink-100);
+  --sone-inverse-muted: var(--ink-400);
+  --sone-inverse-border: var(--ink-700);
+  --sone-inverse-hover: var(--ink-800);
+
   /* Depth, named rather than typed out.
    *
    * Three heights and one alias. They were about thirty literals scattered
@@ -240,6 +254,13 @@
   --accent-contrast: var(--ink-950);
   --danger: var(--danger-300);
 
+  /* Inverted, the other way round: light furniture against a dark page. */
+  --sone-inverse-bg: var(--ink-050);
+  --sone-inverse-ink: var(--ink-900);
+  --sone-inverse-muted: var(--ink-500);
+  --sone-inverse-border: var(--ink-200);
+  --sone-inverse-hover: var(--ink-100);
+
   --sone-shadow-sm: 0 1px 3px rgb(0 0 0 / 30%);
   --sone-shadow-md: 0 4px 16px rgb(0 0 0 / 40%);
   --sone-shadow-lg: 0 12px 32px rgb(0 0 0 / 48%);
@@ -259,6 +280,33 @@
   --sone-text-muted: var(--text-muted);
   --sone-accent: var(--accent);
   --sone-danger: var(--danger);
+
+  /* ---------------------------------------------------------------------
+   * Treating one piece of furniture differently (ADR-0122)
+   *
+   * A treated surface redefines `--text-primary` and friends for its own
+   * subtree, so everything drawn inside it follows without knowing it was
+   * treated. Two things that needs, and neither can be written with the names
+   * themselves:
+   *
+   * `--sone-base-*` is what those names mean on the page. A surface falls back
+   * to it when the workspace has treated nothing, and a popup that opened out
+   * of a treated surface goes back to it — `--text-primary: var(--text-primary)`
+   * would be a cycle, and this is the same value under a name that is not being
+   * redefined at that moment.
+   *
+   * The accent pair is derived rather than declared per theme, because it is
+   * derived from the accent, which each theme declares. Both mix into the
+   * accent itself and never into `transparent`: a mix with transparent pulls
+   * towards black, so a "faded" white on a pale accent comes out grey.
+   * ------------------------------------------------------------------- */
+  --sone-base-ink: var(--text-primary);
+  --sone-base-muted: var(--text-muted);
+  --sone-base-border: var(--border-subtle);
+  --sone-base-hover: var(--surface-hover);
+
+  --sone-accent-muted: color-mix(in srgb, var(--accent-contrast) 70%, var(--accent));
+  --sone-accent-hover: color-mix(in srgb, var(--accent-contrast) 14%, var(--accent));
   /* ---------------------------------------------------------------------
    * Scale
    *
@@ -394,6 +442,12 @@
     --accent-quiet: var(--accent-950);
     --accent-contrast: var(--ink-950);
     --danger: var(--danger-300);
+
+    --sone-inverse-bg: var(--ink-050);
+    --sone-inverse-ink: var(--ink-900);
+    --sone-inverse-muted: var(--ink-500);
+    --sone-inverse-border: var(--ink-200);
+    --sone-inverse-hover: var(--ink-100);
 
     --sone-shadow-sm: 0 1px 3px rgb(0 0 0 / 30%);
     --sone-shadow-md: 0 4px 16px rgb(0 0 0 / 40%);
@@ -628,8 +682,16 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      * Furniture, not paper: a whisper of tint against the page's white. In dark
      * that comes out as a step lighter than the page rather than darker, because
      * nearer means lighter there — one role, and each theme fills it. */
+  /* And a workspace may say otherwise (ADR-0122). The four names below are
+     redefined for this subtree only, so everything drawn inside follows a
+     treatment without a single rule being told about it. With nothing set,
+     the fallbacks are what these names already meant. */
+  --text-primary: var(--sone-theme-sidebar-ink, var(--sone-base-ink));
+  --text-muted: var(--sone-theme-sidebar-muted, var(--sone-base-muted));
+  --border-subtle: var(--sone-theme-sidebar-border, var(--sone-base-border));
+  --surface-hover: var(--sone-theme-sidebar-hover, var(--sone-base-hover));
   border-inline-end: 1px solid var(--border-subtle);
-  background: var(--surface-chrome);
+  background: var(--sone-theme-sidebar-bg, var(--surface-chrome));
   /* Visible, and it has to be: the account menu hangs out of a 56px column, and
      with `hidden` here it was drawn and then cut off at the rail's edge — a menu
      that opens and shows you a slice of itself. Nothing in the rail overflows on
@@ -773,8 +835,16 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   align-items: center;
   gap: var(--sone-space-3);
   padding-block: var(--sone-space-3);
+  /* And a workspace may say otherwise (ADR-0122). The four names below are
+     redefined for this subtree only, so everything drawn inside follows a
+     treatment without a single rule being told about it. With nothing set,
+     the fallbacks are what these names already meant. */
+  --text-primary: var(--sone-theme-rail-ink, var(--sone-base-ink));
+  --text-muted: var(--sone-theme-rail-muted, var(--sone-base-muted));
+  --border-subtle: var(--sone-theme-rail-border, var(--sone-base-border));
+  --surface-hover: var(--sone-theme-rail-hover, var(--sone-base-hover));
   border-inline-end: 1px solid var(--border-subtle);
-  background: var(--surface-chrome);
+  background: var(--sone-theme-rail-bg, var(--surface-chrome));
   /* Visible, and it has to be: the account menu hangs out of a 56px column, and
      with `hidden` here it was drawn and then cut off at the rail's edge — a menu
      that opens and shows you a slice of itself. Nothing in the rail overflows on
@@ -4737,12 +4807,37 @@ select {
   display: flex;
   flex-direction: column;
   min-block-size: 0;
-  border-inline-start: 1px solid var(--sone-border);
+  /* And a workspace may say otherwise (ADR-0122). The four names below are
+     redefined for this subtree only, so everything drawn inside follows a
+     treatment without a single rule being told about it. With nothing set,
+     the fallbacks are what these names already meant. */
+  --text-primary: var(--sone-theme-panel-ink, var(--sone-base-ink));
+  --text-muted: var(--sone-theme-panel-muted, var(--sone-base-muted));
+  --border-subtle: var(--sone-theme-panel-border, var(--sone-base-border));
+  --surface-hover: var(--sone-theme-panel-hover, var(--sone-base-hover));
+  /* `--border-subtle` and not `--sone-border`: the alias is resolved at the
+     root, so it cannot see the redefinition three lines above it. */
+  border-inline-start: 1px solid var(--border-subtle);
   /* The third piece of furniture. It was the sunken surface, which happened to
      match the page it sat beside — so the panel and the content were one colour
      and only a line said where one ended. */
-  background: var(--surface-chrome);
+  background: var(--sone-theme-panel-bg, var(--surface-chrome));
   overflow: hidden;
+}
+
+/* A popup is not part of the furniture it opened from (ADR-0122).
+ *
+ * These three float above the page on the overlay surface, and the overlay
+ * surface is not treated — so a menu opening out of an inverted rail would be
+ * drawn light and handed the rail's light text. They go back to what the names
+ * mean on the page; `--sone-base-*` exists for exactly this, because
+ * `--text-primary: var(--text-primary)` is a cycle. */
+:is(.icon-rail, .sidebar, .right-panel)
+  :is(.sidebar-account-menu, .switcher-menu, .entry-menu) {
+  --text-primary: var(--sone-base-ink);
+  --text-muted: var(--sone-base-muted);
+  --border-subtle: var(--sone-base-border);
+  --surface-hover: var(--sone-base-hover);
 }
 
 /* Closed means gone, not narrow: a zero-width column still draws its border.
@@ -7998,6 +8093,29 @@ body {
   border: 1px solid var(--border-default);
   border-radius: var(--sone-radius-sm);
   background: transparent;
+}
+
+/* One row per piece of furniture (ADR-0122). A grid rather than a flex wrap so
+   the four selects line up under each other: read down the labels and the list
+   is what the interface is made of. */
+.theme-surfaces {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sone-space-4) var(--sone-space-5);
+  margin-block: var(--sone-space-4);
+  max-inline-size: 34rem;
+}
+.theme-surface {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sone-space-4);
+  font-size: var(--sone-text-sm);
+}
+.theme-surface select { min-inline-size: 0; flex: 1 1 8rem; }
+
+@media (max-width: 600px) {
+  .theme-surfaces { grid-template-columns: minmax(0, 1fr); }
 }
 
 .theme-palette {

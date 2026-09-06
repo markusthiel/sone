@@ -76,10 +76,14 @@ test('the furniture is tinted and the writing is not', () => {
   // it is a strip *above* it on the same surface, and its only mark is a line
   // that appears once something has scrolled behind it.
   assert.match(css, /\.topbar \{[^}]*background: var\(--surface-page\)/s);
+  // A workspace may now treat a piece of furniture differently (ADR-0122), so
+  // the chrome surface is the *fallback* rather than the whole declaration —
+  // which is the assertion that still matters: a workspace that has treated
+  // nothing looks exactly as it did before treatments existed.
   for (const area of ['\\.sidebar', '\\.right-panel']) {
     assert.match(
       css,
-      new RegExp(`${area} \\{[^}]*background: var\\(--surface-chrome\\)`),
+      new RegExp(`${area} \\{[^}]*background: var\\(--sone-theme-[a-z]+-bg, var\\(--surface-chrome\\)\\)`),
       `${area} is furniture`,
     );
   }
@@ -127,7 +131,7 @@ test('a settings screen uses the same two surfaces as everything else', () => {
    * asserted here now lives.
    */
   assert.doesNotMatch(css, /\.settings-screen/);
-  assert.match(css, /\.sidebar \{[^}]*background: var\(--surface-chrome\)/);
+  assert.match(css, /\.sidebar \{[^}]*background: var\(--sone-theme-sidebar-bg, var\(--surface-chrome\)\)/);
 
   // A card is set off from the paper, and not with the surface its own fields
   // use — a field that matches its card is a field nobody can see.
