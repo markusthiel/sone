@@ -24,7 +24,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { formatMessage, type MessageValues } from './format.ts';
+import { formatMessage, type MessageValues } from '@sone/core';
 import { en, type MessageKey } from './messages.en.ts';
 
 /** Locales with a catalogue. The server's list is the same one (ADR-0011). */

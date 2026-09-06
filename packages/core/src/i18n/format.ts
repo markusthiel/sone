@@ -1,5 +1,5 @@
 /**
- * SONE web — formatting a message (ADR-0041).
+ * SONE — formatting a message (ADR-0041).
  *
  * A subset of ICU MessageFormat: `{name}` substitution, `{n, plural, …}` and
  * `{x, select, …}`. Forty lines rather than a dependency, because the only hard
@@ -10,6 +10,18 @@
  * : 'entries'` is not a string with a variant — it is English grammar written in
  * code, and no catalogue can translate it. Several of those existed in this
  * codebase before this file did.
+ *
+ * ## In `core` because a mail is a message too (ADR-0133)
+ *
+ * It lived in `packages/web` while the interface was the only thing with a
+ * catalogue. The mails have one now, and they need the same plural rule, the
+ * same `select`, and the same answer for a placeholder nobody supplied — so the
+ * alternative to moving it was a second implementation whose difference from
+ * this one nobody would notice until a German reader met a sentence written for
+ * English grammar.
+ *
+ * Nothing here touches a DOM or a database. That is what made it movable, and
+ * it is worth keeping true.
  */
 
 export type MessageValues = Record<string, string | number>;
@@ -128,8 +140,18 @@ export function formatMessage(
         chosen = options.get(String(value)) ?? options.get('other');
       }
 
-      // `#` is the count, which is what makes a plural branch readable.
-      out += formatMessage((chosen ?? '').replaceAll('#', String(values[name] ?? '')), values, locale);
+      /*
+       * `#` is the count, which is what makes a plural branch readable — and it
+       * belongs to a **plural** and to nothing else.
+       *
+       * It was replaced for a `select` too, using the select's own value, which
+       * is a bug the German mails found by being the first messages to put a
+       * plural inside a `{address, select, …}`: `Sie haben # Tage` came out as
+       * *„Sie haben formal Tage"*. The interface was one `#` away from the same
+       * thing and had simply never written one.
+       */
+      const filled = kind === 'plural' ? (chosen ?? '').replaceAll('#', String(value ?? '')) : (chosen ?? '');
+      out += formatMessage(filled, values, locale);
     } else {
       const value = values[name];
       // A missing value leaves the placeholder visible for the same reason an

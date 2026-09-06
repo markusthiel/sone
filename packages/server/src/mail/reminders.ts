@@ -35,7 +35,19 @@
 import type { Pool } from 'pg';
 
 import { queryOne, queryRows } from '../db/pool.js';
+import { FALLBACK_LOCALE, SUPPORTED_LOCALES, type SupportedLocale } from '../i18n/locale.js';
 import type { Letter } from './letter.js';
+import { words, type AddressForm } from './words.js';
+
+/**
+ * The language a row's recipient reads (ADR-0133).
+ *
+ * Read in the same query as the address rather than by a second round trip per
+ * reminder: these run in a loop of up to two hundred, unattended, and a query
+ * each would be two hundred queries to answer a question that is one column.
+ */
+const localeOf = (value: string | null): SupportedLocale =>
+  SUPPORTED_LOCALES.find((l) => l === (value ?? '').toLowerCase()) ?? FALLBACK_LOCALE;
 
 export interface ReminderDeps {
   pool: Pool;
@@ -54,6 +66,11 @@ export interface ReminderDeps {
    * cost.
    */
   canSendMail?: () => Promise<boolean>;
+  /**
+   * How this instance addresses people (ADR-0133). One setting for everything
+   * this server says, the interface included. Absent is the informal default.
+   */
+  addressForm?: () => Promise<AddressForm>;
   /** Absent means no relay, and then nothing is sent and nothing is claimed. */
   sendLetter?: (to: string, letter: Letter) => Promise<void>;
 }
@@ -103,10 +120,11 @@ export async function sendReminders(deps: ReminderDeps): Promise<ReminderReport>
 
   const instance = await deps.instanceName();
   const detail = (await deps.emailDetail?.()) ?? 'workspace';
+  const address = (await deps.addressForm?.()) ?? 'informal';
 
-  report.invitations = await chaseInvitations(deps, instance);
-  report.links = await warnAboutLinks(deps, instance, detail);
-  report.outages = await reportOutage(deps, instance);
+  report.invitations = await chaseInvitations(deps, instance, address);
+  report.links = await warnAboutLinks(deps, instance, detail, address);
+  report.outages = await reportOutage(deps, instance, address);
   return report;
 }
 
@@ -117,17 +135,27 @@ export async function sendReminders(deps: ReminderDeps): Promise<ReminderReport>
  * ask to hear from this instance twice, and the person who can do something —
  * resend it, or ask in the corridor — is the one who sent it.
  */
-async function chaseInvitations(deps: ReminderDeps, instance: string): Promise<number> {
+async function chaseInvitations(
+  deps: ReminderDeps,
+  instance: string,
+  address: AddressForm,
+): Promise<number> {
   const rows = await queryRows<{
     id: string;
     email: string | null;
     workspace: string;
     inviter: string;
     inviter_name: string;
+    inviter_locale: string | null;
+    workspace_locale: string | null;
   }>(
     deps.pool,
+    // The inviter's own language, and the workspace's where they have not
+    // chosen one — the order `recipientLocale` states, asked here in the join
+    // that was already being made.
     `SELECT i.id, i.email, w.name AS workspace,
-            u.email AS inviter, u.display_name AS inviter_name
+            u.email AS inviter, u.display_name AS inviter_name,
+            u.locale AS inviter_locale, w.default_locale AS workspace_locale
        FROM invitations i
        JOIN workspaces w ON w.id = i.workspace_id
        JOIN users u ON u.id = i.invited_by
@@ -147,21 +175,25 @@ async function chaseInvitations(deps: ReminderDeps, instance: string): Promise<n
   let sent = 0;
   for (const row of rows) {
     if (!(await claim(deps.pool, 'invitation_unredeemed', row.id))) continue;
+    const locale = localeOf(row.inviter_locale ?? row.workspace_locale);
+    const say = words(locale, address);
     await deps
       .sendLetter!(row.inviter, {
-        subject: `${instance}: an invitation is still waiting`,
-        heading: 'Nobody has used this invitation yet.',
+        subject: say('chase.subject', { where: instance }),
+        heading: say('chase.heading'),
         lines: [
           {
-            text: row.email
-              ? `You invited ${row.email} to ${row.workspace} ${CHASE_AFTER_DAYS} days ago.`
-              : `You made an invitation link for ${row.workspace} ${CHASE_AFTER_DAYS} days ago.`,
+            text: say(row.email ? 'chase.toAddress' : 'chase.asLink', {
+              days: CHASE_AFTER_DAYS,
+              who: row.email ?? '',
+              workspace: row.workspace,
+            }),
           },
-          { text: 'It still works. Send it again, or withdraw it if it was a mistake.' },
+          { text: say('chase.stillWorks') },
         ],
-        action: { label: 'Open the invitations', url: deps.baseUrl },
+        action: { label: say('chase.action'), url: deps.baseUrl },
         baseUrl: deps.baseUrl,
-        locale: 'en',
+        locale,
       })
       .catch(() => undefined);
     sent += 1;
@@ -180,6 +212,7 @@ async function warnAboutLinks(
   deps: ReminderDeps,
   instance: string,
   detail: 'title' | 'workspace',
+  address: AddressForm,
 ): Promise<number> {
   const rows = await queryRows<{
     id: string;
@@ -187,12 +220,15 @@ async function warnAboutLinks(
     title: string;
     workspace: string;
     owner: string;
+    owner_locale: string | null;
+    workspace_locale: string | null;
   }>(
     deps.pool,
     // `expires_at IS NOT NULL` is the hole this query would otherwise have: a
     // link that never expires is not a date in the past and not one in the
     // future either.
-    `SELECT t.id, t.expires_at, p.title, w.name AS workspace, u.email AS owner
+    `SELECT t.id, t.expires_at, p.title, w.name AS workspace, u.email AS owner,
+            u.locale AS owner_locale, w.default_locale AS workspace_locale
        FROM share_tokens t
        JOIN pages p ON p.id = t.scope_page_id
        JOIN workspaces w ON w.id = t.workspace_id
@@ -213,18 +249,19 @@ async function warnAboutLinks(
   let sent = 0;
   for (const row of rows) {
     if (!(await claim(deps.pool, 'share_link_expiring', row.id))) continue;
-    const where = detail === 'title' ? row.title || 'a page' : row.workspace;
+    const locale = localeOf(row.owner_locale ?? row.workspace_locale);
+    const say = words(locale, address);
+    // A page with no title is named as a page rather than as an empty quotation
+    // — and that phrase is itself a sentence, so it comes from the catalogue.
+    const where = detail === 'title' ? row.title || say('link.somePage') : row.workspace;
     await deps
       .sendLetter!(row.owner, {
-        subject: `${instance}: a link you shared expires soon`,
-        heading: `A link to ${where} stops working on ${day(row.expires_at)}.`,
-        lines: [
-          { text: 'Whoever you sent it to will not be able to open it after that.' },
-          { text: 'Make a new one if they still need it, or let it lapse.' },
-        ],
-        action: { label: 'Open SONE', url: deps.baseUrl },
+        subject: say('link.subject', { where: instance }),
+        heading: say('link.heading', { what: where, when: day(row.expires_at) }),
+        lines: [{ text: say('link.theyCannot') }, { text: say('link.makeNew') }],
+        action: { label: say('link.action'), url: deps.baseUrl },
         baseUrl: deps.baseUrl,
-        locale: 'en',
+        locale,
       })
       .catch(() => undefined);
     sent += 1;
@@ -247,7 +284,11 @@ async function warnAboutLinks(
  * Keyed on the newest failure it covers, so a later outage is a different
  * subject rather than the same one again.
  */
-async function reportOutage(deps: ReminderDeps, instance: string): Promise<number> {
+async function reportOutage(
+  deps: ReminderDeps,
+  instance: string,
+  address: AddressForm,
+): Promise<number> {
   /*
    * The newest failure, by when it failed — not `max(id)`.
    *
@@ -271,33 +312,34 @@ async function reportOutage(deps: ReminderDeps, instance: string): Promise<numbe
   if (!window?.newest || window.n === 0) return 0;
   if (!(await claim(deps.pool, 'mail_outage', window.newest))) return 0;
 
-  const admins = await queryRows<{ email: string }>(
+  const admins = await queryRows<{ email: string; locale: string | null }>(
     deps.pool,
     // Instance administrators, because a relay is an instance-wide thing and a
     // workspace owner can do nothing about an SMTP password.
-    `SELECT email FROM users
+    //
+    // Each in their own language, resolved per row rather than once for the
+    // loop: this is the one letter here with several recipients, and they need
+    // not share a language just because they share a server.
+    `SELECT email, locale FROM users
       WHERE is_instance_admin AND deactivated_at IS NULL AND email IS NOT NULL`,
   );
 
   for (const admin of admins) {
+    // No workspace to fall back to: an outage belongs to the instance, and
+    // there is no workspace whose language would be the better guess.
+    const locale = localeOf(admin.locale);
+    const say = words(locale, address);
     await deps
       .sendLetter!(admin.email, {
-        subject: `${instance}: ${window.n} notifications did not go out`,
-        heading: 'Some mail from this instance failed to send.',
+        subject: say('outage.subject', { where: instance, count: window.n }),
+        heading: say('outage.heading'),
         lines: [
-          {
-            text:
-              `${window.n} notification${window.n === 1 ? '' : 's'} failed since ` +
-              `${day(window.since)}. This message arrived, so the relay is answering now.`,
-          },
-          // The mails themselves are gone: a notification is about something
-          // that has already happened, and re-sending a week-old one is worse
-          // than not sending it.
-          { text: 'The failed ones are not resent. Check the relay settings.' },
+          { text: say('outage.window', { count: window.n, when: day(window.since) }) },
+          { text: say('outage.notResent') },
         ],
-        action: { label: 'Open the administration', url: deps.baseUrl },
+        action: { label: say('outage.action'), url: deps.baseUrl },
         baseUrl: deps.baseUrl,
-        locale: 'en',
+        locale,
       })
       .catch(() => undefined);
   }

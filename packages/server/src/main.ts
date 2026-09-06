@@ -322,10 +322,20 @@ async function main(): Promise<void> {
     addressForm: 'informal',
   });
 
+  /*
+   * How this instance addresses people, for the mails (ADR-0133).
+   *
+   * The same setting the interface uses and read the same way — per send, not
+   * captured at boot, because an operator who switches an instance to „Sie"
+   * expects the next letter to obey rather than the next restart.
+   */
+  const addressForm = async () => (await settings.resolve()).values.addressForm;
+
   registerInvitationRoutes(router, {
     pool,
     baseUrl: config.publicUrl,
     instanceName: async () => (await settings.resolve()).values.instanceName,
+    addressForm,
     /*
      * Present only while a relay is configured (ADR-0121).
      *
@@ -397,6 +407,7 @@ async function main(): Promise<void> {
           pool,
           baseUrl: config.publicUrl,
           instanceName: async () => (await settings.resolve()).values.instanceName,
+          addressForm,
           welcome: async () => (await settings.resolve()).values.welcomeMail,
           canSendMail: async () => (await mailSettings()).relay !== null,
           sendLetter: async (to, letter) => {
@@ -519,6 +530,7 @@ async function main(): Promise<void> {
     canSendMail: async () => (await mailSettings()).relay !== null,
     emailDetail: async () => (await settings.resolve()).values.emailDetail,
     instanceName: async () => (await settings.resolve()).values.instanceName,
+    addressForm,
     sendLetter: async (to, letter) => {
       await deliver(to, letter);
     },
@@ -550,6 +562,7 @@ async function main(): Promise<void> {
       baseUrl: config.publicUrl,
       instanceName: async () => (await settings.resolve()).values.instanceName,
       emailDetail: async () => (await settings.resolve()).values.emailDetail,
+      addressForm,
       /*
        * Asked before anything is claimed, and not the same question as having
        * a sender: the sender below exists always and quietly does nothing
@@ -595,6 +608,7 @@ async function main(): Promise<void> {
               security: resolved.values.smtpSecurity,
             },
       detail: resolved.values.emailDetail,
+      addressForm: resolved.values.addressForm,
       baseUrl: config.publicUrl,
       // Only when a mailbox is being polled: inviting a reply nobody reads
       // would be inviting somebody to write into a void (ADR-0060).
@@ -821,6 +835,7 @@ async function main(): Promise<void> {
           pool,
           relay: current.relay,
           detail: current.detail,
+          ...(current.addressForm ? { addressForm: current.addressForm } : {}),
           baseUrl: current.baseUrl,
         }),
       )
