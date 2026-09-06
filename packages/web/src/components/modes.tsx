@@ -29,10 +29,18 @@ import type { ReactElement } from 'react';
 import { paths } from '../routes/paths.ts';
 import { useT } from '../i18n/useT.tsx';
 import { SoneMark } from './Logo.tsx';
-import { BellIcon, ShareIcon, TrashIcon, WorkspacesIcon } from './icons.tsx';
+import { BellIcon, SearchIcon, ShareIcon, TrashIcon, WorkspacesIcon } from './icons.tsx';
 
 /** A mode is a place you stay, never an action you take. */
-export type Mode = 'tree' | 'workspaces' | 'inbox' | 'shares' | 'trash' | 'settings' | 'admin';
+export type Mode =
+  | 'tree'
+  | 'search'
+  | 'workspaces'
+  | 'inbox'
+  | 'shares'
+  | 'trash'
+  | 'settings'
+  | 'admin';
 
 export type ModeEntry = {
   mode: Mode;
@@ -73,6 +81,28 @@ export function useModes(unread = 0): ModeEntry[] {
       // draws large, so the two read as the same place rather than as two.
       icon: <SoneMark size={17} />,
     },
+    /*
+     * Searching, which ADR-0069 decided was not a place and ADR-0074 wrote down
+     * as settled (ADR-0118).
+     *
+     * That was right about search as it then was: a field and a list of
+     * results, with nothing to come back to. ADR-0050 gave it saved searches —
+     * things you return to by name — and put them *inside* the screen, under a
+     * comment saying a sidebar section would be "a decision about the sidebar
+     * rather than about searches". It was a decision about the sidebar, and
+     * this is it.
+     *
+     * Second, right after your pages, because that is what it searches. You
+     * still do not come here to *start* one: the field above the tree does
+     * that and lands you here (ADR-0118), so this is where a search you are
+     * already in lives, and the way back to one you kept.
+     */
+    {
+      mode: 'search',
+      href: paths.search(),
+      label: t('sidebar.search'),
+      icon: <SearchIcon />,
+    },
     {
       mode: 'workspaces',
       href: paths.workspaces(),
@@ -105,11 +135,16 @@ export function useModes(unread = 0): ModeEntry[] {
 /**
  * The mode a route is in.
  *
- * Everything that is not one of the named modes is the tree, including a page,
- * a search and a not-found — they are all "you are in your pages", and the
- * panel beside them is the tree.
+ * Everything that is not one of the named modes is the tree, including a page
+ * and a not-found — they are all "you are in your pages", and the panel beside
+ * them is the tree. A search was among them until ADR-0118 gave it a panel of
+ * its own to be beside.
  */
 export function modeOf(kind: string): Mode {
+  // A search is its own mode now, with filters in the panel beside it
+  // (ADR-0118). It used to fall through to the tree, which is what left the
+  // filter syntax as the only way to narrow one.
+  if (kind === 'search') return 'search';
   if (kind === 'inbox') return 'inbox';
   if (kind === 'trash') return 'trash';
   if (kind === 'shares') return 'shares';

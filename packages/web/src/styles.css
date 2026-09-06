@@ -2824,6 +2824,116 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .saved-search-forget:hover { color: var(--sone-text); }
 
+/*
+ * The search mode's panel (ADR-0118).
+ *
+ * The panel navigates and the area beside it shows (ADR-0069): narrowing a
+ * search is navigating within it, so the filters are here and the results are
+ * not.
+ */
+.search-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-4);
+  padding: var(--sone-space-3) var(--sone-space-2) var(--sone-space-6);
+}
+
+.search-facet {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-facet-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-inline: var(--sone-space-4);
+}
+
+.search-facet-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid var(--sone-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sone-text-muted);
+  font: inherit;
+  font-size: var(--sone-text-xs);
+  cursor: pointer;
+}
+.search-facet-tag:hover { background: var(--sone-bg-hover); }
+/* Pressed, not a class: the state is "this filter is on", which the browser
+   and a screen reader both already know how to say from aria-pressed. */
+.search-facet-tag[aria-pressed='true'] {
+  border-color: var(--sone-accent, currentColor);
+  background: var(--sone-bg-hover);
+  color: var(--sone-text);
+}
+.search-facet-count { color: var(--sone-text-muted); font-variant-numeric: tabular-nums; }
+
+.search-facet-row {
+  display: block;
+  inline-size: 100%;
+  text-align: start;
+  padding: var(--sone-space-2) var(--sone-space-4);
+  border: 0;
+  border-radius: var(--sone-radius);
+  background: transparent;
+  color: var(--sone-text-muted);
+  font: inherit;
+  font-size: var(--sone-text-sm);
+  cursor: pointer;
+}
+.search-facet-row:hover { background: var(--sone-bg-hover); }
+.search-facet-row[aria-pressed='true'] {
+  background: var(--sone-bg-hover);
+  color: var(--sone-text);
+  font-weight: 600;
+}
+
+.search-facet-select {
+  margin-inline: var(--sone-space-4);
+  font: inherit;
+  font-size: var(--sone-text-sm);
+}
+
+.search-facet-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sone-space-2);
+  padding-inline: var(--sone-space-4);
+  font-size: var(--sone-text-sm);
+  color: var(--sone-text-muted);
+}
+.search-facet-date input { font: inherit; font-size: var(--sone-text-xs); }
+
+.search-facet-clear { align-self: start; margin-inline-start: var(--sone-space-4); }
+
+/* The field above the tree (ADR-0118). It was a link to a screen with a field
+   on it; the icon stays as the mark, and the row is the field. */
+.sidebar-search-field {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.sidebar-search-field::placeholder { color: var(--sone-text-muted); }
+.sidebar-search-field:focus { outline: none; }
+/* The row carries the focus ring, because the row is what looks like the
+   control — a ring around the text alone reads as a stray box. */
+.sidebar-search:focus-within {
+  background: var(--sone-bg-hover);
+  outline: 2px solid var(--sone-focus, currentColor);
+  outline-offset: -2px;
+}
+
 .search-naming { display: flex; flex-wrap: wrap; gap: var(--sone-space-2); margin-block: var(--sone-space-3); }
 .search-name {
   flex: 1;

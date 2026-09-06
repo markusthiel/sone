@@ -2174,17 +2174,27 @@ test('a formula can be edited, in the dialog that writes one', () => {
 });
 
 test('a search can be kept, and lives where searches are run', () => {
-  // Under the empty field rather than in the sidebar: this is where somebody is
-  // when they want to run one again, and a third sidebar section is a decision
-  // about the sidebar rather than about searches (ADR-0050).
-  const screen = codeOf(new URL('../src/components/Search.tsx', import.meta.url));
-  assert.match(screen, /query === '' && saved\.length > 0 &&/);
+  /*
+   * In the panel beside the results (ADR-0118), not under the field.
+   *
+   * ADR-0050 put it under the field on the reasoning that "a third sidebar
+   * section is a decision about the sidebar rather than about searches". It was
+   * a decision about the sidebar, and ADR-0118 made it: a list you return to by
+   * name is a menu, and the panel is where menus go. Under the field it also
+   * vanished the moment anybody typed — which is the moment somebody comparing
+   * two kept searches wants it.
+   */
+  const panel = codeOf(new URL('../src/components/SearchPanel.tsx', import.meta.url));
   // Both the name and the query: a name is memorable and a query is readable,
   // and neither substitutes for the other.
-  assert.match(screen, /className="saved-search-name"/);
-  assert.match(screen, /className="saved-search-query"/);
-  // Offered only when there is something to keep.
-  assert.match(screen, /hasSearchCriteria\(parsed\) && !naming &&/);
+  assert.match(panel, /className="saved-search-name"/);
+  assert.match(panel, /className="saved-search-query"/);
+  // Offered only when there is something to keep, and beside the ones already
+  // kept — a button whose result appears in another column is one whose result
+  // somebody misses.
+  assert.match(panel, /hasSearchCriteria\(filters\) &&/);
+  const screen = codeOf(new URL('../src/components/Search.tsx', import.meta.url));
+  assert.doesNotMatch(screen, /saved-search/, 'and not in two places');
 
   // Per person, and scoped to the workspace whose tags and people the filters
   // name.

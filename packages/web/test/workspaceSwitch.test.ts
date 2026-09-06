@@ -57,12 +57,16 @@ test('a mode about one workspace offers a way to change it', () => {
    * ago was simply absent, because all three lists are scoped to one workspace
    * and the screen named neither it nor a way to switch (ADR-0114).
    *
-   * A wiring assertion, and said plainly: what it can see is that the two
+   * A wiring assertion, and said plainly: what it can see is that the
    * per-workspace modes are given the chooser the Workspaces mode already had.
    * What it cannot see is the rendered head — `Sidebar` draws `panelChooser`
    * wherever it is given one, and that half has been true since ADR-0070.
+   *
+   * Search joined them in ADR-0118, and it is the same fact about it: the
+   * server searches one workspace, so a search screen with no way to say which
+   * has the shares screen's problem exactly.
    */
-  assert.match(app, /mode === 'shares' \|\| mode === 'trash' \? \(/);
+  assert.match(app, /mode === 'shares' \|\| mode === 'trash' \|\| mode === 'search' \? \(/);
 
   // The inbox deliberately gets none: it spans workspaces (ADR-0052) and
   // filters by them in its own panel, so a chooser would be a second answer to

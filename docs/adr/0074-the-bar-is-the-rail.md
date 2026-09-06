@@ -20,6 +20,15 @@ same fault ADR-0072 had just repaired from the other direction — and searching
 is not a place you are, it is something you do, with a labelled row of its own
 above the tree at both widths.
 
+> **The searching half is superseded by ADR-0118.** The first half stands: the
+> bar's set is the rail's set, and a mode missing from one drawing is a mode a
+> phone cannot reach. What changed underneath the second half is that ADR-0050
+> gave a search something to come back to — named, kept searches — and put them
+> inside the screen, saying in as many words that a sidebar section would be a
+> decision about the sidebar rather than about searches. It was, and ADR-0118
+> makes it. The labelled row above the tree is still the way in; it is a field
+> now, and it lands you in the mode rather than on a screen.
+
 ## Decision
 
 **The bar is the rail, laid on its side.** The same modes in the same order from

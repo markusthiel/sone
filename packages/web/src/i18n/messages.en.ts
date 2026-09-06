@@ -964,6 +964,18 @@ export const en = {
 
   // --- search ------------------------------------------------------------
   'search.title': 'Search',
+  // --- filters in the search mode (ADR-0118) --------------------------------
+  'search.saved': 'Kept',
+  'search.facet.tags': 'Tags',
+  'search.facet.people': 'People',
+  'search.facet.assignedMe': 'Assigned to you',
+  'search.facet.writtenBy': 'By {name}',
+  'search.facet.in': 'In folder',
+  'search.facet.anywhere': 'Anywhere',
+  'search.facet.when': 'Last edited',
+  'search.facet.after': 'From',
+  'search.facet.before': 'To',
+  'search.facet.clear': 'Clear filters',
   'search.field': 'Search pages',
   'search.placeholder': 'Search pages…',
   'search.folders': 'Folders',
