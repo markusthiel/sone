@@ -41,6 +41,7 @@ import { useT } from '../i18n/useT.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { messageFor } from './Auth.tsx';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import type { SharesView } from './SharesPanel.tsx';
 
 type Shares = Awaited<ReturnType<typeof api.shares>>;
@@ -68,6 +69,7 @@ export function SharesScreen({
    */
   client?: SoneClient | null;
 }): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   const [shares, setShares] = useState<Shares>(EMPTY);
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +146,7 @@ export function SharesScreen({
           {shares.links.length === 0 && nothing}
           {shares.links.map((link) => (
             <li key={link.id}>
-              <a href={paths.page(link.pageId)}>{link.pageTitle}</a>
+              <a href={pageLink(link.pageId)}>{link.pageTitle}</a>
               <span className="muted">
                 {level(link.role)} · {scope(link.includeSubtree)}
                 {link.hasPassword && ` · ${t('shares.protected')}`}
@@ -174,7 +176,7 @@ export function SharesScreen({
           {shares.granted.length === 0 && nothing}
           {shares.granted.map((grant) => (
             <li key={`${grant.pageId}-${grant.subjectKind}-${grant.subject}`}>
-              <a href={paths.page(grant.pageId)}>{grant.pageTitle}</a>
+              <a href={pageLink(grant.pageId)}>{grant.pageTitle}</a>
               <span className="muted">
                 {grant.subject} · {level(grant.access)} · {scope(grant.includeSubtree)}
               </span>
@@ -185,7 +187,7 @@ export function SharesScreen({
                 * wrong one is not a mistake worth making possible. The page's
                 * own dialog has the ids and the context; this list says where
                 * to go. */}
-              <a className="btn" href={paths.page(grant.pageId)}>
+              <a className="btn" href={pageLink(grant.pageId)}>
                 {t('shares.open')}
               </a>
             </li>
@@ -198,7 +200,7 @@ export function SharesScreen({
           {shares.received.length === 0 && nothing}
           {shares.received.map((grant) => (
             <li key={`${grant.pageId}-${grant.viaGroup ?? 'self'}`}>
-              <a href={paths.page(grant.pageId)}>{grant.pageTitle}</a>
+              <a href={pageLink(grant.pageId)}>{grant.pageTitle}</a>
               <span className="muted">
                 {level(grant.access)} · {scope(grant.includeSubtree)}
                 {grant.grantedBy && ` · ${t('shares.by', { name: grant.grantedBy })}`}

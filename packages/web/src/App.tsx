@@ -68,6 +68,7 @@ import type { CommentAnchor, DrawnThread } from '@sone/editor';
 
 import { api, type PageNode, type WorkspaceMember } from './api/client.ts';
 import { MOVED_SETTINGS, paths, type Route } from './routes/paths.ts';
+import { ShareTokenProvider, usePageLink } from './routes/pageLink.tsx';
 import { AcceptInvitation } from './components/AcceptInvitation.tsx';
 
 export function App(): ReactElement {
@@ -323,6 +324,7 @@ function Workspace({
   // one is absent (ADR-0023).
   useWorkspaceTheme(workspaceId);
 
+  const pageLink = usePageLink();
   const message = useMessage();
   const { t } = useT();
 
@@ -604,14 +606,14 @@ function Workspace({
           again && landing.mode !== 'fixed' ? first : (landing.landOn ?? first);
         if (!target) return;
         const node = pages.find((page) => page.id === target);
-        navigate(paths.page(target, node?.title ?? ''));
+        navigate(pageLink(target, node?.title ?? ''));
       })
       .catch(() => {
         // The first page, as before. A landing preference that cannot be read
         // should cost somebody a good guess, not a blank screen.
         arrived.current = workspaceId;
         const first = pages[0];
-        if (first) navigate(paths.page(first.id, first.title ?? undefined));
+        if (first) navigate(pageLink(first.id, first.title ?? undefined));
       });
 
     return () => {
@@ -651,7 +653,7 @@ function Workspace({
     //
     // A canvas does open, which it did not before: a page started from a
     // template is a page somebody wants to look at, and so is a board.
-    if (id && kind !== 'folder') navigate(paths.page(id));
+    if (id && kind !== 'folder') navigate(pageLink(id));
   };
 
   // Settings is its own screen, not a page inside the workspace.
@@ -1333,14 +1335,32 @@ function ShareRoute({
   }
 
   return (
-    <ShareSession
-      token={token}
-      pageId={pageId}
-      // Empty when nobody was asked, which is a reader — and an empty name
-      // records nothing, so a reader leaves no trace in the people panel. That
-      // is the correct outcome: they did not write anything to attribute.
-      displayName={displayName}
-    />
+    /*
+     * Every link inside keeps the token (ADR-0113).
+     *
+     * Around the view rather than inside it, so `ShareSession`'s own sidebar is
+     * in the context as well: a provider does not reach the component that
+     * renders it, and the sidebar is exactly the half that was right before —
+     * having it fall back to workspace links would be the same bug the other
+     * way round.
+     *
+     * In context rather than in a prop, because the components that needed it
+     * are page **body** content — a folder listing, a collection table, a
+     * relation chip — several layers below anybody who knows this is a share
+     * view, and threading a token through all of them correctly is the
+     * arrangement that produced the bug.
+     */
+    <ShareTokenProvider token={token}>
+      <ShareSession
+        token={token}
+        pageId={pageId}
+        // Empty when nobody was asked, which is a reader — and an empty name
+        // records nothing, so a reader leaves no trace in the people panel.
+        // That is the correct outcome: they did not write anything to
+        // attribute.
+        displayName={displayName}
+      />
+    </ShareTokenProvider>
   );
 }
 
@@ -1421,6 +1441,7 @@ function ShareSession({
   pageId: string | null;
   displayName: string;
 }): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   /*
    * Open to begin with, and closable — the same as the workspace.
@@ -1824,7 +1845,11 @@ function ShareSession({
                   <a
                     className="tree-link"
                     draggable={false}
-                    href={`/s/${encodeURIComponent(token)}/p/${entry.id}`}
+                    // Built by the same helper the content uses, so the two
+                    // cannot answer differently — which is what they did
+                    // (ADR-0113): this string was right and the listing beside
+                    // it was not.
+                    href={pageLink(entry.id, entry.title ?? undefined)}
                     {...(entry.id === effectivePageId
                       ? { 'aria-current': 'page' as const }
                       : {})}

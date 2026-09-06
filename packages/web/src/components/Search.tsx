@@ -30,6 +30,7 @@ import {
 } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import { messageFor } from './Auth.tsx';
 import { EntryIconView, entryKind, titleColorStyle } from './EntryIconView.tsx';
 
@@ -52,6 +53,7 @@ export function SearchScreen({
   workspaceId: string;
   initialQuery: string;
 }): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -339,7 +341,7 @@ export function SearchScreen({
           <ul className="search-results">
             {similar.map((entry) => (
               <li key={entry.pageId}>
-                <a className="search-hit" href={paths.page(entry.pageId, entry.title)}>
+                <a className="search-hit" href={pageLink(entry.pageId, entry.title)}>
                   <span className="search-hit-head">
                     <EntryIconView
                       icon={entry.icon}
@@ -371,6 +373,7 @@ function Group({
   label: string;
   results: SearchResult[];
 }): ReactElement | null {
+  const pageLink = usePageLink();
   const { t } = useT();
   // Hidden entirely when empty rather than shown as a heading over nothing,
   // which takes space to say there are none of something nobody asked about.
@@ -386,7 +389,7 @@ function Group({
               className="search-hit"
               // At the block that matched, where there is one, so a hit in the
               // middle of a long page does not land at the top of it.
-              href={paths.page(result.pageId, result.title, result.blockId)}
+              href={pageLink(result.pageId, result.title, result.blockId)}
             >
               <span className="search-hit-head">
                 <EntryIconView

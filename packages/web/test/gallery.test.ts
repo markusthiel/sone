@@ -55,5 +55,9 @@ test('the offer to add one appears only when there is something to draw', () => 
 });
 
 test('a card opens the row, because a row is a page', () => {
-  assert.match(gallery, /paths\.page\(row\.id, row\.title\)/);
+  // The name changed with ADR-0113: a page link now asks how this person got
+  // here, because a gallery renders inside a shared page as readily as inside
+  // the workspace. What this still cannot say is what the href comes out as —
+  // `shareLinks.test.tsx` is where that is read off the anchor.
+  assert.match(gallery, /pageLink\(row\.id, row\.title\)/);
 });

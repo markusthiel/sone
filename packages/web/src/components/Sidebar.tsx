@@ -34,6 +34,7 @@ import {
 import { useTreeDrag, type TreeDrag } from '../hooks/useTreeDrag.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import { EntryMenu } from './EntryMenu.tsx';
 import { AddEntryMenu } from './AddEntryMenu.tsx';
 import { mayEdit, mayManage } from '../entryRights.ts';
@@ -258,6 +259,7 @@ export function Sidebar({
   panelAction,
   children,
 }: SidebarProps): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
 
   /**
@@ -464,7 +466,7 @@ export function Sidebar({
                   // Links are draggable by default; the browser's own drag
                   // would cancel this app's gesture before it started.
                   draggable={false}
-                  href={paths.page(entry.pageId, entry.title)}
+                  href={pageLink(entry.pageId, entry.title)}
                   {...(entry.pageId === currentPageId
                     ? { 'aria-current': 'page' as const }
                     : {})}
@@ -658,6 +660,7 @@ function TreeLevel({
   ) => void;
   drag: TreeDrag;
 }): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   return (
     <>
@@ -768,7 +771,7 @@ function TreeLevel({
                   // Links are draggable by default; the browser's own drag
                   // would cancel this app's gesture before it started.
                   draggable={false}
-                  href={paths.page(node.id, node.title ?? undefined)}
+                  href={pageLink(node.id, node.title ?? undefined)}
                   {...(node.id === currentPageId ? { 'aria-current': 'page' as const } : {})}
                 >
                   {/* The entry's own kind, not "folder or else page". A canvas

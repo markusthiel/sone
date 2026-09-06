@@ -12,6 +12,7 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { api, type CollectionRow } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 
 export function RelationCell({
   pageIds,
@@ -25,6 +26,7 @@ export function RelationCell({
   canEdit: boolean;
   onChange: (pageIds: string[]) => void;
 }): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -84,7 +86,7 @@ export function RelationCell({
           <span key={id} className="relation-chip">
             {/* A link, because a row is a page and the point of a relation is
                 getting to the other one. */}
-            <a href={paths.page(id, titles.get(id) ?? '')}>
+            <a href={pageLink(id, titles.get(id) ?? '')}>
               {titles.get(id) ?? t('relation.aRow')}
             </a>
             {canEdit && (
