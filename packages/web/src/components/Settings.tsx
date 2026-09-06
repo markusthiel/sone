@@ -41,7 +41,6 @@ import {
 import { LANGUAGE_NAMES, LOCALES, useT, type Locale } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
-import { LandingSettings } from './LandingSettings.tsx';
 import { resolveSection, type ShellSection } from './SectionNav.tsx';
 import { AVATAR_BOUND, webVariant } from '../lib/imageVariant.ts';
 
@@ -66,7 +65,6 @@ export const SECTIONS = [
   { id: 'profile', label: 'you.profile', hint: 'you.profile.hint' },
   { id: 'sign-in', label: 'you.signIn', hint: 'you.signIn.hint' },
   { id: 'appearance', label: 'you.appearance', hint: 'you.appearance.hint' },
-  { id: 'landing', label: 'you.landing', hint: 'you.landing.hint' },
   /*
    * Where the mail's own link points (ADR-0058).
    *
@@ -108,7 +106,6 @@ export function Settings({
         </>
       )}
       {current === 'appearance' && <AppearanceSettings session={session} />}
-      {current === 'landing' && <LandingSettings workspaceId={workspaceId} />}
       {current === 'notifications' && <NotificationSettings session={session} />}
       {current === 'about' && <About />}
     </div>

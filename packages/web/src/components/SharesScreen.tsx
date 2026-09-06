@@ -135,7 +135,7 @@ export function SharesScreen({
    * kept as the order of the menu — it was the advice, and it still is.
    */
   return (
-    <section className="settings-section shares">
+    <section className="page-body shares">
       <h1 className="settings-heading">{t(`shares.${view}` as MessageKey)}</h1>
       <p className="muted">{view === 'links' ? t('shares.links.note') : t('shares.note')}</p>
 

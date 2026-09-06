@@ -635,8 +635,18 @@ function Workspace({
         const first = pages[0]?.id ?? null;
         const again = arrived.current === workspaceId;
         arrived.current = workspaceId;
-        const target =
-          again && landing.mode !== 'fixed' ? first : (landing.landOn ?? first);
+        /*
+         * Coming back to a workspace already visited in this session goes to
+         * the top rather than to where somebody was — otherwise pressing the
+         * mark bounces them back to the page they just navigated away from.
+         *
+         * Only for `last`, which is the mode that has that problem (ADR-0119).
+         * It used to be "anything but fixed", which was the same thing while
+         * there were two modes; `top` and `newest` are answers to "where does
+         * this workspace open", and they mean it every time.
+         */
+        const mode = landing.mode ?? landing.workspace.mode;
+        const target = again && mode === 'last' ? first : (landing.landOn ?? first);
         if (!target) return;
         const node = pages.find((page) => page.id === target);
         navigate(pageLink(target, node?.title ?? ''));

@@ -106,6 +106,12 @@ describe('giving access as any role this workspace has', () => {
       if (path.endsWith('/members')) {
         return { status: 200, ok: true, text: async () => JSON.stringify({ members: [] }) };
       }
+      // The person lookup (ADR-0119). Empty here: what this file is about is
+      // which role the form sends, and a typed address must keep working with
+      // no suggestion behind it.
+      if (path.includes('/people?')) {
+        return { status: 200, ok: true, text: async () => JSON.stringify({ people: [] }) };
+      }
       return { status: 200, ok: true, text: async () => JSON.stringify({ invitations: [] }) };
     };
 
@@ -133,7 +139,12 @@ describe('giving access as any role this workspace has', () => {
     [...picker().querySelectorAll('option')].map((one) => one.textContent ?? '');
 
   async function submit(address: string): Promise<void> {
-    const field = container.querySelector<HTMLInputElement>('input[type="email"]');
+    /*
+     * The person field, which was `type="email"` until ADR-0119 made it a
+     * search for a name or an address. Still one text input on this form, and
+     * still the thing a typed address goes into.
+     */
+    const field = container.querySelector<HTMLInputElement>('.person-picker input');
     assert.ok(field);
     const setter = Object.getOwnPropertyDescriptor(
       dom.window.HTMLInputElement.prototype,

@@ -14,6 +14,7 @@ import type { Pool } from 'pg';
 
 import { sanitiseTheme } from '@sone/core';
 import { roleIn } from '../auth/claims.js';
+import { visiblePagesCondition } from '../pages/access.js';
 import { holdsRight } from '../auth/rights.js';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { createDefaultFolder } from '../pages/createEntry.js';
@@ -42,6 +43,55 @@ async function readBody<T>(ctx: RequestContext): Promise<T | null> {
 /** The caller's role in a workspace, or null if they are not a member. */
 // `roleIn` now comes from `claims.ts`, which is the module about who somebody
 // is. The private copy that was here was one of five.
+/**
+ * The four answers to "where do I land" (ADR-0119).
+ *
+ * Named once, because three places read them: the workspace's default, a
+ * person's own, and the resolver that picks between the two. A fifth spelling
+ * in any of them is a mode that silently never applies.
+ */
+const LANDING_MODES: readonly string[] = ['last', 'top', 'newest', 'fixed'];
+
+/**
+ * The page a computed mode names, or null.
+ *
+ * `top` is the first entry the tree would draw — folders before pages, then by
+ * `(idx, id)`, which is `compareSiblings`' rule in SQL because this asks the
+ * database rather than building the tree. `newest` is the page most recently
+ * *edited*: "where is the work" rather than "what was created last", so an
+ * import or a page made and left alone is not where everybody lands.
+ *
+ * Scoped to what the caller may see, like every other listing here — landing
+ * somebody on a page they cannot open would be the one refusal they cannot
+ * avoid.
+ */
+async function chosenPage(
+  pool: Pool,
+  workspaceId: string,
+  userId: string,
+  mode: string,
+): Promise<string | null> {
+  const order =
+    mode === 'newest'
+      ? 'p.last_edited_at DESC, p.id'
+      : // Folders are not a place to land: a folder view is a list, and
+        // somebody arriving wants something to read.
+        'p.idx, p.id';
+
+  const row = await queryOne<{ id: string }>(
+    pool,
+    `SELECT p.id FROM pages p
+      WHERE p.workspace_id = $1
+        AND p.archived_at IS NULL
+        AND p.kind NOT IN ('folder','row','container')
+        AND ${visiblePagesCondition('p', '$2')}
+      ORDER BY ${order}
+      LIMIT 1`,
+    [workspaceId, userId],
+  );
+  return row?.id ?? null;
+}
+
 export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): void {
   /** Workspaces the caller belongs to, with counts for the switcher. */
   router.get('/api/workspaces', async (ctx) => {
@@ -242,8 +292,39 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
     const body = await readBody<{
       name?: string;
       icon?: { icon?: string; iconColor?: string; titleColor?: string } | null;
+      landing?: { mode?: unknown; pageId?: unknown };
     }>(ctx);
     if (!body) return;
+
+    /*
+     * Where members of this workspace land (ADR-0119).
+     *
+     * Here rather than on its own route, and with `workspace.settings` rather
+     * than a right of its own: a first page is a fact about the place, decided
+     * by whoever decides its name and its icon.
+     *
+     * The personal override is a different act by a different person and keeps
+     * its own route below.
+     */
+    if (body.landing !== undefined) {
+      const mode = LANDING_MODES.includes(String(body.landing?.mode))
+        ? String(body.landing?.mode)
+        : null;
+      if (mode === null) {
+        ctx.fail(422, 'invalid_landing');
+        return;
+      }
+      const pageId = typeof body.landing?.pageId === 'string' ? body.landing.pageId : null;
+      await deps.pool.query(
+        // The page is cleared unless the mode is 'fixed': a page kept beside a
+        // mode that does not use it is a value that comes back when somebody
+        // switches modes, having been chosen for a different question.
+        `UPDATE workspaces SET landing_mode = $2,
+                landing_page_id = CASE WHEN $2 = 'fixed' THEN $3::uuid ELSE NULL END
+          WHERE id = $1`,
+        [workspaceId, mode, pageId],
+      );
+    }
 
     // The icon may be changed without the name and the name without the icon.
     // Requiring both would mean a picker that has to send a name it did not ask
@@ -382,7 +463,7 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
     }
 
     const row = await queryOne<{
-      mode: string;
+      mode: string | null;
       page_id: string | null;
       last_page_id: string | null;
     }>(
@@ -392,7 +473,30 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
       [auth.userId, workspaceId],
     );
 
-    const wanted = row?.mode === 'fixed' ? row.page_id : (row?.last_page_id ?? null);
+    const workspace = await queryOne<{ landing_mode: string; landing_page_id: string | null }>(
+      deps.pool,
+      `SELECT landing_mode, landing_page_id FROM workspaces WHERE id = $1`,
+      [workspaceId],
+    );
+
+    /*
+     * Mine if I have one, the workspace's otherwise (ADR-0119).
+     *
+     * `mode IS NULL` is "no opinion", which is a state the column could not
+     * hold before: it was NOT NULL DEFAULT 'last', so somebody who had merely
+     * been *seen* somewhere — the remembering call writes a row — was
+     * indistinguishable from somebody who had chosen 'last'. Migration 0073
+     * reads every existing 'last' as no opinion for that reason.
+     */
+    const mode = row?.mode ?? workspace?.landing_mode ?? 'last';
+    const fixedPage = row?.mode === 'fixed' ? row.page_id : (workspace?.landing_page_id ?? null);
+
+    const wanted =
+      mode === 'fixed'
+        ? fixedPage
+        : mode === 'last'
+          ? (row?.last_page_id ?? null)
+          : await chosenPage(deps.pool, workspaceId, auth.userId, mode);
 
     // Checked before it is offered. A landing page that was deleted, archived
     // or restricted since it was chosen would otherwise send somebody to a
@@ -408,8 +512,14 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
       : null;
 
     ctx.send(200, {
-      mode: row?.mode ?? 'last',
+      /** This person's own answer, or null when they follow the workspace. */
+      mode: row?.mode ?? null,
       pageId: row?.page_id ?? null,
+      /** What the workspace says, so the screen can show what is being followed. */
+      workspace: {
+        mode: workspace?.landing_mode ?? 'last',
+        pageId: workspace?.landing_page_id ?? null,
+      },
       /** Where to go now, or null to let the interface decide. */
       landOn: usable?.id ?? null,
     });
@@ -434,21 +544,41 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
       return;
     }
 
-    const mode = body.mode === 'fixed' ? 'fixed' : body.mode === 'last' ? 'last' : null;
+    /*
+     * Three states, and the third is the one that had no spelling (ADR-0119).
+     *
+     * `mode` absent → this request is only recording where somebody is.
+     * `mode: null`  → "follow the workspace", chosen deliberately.
+     * a word        → their own answer.
+     *
+     * Told apart by `'mode' in body`, because `null` is now a value rather than
+     * the absence of one — which is exactly the distinction the old code could
+     * not make, and why it wrote `'last'` on every remembering call.
+     */
+    const names = 'mode' in body;
+    const mode =
+      names && LANDING_MODES.includes(String(body.mode)) ? String(body.mode) : null;
+    if (names && body.mode !== null && mode === null) {
+      ctx.fail(422, 'invalid_landing');
+      return;
+    }
     const pageId = typeof body.pageId === 'string' ? body.pageId : null;
     const lastPageId = typeof body.lastPageId === 'string' ? body.lastPageId : null;
 
     await deps.pool.query(
       `INSERT INTO workspace_landing (user_id, workspace_id, mode, page_id, last_page_id)
-       VALUES ($1,$2, COALESCE($3,'last'), $4, $5)
+       VALUES ($1,$2, CASE WHEN $6 THEN $3::text ELSE NULL END, $4, $5)
        ON CONFLICT (user_id, workspace_id) DO UPDATE SET
          -- Each field only when it was named. Recording where somebody is
-         -- happens constantly and must not quietly reset the mode they chose.
-         mode = COALESCE($3, workspace_landing.mode),
-         page_id = CASE WHEN $3 IS NULL THEN workspace_landing.page_id ELSE $4 END,
+         -- happens constantly and must not quietly become an opinion — under
+         -- the old model that cost nothing, because 'last' was also the only
+         -- default; under this one it would pin every member to 'last' within
+         -- seconds of arriving.
+         mode = CASE WHEN $6 THEN $3::text ELSE workspace_landing.mode END,
+         page_id = CASE WHEN $6 THEN $4::uuid ELSE workspace_landing.page_id END,
          last_page_id = COALESCE($5, workspace_landing.last_page_id),
          updated_at = now()`,
-      [auth.userId, workspaceId, mode, pageId, lastPageId],
+      [auth.userId, workspaceId, mode, mode === 'fixed' ? pageId : null, lastPageId, names],
     );
 
     ctx.send(200, { ok: true });

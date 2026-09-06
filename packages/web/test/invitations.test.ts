@@ -136,12 +136,32 @@ test('a workspace gives access to accounts that exist, and invites nobody', () =
   assert.doesNotMatch(screen, /id: 'invitations'/, 'and so is the section');
 });
 
-test('access is given by address, not from a list of everybody', () => {
-  // A picker of every account on the server would make every workspace owner a
-  // reader of the instance's directory, which the administration keeps on
-  // purpose (ADR-0032).
-  assert.match(members, /t\('access\.address'\)/);
+test('access is given to somebody found, never chosen from a list of everybody', () => {
+  /*
+   * ADR-0073 answered this with an address field: "a picker of every account on
+   * the server would turn every workspace owner into a reader of the instance's
+   * directory, which is a right the administration keeps on purpose"
+   * (ADR-0032).
+   *
+   * The concern stands and the address field was too strong an answer
+   * (ADR-0119): the adding route already tells this same caller whether any
+   * given address has an account, plainly and by design, so address → account
+   * was never protected from them. What the form does now is find a person by
+   * name or address — and what makes that a confirmation rather than a listing
+   * is that **there are no results without two characters**.
+   *
+   * That rule lives on the route, which is where it can be enforced, and it is
+   * proven there: `accessWithARole.db.test.ts` asserts that "", " " and "a"
+   * return nobody with two accounts present. What is asserted here is only that
+   * the screen has not grown a second way in — the administration's own listing
+   * of every account stays where it is.
+   */
+  assert.match(members, /t\('access\.person'\)/);
   assert.doesNotMatch(members, /adminUsers/);
+
+  const route = codeOf(new URL('../../server/src/auth/invitationRoutes.ts', import.meta.url));
+  assert.match(route, /query\.length < 2/, 'nothing without two characters');
+  assert.match(route, /LIMIT 8/, 'and never more than a handful');
 });
 
 /*

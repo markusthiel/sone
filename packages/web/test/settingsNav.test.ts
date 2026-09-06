@@ -185,15 +185,28 @@ test('the profile and signing in are two sections', () => {
   assert.doesNotMatch(you, /function Account\(\{/);
 });
 
-test('the boundary is whose it is, not who may change it', () => {
-  // The two cases that look like exceptions. "Where you land" is about a
-  // workspace and belongs to you, because two members have different answers.
-  // Typography is about appearance and belongs to the workspace, because
-  // everybody reading it sees it.
-  assert.match(you, /id: 'landing'/);
-  assert.doesNotMatch(workspace, /id: 'landing'/);
+test('the boundary is what a section is about, not who may change it', () => {
+  /*
+   * Typography is about appearance and belongs to the workspace, because
+   * everybody reading it sees it — even though only some may change it. That
+   * half is unchanged, and it is the rule.
+   *
+   * "Where you land" used to be the counter-example: about a workspace and
+   * filed under you, because two members have different answers. Both halves of
+   * that were true and the conclusion was still wrong (ADR-0119) — the personal
+   * settings have exactly one workspace in scope, whichever the person is
+   * standing in, so the screen edited that workspace's row while looking like a
+   * preference and offered pages from wherever they were.
+   *
+   * It is on the workspace's screen now, which knows which workspace it means,
+   * and the per-person answer sits under the workspace's on the same screen.
+   * The rule this test states did not bend; the section had been filed against
+   * it.
+   */
   assert.match(workspace, /id: 'typography'/);
   assert.doesNotMatch(you, /id: 'typography'/);
+  assert.match(workspace, /id: 'landing'/);
+  assert.doesNotMatch(you, /id: 'landing'/);
 });
 
 test('the two sections that had fallen out of the list are reachable', () => {
