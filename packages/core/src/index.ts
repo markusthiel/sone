@@ -20,3 +20,4 @@ export * from './formula/evaluate.js';
 // upload (import).
 export { MAX_STORED_ENTRIES, PackError, packStored, type StoredEntry } from './archive/packStored.js';
 export * from './i18n/format.js';
+export * from './doc/contrast.js';

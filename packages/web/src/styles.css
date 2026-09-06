@@ -141,7 +141,28 @@
    * a light-theme problem and gets a light-theme value rather than a darker
    * --ink-400 that would wash out the dark theme to fix it. 5.7:1 on white. */
   --ink-500: #6a675f;
+  /* And the step *that* one was missing, found the same way and this time by
+   * arithmetic rather than by eye (ADR-0135).
+   *
+   * --ink-500 clears AA on the page (5.65:1) and does not clear it once a
+   * workspace tints the chrome: seven of the eight palette colours put muted
+   * text between 3.98 and 4.49 on the sidebar, the hovered row and the sunken
+   * field. The note above computed one pairing — text on white — and the value
+   * was chosen from it.
+   *
+   * 6.90:1 on the page, and 4.54:1 against the worst tint any workspace can
+   * choose. Secondary stays at 9.76:1, so the two are still a step apart. */
+  --ink-550: #5c5a54;
   --ink-400: #8a8880;
+  /* The same correction, in the dark theme (ADR-0135).
+   *
+   * --ink-400 is 5.44:1 on the dark page and 4.44:1 on an overlay and 4.27:1 on
+   * a hovered row — *untinted*, with no workspace involved. The comment above
+   * says "the same value is fine in dark (5.1:1 on --ink-900)", which is true
+   * of the page and was generalised to every surface above it.
+   *
+   * 6.76:1 on the page, 4.57:1 against the worst tint. Secondary is 8.02:1. */
+  --ink-350: #9b998f;
   --ink-300: #a9a79f;
   --ink-200: #d4d2ca;
   --ink-100: #eceae3;
@@ -200,7 +221,7 @@
   --surface: color-mix(in srgb, var(--sone-theme-tint, var(--ink-000)) 3%, var(--ink-000));
   --surface-raised: color-mix(in srgb, var(--sone-theme-tint, var(--ink-000)) 3%, var(--ink-000));
   --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, var(--ink-000)) 5%, var(--ink-000));
-  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, #f0eee8) 14%, #f0eee8);
+  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, #f0eee8) 12%, #f0eee8);
   /* The writing surface, and the furniture around it.
    *
    * These two were the other way round: the page was the sunken surface and the
@@ -224,12 +245,13 @@
    * colour of the interface" — I tinted the surfaces and missed this one, so a
    * workspace set to blue got a blue menu highlight and a beige sidebar. It is
    * the token the sidebar actually sits on. */
-  --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, #faf8f4) 16%, #faf8f4);
+  --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, #faf8f4) 15%, #faf8f4);
 
   --text-primary: var(--ink-900);
   --text-secondary: var(--ink-600);
-  /* One step darker than dark's, on purpose: see --ink-500. */
-  --text-muted: var(--ink-500);
+  /* One step darker than dark's, on purpose: see --ink-500 — and one step
+     darker again since the tint was measured against it (ADR-0135). */
+  --text-muted: var(--ink-550);
 
   --border-subtle: #eae7df;
   --border-default: #ddd9d0;
@@ -293,7 +315,7 @@
   --surface: color-mix(in srgb, var(--sone-theme-tint, var(--ink-900)) 4%, var(--ink-900));
   --surface-raised: color-mix(in srgb, var(--sone-theme-tint, var(--ink-850)) 4%, var(--ink-850));
   --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, var(--ink-800)) 5%, var(--ink-800));
-  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, #262623) 8%, #262623);
+  --surface-hover: color-mix(in srgb, var(--sone-theme-tint, #262623) 5%, #262623);
   /* Unchanged here, and that is the point: dark already had the relationship
      the light theme was missing. The page is the darkest surface and the chrome
      a step nearer, because nearer means lighter in the dark. Naming the two
@@ -306,7 +328,7 @@
 
   --text-primary: var(--ink-100);
   --text-secondary: var(--ink-300);
-  --text-muted: var(--ink-400);
+  --text-muted: var(--ink-350);
 
   --border-subtle: #262623;
   --border-default: var(--ink-700);
@@ -495,13 +517,13 @@
     --surface: color-mix(in srgb, var(--sone-theme-tint, var(--ink-900)) 4%, var(--ink-900));
     --surface-raised: color-mix(in srgb, var(--sone-theme-tint, var(--ink-850)) 4%, var(--ink-850));
     --surface-overlay: color-mix(in srgb, var(--sone-theme-tint, var(--ink-800)) 5%, var(--ink-800));
-    --surface-hover: color-mix(in srgb, var(--sone-theme-tint, #262623) 8%, #262623);
+    --surface-hover: color-mix(in srgb, var(--sone-theme-tint, #262623) 5%, #262623);
     --surface-page: color-mix(in srgb, var(--sone-theme-tint, var(--ink-950)) 4%, var(--ink-950));
     --surface-chrome: color-mix(in srgb, var(--sone-theme-tint, var(--ink-900)) 9%, var(--ink-900));
 
     --text-primary: var(--ink-100);
     --text-secondary: var(--ink-300);
-    --text-muted: var(--ink-400);
+    --text-muted: var(--ink-350);
 
     --border-subtle: #262623;
     --border-default: var(--ink-700);

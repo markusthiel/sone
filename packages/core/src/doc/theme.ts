@@ -20,6 +20,8 @@
  * every workspace rendered before themes existed.
  */
 
+import { luminance } from './contrast.js';
+
 /** The kinds of element a theme can speak about. */
 export const THEMED_ELEMENTS = [
   'heading1',
@@ -410,23 +412,31 @@ export function resolveScheme(
  * implementation of that formula uses. Not a guess at "is this light": a mid
  * green and a mid blue of the same lightness need different answers, and the
  * formula is why.
+ *
+ * The arithmetic moved to `contrast.ts` when the token layer needed the same
+ * formula (ADR-0135). Two implementations of one formula is two chances to get
+ * it wrong, and only one of them would have had a test.
  */
 export function readableOn(color: string): string {
-  const hex = color.replace('#', '');
-  const full =
-    hex.length === 3
-      ? hex
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : hex;
-  const channel = (at: number): number => {
-    const value = Number.parseInt(full.slice(at, at + 2), 16) / 255;
-    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-  };
-  const luminance = 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
-  // 0.179 is where white and black are equally readable by the WCAG ratio.
-  return luminance > 0.179 ? '#141210' : '#ffffff';
+  /*
+   * 0.179 is where **black** and white are equally readable by the WCAG ratio,
+   * and that crossover is what makes this a guarantee rather than a preference:
+   * a colour sitting exactly on it is 4.58:1 either way, above AA for body
+   * text, and every other colour is further from one end than that.
+   *
+   * **It returned `#141210`, and the threshold was computed for `#000000`**
+   * (ADR-0135). A warm near-black rather than black, which is the right
+   * instinct everywhere else in this design and is wrong here: its own
+   * luminance moves the crossover to 0.193, and at 0.179 the dark answer is
+   * only 4.08:1. `#aa44dd` — an ordinary purple somebody would pick out of a
+   * colour input — landed there. The guarantee the comment claimed had never
+   * held, by about half a ratio point, since the day it was written.
+   *
+   * The two ends have to be the extremes or there is no guarantee to make: a
+   * dark end above a luminance of 0.0019 cannot reach 4.5:1 at its own
+   * crossover, and `--ink-950` is already over that.
+   */
+  return luminance(color) > 0.179 ? '#000000' : '#ffffff';
 }
 
 /** The three surfaces, and only a treatment somebody could have meant. */

@@ -50,14 +50,27 @@ test('every token the stylesheet spends is a token the stylesheet declares', () 
   assert.doesNotMatch(css, /var\(--sone-(shadow|warning)[a-z-]*,/, 'no var() fallbacks left');
 });
 
-test('quiet text clears AA in the light theme too', () => {
-  // --ink-400 is 3.6:1 on white. It is fine in dark (5.1:1 on --ink-900), so
-  // the fix is a light-theme value and not a darker --ink-400 that would wash
-  // out the theme where the value was already right.
+test('quiet text is a step each theme owns', () => {
+  /*
+   * This used to assert the two step names, which is a copy of the two lines it
+   * was checking — and it passed happily while `--ink-400` was 4.27:1 on a
+   * hovered row in the dark theme, because the name was still the name
+   * (ADR-0135).
+   *
+   * Whether either value clears AA is computed now, over both themes and every
+   * tint a workspace can set, in `contrast.test.ts`. What is left here is the
+   * relationship that decision rests on: **muted is a different step in each
+   * theme.** A shared one would be a value chosen against one background and
+   * applied to the other, which is exactly how the failing values got in.
+   */
   const light = /:root,\n\[data-theme='light'\]\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
   const dark = /\[data-theme='dark'\]\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
-  assert.match(light, /--text-muted: var\(--ink-500\)/);
-  assert.match(dark, /--text-muted: var\(--ink-400\)/);
+  const step = (body: string): string =>
+    /--text-muted: var\((--ink-[0-9]+)\)/.exec(body)?.[1] ?? '';
+
+  assert.ok(step(light), 'the light theme names a step for muted text');
+  assert.ok(step(dark), 'and so does the dark one');
+  assert.notEqual(step(light), step(dark), 'and it is not the same step');
 });
 
 test('the faces are served from here', () => {
