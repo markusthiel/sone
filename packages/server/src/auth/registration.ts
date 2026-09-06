@@ -257,8 +257,8 @@ export async function register(
     if (!personal) throw new Error('failed to create personal workspace');
 
     await client.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
-       VALUES ($1,$2,'owner',(SELECT id FROM roles WHERE key = 'owner'),true)`,
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'owner'),true)`,
       [personal.id, created.id],
     );
 
@@ -269,13 +269,10 @@ export async function register(
     // account exists and its own workspace exists, which is the whole of it.
     if (invitation?.workspaceId) {
       await client.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
-         -- The role named twice, as the enum the old column wants and as the
-         -- text the role row is found by. One parameter used both ways cannot
-         -- be given a type Postgres will accept for both.
-         VALUES ($1,$2,$3,(SELECT id FROM roles WHERE key = $4),$4 = 'owner')
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+         VALUES ($1,$2,(SELECT id FROM roles WHERE key = $3),$3 = 'owner')
          ON CONFLICT (workspace_id, user_id) DO NOTHING`,
-        [invitation.workspaceId, created.id, invitation.role, invitation.role],
+        [invitation.workspaceId, created.id, invitation.role],
       );
       await client.query(
         `UPDATE invitations SET uses = uses + 1 WHERE id = $1`,
@@ -352,8 +349,8 @@ export async function bootstrapInstance(
     if (!workspace) throw new Error('failed to create workspace');
 
     await client.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
-       VALUES ($1,$2,'owner',(SELECT id FROM roles WHERE key = 'owner'),true)`,
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'owner'),true)`,
       [workspace.id, user.id],
     );
 
@@ -463,11 +460,11 @@ export async function acceptInvitation(
 
     const inserted = await queryOne<{ user_id: string }>(
       client,
-      `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
-         VALUES ($1,$2,$3,(SELECT id FROM roles WHERE key = $4),$4 = 'owner')
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+         VALUES ($1,$2,(SELECT id FROM roles WHERE key = $3),$3 = 'owner')
        ON CONFLICT (workspace_id, user_id) DO NOTHING
        RETURNING user_id`,
-      [invitation.workspaceId, input.userId, invitation.role, invitation.role],
+      [invitation.workspaceId, input.userId, invitation.role],
     );
 
     // Already a member: not an error, and the invitation is not spent for it.

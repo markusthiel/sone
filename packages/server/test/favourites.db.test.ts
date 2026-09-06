@@ -286,7 +286,8 @@ describe(
         [hash],
       );
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
         [session.workspaceId, other.rows[0]!.id],
       );
       const login = await fetch(
@@ -357,7 +358,8 @@ describe(
         [hash],
       );
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'guest')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'guest' AND workspace_id IS NULL), false)`,
         [session.workspaceId, reader.rows[0]!.id],
       );
       await db.query(
@@ -407,8 +409,8 @@ describe(
         )
       ).rows[0]!.id;
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role)
-         VALUES ($1, $2, 'owner')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'owner' AND workspace_id IS NULL), true)`,
         [other, session.userId],
       );
       const otherFolder = (

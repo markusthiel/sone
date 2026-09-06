@@ -44,9 +44,9 @@ describe('rights (database)', { concurrency: 1, skip: !hasDatabase }, () => {
     workspace = ws.rows[0]!.id;
 
     await db.query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner) VALUES
-         ($1,$2,'owner',(SELECT id FROM roles WHERE key='owner'),true),
-         ($1,$3,'member',(SELECT id FROM roles WHERE key='member'),false)`,
+      `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner) VALUES
+         ($1,$2,(SELECT id FROM roles WHERE key='owner'),true),
+         ($1,$3,(SELECT id FROM roles WHERE key='member'),false)`,
       [workspace, owner, colleague],
     );
   });
@@ -174,9 +174,22 @@ describe('rights (database)', { concurrency: 1, skip: !hasDatabase }, () => {
      * cause: whoever sees it is looking at a database somebody truncated or
      * restored in part.
      */
-    await db.query(`UPDATE workspace_members SET role_id = NULL WHERE workspace_id = $1`, [
-      workspace,
-    ]);
+    /*
+     * Simulated by breaking referential integrity, which is what it is
+     * (ADR-0102).
+     *
+     * The membership used to be pointed at nothing — `role_id = NULL` — and
+     * that state is now forbidden, because a membership holding no role
+     * resolves to no access and reads exactly like being removed. Which leaves
+     * one way to reach this: a role row that is gone while a membership still
+     * names it. No running instance produces that, and a restore of one dump
+     * against another does.
+     *
+     * The constraint comes off for the length of the assertion rather than the
+     * check being deleted: the message is worth an hour to whoever hits it, and
+     * `ensureSystemRoles` at boot is why nobody should.
+     */
+    await db.query(`ALTER TABLE workspace_members DROP CONSTRAINT workspace_members_role_id_fkey`);
     const kept = await db.query<{ id: string; key: string; page_level: string | null }>(
       `DELETE FROM roles WHERE workspace_id IS NULL RETURNING id, key, page_level`,
     );
@@ -194,9 +207,9 @@ describe('rights (database)', { concurrency: 1, skip: !hasDatabase }, () => {
       );
     }
     await db.query(
-      `UPDATE workspace_members SET role_id = (SELECT id FROM roles WHERE key = role::text)
-        WHERE workspace_id = $1`,
-      [workspace],
+      `ALTER TABLE workspace_members
+         ADD CONSTRAINT workspace_members_role_id_fkey
+         FOREIGN KEY (role_id) REFERENCES roles (id)`,
     );
     // And the rights those rows carry, which the seed above left empty.
     await db.query(

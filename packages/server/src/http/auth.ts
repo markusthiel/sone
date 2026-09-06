@@ -44,6 +44,7 @@ import {
 import { queryOne, queryRows } from '../db/pool.js';
 import { createDefaultFolder } from '../pages/createEntry.js';
 import { negotiateLocale } from '../i18n/locale.js';
+import { STANDING_COLUMNS, STANDING_JOIN } from '../auth/standing.js';
 import { WORKSPACE_ORDER_SQL } from '../workspaces/order.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
 import {
@@ -619,13 +620,19 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       id: string;
       name: string;
       role: string;
+      role_name: string;
+      rights: string[];
+      is_owner: boolean;
       default_locale: string;
       icon: unknown;
     }>(
       deps.pool,
-      `SELECT w.id, w.name, m.role, w.default_locale, w.icon
+      // The standing, not the old enum word (ADR-0102). The same fragment
+      // /api/workspaces uses, for the same reason as the order clause below.
+      `SELECT w.id, w.name, w.default_locale, w.icon, ${STANDING_COLUMNS}
          FROM workspace_members m
          JOIN workspaces w ON w.id = m.workspace_id
+         ${STANDING_JOIN}
         WHERE m.user_id = $1
           -- A workspace marked for deletion stops appearing to its members
           -- (ADR-0027). It is not gone, and somebody with the right can put it
@@ -714,7 +721,30 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         activityDigest: user?.activity_digest ?? 'off',
         digestScope: user?.digest_scope ?? 'all',
       },
-      workspaces,
+      /*
+       * Named, not passed through (ADR-0102).
+       *
+       * The rows went out as they came back, so the reply carried
+       * `default_locale` in snake case and the client type had to match the
+       * database's spelling. Three of the four columns added here are new, and
+       * a listing where some fields are named one way and some another is a
+       * listing every caller reads twice.
+       *
+       * `defaultLocale` is added rather than substituted: the old spelling is
+       * what the browser reads today, and renaming it is a client change with
+       * nothing to do with an enum column.
+       */
+      workspaces: workspaces.map((row) => ({
+        id: row.id,
+        name: row.name,
+        role: row.role,
+        roleName: row.role_name,
+        rights: row.rights,
+        isOwner: row.is_owner,
+        default_locale: row.default_locale,
+        defaultLocale: row.default_locale,
+        icon: row.icon ?? null,
+      })),
     });
   });
 

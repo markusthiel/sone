@@ -18,6 +18,7 @@ import { holdsRight } from '../auth/rights.js';
 import { queryOne, queryRows, withTransaction } from '../db/pool.js';
 import { createDefaultFolder } from '../pages/createEntry.js';
 import { requireSession } from './auth.js';
+import { STANDING_COLUMNS, STANDING_JOIN } from '../auth/standing.js';
 import { WORKSPACE_ORDER_SQL, placeWorkspace } from '../workspaces/order.js';
 import { BodyError, type RequestContext, type Router } from './router.js';
 import { administratorRights } from '../admin/rights.js';
@@ -51,19 +52,27 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
       id: string;
       name: string;
       role: string;
+      role_name: string;
+      rights: string[];
+      is_owner: boolean;
       default_locale: string;
       page_count: string;
       member_count: string;
       icon: unknown;
     }>(
       deps.pool,
-      `SELECT w.id, w.name, m.role, w.default_locale, w.icon,
+      // The standing, not the old enum word (ADR-0102). Shared with
+      // /api/auth/session for the reason the order clause is: two listings of
+      // one thing that disagree are worse than one listing.
+      `SELECT w.id, w.name, w.default_locale, w.icon,
+              ${STANDING_COLUMNS},
               (SELECT count(*) FROM pages p
                 WHERE p.workspace_id = w.id AND p.archived_at IS NULL)::text AS page_count,
               (SELECT count(*) FROM workspace_members mm
                 WHERE mm.workspace_id = w.id)::text AS member_count
          FROM workspace_members m
          JOIN workspaces w ON w.id = m.workspace_id
+         ${STANDING_JOIN}
         WHERE m.user_id = $1
           -- The same exclusion the session endpoint has always made: a
           -- workspace marked for deletion stops appearing to its members
@@ -82,6 +91,9 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
         id: row.id,
         name: row.name,
         role: row.role,
+        roleName: row.role_name,
+        rights: row.rights,
+        isOwner: row.is_owner,
         defaultLocale: row.default_locale,
         pageCount: Number(row.page_count),
         memberCount: Number(row.member_count),
@@ -176,8 +188,8 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
       if (!workspace) throw new Error('failed to create workspace');
 
       await client.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role, role_id, is_owner)
-         VALUES ($1,$2,'owner',(SELECT id FROM roles WHERE key = 'owner'),true)`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+         VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'owner'),true)`,
         [workspace.id, auth.userId],
       );
       return workspace.id;
@@ -473,11 +485,12 @@ export function registerWorkspaceRoutes(router: Router, deps: WorkspaceDeps): vo
       // The role row, not only the old word: a custom role has no word, and a
       // picker that cannot say which role somebody holds cannot preselect it
       // (ADR-0087). `r.key` is null for a custom role, which is what makes
-      // `role` read 'custom' below.
+      // `role` read 'custom' below. The name no longer falls back to the enum
+      // column, because a membership must point at a role (ADR-0102).
       `SELECT m.user_id, u.display_name, u.email,
               COALESCE(r.key, 'custom') AS role,
               r.id AS role_id,
-              COALESCE(r.name, m.role::text) AS role_name,
+              r.name AS role_name,
               u.is_guest, m.joined_at
          FROM workspace_members m
          JOIN users u ON u.id = m.user_id

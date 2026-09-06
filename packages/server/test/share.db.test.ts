@@ -281,7 +281,8 @@ describe(
         [hash],
       );
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
         [session.workspaceId, other.rows[0]!.id],
       );
       await db.query(
@@ -474,7 +475,8 @@ describe(
         [hash],
       );
       await db.query(
-        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'member')`,
+        `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+       VALUES ($1,$2,(SELECT id FROM roles WHERE key = 'member' AND workspace_id IS NULL), false)`,
         [session.workspaceId, editor.rows[0]!.id],
       );
       await db.query(
