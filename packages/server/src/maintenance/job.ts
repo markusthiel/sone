@@ -26,6 +26,8 @@ import { pruneShareSessions } from '../auth/share.js';
 import { deleteDocumentsFor } from '../doc/deleteDocuments.js';
 import { compactDoc, loadDoc } from '../doc/docStore.js';
 import { expireJobs } from '../jobs/runner.js';
+import { sweepOrphanFiles } from '../files/sweepOrphanFiles.js';
+import type { FileStore } from '../files/store.js';
 import {
   authorsSince,
   lastVersionSeq,
@@ -98,7 +100,7 @@ export interface MaintenanceOptions {
    * test that never wrote a file has nothing to free, and requiring the store
    * would make every existing caller pass one for a step it does not use.
    */
-  store?: { delete: (key: string) => Promise<void> };
+  store?: Pick<FileStore, 'delete'> & Partial<Pick<FileStore, 'list'>>;
   log?: (msg: string, meta?: unknown) => void;
 }
 
@@ -136,6 +138,15 @@ export interface MaintenanceReport {
    * task that runs every five minutes while nobody is looking.
    */
   orphanedDocuments: number;
+  /**
+   * Stored files no row names (ADR-0109).
+   *
+   * Counted here and swept by a script, exactly as `orphanedDocuments` is, and
+   * `null` when this process has no store to ask — a maintenance job in a test
+   * has nothing to look at, and reporting `0` for "did not look" would be the
+   * silence this whole area keeps being about.
+   */
+  orphanedFiles: number | null;
   errors: string[];
   durationMs: number;
 }
@@ -192,6 +203,7 @@ export class Maintenance {
       orphanedPages: 0,
       entriesInsidePages: 0,
       orphanedDocuments: 0,
+      orphanedFiles: null,
       errors: [],
       durationMs: 0,
     };
@@ -321,6 +333,16 @@ export class Maintenance {
           WHERE last_written < now() - interval '1 hour'`,
       );
       report.orphanedDocuments = Number(strays[0]?.n ?? 0);
+
+      // And the same question about the disk (ADR-0109). Only when there is a
+      // store: `null` says "did not look", which is a different answer from
+      // "looked and found none".
+      if (this.opts.store?.list) {
+        const loose = await sweepOrphanFiles(this.opts.pool, this.opts.store as FileStore, {
+          olderThanHours: 1,
+        });
+        report.orphanedFiles = loose.files;
+      }
     });
 
     report.durationMs = Date.now() - started;
@@ -352,6 +374,12 @@ export class Maintenance {
       this.log(
         `${report.entriesInsidePages} entr(ies) sit inside a page rather than a ` +
           `folder; see the pages_inside_pages view`,
+      );
+    }
+    if (report.orphanedFiles !== null && report.orphanedFiles > 0) {
+      this.log(
+        `${report.orphanedFiles} stored file(s) belong to no row — attachments a purge ` +
+          `left, or profile pictures somebody replaced; see sweep-orphan-files.mjs`,
       );
     }
     if (report.orphanedDocuments > 0) {
@@ -583,9 +611,14 @@ export async function compactBacklog(
  * page's internal comments document.
  *
  * Files on disk are still left alone rather than deleted here, where a mistake
- * would take somebody else's attachment with it. There is no orphan sweep to
- * leave them to, whatever the previous version of this comment said; that is
- * named in ADR-0080 rather than quietly implied.
+ * would take somebody else's attachment with it — content-addressed keys mean
+ * two workspaces with the same picture share one file.
+ *
+ * There is a sweep to leave them to now (ADR-0109), and it is deliberately not
+ * called from here: it removes bytes, it is the kind of thing an operator
+ * should read a report from before running, and a purge is not the moment to
+ * decide that. `sweep-orphan-files.mjs`, and the count in the anomaly report
+ * below says whether there is anything to do.
  */
 export async function purgeDeletedWorkspaces(
   pool: Pool,
