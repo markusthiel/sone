@@ -33,6 +33,9 @@ try {
     filesPath: config.storage.backend === 'local' ? config.storage.path : null,
     appVersion: SONE_VERSION,
     documentSchemaVersion: SCHEMA_VERSION,
+    // Recorded as a fingerprint, never as itself, so a restore can tell whether
+    // it is about to lose everything sealed with it (ADR-0105).
+    secretKey: config.secretKey,
   });
   console.log(`\nBackup format ${manifest.backupFormatVersion}, created ${manifest.createdAt}`);
   process.exitCode = 0;
