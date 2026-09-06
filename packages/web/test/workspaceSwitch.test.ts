@@ -50,3 +50,31 @@ test('a page really out of reach still says so', () => {
   const view = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
   assert.match(view, /t\('page\.noAccess'\)/);
 });
+
+test('a mode about one workspace offers a way to change it', () => {
+  /*
+   * Reported as the shares screen being inconsistent: a link created a moment
+   * ago was simply absent, because all three lists are scoped to one workspace
+   * and the screen named neither it nor a way to switch (ADR-0114).
+   *
+   * A wiring assertion, and said plainly: what it can see is that the two
+   * per-workspace modes are given the chooser the Workspaces mode already had.
+   * What it cannot see is the rendered head — `Sidebar` draws `panelChooser`
+   * wherever it is given one, and that half has been true since ADR-0070.
+   */
+  assert.match(app, /mode === 'shares' \|\| mode === 'trash' \? \(/);
+
+  // The inbox deliberately gets none: it spans workspaces (ADR-0052) and
+  // filters by them in its own panel, so a chooser would be a second answer to
+  // a question that screen already answers better.
+  const chooser = /panelChooser=\{([\s\S]*?)\n {8}\}/.exec(app)?.[1] ?? '';
+  assert.ok(chooser.length > 0, 'the chooser branch is where it was');
+  assert.doesNotMatch(chooser, /'inbox'/);
+});
+
+test('the trash says its retention once, not its workspace twice', () => {
+  // The scope line used to carry "{workspace} · 30 days". With the workspace
+  // named by the chooser directly above it, that is the same fact in two
+  // consecutive lines, which reads as two different ones.
+  assert.match(app, /t\('trash\.scope'\)/);
+});
