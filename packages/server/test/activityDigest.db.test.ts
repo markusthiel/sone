@@ -8,6 +8,8 @@
  */
 
 import assert from 'node:assert/strict';
+
+import { renderText } from '../src/mail/letter.js';
 import { after, before, describe, test } from 'node:test';
 import type { Pool } from 'pg';
 
@@ -231,9 +233,9 @@ describe(
         'daily',
       );
       assert.ok(composed);
-      assert.doesNotMatch(composed.body, /Gehaltsrunde/);
-      assert.match(composed.body, /Team/);
-      assert.match(composed.body, /1 page/);
+      assert.doesNotMatch(renderText(composed), /Gehaltsrunde/);
+      assert.match(renderText(composed), /Team/);
+      assert.match(renderText(composed), /1 page/);
     });
 
     test('a page is one line however often it was edited', () => {
@@ -255,8 +257,8 @@ describe(
         'daily',
       );
       assert.ok(composed);
-      assert.equal((composed.body.match(/Vielbearbeitet/g) ?? []).length, 1);
-      assert.match(composed.body, /Kollege and 2 other/);
+      assert.equal((renderText(composed).match(/Vielbearbeitet/g) ?? []).length, 1);
+      assert.match(renderText(composed), /Kollege and 2 other/);
     });
   },
 );

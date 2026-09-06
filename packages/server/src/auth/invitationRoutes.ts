@@ -15,6 +15,7 @@ import type { Pool } from 'pg';
 import type { Router } from '../http/router.js';
 import { roleIn } from './claims.js';
 import { queryOne, queryRows } from '../db/pool.js';
+import type { Letter } from '../mail/letter.js';
 import { requireSession } from '../http/auth.js';
 import { holdsRight } from './rights.js';
 import { AuthError } from './password.js';
@@ -28,6 +29,17 @@ import {
 
 export interface InvitationDeps {
   pool: Pool;
+  /** Absent when the instance has no relay: the mail is then not sent. */
+  sendLetter?: SendLetter;
+  /** Where SONE lives, for the links a letter carries. */
+  baseUrl?: string;
+  /**
+   * What this instance calls itself, for the subject lines.
+   *
+   * A function, because the name is a setting an administrator may change while
+   * SONE runs — the same shape `main.ts` passes everywhere else it is needed.
+   */
+  instanceName?: () => Promise<string>;
 }
 
 /**
@@ -38,6 +50,23 @@ export interface InvitationDeps {
  * way arrived after the first and every route that forgot it would be a route
  * where the right silently does not work.
  */
+/**
+ * Telling somebody, when there is a relay (ADR-0121).
+ *
+ * Injected rather than reached for, like `sendResetMail` beside it: this module
+ * does not know about SMTP, and a test can watch what would have been sent
+ * without one. Absent means no relay is configured — the mail is then *absent*
+ * rather than broken, which is ADR-0059's rule for the reset link and the same
+ * rule here.
+ *
+ * Every caller treats a failure as a courtesy not delivered, never as the act
+ * failing: somebody was added to the workspace whether or not their mailbox
+ * accepted a message about it. What the caller does say is `mailed: false`, so
+ * the screen can offer the link to pass on by hand instead of implying one was
+ * sent.
+ */
+export type SendLetter = (to: string, letter: Letter) => Promise<void>;
+
 async function mayAdminister(
   pool: Pool,
   ctx: Parameters<typeof requireSession>[1],
@@ -113,6 +142,69 @@ async function chooseRole(
     return null;
   }
   return chosen;
+}
+
+/**
+ * The two letters this module sends (ADR-0121).
+ *
+ * English only, and that is a gap rather than a decision: a notification mail
+ * is written in the *reader's* language because the reader has an account with
+ * a language on it (ADR-0041). Neither of these has one — an invitation goes to
+ * somebody who has no account yet, and an access mail goes out before anybody
+ * has asked the account which language it prefers. Named here so the next
+ * person does not have to work out whether it was on purpose.
+ */
+function invitationLetter(
+  deps: InvitationDeps,
+  where: string,
+  token: string,
+  expiresAt: Date,
+): Letter {
+  const base = deps.baseUrl ?? '';
+  const days = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / 86_400_000));
+  return {
+    subject: `${where}: you have been invited`,
+    heading: `You have been invited to ${where}.`,
+    lines: [
+      {
+        text:
+          'Follow the link to make an account. Nothing has been created for you yet — ' +
+          'the account exists once you have set a password.',
+      },
+      // Said, because a link that stops working without warning produces a
+      // question to somebody who cannot see the problem.
+      { text: `The link works for ${days} day(s).` },
+    ],
+    action: { label: 'Set up your account', url: `${base}/signup?token=${token}` },
+    footer: ['If you were not expecting this, you can ignore it. Nothing happens until you sign up.'],
+    baseUrl: base,
+    locale: 'en',
+  };
+}
+
+function accessLetter(
+  deps: InvitationDeps,
+  where: string,
+  about: { workspace: string; by: string | null; role: string },
+): Letter {
+  const base = deps.baseUrl ?? '';
+  return {
+    subject: `${where}: you have access to ${about.workspace}`,
+    heading: `You can now work in ${about.workspace}.`,
+    lines: [
+      {
+        text: about.by
+          ? `${about.by} gave you access, as ${about.role}.`
+          : `You were given access, as ${about.role}.`,
+      },
+      // No token and no link to accept: there is nothing to do, which is the
+      // whole reason this is an announcement rather than an invitation.
+      { text: 'There is nothing to accept — it is already yours to open.' },
+    ],
+    action: { label: 'Open it', url: base },
+    baseUrl: base,
+    locale: 'en',
+  };
 }
 
 export function registerInvitationRoutes(router: Router, deps: InvitationDeps): void {
@@ -372,6 +464,40 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     // The row, named the way the members listing names it: `key` for one of the
     // four, `'custom'` for a role this workspace made, and its own name beside
     // it because a custom role has no word to translate.
+    /*
+     * And tell them (ADR-0121).
+     *
+     * *„Hinzufügen zu Workspace per Email an das neue Mitglied bestätigen, da
+     * wäre dann ja nichts zu tun, aber eine Info per Mail macht Sinn."* — so it
+     * is an announcement and not a request: no token, no link to accept,
+     * nothing to press. The place, who let them in, and the way there.
+     */
+    const where = await queryOne<{ name: string }>(
+      deps.pool,
+      `SELECT name FROM workspaces WHERE id = $1`,
+      [workspaceId],
+    );
+    const inviter = await queryOne<{ display_name: string }>(
+      deps.pool,
+      `SELECT display_name FROM users WHERE id = $1`,
+      [user.userId],
+    );
+    if (deps.sendLetter) {
+      await deps
+        .sendLetter(
+          email,
+          accessLetter(deps, deps.instanceName ? await deps.instanceName() : 'SONE', {
+            workspace: where?.name ?? '',
+            by: inviter?.display_name ?? null,
+            role: chosen.name,
+          }),
+        )
+        // Swallowed: they have the access whether or not their mailbox took a
+        // message about it, and failing the request would be undoing a grant
+        // that succeeded.
+        .catch(() => undefined);
+    }
+
     ctx.send(201, {
       userId: account.id,
       role: chosen.key ?? 'custom',
@@ -440,10 +566,40 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
       ...(typeof body.maxUses === 'number' ? { maxUses: body.maxUses } : {}),
     });
 
+    /*
+     * And send it, when there is somewhere to send it to (ADR-0121).
+     *
+     * Until now this route made a link and handed it back, and an administrator
+     * copied it into a mail of their own — *„Einladung Versand an neue Team
+     * Mitglieder per Email"*. An invitation with no address on it is still a
+     * link to pass on by hand; that case is unchanged.
+     *
+     * `mailed` is reported rather than assumed. A failure here is a courtesy
+     * not delivered and never the invitation failing — it exists, it works, and
+     * the screen can offer the link instead of implying a mail arrived.
+     */
+    const to = typeof body.email === 'string' ? body.email.trim() : '';
+    const mailed =
+      to === '' || !deps.sendLetter
+        ? false
+        : await deps
+            .sendLetter(
+              to,
+              invitationLetter(
+                deps,
+                deps.instanceName ? await deps.instanceName() : 'SONE',
+                invitation.token,
+                invitation.expiresAt,
+              ),
+            )
+            .then(() => true)
+            .catch(() => false);
+
     ctx.send(201, {
       token: invitation.token,
       invitationId: invitation.invitationId,
       expiresAt: invitation.expiresAt,
+      mailed,
     });
   });
 

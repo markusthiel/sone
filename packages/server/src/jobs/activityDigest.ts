@@ -14,6 +14,7 @@
 
 import { queryRows } from '../db/pool.js';
 import { visiblePagesCondition } from '../pages/access.js';
+import { renderHtml, renderText, type Letter, type LetterLine } from '../mail/letter.js';
 import { sendMail, type Relay } from '../mail/send.js';
 import type { Pool } from 'pg';
 
@@ -142,7 +143,7 @@ export function composeDigest(
   detail: 'title' | 'workspace',
   baseUrl: string,
   period: 'daily' | 'weekly',
-): { subject: string; body: string } | null {
+): Letter | null {
   if (pages.length === 0) return null;
 
   const shown = pages.slice(0, MAX_LINES);
@@ -162,10 +163,13 @@ export function composeDigest(
     byWorkspace.set(page.workspaceId, group);
   }
 
-  const lines: string[] = [];
+  // A workspace is a line, and the pages under it are details of it (ADR-0121).
+  // `under` is the whole of the grouping — text indents them, the drawn form
+  // sets them smaller and quieter, and neither can forget one the other has.
+  const lines: LetterLine[] = [];
   for (const [, group] of byWorkspace) {
     const list = group.pages;
-    lines.push(`${group.name}:`);
+    lines.push({ text: `${group.name}:` });
     for (const page of list) {
       /*
        * The instance's detail setting is honoured here too (ADR-0058).
@@ -181,20 +185,25 @@ export function composeDigest(
           : page.lastEditor
             ? ` — ${page.lastEditor}`
             : '';
-      lines.push(`  ${page.title}${who}`);
-      lines.push(`  ${baseUrl}/p/${page.pageId}`);
+      lines.push({ text: `${page.title}${who}`, url: `${baseUrl}/p/${page.pageId}`, under: true });
     }
     if (detail === 'workspace') {
-      lines.push(`  ${list.length} page(s) changed`);
+      lines.push({ text: `${list.length} page(s) changed`, under: true });
     }
-    lines.push('');
   }
-  if (more > 0) lines.push(`and ${more} more.`);
+  if (more > 0) lines.push({ text: `and ${more} more.` });
 
   return {
     subject:
       period === 'weekly' ? 'SONE: what changed this week' : 'SONE: what changed yesterday',
-    body: `${lines.join('\n')}\n`,
+    lines,
+    action: { label: 'Open SONE', url: baseUrl },
+    footer: [
+      'To stop these emails, sign in and change it under You → Notifications:',
+      `${baseUrl}/settings/notifications`,
+    ],
+    baseUrl,
+    locale: 'en',
   };
 }
 
@@ -314,7 +323,8 @@ export async function sendActivityDigests(
       await sendMail(deps.relay, {
         to: reader.email,
         subject: composed.subject,
-        body: composed.body,
+        body: renderText(composed),
+        html: renderHtml(composed),
         unsubscribeUrl: `${deps.baseUrl}/settings/notifications`,
       });
       await deps.pool.query(`UPDATE users SET activity_digest_sent_at = now() WHERE id = $1`, [
