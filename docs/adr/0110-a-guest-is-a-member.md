@@ -75,7 +75,8 @@ the two answers against each other over four pairs. All four are pairs on a
 **restricted** page — where the condition falls through to the grant branches
 and is right. The one shape where the two differ is an ordinary page and
 somebody whose role gives them nothing on one, and that pair was not in the
-list. Two years of a guard aimed at exactly this fault, passing.
+list. A guard aimed at exactly this fault, green from the day it was
+written to the day this was found.
 
 **And the sentence that would have given it away was in a test title.** The
 internal-comments projection is commented "the insert joins `workspace_members`,
