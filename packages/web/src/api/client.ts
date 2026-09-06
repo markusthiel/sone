@@ -314,6 +314,8 @@ export interface InstanceSettings {
   emailDetail: 'title' | 'workspace';
   /** The base design every workspace's theme sits on (ADR-0123). */
   brandTheme: WorkspaceTheme;
+  /** Whether a new account is welcomed by mail (ADR-0130). */
+  welcomeMail: boolean;
   /** Whether everybody needs a second factor, and since when (ADR-0065). */
   requireSecondFactor: boolean;
   requireSecondFactorSince: string;
