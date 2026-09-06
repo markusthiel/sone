@@ -35,6 +35,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { useT } from '../i18n/useT.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import { useDismiss } from '../hooks/useDismiss.ts';
 import { messageFor } from './Auth.tsx';
 import { ClockIcon } from './icons.tsx';
@@ -199,6 +200,7 @@ function Row({
   onReply: (id: string, text: string) => Promise<void>;
   ref: (element: HTMLAnchorElement | null) => void;
 }): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   const item = group.latest;
   const asleep = isAsleep(item);
@@ -220,7 +222,7 @@ function Row({
     >
       <a
         ref={ref}
-        href={paths.page(item.pageId, item.pageTitle)}
+        href={pageLink(item.pageId, item.pageTitle)}
         onClick={() => {
           // Read on opening, which is what "read" means here — and the whole
           // conversation, because that is what was opened. Fired without

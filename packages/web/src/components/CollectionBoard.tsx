@@ -29,6 +29,7 @@ import type {
 } from '../api/client.ts';
 import { usePointerDrag } from '../hooks/usePointerDrag.ts';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import { optionsOf } from './CollectionCell.tsx';
 
 interface BoardProps {
@@ -59,6 +60,7 @@ export function CollectionBoard({
   canEdit,
   onSetValue,
 }: BoardProps): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   const options = useMemo(() => optionsOf(groupBy), [groupBy]);
 
@@ -152,7 +154,7 @@ export function CollectionBoard({
                 >
                   {/* A card is a page, so its title opens it — the same as the
                       first column of the table. */}
-                  <a href={paths.page(row.id, row.title)}>
+                  <a href={pageLink(row.id, row.title)}>
                     {row.title || <span className="muted">{t('page.untitled')}</span>}
                   </a>
                 </li>

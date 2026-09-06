@@ -93,9 +93,24 @@ export const paths = {
   },
 
   share: (token: string) => `/s/${token}`,
-  sharePage: (token: string, pageId: string, title?: string) => {
+  /**
+   * The same page, reached through a link rather than through a session.
+   *
+   * The block fragment is here for the same reason it is on `page` above, and
+   * it was missing: the two builders drifted because only one of them was ever
+   * called (ADR-0113). Nothing in a share view links to a block yet; the
+   * asymmetry is what let the pair look interchangeable while one of them was
+   * not.
+   *
+   * Not called directly. `usePageLink()` in `pageLink.tsx` chooses between this
+   * and `page` from context, and a check keeps that the only way.
+   */
+  sharePage: (token: string, pageId: string, title?: string, blockId?: string | null) => {
     const slug = title ? slugify(title) : '';
-    return slug ? `/s/${token}/p/${pageId}/${slug}` : `/s/${token}/p/${pageId}`;
+    const path = slug
+      ? `/s/${encodeURIComponent(token)}/p/${pageId}/${slug}`
+      : `/s/${encodeURIComponent(token)}/p/${pageId}`;
+    return blockId ? `${path}#${BLOCK_FRAGMENT}${blockId}` : path;
   },
 };
 

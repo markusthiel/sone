@@ -41,6 +41,7 @@ import {
   type StoredCellValue,
 } from '../api/client.ts';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import {
   Cell,
   SAVE_DELAY_MS,
@@ -165,6 +166,7 @@ const needsField = (aggregate: string): boolean =>
 
 
 export function CollectionTable({ collectionId }: CollectionTableProps): ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   const [data, setData] = useState<CollectionData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1263,7 +1265,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                   />
                   <a
                     className="collection-open-row"
-                    href={paths.page(row.id, row.title)}
+                    href={pageLink(row.id, row.title)}
                     title={`Open ${row.title || 'this entry'}`}
                     aria-label={`Open ${row.title || 'this entry'}`}
                   >

@@ -14,6 +14,7 @@
 import type { CollectionField, CollectionFile, CollectionRow } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 
 interface GalleryProps {
   rows: CollectionRow[];
@@ -128,6 +129,7 @@ export function CollectionGallery({
   coverFieldId,
   files,
 }: GalleryProps): React.ReactElement {
+  const pageLink = usePageLink();
   const { t } = useT();
   const cover = coverField(fields, coverFieldId);
 
@@ -143,7 +145,7 @@ export function CollectionGallery({
           <li className="gallery-card" key={row.id}>
             {/* The whole card opens the row, because a row is a page — the same
                 as the first column of the table and the title of a board card. */}
-            <a href={paths.page(row.id, row.title)}>
+            <a href={pageLink(row.id, row.title)}>
               {fileId ? (
                 <img
                   className="gallery-cover"
