@@ -1290,6 +1290,12 @@ export const en = {
   'panel.noPeople':
     'Nobody is recorded yet. Writing is attributed from the moment it is written, so ' +
     'anything typed before this page started keeping track is not listed here.',
+  'panel.people.marked':
+    'Their writing is marked in the page. Choose them again to clear it.',
+  'panel.people.choose':
+    'Choose somebody to see what they wrote. This is who has written here, not who is ' +
+    'here now — which is what the circles at the top show instead.',
+  'panel.people.departed': 'Somebody who has left',
   // --- a canvas (ADR-0043) ------------------------------------------------
   'canvas.commented': '{count, plural, one {One comment} other {# comments}}',
   'canvas.commentedInternal':

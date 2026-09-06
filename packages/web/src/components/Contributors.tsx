@@ -12,6 +12,13 @@
  * today belongs in this one and not in the avatars at the top. Conflating them
  * would make the page look abandoned the moment everybody closed their laptop.
  *
+ * ## Nor the same list as the mapping
+ *
+ * `writersIn`, not `attributionUsers` (ADR-0116). The mapping is written when a
+ * document opens, so it holds everybody who has had the page open — which is
+ * what this panel used to show, under the heading "people", beside a note
+ * telling somebody to choose a person and see their writing marked.
+ *
  * ## What it cannot show
  *
  * Attribution is not retroactive. Anything written before recording began has
@@ -22,7 +29,7 @@
 
 import type { PageHandle } from '@sone/client';
 import { useT } from '../i18n/useT.tsx';
-import { attributionUsers, guestName, hasUnattributedWriting, isGuestKey } from '@sone/client';
+import { guestName, hasUnattributedWriting, isGuestKey, writersIn } from '@sone/client';
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 
 import { api, type WorkspaceMember } from '../api/client.ts';
@@ -55,11 +62,11 @@ export function Contributors({
   const { t } = useT();
   const [selected, setSelected] = useState<string | null>(null);
   const [userIds, setUserIds] = useState<string[]>(() =>
-    handle ? [...attributionUsers(handle.doc).keys()] : [],
+    handle ? [...writersIn(handle.doc).keys()] : [],
   );
   /** The client ids each person wrote under, which is what the editor marks. */
   const [clientsByUser, setClientsByUser] = useState<Map<string, number[]>>(
-    () => (handle ? attributionUsers(handle.doc) : new Map()),
+    () => (handle ? writersIn(handle.doc) : new Map()),
   );
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
   /**
@@ -89,7 +96,7 @@ export function Contributors({
     }
     const doc = handle.doc;
     const read = (): void => {
-      const users = attributionUsers(doc);
+      const users = writersIn(doc);
       setUserIds([...users.keys()]);
       setClientsByUser(users);
       setGuests(hasUnattributedWriting(doc));
@@ -134,12 +141,12 @@ export function Contributors({
         // Somebody who has left the workspace still wrote what they wrote. Their
         // name is gone, and dropping them from the list would quietly rewrite
         // who worked on the page.
-        name: byId.get(userId)?.displayName || 'Somebody who has left',
+        name: byId.get(userId)?.displayName || t('panel.people.departed'),
         known: byId.has(userId),
         guest: false,
       };
     });
-  }, [userIds, members]);
+  }, [userIds, members, t]);
 
   if (people.length === 0) {
     return (
@@ -194,11 +201,7 @@ export function Contributors({
       </ul>
 
       <p className="muted panel-note">
-        {selected
-          ? 'Their writing is marked in the page. Choose them again to clear it.'
-          : 'Choose somebody to mark what they wrote. This is everyone who has ' +
-            'written here, whether or not they are here now — which is what the ' +
-            'circles at the top show instead.'}
+        {selected ? t('panel.people.marked') : t('panel.people.choose')}
       </p>
     </div>
   );

@@ -96,10 +96,20 @@ created by any of its client ids.** Live, not "ever existed" — the point of th
 request is precisely that deleted text should not keep somebody's name in the
 record.
 
-Pruning runs where the document is already being walked — during
-materialisation, which loads the whole document anyway — rather than as a
-separate scheduled job that would open every document again to answer a question
-usually answered "nothing to do".
+Pruning runs where the document is already loaded and already being written —
+inside `applyToDocument`, in the same transaction as the change that made the
+pruning possible — rather than as a separate scheduled job that would open every
+document again to answer a question usually answered "nothing to do".
+
+> This said "during materialisation" until ADR-0116, and it was never true:
+> materialisation reads a document and writes tables, while pruning writes the
+> document itself. The correction matters because the sentence was load-bearing.
+> Pruning runs when the **server** mutates a page — a rename, a move, an icon, an
+> import — and not when somebody types. So how recently a page had been renamed
+> decided whether its list of people had been swept, and two pages with the same
+> history listed different people. Asking at the moment of reading (`writersIn`,
+> ADR-0116) makes the answer independent of when the sweep last ran. Pruning
+> stays: bounding the document's growth is its other job.
 
 It is deliberately conservative in one respect: a client id with no live items
 is pruned, but the person's *other* client ids are considered separately. Each
