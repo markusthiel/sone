@@ -68,20 +68,63 @@ describe('what a theme may say about a surface', () => {
 });
 
 describe('what a surface becomes', () => {
-  test('a treatment is four variables, and every one is an indirection', () => {
+  test('a treatment is a whole small scheme, and every part is an indirection', () => {
     /*
      * The half that makes dark mode free. Nothing here is a colour: each
      * property points at a variable the stylesheet defines twice — once per
      * scheme — so the same stored `inverted` resolves to opposite ends
      * depending on where the reader is.
+     *
+     * **The list was four and had to be seven.** ADR-0122 described a `hover`
+     * and the stylesheet reads one; nothing emitted it, so a hover inside an
+     * inverted rail painted the *page's* hover — a light box under a light
+     * icon, which is the icon disappearing when you point at it. Reported, and
+     * invisible to this test because the test named the same four the code did.
+     *
+     * So the parts are read off what is emitted rather than listed again here.
+     * A treatment that forgets one is now a treatment that fails a test.
      */
-    const properties = themeProperties(sanitiseTheme({ surfaces: { rail: 'inverted' } }));
+    for (const treatment of ['raised', 'sunken', 'inverted', 'accent'] as const) {
+      const properties = themeProperties(sanitiseTheme({ surfaces: { rail: treatment } }));
+      const parts = Object.keys(properties)
+        .filter((name) => name.startsWith('--sone-theme-rail-'))
+        .map((name) => name.slice('--sone-theme-rail-'.length));
 
-    for (const part of ['bg', 'ink', 'muted', 'border']) {
-      const value = properties[`--sone-theme-rail-${part}`];
-      assert.ok(value, `the rail has a ${part}`);
-      assert.match(value, /^var\(--/, 'a variable, never a colour');
+      assert.deepEqual(
+        parts.sort(),
+        ['accent', 'accent-ink', 'accent-quiet', 'bg', 'border', 'hover', 'ink', 'muted'],
+        `${treatment} says everything a surface needs`,
+      );
+      for (const part of parts) {
+        assert.match(
+          properties[`--sone-theme-rail-${part}`] ?? '',
+          /^var\(--/,
+          `${treatment}.${part} is a variable, never a colour`,
+        );
+      }
     }
+  });
+
+  test('and a surface that is not the page has its own accent', () => {
+    /*
+     * The other half of the same report: *„Das selbe gilt für die
+     * Akzentfarbe."*
+     *
+     * The mark's third bar is `var(--accent)` and a filled button is drawn in
+     * it. On an accent-coloured rail that is accent on accent — a logo that
+     * vanishes — so the pair is swapped there: the button becomes the contrast
+     * colour with accent-coloured text.
+     *
+     * On an inverted surface it is the *other* scheme's accent, because
+     * `--accent-500` on near-black is the same too-dark green the dark theme
+     * already replaces with `--accent-300`.
+     */
+    const accented = themeProperties(sanitiseTheme({ surfaces: { rail: 'accent' } }));
+    assert.equal(accented['--sone-theme-rail-accent'], 'var(--accent-contrast)');
+    assert.equal(accented['--sone-theme-rail-accent-ink'], 'var(--accent)');
+
+    const inverted = themeProperties(sanitiseTheme({ surfaces: { rail: 'inverted' } }));
+    assert.equal(inverted['--sone-theme-rail-accent'], 'var(--sone-inverse-accent)');
   });
 
   test('and a surface nobody treated emits nothing', () => {
