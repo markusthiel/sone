@@ -253,5 +253,130 @@ describe(
 
     assert.deepEqual(forgotten.sort(), []);
   });
+
+  /*
+   * And the question between the two, which is the one that went wrong
+   * (ADR-0104).
+   *
+   * The check above catches a column the code invents. The one below it catches
+   * a column the schema invents. Neither catches the case that cost eleven
+   * migrations: a column the schema says is **finished with**, that the code
+   * goes on reading.
+   *
+   * `workspace_members.role` carried this, written into the database by the
+   * migration that superseded it:
+   *
+   *   'Superseded by role_id and is_owner (ADR-0087). Nothing reads it: …'
+   *
+   * Two routes read it, on the day that comment was written, and handed the
+   * value to a browser that decided permissions from it (ADR-0102). The claim
+   * was false immediately and stayed false through four ADRs about this exact
+   * subject, because nothing ever asked the database whether it was true.
+   *
+   * So this asks. The claim is already in a machine-readable place; all that
+   * was missing was somebody executing it.
+   *
+   * **There is no allow-list**, deliberately. A superseded column that
+   * something still reads on purpose — a compatibility bridge, say — is not
+   * superseded yet; it is *being* superseded, and the comment should say what
+   * still reads it. That distinction is the whole of ADR-0102: migration 0058
+   * marked the column finished on the same day it added two bridges that read
+   * it, and an allow-list here would have let it keep saying so.
+   */
+  const SUPERSEDED = /^\s*superseded\b/i;
+
+  /** Which columns the schema itself says are finished with. */
+  async function supersededColumns(): Promise<Set<string>> {
+    const { rows } = await db.query<{ ref: string }>(
+      // `col_description` wants the table's oid and the column's position;
+      // `information_schema` has neither, so this reads the catalogue directly.
+      `SELECT c.relname || '.' || a.attname AS ref
+         FROM pg_class c
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+         JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+        WHERE n.nspname = 'public'
+          AND col_description(c.oid, a.attnum) ~* '^\\s*superseded'`,
+    );
+    return new Set(rows.map((row) => row.ref));
+  }
+
+  /** Every place the server's SQL names one of them, with the file. */
+  function readersOf(superseded: ReadonlySet<string>): string[] {
+    const found: string[] = [];
+    for (const file of sources(new URL('../src/', import.meta.url))) {
+      for (const [, sql] of file.text.matchAll(STATEMENT)) {
+        if (!sql) continue;
+        for (const ref of columnsNamed(sql, tables).named) {
+          if (superseded.has(ref)) found.push(`${file.name}: ${ref}`);
+        }
+      }
+    }
+    return [...new Set(found)].sort();
+  }
+
+  test('the check can fail, and this is the failure it was built for', async () => {
+    /*
+     * The ADR-0102 shape, put back on purpose: a column the code plainly reads,
+     * marked finished with.
+     *
+     * `pages.title` rather than a column invented for the test, because the
+     * point is that a *real, heavily read* column trips it. The comment is put
+     * back in a `finally`: this is the one test here that writes to the schema,
+     * and leaving the marker behind would fail every later run for a reason
+     * nobody could find in the code.
+     */
+    const before = await db.query<{ note: string | null }>(
+      `SELECT col_description('pages'::regclass, attnum) AS note
+         FROM pg_attribute WHERE attrelid = 'pages'::regclass AND attname = 'title'`,
+    );
+    try {
+      await db.query(
+        `COMMENT ON COLUMN pages.title IS 'Superseded by nothing at all; a test wrote this.'`,
+      );
+      const flagged = readersOf(await supersededColumns());
+      assert.ok(flagged.length > 0, 'a superseded column that is still read is named');
+      assert.ok(
+        flagged.every((one) => one.endsWith('pages.title')),
+        'and nothing else is dragged in with it',
+      );
+    } finally {
+      const note = before.rows[0]?.note ?? null;
+      await db.query(
+        note === null
+          ? `COMMENT ON COLUMN pages.title IS NULL`
+          : `COMMENT ON COLUMN pages.title IS $1`,
+        note === null ? [] : [note],
+      );
+    }
+
+    // And with the marker gone it says nothing, which is the state the schema
+    // is actually in — see the test below for why that is not a free pass.
+    assert.deepEqual(readersOf(await supersededColumns()), []);
+  });
+
+  test('nothing reads a column the schema is finished with', async () => {
+    const superseded = await supersededColumns();
+    const readers = readersOf(superseded);
+
+    assert.deepEqual(
+      readers,
+      [],
+      `${readers.length} reference(s) to a superseded column — either stop reading it, ` +
+        'or change the comment to say what still does',
+    );
+
+    /*
+     * Silent today, and that is worth saying out loud rather than leaving as a
+     * green tick: no column in this schema is currently marked superseded. The
+     * last one was dropped by 0069, and the two before it by 0046 and 0053.
+     *
+     * A guard for the next one, then — and the next one is a matter of when,
+     * not whether: three columns and a whole table have been through this in
+     * sixty-nine migrations, and exactly one of them went wrong. The failure
+     * mode is silence, so the assertion above is paired with the test above it,
+     * which watches the check actually catch something.
+     */
+    assert.equal(superseded.size, 0, 'and none is marked, which the test above compensates for');
+  });
 },
 );
