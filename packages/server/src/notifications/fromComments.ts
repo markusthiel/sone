@@ -236,8 +236,17 @@ export function assignmentsFor(
  * rather than the click. The same condition the tree and search use, which is
  * the one that must not drift (ADR-0026).
  *
- * Membership is required by the join, so somebody who has left the workspace is
- * not notified — which is also the honest answer to what should happen.
+ * It had drifted, and this is where it arrived (ADR-0110). The condition
+ * answered "is anything on this page's path restricted" and left "does the
+ * workspace give this person anything" to the caller, and the caller here
+ * checked **membership** — so a guest, who is a member holding a role that
+ * grants nothing, was told about every ordinary page in the workspace, with an
+ * excerpt. The condition asks both halves for itself now.
+ *
+ * The join stays. It is no longer the thing that keeps a stranger out, and it
+ * is what a fifth caller of this function inherits without having read any of
+ * this — the same argument `isAccountId` is applied twice for, three paragraphs
+ * down.
  */
 
 /**

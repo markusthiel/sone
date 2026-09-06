@@ -2824,11 +2824,34 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
       `${base}/api/workspaces/${session.workspaceId}/pages`,
       { headers: { cookie: cookieFrom(loginRes) } },
     );
-    const body = (await res.json()) as { pages: Array<{ id: string }> };
+    /*
+     * The granted page, and the folder it lives in without its name.
+     *
+     * This asserted the granted page **alone** until ADR-0110, and that was
+     * the bug ADR-0095 had already described and believed fixed: a page kept
+     * only as the path to a granted child has to appear, or the child is a
+     * root of the sidebar floating outside the section it belongs to.
+     *
+     * It kept happening because `pathOnly` is `NOT visiblePagesCondition`, and
+     * the condition said an *unrestricted* folder was visible to anybody who
+     * asked — so the folder was not path-only, resolved to no role, and the
+     * filter dropped it. The fix only ever worked when the ancestor was
+     * restricted. Nothing here noticed, because this assertion had written the
+     * wrong answer down as the expected one.
+     */
+    const body = (await res.json()) as {
+      pages: Array<{ id: string; title: string | null; pathOnly: boolean }>;
+    };
+    const folder = body.pages.find((p) => p.id !== visible);
     assert.deepEqual(
-      body.pages.map((p) => p.id),
+      body.pages.map((p) => p.id).filter((id) => id === visible),
       [visible],
+      'the page they were granted',
     );
+    assert.ok(folder, 'and the folder it is in, as the path to it');
+    assert.equal(folder.pathOnly, true);
+    assert.equal(folder.title, null, 'without the title that was withheld');
+    assert.equal(body.pages.length, 2, 'and nothing else in the workspace');
   });
 
   test('a guest cannot create a top-level page', async () => {

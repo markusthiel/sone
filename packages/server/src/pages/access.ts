@@ -10,7 +10,12 @@
 import type { Pool, PoolClient } from 'pg';
 
 import { queryOne } from '../db/pool.js';
-import { fullAccessCondition, loadWorkspaceStanding } from '../auth/standing.js';
+import {
+  anyPageLevelCondition,
+  fullAccessCondition,
+  isWorkspaceMemberCondition,
+  loadWorkspaceStanding,
+} from '../auth/standing.js';
 
 /**
  * The levels a grant can carry.
@@ -316,9 +321,9 @@ const grantIsBelowFence = (alias: string, scopeColumn: string): string => `
  * a page nothing restricts needs no lookup at all.
  *
  * **A null user matches nothing** (ADR-0101). That branch — "nothing on this
- * page's path is restricted" — is true of most pages and says nothing about who
- * is asking, on purpose: every caller establishes membership first, and this
- * answers the narrower question of what is withheld *within* a workspace
+ * page's path is restricted" — is true of most pages and said nothing about who
+ * is asking, on purpose: the caller was to establish membership first, and this
+ * answered the narrower question of what is withheld *within* a workspace
  * somebody is already in. Which made a null user match every unrestricted page.
  *
  * No caller passed null. A dozen of them write
@@ -327,17 +332,42 @@ const grantIsBelowFence = (alias: string, scopeColumn: string): string => `
  * happen to prevent it — the shape this codebase has been bitten by six times,
  * and the last three times it was the caller written most recently. So the
  * condition says no rather than relying on nobody asking.
+ *
+ * **And membership is not the question either** (ADR-0110). The division of
+ * labour above was the fault, one step further in: the caller establishes
+ * membership, this establishes what is withheld, and *nobody* established that
+ * the workspace gives this person anything at all. A `guest` holds a role whose
+ * page level is null and a membership row like everybody else, so on an
+ * ordinary page the first branch answered yes — while `resolvePageAccess`, four
+ * hundred lines above, answered `not_a_member` about the same page. Sync
+ * refused to open what search would have found, and a notification carried its
+ * excerpt out unasked.
+ *
+ * So the two questions the caller was trusted with are asked here. This is now
+ * `effectiveRole(...) !== null` in SQL, which is the only thing it was ever
+ * supposed to be: a second answer that drifts is a disclosure, and it had
+ * drifted before anybody wrote the sentence warning about it.
  */
 export const visiblePagesCondition = (alias: string, userParam: string): string => `(
   -- Cast, because this is the first mention of the parameter and
   -- \`x IS NOT NULL\` gives Postgres nothing to infer a type from: without it
   -- the whole statement is rejected with "could not determine data type".
   ${userParam}::uuid IS NOT NULL
+  -- In the workspace at all. A grant below is a row, and a row does not know
+  -- whether the person it names is still here (ADR-0110).
+  AND ${isWorkspaceMemberCondition(alias, userParam)}
   AND (
-  NOT EXISTS (
-    SELECT 1 FROM pages r
-     WHERE r.id = ANY(array_append(${alias}.ancestor_ids, ${alias}.id))
-       AND r.restricted
+  (
+    NOT EXISTS (
+      SELECT 1 FROM pages r
+       WHERE r.id = ANY(array_append(${alias}.ancestor_ids, ${alias}.id))
+         AND r.restricted
+    )
+    -- What the workspace gives them by default, which an unrestricted page
+    -- hands over and a restricted one withholds. Null for a guest, and this
+    -- clause is the whole of ADR-0110: without it "not restricted" was read as
+    -- "visible to whoever asks".
+    AND ${anyPageLevelCondition(alias, userParam)}
   )
   OR ${fullAccessCondition(alias, userParam)}
   OR EXISTS (
