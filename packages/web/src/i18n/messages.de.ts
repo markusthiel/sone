@@ -663,10 +663,12 @@ export const de: Record<keyof typeof en, string> = {
   // --- Einstellungen dieses Workspace ------------------------------------
   'workspace.nameAndMark': 'Name und Zeichen',
   'workspace.nameAndMark.hint': 'Wie dieser Workspace heißt und woran man ihn erkennt',
-  'workspace.typography': 'Typografie',
+  'workspace.typography': 'Schrift',
+  'workspace.typography.hint': 'Größen und Abstände von Überschriften, Text und Code.',
+  'workspace.colours': 'Farben & Flächen',
+  'workspace.colours.hint': 'Tönung, Akzentfarbe und die acht Farbnamen.',
   'workspace.landing': 'Standard-Seite',
   'workspace.landing.hint': 'Womit dieser Workspace für alle öffnet.',
-  'workspace.typography.hint': 'Wie dieser Workspace liest',
   'workspace.people': 'Leute',
   'workspace.people.hint': 'Wer in diesem Workspace ist, mit welcher Rolle, und wie man einlädt',
   'workspace.groups': 'Gruppen',
@@ -970,9 +972,12 @@ export const de: Record<keyof typeof en, string> = {
   'action.done': 'Fertig',
 
   // --- die Typografie eines Workspace ------------------------------------
-  'type.note':
-    'Vorgaben für diesen Workspace. Ein Block, der eine eigene Größe oder Farbe trägt, ' +
-    'behält sie — diese gelten, wo niemand gewählt hat.',
+  'type.note.type':
+    'Schriftgrößen und Abstände für diesen Workspace. Ein Block, der eine eigene Größe ' +
+    'oder Farbe trägt, behält sie — diese gelten, wo niemand gewählt hat.',
+  'type.note.colour':
+    'Wie dieser Workspace aussieht: die Tönung der Flächen, die Akzentfarbe und was die ' +
+    'acht Farbnamen bedeuten. Gilt überall, wo niemand etwas Eigenes gewählt hat.',
   'type.palette.note':
     'Wie jeder Farbname hier aussieht. Alles, was einen Namen benutzt — Schlagwörter, ' +
     'Spalten, Blöcke, Ordnersymbole — folgt dem.',
@@ -1089,6 +1094,8 @@ export const de: Record<keyof typeof en, string> = {
   'search.saved': 'Gemerkt',
   'search.facet.tags': 'Schlagwörter',
   'search.facet.people': 'Leute',
+  'search.facet.who': 'Person suchen',
+  'search.facet.whoPlaceholder': 'Name eingeben…',
   'search.facet.assignedMe': '{address, select, formal {Ihnen zugewiesen} other {Dir zugewiesen}}',
   'search.facet.writtenBy': 'Von {name}',
   'search.facet.in': 'Im Ordner',

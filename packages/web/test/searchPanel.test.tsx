@@ -136,6 +136,26 @@ describe('the search panel', () => {
     return found as HTMLButtonElement;
   };
 
+  /** The people row saying this, or undefined — it may not be offered yet. */
+  const rowFor = (text: string): HTMLButtonElement | undefined =>
+    [...container.querySelectorAll('.search-facet-row')].find(
+      (one) => (one.textContent ?? '').trim() === text,
+    ) as HTMLButtonElement | undefined;
+
+  /** Type into the people field. */
+  const type = async (value: string): Promise<void> => {
+    const field = container.querySelector<HTMLInputElement>('.search-facet-input');
+    assert.ok(field, 'the people field is there');
+    const setter = Object.getOwnPropertyDescriptor(
+      dom.window.HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    await act(async () => {
+      setter?.call(field, value);
+      field.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    });
+  };
+
   const rowSaying = (text: string): HTMLButtonElement => {
     const found = [...container.querySelectorAll('.search-facet-row')].find(
       (one) => (one.textContent ?? '').trim() === text,
@@ -179,13 +199,43 @@ describe('the search panel', () => {
     assert.deepEqual(asked, ['tag:"rechnung 2026"']);
   });
 
-  test('a person can be searched for by what they wrote and what they were given', async () => {
+  test('a person is found by typing, not picked from a list', async () => {
+    /*
+     * The list was every member, one row each — fine at four and unusable at
+     * forty (ADR-0120). A field that filters as you type has the same first
+     * keystroke either way and does not grow.
+     *
+     * Two characters before anything is offered, like the picker on the members
+     * screen: one letter matching half a workspace is a list again.
+     */
+    await mount('');
+    assert.equal(rowFor('By Anna Weber'), undefined, 'nothing is offered unasked');
+
+    await type('a');
+    assert.equal(rowFor('By Anna Weber'), undefined, 'nor after one letter');
+
+    await type('an');
+    const found = rowFor('By Anna Weber');
+    assert.ok(found, 'and then she is there');
+    await click(found);
+
+    assert.deepEqual(asked, ['author:"anna weber"']);
+  });
+
+  test('somebody already chosen stays visible, and can be taken off', async () => {
+    // A filter you cannot see is a filter you cannot remove — and the field
+    // that chose them is empty again by then.
+    await mount('author:"anna weber"');
+    const chosen = rowFor('By Anna Weber');
+    assert.ok(chosen, 'shown above the field');
+
+    await click(chosen);
+    assert.deepEqual(asked, ['']);
+  });
+
+  test('and being assigned something is still one press', async () => {
     // Two different questions about the same person, and the syntax already
     // told them apart (ADR-0050, ADR-0052) with no way to ask either but typing.
-    await mount('');
-    await click(rowSaying('By Anna Weber'));
-    assert.deepEqual(asked, ['author:"anna weber"']);
-
     await mount('');
     await click(rowSaying('Assigned to you'));
     assert.deepEqual(asked, [`assigned:${ME}`]);
