@@ -15,8 +15,10 @@ import type { ReactElement } from 'react';
 
 import { useT } from '../i18n/useT.tsx';
 import { type PageNode } from '../api/client.ts';
+import type { EntryCover } from '@sone/core';
 import { paths } from '../routes/paths.ts';
 import { usePageLink } from '../routes/pageLink.tsx';
+import { EntryCoverHead } from './EntryCover.tsx';
 import { EntryIconView, entryKind, titleColorStyle } from './EntryIconView.tsx';
 import {
   BrushIcon, FolderPlusIcon, PlusIcon } from './icons.tsx';
@@ -40,6 +42,17 @@ interface FolderViewProps {
    */
   onCreate?: (parentPageId: string, kind: 'page' | 'folder' | 'canvas') => void;
   onRename?: (pageId: string, title: string) => void;
+  /**
+   * Give this folder a cover, or take it off with null (ADR-0117).
+   *
+   * Optional beside the two above and for the same reason: a caller with
+   * nothing to offer cannot pass a handler that would be refused.
+   *
+   * Through a callback rather than a document write, because a folder has none
+   * open here — this view renders the tree node it was handed, which is also
+   * where the cover it draws comes from.
+   */
+  onSetCover?: (pageId: string, cover: EntryCover | null) => void;
 }
 
 export function FolderView({
@@ -47,6 +60,7 @@ export function FolderView({
   trail,
   onCreate,
   onRename,
+  onSetCover,
 }: FolderViewProps): ReactElement {
   const pageLink = usePageLink();
   const { t } = useT();
@@ -87,6 +101,13 @@ export function FolderView({
         * An input at rest, like the page's title. Committed on blur or Enter
         * rather than per keystroke, because there is no document open here to
         * write into. */}
+      <EntryCoverHead
+        cover={folder.cover ?? null}
+        pageId={folder.id}
+        {...(onSetCover
+          ? { onChange: (next: EntryCover | null) => onSetCover(folder.id, next) }
+          : {})}
+      >
       <div className="entry-heading">
         <span className="entry-heading-icon">
           <EntryIconView icon={folder.icon} kind="folder" />
@@ -123,6 +144,7 @@ export function FolderView({
           </h1>
         )}
       </div>
+      </EntryCoverHead>
 
       {onCreate && (
         <div className="folder-actions">

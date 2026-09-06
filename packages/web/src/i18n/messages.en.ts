@@ -164,6 +164,9 @@ export const en = {
   'error.a_row_cannot_hold_a_collection': 'A row cannot hold a collection of its own.',
   'error.invalid_tag': 'That tag cannot be used.',
   'error.invalid_width': 'That page width is not one of the two.',
+  'error.invalid_cover':
+    'That is not a cover this can store. A picture has to be one uploaded here '
+    + '(ADR-0117).',
   'error.unsupported_color': 'That colour is not one of the eight.',
   'error.invalid_level': 'There is no such page level.',
   'error.invalid_right': 'There is no such right.',
@@ -1296,6 +1299,16 @@ export const en = {
     'Choose somebody to see what they wrote. This is who has written here, not who is ' +
     'here now — which is what the circles at the top show instead.',
   'panel.people.departed': 'Somebody who has left',
+
+  // --- a cover (ADR-0117) --------------------------------------------------
+  'cover.add': 'Cover',
+  'cover.change': 'Change cover',
+  'cover.remove': 'Remove',
+  'cover.upload': 'Upload a picture',
+  'cover.uploading': 'Uploading…',
+  'cover.colors': 'Colour',
+  'cover.gradients': 'Gradient',
+  'cover.own': 'A colour of your own',
   // --- a canvas (ADR-0043) ------------------------------------------------
   'canvas.commented': '{count, plural, one {One comment} other {# comments}}',
   'canvas.commentedInternal':

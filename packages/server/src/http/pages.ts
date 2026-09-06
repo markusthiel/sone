@@ -15,6 +15,7 @@ import { isUuid } from '../sync/protocol.js';
 
 import {
   readTitleColor,
+  readEntryCover,
   readEntryIcon,
   DOC_KEYS,
   META_KEYS,
@@ -317,6 +318,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       idx: string;
       title: string;
       icon: unknown;
+      cover: unknown;
       kind: string;
       template: boolean;
       locked: boolean;
@@ -327,7 +329,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       restricted_at: string | null;
     }>(
       deps.pool,
-      `SELECT p.id, p.parent_page_id, p.collection_id, p.idx, p.title, p.icon,
+      `SELECT p.id, p.parent_page_id, p.collection_id, p.idx, p.title, p.icon, p.cover,
               p.kind, p.template, p.locked, p.archived_at, p.last_edited_at, p.ancestor_ids,
               -- A page somebody reaches only as the path to a child they were
               -- granted. It appears, and the interface draws it without its
@@ -433,6 +435,20 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
          */
         role: row.path_only ? null : role,
         icon: row.path_only ? null : row.icon,
+        /*
+         * The cover, so a folder can draw its own without opening a document
+         * (ADR-0117).
+         *
+         * The folder view has no document open — it renders the tree node it
+         * was handed, the same way it renames through a route rather than
+         * through a Y.Doc. Read through core here rather than passed on raw, so
+         * a value the projection is holding from before a rule changed cannot
+         * reach a browser as a cover it would refuse.
+         *
+         * Withheld with the title for a path-only page: a picture is a fact
+         * about a page somebody was told nothing about.
+         */
+        cover: row.path_only ? null : readEntryCover(row.cover),
         // A canvas is drawn differently in the tree and opened differently, so
         // the kind travels rather than being flattened to 'page'.
         kind:
@@ -1011,7 +1027,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       title: string;
       icon: unknown;
       kind: string;
-      cover_url: string | null;
+      cover: unknown;
       archived_at: Date | null;
       created_at: Date;
       last_edited_at: Date;
@@ -1022,7 +1038,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     }>(
       deps.pool,
       `SELECT p.id, p.workspace_id, p.parent_page_id, p.collection_id, p.title, p.icon,
-              p.kind, p.cover_url, p.width, p.archived_at, p.created_at, p.last_edited_at,
+              p.kind, p.cover, p.width, p.archived_at, p.created_at, p.last_edited_at,
               p.ancestor_ids,
               ${restrictedAtSql('p')} AS restricted_at
          FROM pages p WHERE p.id = $1`,
@@ -1065,7 +1081,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       title: page.title,
       icon: page.icon,
       kind: page.kind === 'folder' ? 'folder' : 'page',
-      coverUrl: page.cover_url,
+      cover: readEntryCover(page.cover),
       width: page.width,
       archived: page.archived_at !== null,
       createdAt: page.created_at,
@@ -1242,6 +1258,29 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     // anybody who may edit the page may lift it, which is why this needs no
     // check beyond the edit right the route already requires.
     const wantsLocked = 'locked' in body;
+    /*
+     * A picture, a colour or a gradient above the heading (ADR-0117).
+     *
+     * Through the route rather than only through the open document, because a
+     * **folder** has no open document: the folder view renders a tree node and
+     * renames through this same route. A page writes its own — it has the
+     * document in hand, and going out to HTTP for it would mean the cover
+     * somebody just chose does not appear until the page is reopened, since a
+     * sync room reads its document once and never re-reads `doc_updates`.
+     *
+     * Two transports, one rule: both go through `readEntryCover`, so neither
+     * can decide for itself what a cover may be — which is the half that keeps
+     * a foreign URL out.
+     */
+    const wantsCover = 'cover' in body;
+    const cover = wantsCover ? readEntryCover(body.cover) : undefined;
+    // Refused rather than silently cleared. Null is how a cover is removed;
+    // something malformed is a client bug, and answering it by deleting the
+    // page's cover is the worst available reading of it.
+    if (wantsCover && body.cover !== null && cover === null) {
+      ctx.fail(422, 'invalid_cover');
+      return;
+    }
     const width =
       body.width === 'column' || body.width === 'full' ? body.width : null;
     if (wantsWidth && body.width !== null && width === null) {
@@ -1255,7 +1294,8 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       !wantsTitleColor &&
       !wantsWidth &&
       !wantsTemplate &&
-      !wantsLocked
+      !wantsLocked &&
+      !wantsCover
     ) {
       ctx.fail(422, 'missing_fields');
       return;
@@ -1296,6 +1336,13 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         if (wantsWidth) {
           if (width) page.set(PAGE_KEYS.width, width);
           else page.delete(PAGE_KEYS.width);
+        }
+        if (wantsCover) {
+          // Deleted rather than stored as a null, like every other optional
+          // property here: an entry nobody has given a cover carries nothing,
+          // and the default has to stay the default (ADR-0117).
+          if (cover) page.set(PAGE_KEYS.cover, cover);
+          else page.delete(PAGE_KEYS.cover);
         }
 
         if (wantsIcon || wantsTitleColor) {
@@ -1344,6 +1391,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       ...(title !== null ? { title } : {}),
       ...(wantsIcon ? { icon } : {}),
       ...(wantsTitleColor ? { titleColor } : {}),
+      ...(wantsCover ? { cover } : {}),
     });
   });
 
