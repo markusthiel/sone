@@ -58,9 +58,10 @@ reason: the question did not change, only what it is being asked about.
 
 **The inbox deliberately gets none.** It spans workspaces (ADR-0052) and already
 filters by them in its own panel; a chooser there would be a second answer to a
-question that screen answers better. The user asked whether the same treatment
-should apply there, and the honest answer is no — the inbox's problem is
-navigation, not scope, and it is ADR-0115's.
+question that screen answers better. The same treatment was asked for there, and
+the honest answer is no: the inbox's problem is navigation — a notification's
+link does not carry its workspace — which is a separate change and its own
+record.
 
 `trash.scope` drops the workspace name and keeps the retention. With the chooser
 directly above it, "{workspace} · 30 days" was the same fact twice in two
