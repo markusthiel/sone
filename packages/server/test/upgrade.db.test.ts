@@ -46,6 +46,7 @@ import {
   MANIFEST_NAME,
   createBackup,
   restoreBackup,
+  secretKeyFingerprint,
 } from '../src/backup/backup.js';
 import {
   closeTestPool,
@@ -425,6 +426,17 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
   });
 
   /** The backup names its directory with a timestamp; find it. */
+  /*
+   * Two keys, both plausible (ADR-0105).
+   *
+   * Long enough that `loadConfig` would accept either — the point is two valid
+   * keys, not a valid one and a broken one.
+   */
+  const KEY_A = 'first-instance-secret-key-of-sufficient-length-aaaa';
+  const KEY_B = 'second-instance-secret-key-of-sufficient-length-bbb';
+
+  const fingerprintOf = (secret: string): string => secretKeyFingerprint(secret);
+
   async function findArchive(outputDir: string): Promise<string> {
     const { readdir } = await import('node:fs/promises');
     const entries = await readdir(outputDir);
@@ -467,6 +479,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       filesPath: null,
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
       log: () => {},
     });
 
@@ -491,6 +504,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       filesPath: null,
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
       log: () => {},
     });
 
@@ -509,6 +523,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       databaseUrl: testDatabaseUrl(),
       filesPath: null,
       requireEmpty: true,
+      secretKey: KEY_A,
       log: () => {},
     });
     assert.equal(report.manifest.counts.pages, manifest.counts.pages);
@@ -543,6 +558,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       filesPath: null,
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
       log: () => {},
     });
 
@@ -556,6 +572,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       databaseUrl: testDatabaseUrl(),
       filesPath: null,
       requireEmpty: false,
+      secretKey: KEY_A,
       log: () => {},
     })
       .then(() => null)
@@ -567,6 +584,237 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
     // The existing data must be intact: refusing up front is the whole point.
     const pages = await db.query<{ title: string }>(`SELECT title FROM pages`);
     assert.equal(pages.rows[0]!.title, 'Precious');
+  });
+
+  // --- the key the archive was sealed under (ADR-0105) ---------------------
+
+  /**
+   * Everything `SONE_SECRET_KEY` seals, sealed.
+   *
+   * A share token is the cheapest of the three to prove — `decryptShareToken`
+   * answers `null` for a wrong key, which is the silence this whole section is
+   * about. TOTP secrets and mail reply tokens fail the same way and are not
+   * repeated here.
+   */
+  async function sealShareToken(secret: string): Promise<Buffer> {
+    const { encryptShareToken } = await import('../src/auth/shareTokenStore.js');
+    return encryptShareToken('a-share-token-worth-keeping', secret);
+  }
+
+  test('a wrong key loses what was sealed, and says nothing at all', async () => {
+    /*
+     * The damage, first, because the refusal below is only worth having if this
+     * is true.
+     *
+     * `decryptShareToken` returns `null` rather than throwing, on purpose: a
+     * stored value that will not decrypt is a link that does not resolve. With
+     * the right key it is a token; with the wrong one it is indistinguishable
+     * from a link that was never made — no error, no log line, nothing to
+     * diagnose. A restore under the wrong key does this to every share link,
+     * every second factor and every mail reply token, one account at a time.
+     */
+    const { decryptShareToken } = await import('../src/auth/shareTokenStore.js');
+    const sealed = await sealShareToken(KEY_A);
+
+    assert.equal(decryptShareToken(sealed, KEY_A), 'a-share-token-worth-keeping');
+    assert.equal(decryptShareToken(sealed, KEY_B), null, 'and not a word about it');
+  });
+
+  test('a backup records which key sealed it', async () => {
+    await makePage(uuid(1), 'Sealed', uuid(511));
+
+    const manifest = await createBackup({
+      pool: db,
+      databaseUrl: testDatabaseUrl(),
+      outputDir: path.join(workDir, 'fingerprint'),
+      filesPath: null,
+      appVersion: '0.1.0',
+      documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
+      log: () => {},
+    });
+
+    assert.match(manifest.secretKeyFingerprint ?? '', /^[0-9a-f]{64}$/);
+    assert.notEqual(
+      manifest.secretKeyFingerprint,
+      fingerprintOf(KEY_B),
+      'and a different key gives a different one',
+    );
+    assert.ok(
+      !JSON.stringify(manifest).includes(KEY_A),
+      'the key itself is nowhere in the archive',
+    );
+  });
+
+  test('restoring under a different key is refused, and the message says what breaks', async () => {
+    await makePage(uuid(1), 'Sealed', uuid(512));
+
+    const out = path.join(workDir, 'wrongkey');
+    await createBackup({
+      pool: db,
+      databaseUrl: testDatabaseUrl(),
+      outputDir: out,
+      filesPath: null,
+      appVersion: '0.1.0',
+      documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
+      log: () => {},
+    });
+    const dir = await findArchive(out);
+
+    const err = await restoreBackup({
+      pool: db,
+      archiveDir: dir,
+      databaseUrl: testDatabaseUrl(),
+      filesPath: null,
+      requireEmpty: false,
+      secretKey: KEY_B,
+      log: () => {},
+    })
+      .then(() => null)
+      .catch((e: BackupError) => e);
+
+    assert.ok(err instanceof BackupError);
+    assert.equal(err.code, 'key_mismatch');
+    // Named, because the operator who sees this is the one who can still go and
+    // find the old key — and in five minutes they will not remember which of
+    // the three things stopped working.
+    assert.match(err.message, /share link/i);
+    assert.match(err.message, /second factor/i);
+    assert.match(err.message, /SONE_SECRET_KEY/);
+
+    // And nothing was touched, like every other refusal in this file.
+    const pages = await db.query<{ title: string }>(`SELECT title FROM pages`);
+    assert.equal(pages.rows[0]!.title, 'Sealed');
+  });
+
+  test('the right key restores without a word about it', async () => {
+    // The counterweight. A check that fires on the ordinary case is a check
+    // somebody turns off.
+    await makePage(uuid(1), 'Sealed', uuid(513));
+
+    const out = path.join(workDir, 'rightkey');
+    await createBackup({
+      pool: db,
+      databaseUrl: testDatabaseUrl(),
+      outputDir: out,
+      filesPath: null,
+      appVersion: '0.1.0',
+      documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
+      log: () => {},
+    });
+    const dir = await findArchive(out);
+    await db.query(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
+
+    const report = await restoreBackup({
+      pool: db,
+      archiveDir: dir,
+      databaseUrl: testDatabaseUrl(),
+      filesPath: null,
+      requireEmpty: true,
+      secretKey: KEY_A,
+      log: () => {},
+    });
+
+    assert.deepEqual(
+      report.warnings.filter((one) => /key/i.test(one)),
+      [],
+      'nothing to say when the key matches',
+    );
+  });
+
+  test('a deliberate rotation is possible, and warns rather than passing quietly', async () => {
+    /*
+     * The case the refusal must not make impossible: the old key leaked, or is
+     * gone, and somebody is restoring anyway, knowing what it costs.
+     *
+     * A flag of its own rather than reusing `--force`, which exists for the
+     * empty-database check and whose message is careful to say what it does
+     * *not* do. Two different risks answered by one flag is one flag people
+     * pass without reading either.
+     */
+    await makePage(uuid(1), 'Sealed', uuid(514));
+
+    const out = path.join(workDir, 'rotate');
+    await createBackup({
+      pool: db,
+      databaseUrl: testDatabaseUrl(),
+      outputDir: out,
+      filesPath: null,
+      appVersion: '0.1.0',
+      documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
+      log: () => {},
+    });
+    const dir = await findArchive(out);
+    await db.query(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
+
+    const report = await restoreBackup({
+      pool: db,
+      archiveDir: dir,
+      databaseUrl: testDatabaseUrl(),
+      filesPath: null,
+      requireEmpty: true,
+      secretKey: KEY_B,
+      allowDifferentKey: true,
+      log: () => {},
+    });
+
+    assert.ok(
+      report.warnings.some((one) => /key/i.test(one)),
+      'it happened, and it is in the report',
+    );
+    const pages = await db.query<{ title: string }>(`SELECT title FROM pages`);
+    assert.equal(pages.rows[0]!.title, 'Sealed', 'and the restore went through');
+  });
+
+  test('an archive from before this field still restores, and says it could not check', async () => {
+    /*
+     * `secretKeyFingerprint` is optional for the same reason `fileStorage` is:
+     * an archive written by an older build has none, and refusing it would turn
+     * a missing check into a lost backup.
+     *
+     * It warns rather than passing silently — "not checked" and "checked and
+     * fine" are different answers, which is the argument `fileStorage` itself
+     * was added for.
+     */
+    await makePage(uuid(1), 'Old archive', uuid(515));
+
+    const out = path.join(workDir, 'nofingerprint');
+    await createBackup({
+      pool: db,
+      databaseUrl: testDatabaseUrl(),
+      outputDir: out,
+      filesPath: null,
+      appVersion: '0.1.0',
+      documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
+      log: () => {},
+    });
+    const dir = await findArchive(out);
+
+    // Rewritten as an older build would have written it.
+    const manifestPath = path.join(dir, MANIFEST_NAME);
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as Record<string, unknown>;
+    delete manifest['secretKeyFingerprint'];
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+
+    await db.query(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
+    const report = await restoreBackup({
+      pool: db,
+      archiveDir: dir,
+      databaseUrl: testDatabaseUrl(),
+      filesPath: null,
+      requireEmpty: true,
+      secretKey: KEY_B,
+      log: () => {},
+    });
+
+    assert.ok(
+      report.warnings.some((one) => /key/i.test(one)),
+      'the absence of the check is itself reported',
+    );
   });
 
   test('a pg_dump older than the server gives an actionable error', async () => {
@@ -597,6 +845,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
         filesPath: null,
         appVersion: '0.1.0',
         documentSchemaVersion: SCHEMA_VERSION,
+        secretKey: KEY_A,
         log: () => {},
       })
         .then(() => null)
@@ -631,6 +880,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       archiveDir: dir,
       databaseUrl: testDatabaseUrl(),
       filesPath: null,
+      secretKey: KEY_A,
       log: () => {},
     })
       .then(() => null)
@@ -650,6 +900,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       filesPath: null,
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
       log: () => {},
     });
     const dir = await findArchive(out);
@@ -660,6 +911,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       databaseUrl: testDatabaseUrl(),
       filesPath: null,
       requireEmpty: true,
+      secretKey: KEY_A,
       log: () => {},
     })
       .then(() => null)
@@ -682,6 +934,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       filesPath: filesDir,
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
       log: () => {},
     });
     assert.ok(manifest.files, 'files must be included');
@@ -695,6 +948,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       databaseUrl: testDatabaseUrl(),
       filesPath: restoreTarget,
       requireEmpty: false,
+      secretKey: KEY_A,
       log: () => {},
     });
     assert.equal(report.restoredFiles, true);
@@ -714,6 +968,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       filesPath: null,
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
       log: () => {},
     });
     const dir = await findArchive(out);
@@ -724,6 +979,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       databaseUrl: testDatabaseUrl(),
       filesPath: path.join(workDir, 'target'),
       requireEmpty: false,
+      secretKey: KEY_A,
       log: () => {},
     });
     /*
@@ -757,6 +1013,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       filesPath: path.join(workDir, 'never-created'),
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
       log: () => {},
     });
 
@@ -766,6 +1023,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       databaseUrl: testDatabaseUrl(),
       filesPath: path.join(workDir, 'target'),
       requireEmpty: false,
+      secretKey: KEY_A,
       log: () => {},
     });
     assert.ok(
@@ -799,6 +1057,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
         filesPath: path.join(notADirectory, 'files'),
         appVersion: '0.1.0',
         documentSchemaVersion: SCHEMA_VERSION,
+        secretKey: KEY_A,
         log: () => {},
       }),
       (err: unknown) =>
@@ -824,6 +1083,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
         databaseUrl: testDatabaseUrl(),
         filesPath: null,
         requireEmpty: false,
+        secretKey: KEY_A,
         log: () => {},
       }),
       (err: unknown) =>
@@ -852,6 +1112,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
       filesPath: null,
       appVersion: '0.1.0',
       documentSchemaVersion: SCHEMA_VERSION,
+      secretKey: KEY_A,
       log: () => {},
     });
     const dir = await findArchive(out);
@@ -870,6 +1131,7 @@ describe('backup and restore (database)', { skip: !hasDatabase ? 'SONE_TEST_DATA
         databaseUrl: testDatabaseUrl(),
         filesPath: null,
         requireEmpty: false,
+        secretKey: KEY_A,
         log: () => {},
       }),
       (err: unknown) => err instanceof BackupError && err.code === 'pg_restore_failed',
