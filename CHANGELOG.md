@@ -29,6 +29,14 @@ kommentierte, nur heller: das eine wird besprochen, das andere ist einen zweiten
 Blick wert. Markieren braucht ein Konto; über einen Freigabe-Link lässt sich eine
 Stelle kommentieren, was ohnehin mehr sagt.
 
+**Behoben: das Logo wechselte, sobald der Zeiger darauf lag.** Gemeldet bei
+grüner Leiste mit beiden Marken: *„Wenn ich auf das Logo drauf klicke wird es
+dunkel."* Die Schaltfläche färbt sich unter dem Zeiger etwas heller, und bei
+einer akzentfarbenen Leiste reicht dieser Schritt gerade über die Grenze
+zwischen hell und dunkel — die Marke für weißes Papier landete auf Grün.
+Gemessen: die Leiste bei Helligkeit 0,164, ihre Hover-Fläche bei 0,229, die
+Grenze bei 0,216. Der Zustand einer Schaltfläche ist jetzt kein Untergrund mehr.
+
 Zwei Fehler, die dabei aufgefallen sind und beide nichts mit PDFs zu tun hatten:
 auf einer Seite mit geschütztem Abschnitt haben sich die Markierungen im Text
 gegenseitig überschrieben, weil zwei Kommentardokumente dieselbe Meldung
