@@ -29,6 +29,7 @@ import {
   acceptInvitation,
   createInvitation,
   inspectInvitation,
+  isUseCount,
   listInvitations,
   revokeInvitation,
 } from './registration.js';
@@ -716,6 +717,19 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
     try {
       body = await ctx.json();
     } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+
+    /*
+     * How often the link may be used, when the form says (ADR-0147).
+     *
+     * Refused rather than mended: `Math.max(1, body.maxUses ?? 25)` in the
+     * creating function turned a typo into a link for a thousand people and
+     * silence into twenty-five — a number nobody chose, printed on the row as
+     * though somebody had.
+     */
+    if (body.maxUses !== undefined && body.maxUses !== null && !isUseCount(body.maxUses)) {
       ctx.fail(400, 'invalid_body');
       return;
     }

@@ -1,6 +1,11 @@
 /**
  * SONE web — invitations that have been sent and not yet used up.
  *
+ * That first sentence was a promise this file made and the listing did not keep:
+ * a used-up invitation was listed among the open ones until ADR-0147, reported
+ * as *„Bei Einladungen stehen auch die verbrauchten drin, macht das Sinn?"* —
+ * which is what a docstring and a screen disagreeing looks like from outside.
+ *
  * The other half of inviting somebody (ADR-0025). Both forms produced a link and
  * then forgot it: nothing listed what was outstanding, so a link sent to the
  * wrong address stayed valid until it expired and nobody could tell it existed.
@@ -75,7 +80,7 @@ export function PendingInvitations({ workspaceId, reloadToken }: Props): ReactEl
         <table className="workspace-table">
           <thead>
             <tr>
-              <th>For</th>
+              <th>{t('invite.for')}</th>
               {/* A role only where there is one: an invitation to the instance
                   names no workspace, so it names no role in one either. */}
               {workspaceId !== null && <th>{t('invite.role')}</th>}
@@ -93,8 +98,20 @@ export function PendingInvitations({ workspaceId, reloadToken }: Props): ReactEl
                   )}
                 </td>
                 {workspaceId !== null && <td>{invitation.role}</td>}
-                <td className="muted">
-                  {invitation.uses} of {invitation.maxUses}
+                {/* The count, where a count is a fact (ADR-0147).
+                  *
+                  * A used-up invitation is not listed any more, so one that may
+                  * be used once is by definition unused: „0 von 1" says nothing
+                  * that the row does not say by being here. The figure was also
+                  * twenty-five for every link, which nobody had chosen — it was
+                  * a default inside the function that makes one. */}
+                <td className="muted invite-uses">
+                  {invitation.maxUses > 1
+                    ? t('invite.usedOf', {
+                        used: invitation.uses,
+                        max: invitation.maxUses,
+                      })
+                    : ''}
                 </td>
                 <td className="muted">
                   {new Date(invitation.expiresAt).toLocaleDateString()}
@@ -103,9 +120,9 @@ export function PendingInvitations({ workspaceId, reloadToken }: Props): ReactEl
                   <button
                     type="button"
                     className="btn"
-                    aria-label={`Withdraw the invitation for ${
-                      invitation.email ?? 'anybody with the link'
-                    }`}
+                    aria-label={t('invite.withdraw.of', {
+                      who: invitation.email ?? t('invite.anybodyWithLink'),
+                    })}
                     onClick={() => {
                       setError(null);
                       // Read back rather than removed from the list here: the

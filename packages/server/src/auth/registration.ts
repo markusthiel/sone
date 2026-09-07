@@ -15,6 +15,26 @@ import { createSession, type CreatedSession } from './session.js';
 
 export const INVITATION_TTL_DAYS = 14;
 
+/**
+ * The most people one link may let in (ADR-0147).
+ *
+ * A bound rather than an opinion: a link is a credential that can be forwarded,
+ * and a number nobody can read back — a typo of one digit — would be a link for
+ * a crowd on a screen that says nothing is wrong.
+ */
+export const MAX_LINK_USES = 1000;
+
+/**
+ * Whether a value is a number of uses.
+ *
+ * One predicate, two callers: the route refuses a request with it, and the
+ * function below refuses a call. It was `Math.max(1, input.maxUses ?? 25)`,
+ * which turned nonsense into one, a typo into a link for a thousand people,
+ * and silence into twenty-five — three answers to a question nobody asked.
+ */
+export const isUseCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= MAX_LINK_USES;
+
 export type SignupMode = 'open' | 'invite' | 'closed';
 export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'guest';
 
@@ -31,6 +51,10 @@ export interface CreatedInvitation {
  * With an email, it is single-use and bound to that address. Without one, it
  * is a link anybody holding the URL may use, up to `maxUses` — which is how
  * "invite the whole club" works without typing thirty addresses.
+ *
+ * **`maxUses` defaults to one, and is a decision when it is anything else**
+ * (ADR-0147). It defaulted to twenty-five, which was a number nobody chose,
+ * printed on the row as though somebody had.
  */
 export async function createInvitation(
   db: Pool | PoolClient,
@@ -51,7 +75,12 @@ export async function createInvitation(
   },
 ): Promise<CreatedInvitation> {
   const email = input.email?.trim().toLowerCase() || null;
-  const maxUses = email ? 1 : Math.max(1, input.maxUses ?? 25);
+  if (input.maxUses !== undefined && !isUseCount(input.maxUses)) {
+    throw new AuthError('not a number of uses', 'invalid_credentials');
+  }
+  // An addressed invitation is for that person, whatever was asked for: a
+  // second use would be somebody else using a link addressed to a colleague.
+  const maxUses = email ? 1 : input.maxUses ?? 1;
 
   if (input.role === 'owner') {
     // Ownership is transferred explicitly, never granted by a link that might
@@ -94,10 +123,19 @@ export interface InvitationInfo {
   remainingUses: number;
 }
 
-/** Look up an invitation without consuming it, for the signup screen. */
+/**
+ * Look up an invitation without consuming it, for the signup screen.
+ *
+ * A used-up one is not found, because it is not a way in. `spent: 'allow'`
+ * asks for it anyway (ADR-0147) — there is one caller who needs to tell *this
+ * invitation is spent* apart from *there is no such invitation*, and refusing
+ * to look is how that caller came to answer „ungültig oder abgelaufen" to
+ * somebody clicking their own link a second time.
+ */
 export async function inspectInvitation(
   db: Pool | PoolClient,
   token: string,
+  options: { spent?: 'refuse' | 'allow' } = {},
 ): Promise<InvitationInfo | null> {
   const row = await queryOne<{
     id: string;
@@ -118,8 +156,8 @@ export async function inspectInvitation(
       WHERE i.token_hash = $1
         AND i.revoked_at IS NULL
         AND i.expires_at > now()
-        AND i.uses < i.max_uses`,
-    [hashToken(token)],
+        AND ($2 OR i.uses < i.max_uses)`,
+    [hashToken(token), options.spent === 'allow'],
   );
   if (!row) return null;
 
@@ -377,9 +415,15 @@ export async function revokeInvitation(
  * functions differing by one `IS NULL` is two places to forget the revoked and
  * expired conditions.
  *
- * Revoked and expired ones are left out: this is a list of what somebody can
- * still act on, and a withdrawn invitation shown greyed out is a row that invites
- * the question of whether it still works.
+ * Revoked, expired and **used-up** ones are left out: this is a list of what
+ * somebody can still act on, and a withdrawn invitation shown greyed out is a
+ * row that invites the question of whether it still works.
+ *
+ * The third condition arrived late (ADR-0147) and the sentence above was
+ * already making the promise. `inspectInvitation` has refused a spent
+ * invitation since it was written, so a listed one was never a way in — it was
+ * a row saying otherwise, and „macht das Sinn?" is what that looks like from
+ * the other side of the screen.
  */
 export async function listInvitations(
   db: Pool | PoolClient,
@@ -398,6 +442,7 @@ export async function listInvitations(
        FROM invitations
       WHERE workspace_id IS NOT DISTINCT FROM $1
         AND revoked_at IS NULL AND expires_at > now()
+        AND uses < max_uses
       ORDER BY created_at DESC`,
     [workspaceId],
   );
@@ -427,12 +472,28 @@ export async function acceptInvitation(
   input: { token: string; userId: string },
 ): Promise<{ workspaceId: string | null; alreadyMember: boolean }> {
   return withTransaction(db, async (client) => {
-    const invitation = await inspectInvitation(client, input.token);
+    /*
+     * Spent ones are looked up too, and then refused on purpose (ADR-0147).
+     *
+     * The branch below — *„somebody clicking a link twice should arrive rather
+     * than be refused"* — could not be reached on a single-use link, because
+     * the lookup that guards it does not find one. It only ever worked because
+     * every link invitation was silently made for twenty-five people, and the
+     * test for it passed for that reason. **Accidentally right is not right.**
+     */
+    const invitation = await inspectInvitation(client, input.token, { spent: 'allow' });
     if (!invitation) {
       throw new AuthError('invitation is invalid or has expired', 'expired');
     }
+    const spent = invitation.remainingUses <= 0;
 
     if (!invitation.workspaceId) {
+      // An instance invitation gives an account, and somebody accepting one
+      // has an account already. Spent, there is nothing here for anybody —
+      // the screen says it has been used, which is the true sentence.
+      if (spent) {
+        throw new AuthError('invitation is invalid or has expired', 'expired');
+      }
       await client.query(`UPDATE invitations SET uses = uses + 1 WHERE id = $1`, [
         invitation.id,
       ]);
@@ -456,6 +517,26 @@ export async function acceptInvitation(
           'invalid_credentials',
         );
       }
+    }
+
+    /*
+     * A spent link is not a way in, and is still an answer for somebody who is
+     * already inside. So: no insert, and membership decides.
+     *
+     * The order matters — asking the membership first and inserting second
+     * would be the same statement with a hole in it, where a link with no uses
+     * left admits whoever opens it.
+     */
+    if (spent) {
+      const member = await queryOne<{ user_id: string }>(
+        client,
+        `SELECT user_id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+        [invitation.workspaceId, input.userId],
+      );
+      if (!member) {
+        throw new AuthError('invitation is invalid or has expired', 'expired');
+      }
+      return { workspaceId: invitation.workspaceId, alreadyMember: true };
     }
 
     const inserted = await queryOne<{ user_id: string }>(
