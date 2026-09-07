@@ -115,9 +115,23 @@ describe('the accounts list', () => {
         createElement(UsersPanel as never),
       ),
     );
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
+    await settle();
+  }
+
+  /**
+   * Let the render finish, including a catalogue that arrives on demand.
+   *
+   * A single 20ms wait was enough on this machine and failed once in a full
+   * suite run — German is a dynamic import, and a fixed wait for something
+   * whose duration is not ours is a test that fails on a loaded runner and
+   * nowhere else. Ten short turns instead of one long one.
+   */
+  async function settle(): Promise<void> {
+    for (let turn = 0; turn < 10; turn += 1) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      });
+    }
   }
 
   const rows = (): HTMLElement[] => [...container.querySelectorAll('.account-row')] as HTMLElement[];

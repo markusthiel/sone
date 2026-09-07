@@ -34,9 +34,19 @@ test('the link is built from where the browser actually is', () => {
 });
 
 test('the token is shown once, and says so', () => {
-  // The server stores a hash, so it cannot be recovered later — saying that
-  // after somebody has closed the panel would be too late to be useful.
-  assert.match(panel, /not stored anywhere it can be read again/);
+  /*
+   * The server stores a hash, so it cannot be recovered later — saying that
+   * after somebody has closed the panel would be too late to be useful.
+   *
+   * The sentence itself moved into the catalogue with ADR-0147, and with it the
+   * claim it used to carry: *„this instance does not send mail"*, printed
+   * unconditionally on a route that has been sending the invitation since
+   * ADR-0121. Which of the two sentences is shown is asserted on the mounted
+   * panel in `invitationRow.test.tsx`; what is asserted here is that neither is
+   * written into the markup again.
+   */
+  assert.match(panel, /t\('invite\.link\.note'\)/);
+  assert.doesNotMatch(panel, /does not send mail/);
 });
 
 // --- accepting with an account already --------------------------------------

@@ -787,9 +787,26 @@ export const en = {
   'invite.outstanding': 'Outstanding invitations',
   'invite.anybodyWithLink': 'Anybody with the link',
   'invite.role': 'Role',
+  'invite.for': 'For',
   'invite.expires': 'Expires',
   'invite.used': 'Used',
   'invite.withdraw': 'Withdraw',
+  // How often a link may be used, asked instead of assumed (ADR-0147).
+  'invite.maxUses': 'How many people may use it',
+  'invite.maxUses.hint':
+    'One link, one person, unless you say otherwise. More is how you invite a group ' +
+    'without typing every address — and it is a link, so it can be forwarded by ' +
+    'anybody who has it.',
+  'invite.usedOf': '{used} of {max}',
+  'invite.create': 'Create invitation',
+  'invite.creating': 'Creating…',
+  'invite.link.note':
+    'Copy it now — it is not stored anywhere it can be read again, and this screen ' +
+    'will not show it a second time.',
+  'invite.link.mailed':
+    'Sent to {address}. The link is here as well, in case it does not arrive: it is ' +
+    'not stored anywhere it can be read again.',
+  'invite.withdraw.of': 'Withdraw the invitation for {who}',
 
   // --- groups and page permissions ---------------------------------------
   // --- Roles (ADR-0087) -----------------------------------------------------

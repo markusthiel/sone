@@ -854,9 +854,26 @@ export const de: Record<keyof typeof en, string> = {
   'invite.outstanding': 'Offene Einladungen',
   'invite.anybodyWithLink': 'Jeder mit dem Link',
   'invite.role': 'Rolle',
+  'invite.for': 'Für',
   'invite.expires': 'Läuft ab',
   'invite.used': 'Benutzt',
   'invite.withdraw': 'Zurückziehen',
+  'invite.maxUses': 'Für wie viele Leute',
+  'invite.maxUses.hint':
+    // Ohne Anrede formuliert, damit der Satz in beiden Formen stimmt.
+    'Ein Link, eine Person — sofern hier nichts anderes steht. Mehr ist der Weg, eine ' +
+    'Gruppe einzuladen, ohne jede Adresse zu tippen; und es bleibt ein Link, den ' +
+    'jeder weitergeben kann, der ihn hat.',
+  'invite.usedOf': '{used} von {max}',
+  'invite.create': 'Einladung erstellen',
+  'invite.creating': 'Wird erstellt…',
+  'invite.link.note':
+    'Jetzt kopieren — er wird nirgends gespeichert, wo er noch einmal zu lesen wäre, ' +
+    'und dieser Bildschirm zeigt ihn kein zweites Mal.',
+  'invite.link.mailed':
+    'An {address} geschickt. Der Link steht auch hier, falls die Mail nicht ankommt: ' +
+    'er wird nirgends gespeichert, wo er noch einmal zu lesen wäre.',
+  'invite.withdraw.of': 'Einladung für {who} zurückziehen',
 
   // --- Rollen (ADR-0087) ---------------------------------------------------
   //
