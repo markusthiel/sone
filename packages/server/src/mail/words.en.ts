@@ -146,6 +146,32 @@ export const en = {
     'You are receiving this because somebody sent you a link. There is ' +
     'nothing to unsubscribe from.',
 
+  // --- a job somebody asked for, that has finished (ADR-0138) --------------
+  'export.subject': '{where}: your export of {workspace} is ready',
+  'export.heading': 'The export of {workspace} you asked for is ready.',
+  'export.what':
+    '{pages, plural, one {One page} other {# pages}}, {size}.',
+  // Said, because this is the whole reason the letter is worth sending: an
+  // archive that expires while nobody is looking is an export somebody has to
+  // ask for twice (ADR-0129's argument, on a file rather than a link).
+  'export.until': 'It can be fetched until {when}.',
+  'export.action': 'Open the export',
+  // Two facts, and the second is the one that reads as a limitation until you
+  // see what it prevents.
+  'export.footer.notAttached':
+    'The archive is not attached: a copy of a whole workspace does not belong in a mailbox.',
+  'export.footer.signedIn':
+    'The link opens the screen you asked from, and the download needs you signed in as yourself.',
+
+  'export.failed.subject': '{where}: your export of {workspace} did not finish',
+  'export.failed.heading': 'The export of {workspace} you asked for did not finish.',
+  // Not the reason. The reason is a sentence this instance wrote about its own
+  // machinery, and half of them name a page — which is the one thing a mail
+  // does not carry (ADR-0058). The screen has it, and the screen is where
+  // somebody would act on it.
+  'export.failed.why': 'It was tried several times. The export screen says what went wrong.',
+  'export.failed.action': 'Open the export screen',
+
   // --- what changed (the digest) -------------------------------------------
   'digest.subject.weekly': 'SONE: what changed this week',
   'digest.subject.daily': 'SONE: what changed yesterday',
