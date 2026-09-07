@@ -17,7 +17,11 @@ test('a field is a surface at rest and a border when focused', () => {
   // selector out fails on every such correction without any of them being
   // wrong.
   assert.match(css, /background: var\(--surface-sunken\);\n {2}transition: border-color/);
-  assert.match(css, /:focus,\s*\n?textarea:focus \{[^}]*border-color: var\(--accent\)/);
+  // `--accent-line` rather than the raw accent since ADR-0137: this border *is*
+  // the field's focus indication, so it is the one thing on the page that has to
+  // be visible whatever colour a workspace picked. Whether it is, is computed in
+  // `contrast.test.ts`; this is that the border is still what marks the focus.
+  assert.match(css, /:focus,\s*\n?textarea:focus \{[^}]*border-color: var\(--accent-line\)/);
 });
 
 test('a focused field has one ring, not two', () => {
@@ -27,8 +31,14 @@ test('a focused field has one ring, not two', () => {
 });
 
 test('everything else keeps a visible focus ring', () => {
-  // The exception above is only allowed because it replaces the ring with
-  // something at least as visible.
+  /*
+   * The exception above is only allowed because it replaces the ring with
+   * something at least as visible — a claim this file made in a comment and
+   * nothing checked. A pale accent was a ring at 1.07:1 (ADR-0137).
+   *
+   * "At least as visible" is arithmetic now, in `contrast.test.ts`, over every
+   * colour a workspace can choose. What is left here is that the ring exists.
+   */
   assert.match(css, /button:focus-visible, a:focus-visible[^{]*\{[^}]*outline: 2px solid/);
 });
 
