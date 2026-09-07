@@ -49,7 +49,7 @@
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
 
-import { addMessage, addThread, guestKey, readThreads } from '@sone/core';
+import { addMessage, addThread, guestKey, isPlace, readThreads } from '@sone/core';
 
 import { canComment, loadPageLocation } from '../auth/claims.js';
 import { applyToDocument, loadDoc } from '../doc/docStore.js';
@@ -256,6 +256,24 @@ export function registerCommentRoutes(router: Router, deps: CommentDeps): void {
       return;
     }
     const item = typeof read.body['item'] === 'string' ? read.body['item'] : undefined;
+
+    /*
+     * A place in a PDF, refused rather than mended (ADR-0151).
+     *
+     * The same rule the anchor above arrived at, for the shape that follows it:
+     * a page of zero, a rectangle of three numbers, a width of nothing — none
+     * of them is a mark anything can draw, and a shape written through
+     * unexamined is a question every reader has to answer instead of this one
+     * line.
+     *
+     * Absent is not refused: almost every comment is about text and says so by
+     * saying nothing.
+     */
+    const place = read.body['place'];
+    if (place !== undefined && !isPlace(place)) {
+      ctx.fail(422, 'invalid_place');
+      return;
+    }
     const quote =
       typeof read.body['quote'] === 'string' ? read.body['quote'].slice(0, MAX_QUOTE) : '';
 
@@ -276,6 +294,7 @@ export function registerCommentRoutes(router: Router, deps: CommentDeps): void {
           author,
           text: read.text,
           ...(item ? { item } : {}),
+          ...(isPlace(place) ? { place } : {}),
           // No mentions. A visitor cannot enumerate the workspace's people and
           // must not be able to address one by id; a member commenting through
           // this route has the panel's own picker and the sync path. The reply

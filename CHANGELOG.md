@@ -13,7 +13,19 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Eine Stelle im PDF kann jetzt ein Kommentar sein.** In einem PDF im Dokument
+lässt sich Text auswählen; über der Auswahl erscheint *Kommentieren*, und der
+Faden hängt anschließend an genau dieser Stelle — Seite und Rechtecke in den
+Maßen des Dokuments, nicht in Bildschirmpunkten. Wo schon jemand kommentiert
+hat, liegt eine Markierung auf der Seite, in derselben Farbe wie eine
+kommentierte Stelle im Fließtext. Die Markierung sitzt richtig, egal wie breit
+die Spalte gerade ist.
+
+Zwei Fehler, die dabei aufgefallen sind und beide nichts mit PDFs zu tun hatten:
+auf einer Seite mit geschütztem Abschnitt haben sich die Markierungen im Text
+gegenseitig überschrieben, weil zwei Kommentardokumente dieselbe Meldung
+benutzt haben; und ein Kommentarfaden ohne Textstelle wäre in keiner der drei
+Gruppen der Kommentarleiste aufgetaucht.
 
 ## 0.12.1
 

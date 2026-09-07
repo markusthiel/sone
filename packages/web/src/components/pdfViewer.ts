@@ -16,6 +16,11 @@
  * import stays dynamic, because a static one would be an invisible regression.
  */
 
+import { isPlace, type PdfPlace, type PlaceRect } from '@sone/core';
+
+import { linesOf } from '../lib/pdfPlace.ts';
+import { subscribeToThreads } from '../lib/threadAnnouncement.ts';
+
 const MAX_SCALE = 2;
 /** How near the viewport a page has to be before it is worth drawing. */
 const NEAR = '600px';
@@ -29,6 +34,26 @@ interface ViewerLabels {
   document: string;
   previous: string;
   next: string;
+  /** The button over a selection (ADR-0151). */
+  comment: string;
+  /** What a drawn mark says it is. */
+  commented: string;
+}
+
+/**
+ * The little of a pdf.js viewport this file needs (ADR-0151).
+ *
+ * Structural rather than the engine's own type, and named here so that what is
+ * being relied on is legible: two conversions and the size of the page at scale
+ * one. Both conversions are the engine's — they invert the transform the page
+ * was drawn with, rotation included, and the hand-written version of that is
+ * `height - y`, which is silently wrong on every landscape scan.
+ */
+interface PageShape {
+  width: number;
+  height: number;
+  convertToPdfPoint: (x: number, y: number) => number[];
+  convertToViewportPoint: (x: number, y: number) => number[];
 }
 
 export interface PdfViewerHandle {
@@ -46,6 +71,15 @@ export function mountPdfViewer(
   container: HTMLElement,
   url: string,
   labels: ViewerLabels,
+  /**
+   * The file, by its id (ADR-0151).
+   *
+   * Handed in rather than read back out of the URL. The viewer is given
+   * `/api/files/<id>`; taking the id out of that string again would be a second
+   * place that knows how the route is built, and it would be wrong on the day
+   * the route changes without anything failing to compile.
+   */
+  fileId: string,
 ): PdfViewerHandle {
   container.className = 'pdf-viewer';
   container.textContent = '';
@@ -104,6 +138,220 @@ export function mountPdfViewer(
   let cancelled = false;
   let observer: IntersectionObserver | null = null;
   const cleanups: Array<() => void> = [];
+
+  /*
+   * ---- Places (ADR-0151) ----------------------------------------------------
+   *
+   * A comment can be about a place in this document: a page and rectangles in
+   * that page's own points. Two directions, and both go through the engine's
+   * viewport rather than through arithmetic here — see `PageShape`.
+   */
+
+  /** The scale-1 viewport of each page that has been drawn, for both directions. */
+  const shapes = new Map<number, PageShape>();
+
+  /**
+   * The places to mark, per comment document and then per page.
+   *
+   * **Per document, and that is not over-thinking it.** A page with a protected
+   * section has two comment documents (ADR-0093) and each announces only its
+   * own threads, so one map would be overwritten by whichever spoke last — the
+   * internal marks vanishing every time somebody replied in public, and the
+   * other way round.
+   */
+  const byDoc = new Map<string, Map<number, PlaceRect[][]>>();
+  const placesOn = (number: number): PlaceRect[][] => {
+    const all: PlaceRect[][] = [];
+    for (const perPage of byDoc.values()) all.push(...(perPage.get(number) ?? []));
+    return all;
+  };
+
+  /**
+   * Draw the marks for one page.
+   *
+   * **In percentages of the page box, not in pixels.** The text layer has to be
+   * re-scaled on every resize because the engine positions its spans in pixels
+   * (ADR-0150); a mark does not, because a fraction of the page is the same
+   * fraction at every width. So the marks follow a sidebar opening, a window
+   * drag and a scrollbar appearing with no observer and no work at all.
+   *
+   * Under the text layer in the stacking order, so that the transparent spans
+   * above still take the pointer — a mark that swallowed the selection would
+   * mean a passage could be commented on exactly once.
+   */
+  const drawMarks = (slot: HTMLElement, number: number): void => {
+    slot.querySelector('.pdf-marks')?.remove();
+    const shape = shapes.get(number);
+    const places = placesOn(number);
+    if (!shape || places.length === 0) return;
+
+    const marks = document.createElement('div');
+    marks.className = 'pdf-marks';
+    for (const rects of places) {
+      for (const [x, y, wide, tall] of rects) {
+        // A PDF counts up from the foot of the page and a screen counts down
+        // from the top, so the rectangle's corners swap: the *lower* left in
+        // the document is the *upper* left on the screen.
+        const [ax, ay] = shape.convertToViewportPoint(x, y + tall);
+        const [bx, by] = shape.convertToViewportPoint(x + wide, y);
+        const mark = document.createElement('div');
+        mark.className = 'pdf-mark';
+        mark.title = labels.commented;
+        mark.style.left = `${(Math.min(ax!, bx!) / shape.width) * 100}%`;
+        mark.style.top = `${(Math.min(ay!, by!) / shape.height) * 100}%`;
+        mark.style.width = `${(Math.abs(bx! - ax!) / shape.width) * 100}%`;
+        mark.style.height = `${(Math.abs(by! - ay!) / shape.height) * 100}%`;
+        marks.append(mark);
+      }
+    }
+    const text = slot.querySelector('.textLayer');
+    if (text) slot.insertBefore(marks, text);
+    else slot.append(marks);
+  };
+
+  const stopThreads = subscribeToThreads(({ doc, threads }) => {
+    const perPage = new Map<number, PlaceRect[][]>();
+    for (const thread of threads) {
+      const place = thread.place;
+      // This file's, and still open. A resolved thread keeps its place in the
+      // panel and loses its mark, which is the rule the text already follows.
+      if (!place || thread.resolved || place.file !== fileId) continue;
+      perPage.set(place.page, [...(perPage.get(place.page) ?? []), place.rects]);
+    }
+    byDoc.set(doc, perPage);
+    for (const slot of pages.querySelectorAll<HTMLElement>('.pdf-page')) {
+      drawMarks(slot, Number(slot.dataset['page'] ?? '0'));
+    }
+  });
+  cleanups.push(() => stopThreads());
+
+  /*
+   * The button over a selection, and what it would send.
+   *
+   * Computed when the button appears rather than when it is pressed: pressing
+   * it is a `mousedown` on a button, which in some browsers collapses the
+   * selection before the click is delivered — so by then there would be nothing
+   * left to read.
+   */
+  const ask = document.createElement('button');
+  ask.type = 'button';
+  ask.className = 'pdf-comment-start';
+  ask.textContent = labels.comment;
+  let pending: { place: PdfPlace; quote: string } | null = null;
+  // The press must not take the selection with it: `mousedown` on a button
+  // collapses it in every browser, and the click that follows would then be
+  // asked to comment on nothing.
+  ask.addEventListener('mousedown', (event) => event.preventDefault());
+
+  const forget = (): void => {
+    ask.remove();
+    pending = null;
+  };
+
+  /**
+   * Read the selection, and offer to comment on it.
+   *
+   * A place is a place **on one page**. A selection dragged past the foot of a
+   * page carries on into the next one, and the honest answer to that is the
+   * part on the page it began on — mark and quotation both, rather than a
+   * quotation from page four drawn on page three.
+   */
+  const offer = (): void => {
+    forget();
+    const selection = document.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    const from = range.startContainer;
+    const element = from instanceof Element ? from : from.parentElement;
+    const slot = element?.closest('.pdf-page') as HTMLElement | null;
+    if (!slot || !pages.contains(slot)) return;
+
+    const number = Number(slot.dataset['page'] ?? '0');
+    const shape = shapes.get(number);
+    const scale = Number(slot.style.getPropertyValue('--scale-factor'));
+    if (!shape || !(scale > 0)) return;
+
+    const onPage = range.cloneRange();
+    if (!slot.contains(range.endContainer)) {
+      const layer = slot.querySelector('.textLayer');
+      if (!layer) return;
+      onPage.setEnd(layer, layer.childNodes.length);
+    }
+
+    const quote = onPage.toString().trim();
+    if (quote === '') return;
+
+    const box = slot.getBoundingClientRect();
+    const lines = linesOf(
+      [...onPage.getClientRects()].map((rect) => ({
+        left: rect.left - box.left,
+        top: rect.top - box.top,
+        right: rect.right - box.left,
+        bottom: rect.bottom - box.top,
+      })),
+    );
+    if (lines.length === 0) return;
+
+    const rects: PlaceRect[] = lines.map((line) => {
+      const [x1, y1] = shape.convertToPdfPoint(line.left / scale, line.top / scale);
+      const [x2, y2] = shape.convertToPdfPoint(line.right / scale, line.bottom / scale);
+      return [
+        Math.min(x1!, x2!),
+        Math.min(y1!, y2!),
+        Math.abs(x2! - x1!),
+        Math.abs(y2! - y1!),
+      ];
+    });
+
+    const place = { file: fileId, page: number, rects };
+    // The core's rule, asked here rather than restated: if this is not a place
+    // the button must not offer to make one, because the route would refuse it
+    // and the refusal would arrive as a comment that silently did not happen.
+    if (!isPlace(place)) return;
+    pending = { place, quote };
+
+    const last = lines[lines.length - 1]!;
+    ask.style.left = `${(last.right / box.width) * 100}%`;
+    ask.style.top = `${(last.bottom / box.height) * 100}%`;
+    slot.append(ask);
+  };
+
+  ask.addEventListener('click', () => {
+    if (!pending) return;
+    /*
+     * A window event, for the reason `sone:reveal-comment` is one (ADR-0151).
+     *
+     * This is a node view mounted by ProseMirror from a map of constructors;
+     * handing it a callback would mean threading one through `createEditor`,
+     * the node views map, the file block and a viewer handle. The editor
+     * surface listens, checks the shape, and hands it to the page as an anchor
+     * like any other.
+     */
+    window.dispatchEvent(new CustomEvent('sone:pdf-comment', { detail: pending }));
+    forget();
+    document.getSelection()?.removeAllRanges();
+  });
+
+  /*
+   * Shown when a selection is finished, hidden the moment it changes.
+   *
+   * `selectionchange` alone would put the button under the pointer on every
+   * frame of a drag; `pointerup` alone would leave it behind when the selection
+   * is cleared by a click elsewhere or by the keyboard. Each does the half it
+   * is good at.
+   */
+  const settled = (): void => {
+    window.setTimeout(offer, 0);
+  };
+  document.addEventListener('selectionchange', forget);
+  pages.addEventListener('pointerup', settled);
+  pages.addEventListener('keyup', settled);
+  cleanups.push(() => {
+    document.removeEventListener('selectionchange', forget);
+    pages.removeEventListener('pointerup', settled);
+    pages.removeEventListener('keyup', settled);
+  });
 
   void (async () => {
     try {
@@ -230,6 +478,16 @@ export function mountPdfViewer(
             const cssViewport = page.getViewport({ scale: fit });
             slot.style.setProperty('--scale-factor', String(fit));
 
+            /*
+             * And the page's own shape, kept for the places (ADR-0151).
+             *
+             * At scale one, so it is the page as the PDF describes it and not
+             * as this column happens to be showing it — a mark is stored in
+             * points, and the column's width is a fact about a window.
+             */
+            shapes.set(number, page.getViewport({ scale: 1 }) as PageShape);
+            drawMarks(slot, number);
+
             const text = document.createElement('div');
             text.className = 'textLayer';
             slot.append(text);
@@ -283,16 +541,6 @@ export function mountPdfViewer(
         { root: null, rootMargin: NEAR },
       );
 
-      /*
-       * The column's width is the zoom (ADR-0150).
-       *
-       * A canvas is `width: 100%` and follows a resize for nothing; the text
-       * layer is positioned in pixels derived from `--scale-factor`, so without
-       * this the words stay where they were drawn while the picture under them
-       * grows — a sidebar opening is enough. Re-setting one custom property per
-       * drawn slot is cheaper than redrawing, which is exactly what the engine
-       * designed the property for.
-       */
       /*
        * The slot's width is the zoom (ADR-0150).
        *

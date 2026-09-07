@@ -17,6 +17,8 @@ import type * as Y from 'yjs';
 import {
   addMessage,
   addThread,
+  isDetached,
+  type PdfPlace,
   readThreads,
   removeMessage,
   removeThread,
@@ -24,6 +26,8 @@ import {
   threadsMap,
   type CommentThread,
 } from '@sone/core';
+
+import { announceThreads, forgetThreads } from '../lib/threadAnnouncement.ts';
 
 const newId = (): string =>
   globalThis.crypto?.randomUUID?.() ??
@@ -62,6 +66,8 @@ export interface CommentTransport {
     to: Uint8Array;
     quote: string;
     item?: string;
+    /** A place in a PDF (ADR-0151). */
+    place?: PdfPlace;
     text: string;
   }) => Promise<void>;
   reply: (threadId: string, text: string) => Promise<void>;
@@ -97,7 +103,7 @@ export function useComments(
     const read = (): void => {
       setThreads(readThreads(doc));
       /*
-       * And tell the editor — with the threads, not just that there are some.
+       * And tell the surfaces — with the threads, not just that there are some.
        *
        * The marks are decorations, and decorations rebuild on a transaction, so
        * something has to dispatch one when a thread appears or goes.
@@ -109,10 +115,13 @@ export function useComments(
        * *previous* list — which is why the very first comment on a page showed
        * no highlight at all until a reload, and why every later one was drawing
        * one change behind without it being obvious.
+       *
+       * And it says *which document*, which it did not (ADR-0151). A page with
+       * a protected section runs a second copy of this hook over a second
+       * document, and both were announcing on the same event with nothing to
+       * tell them apart.
        */
-      window.dispatchEvent(
-        new CustomEvent('sone:comments-changed', { detail: readThreads(doc) }),
-      );
+      announceThreads(doc.guid, readThreads(doc));
     };
     read();
     map.observeDeep(read);
@@ -123,6 +132,9 @@ export function useComments(
     return () => {
       map.unobserveDeep(read);
       doc.off('update', read);
+      // And the announcement is retired with the document it was about, or a
+      // surface mounted on the next page is replayed this one's threads.
+      forgetThreads(doc.guid);
     };
   }, [doc]);
 
@@ -134,6 +146,8 @@ export function useComments(
         quote: string;
         /** A canvas item, when the comment is about one (ADR-0046). */
         item?: string;
+        /** A place in a PDF, when it is about one (ADR-0151). */
+        place?: PdfPlace;
       },
       text: string,
       mentions?: string[],
@@ -145,6 +159,7 @@ export function useComments(
           to: anchor.to,
           quote: anchor.quote,
           ...(anchor.item ? { item: anchor.item } : {}),
+          ...(anchor.place ? { place: anchor.place } : {}),
           text: text.trim(),
         });
         return;
@@ -154,6 +169,7 @@ export function useComments(
         from: anchor.from,
         to: anchor.to,
         ...(anchor.item ? { item: anchor.item } : {}),
+        ...(anchor.place ? { place: anchor.place } : {}),
         quote: anchor.quote,
         messageId: newId(),
         author: who.current,
@@ -212,17 +228,24 @@ export function useComments(
       /*
        * "Detached" means the text a comment pointed at is gone.
        *
-       * A thread about a canvas item has no range by design (ADR-0046), so
-       * without the first term every canvas comment would have been filed under
-       * "the text is gone" — an accusation rather than a fact. The item's own
+       * A thread about a canvas item has no range by design (ADR-0046), so a
+       * bare `range === null` would have filed every canvas comment under "the
+       * text is gone" — an accusation rather than a fact. The item's own
        * existence is what a canvas thread depends on, and an item that is
        * deleted takes its thread's subject with it visibly.
+       *
+       * **The two are complements, and are now written as complements**
+       * (ADR-0151). They were two separate expressions, and the third anchor
+       * satisfied neither: a thread about a place in a PDF has no item and no
+       * range, so it appeared in no group the panel draws — a comment somebody
+       * wrote and nobody could see. One sentence, in `isDetached`, and this
+       * asks it once each way.
        */
       open: threads.filter(
-        (thread) => !thread.resolved && (thread.item !== null || thread.range !== null),
+        (thread) => !thread.resolved && !isDetached(thread),
       ),
       detached: threads.filter(
-        (thread) => !thread.resolved && thread.item === null && thread.range === null,
+        (thread) => !thread.resolved && isDetached(thread),
       ),
       resolved: threads.filter((thread) => thread.resolved),
     }),

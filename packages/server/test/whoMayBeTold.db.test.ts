@@ -366,6 +366,7 @@ describe(
         from: new Uint8Array(),
         to: new Uint8Array(),
         item: null,
+        place: null,
         quote: 'das Gehaltsband',
         resolved: false,
         createdAt: 0,
