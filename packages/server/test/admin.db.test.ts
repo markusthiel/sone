@@ -19,6 +19,7 @@ import { registerAdminRoutes } from '../src/admin/routes.js';
 import { SettingsStore, validate } from '../src/admin/settings.js';
 import { hashPassword } from '../src/auth/password.js';
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
+import { SetupKey } from '../src/auth/setupKey.js';
 import { Router } from '../src/http/router.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase, seedWorkspace } from './support/db.js';
 import { expectJson, expectStatus } from './support/http.js';
@@ -57,6 +58,13 @@ describe(
      */
     const askedMail = (): { to: string; host: string } | null => mailAsked;
     let mailRefuses: string | null = null;
+  const setupGate = new SetupKey();
+
+  /** A key that is valid right now — the gate is spent by a successful setup. */
+  async function freshKey(): Promise<string> {
+    return (await setupGate.openIfNeeded(db)) ?? '';
+  }
+
 
     before(async () => {
       db = await getTestPool();
@@ -87,6 +95,12 @@ describe(
       const router = new Router();
       registerAuthRoutes(router, {
         pool: db,
+        /*
+         * A gate for this suite, because setup now needs a key (ADR-0155).
+         * An absent gate means closed, which is the right default and would
+         * lock this suite out of the route it uses to create its instance.
+         */
+        setupGate,
         signupMode: () => Promise.resolve('open' as const),
         secureCookies: false,
         // No relay in these suites: the reset is absent, which is the
@@ -179,6 +193,7 @@ describe(
           password: PASSWORD,
           displayName: 'Admin',
           workspaceName: 'W',
+          setupKey: await freshKey(),
         }),
       );
       const body = await expectJson<{ userId: string }>(res, 201);

@@ -8018,7 +8018,7 @@ select {
 }
 .pdf-step:hover:not(:disabled) { color: var(--sone-text); }
 .pdf-step:disabled { opacity: 0.4; cursor: default; }
-/* The copy with the marks in it (ADR-0154). Apart from the two paging steps,
+/* The copy with the marks in it (ADR-0155). Apart from the two paging steps,
    because it is not a way to move — a gap says that better than a second
    colour would. */
 .pdf-download { margin-inline-end: var(--sone-space-2); }
@@ -9503,4 +9503,15 @@ body {
   display: inline-flex;
   align-items: center;
   gap: var(--sone-space-3);
+}
+
+/* The setup key's whereabouts (ADR-0155).
+   A block so the command can be selected in one gesture, and monospaced so a
+   copied line is recognisably a command. */
+.setup-key-hint {
+  display: block;
+  margin: 0.4rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  user-select: all;
 }

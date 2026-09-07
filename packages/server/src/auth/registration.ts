@@ -339,10 +339,23 @@ export async function register(
  *
  * Used by the first-run setup screen. Refuses once any workspace exists, so
  * the endpoint cannot be used to bootstrap a second owner on a live instance.
+ *
+ * **And it requires the setup key** (ADR-0155). "No workspace exists yet" is
+ * true for a window between the first successful start and the moment the
+ * operator opens the page — and the proxy in front is already answering on a
+ * public name, because that is what a proxy does. Whoever reached the URL inside
+ * that window became the instance administrator, and the operator's own attempt
+ * then answered "already set up".
+ *
+ * The gate is optional in the signature so a test can call this directly
+ * without minting one. It is **not** optional on the route: `http/auth.ts`
+ * always passes one, and a missing gate there is a 500 rather than an open door.
  */
 export async function bootstrapInstance(
   pool: Pool,
   input: { email: string; password: string; displayName: string; workspaceName: string },
+  gate?: { matches(given: string): boolean; close(): void },
+  setupKey?: string,
 ): Promise<RegisterResult> {
   const passwordHash = await hashPassword(input.password);
   const email = input.email.trim().toLowerCase();
@@ -356,7 +369,19 @@ export async function bootstrapInstance(
       `SELECT count(*)::text AS n FROM workspaces`,
     );
     if (any && Number(any.n) > 0) {
+      gate?.close();
       throw new AuthError('this instance is already set up', 'invalid_credentials');
+    }
+
+    /*
+     * The database first, the key second.
+     *
+     * Reversed, a wrong key on a live instance would answer "wrong key" and so
+     * confirm that setup was still open. The order here means a live instance
+     * says the same thing to everybody: already set up.
+     */
+    if (gate !== undefined && !gate.matches(setupKey ?? '')) {
+      throw new AuthError('the setup key does not match', 'invalid_setup_key');
     }
 
     const user = await queryOne<{ id: string }>(
@@ -393,6 +418,8 @@ export async function bootstrapInstance(
     );
 
     const session = await createSession(client, user.id);
+    // Spent, whoever used it.
+    gate?.close();
     return { userId: user.id, session, workspaceId: workspace.id };
   });
 }

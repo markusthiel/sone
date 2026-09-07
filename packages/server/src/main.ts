@@ -32,6 +32,7 @@ import {
   pendingDocumentMigrations,
 } from './db/version.js';
 import { ensureSystemRoles } from './auth/standing.js';
+import { SetupKey, setupBanner } from './auth/setupKey.js';
 import { registerInvitationRoutes } from './auth/invitationRoutes.js';
 import { registerGroupRoutes } from './pages/groupRoutes.js';
 import { registerRoleRoutes } from './auth/roleRoutes.js';
@@ -95,6 +96,15 @@ const MARK_CID = 'sone-mark';
 
 /** Time allowed for a graceful shutdown before the process is forced down. */
 const SHUTDOWN_GRACE_MS = 20_000;
+
+/**
+ * The gate for first-run setup (ADR-0155).
+ *
+ * One per process, at module scope, because the route needs it before the
+ * startup sequence reaches the point where the key is minted — and because
+ * "one process, one key" is the whole of its semantics.
+ */
+const setupGate = new SetupKey();
 
 async function main(): Promise<void> {
   let config: Config;
@@ -505,6 +515,7 @@ async function main(): Promise<void> {
     // Read per request, not captured at startup: an administrator who changes
     // this in the interface expects the next registration attempt to obey it.
     signupMode: () => settings.get('signupMode'),
+    setupGate,
     addressForm: () => settings.get('addressForm'),
     // Secure cookies only over https, or the browser drops them on a plain
     // http development instance and login silently fails.
@@ -1023,6 +1034,19 @@ async function main(): Promise<void> {
   if (config.signupMode !== 'invite') {
     console.log(`signup mode: ${config.signupMode}`);
   }
+
+  /*
+   * The setup key, while there is no workspace yet (ADR-0155).
+   *
+   * Printed here rather than written to a file: `docker compose logs sone` is
+   * the one place somebody looks after a first start. Printed as a block
+   * because a line between startup messages is not something anybody sees.
+   *
+   * Nothing is printed on an instance that is already set up — there is no key
+   * then, and a message about one would be a message about nothing.
+   */
+  const firstKey = await setupGate.openIfNeeded(pool);
+  if (firstKey !== null) console.log(setupBanner(firstKey));
 
   // --- shutdown ------------------------------------------------------------
 

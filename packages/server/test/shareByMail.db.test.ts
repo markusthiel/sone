@@ -25,6 +25,7 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 import type { Pool } from 'pg';
 
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
+import { SetupKey } from '../src/auth/setupKey.js';
 import type { Letter } from '../src/mail/letter.js';
 import { registerPageRoutes } from '../src/http/pages.js';
 import { Router } from '../src/http/router.js';
@@ -49,10 +50,24 @@ describe(
     /** How much a mail may name (ADR-0058). */
     let detail: 'title' | 'workspace' = 'title';
 
+    const setupGate = new SetupKey();
+
+    /** A key that is valid right now — the gate is spent by a successful setup. */
+    async function freshKey(): Promise<string> {
+      return (await setupGate.openIfNeeded(db)) ?? '';
+    }
+
     before(async () => {
       db = await getTestPool();
       const router = new Router();
       registerAuthRoutes(router, {
+        /*
+         * A gate for this suite, because setup now needs a key (ADR-0155).
+         * An absent gate means closed, which is the right default and
+         * would lock this suite out of the route it uses to create its
+         * instance.
+         */
+        setupGate,
         canSendMail: () => Promise.resolve(false),
         sendResetMail: () => Promise.resolve(),
         sendProviderMail: () => Promise.resolve(),
@@ -127,6 +142,7 @@ describe(
           password: PASSWORD,
           displayName: 'Anna Weber',
           workspaceName: 'Haus',
+          setupKey: await freshKey(),
         }),
       });
       const body = await expectJson<{ workspaceId: string }>(res, 201);

@@ -738,9 +738,22 @@ when logging in is what is broken.
 
 ## First run
 
-Open the instance and the setup screen creates the first workspace and its
-owner. It refuses once any workspace exists, so the endpoint cannot be used to
-add a second owner later.
+The server prints a **setup key** at startup while no workspace exists yet:
+
+```sh
+docker compose logs sone
+```
+
+Open the instance, enter the key, and the setup screen creates the first
+workspace and its owner. It refuses once any workspace exists, so the endpoint
+cannot be used to add a second owner later.
+
+The key exists because "no workspace yet" is true for a window somebody else can
+be inside (ADR-0155): the proxy in front of a fresh container is already
+answering on a public name, and whoever reached the URL first became the instance
+administrator — with the operator's own attempt then answering *already set up*.
+The key lives only in the process, expires on restart, and is spent with the
+first account. Restart to get a new one.
 
 `SONE_SIGNUP_MODE` defaults to `invite`: new accounts need an invitation. Set it
 to `open` only if you want anyone reaching the URL to be able to register —
