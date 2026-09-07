@@ -1338,6 +1338,26 @@ function Workspace({
               new CustomEvent('sone:reveal-comment', { detail: thread.id }),
             );
           }
+          /*
+           * And a place in a PDF, the same arrangement with a different reader
+           * (ADR-0156). Only the viewer knows where page seven currently is —
+           * the column has its own scroll, the pages are drawn as they come
+           * near, and neither fact belongs up here.
+           *
+           * The file travels with it because a page may hold two documents, and
+           * a message with only a page number would be answered by both.
+           */
+          if (thread.place) {
+            window.dispatchEvent(
+              new CustomEvent('sone:reveal-place', {
+                detail: {
+                  file: thread.place.file,
+                  page: thread.place.page,
+                  thread: thread.id,
+                },
+              }),
+            );
+          }
         }}
       />
 
