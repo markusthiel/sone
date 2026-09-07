@@ -275,6 +275,8 @@ export const de: Record<keyof typeof en, string> = {
   'file.pdfMark': 'Markieren',
   'file.pdfUnmark': 'Markierung entfernen',
   'file.pdfMarked': 'Hier hat jemand markiert',
+  'file.pdfDownloadMarked': 'Mit Markierungen herunterladen',
+  'file.pdfMarkedSuffix': 'mit Markierungen',
   'workspace.delete.hint': 'Diesen Workspace entfernen — eine Zeit lang umkehrbar.',
   'workspace.delete.notYours':
     'Löschen kann nur, wer diesen Workspace besitzt oder Workspaces verwaltet.',

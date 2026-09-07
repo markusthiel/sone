@@ -50,6 +50,9 @@ export interface FileViewLabels {
     unmark: string;
     /** What a plain mark says it is, having nothing else to say. */
     marked: string;
+    /** The copy with the marks in it, and what it is called (ADR-0154). */
+    download: string;
+    markedSuffix: string;
   };
 }
 
@@ -64,6 +67,13 @@ export interface FileViewLabels {
  */
 export interface FileViewAbilities {
   mayMark: boolean;
+  /**
+   * Who an author id belongs to, for the notes in a downloaded copy (ADR-0154).
+   *
+   * A function rather than a list, and asked at the moment of a save: a node
+   * view is built once and the workspace's people arrive over HTTP afterwards.
+   */
+  nameOf: (author: string) => string;
 }
 
 import { applyBlockAttrs } from './blockAttrs.ts';
@@ -199,6 +209,8 @@ class FileNodeView implements NodeView {
       this.pdf = mountPdfViewer(host, url, this.labels.pdf, {
         fileId,
         mayMark: this.abilities.mayMark,
+        filename: name,
+        nameOf: this.abilities.nameOf,
       });
       return;
     }

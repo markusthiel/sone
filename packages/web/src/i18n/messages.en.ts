@@ -252,6 +252,8 @@ export const en = {
   'file.pdfMark': 'Highlight',
   'file.pdfUnmark': 'Remove the highlight',
   'file.pdfMarked': 'Somebody has marked this',
+  'file.pdfDownloadMarked': 'Download with the marks in it',
+  'file.pdfMarkedSuffix': 'with marks',
   'workspace.delete.hint': 'Remove this workspace, reversibly, for a while.',
   'workspace.delete.notYours':
     'Only an owner of this workspace, or somebody who manages workspaces, can ' +
