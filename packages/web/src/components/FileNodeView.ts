@@ -44,7 +44,26 @@ export interface FileViewLabels {
     comment: string;
     /** What a mark on a commented place says it is. */
     commented: string;
+    /** The highlighter, beside it (ADR-0152). */
+    mark: string;
+    /** And what it says when the selection is already on one. */
+    unmark: string;
+    /** What a plain mark says it is, having nothing else to say. */
+    marked: string;
   };
+}
+
+/**
+ * What the reader may do in a document (ADR-0152).
+ *
+ * Not a label. Marking is offered to somebody with an account and not to a
+ * share-link visitor, because taking a mark off again would have to be offered
+ * too and a link can only tell two visitors apart by the name they typed
+ * (ADR-0046) — a mark that can be made and never un-made is worse than one that
+ * is not offered.
+ */
+export interface FileViewAbilities {
+  mayMark: boolean;
 }
 
 import { applyBlockAttrs } from './blockAttrs.ts';
@@ -108,6 +127,7 @@ class FileNodeView implements NodeView {
   constructor(
     node: PMNodeLike,
     private readonly labels: FileViewLabels,
+    private readonly abilities: FileViewAbilities,
     private readonly select: () => void,
   ) {
     this.dom = document.createElement('div');
@@ -176,7 +196,10 @@ class FileNodeView implements NodeView {
       // `render()` has already torn down whatever was here, which is why there
       // is no destroy call in front of this one — the compiler pointed out that
       // the field is provably null by now.
-      this.pdf = mountPdfViewer(host, url, this.labels.pdf, fileId);
+      this.pdf = mountPdfViewer(host, url, this.labels.pdf, {
+        fileId,
+        mayMark: this.abilities.mayMark,
+      });
       return;
     }
 
@@ -330,9 +353,11 @@ export function fileNodeView(
    * rather than pretending the file is translated.
    */
   labels: FileViewLabels,
+  /** And what they may do with it — see `FileViewAbilities`. */
+  abilities: FileViewAbilities,
 ): NonNullable<EditorView['props']['nodeViews']>[string] {
   return (node, view, getPos) =>
-    new FileNodeView(node as unknown as PMNodeLike, labels, () => {
+    new FileNodeView(node as unknown as PMNodeLike, labels, abilities, () => {
       const pos = typeof getPos === 'function' ? getPos() : undefined;
       if (pos === undefined) return;
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));

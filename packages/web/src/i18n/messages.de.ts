@@ -161,6 +161,8 @@ export const de: Record<keyof typeof en, string> = {
   'error.message_too_long': 'Dieser Kommentar ist länger, als ein Kommentar sein kann.',
   'error.invalid_anchor': 'Die Stelle, um die es ging, ist verloren gegangen. Bitte den Text noch einmal auswählen.',
   'error.invalid_place': 'Diese Stelle im Dokument konnte nicht gelesen werden. Bitte den Abschnitt noch einmal auswählen.',
+  'error.marks_need_an_account': 'Zum Markieren braucht es ein Konto. Über einen Link lässt sich die Stelle kommentieren — das sagt mehr.',
+  'error.too_many_marks': 'Diese Seite trägt schon so viele Markierungen, wie sie kann. Bitte zuerst eine entfernen.',
   'error.too_many_threads': 'Diese Seite trägt schon so viele Diskussionen, wie sie kann. Erst ein paar auflösen.',
   'error.not_your_link': 'Diese Verknüpfung wurde für ein anderes Konto begonnen.',
   'error.no_other_way_in':
@@ -270,6 +272,9 @@ export const de: Record<keyof typeof en, string> = {
   'file.pdfFailed': 'Dieses Dokument kann hier nicht gezeigt werden.',
   'file.pdfComment': 'Kommentieren',
   'file.pdfCommented': 'Dazu gibt es einen Kommentar',
+  'file.pdfMark': 'Markieren',
+  'file.pdfUnmark': 'Markierung entfernen',
+  'file.pdfMarked': 'Hier hat jemand markiert',
   'workspace.delete.hint': 'Diesen Workspace entfernen — eine Zeit lang umkehrbar.',
   'workspace.delete.notYours':
     'Löschen kann nur, wer diesen Workspace besitzt oder Workspaces verwaltet.',
