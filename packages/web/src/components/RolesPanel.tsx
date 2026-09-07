@@ -53,6 +53,24 @@ interface Draft {
 
 const emptyDraft = (): Draft => ({ id: null, name: '', pageLevel: 'editor', rights: [] });
 
+/**
+ * Who holds a role, in a line.
+ *
+ * A hook is not needed and a component would be one more file for a sentence,
+ * so it takes the translator — the same shape `roleLabel` settled on (ADR-0143).
+ */
+function names(
+  role: WorkspaceRoleRow,
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+): string | null {
+  const shown = [...(role.heldBy?.people ?? []), ...(role.heldBy?.groups ?? [])];
+  if (shown.length === 0) return null;
+  // What the card was not sent, counted from the totals it always gets — so a
+  // sixth person is "und eine weitere" rather than a name that never arrives.
+  const rest = role.members + role.groups - shown.length;
+  return t('role.heldByNamed', { names: shown.join(', '), rest: Math.max(0, rest) });
+}
+
 export function RolesPanel({ workspaceId }: { workspaceId: string }): ReactElement {
   const { t } = useT();
   const [roles, setRoles] = useState<WorkspaceRoleRow[]>([]);
@@ -179,11 +197,21 @@ export function RolesPanel({ workspaceId }: { workspaceId: string }): ReactEleme
             <div className="role-card-foot">
               {/* Counted in words rather than as "0 Personen, 0 Gruppen", which
                   is three numbers to read before learning that the answer is
-                  nobody. */}
+                  nobody.
+                *
+                * And named where the server was willing to say who (ADR-0145):
+                * "one person" is the answer to a question nobody asked — what
+                * somebody wants before changing what a role means is *whom it
+                * affects*. The count carries the rest, so a card stays a card.
+                *
+                * `heldBy` absent is not the same as empty: absent means this
+                * caller may define roles but not decide who holds them, and the
+                * count is then the whole of what there is to show. */}
               <span className="muted">
-                {role.members + role.groups === 0
-                  ? t('role.heldByNobody')
-                  : t('role.heldBy', { members: role.members, groups: role.groups })}
+                {names(role, t) ??
+                  (role.members + role.groups === 0
+                    ? t('role.heldByNobody')
+                    : t('role.heldBy', { members: role.members, groups: role.groups }))}
               </span>
               {role.key === null && (
                 <span className="role-card-actions">

@@ -33,7 +33,7 @@ import type { Pool } from 'pg';
 
 import { queryOne, queryRows } from '../db/pool.js';
 import type { Router } from '../http/router.js';
-import { requireAnyRight, requireRight } from './rights.js';
+import { holdsRight, requireAnyRight, requireRight } from './rights.js';
 
 export interface RoleDeps {
   pool: Pool;
@@ -79,9 +79,20 @@ interface RoleRow {
   rights: string[];
   members: number;
   groups: number;
+  held_people: string[];
+  held_groups: string[];
 }
 
-const asJson = (row: RoleRow): Record<string, unknown> => ({
+/**
+ * How many names travel with a role.
+ *
+ * Enough to recognise who is meant, not enough to be a member list — that is a
+ * different screen, and one that can be scrolled. The count beside them stays
+ * the whole truth, so the card can say "and four others" without asking again.
+ */
+const NAMES_SHOWN = 5;
+
+const asJson = (row: RoleRow, withNames: boolean): Record<string, unknown> => ({
   id: row.id,
   /** Present only for a system role, and it is what makes it one. */
   key: row.key,
@@ -91,6 +102,19 @@ const asJson = (row: RoleRow): Record<string, unknown> => ({
   /** Who holds it, so the screen can say what deleting would affect. */
   members: row.members,
   groups: row.groups,
+  /*
+   * And *who*, by name — for a caller who may decide that (ADR-0145).
+   *
+   * The line is ADR-0087's own: **what a role means is `roles.manage`; who
+   * holds it is `people.manage`.** Both rights reach this list, because you
+   * need it to define a role and you need it to give somebody one — so the
+   * count travels for both and the names only for the second.
+   *
+   * Absent rather than empty when it is not for this caller. Empty is an
+   * answer — nobody holds it — and a screen that cannot tell the two apart
+   * would print "nobody" at somebody who simply was not told (ADR-0139).
+   */
+  ...(withNames ? { heldBy: { people: row.held_people, groups: row.held_groups } } : {}),
 });
 
 export function registerRoleRoutes(router: Router, deps: RoleDeps): void {
@@ -119,18 +143,43 @@ export function registerRoleRoutes(router: Router, deps: RoleDeps): void {
       // The counts come with the list. "How many people hold this" is the first
       // thing somebody wants before changing what a role means, and fetching it
       // per row would be a request per role for a number.
+      //
+      // And the first few names with them, for the same reason: a card that
+      // says "one person" sends somebody to another screen to find out which
+      // one. Ordered and limited in SQL rather than afterwards, so the five
+      // that arrive are the first five by name and not the first five the
+      // planner happened to reach.
       `SELECT r.id, r.key, r.name, r.page_level, r.rights,
               (SELECT count(*)::int FROM workspace_members m
                 WHERE m.role_id = r.id AND m.workspace_id = $1) AS members,
               (SELECT count(*)::int FROM groups g
-                WHERE g.role_id = r.id AND g.workspace_id = $1) AS groups
+                WHERE g.role_id = r.id AND g.workspace_id = $1) AS groups,
+              coalesce((SELECT array_agg(name ORDER BY name)
+                          FROM (SELECT u.display_name AS name
+                                  FROM workspace_members m
+                                  JOIN users u ON u.id = m.user_id
+                                 WHERE m.role_id = r.id AND m.workspace_id = $1
+                                 ORDER BY u.display_name COLLATE "und-x-icu"
+                                 LIMIT $2) AS first_people),
+                       '{}') AS held_people,
+              coalesce((SELECT array_agg(name ORDER BY name)
+                          FROM (SELECT g.name
+                                  FROM groups g
+                                 WHERE g.role_id = r.id AND g.workspace_id = $1
+                                 ORDER BY g.name COLLATE "und-x-icu"
+                                 LIMIT $2) AS first_groups),
+                       '{}') AS held_groups
          FROM roles r
         WHERE r.workspace_id IS NULL OR r.workspace_id = $1
         ORDER BY r.workspace_id NULLS FIRST, lower(r.name)`,
-      [workspaceId],
+      [workspaceId, NAMES_SHOWN],
     );
 
-    ctx.send(200, { roles: roles.map(asJson), rights: RIGHTS });
+    // Asked separately rather than inferred from `actor`: `requireAnyRight`
+    // answers "may you see this list at all", and this is the second question.
+    const mayKnowWho = (await holdsRight(deps.pool, workspaceId, actor, 'people.manage')).held;
+
+    ctx.send(200, { roles: roles.map((row) => asJson(row, mayKnowWho)), rights: RIGHTS });
   });
 
   router.post('/api/workspaces/:workspaceId/roles', async (ctx) => {

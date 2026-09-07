@@ -590,6 +590,15 @@ export interface WorkspaceRoleRow {
   rights: string[];
   members: number;
   groups: number;
+  /**
+   * The first few who hold it, by name (ADR-0145).
+   *
+   * Absent — not empty — for a caller who may define what a role means but not
+   * decide who holds it (ADR-0087). Empty is an answer; absent is a refusal,
+   * and a card that could not tell them apart would print "nobody" at somebody
+   * who was simply not told.
+   */
+  heldBy?: { people: string[]; groups: string[] };
 }
 
 export interface SearchResult {
