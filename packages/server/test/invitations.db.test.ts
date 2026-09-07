@@ -229,6 +229,108 @@ describe(
       assert.deepEqual(await instanceList(session.cookie), []);
     });
 
+    /*
+     * What „offen" means, and what a number on the row is for (ADR-0147).
+     *
+     * Reported: *„Bei Einladungen stehen auch die verbrauchten drin, macht das
+     * Sinn? … Wenn ich nur einen Link anlege mit Einladung kommt übrigens 25
+     * als zahl. Das lässt sich noch nicht einstellen."*
+     */
+    test('an invitation that has been used up is not listed either', async () => {
+      /*
+       * The list is what somebody can still act on — the sentence this
+       * function's own comment already made about revoked and expired ones,
+       * and the one the panel's docstring makes about itself: *„invitations
+       * that have been sent and not yet used up"*.
+       *
+       * `inspectInvitation` has refused a spent one since it was written
+       * (`AND i.uses < i.max_uses`), so it was never a way in. It was a row
+       * saying otherwise.
+       */
+      const session = await setup();
+      const spent = await createInvitation(db, {
+        workspaceId: null,
+        invitedBy: session.userId,
+        email: 'joined@example.org',
+      });
+      await db.query(`UPDATE invitations SET uses = max_uses WHERE id = $1`, [
+        spent.invitationId,
+      ]);
+
+      assert.deepEqual(await instanceList(session.cookie), []);
+    });
+
+    test('a link with uses left is still listed, and says how many', async () => {
+      // The other half: partly used is not used up, and this is the row the
+      // count is actually for.
+      const session = await setup();
+      const link = await createInvitation(db, {
+        workspaceId: null,
+        invitedBy: session.userId,
+        email: null,
+        maxUses: 5,
+      });
+      await db.query(`UPDATE invitations SET uses = 2 WHERE id = $1`, [link.invitationId]);
+
+      const [invitation] = await instanceList(session.cookie);
+      assert.equal(invitation?.uses, 2);
+      assert.equal(invitation?.maxUses, 5);
+    });
+
+    test('how often a link may be used is chosen, and one is the default', async () => {
+      /*
+       * It was twenty-five, from `?? 25` in the creating function — a number
+       * nobody typed, on a row that showed it. There is exactly one caller of
+       * that function in the product, and it is this route, so the default was
+       * only ever the answer to a question the screen did not ask.
+       *
+       * One, because an invitation is for somebody. The club case is what the
+       * number is for, and now it is said out loud.
+       */
+      const session = await setup();
+
+      const plain = await fetch(
+        `${base}/api/admin/invitations`,
+        auth(session.cookie, json({ email: null })),
+      );
+      await expectStatus(plain, 201);
+      assert.equal((await instanceList(session.cookie))[0]?.maxUses, 1);
+
+      await db.query(`DELETE FROM invitations`);
+      const many = await fetch(
+        `${base}/api/admin/invitations`,
+        auth(session.cookie, json({ email: null, maxUses: 5 })),
+      );
+      await expectStatus(many, 201);
+      assert.equal((await instanceList(session.cookie))[0]?.maxUses, 5);
+    });
+
+    test('a number that is not a number of uses is refused, not quietly mended', async () => {
+      // `Math.max(1, …)` turned nonsense into one and a typo into a link for a
+      // thousand people. Both are answers to a question nobody asked twice.
+      const session = await setup();
+      for (const maxUses of [0, -3, 2.5, 1001, 'many']) {
+        const res = await fetch(
+          `${base}/api/admin/invitations`,
+          auth(session.cookie, json({ email: null, maxUses })),
+        );
+        await expectStatus(res, 400);
+      }
+      assert.deepEqual(await instanceList(session.cookie), []);
+    });
+
+    test('an addressed invitation is for one person, whatever the form sends', async () => {
+      // It is bound to that address; a second use would be somebody else using
+      // a link addressed to a colleague.
+      const session = await setup();
+      const res = await fetch(
+        `${base}/api/admin/invitations`,
+        auth(session.cookie, json({ email: 'one@example.org', maxUses: 9 })),
+      );
+      await expectStatus(res, 201);
+      assert.equal((await instanceList(session.cookie))[0]?.maxUses, 1);
+    });
+
     test('a withdrawn or expired invitation is not listed', async () => {
       // The list is what somebody can still act on. A withdrawn one shown greyed
       // out is a row that invites the question of whether it still works.
