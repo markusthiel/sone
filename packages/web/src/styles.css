@@ -8018,6 +8018,10 @@ select {
 }
 .pdf-step:hover:not(:disabled) { color: var(--sone-text); }
 .pdf-step:disabled { opacity: 0.4; cursor: default; }
+/* The copy with the marks in it (ADR-0154). Apart from the two paging steps,
+   because it is not a way to move — a gap says that better than a second
+   colour would. */
+.pdf-download { margin-inline-end: var(--sone-space-2); }
 
 /* The focus ring has to be visible: this column is now in the tab order, and a
    focusable thing nobody can see focused is worse than one nobody can reach. */
