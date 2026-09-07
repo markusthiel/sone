@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Ein Klick auf das Zitat bringt dich zur Stelle im PDF.** Bisher tat der Knopf
+in der Kommentarleiste bei einem PDF-Kommentar schlicht nichts. Jetzt scrollt das
+Dokument zur richtigen Seite, der Block rückt ins Bild, und die gemeinte
+Markierung leuchtet kurz auf — kräftiger gefüllt und mit einem Ring, damit auf
+einer Seite mit mehreren Markierungen klar ist, welche gemeint war. Wer weniger
+Bewegung eingestellt hat, bekommt den Ring ohne das Pulsieren: welche Stelle
+gemeint ist, ist eine Information und keine Verzierung.
+
 **Ein Kommentar zu einer Stelle im PDF sagt jetzt, wenn das Dokument nicht mehr
 da ist.** Bisher stand der Faden in der Leiste, zitierte eine Stelle, bot einen
 Knopf an, der nichts tat, und schwieg dazu. Jetzt steht darunter: *„Das

@@ -220,6 +220,8 @@ export function mountPdfViewer(
     rects: PlaceRect[];
     kind: 'comment' | 'plain';
     title: string;
+    /** The thread, when there is one — what a reveal names and a click will. */
+    id?: string;
   }
 
   /**
@@ -248,7 +250,12 @@ export function mountPdfViewer(
     const all: Drawn[] = [];
     for (const thread of everyThread()) {
       if (thread.place?.page !== number) continue;
-      all.push({ rects: thread.place.rects, kind: 'comment', title: labels.commented });
+      all.push({
+        rects: thread.place.rects,
+        kind: 'comment',
+        title: labels.commented,
+        id: thread.id,
+      });
     }
     for (const mark of everyMark()) {
       if (mark.place.page !== number) continue;
@@ -256,6 +263,22 @@ export function mountPdfViewer(
     }
     return all;
   };
+
+  /*
+   * ---- Being taken to a passage (ADR-0156) -----------------------------------
+   *
+   * Declared here, above the drawing and the subscriptions that read them,
+   * because a subscription replays synchronously into a half-built body and
+   * that cost an editor once (ADR-0154).
+   */
+
+  /** Which page to scroll to, once there is a document to scroll. */
+  let showPage: ((page: number) => void) | null = null;
+  /** The thread the panel asked for, while it is being shown. */
+  let wanted: string | null = null;
+  /** How long a mark stays found. Long enough to look at, short enough to end. */
+  const FOUND_MS = 1600;
+  let stopBeingFound: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Draw the marks for one page.
@@ -288,6 +311,11 @@ export function mountPdfViewer(
         const mark = document.createElement('div');
         mark.className = 'pdf-mark';
         mark.dataset['kind'] = drawn.kind;
+        if (drawn.id !== undefined) mark.dataset['thread'] = drawn.id;
+        // The one the panel asked for (ADR-0156). Set while drawing rather than
+        // found and decorated afterwards: the page being revealed is usually
+        // not drawn yet at the moment of the ask.
+        if (drawn.id !== undefined && drawn.id === wanted) mark.dataset['found'] = 'true';
         mark.title = drawn.title;
         mark.style.left = `${(Math.min(ax!, bx!) / shape.width) * 100}%`;
         mark.style.top = `${(Math.min(ay!, by!) / shape.height) * 100}%`;
@@ -356,6 +384,45 @@ export function mountPdfViewer(
     redrawEverything();
   });
   cleanups.push(() => stopThreads());
+
+  /**
+   * The panel asked for a passage (ADR-0156).
+   *
+   * Two scrolls, and they are two because this viewer is a column *inside* a
+   * page that also scrolls: `showPage` moves the right page to the top of the
+   * column, and the column itself may be entirely below the fold.
+   *
+   * `scrollIntoView` here and deliberately not in `goTo`. ADR-0048 refused it
+   * for paging, because it moves every ancestor and paging a PDF should not
+   * move the page around it — but moving every ancestor is exactly what
+   * somebody who pressed "show me this" has asked for.
+   */
+  const takeMeThere = (event: Event): void => {
+    const detail = (event as CustomEvent<{ file?: unknown; page?: unknown; thread?: unknown }>)
+      .detail;
+    if (!detail || detail.file !== fileId) return;
+    if (typeof detail.page !== 'number' || !Number.isFinite(detail.page)) return;
+
+    wanted = typeof detail.thread === 'string' ? detail.thread : null;
+    container.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    showPage?.(detail.page);
+    // For the pages already drawn; the one being revealed is usually not among
+    // them yet, and `drawMarks` reads `wanted` when its turn comes.
+    redrawEverything();
+
+    if (stopBeingFound) clearTimeout(stopBeingFound);
+    stopBeingFound = setTimeout(() => {
+      // A mark that stayed lit would make the *next* reveal look like nothing
+      // happened.
+      wanted = null;
+      redrawEverything();
+    }, FOUND_MS);
+  };
+  window.addEventListener('sone:reveal-place', takeMeThere);
+  cleanups.push(() => {
+    window.removeEventListener('sone:reveal-place', takeMeThere);
+    if (stopBeingFound) clearTimeout(stopBeingFound);
+  });
 
   const stopMarks = subscribeToPdfMarks(({ doc, marks }) => {
     marksByDoc.set(
@@ -655,6 +722,9 @@ export function mountPdfViewer(
         // ancestor, so paging a PDF would move the page around it as well.
         pages.scrollTop = target.offsetTop - pages.offsetTop;
       };
+      // Reachable from outside now: the panel asks for a page long before this
+      // closure would otherwise be visible to anything (ADR-0156).
+      showPage = goTo;
       back.addEventListener('click', () => goTo(Math.max(1, current - 1)));
       forward.addEventListener('click', () => goTo(Math.min(doc.numPages, current + 1)));
 
