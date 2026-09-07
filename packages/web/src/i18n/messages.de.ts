@@ -1189,6 +1189,8 @@ export const de: Record<keyof typeof en, string> = {
   // --- Filter im Suchmodus (ADR-0118) ---------------------------------------
   'search.saved': 'Gemerkt',
   'search.facet.tags': 'Schlagwörter',
+  'search.facet.findTag': 'Schlagwort suchen',
+  'search.facet.findTagPlaceholder': 'Schlagwort eingeben…',
   'search.facet.people': 'Leute',
   'search.facet.who': 'Person suchen',
   'search.facet.whoPlaceholder': 'Name eingeben…',

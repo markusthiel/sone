@@ -1082,6 +1082,8 @@ export const en = {
   // --- filters in the search mode (ADR-0118) --------------------------------
   'search.saved': 'Kept',
   'search.facet.tags': 'Tags',
+  'search.facet.findTag': 'Find a tag',
+  'search.facet.findTagPlaceholder': 'Type a tag…',
   'search.facet.people': 'People',
   'search.facet.who': 'Find a person',
   'search.facet.whoPlaceholder': 'Type a name…',

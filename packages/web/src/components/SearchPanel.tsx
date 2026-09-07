@@ -17,12 +17,25 @@
  * The field stays. The filters are how somebody who does not know the syntax
  * narrows a search; the field is how somebody who does types one in one go, and
  * pressing a control shows them what it would have looked like.
+ *
+ * ## And every filter that is on has a control here
+ *
+ * The other half of that sentence, and the one this panel kept getting wrong.
+ * A control drawn from a fetched list can only show what the list holds — so a
+ * tag ranked thirteenth, a tag the list has never heard of, and a folder whose
+ * name is spelt with a capital letter each had a filter switched on and either
+ * no control or one giving the opposite answer.
+ *
+ * So: what is on is drawn first and always, out of the query rather than out of
+ * the list, and the list decides only what else is *offered*.
  */
 
 import {
   buildSearchQuery,
+  derivedTagColor,
   hasSearchCriteria,
   parseSearchQuery,
+  tagKey,
   type SearchFilters,
 } from '@sone/core';
 import { useEffect, useState, type ReactElement } from 'react';
@@ -39,6 +52,32 @@ interface SearchPanelProps {
   folders: PageNode[];
   /** Whose "assigned to me" this is. */
   userId: string;
+}
+
+/**
+ * How many tags the facet offers without being asked, and how many it offers
+ * in answer to typing.
+ *
+ * One number for both, because they are the same judgement: how long a list of
+ * short words can be read at a glance rather than searched through. The people
+ * field one section down settled the second half of it first.
+ */
+const TAGS_SHOWN = 12;
+
+/**
+ * A tag as this panel draws it.
+ *
+ * `count: null` is a tag the workspace list does not hold — typed into the
+ * field, or named by a kept search that outlived it, or carried only by pages
+ * this reader cannot see. It has a name and no number, and the difference
+ * matters: the count means *pages you can see carrying this*, and a zero would
+ * be an answer where what we have is the absence of one.
+ */
+interface OfferedTag {
+  key: string;
+  label: string;
+  color: string;
+  count: number | null;
 }
 
 /** Every folder in the tree, flattened, outermost first. */
@@ -70,6 +109,8 @@ export function SearchPanel({
   const [name, setName] = useState('');
   /** What is typed into the people field. Filters the members already fetched. */
   const [who, setWho] = useState('');
+  /** And into the tag field, which the facet grows only when it has to. */
+  const [whichTag, setWhichTag] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -136,7 +177,98 @@ export function SearchPanel({
           )
           .slice(0, 8);
 
-  const chosenFolders = foldersIn(folders);
+  /*
+   * The tags this facet draws: the ones that are on, and the ones worth
+   * offering.
+   *
+   * Every tag used to be a button. That is right at ten and a wall at two
+   * hundred — which is the sentence ADR-0120 already wrote one section down,
+   * about members: *„die wird sonst irgendwann zu groß"*.
+   *
+   * **Which twelve is a question about use.** The list arrives ordered by key,
+   * because that is what makes the spelling it shows stable — and taking the
+   * first twelve of that would hide the tag on four hundred pages for starting
+   * with a W. They are *read* alphabetically, though: which tags deserve the
+   * space is a question about use, and the order they are looked through in is
+   * a question about names.
+   *
+   * **And a tag that is on is always drawn**, twelfth or hundredth. A filter
+   * you cannot see is a filter you cannot take off — the rule the chosen
+   * people follow below, and the one a cut would otherwise break.
+   */
+  const asOffered = (tag: WorkspaceTag): OfferedTag => ({
+    key: tag.key,
+    label: tag.label,
+    color: tag.color,
+    count: tag.count,
+  });
+  const byLabel = (a: OfferedTag, b: OfferedTag): number => a.label.localeCompare(b.label);
+
+  const chosenTags: OfferedTag[] = filters.tags
+    .map((key) => {
+      const known = tags.find((tag) => tag.key === key);
+      // Called what the query spells, because for a tag nobody has another
+      // name — and coloured the way `TagEditor` colours a tag typed a moment
+      // ago, so the same word is the same colour in both places.
+      return known ? asOffered(known) : { key, label: key, color: derivedTagColor(key), count: null };
+    })
+    .sort(byLabel);
+
+  const unchosenTags = tags.filter((tag) => !has(filters.tags, tag.key));
+  const offeredTags = [...unchosenTags]
+    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
+    .slice(0, TAGS_SHOWN)
+    .map(asOffered)
+    .sort(byLabel);
+
+  // Nothing until two characters, like the people field: one letter matching
+  // half a vocabulary is a list again.
+  const drawnTags = new Set([...chosenTags, ...offeredTags].map((tag) => tag.key));
+  const foundTags: OfferedTag[] =
+    whichTag.trim().length < 2
+      ? []
+      : unchosenTags
+          .filter((tag) => !drawnTags.has(tag.key) && tag.key.includes(tagKey(whichTag)))
+          .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
+          .slice(0, TAGS_SHOWN)
+          .map(asOffered)
+          .sort(byLabel);
+
+  const tagChip = (tag: OfferedTag): ReactElement => (
+    <button
+      key={tag.key}
+      type="button"
+      className="search-facet-tag"
+      data-color={tag.color}
+      aria-pressed={has(filters.tags, tag.key)}
+      onClick={() => {
+        toggle((f) => f.tags, tag.key);
+        // Cleared, because the tag has just moved up into the row above: a
+        // field still holding the word that found it would offer to find it
+        // again.
+        setWhichTag('');
+      }}
+    >
+      {tag.label}
+      {tag.count !== null && <span className="search-facet-count">{tag.count}</span>}
+    </button>
+  );
+
+  /*
+   * The folders the chooser can offer, and the name it is holding that none of
+   * them answers to.
+   *
+   * Untitled ones are left out rather than listed as *„Ohne Titel"*: `in:`
+   * narrows by name, so an option for a folder with no name wrote an empty
+   * filter and quietly meant "anywhere" — a third entry that did what the
+   * first one did.
+   */
+  const namedFolders = foldersIn(folders).filter((folder) => (folder.title ?? '') !== '');
+  const unofferedIn =
+    filters.in[0] !== undefined &&
+    !namedFolders.some((folder) => (folder.title ?? '').toLowerCase() === filters.in[0])
+      ? filters.in[0]
+      : null;
   const anything =
     filters.tags.length > 0 ||
     filters.in.length > 0 ||
@@ -237,24 +369,34 @@ export function SearchPanel({
         </section>
       )}
 
-      {tags.length > 0 && (
+      {(tags.length > 0 || chosenTags.length > 0) && (
         <section className="search-facet">
           <h2 className="sidebar-label">{t('search.facet.tags')}</h2>
           <div className="search-facet-tags">
-            {tags.map((tag) => (
-              <button
-                key={tag.key}
-                type="button"
-                className="search-facet-tag"
-                data-color={tag.color}
-                aria-pressed={has(filters.tags, tag.key)}
-                onClick={() => toggle((f) => f.tags, tag.key)}
-              >
-                {tag.label}
-                <span className="search-facet-count">{tag.count}</span>
-              </button>
-            ))}
+            {chosenTags.map(tagChip)}
+            {offeredTags.map(tagChip)}
           </div>
+
+          {/* The field appears only when there is something behind it — over
+              two tags it would be a control whose only purpose is to hide one
+              of them. */}
+          {unchosenTags.length > offeredTags.length && (
+            <>
+              <input
+                type="search"
+                className="search-facet-input"
+                value={whichTag}
+                placeholder={t('search.facet.findTagPlaceholder')}
+                aria-label={t('search.facet.findTag')}
+                onChange={(event) => setWhichTag(event.target.value)}
+              />
+              {foundTags.length > 0 && (
+                <div className="search-facet-matches">
+                  <div className="search-facet-tags">{foundTags.map(tagChip)}</div>
+                </div>
+              )}
+            </>
+          )}
         </section>
       )}
 
@@ -332,7 +474,7 @@ export function SearchPanel({
         )}
       </section>
 
-      {chosenFolders.length > 0 && (
+      {(namedFolders.length > 0 || unofferedIn !== null) && (
         <section className="search-facet">
           <h2 className="sidebar-label">{t('search.facet.in')}</h2>
           <select
@@ -342,14 +484,26 @@ export function SearchPanel({
             onChange={(event) =>
               edit((f) => {
                 f.in.length = 0;
-                if (event.target.value !== '') f.in.push(event.target.value.toLowerCase());
+                if (event.target.value !== '') f.in.push(event.target.value);
               })
             }
           >
             <option value="">{t('search.facet.anywhere')}</option>
-            {chosenFolders.map((folder) => (
-              <option key={folder.id} value={folder.title ?? ''}>
-                {folder.title || t('folder.untitled')}
+            {/* A name the folders do not answer to, shown as itself.
+              *
+              * Typed by hand, or kept in a search from before a rename. The
+              * results column says "no such folder" beside it; the one answer
+              * this may not give is "anywhere", which is the state it snapped
+              * back to before. */}
+            {unofferedIn !== null && <option value={unofferedIn}>{unofferedIn}</option>}
+            {namedFolders.map((folder) => (
+              // The value is what the query stores — lowercased, because `in:`
+              // is a case-insensitive name match (ADR-0050). Spelling it as
+              // the title made choosing "Finanzen" write `in:finanzen` and
+              // then match no option, so the chooser answered "Anywhere" about
+              // a search that was in a folder.
+              <option key={folder.id} value={(folder.title ?? '').toLowerCase()}>
+                {folder.title}
               </option>
             ))}
           </select>
