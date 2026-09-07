@@ -603,8 +603,34 @@
   --sone-text-sm: 0.85rem;
   --sone-text-md: 0.9rem;
 
+  /* Which furniture the browser draws — scrollbars, select popups, date
+     pickers. `light dark` means *the system decides*, which is right only for
+     somebody who has not decided; the two blocks that a chosen theme sets say
+     so themselves (ADR-0144). */
   color-scheme: light dark;
+
+  /* Thin, everywhere. It inherits, so the root is the only place it has to be
+     said — and no `scrollbar-color` beside it on purpose: naming a colour turns
+     a platform's overlay scrollbar into a permanent one, which takes a strip of
+     width from every scrolling box on the machines that have them. */
+  scrollbar-width: thin;
 }
+
+/* And a theme somebody chose tells the browser which one it is (ADR-0144).
+ *
+ * `light dark` above means *the system decides*, which is the right answer only
+ * for somebody who has not decided. Without these two, a dark interface on a
+ * light laptop drew light scrollbars, a light select popup and a light date
+ * picker — the value was set where the system is asked and forgotten where the
+ * person is, which is ADR-0135's lesson about the three dark blocks.
+ *
+ * Here rather than in the theme blocks three hundred lines above, and with
+ * `:root` in front of the attribute: `[data-theme='dark']` and `:root` have the
+ * same specificity, so the one written later wins — and the root's declaration
+ * is later. Two lines that disagree by source order are two lines that will be
+ * moved apart by the next edit. */
+:root[data-theme='light'] { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
 
 /* Following the system is the default and not sufficient: somebody outside in
    the sun wants light regardless of what their laptop thinks. So the media
@@ -916,6 +942,18 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      its own; the only thing that leaves it is a popup, and a popup leaving is
      the point. */
   overflow: visible;
+  /* And therefore this line, which is the whole of ADR-0144.
+   *
+   * A grid item's automatic minimum size is zero **only when its overflow is
+   * not visible** — so the declaration above, whose subject is a popup, was
+   * also telling the sidebar it may never be shorter than its own tree. With a
+   * long tree the column grew past the window, the row grew with it, and the
+   * result was a second scrollbar on the window, a tree that never scrolled,
+   * and the account picture at the bottom of the rail sitting below the fold.
+   *
+   * Measured at 1440×900 with 200 rows: the sidebar was 6458px tall and the
+   * avatar's bottom edge was at y = 6452. */
+  min-block-size: 0;
 }
 
 /* --- the panel: head, body, foot (ADR-0069) --- */
@@ -1050,6 +1088,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .icon-rail {
   display: none;
   flex-direction: column;
+  /* Nothing here is tall enough to need it today, and that is exactly why it is
+     written down: the rail was 6458px tall in a 900px window because the column
+     *beside* it could not shrink, and a column that cannot say no to a row is
+     one bad neighbour away from the same fault (ADR-0144). */
+  min-block-size: 0;
   align-items: center;
   gap: var(--sone-space-3);
   padding-block: var(--sone-space-3);
@@ -1085,6 +1128,18 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      its own; the only thing that leaves it is a popup, and a popup leaving is
      the point. */
   overflow: visible;
+  /* And therefore this line, which is the whole of ADR-0144.
+   *
+   * A grid item's automatic minimum size is zero **only when its overflow is
+   * not visible** — so the declaration above, whose subject is a popup, was
+   * also telling the sidebar it may never be shorter than its own tree. With a
+   * long tree the column grew past the window, the row grew with it, and the
+   * result was a second scrollbar on the window, a tree that never scrolled,
+   * and the account picture at the bottom of the rail sitting below the fold.
+   *
+   * Measured at 1440×900 with 200 rows: the sidebar was 6458px tall and the
+   * avatar's bottom edge was at y = 6452. */
+  min-block-size: 0;
 }
 
 @media (min-width: 800px) {
@@ -1620,6 +1675,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* Said, rather than inherited from the line below (ADR-0144). `overflow-y:
+     auto` already zeroes this column's automatic minimum size — so the page
+     was bounded by a declaration about scrolling, and would have stopped being
+     bounded the day somebody had a reason to change it. */
+  min-block-size: 0;
   overflow-y: auto;
   /* The bound for a full-width block.
    *
