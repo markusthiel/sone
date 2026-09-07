@@ -1836,6 +1836,13 @@ export const de: Record<keyof typeof en, string> = {
   'icon.ownColour': 'Eine eigene Farbe',
 
   // --- Anmelden, Registrieren, Ersteinrichtung ---------------------------
+  // Ein Befehl, kein Satz -- gleich in beiden Sprachen, aber im Katalog,
+  // weil sonst Englisch im Markup steht.
+  'auth.setup.keyCommand': 'docker compose logs sone',
+  'auth.setup.key': 'Einrichtungsschlüssel',
+  'auth.setup.keyWhere': 'Der Server hat ihn beim Start ausgegeben: ',
+  'auth.setup.keyLife': 'Er gilt für dieses eine Konto und wechselt bei jedem Neustart.',
+  'error.invalid_setup_key': 'Der Einrichtungsschlüssel stimmt nicht. Er steht im Protokoll des Servers.',
   'auth.setup': 'SONE einrichten',
   'auth.setup.note':
     'Das legt den ersten Workspace und seinen Besitzer an. Es geht nur ein Mal.',

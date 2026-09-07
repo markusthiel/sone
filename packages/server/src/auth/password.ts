@@ -91,7 +91,11 @@ export class AuthError extends Error {
       | 'expired'
       | 'revoked'
       | 'not_found'
-      | 'weak_password',
+      | 'weak_password'
+      // First-run setup only (ADR-0155). Distinct from `invalid_credentials`
+      // because it means something different to the one person who sees it:
+      // the key is in the server log, not in their password manager.
+      | 'invalid_setup_key',
   ) {
     super(message);
     this.name = 'AuthError';

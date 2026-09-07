@@ -132,6 +132,20 @@ export interface AuthDeps {
    */
   signupMode: () => Promise<SignupMode>;
   /**
+   * The key that opens first-run setup (ADR-0155).
+   *
+   * Optional in the type, and **absent means closed**: the route substitutes a
+   * gate that matches nothing. That direction is deliberate. Absent-means-open
+   * would turn one forgotten wiring into the exact hole this closes, and it
+   * would do it silently; absent-means-closed turns the same mistake into "I
+   * cannot set this instance up", which somebody notices in the first minute.
+   *
+   * The twenty-odd route tests that build `AuthDeps` by hand are not testing
+   * setup, and requiring the field would have edited all of them to say the
+   * same thing.
+   */
+  setupGate?: { matches(given: string): boolean; close(): void };
+  /**
    * How the interface addresses somebody, where a language distinguishes it.
    *
    * A function for the same reason `signupMode` is: an administrator changing it
@@ -409,6 +423,17 @@ export async function requireSession(
 }
 
 /** Map an AuthError to a status code. */
+/**
+ * The gate a deployment gets when nobody wired one (ADR-0155).
+ *
+ * Matches nothing. See the note on `AuthDeps.setupGate` for why this direction
+ * and not the other.
+ */
+const CLOSED = {
+  matches: () => false,
+  close: () => {},
+};
+
 function statusFor(err: AuthError): number {
   switch (err.code) {
     case 'rate_limited':
@@ -507,6 +532,7 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       password?: string;
       displayName?: string;
       workspaceName?: string;
+      setupKey?: string;
     }>(ctx);
     if (!body) return;
 
@@ -516,12 +542,19 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
     }
 
     try {
-      const result = await bootstrapInstance(deps.pool, {
-        email: body.email,
-        password: body.password,
-        displayName: body.displayName ?? '',
-        workspaceName: body.workspaceName,
-      });
+      const result = await bootstrapInstance(
+        deps.pool,
+        {
+          email: body.email,
+          password: body.password,
+          displayName: body.displayName ?? '',
+          workspaceName: body.workspaceName,
+        },
+        deps.setupGate ?? CLOSED,
+        // Missing rather than empty is the same answer: the key does not match.
+        // A separate "no key given" would tell a stranger that a key exists.
+        body.setupKey ?? '',
+      );
       // A workspace with no folders cannot hold a page at all, since pages
       // live in folders (ADR-0019) — so a fresh instance would show a "new
       // page" button that refuses. Created after the bootstrap transaction

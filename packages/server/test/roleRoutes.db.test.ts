@@ -19,6 +19,7 @@ import { after, before, describe, test } from 'node:test';
 import type { Pool } from 'pg';
 
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
+import { SetupKey } from '../src/auth/setupKey.js';
 import { registerInvitationRoutes } from '../src/auth/invitationRoutes.js';
 import { registerGroupRoutes } from '../src/pages/groupRoutes.js';
 import { registerRoleRoutes } from '../src/auth/roleRoutes.js';
@@ -60,12 +61,26 @@ describe(
       body: JSON.stringify(body),
     });
 
+    const setupGate = new SetupKey();
+
+    /** A key that is valid right now — the gate is spent by a successful setup. */
+    async function freshKey(): Promise<string> {
+      return (await setupGate.openIfNeeded(db)) ?? '';
+    }
+
     before(async () => {
       db = await getTestPool();
       await resetDatabase(db);
 
       const router = new Router();
       registerAuthRoutes(router, {
+        /*
+         * A gate for this suite, because setup now needs a key (ADR-0155).
+         * An absent gate means closed, which is the right default and
+         * would lock this suite out of the route it uses to create its
+         * instance.
+         */
+        setupGate,
         canSendMail: () => Promise.resolve(false),
         sendResetMail: () => Promise.resolve(),
         sendProviderMail: () => Promise.resolve(),
@@ -104,6 +119,7 @@ describe(
           password: PASSWORD,
           displayName: 'Owner',
           workspaceName: 'W',
+          setupKey: await freshKey(),
         }),
       });
       const body = await expectJson<{ workspaceId: string }>(setup, 201);

@@ -63,6 +63,7 @@ export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
   const [displayName, setDisplayName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
   const [password, setPassword] = useState('');
+  const [setupKey, setSetupKey] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -71,7 +72,7 @@ export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
     setBusy(true);
     setError(null);
     try {
-      await api.setup({ email, password, displayName, workspaceName });
+      await api.setup({ email, password, displayName, workspaceName, setupKey });
       onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -88,6 +89,31 @@ export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
           {t('auth.setup.note')}
         </p>
 
+        {/*
+          Where the key is, before the field that asks for it (ADR-0155).
+          A field for something one cannot find is a dead end with an input in
+          it.
+        */}
+        <p className="muted">
+          {t('auth.setup.keyWhere')}
+          {/* Through the catalogue like everything else: a command in the
+              markup is English on a translated screen, and the i18n guard is
+              right to say so. */}
+          <code className="setup-key-hint">{t('auth.setup.keyCommand')}</code>
+          {t('auth.setup.keyLife')}
+        </p>
+
+        <div className="field">
+          <label htmlFor="key">{t('auth.setup.key')}</label>
+          <input
+            id="key"
+            value={setupKey}
+            onChange={(e) => setSetupKey(e.target.value)}
+            required
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
         <div className="field">
           <label htmlFor="ws">{t('auth.workspaceName')}</label>
           <input

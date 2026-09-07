@@ -697,6 +697,8 @@ export const api = {
     password: string;
     displayName: string;
     workspaceName: string;
+    /** From the server log (ADR-0155). */
+    setupKey: string;
   }) => post<{ userId: string; workspaceId: string }>('/api/auth/setup', input),
 
   /**

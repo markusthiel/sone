@@ -18,6 +18,7 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 import type { Pool } from 'pg';
 
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
+import { SetupKey } from '../src/auth/setupKey.js';
 import { registerPageRoutes } from '../src/http/pages.js';
 import { Router } from '../src/http/router.js';
 import { registerFileRoutes } from '../src/files/routes.js';
@@ -53,6 +54,13 @@ describe(
     let base: string;
     let storageRoot: string;
 
+    const setupGate = new SetupKey();
+
+    /** A key that is valid right now — the gate is spent by a successful setup. */
+    async function freshKey(): Promise<string> {
+      return (await setupGate.openIfNeeded(db)) ?? '';
+    }
+
     before(async () => {
       db = await getTestPool();
       storageRoot = await mkdtemp(path.join(tmpdir(), 'sone-files-'));
@@ -60,6 +68,13 @@ describe(
       const router = new Router();
       registerAuthRoutes(router, {
         pool: db,
+        /*
+         * A gate for this suite, because setup now needs a key (ADR-0155).
+         * An absent gate means closed, which is the right default and
+         * would lock this suite out of the route it uses to create its
+         * instance.
+         */
+        setupGate,
         signupMode: () => Promise.resolve('open' as const),
         secureCookies: false,
         // No relay in these suites: the reset is absent, which is the
@@ -128,6 +143,7 @@ describe(
           password: PASSWORD,
           displayName: 'Owner',
           workspaceName: 'W',
+          setupKey: await freshKey(),
         }),
       );
       const body = await expectJson<{ userId: string; workspaceId: string }>(res, 201);

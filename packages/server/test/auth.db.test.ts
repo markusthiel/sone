@@ -40,6 +40,7 @@ import {
   register,
   revokeInvitation,
 } from '../src/auth/registration.js';
+import { SetupKey, setupBanner } from '../src/auth/setupKey.js';
 import {
   authorizeDocumentOpen,
   effectiveRole,
@@ -457,6 +458,118 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
         }),
       AuthError,
     );
+  });
+
+  /* ── The setup key (ADR-0155) ──────────────────────────────────────── */
+
+  test('a key is minted only while setup is needed', async () => {
+    // seedWorkspace already created one, so this instance is set up.
+    const closed = new SetupKey();
+    assert.equal(await closed.openIfNeeded(db), null);
+    assert.equal(closed.open, false);
+
+    await resetDatabase(db);
+    const open = new SetupKey();
+    const key = await open.openIfNeeded(db);
+    assert.ok(key !== null && key.length >= 30);
+    assert.equal(open.open, true);
+    // The log block carries the key, because a key nobody can read is a lock.
+    assert.match(setupBanner(key), new RegExp(key.replace(/[-_]/g, '\\$&')));
+  });
+
+  test('a wrong or missing key creates nothing', async () => {
+    // The window this closes: between the first successful start and the
+    // moment the operator opens the page, the proxy in front is already
+    // answering on a public name. Reaching the URL first must not be enough.
+    await resetDatabase(db);
+    const gate = new SetupKey();
+    await gate.openIfNeeded(db);
+
+    for (const attempt of ['', 'wrong', 'x'.repeat(32)]) {
+      await assert.rejects(
+        () =>
+          bootstrapInstance(
+            db,
+            {
+              email: 'stranger@example.org',
+              password: PASSWORD,
+              displayName: 'Stranger',
+              workspaceName: 'Mine now',
+            },
+            gate,
+            attempt,
+          ),
+        (err: unknown) =>
+          err instanceof AuthError && err.code === 'invalid_setup_key',
+        JSON.stringify(attempt),
+      );
+    }
+
+    const left = await db.query<{ n: string }>(`SELECT count(*)::text AS n FROM workspaces`);
+    assert.equal(left.rows[0]?.n, '0', 'nothing was created');
+  });
+
+  test('the right key sets the instance up, and is then spent', async () => {
+    await resetDatabase(db);
+    const gate = new SetupKey();
+    const key = await gate.openIfNeeded(db);
+    const result = await bootstrapInstance(
+      db,
+      {
+        email: 'root@example.org',
+        password: PASSWORD,
+        displayName: 'Root',
+        workspaceName: 'My workspace',
+      },
+      gate,
+      key!,
+    );
+    assert.ok(result.workspaceId);
+    assert.equal(gate.open, false, 'spent with the first account');
+
+    // And the same key does not work twice — the database answers first, so a
+    // live instance says "already set up" rather than confirming that a key
+    // would have been accepted.
+    await assert.rejects(
+      () =>
+        bootstrapInstance(
+          db,
+          {
+            email: 'second@example.org',
+            password: PASSWORD,
+            displayName: 'Second',
+            workspaceName: 'Also mine',
+          },
+          gate,
+          key!,
+        ),
+      (err: unknown) => err instanceof AuthError && err.code === 'invalid_credentials',
+    );
+  });
+
+  test('an already-set-up instance answers the same to every key', async () => {
+    // The order inside bootstrapInstance is database first, key second.
+    // Reversed, a wrong key here would answer `invalid_setup_key` and so
+    // confirm that setup was still open.
+    const gate = new SetupKey();
+    await gate.openIfNeeded(db);
+    for (const attempt of ['', 'wrong']) {
+      await assert.rejects(
+        () =>
+          bootstrapInstance(
+            db,
+            {
+              email: 'later@example.org',
+              password: PASSWORD,
+              displayName: 'Later',
+              workspaceName: 'Nope',
+            },
+            gate,
+            attempt,
+          ),
+        (err: unknown) => err instanceof AuthError && err.code === 'invalid_credentials',
+      );
+    }
   });
 
   test('bootstrap creates owner and workspace on a fresh instance', async () => {

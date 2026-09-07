@@ -15,6 +15,7 @@ import type { Pool } from 'pg';
 import { SCHEMA_VERSION } from '@sone/core';
 
 import { registerAuthRoutes, SESSION_COOKIE, parseCookies } from '../src/http/auth.js';
+import { SetupKey } from '../src/auth/setupKey.js';
 import { createHash } from 'node:crypto';
 
 import { documentIdsFor } from '../src/doc/deleteDocuments.js';
@@ -52,11 +53,32 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
   let server: Server;
   let base: string;
 
+  const setupGate = new SetupKey();
+
+  /**
+   * A key that is valid right now.
+   *
+   * Minted per call rather than once, because `openIfNeeded` only mints while
+   * no workspace exists — which is exactly when a setup is about to happen —
+   * and because the gate is spent by a successful one.
+   */
+  async function freshKey(): Promise<string> {
+    return (await setupGate.openIfNeeded(db)) ?? '';
+  }
+
   before(async () => {
     db = await getTestPool();
     const router = new Router();
     registerAuthRoutes(router, {
       pool: db,
+      /*
+       * A gate for this suite, because setup now needs a key (ADR-0155).
+       *
+       * An absent gate means closed, which is the right default and would lock
+       * this suite out of the route it uses to create its instance. So the
+       * suite holds one and mints a key from it just before each setup.
+       */
+      setupGate,
       /*
        * A relay, for this suite only.
        *
@@ -201,6 +223,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
         password: PASSWORD,
         displayName: 'Owner',
         workspaceName: 'Test workspace',
+        setupKey: await freshKey(),
       }),
     });
     await expectStatus(res, 201);
@@ -866,9 +889,14 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
         email: 'second@example.org',
         password: PASSWORD,
         workspaceName: 'Another',
+        // A key is offered and still refused: the database is checked before
+        // the key (ADR-0155), so a live instance answers the same to
+        // everybody rather than confirming that setup was still open.
+        setupKey: await freshKey(),
       }),
     );
     assert.equal(res.status, 401);
+    assert.deepEqual(await res.json(), { error: 'invalid_credentials' });
   });
 
   test('the session cookie is HttpOnly and SameSite=Lax', async () => {
@@ -877,7 +905,12 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     // Strict so a shared link opened from an email arrives authenticated.
     const res = await fetch(
       `${base}/api/auth/setup`,
-      json({ email: 'o@example.org', password: PASSWORD, workspaceName: 'W' }),
+      json({
+        email: 'o@example.org',
+        password: PASSWORD,
+        workspaceName: 'W',
+        setupKey: await freshKey(),
+      }),
     );
     const header = res.headers.get('set-cookie') ?? '';
     assert.match(header, /HttpOnly/);

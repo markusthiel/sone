@@ -1742,6 +1742,13 @@ export const en = {
   'icon.ownColour': 'A colour of your own',
 
   // --- signing in, signing up, first-run setup ---------------------------
+  // A command, not a sentence -- same in both languages, but in the
+  // catalogue, because otherwise it is English in the markup.
+  'auth.setup.keyCommand': 'docker compose logs sone',
+  'auth.setup.key': 'Setup key',
+  'auth.setup.keyWhere': 'The server printed it at startup: ',
+  'auth.setup.keyLife': 'It is good for this one account and changes on every restart.',
+  'error.invalid_setup_key': 'The setup key does not match. It is in the server log.',
   'auth.setup': 'Set up SONE',
   'auth.setup.note': 'This creates the first workspace and its owner. It can only be done once.',
   'auth.workspaceName': 'Workspace name',
