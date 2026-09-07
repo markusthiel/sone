@@ -21,6 +21,16 @@ hat, liegt eine Markierung auf der Seite, in derselben Farbe wie eine
 kommentierte Stelle im Fließtext. Die Markierung sitzt richtig, egal wie breit
 die Spalte gerade ist.
 
+**Und das Ganze als Datei mitnehmen.** Über der Seitenzahl im PDF steht jetzt
+ein Pfeil: er erzeugt eine Kopie des Dokuments, in der die Markierungen und
+Kommentare als echte PDF-Anmerkungen stehen — lesbar in Acrobat, in der Vorschau,
+überall. Kommentierte Stellen bringen das Gespräch als Notiz mit (zugeklappt,
+damit sie den Text nicht verdecken), bloß markierte Stellen bringen nichts mit.
+Die Farbe ist die, die gerade auf dem Bildschirm zu sehen ist. Die Kopie heißt
+wie das Original mit „mit Markierungen" dahinter, und das Original bleibt Byte
+für Byte darin stehen — angehängt, nicht neu geschrieben. Der Knopf erscheint
+nur, wenn es etwas einzutragen gibt.
+
 **Und markieren, ohne etwas dazu zu sagen.** Neben *Kommentieren* steht jetzt
 *Markieren*: der Textmarker, ohne Faden. Wo schon markiert ist, heißt derselbe
 Knopf *Markierung entfernen* — die Stelle noch einmal auswählen genügt, ungefähr

@@ -16,8 +16,10 @@
  * import stays dynamic, because a static one would be an invisible regression.
  */
 
-import { isPlace, type PdfMark, type PdfPlace, type PlaceRect } from '@sone/core';
+import { isPlace, type CommentThread, type PdfMark, type PdfPlace, type PlaceRect } from '@sone/core';
 
+import { resolvedColor } from '../lib/computedColor.ts';
+import { burnMarks, conversationText, type Burnable, type BurnableMark } from '../lib/pdfBurn.ts';
 import { linesOf, touches } from '../lib/pdfPlace.ts';
 import { subscribeToPdfMarks, subscribeToThreads } from '../lib/threadAnnouncement.ts';
 
@@ -43,6 +45,10 @@ interface ViewerLabels {
   unmark: string;
   /** What a plain mark says it is, having nothing else to say. */
   marked: string;
+  /** The copy with the marks written into it (ADR-0154). */
+  download: string;
+  /** And what that copy is called, beside the original's name. */
+  markedSuffix: string;
 }
 
 /**
@@ -75,6 +81,18 @@ export interface ViewerSubject {
    * (ADR-0046). The pair is offered together or not at all.
    */
   mayMark: boolean;
+  /** What the file is called, for the copy somebody downloads (ADR-0154). */
+  filename: string;
+  /**
+   * Who an author id belongs to, for the notes in that copy.
+   *
+   * A function rather than a list, and read at the moment of a save: the viewer
+   * is built once and the workspace's people arrive over HTTP afterwards. A
+   * name nobody knows comes back empty, and the note leaves it off rather than
+   * writing "Unknown" — that would be a fact about our records, not about the
+   * document.
+   */
+  nameOf: (author: string) => string;
 }
 
 interface PageShape {
@@ -101,7 +119,7 @@ export function mountPdfViewer(
   labels: ViewerLabels,
   what: ViewerSubject,
 ): PdfViewerHandle {
-  const { fileId, mayMark } = what;
+  const { fileId, mayMark, filename, nameOf } = what;
   container.className = 'pdf-viewer';
   container.textContent = '';
 
@@ -154,7 +172,26 @@ export function mountPdfViewer(
   // Polite, so a screen reader says "page 4 of 12" when somebody pages rather
   // than interrupting whatever it was reading.
   indicator.setAttribute('aria-live', 'polite');
-  bar.append(indicator, back, forward);
+  /**
+   * A copy of the file with the marks in it (ADR-0154).
+   *
+   * In the bar rather than in the block's own row of controls, and beside the
+   * page count: this is a thing about *this document as it is being read*, and
+   * the row below the viewer is about the file as an attachment.
+   *
+   * Hidden until there is something to write. A button that produces an
+   * identical copy of the file is a button that has nothing to do, and offering
+   * it is a small promise broken every time somebody presses it.
+   */
+  const download = document.createElement('button');
+  download.type = 'button';
+  download.className = 'pdf-step pdf-download';
+  download.setAttribute('aria-label', labels.download);
+  download.title = labels.download;
+  download.textContent = '\u2913';
+  download.hidden = true;
+
+  bar.append(indicator, download, back, forward);
 
   let cancelled = false;
   let observer: IntersectionObserver | null = null;
@@ -194,7 +231,8 @@ export function mountPdfViewer(
    * internal marks vanishing every time somebody replied in public, and the
    * other way round.
    */
-  const byDoc = new Map<string, Map<number, PlaceRect[][]>>();
+  const byDoc = new Map<string, CommentThread[]>();
+  const everyThread = (): CommentThread[] => [...byDoc.values()].flat();
 
   /**
    * And the plain marks, per document, kept whole rather than by page.
@@ -208,10 +246,9 @@ export function mountPdfViewer(
 
   const placesOn = (number: number): Drawn[] => {
     const all: Drawn[] = [];
-    for (const perPage of byDoc.values()) {
-      for (const rects of perPage.get(number) ?? []) {
-        all.push({ rects, kind: 'comment', title: labels.commented });
-      }
+    for (const thread of everyThread()) {
+      if (thread.place?.page !== number) continue;
+      all.push({ rects: thread.place.rects, kind: 'comment', title: labels.commented });
     }
     for (const mark of everyMark()) {
       if (mark.place.page !== number) continue;
@@ -268,18 +305,20 @@ export function mountPdfViewer(
     for (const slot of pages.querySelectorAll<HTMLElement>('.pdf-page')) {
       drawMarks(slot, Number(slot.dataset['page'] ?? '0'));
     }
+    // The same news changes both: a page with nothing marked has nothing to
+    // offer a copy of (ADR-0154).
+    offerTheCopy();
   };
 
   const stopThreads = subscribeToThreads(({ doc, threads }) => {
-    const perPage = new Map<number, PlaceRect[][]>();
-    for (const thread of threads) {
-      const place = thread.place;
+    byDoc.set(
+      doc,
       // This file's, and still open. A resolved thread keeps its place in the
       // panel and loses its mark, which is the rule the text already follows.
-      if (!place || thread.resolved || place.file !== fileId) continue;
-      perPage.set(place.page, [...(perPage.get(place.page) ?? []), place.rects]);
-    }
-    byDoc.set(doc, perPage);
+      threads.filter(
+        (thread) => !thread.resolved && thread.place !== null && thread.place.file === fileId,
+      ),
+    );
     redrawEverything();
   });
   cleanups.push(() => stopThreads());
@@ -458,6 +497,75 @@ export function mountPdfViewer(
   });
 
   /*
+   * ---- A copy with the marks in it (ADR-0154) --------------------------------
+   */
+
+  /** The open document, once there is one. Nothing can be written before that. */
+  let burnable: Burnable | null = null;
+  /** The keys a previous save wrote, so a second one replaces rather than adds. */
+  let written: string[] = [];
+
+  /** Everything this file carries, in the shape the writer takes. */
+  const whatToWrite = (): BurnableMark[] => [
+    ...everyThread().map((thread) => ({
+      page: thread.place!.page,
+      rects: thread.place!.rects,
+      contents: conversationText(thread.messages, nameOf),
+      ...(thread.messages[0] ? { author: nameOf(thread.messages[0].author) } : {}),
+    })),
+    ...everyMark().map((mark) => ({ page: mark.place.page, rects: mark.place.rects })),
+  ];
+
+  /** Offered only when there is something to write; see the button above. */
+  const offerTheCopy = (): void => {
+    download.hidden = burnable === null || whatToWrite().length === 0;
+  };
+
+  download.addEventListener('click', () => {
+    if (!burnable) return;
+    void (async () => {
+      download.disabled = true;
+      try {
+        /*
+         * The accent as the reader is seeing it.
+         *
+         * Not a fixed colour: somebody who has been looking at green marks all
+         * afternoon should not open the copy and find yellow ones. Not the
+         * stored theme either — a treated surface redefines the same name
+         * (ADR-0122), so the only honest answer is what the browser resolved
+         * *inside this viewer*.
+         */
+        const accent = resolvedColor(container, '--accent') ?? { r: 47, g: 125, b: 111 };
+        const { bytes, keys } = await burnMarks(burnable!, whatToWrite(), {
+          color: [accent.r, accent.g, accent.b],
+          previous: written,
+        });
+        written = keys;
+
+        const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
+        const link = document.createElement('a');
+        link.href = url;
+        // Named beside the original rather than over it: two files in a
+        // downloads folder with one name is a pair nobody can tell apart.
+        link.download = filename.replace(/(\.pdf)?$/i, ` ${labels.markedSuffix}.pdf`);
+        link.click();
+        // Freed on the next turn: revoking it in the same one has cancelled the
+        // download in more than one browser.
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch (error) {
+        // Said out loud, for ADR-0150's reason: a button that does nothing and
+        // explains nothing is an afternoon somebody else loses.
+        console.warn(
+          'SONE: this PDF could not be copied with its marks',
+          error instanceof Error ? error.message : error,
+        );
+      } finally {
+        download.disabled = false;
+      }
+    })();
+  });
+
+  /*
    * Shown when a selection is finished, hidden the moment it changes.
    *
    * `selectionchange` alone would put the button under the pointer on every
@@ -511,6 +619,8 @@ export function mountPdfViewer(
 
       const doc = await task.promise;
       if (cancelled) return;
+      burnable = doc as unknown as Burnable;
+      offerTheCopy();
 
       status.remove();
       container.append(bar, pages);

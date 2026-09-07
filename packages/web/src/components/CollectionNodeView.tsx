@@ -174,7 +174,7 @@ export const soneNodeViews = (
    * a word and this is a right. It reaches the PDF viewer, which offers the
    * highlighter only to somebody who could actually take a mark off again.
    */
-  abilities: FileViewAbilities = { mayMark: false },
+  abilities: FileViewAbilities = { mayMark: false, nameOf: () => '' },
 ): EditorView['props']['nodeViews'] => ({
   collectionView: (node, view, getPos) =>
     new CollectionNodeView(node as unknown as PMNodeLike, () => {
