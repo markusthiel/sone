@@ -1166,7 +1166,10 @@ test('a detached thread keeps its place and its words', () => {
   // separate chance to say "the text this was about has been deleted" about a
   // thread that was never text. One sentence, one home.
   assert.match(panel, /data-detached=\{isDetached\(thread\) \? 'true' : undefined\}/);
-  assert.match(panel, /disabled=\{isDetached\(thread\)\}/);
+  // And a place whose document has gone from the page (ADR-0155): not
+  // "detached" — it was never text and has not been rewritten — but equally
+  // nowhere to go.
+  assert.match(panel, /disabled=\{isDetached\(thread\) \|\| !subjectShown\}/);
   assert.match(css, /\.comment-thread\[data-detached='true'\] \{ border-style: dashed; \}/);
 });
 
@@ -1980,7 +1983,10 @@ test('a canvas item can be commented on, from its own menu', () => {
   // pointed at is gone, while an item comment has no range by design — the same
   // test would have struck through every canvas thread. The sentence lives in
   // `isDetached` now, in the core, beside the shape it is about (ADR-0151).
-  assert.match(panel, /disabled=\{isDetached\(thread\)\}/);
+  // And a place whose document has gone from the page (ADR-0155): not
+  // "detached" — it was never text and has not been rewritten — but equally
+  // nowhere to go.
+  assert.match(panel, /disabled=\{isDetached\(thread\) \|\| !subjectShown\}/);
 });
 
 test('a relation asks where it points, in a second step', () => {

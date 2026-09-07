@@ -1686,6 +1686,7 @@ export const de: Record<keyof typeof en, string> = {
   'comment.start': 'Kommentieren',
   'comment.aboutItem': 'Zu einem Element auf der Fläche',
   'comment.aboutPlace': 'Auf Seite {page} des Dokuments',
+  'comment.placeGone': 'Das Dokument, um das es ging, wird auf dieser Seite nicht mehr gezeigt.',
   'comment.startPlaceholder': 'Was ist damit?',
   'panel.guest': 'Gast',
   'panel.guestWriting':
