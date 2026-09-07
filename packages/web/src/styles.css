@@ -482,6 +482,74 @@
   --sone-space-6: 16px;
   --sone-space-7: 24px;
 
+}
+
+/* ---------------------------------------------------------------------------
+ * Density (ADR-0140)
+ *
+ * How tightly the interface is packed, per browser — a property of the screen
+ * and the pointer rather than of the person or the workspace, which is the
+ * argument `useAppearance` already makes about the text scales.
+ *
+ * **Expressed as a shift along the scale, not as a multiplier.** `calc(2px *
+ * 0.75)` is 1.5px, and half a pixel is a hairline the browser rounds somewhere
+ * different on every zoom level. Compact means each of the larger spaces takes
+ * the value of the step below it, which is a step by construction and stays a
+ * whole number.
+ *
+ * **The two smallest steps do not move.** 2px and 4px are a hairline and a
+ * hair's breadth; there is no denser version of them, and a compact 1px gap is
+ * a gap somebody has to be told is there.
+ *
+ * **`--sone-tap` never moves, in any density.** It is 44px because that is the
+ * smallest target reliably hittable with a thumb — a floor from outside this
+ * design, not a taste — and a density that shrank it would be a density that
+ * makes the interface unusable rather than one that makes it tighter. The
+ * compact *row* is a different size and does move: its hit area is padded past
+ * its box, which is what the scale's own note says about it.
+ *
+ * **And compact stops where a finger is the pointer**, which is the rule the
+ * collection table already wrote for its own row heights:
+ *
+ * > A tap target is a tap target: on a touch device the smallest level still
+ * > has to be hittable, so compact stops shrinking where a finger is the
+ * > pointer.
+ *
+ * That is a better rule than refusing to move one token, and it is the reason
+ * this setting belongs to the browser rather than to the account: the browser
+ * is where the pointer is. A phone that syncs "compact" from a desktop and then
+ * honours it is a phone nobody can tap.
+ *
+ * The collection table's own `data-density` is a different setting with the
+ * same word: the row height of one view, chosen per collection. It is scoped to
+ * the table, this one to the root, and the two compound — a compact table in a
+ * compact interface is tighter still, which is what somebody asking for both
+ * means.
+ * ------------------------------------------------------------------------- */
+:root[data-density='compact'] {
+  --sone-space-5: 8px;
+  --sone-space-6: 12px;
+  --sone-space-7: 16px;
+  --sone-control-lg: 30px;
+}
+
+/* Where a finger is the pointer, compact is not compact. Only the sizes go
+   back: the *spacing* may be tight on a phone, and often should be — it is the
+   things being pointed at that have a floor. */
+@media (pointer: coarse) {
+  :root[data-density='compact'] {
+    --sone-control-lg: 34px;
+  }
+}
+
+:root[data-density='comfortable'] {
+  --sone-space-5: 16px;
+  --sone-space-6: 24px;
+  --sone-space-7: 32px;
+  --sone-control-lg: 38px;
+}
+
+:root {
   /* Radii follow the control they sit on: a small control with a large radius
      reads as a pill by accident. */
   --sone-radius-sm: 2px;
@@ -702,7 +770,7 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 button.quiet {
   border-color: transparent;
   background: transparent;
-  padding-inline: 8px;
+  padding-inline: var(--sone-space-4);
 }
 button.quiet:hover { background: var(--sone-bg-hover); }
 
@@ -732,7 +800,7 @@ textarea {
   color: inherit;
   width: 100%;
   min-height: var(--sone-tap);
-  padding: 8px 12px;
+  padding: var(--sone-space-4) var(--sone-space-5);
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius);
   background: var(--surface-sunken);
@@ -880,7 +948,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .panel-action {
   font-size: var(--sone-text-xs);
   font-weight: 600;
-  padding: 4px 8px;
+  padding: var(--sone-space-2) var(--sone-space-4);
 }
 
 /* The Workspaces mode's chooser, under the mode's own name (ADR-0070).
@@ -902,10 +970,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .panel-body {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 8px 12px 12px;
+  padding: var(--sone-space-4) var(--sone-space-5) var(--sone-space-5);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sone-space-2);
 }
 
 /* Looking for something in a menu of thirty deletions (ADR-0071).
@@ -1162,7 +1230,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
     align-items: center;
     justify-content: center;
     gap: 3px;
-    padding-block: 6px;
+    padding-block: var(--sone-space-3);
     color: var(--text-secondary);
     text-decoration: none;
   }
@@ -1456,7 +1524,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   gap: var(--sone-space-3);
   min-height: var(--sone-control-lg);
   margin-block-end: 6px;
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   border-radius: var(--sone-radius);
   color: var(--sone-text-muted);
   /* Smaller than a page entry on purpose: it is navigation, not content, and at
@@ -1472,7 +1540,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .tree-row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--sone-space-1);
   min-height: 34px;
   /* The frame both of the row's menus hang off.
    *
@@ -1512,7 +1580,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .tree-link {
   flex: 1;
   min-width: 0;
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   border-radius: var(--sone-radius);
   color: var(--sone-text);
   overflow: hidden;
@@ -1581,8 +1649,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
      break onto three lines and take the row's height with it, so losing the
      connection also rearranged the page. */
   flex-wrap: nowrap;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--sone-space-4);
+  padding: var(--sone-space-4) var(--sone-space-5);
   position: sticky;
   inset-block-start: 0;
   /* Furniture, with the sidebar and the right panel. It is sticky, so the text
@@ -1744,7 +1812,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
  */
 .entry-cover-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--sone-space-3);
   padding-inline-start: var(--sone-text-indent);
   margin-block-end: 6px;
   opacity: 0;
@@ -1786,7 +1854,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   inset-inline-end: 0;
   z-index: 20;
   inline-size: 250px;
-  padding: 12px;
+  padding: var(--sone-space-5);
   border-radius: 10px;
   border: 1px solid var(--sone-border, rgba(0, 0, 0, 0.12));
   background: var(--sone-surface, #fff);
@@ -1815,7 +1883,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .entry-cover-swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--sone-space-3);
 }
 
 .entry-cover-swatch,
@@ -1952,7 +2020,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   max-width: 24rem;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sone-space-5);
 }
 
 /* A labelled control.
@@ -2235,7 +2303,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    indistinguishable from an empty one. */
 .ProseMirror .sone-toggle-count {
   font-size: 0.7rem;
-  padding-inline: 4px;
+  padding-inline: var(--sone-space-2);
   border-radius: 8px;
   background: var(--sone-bg-hover);
   color: var(--sone-text-muted);
@@ -2279,7 +2347,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .ProseMirror [data-block='image'] img { max-width: 100%; border-radius: var(--sone-radius); }
 
 .ProseMirror [data-block='collectionView'] {
-  padding: 12px;
+  padding: var(--sone-space-5);
   border: 1px dashed var(--sone-border);
   border-radius: var(--sone-radius);
   color: var(--sone-text-muted);
@@ -2321,7 +2389,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   inset-inline-start: -2px;
   font-size: 0.7rem;
   line-height: 1.4;
-  padding-inline: 4px;
+  padding-inline: var(--sone-space-2);
   border-radius: 3px;
   color: #fff;
   white-space: nowrap;
@@ -2414,7 +2482,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
  * capitalised. No underline — it is not a link, and nothing happens when you
  * press it. */
 .mention {
-  padding: 0 2px;
+  padding: 0 var(--sone-space-1);
   border-radius: var(--sone-radius-sm);
   /* Mixed from the accent rather than a colour of its own: a workspace sets
      its accent (ADR-0028) and a name marked in a fixed blue would be the one
@@ -2428,12 +2496,12 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 .slash-group + .slash-group {
   margin-block-start: 4px;
-  padding-block-start: 4px;
+  padding-block-start: var(--sone-space-2);
   border-block-start: 1px solid var(--sone-border);
 }
 
 .slash-group-label {
-  padding: 4px 8px;
+  padding: var(--sone-space-2) var(--sone-space-4);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -2742,7 +2810,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    everything, and narrow: it is a list of names, not a panel. */
 .formula-suggestions {
   margin: 2px 0 0;
-  padding: 4px;
+  padding: var(--sone-space-2);
   max-block-size: 180px;
   overflow-y: auto;
   border: 1px solid var(--border-default);
@@ -2753,7 +2821,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .formula-suggestions button {
   inline-size: 100%;
-  padding: 4px 8px;
+  padding: var(--sone-space-2) var(--sone-space-4);
   border: 0;
   border-radius: var(--sone-radius-sm);
   background: transparent;
@@ -2772,7 +2840,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 .formula-input {
   inline-size: 100%;
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   border: 1px solid var(--border-default);
   border-radius: var(--sone-radius-sm);
   background: var(--surface);
@@ -2814,7 +2882,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .relation-chip {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--sone-space-1);
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--surface-sunken);
@@ -2825,7 +2893,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .relation-remove,
 .relation-add {
   border: 0;
-  padding: 0 2px;
+  padding: 0 var(--sone-space-1);
   background: transparent;
   color: var(--sone-text-muted);
   cursor: pointer;
@@ -2853,7 +2921,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .relation-search {
   inline-size: 100%;
   margin-block-end: var(--sone-space-2);
-  padding: 4px 6px;
+  padding: var(--sone-space-2) var(--sone-space-3);
   border: 1px solid var(--border-default);
   border-radius: var(--sone-radius-sm);
   background: var(--surface);
@@ -2862,7 +2930,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .relation-option {
   inline-size: 100%;
-  padding: 4px 6px;
+  padding: var(--sone-space-2) var(--sone-space-3);
   border: 0;
   border-radius: var(--sone-radius-sm);
   background: transparent;
@@ -2902,7 +2970,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .inbox-list a {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sone-space-1);
   /* The row is a link and a button side by side (ADR-0071), so the link takes
      the width that is left and the button sits at its end. */
   flex: 1 1 auto;
@@ -2951,7 +3019,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    not exist on a phone (ADR-0016). */
 .inbox-mark {
   flex: none;
-  padding: 4px 8px;
+  padding: var(--sone-space-2) var(--sone-space-4);
   font-size: var(--sone-text-xs);
   color: var(--sone-text-muted);
 }
@@ -3106,14 +3174,14 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .search-facet-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--sone-space-2);
 }
 
 .search-facet-tag {
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
-  padding: 2px 8px;
+  padding: var(--sone-space-1) var(--sone-space-4);
   border: 1px solid var(--sone-border);
   border-radius: 999px;
   background: transparent;
@@ -3185,7 +3253,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .search-facet-date {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sone-space-1);
   font-size: var(--sone-text-sm);
   color: var(--sone-text-muted);
 }
@@ -3226,7 +3294,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .search-name {
   flex: 1;
   min-inline-size: 160px;
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   border: 1px solid var(--border-default);
   border-radius: var(--sone-radius-sm);
   background: var(--surface);
@@ -3244,7 +3312,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   margin-block: var(--sone-space-3);
 }
 .search-chip {
-  padding: 2px var(--sone-space-3);
+  padding: var(--sone-space-1) var(--sone-space-3);
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
   background: var(--surface-sunken);
@@ -3424,7 +3492,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
    text: it is about the task rather than in it. */
 .todo-assignee {
   margin-inline-start: var(--sone-space-2);
-  padding: 0 6px;
+  padding: 0 var(--sone-space-3);
   border-radius: 999px;
   background: var(--surface-sunken);
   color: var(--sone-text-muted);
@@ -3434,7 +3502,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 
 .block-assignee {
   inline-size: 100%;
-  padding: 4px 6px;
+  padding: var(--sone-space-2) var(--sone-space-3);
   border: 1px solid var(--border-default);
   border-radius: var(--sone-radius-sm);
   background: var(--surface);
@@ -3500,7 +3568,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   position: absolute;
   z-index: 3;
   min-inline-size: 18px;
-  padding: 0 4px;
+  padding: 0 var(--sone-space-2);
   border-radius: 9px;
   background: var(--accent);
   color: var(--accent-contrast);
@@ -3643,9 +3711,9 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .comment-fold {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--sone-space-1);
   flex: none;
-  padding: 2px;
+  padding: var(--sone-space-1);
   border: 0;
   border-radius: var(--sone-radius-sm);
   background: transparent;
@@ -3710,7 +3778,7 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   position: absolute;
   inset-block-start: 0;
   inset-inline-end: 0;
-  padding: 2px;
+  padding: var(--sone-space-1);
   border: 0;
   border-radius: var(--sone-radius-sm);
   background: transparent;
@@ -4001,8 +4069,8 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .canvas-handle {
   position: absolute;
   display: flex;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--sone-space-1);
+  padding: var(--sone-space-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius);
   background: var(--surface-overlay);
@@ -4167,7 +4235,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   /* Labels size to content, values take the rest — so a long email does not
      push the labels into two lines. */
   grid-template-columns: max-content 1fr;
-  gap: 6px 16px;
+  gap: var(--sone-space-3) var(--sone-space-6);
   margin: 0;
 }
 .settings-list dt { color: var(--sone-text-muted); font-size: 0.9rem; }
@@ -4191,7 +4259,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 .settings-list.explained dd {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sone-space-1);
   margin-block-start: 2px;
   padding-block-end: var(--sone-space-3);
   border-block-end: 1px solid var(--border-subtle);
@@ -4213,7 +4281,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 }
 
 .sidebar-version {
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   font-size: 0.75rem;
   color: var(--sone-text-muted);
   font-variant-numeric: tabular-nums;
@@ -4378,7 +4446,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 
 .block-menu-note {
   margin: 0;
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   font-size: 0.78rem;
   color: var(--sone-text-muted);
   border-block-end: 1px solid var(--sone-border);
@@ -4386,13 +4454,13 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 
 .block-menu-group {
   margin-block-start: 4px;
-  padding-block-start: 4px;
+  padding-block-start: var(--sone-space-2);
   border-block-start: 1px solid var(--sone-border);
 }
 
 .block-menu-label {
   margin: 0;
-  padding: 4px 8px;
+  padding: var(--sone-space-2) var(--sone-space-4);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -4409,7 +4477,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
  */
 .block-menu-actions {
   display: flex;
-  gap: 2px;
+  gap: var(--sone-space-1);
   padding: var(--sone-space-1);
   border-block-end: 1px solid var(--border-subtle);
 }
@@ -4483,7 +4551,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   font: inherit;
   cursor: pointer;
   min-block-size: 0;
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
 }
 .tree-row[data-kind='folder'] .tree-link { font-weight: 550; }
 
@@ -4515,7 +4583,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
   /* The same inset as the search field below it. It was 4px/6px against the
      field's 6px/8px, which is two pixels of misalignment — invisible to
      measure and visible to look at. */
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   font-size: inherit;
 }
 
@@ -4570,7 +4638,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
    * the width is what makes five of them fit — the space is bought back several
    * times over. */
   inline-size: 232px;
-  padding: 4px;
+  padding: var(--sone-space-2);
   /* One treatment for everything that floats: the overlay surface, a subtle
      border, and a lift.
      *
@@ -4609,7 +4677,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
  */
 .entry-menu-band {
   margin-block-end: 4px;
-  padding: 2px;
+  padding: var(--sone-space-1);
   border-radius: var(--sone-radius);
   background: var(--surface-sunken);
 }
@@ -4620,8 +4688,8 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
    the word survives as the tooltip and the accessible label. */
 .entry-menu-actions {
   display: flex;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--sone-space-1);
+  padding: var(--sone-space-1);
 }
 .entry-menu-action {
   flex: 1 1 0;
@@ -4775,7 +4843,7 @@ select {
   /* The same inset as the search field below it. It was 4px/6px against the
      field's 6px/8px — two pixels, which is invisible to measure and visible to
      look at, because the eye compares the two left edges and not the numbers. */
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
@@ -4946,7 +5014,7 @@ select {
 
 .switcher-footer {
   margin-block-start: 4px;
-  padding-block-start: 4px;
+  padding-block-start: var(--sone-space-2);
   border-block-start: 1px solid var(--sone-border);
 }
 
@@ -5086,8 +5154,8 @@ select {
 .right-tabs {
   display: flex;
   flex: none;
-  gap: 2px;
-  padding: 8px;
+  gap: var(--sone-space-1);
+  padding: var(--sone-space-4);
   border-block-end: 1px solid var(--sone-border);
 }
 
@@ -5103,7 +5171,7 @@ select {
   justify-content: center;
   flex: 1;
   min-block-size: 32px;
-  padding: 4px;
+  padding: var(--sone-space-2);
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
@@ -5221,7 +5289,7 @@ select {
 .asset-list li {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--sone-space-1);
 }
 
 .asset-row {
@@ -5231,7 +5299,7 @@ select {
   flex: 1 1 auto;
   min-inline-size: 0;
   min-block-size: 34px;
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   border-radius: var(--sone-radius);
   color: var(--sone-text);
   font-size: var(--sone-text-sm);
@@ -5292,7 +5360,7 @@ select {
 .asset-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 6px;
+  gap: var(--sone-space-3);
 }
 .asset-thumb {
   display: block;
@@ -5327,8 +5395,8 @@ select {
 
 .outline-entry {
   min-block-size: 30px;
-  padding-block: 4px;
-  padding-inline-end: 8px;
+  padding-block: var(--sone-space-2);
+  padding-inline-end: var(--sone-space-4);
   border: 0;
   border-radius: var(--sone-radius);
   background: transparent;
@@ -5413,7 +5481,7 @@ select {
   /* Roomier than a dense list. Rows that touch each other read as a block of
      text rather than as separate things. */
   min-height: 32px;
-  padding-inline-end: 2px;
+  padding-inline-end: var(--sone-space-1);
 }
 
 .tree-link {
@@ -5490,7 +5558,7 @@ select {
   align-items: center;
   gap: 10px;
   min-block-size: 42px;
-  padding: 6px 8px;
+  padding: var(--sone-space-3) var(--sone-space-4);
   border-radius: var(--sone-radius);
   color: var(--sone-text);
 }
@@ -5506,8 +5574,8 @@ select {
   z-index: 44;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
+  gap: var(--sone-space-1);
+  padding: var(--sone-space-2);
   border: 1px solid var(--sone-border);
   border-radius: 8px;
   background: var(--sone-bg);
@@ -5517,7 +5585,7 @@ select {
 .toolbar-button {
   min-inline-size: var(--sone-control-lg);
   min-block-size: var(--sone-control-lg);
-  padding-inline: 6px;
+  padding-inline: var(--sone-space-3);
   border: 0;
   border-radius: 5px;
   background: transparent;
@@ -5541,7 +5609,7 @@ select {
 .link-editor input {
   inline-size: 200px;
   min-block-size: 30px;
-  padding: 4px 8px;
+  padding: var(--sone-space-2) var(--sone-space-4);
   font-size: 0.85rem;
 }
 .link-editor button {
@@ -5562,7 +5630,7 @@ select {
 /* An upload in flight, and one that failed. Both are drawn, because a block
    that renders as nothing looks like content that was lost. */
 .ProseMirror [data-block='image'][data-state] {
-  padding: 12px;
+  padding: var(--sone-space-5);
   border: 1px dashed var(--sone-border);
   border-radius: var(--sone-radius);
   font-size: 0.85rem;
@@ -5608,7 +5676,7 @@ select {
   overflow-x: auto;
   /* Room for the scrollbar the overflow may produce, so it does not sit over the
      last row's border. */
-  padding-block-end: 2px;
+  padding-block-end: var(--sone-space-1);
 }
 
 /* Wider than the column, so the scrollbar has something to scroll.
@@ -5709,7 +5777,7 @@ select {
 
 .tasks-label {
   margin: 12px 8px 4px;
-  padding-block-start: 8px;
+  padding-block-start: var(--sone-space-4);
   border-block-start: 1px solid var(--sone-border);
   font-size: 0.72rem;
   font-weight: 600;
@@ -5721,10 +5789,10 @@ select {
 .task-row {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--sone-space-4);
   min-block-size: 32px;
   padding-block: 5px;
-  padding-inline-end: 4px;
+  padding-inline-end: var(--sone-space-2);
   border-radius: var(--sone-radius);
   font-size: 0.85rem;
   line-height: 1.4;
@@ -5892,16 +5960,16 @@ select {
   display: flex;
   align-items: center;
   gap: var(--sone-space-2);
-  padding-inline-end: 4px;
+  padding-inline-end: var(--sone-space-2);
 }
 /* The whole heading is the fold, not a caret somebody has to hit precisely. */
 .sidebar-section-toggle {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
-  gap: 4px;
+  gap: var(--sone-space-2);
   min-block-size: 28px;
-  padding: 0 4px;
+  padding: 0 var(--sone-space-2);
   border: 0;
   border-radius: var(--sone-radius-sm);
   background: transparent;
@@ -5984,7 +6052,7 @@ select {
   display: inline-flex;
   align-items: center;
   gap: var(--sone-space-1);
-  padding: 2px var(--sone-space-3);
+  padding: var(--sone-space-1) var(--sone-space-3);
   border-radius: 999px;
   background: var(--sone-bg-hover);
   font-size: var(--sone-text-xs);
@@ -5994,7 +6062,7 @@ select {
 .tag-chip button {
   min-block-size: 0;
   min-inline-size: 0;
-  padding: 0 2px;
+  padding: 0 var(--sone-space-1);
   border: 0;
   background: transparent;
   color: var(--sone-text-muted);
@@ -6239,7 +6307,7 @@ select {
   inset-inline-end: var(--sone-space-2);
   min-block-size: 0;
   min-inline-size: 0;
-  padding: 2px var(--sone-space-3);
+  padding: var(--sone-space-1) var(--sone-space-3);
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius-sm);
   background: var(--sone-bg);
@@ -6285,7 +6353,7 @@ select {
 .admin-alert-detail code {
   display: inline-block;
   margin-block-start: var(--sone-space-2);
-  padding: 2px var(--sone-space-3);
+  padding: var(--sone-space-1) var(--sone-space-3);
   border-radius: var(--sone-radius-sm);
   background: var(--sone-bg-hover);
   font-size: var(--sone-text-xs);
@@ -6440,9 +6508,13 @@ select {
  * Compact is for reading a list of a hundred; tall is for cells with more than a
  * word in them. Normal is what it was, so nothing moves for anybody who does not
  * ask. */
-.collection-table { --row-pad: var(--sone-space-2); --row-control: 34px; --row-inset: 6px 10px; }
-.collection-table[data-density='compact'] { --row-pad: 1px; --row-control: 26px; --row-inset: 2px 8px; }
-.collection-table[data-density='tall'] { --row-pad: var(--sone-space-4); --row-control: 44px; --row-inset: 10px 12px; }
+/* The three heights are the scale's own, by name (ADR-0140). They were 34, 26
+   and 44 — which are `--sone-control-lg`, `--sone-control` and `--sone-tap`
+   written as numbers, so a table's rows were the one part of the interface a
+   density could not reach. */
+.collection-table { --row-pad: var(--sone-space-2); --row-control: var(--sone-control-lg); --row-inset: var(--sone-space-3) 10px; }
+.collection-table[data-density='compact'] { --row-pad: 1px; --row-control: var(--sone-control); --row-inset: var(--sone-space-1) var(--sone-space-4); }
+.collection-table[data-density='tall'] { --row-pad: var(--sone-space-4); --row-control: var(--sone-tap); --row-inset: 10px var(--sone-space-5); }
 
 /* The height is the *padding* of the controls, not their minimum height — which
  * is what the first attempt got wrong and why changing the setting did nothing.
@@ -6467,7 +6539,7 @@ select {
 @media (pointer: coarse) {
   .collection-table[data-density='compact'] {
     --row-control: var(--sone-tap);
-    --row-inset: 8px 12px;
+    --row-inset: var(--sone-space-4) var(--sone-space-5);
   }
 }
 
@@ -6685,7 +6757,7 @@ select {
   margin-block: var(--sone-space-5);
   /* Room to click beside the player, so the block can be selected without
      touching the controls — which is how its handle is reached. */
-  padding-block: 2px;
+  padding-block: var(--sone-space-1);
 }
 /* Selected, as every other block shows it. */
 .video-block.ProseMirror-selectednode {
@@ -6807,7 +6879,7 @@ select {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--sone-space-2);
 }
 
 .cell-file {
@@ -6821,9 +6893,9 @@ select {
 .cell-file a {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sone-space-2);
   min-inline-size: 0;
-  padding: 2px 4px;
+  padding: var(--sone-space-1) var(--sone-space-2);
   color: var(--sone-text);
   font-size: var(--sone-text-xs);
 }
@@ -6845,7 +6917,7 @@ select {
 }
 .cell-file-remove {
   flex: none;
-  padding: 0 4px;
+  padding: 0 var(--sone-space-2);
   border: 0;
   background: transparent;
   color: var(--sone-text-muted);
@@ -6940,7 +7012,7 @@ select {
   inline-size: 100%;
   min-inline-size: 8rem;
   min-block-size: var(--sone-control);
-  padding: 2px var(--sone-space-2);
+  padding: var(--sone-space-1) var(--sone-space-2);
   border: 1px solid transparent;
   border-radius: var(--sone-radius-sm);
   background: transparent;
@@ -6963,7 +7035,7 @@ select {
 .collection-column-input {
   inline-size: 8rem;
   min-block-size: var(--sone-control);
-  padding: 2px var(--sone-space-2);
+  padding: var(--sone-space-1) var(--sone-space-2);
   border: 1px solid transparent;
   border-radius: var(--sone-radius-sm);
   background: transparent;
@@ -7020,7 +7092,7 @@ select {
      * sized itself to the longest word, which next to icons reads as cramped.
      * With one it lines up with the other menus. */
   inline-size: 190px;
-  padding: 4px;
+  padding: var(--sone-space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-lg);
   background: var(--surface-overlay);
@@ -7194,7 +7266,7 @@ select {
 .collection-select select { min-block-size: var(--sone-control); font: inherit; max-inline-size: 12rem; }
 .collection-no-options { font-size: var(--sone-text-xs); }
 .collection-missing-option {
-  padding: 1px var(--sone-space-2);
+  padding: 1px 4px;
   border-radius: var(--sone-radius-sm);
   background: color-mix(in srgb, var(--sone-danger) 12%, transparent);
   color: var(--sone-danger);
@@ -7710,7 +7782,7 @@ select {
 .file-card {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sone-space-1);
   padding: var(--sone-space-4);
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius);
@@ -8181,7 +8253,7 @@ body {
    * directions to search in, when the list only goes one way.
    */
   grid-template-columns: repeat(auto-fill, minmax(1.75rem, 1fr));
-  gap: 2px;
+  gap: var(--sone-space-1);
   max-block-size: 9rem;
   overflow-y: auto;
   overflow-x: hidden;
@@ -8458,7 +8530,7 @@ body {
   font-size: var(--sone-text-sm);
 }
 .warning code {
-  padding-inline: 4px;
+  padding-inline: var(--sone-space-2);
   border-radius: var(--sone-radius-sm);
   background: var(--sone-bg-subtle);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -8625,7 +8697,7 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sone-space-2);
   min-inline-size: 16rem;
 }
 
@@ -8635,7 +8707,7 @@ body {
   inset-inline: 0;
   z-index: 20;
   margin: 2px 0 0;
-  padding: 4px;
+  padding: var(--sone-space-2);
   border: 1px solid var(--sone-border);
   border-radius: var(--sone-radius);
   background: var(--sone-surface, #fff);
@@ -8733,7 +8805,7 @@ body {
 .role-card-facts {
   display: grid;
   grid-template-columns: minmax(6rem, max-content) 1fr;
-  gap: 4px var(--sone-space-4);
+  gap: var(--sone-space-2) var(--sone-space-4);
   margin: 0;
 }
 .role-card-facts dt {
@@ -8745,7 +8817,7 @@ body {
 .role-card-rights {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--sone-space-2);
 }
 .role-card-right {
   padding: 1px 8px;
@@ -8939,7 +9011,7 @@ body {
   inset-block-end: calc(100% + var(--sone-space-2));
   inset-inline-start: var(--sone-space-2);
   inline-size: 200px;
-  padding: 4px;
+  padding: var(--sone-space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-lg);
   background: var(--surface-overlay);
@@ -8980,7 +9052,7 @@ body {
 .sidebar-account-menu button:hover { background: var(--surface-hover); }
 .sidebar-account-menu button {
   margin-block-start: 4px;
-  padding-block-start: 4px;
+  padding-block-start: var(--sone-space-2);
   border-block-start: 1px solid var(--border-subtle);
   border-radius: 0;
 }

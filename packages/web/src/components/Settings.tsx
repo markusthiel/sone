@@ -32,9 +32,12 @@ import {
 } from '../api/client.ts';
 import { WEB_COMMIT, WEB_VERSION, isStaleBundle } from '../buildInfo.ts';
 import {
+  DENSITIES,
+  DENSITY_LABELS,
   SCALE_LABELS,
   TEXT_SCALES,
   useAppearance,
+  type Density,
   type TextScale,
   type ThemePreference,
 } from '../hooks/useAppearance.ts';
@@ -694,7 +697,7 @@ function AppearanceSettings({
   reload: () => Promise<void> | void;
 }): ReactElement {
   const { t, locale, setLocale } = useT();
-  const { appearance, setUiScale, setEditorScale } = useAppearance();
+  const { appearance, setUiScale, setEditorScale, setDensity } = useAppearance();
 
   /**
    * Light or dark, saved to the account (ADR-0124).
@@ -828,6 +831,32 @@ function AppearanceSettings({
             {TEXT_SCALES.map((scale) => (
               <option key={scale} value={scale}>
                 {SCALE_LABELS[scale]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Density, beside the scales and not in the workspace's theme
+            (ADR-0140).
+          *
+          * It is a third thing, not a coarser text size: somebody on a large
+          * monitor may want the same type and half the air around it. And it
+          * belongs to this browser for the reason the scales do — a phone that
+          * inherited "compact" from a desktop is a phone nobody can tap. */}
+        <div className="settings-row">
+          <span className="settings-row-label">
+            <b>{t('you.density')}</b>
+            <span>{t('you.density.hint')}</span>
+          </span>
+          <select
+            id="density"
+            aria-label={t('you.density')}
+            value={appearance.density}
+            onChange={(event) => setDensity(event.target.value as Density)}
+          >
+            {DENSITIES.map((density) => (
+              <option key={density} value={density}>
+                {DENSITY_LABELS[density]}
               </option>
             ))}
           </select>
