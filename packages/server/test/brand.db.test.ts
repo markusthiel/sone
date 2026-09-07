@@ -309,6 +309,93 @@ describe(
       assert.equal(res.status, 415);
     });
 
+    /*
+     * The second mark, for the surfaces the first one cannot be read on
+     * (ADR-0149).
+     *
+     * Reported as *„bei einigen macht das Helle Logo mehr Sinn bei anderen das
+     * dunkle"*. Two uploads, one route with a variant, and no third place that
+     * knows what a logo is.
+     */
+    test('a second mark can be put up for dark surfaces, and is served too', async () => {
+      const cookie = await setup();
+      for (const variant of ['light', 'dark']) {
+        await expectStatus(
+          await fetch(`${base}/api/admin/brand/logo/${variant}`, {
+            method: 'PUT',
+            headers: { cookie, 'content-type': 'image/png' },
+            body: PNG,
+          }),
+          200,
+        );
+      }
+
+      const instance = await expectJson<{
+        brand: { logo: string | null; logoOnDark: string | null };
+      }>(await fetch(`${base}/api/instance`), 200);
+      assert.ok(instance.brand.logo, 'the one for light grounds');
+      assert.ok(instance.brand.logoOnDark, 'and the one for dark ones');
+      assert.notEqual(instance.brand.logo, instance.brand.logoOnDark, 'two addresses');
+
+      for (const address of [instance.brand.logo, instance.brand.logoOnDark]) {
+        const image = await fetch(`${base}${address}`);
+        assert.equal(image.status, 200);
+        assert.equal(image.headers.get('content-type'), 'image/png');
+      }
+    });
+
+    test('the plain address is still the one for light grounds', async () => {
+      // Every instance that has a mark today has it under this path, and it was
+      // uploaded for the surface it is drawn on. A rename would silently move
+      // it to the ground it was not drawn for.
+      const cookie = await setup();
+      await expectStatus(
+        await fetch(`${base}/api/admin/brand/logo`, {
+          method: 'PUT',
+          headers: { cookie, 'content-type': 'image/png' },
+          body: PNG,
+        }),
+        200,
+      );
+
+      const instance = await expectJson<{
+        brand: { logo: string | null; logoOnDark: string | null };
+      }>(await fetch(`${base}/api/instance`), 200);
+      assert.ok(instance.brand.logo);
+      assert.equal(instance.brand.logoOnDark, null, 'and the other stays absent');
+    });
+
+    test('one variant is taken away without taking the other', async () => {
+      const cookie = await setup();
+      for (const variant of ['light', 'dark']) {
+        await fetch(`${base}/api/admin/brand/logo/${variant}`, {
+          method: 'PUT',
+          headers: { cookie, 'content-type': 'image/png' },
+          body: PNG,
+        });
+      }
+      await expectStatus(
+        await fetch(`${base}/api/admin/brand/logo/dark`, { method: 'DELETE', headers: { cookie } }),
+        200,
+      );
+
+      const instance = await expectJson<{
+        brand: { logo: string | null; logoOnDark: string | null };
+      }>(await fetch(`${base}/api/instance`), 200);
+      assert.ok(instance.brand.logo, 'the other one is untouched');
+      assert.equal(instance.brand.logoOnDark, null);
+    });
+
+    test('a variant nobody has heard of is refused', async () => {
+      const cookie = await setup();
+      const res = await fetch(`${base}/api/admin/brand/logo/sepia`, {
+        method: 'PUT',
+        headers: { cookie, 'content-type': 'image/png' },
+        body: PNG,
+      });
+      assert.equal(res.status, 404);
+    });
+
     test('taking it away leaves the mark the interface draws itself', async () => {
       const cookie = await setup();
       await fetch(`${base}/api/admin/brand/logo`, {

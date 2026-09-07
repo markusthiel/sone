@@ -19,6 +19,7 @@ import {
   type AdminOverview,
   type AdminUser,
   type AdminWorkspace,
+  type LogoVariant,
   type MaintenanceReport,
 } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
@@ -947,6 +948,8 @@ const instanceThemeOwner = (name: string): ThemeOwner => ({
 export function BrandPanel(): ReactElement {
   const { t } = useT();
   const [logo, setLogo] = useState<string | null>(null);
+  /** The second mark, for dark surfaces (ADR-0149). */
+  const [logoOnDark, setLogoOnDark] = useState<string | null>(null);
   /** What this instance calls itself, which is also what an exported theme is called. */
   const [name, setName] = useState('SONE');
   const [error, setError] = useState<string | null>(null);
@@ -964,6 +967,7 @@ export function BrandPanel(): ReactElement {
     try {
       const instance = await api.instance();
       setLogo(instance.brand?.logo ?? null);
+      setLogoOnDark(instance.brand?.logoOnDark ?? null);
       setName(instance.brand?.name ?? 'SONE');
       setError(null);
     } catch (err) {
@@ -975,10 +979,10 @@ export function BrandPanel(): ReactElement {
     void refresh();
   }, [refresh]);
 
-  const choose = async (file: File): Promise<void> => {
+  const choose = async (file: File, variant: LogoVariant): Promise<void> => {
     setBusy(true);
     try {
-      await api.setBrandLogo(file);
+      await api.setBrandLogo(file, variant);
       await refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.code : 'network_error');
@@ -995,57 +999,72 @@ export function BrandPanel(): ReactElement {
 
         {error && <p className="error">{messageFor(error)}</p>}
 
-        <div className="brand-logo-row">
-          {/* Drawn as the interface draws it, at the size the rail uses: a
-              preview at some other size is a preview of something else. The
-              mark falls back to ours when there is no logo, which is exactly
-              what everybody else would see. */}
-          <span className="brand-logo-preview">
-            {logo ? (
-              <img className="brand-logo" src={logo} width={40} height={40} alt="" />
-            ) : (
-              <SoneMark size={40} />
-            )}
-          </span>
+        {/* One row per ground (ADR-0149).
+          *
+          * Each preview is drawn *on* the ground its mark is for, because that
+          * is the only way to see whether it works — a mark inked for paper,
+          * shown on paper, looks correct right up until a workspace paints the
+          * rail navy. */}
+        {(
+          [
+            { variant: 'light', mark: logo, label: t('admin.brand.logo.onLight') },
+            { variant: 'dark', mark: logoOnDark, label: t('admin.brand.logo.onDark') },
+          ] as const
+        ).map(({ variant, mark, label }) => (
+          <div className="brand-logo-row" key={variant}>
+            {/* Drawn as the interface draws it, at the size the rail uses: a
+                preview at some other size is a preview of something else. The
+                mark falls back to ours when there is none, which is exactly
+                what everybody else would see. */}
+            <span className="brand-logo-preview" data-ground={variant}>
+              {mark ? (
+                <img className="brand-logo" src={mark} width={40} height={40} alt="" />
+              ) : (
+                <SoneMark size={40} />
+              )}
+            </span>
 
-          <div className="brand-logo-actions">
-            <label className="btn quiet">
-              {t('admin.brand.choose')}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                disabled={busy}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  // Cleared so choosing the same file twice fires again, which
-                  // it does not otherwise — and re-uploading after a failure is
-                  // exactly when somebody picks the same file.
-                  event.target.value = '';
-                  if (file) void choose(file);
-                }}
-              />
-            </label>
-            {logo && (
-              <button
-                type="button"
-                className="btn quiet"
-                disabled={busy}
-                onClick={() => {
-                  setBusy(true);
-                  void api
-                    .removeBrandLogo()
-                    .then(refresh)
-                    .catch((err: unknown) =>
-                      setError(err instanceof ApiError ? err.code : 'network_error'),
-                    )
-                    .finally(() => setBusy(false));
-                }}
-              >
-                {t('admin.brand.remove')}
-              </button>
-            )}
+            <div className="brand-logo-actions">
+              <b className="brand-logo-label">{label}</b>
+              <label className="btn quiet">
+                {t('admin.brand.choose')}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  aria-label={label}
+                  disabled={busy}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    // Cleared so choosing the same file twice fires again, which
+                    // it does not otherwise — and re-uploading after a failure is
+                    // exactly when somebody picks the same file.
+                    event.target.value = '';
+                    if (file) void choose(file, variant);
+                  }}
+                />
+              </label>
+              {mark && (
+                <button
+                  type="button"
+                  className="btn quiet"
+                  onClick={() => {
+                    setBusy(true);
+                    void api
+                      .removeBrandLogo(variant)
+                      .then(refresh)
+                      .catch((err: unknown) =>
+                        setError(err instanceof ApiError ? err.code : 'network_error'),
+                      )
+                      .finally(() => setBusy(false));
+                  }}
+                  disabled={busy}
+                >
+                  {t('admin.brand.remove')}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        ))}
         <p className="muted">{t('admin.brand.logo.note')}</p>
       </section>
 

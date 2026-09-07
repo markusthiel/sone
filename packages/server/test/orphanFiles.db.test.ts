@@ -172,6 +172,27 @@ describe(
       assert.deepEqual(report.sample, [], 'the logo is live');
     });
 
+    test('and the second mark, which is a fifth place a key lives', async () => {
+      /*
+       * A dark-ground mark is a second setting (ADR-0149), and the clause above
+       * names one key. **This is the file's own warning coming true**: the
+       * sweep learned about `brandLogo` when it appeared and would have taken
+       * `brandLogoOnDark` off an instance a week after it was uploaded, with
+       * nothing on any screen to say why the logo had gone.
+       */
+      // A hex seed, because the store only lists keys that look like hashes —
+      // `stored('g', …)` writes a file the sweep never sees, so the test would
+      // have passed against a sweep that knew nothing about this setting.
+      const mark = await stored('3', '30 days');
+      await db.query(
+        `INSERT INTO instance_settings (key, value) VALUES ('brandLogoOnDark', $1::jsonb)`,
+        [JSON.stringify({ key: mark, mime: 'image/png' })],
+      );
+
+      const report = await sweepOrphanFiles(db, store, { olderThanHours: 1 });
+      assert.deepEqual(report.sample, [], 'the second mark is live too');
+    });
+
     test('a file two rows share survives losing one of them', async () => {
       /*
        * Content-addressed storage: the key is the hash, so the same picture on
