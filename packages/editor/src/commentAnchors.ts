@@ -24,7 +24,7 @@ import { Plugin, PluginKey, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import * as Y from 'yjs';
 
-import { MAX_QUOTE } from '@sone/core';
+import { MAX_QUOTE, type PdfPlace } from '@sone/core';
 
 import { absolutePositionToRelativePosition, relativePositionToAbsolutePosition } from 'y-prosemirror';
 
@@ -42,6 +42,18 @@ export interface CommentAnchor {
    * before it can do anything with it.
    */
   item?: string;
+  /**
+   * A place in a PDF, when the comment is about one (ADR-0151).
+   *
+   * Here for the same reason `item` is: the panel takes **one** anchor type
+   * from every surface — prose, canvas, and now a document inside the page —
+   * and a second shape would mean deciding which one it has before it can do
+   * anything at all.
+   *
+   * Typed as the core's shape rather than restated: two descriptions of one
+   * rectangle is how the two come to disagree about which corner it starts at.
+   */
+  place?: PdfPlace;
 }
 
 /** Every thread the editor should draw, in editor coordinates. */

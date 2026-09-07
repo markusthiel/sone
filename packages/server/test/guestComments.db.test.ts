@@ -332,6 +332,44 @@ describe(
       assert.ok(rows.rowCount !== null);
     });
 
+    test('a place in a PDF is stored as one, and a shape that is not is refused', async () => {
+      /*
+       * The third anchor (ADR-0151), over the route that takes a comment from
+       * somebody who may not write the document — which is the path a guest
+       * marking a PDF takes.
+       *
+       * Refused rather than stored: a rectangle nothing can draw is not a mark,
+       * and the lesson from the anchor above is that a shape written through
+       * unexamined comes back as a page that cannot be read.
+       */
+      const place = { file: 'f-7', page: 3, rects: [[72, 700, 125, 24]] };
+      const made = await post(
+        `/api/pages/${pageId}/comments`,
+        { from: ANCHOR, to: ANCHOR, quote: 'Hallo Welt', text: 'Stimmt das?', place },
+        shareCookie(commenterToken),
+      );
+      assert.equal(made.status, 201);
+
+      const threads = await threadsOn(pageId);
+      assert.deepEqual(threads.at(-1)?.place, place, 'as it was sent');
+
+      for (const bad of [
+        { file: 'f', page: 0, rects: [[0, 0, 1, 1]] },
+        { file: '', page: 1, rects: [[0, 0, 1, 1]] },
+        { file: 'f', page: 1, rects: [] },
+        { file: 'f', page: 1, rects: [[0, 0, 1]] },
+        { file: 'f', page: 1, rects: 'alles' },
+        'nicht einmal ein Objekt',
+      ]) {
+        const res = await post(
+          `/api/pages/${pageId}/comments`,
+          { from: ANCHOR, to: ANCHOR, quote: 'x', text: 'Hm', place: bad },
+          shareCookie(commenterToken),
+        );
+        assert.equal(res.status, 422, `refused ${JSON.stringify(bad)}`);
+      }
+    });
+
     test('no credential at all is 401, so a member is sent to sign in', async () => {
       // The distinction the files route lost once and this inherits from its
       // resolver: "nothing presented" and "presented and refused" are different
