@@ -790,24 +790,41 @@ export function UsersPanel(): ReactElement {
     <section className="settings-section">
       <h2>{t('admin.accounts')}</h2>
 
-      <div className="admin-table">
+      <div className="admin-table account-list">
         {users.map((user) => (
-          <div className="admin-row" key={user.id} data-inactive={user.deactivatedAt !== null}>
+          <div
+            className="account-row"
+            key={user.id}
+            data-inactive={user.deactivatedAt !== null}
+          >
             <div className="admin-row-main">
               <span className="admin-name">
                 {user.displayName}
-                {user.isSelf && <span className="muted"> · you</span>}
+                {user.isSelf && <span className="muted"> · {t('admin.account.you')}</span>}
               </span>
+              {/* One line of facts, joined rather than concatenated in the
+                * markup: each piece is a message of its own, and the separator
+                * is not part of any of them. Written inline it was four string
+                * fragments with a leading „ · " baked into three of them, which
+                * is a sentence no translator can move. */}
               <span className="admin-meta">
-                {user.email ?? 'no address'}
-                {user.isGuest && ' · share-link guest'}
-                {user.workspaceCount > 0 &&
-                  ` · ${user.workspaceCount} workspace${user.workspaceCount === 1 ? '' : 's'}`}
-                {user.deactivatedAt && ' · deactivated'}
+                {[
+                  user.email ?? t('admin.account.noAddress'),
+                  ...(user.isGuest ? [t('admin.account.guest')] : []),
+                  ...(user.workspaceCount > 0
+                    ? [t('admin.account.workspaces', { count: user.workspaceCount })]
+                    : []),
+                  ...(user.deactivatedAt ? [t('admin.account.deactivated')] : []),
+                ].join(' · ')}
               </span>
             </div>
 
-            <div className="admin-row-actions">
+            {/* What the account *is*, in a column of its own (ADR-0146).
+              *
+              * Always drawn, even for a guest who has none: the column is what
+              * makes the tenth row's switches sit under the first row's, and a
+              * row that leaves it out lets its buttons slide into that space. */}
+            <div className="account-rights">
               {!user.isGuest && (
                 <label className="admin-toggle">
                   <input
@@ -816,8 +833,8 @@ export function UsersPanel(): ReactElement {
                     onChange={(event) =>
                       void change(user.id, { isInstanceAdmin: event.target.checked })
                     }
-                  />{' '}
-                  Administrator
+                  />
+                  <span>{t('admin.account.administrator')}</span>
                 </label>
               )}
 
@@ -836,11 +853,13 @@ export function UsersPanel(): ReactElement {
                     onChange={(event) =>
                       void change(user.id, { canManageWorkspaces: event.target.checked })
                     }
-                  />{' '}
-                  Manages workspaces
+                  />
+                  <span>{t('admin.account.managesWorkspaces')}</span>
                 </label>
               )}
+            </div>
 
+            <div className="admin-row-actions account-actions">
               {/* The only way back for somebody who has lost both their
                 * phone and their recovery codes (ADR-0065).
                 *
@@ -873,7 +892,9 @@ export function UsersPanel(): ReactElement {
                   void change(user.id, { deactivated: user.deactivatedAt === null })
                 }
               >
-                {user.deactivatedAt ? 'Reactivate' : 'Deactivate'}
+                {user.deactivatedAt
+                  ? t('admin.account.reactivate')
+                  : t('admin.account.deactivate')}
               </button>
             </div>
           </div>

@@ -309,7 +309,10 @@ test('the right is offered separately from being an administrator', () => {
   // Two checkboxes, because the point of the narrower one is that somebody can
   // hold it without the other (ADR-0027).
   assert.match(admin, /canManageWorkspaces: event\.target\.checked/);
-  assert.match(admin, /Manages workspaces/);
+  // The label was matched here as literal English until ADR-0146 translated the
+  // row. What the checkbox reads is asserted on the mounted row now
+  // (`accountsList.test.tsx`); this line only says there is a second one.
+  assert.match(admin, /t\('admin\.account\.managesWorkspaces'\)/);
 });
 
 test('it is shown as held, and locked, for an administrator', () => {

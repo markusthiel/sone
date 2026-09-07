@@ -324,6 +324,17 @@ export const en = {
     'Deactivating keeps the account and its work, and signs it out immediately. ' +
     'Accounts are never deleted from here: removing one would take every page it ' +
     'created with it, and “this person has left” is not “their work never happened”.',
+  // A row in that list (ADR-0146). The two rights are switches, the two others
+  // are buttons, and the line under the name is what the account *is*.
+  'admin.account.you': 'you',
+  'admin.account.noAddress': 'no address',
+  'admin.account.guest': 'share-link guest',
+  'admin.account.workspaces': '{count, plural, one {# workspace} other {# workspaces}}',
+  'admin.account.deactivated': 'deactivated',
+  'admin.account.administrator': 'Administrator',
+  'admin.account.managesWorkspaces': 'Manages workspaces',
+  'admin.account.deactivate': 'Deactivate',
+  'admin.account.reactivate': 'Reactivate',
   'admin.invitations': 'Invitations',
   'admin.invitations.hint': 'An account and a workspace of their own — no team',
   'admin.sso': 'Single sign-on',
