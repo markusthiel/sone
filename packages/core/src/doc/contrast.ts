@@ -154,9 +154,17 @@ export const WORST_GROUND = { light: '#d0cec9', dark: '#3a3a37' } as const;
  *
  * A colour that already reads is returned untouched, which is the ordinary case:
  * a brand colour somebody chose to be visible usually is.
+ *
+ * ## The floor is a parameter, because a line is not a word (ADR-0137)
+ *
+ * `AA.text` is 4.5:1 and it is for text. A **line** — a focus ring, the border
+ * of a focused field, the rule beside a selected item — is a control's boundary,
+ * and the standard asks 3:1 of it. Deriving a border at the text floor darkens
+ * it past what it needs and past the fill beside it, which shows as a ring; at
+ * no floor at all, a pale accent is a focus ring at 1.07:1.
  */
-export function readableInk(color: string, ground: string): string {
-  if (contrastRatio(color, ground) >= AA.text) return color;
+export function readableInk(color: string, ground: string, floor: number = AA.text): string {
+  if (contrastRatio(color, ground) >= floor) return color;
 
   const start = parseHex(color);
   const towardsDark = luminance(ground) > luminance('#808080');
@@ -182,7 +190,7 @@ export function readableInk(color: string, ground: string): string {
   let high = 1;
   for (let step = 0; step < 20; step++) {
     const middle = (low + high) / 2;
-    if (contrastRatio(at(middle), ground) >= AA.text) high = middle;
+    if (contrastRatio(at(middle), ground) >= floor) high = middle;
     else low = middle;
   }
   return at(high);
