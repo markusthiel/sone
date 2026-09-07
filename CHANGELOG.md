@@ -13,6 +13,154 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.12.0
+
+Pull and restart. 21 Migrationen laufen von selbst; sonst ist nichts zu tun.
+
+Rechte und Rollen, Freigaben, Benachrichtigungen, das Gestaltungssystem, die
+Mails und die deutsche Oberfläche — der größte Sprung seit 0.9. Was unten steht,
+ist absichtlich nach dem geordnet, was man merkt, nicht danach, wann es gebaut
+wurde.
+
+**Die Kontenliste in der Verwaltung hat jetzt Spalten.** Zwei Schalter und zwei
+Knöpfe lagen in einem einzigen umbrechenden Streifen, also ordnete sich jede
+Zeile anders als die darüber und nichts stand untereinander. Jetzt: wer sie sind,
+was sie sind, was man mit ihnen tun kann — drei Spalten, die über die ganze Liste
+hinweg an derselben Stelle stehen, und auf einem schmalen Bildschirm ein Stapel.
+
+**Bei den Einladungen stehen keine verbrauchten mehr, und die Anzahl ist jetzt
+eine Entscheidung.** Ein Link galt bisher unsichtbar für fünfundzwanzig Leute —
+eine Zahl, die niemand gewählt hatte und die trotzdem in der Zeile stand. Beim
+Anlegen wird jetzt gefragt, für wie viele der Link gelten soll (Standard: einer);
+bei einer Einladung an eine Adresse wird nicht gefragt, weil sie für diese Person
+gilt und einmal. Der Zähler steht nur noch dort, wo er etwas aussagt.
+
+**Wer seinen eigenen Einladungslink ein zweites Mal anklickt, kommt an, statt
+abgewiesen zu werden.** Das war als Verhalten vorgesehen und funktionierte nur,
+solange jeder Link mehrfach nutzbar war. Ein verbrauchter Link lässt weiterhin
+niemanden Neues herein.
+
+**Der Einladungs-Bildschirm behauptet nicht mehr, diese Instanz verschicke keine
+Mail.** Der Satz stand dort unabhängig davon, ob ein Mailserver eingerichtet ist
+— und die Einladung wird längst verschickt. Jetzt steht dort, was tatsächlich
+passiert ist: an welche Adresse sie ging, oder dass der Link selbst
+weitergegeben werden muss.
+
+**Die Oberfläche ist vollständig auf Deutsch, bis in die Ecken.** Hundertdreißig
+Zeichenketten standen noch auf Englisch da, die meisten davon an Stellen, die man
+nicht sieht: Beschriftungen für Screenreader, Titel beim Darüberfahren, Sätze,
+die ein eingebettetes Codewort zerteilt hatte. Auch Zählungen sind jetzt richtige
+Sprache statt „1 Ordner / 2 Ordner" mit angehängtem s.
+
+**Rollennamen werden übersetzt — auf dem Bildschirm und im Brief.** „Owner",
+„Guest" und die beiden anderen sind Wörter, die eine Migration eingetragen hat,
+keine gewählten Namen; ein deutscher Brief las trotzdem „Sie sind jetzt Guest".
+Selbst vergebene Rollennamen bleiben unangetastet.
+
+**Alle E-Mails sprechen die Sprache ihres Empfängers und die Anrede der
+Instanz.** Zwölf Briefe waren fest auf Englisch, obwohl die Sprache jedes
+Empfängers gespeichert ist. Ob die Oberfläche „du" oder „Sie" sagt, ist eine
+Einstellung der Instanz und gilt jetzt auch für die Post.
+
+**Das Fenster scrollt nicht mehr als Ganzes.** Bei einem langen Seitenbaum und
+viel Inhalt gab es zwei Scrollbalken übereinander, und das Profilbild in der
+schmalen Leiste rutschte aus dem Bild. Jede Spalte scrollt jetzt für sich. Die
+Scrollbalken sind außerdem schmal, und in einer dunklen Oberfläche sind sie
+dunkel — auch auf einem hell eingestellten Rechner.
+
+**Eine Rollenkarte sagt, wer die Rolle hält, mit Namen.** Bisher stand dort eine
+Anzahl, also musste man auf einen anderen Bildschirm, um zu sehen, wen eine
+Änderung trifft. Die Namen bekommt nur zu sehen, wer Leute verwalten darf; für
+alle anderen bleibt es bei der Zahl.
+
+**Jede Liste, die unter einem Eingabefeld aufgeht, lässt sich mit der Tastatur
+bedienen.** Personensuche, Schlagwortfeld, die beiden `@`-Menüs und die zwei
+Felder im Suchpanel: Pfeile, Enter, Escape — überall dasselbe, und die Maus hebt
+nicht mehr eine zweite Zeile hervor, während die Tastatur eine andere meint.
+
+**Die Suche zeigt bei vielen Schlagwörtern nicht mehr nur die ersten paar.** Zwölf
+stehen als Knöpfe da, ausgewählt nach Gebrauch und alphabetisch sortiert; der
+Rest ist über ein Suchfeld erreichbar. Ein gesetzter Filter wird immer angezeigt,
+auch wenn er nicht unter den zwölf ist — vorher fiel er stillschweigend heraus
+und der Ordner-Wähler zeigte „Überall", während die Treffer aus einem Ordner
+kamen.
+
+**Die Oberfläche hat eine Dichte-Einstellung.** Kompakt, normal, luftig — pro
+Browser, weil sie vom Bildschirm und vom Zeiger handelt und nicht vom Konto. Auf
+einem Touchgerät bleiben Tippziele groß, auch in kompakt.
+
+**Farben sind jetzt nachgerechnet statt geschätzt.** Jede Kombination aus Theme,
+Palette und Akzent wurde durchgerechnet; die schlechteste Paarung im gesamten
+Farbraum liegt jetzt bei 4.52:1. Betroffen war unter anderem die stille Schrift
+im dunklen Theme, und jede als Name gespeicherte Akzentfarbe bekam weiße Schrift
+darauf, egal wie hell sie war. Fokusringe und Rahmen werden getrennt geprüft: für
+eine Linie gilt eine andere Schwelle als für ein Wort.
+
+**Eine Instanz kann ein eigenes Logo und ein Basis-Design bekommen**, und ein
+Workspace baut darauf auf. Hell oder dunkel entscheidet jetzt das Konto, nicht
+mehr der Workspace — wer an zwei Geräten arbeitet, wollte selten dieselbe
+Antwort für beide.
+
+**Ein Theme lässt sich als Datei sichern und einspielen**, und Schriften werden
+als benanntes Paar gewählt statt als einzelne Familie.
+
+**Alle Briefe tragen das Logo**, als eingebettetes Bild statt als Nachladung von
+außen: kein Mailprogramm holt für eine SONE-Mail etwas aus dem Netz.
+
+**Neue Briefe:** Zugriff entzogen, Rolle geändert, Einladung nie eingelöst,
+Gast-Link läuft ab, Mailversand ausgefallen, Anmeldung von einem unbekannten
+Browser, Willkommen, Export fertig — und Export nicht fertig geworden. Ein
+fertiger Workspace-Export sagt jetzt Bescheid, statt in aller Stille abzulaufen,
+während der Tab zu ist.
+
+**Ein Freigabe-Link lässt sich per Mail verschicken**, ohne dass die Adresse des
+Links durch die Anfrage reist. Ein gesetztes Passwort wird angekündigt und nie
+mitgeschickt.
+
+**Die Suche ist ein eigener Ort geworden:** Symbol in der schmalen Leiste, Filter
+im linken Panel, Treffer in der Mitte. Das Feld im Seitenbaum ist ein Eingabefeld
+statt eines Links.
+
+**Seiten und Ordner können ein Titelbild bekommen** — eigener Upload, verkleinert
+ausgeliefert, wahlweise auch eine Farbe oder ein Verlauf. Ohne gesetztes Bild
+sieht alles aus wie vorher.
+
+**Die Leute-Spalte einer Seite zeigt, wer geschrieben hat, nicht wer geschaut
+hat.** Sie wirkte willkürlich — mal leer, mal ein Name, mal zwei — und war
+vollkommen konsistent: sie beantwortete eine andere Frage als ihre Überschrift.
+
+**Eine Benachrichtigung führt jetzt auch dann zur Seite, wenn man in einem
+anderen Workspace steht.** Bisher kam an dieser Stelle die Meldung, man habe
+keinen Zugriff.
+
+**Der Freigaben-Bildschirm sagt, über welchen Workspace er redet**, und die drei
+Listen vermischen sich nicht mehr. Ein Link, der in einem anderen Workspace
+angelegt wurde, fehlte vorher scheinbar grundlos.
+
+**Ein Freigabe-Link bleibt ein Freigabe-Link.** Eine Unterseite aus der
+Ordnerliste heraus anzuklicken führte auf den Login, während dieselbe Seite über
+die Seitenleiste normal aufging.
+
+**Jemandem Zugriff geben ist ein Suchfeld mit Vorschlägen** statt eines
+Adressfeldes, und die Rolle wird dabei mitgegeben. Wer schon ein Konto hat, wird
+nicht mehr eingeladen, sondern hinzugefügt.
+
+**Ein Gast bekommt keine Benachrichtigungen mehr über Seiten, die er nicht öffnen
+darf.** Das betraf auch Suche, Kommentarliste, Vorlagen, Export und Digest — an
+allen fünf Stellen sah ein Gast jede unbeschränkte Seite des Workspace.
+
+**Ein Workspace-Export ist jetzt eine Sache der Verwaltung**, nicht jedes
+Mitglieds. Und ein anonymer Aufruf auf einer Instanz ohne öffentliche Freigabe
+bekommt „bitte anmelden" statt eines Serverfehlers.
+
+**Ein Backup lässt sich nur mit dem Schlüssel zurückspielen, unter dem es
+versiegelt wurde.** Freigabe-Tokens, Zweitfaktor-Geheimnisse und Mail-Antwort-
+Tokens hängen an `SONE_SECRET_KEY`; ein Restore mit einem anderen Schlüssel
+schlägt jetzt hörbar fehl, statt still eine Instanz herzustellen, in der diese
+drei Dinge nicht mehr funktionieren.
+
 **Die Markendateien liegen jetzt vollständig im Repo, unter `brand/`.** Logo in
 vier Farbfassungen (hell, dunkel, einfarbig schwarz, einfarbig weiß), als Signet
 und als Lockup mit und ohne Claim, dazu Favicon- und App-Icons, OG-Karten,
