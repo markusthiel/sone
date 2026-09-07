@@ -13,7 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Ein Kommentar zu einer Stelle im PDF sagt jetzt, wenn das Dokument nicht mehr
+da ist.** Bisher stand der Faden in der Leiste, zitierte eine Stelle, bot einen
+Knopf an, der nichts tat, und schwieg dazu. Jetzt steht darunter: *„Das
+Dokument, um das es ging, wird auf dieser Seite nicht mehr gezeigt."* — egal ob
+der Datei-Block gelöscht, auf eine andere Seite verschoben oder wieder auf
+*Karte* gestellt wurde. Alle drei lassen den Lesenden an derselben Stelle
+stehen. Das Zitat bleibt, denn es ist das Einzige, woran der Faden noch zu
+erkennen ist.
 
 ## 0.12.2
 

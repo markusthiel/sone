@@ -1589,6 +1589,7 @@ export const en = {
   'comment.start': 'Comment',
   'comment.aboutItem': 'About an item on the canvas',
   'comment.aboutPlace': 'On page {page} of the document',
+  'comment.placeGone': 'The document this was about is no longer shown on this page.',
   'comment.startPlaceholder': 'What about this?',
   'panel.guest': 'guest',
   'panel.guestWriting':

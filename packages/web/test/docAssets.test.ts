@@ -58,8 +58,18 @@ test('a file block is read with its name, kind and size', () => {
       mimeType: 'application/pdf',
       category: 'pdf',
       sizeBytes: 20480,
+      // How the block draws it (ADR-0155). Absent means a card, which is what
+      // a file block was before it could be anything else — and the difference
+      // matters to a comment about a place inside the document, which has
+      // nowhere to point when the pages are not on the page.
+      display: 'card',
     },
   ]);
+});
+
+test('and with how it is drawn, because a card shows no pages', () => {
+  const doc = docWith(block('file', 'b1', { fileId: 'f-1', display: 'full' }));
+  assert.equal(readDocAssets(doc).files[0]?.display, 'full');
 });
 
 test('a file still uploading is listed, without an id', () => {

@@ -346,6 +346,9 @@ export function RightSidebar({
               onCancelPending={onCancelPendingComment}
               marks={marks}
               pageId={pageId}
+              // For the one question a thread cannot answer about itself: is the
+              // document it points at still on this page (ADR-0155).
+              doc={handle?.doc ?? null}
             />
           )}
           {tab === 'properties' && (
