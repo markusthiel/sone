@@ -295,6 +295,67 @@ describe('the accent, read rather than filled', () => {
     }
   });
 
+  test('a line is derived at a line\'s floor, and only a line', () => {
+    /*
+     * A control's boundary wants 3:1, not the 4.5:1 text wants (ADR-0137), and
+     * the difference matters in both directions.
+     *
+     * At the text floor a border would be darker than the fill it sits beside —
+     * the ring around every primary button. At no floor a pale accent is a
+     * focus ring at 1.07:1, which is a keyboard user who cannot see where they
+     * are.
+     */
+    for (const [name, scope, ground, emitted] of [
+      ['light', THEMES.light, WORST_GROUND.light, '--sone-theme-accent-line-on-light'],
+      ['dark', THEMES.dark, WORST_GROUND.dark, '--sone-theme-accent-line-on-dark'],
+    ] as const) {
+      for (const accent of ['#ffff00', '#f0e68c', '#d4d2ca', '#000000', '#ffffff']) {
+        const line = readableInk(accent, ground, AA.nonText);
+        const withAccent = { ...scope, [emitted]: line };
+        for (const tint of ['#000000', '#ffffff', '#7c3aed']) {
+          for (const surface of SURFACES) {
+            const found = contrastRatio(line, resolve(withAccent[surface]!, withAccent, tint));
+            assert.ok(
+              found >= AA.nonText,
+              `${name}: a line in ${accent} is ${found.toFixed(2)}:1 on ${surface}`,
+            );
+          }
+        }
+        // And it moves less than the text derivation, or there would be no
+        // reason for two of them.
+        const text = readableInk(accent, ground, AA.text);
+        if (text !== accent) {
+          assert.notEqual(line, text, `${accent} would have been derived twice the same way`);
+        }
+      }
+    }
+  });
+
+  for (const [name, scope] of Object.entries(THEMES)) {
+    test(`${name}: the design's own line is visible without deriving anything`, () => {
+      // Which is why `--accent-line` falls back to the accent itself rather
+      // than to a fourth step: it already clears the floor, if not by much.
+      for (const surface of SURFACES) {
+        const found = contrastRatio(
+          resolve(scope['--accent-line']!, scope, null),
+          resolve(scope[surface]!, scope, null),
+        );
+        assert.ok(found >= AA.nonText, `${name}: ${found.toFixed(2)}:1 on ${surface}`);
+      }
+    });
+  }
+
+  test('the focus ring is one of the lines', () => {
+    /*
+     * Named on its own because it is the one with a consequence that is not
+     * cosmetic, and because the comment beside it already claimed what nothing
+     * checked: fields drop the outline *"only because they replace it with
+     * something at least as visible"*.
+     */
+    assert.match(css, /:focus-visible[^{]*\{[^}]*outline: 2px solid var\(--accent-line\)/s);
+    assert.doesNotMatch(css, /outline: 2px solid var\(--accent\);/);
+  });
+
   test('a fill is still the colour somebody chose', () => {
     // The derivation is for reading, and a button is not read *as* the accent —
     // it is filled with it, and `readableOn` computes what goes on top. A
@@ -305,6 +366,10 @@ describe('the accent, read rather than filled', () => {
     // And a border beside an accent fill is the fill's colour, or the pair
     // shows as a ring.
     assert.doesNotMatch(css, /border-color: var\(--accent-text\)/);
+    // A border that outlines an accent fill keeps the fill's colour — the
+    // primary button and the checked task marker are the three places, and a
+    // derivation there would be the ring seen from the other side.
+    assert.match(css, /background: var\(--accent\)/);
   });
 });
 
