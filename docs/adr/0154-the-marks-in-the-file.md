@@ -148,6 +148,38 @@ the polyfills in front of the worker file.
 For an operator that means the floor for *downloading a copy* is at least the
 floor for reading one, and the failure is loud rather than silent (below).
 
+### A synchronous replay runs inside its subscriber's constructor
+
+Found by using it, and reported as *„The editor stopped working"* with
+
+```
+ReferenceError: Cannot access 'H' before initialization
+```
+
+on a page holding a PDF. `subscribeToThreads` replays the last announcement
+synchronously, before it returns — that is its whole point (ADR-0151), and it is
+why a viewer mounted long after the page opened draws marks at all. So the
+listener runs *in the middle of* `mountPdfViewer`'s own body.
+
+The listener redraws; redrawing asks whether there is anything to offer a copy
+of; and that question was declared two hundred lines further down. A `const` read
+in its dead zone is a **throw**, not an `undefined` — and this runs while
+ProseMirror is building a node view, so the whole editor came down with it.
+
+The two questions moved above the subscriptions, and a test mounts a viewer on a
+page whose marks were announced first — which is the report, written down. The
+hazard itself is now stated where it is created, in `threadAnnouncement.ts`:
+everything a listener touches must exist before `subscribe` is called.
+
+Deferring the replay to a microtask would remove the class of bug and is
+deliberately not done: it would also remove the guarantee, and a subscriber that
+must draw before the first paint would then draw a frame late.
+
+**Why no test caught it first.** Every measurement of this round announced
+*after* mounting — the harness built the viewer and then told it what to draw,
+which is the one order the application never uses. A fixture that cannot
+reproduce the caller's order is a fixture that agrees with itself.
+
 ### The message, not the class
 
 The first failure reported `UnknownErrorException`, which named nothing. Logging
