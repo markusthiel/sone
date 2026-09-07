@@ -31,7 +31,7 @@ import type { Pool } from 'pg';
 
 import * as Y from 'yjs';
 
-import { addMessage, addThread, readThreads, removeThread } from '@sone/core';
+import { addMessage, addThread, readPdfMarks, readThreads, removeThread } from '@sone/core';
 
 import { registerCommentRoutes } from '../src/comments/routes.js';
 import { createShareLink } from '../src/auth/share.js';
@@ -65,6 +65,9 @@ function realAnchor(): string {
 }
 
 const ANCHOR = realAnchor();
+
+/** A place in a PDF, in the shape ADR-0151 defined: points, origin bottom left. */
+const PLACE = { file: 'f-probe', page: 3, rects: [[72, 700, 120, 20]] } as const;
 
 describe(
   'a visitor commenting through a link (database)',
@@ -108,6 +111,39 @@ describe(
 
     const shareCookie = (token: string): string =>
       `${SHARE_COOKIE}=${encodeURIComponent(token)}`;
+
+    const remove = async (path: string, cookie: string | null): Promise<Response> =>
+      fetch(`${base}${path}`, {
+        method: 'DELETE',
+        headers: { ...(cookie ? { cookie } : {}) },
+      });
+
+    /**
+     * A signed-in member who may comment on a page, and nothing more.
+     *
+     * The grant is per page and per test: the workspace role here is `guest`,
+     * which reaches nothing, and the test above that first proved this deletes
+     * its own grant afterwards. Granting inside each test rather than once in
+     * `before` keeps that true — a shared grant is a permission one test can
+     * remove out from under another.
+     */
+    const asCommenterOn = async (id: string): Promise<string> => {
+      await db.query(
+        `INSERT INTO page_permissions (page_id, user_id, role) VALUES ($1,$2,'commenter')
+         ON CONFLICT DO NOTHING`,
+        [id, reader],
+      );
+      return `${SESSION_COOKIE}=${encodeURIComponent((await createSession(db, reader)).token)}`;
+    };
+
+    const marksOn = async (id: string): Promise<ReturnType<typeof readPdfMarks>> => {
+      const loaded = await loadDoc(db, id);
+      try {
+        return readPdfMarks(loaded.doc);
+      } finally {
+        loaded.doc.destroy();
+      }
+    };
 
     const threadsOn = async (id: string): Promise<ReturnType<typeof readThreads>> => {
       const loaded = await loadDoc(db, id);
@@ -605,6 +641,107 @@ describe(
       );
       assert.equal(rows.rowCount, 1, 'the person who shared it hears about it');
       assert.equal(rows.rows[0]!.excerpt, 'Eine Frage dazu.');
+    });
+
+    /*
+     * ---- Marks on a PDF (ADR-0152) ----------------------------------------
+     *
+     * A mark says "attend to this" and nothing else. Same gate as a comment,
+     * same transport — and, in this round, **not** offered to a link holder.
+     */
+
+    test('a mark needs an account, and says so rather than failing quietly', async () => {
+      /*
+       * The pair is offered together or not at all. A link can only tell two
+       * visitors apart by the name they typed (ADR-0046), so a visitor's mark
+       * could be made and — the moment somebody else typed the same name, or
+       * the same person came back on another device — never taken off again. A
+       * one-way act is worse than one that is not offered.
+       *
+       * 403 with a reason, not the 404 the rest of this module answers a
+       * refusal with: those hide whether a page exists, and this person has
+       * already been told it does — they may comment on it.
+       */
+      const refused = await post(
+        `/api/pages/${pageId}/pdf-marks`,
+        { place: PLACE, quote: 'ein Satz' },
+        shareCookie(commenterToken),
+      );
+      assert.equal(refused.status, 403);
+      assert.equal(((await refused.json()) as { error: string }).error, 'marks_need_an_account');
+      assert.deepEqual(await marksOn(pageId), []);
+    });
+
+    test('a member marks a place, and it is stored as one', async () => {
+      const cookie = await asCommenterOn(pageId);
+      const made = await post(
+        `/api/pages/${pageId}/pdf-marks`,
+        { place: PLACE, quote: 'Hallo Welt' },
+        cookie,
+      );
+      assert.equal(made.status, 201);
+
+      const marks = await marksOn(pageId);
+      assert.equal(marks.length, 1);
+      assert.deepEqual(marks[0]!.place, PLACE);
+      assert.equal(marks[0]!.quote, 'Hallo Welt');
+      // A user id, not a `guest:` key: a mark's author has no name to fall back
+      // on, which is the whole reason the account is required.
+      assert.equal(marks[0]!.author, reader);
+
+      // And off again. Any of them, for whoever may act on the page — the rule
+      // a thread already has.
+      const gone = await remove(
+        `/api/pages/${pageId}/pdf-marks/${marks[0]!.id}`,
+        cookie,
+      );
+      assert.equal(gone.status, 200);
+      assert.deepEqual(await marksOn(pageId), []);
+    });
+
+    test('a shape that is not a place is refused, not mended', async () => {
+      // The core's rule, asked once. A page of zero is not a page and a
+      // rectangle of no width is not a mark, and writing either through would
+      // put the question in every reader instead of in one line.
+      const cookie = await asCommenterOn(pageId);
+      const refused = await post(
+        `/api/pages/${pageId}/pdf-marks`,
+        { place: { file: 'f1', page: 0, rects: [] }, quote: 'x' },
+        cookie,
+      );
+      assert.equal(refused.status, 422);
+      assert.equal(((await refused.json()) as { error: string }).error, 'invalid_place');
+      assert.deepEqual(await marksOn(pageId), []);
+    });
+
+    test('removing one that is not there is a 404, not a quiet success', async () => {
+      // The document's own answer. A silent 200 would tell somebody a mark had
+      // been taken off a page that never had one.
+      const cookie = await asCommenterOn(pageId);
+      const gone = await remove(`/api/pages/${pageId}/pdf-marks/k-nope`, cookie);
+      assert.equal(gone.status, 404);
+    });
+
+    test('a mark is silent: nobody is told about one', async () => {
+      /*
+       * The whole difference between this and the route above it. Telling
+       * somebody about a highlight would make it a comment with no words in it,
+       * which is precisely the thing ADR-0046 refused to store.
+       */
+      const quiet = await page('Nur markiert');
+      const cookie = await asCommenterOn(quiet);
+      const made = await post(
+        `/api/pages/${quiet}/pdf-marks`,
+        { place: PLACE, quote: 'x' },
+        cookie,
+      );
+      assert.equal(made.status, 201);
+
+      const rows = await db.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM notifications WHERE page_id = $1`,
+        [quiet],
+      );
+      assert.equal(rows.rows[0]!.count, '0', 'a mark tells nobody anything');
     });
 
     test('the projection follows, so the thread can be found without opening it', async () => {

@@ -8092,26 +8092,51 @@ select {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   mix-blend-mode: multiply;
 }
+/* A passage somebody marked and said nothing about (ADR-0152).
+ *
+ * **Two weights of one colour, not two colours.** The difference between "being
+ * discussed" and "worth a second look" is one of degree, and a second hue would
+ * be a second convention to learn for it — the same argument that put a
+ * commented passage in the accent rather than in highlighter yellow. Lighter,
+ * because it is the lesser claim on the reader's attention. */
+.pdf-mark[data-kind='plain'] {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
 
-/* The offer to comment on what is selected.
+/* What is offered over a selection: marking it, and commenting on it.
  *
  * Inside the page slot rather than floating over the viewer, so it scrolls with
  * the words it belongs to and needs no repositioning on a scroll — and in
- * percentages, for the reason the marks are. */
-.pdf-comment-start {
+ * percentages, for the reason the marks are.
+ *
+ * One shell around both buttons (ADR-0152), so that adding the highlighter did
+ * not mean a second thing positioning itself against the same corner and the
+ * two of them drifting apart by a pixel at some widths. */
+.pdf-selection-tools {
   position: absolute;
   z-index: 2;
+  display: flex;
   transform: translate(-100%, var(--sone-space-1));
-  padding: var(--sone-space-1) var(--sone-space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--sone-radius-sm);
   background: var(--surface);
   box-shadow: var(--sone-shadow-sm);
+  /* So the buttons' own corners do not poke out of the shell's. */
+  overflow: hidden;
+}
+.pdf-selection-tool {
+  padding: var(--sone-space-1) var(--sone-space-2);
+  border: 0;
+  background: none;
   color: var(--sone-text);
   font-size: var(--sone-text-xs);
+  white-space: nowrap;
   cursor: pointer;
 }
-.pdf-comment-start:hover { border-color: var(--accent-line); }
+/* A rule between them rather than a gap: a gap would show the page through the
+   middle of one control. */
+.pdf-selection-tool + .pdf-selection-tool { border-inline-start: 1px solid var(--border-subtle); }
+.pdf-selection-tool:hover { background: var(--surface-sunken); }
 .pdf-status,
 .pdf-fallback {
   padding: var(--sone-space-4);

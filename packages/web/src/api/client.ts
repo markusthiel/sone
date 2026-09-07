@@ -894,6 +894,27 @@ export const api = {
       },
     ),
 
+  /**
+   * Put a mark on a place in a PDF, saying nothing about it (ADR-0152).
+   *
+   * The same transport and the same reason as `startComment`: somebody graded
+   * `commenter` may not write the document, and a mark is a comment-shaped act.
+   * No name parameter, unlike the comment routes — a mark's author is a user id
+   * and the route refuses anybody without one.
+   */
+  markPdfPlace: (pageId: string, input: { place: PdfPlace; quote: string }) =>
+    request<{ markId: string }>(`/api/pages/${encodeURIComponent(pageId)}/pdf-marks`, {
+      method: 'POST',
+      body: JSON.stringify({ place: input.place, quote: input.quote }),
+    }),
+
+  /** And off again. Any of them, for whoever may act on the page. */
+  unmarkPdfPlace: (pageId: string, markId: string) =>
+    request<{ markId: string }>(
+      `/api/pages/${encodeURIComponent(pageId)}/pdf-marks/${encodeURIComponent(markId)}`,
+      { method: 'DELETE' },
+    ),
+
   /** Reply to one, the same way. */
   replyToComment: (pageId: string, threadId: string, text: string, name?: string) =>
     request<{ messageId: string }>(

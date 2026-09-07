@@ -21,6 +21,14 @@ hat, liegt eine Markierung auf der Seite, in derselben Farbe wie eine
 kommentierte Stelle im Fließtext. Die Markierung sitzt richtig, egal wie breit
 die Spalte gerade ist.
 
+**Und markieren, ohne etwas dazu zu sagen.** Neben *Kommentieren* steht jetzt
+*Markieren*: der Textmarker, ohne Faden. Wo schon markiert ist, heißt derselbe
+Knopf *Markierung entfernen* — die Stelle noch einmal auswählen genügt, ungefähr
+reicht. Eine markierte Stelle liegt in derselben Farbe auf der Seite wie eine
+kommentierte, nur heller: das eine wird besprochen, das andere ist einen zweiten
+Blick wert. Markieren braucht ein Konto; über einen Freigabe-Link lässt sich eine
+Stelle kommentieren, was ohnehin mehr sagt.
+
 Zwei Fehler, die dabei aufgefallen sind und beide nichts mit PDFs zu tun hatten:
 auf einer Seite mit geschütztem Abschnitt haben sich die Markierungen im Text
 gegenseitig überschrieben, weil zwei Kommentardokumente dieselbe Meldung

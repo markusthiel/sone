@@ -44,12 +44,40 @@
  *
  * **Resolving.** Closing somebody else's thread is a judgement about the page,
  * not a contribution to it, and it stays where it was.
+ *
+ * ## And marks on a PDF, for the same reason (ADR-0152)
+ *
+ * A mark is a comment-shaped act: it says "attend to this" and changes nothing.
+ * So it is the same gate — `canComment` — over the same transport, and it is
+ * here rather than in a module of its own because "what somebody who may not
+ * write the document may nevertheless do" is one subject with one answer.
+ *
+ * The one place the rules differ is **who**: marking is offered to members and
+ * not to a share-link visitor, in this round. Not because a link holder could
+ * not be trusted with a highlighter — they can already write a comment, which
+ * says strictly more — but because taking one *off* would then have to be
+ * offered too, and the only thing a link can tell two visitors apart by is the
+ * name they typed (ADR-0046). A mark that can be made and never un-made is
+ * worse than one that is not offered, so the pair is offered together or not at
+ * all. Reversing this needs the name on the request, exactly as the comment
+ * routes take it, and nothing else.
+ *
+ * A member may take off any mark, the way anybody who may edit may delete any
+ * thread.
  */
 
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
 
-import { addMessage, addThread, guestKey, isPlace, readThreads } from '@sone/core';
+import {
+  addMessage,
+  addPdfMark,
+  addThread,
+  guestKey,
+  isPlace,
+  readThreads,
+  removePdfMark,
+} from '@sone/core';
 
 import { canComment, loadPageLocation } from '../auth/claims.js';
 import { applyToDocument, loadDoc } from '../doc/docStore.js';
@@ -103,6 +131,28 @@ function authorOf(claims: AccessClaims, given: unknown): string {
   if (claims.principal.kind !== 'anonymous') return claims.principal.userId;
   const asked = typeof given === 'string' ? given.trim() : '';
   return guestKey(asked !== '' ? asked : claims.principal.displayName);
+}
+
+/**
+ * Marking is a member's act, in this round (ADR-0152).
+ *
+ * Returns the user id or answers the request, because a mark's author *is* a
+ * user id — there is no `guest:` fallback to write, which is the difference
+ * from `authorOf` above and the reason this is a second function rather than a
+ * flag on that one.
+ *
+ * 403 with a code of its own rather than the 404 the rest of this module uses
+ * for a refusal. The 404s are there so that a page id cannot be confirmed by
+ * probing; this person has already been told the page exists — they may comment
+ * on it — so hiding the reason here would only mean a button that fails and
+ * says nothing.
+ */
+function memberIdOf(ctx: RequestContext, claims: AccessClaims): string | null {
+  if (claims.principal.kind === 'anonymous') {
+    ctx.fail(403, 'marks_need_an_account');
+    return null;
+  }
+  return claims.principal.userId;
 }
 
 /**
@@ -365,6 +415,105 @@ export function registerCommentRoutes(router: Router, deps: CommentDeps): void {
     await rematerialize(deps.pool, pageId, who.workspaceId, actorIdFor(who.claims));
 
     ctx.send(201, { messageId });
+  });
+
+  /**
+   * Put a mark on a place in a PDF, saying nothing about it (ADR-0152).
+   *
+   * No notification and no `notifyLinkOwner`. A mark is silent by design — that
+   * is the whole difference between it and the route above — and telling
+   * somebody about a highlight would make it a comment with no words in it.
+   *
+   * The projection is still rebuilt: it counts what is in the document, and a
+   * page whose stored copy disagrees with its document is how a count goes
+   * wrong quietly.
+   */
+  router.post('/api/pages/:pageId/pdf-marks', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const who = await commenterOn(ctx, pageId);
+    if (!who) return;
+
+    let body: Record<string, unknown>;
+    try {
+      body = await ctx.json<Record<string, unknown>>();
+    } catch (err) {
+      if (err instanceof BodyError) {
+        ctx.fail(err.code === 'body_too_large' ? 413 : 400, err.code);
+        return;
+      }
+      throw err;
+    }
+
+    // The core's rule, asked once. A mark whose place cannot be drawn is not a
+    // mark, and mending it here would put the question in every reader.
+    const place = body['place'];
+    if (!isPlace(place)) {
+      ctx.fail(422, 'invalid_place');
+      return;
+    }
+    const quote = typeof body['quote'] === 'string' ? body['quote'].slice(0, MAX_QUOTE) : '';
+
+    const author = memberIdOf(ctx, who.claims);
+    if (author === null) return;
+
+    const markId = newId('k');
+    const { changed } = await applyToDocument(
+      deps.pool,
+      pageId,
+      (doc) => {
+        addPdfMark(doc, {
+          id: markId,
+          place,
+          quote,
+          // A user id, always: the check above has already refused anybody
+          // without one, so there is no name to take from the request here.
+          author,
+        });
+      },
+      actorIdFor(who.claims),
+    );
+    if (!changed) {
+      // `addPdfMark` is a no-op past the bound, and a silent 201 would be a
+      // mark somebody believes they made.
+      ctx.fail(409, 'too_many_marks');
+      return;
+    }
+
+    await rematerialize(deps.pool, pageId, who.workspaceId, actorIdFor(who.claims));
+    ctx.send(201, { markId });
+  });
+
+  /**
+   * Take one off.
+   *
+   * Any of them: the rule threads already have, where whoever may act on the
+   * page may delete a discussion on it. A mark carries no words of anybody's
+   * own — its quotation is the file's own text — so removing one destroys
+   * nothing that was said.
+   */
+  router.delete('/api/pages/:pageId/pdf-marks/:markId', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    const markId = ctx.params['markId'] ?? '';
+    const who = await commenterOn(ctx, pageId);
+    if (!who) return;
+
+    if (memberIdOf(ctx, who.claims) === null) return;
+
+    const { changed } = await applyToDocument(
+      deps.pool,
+      pageId,
+      (doc) => removePdfMark(doc, markId),
+      actorIdFor(who.claims),
+    );
+    // The document's own answer, as everywhere else on this path: pressing the
+    // button twice, or two people un-marking one passage at once, is ordinary.
+    if (!changed) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    await rematerialize(deps.pool, pageId, who.workspaceId, actorIdFor(who.claims));
+    ctx.send(200, { markId });
   });
 }
 
