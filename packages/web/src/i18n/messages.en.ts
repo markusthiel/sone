@@ -148,6 +148,7 @@ export const en = {
   'error.empty_message': 'A comment needs something in it.',
   'error.message_too_long': 'That comment is longer than a comment can be.',
   'error.invalid_anchor': 'That comment lost the passage it was about. Select the text again.',
+  'error.invalid_place': 'That place in the document could not be read. Select the passage again.',
   'error.too_many_threads': 'This page is holding as many threads as it can. Resolve a few first.',
   'error.not_your_link': 'That connection was begun for a different account.',
   'error.no_other_way_in':
@@ -244,6 +245,8 @@ export const en = {
   'file.pdfPageOf': 'Page {page} of {total}',
   'file.pdfLoading': 'Opening the document\u2026',
   'file.pdfFailed': 'This document could not be shown here.',
+  'file.pdfComment': 'Comment',
+  'file.pdfCommented': 'Somebody has commented on this',
   'workspace.delete.hint': 'Remove this workspace, reversibly, for a while.',
   'workspace.delete.notYours':
     'Only an owner of this workspace, or somebody who manages workspaces, can ' +
@@ -1578,6 +1581,7 @@ export const en = {
   'comment.mark.off': 'Not at all',
   'comment.start': 'Comment',
   'comment.aboutItem': 'About an item on the canvas',
+  'comment.aboutPlace': 'On page {page} of the document',
   'comment.startPlaceholder': 'What about this?',
   'panel.guest': 'guest',
   'panel.guestWriting':

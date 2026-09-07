@@ -16,6 +16,7 @@ import type {
   DiffBlock,
   EntryCover,
   EntryIcon,
+  PdfPlace,
   Role,
   WordChange,
   WorkspaceTheme,
@@ -855,6 +856,16 @@ export const api = {
       to: Uint8Array;
       quote: string;
       item?: string;
+      /**
+       * A place in a PDF, when the comment is about one (ADR-0151).
+       *
+       * Typed as the core's shape rather than restated here, for the reason the
+       * anchor is: two descriptions of one rectangle is how the two come to
+       * disagree about which corner it starts at. The server checks it again —
+       * this is a client, and a client's word for the shape of a thing is not a
+       * check (ADR-0092).
+       */
+      place?: PdfPlace;
       text: string;
       /**
        * The name a visitor gave, when there is one.
@@ -876,6 +887,7 @@ export const api = {
           to: base64(input.to),
           quote: input.quote,
           ...(input.item ? { item: input.item } : {}),
+          ...(input.place ? { place: input.place } : {}),
           text: input.text,
           ...(input.name ? { name: input.name } : {}),
         }),

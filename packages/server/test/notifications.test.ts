@@ -34,8 +34,10 @@ const thread = (messages: Array<[string, string, string[]?]>): CommentThread => 
   from: new Uint8Array(),
   to: new Uint8Array(),
   quote: 'die Zahlen',
-  // About text, not a canvas item (ADR-0046).
+  // About text, not a canvas item (ADR-0046) and not a place in a PDF
+  // (ADR-0151).
   item: null,
+  place: null,
   resolved: false,
   createdAt: 0,
   range: { from: 1, to: 2 },

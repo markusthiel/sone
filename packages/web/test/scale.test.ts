@@ -1158,17 +1158,15 @@ test('a detached thread keeps its place and its words', () => {
   );
   // Marked rather than hidden, and the quotation is not a button when there is
   // nowhere to go.
-  // Every one of these gained the item term together: a canvas thread has no
-  // range by design, so each place that read `range === null` as "the text is
-  // gone" would have said that about every comment on a canvas (ADR-0046).
-  assert.match(
-    panel,
-    /data-detached=\{thread\.item === null && thread\.range === null \? 'true' : undefined\}/,
-  );
-  // Gained the item term with everything else: a canvas thread has no range by
-  // design, so this would have disabled the quotation button on every comment
-  // on a canvas (ADR-0046).
-  assert.match(panel, /disabled=\{thread\.item === null && thread\.range === null\}/);
+  //
+  // Asked through `isDetached` rather than written out here, three times over
+  // (ADR-0151). It was the same expression in three places and a fourth in the
+  // hook, and each of them had had to gain the item term separately when the
+  // canvas arrived (ADR-0046) — so when a third anchor came, each was a
+  // separate chance to say "the text this was about has been deleted" about a
+  // thread that was never text. One sentence, one home.
+  assert.match(panel, /data-detached=\{isDetached\(thread\) \? 'true' : undefined\}/);
+  assert.match(panel, /disabled=\{isDetached\(thread\)\}/);
   assert.match(css, /\.comment-thread\[data-detached='true'\] \{ border-style: dashed; \}/);
 });
 
@@ -1353,14 +1351,21 @@ test('the marks are redrawn by whatever noticed the change', () => {
   // ref read at that moment holds the state from before the change. An empty
   // event made the editor redraw the *previous* list — no highlight at all for
   // the first comment on a page, and one change behind for every later one.
-  assert.match(hook, /new CustomEvent\('sone:comments-changed', \{ detail: readThreads\(doc\) \}\)/);
+  //
+  // Through `announceThreads` since ADR-0151, which is the same event with the
+  // document it is about attached — a page with a protected section runs two
+  // comment documents, and they were both shouting down this one channel.
+  assert.match(hook, /announceThreads\(doc\.guid, readThreads\(doc\)\)/);
 
   const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
-  assert.match(surface, /addEventListener\('sone:comments-changed', nudge\)/);
-  assert.match(surface, /if \(Array\.isArray\(carried\)\) threadsRef\.current = carried/);
-  assert.match(surface, /removeEventListener\('sone:comments-changed', nudge\)/);
+  assert.match(surface, /addEventListener\(THREADS_CHANGED, nudge\)/);
+  assert.match(surface, /threadsRef\.current = carried\.threads/);
+  assert.match(surface, /removeEventListener\(THREADS_CHANGED, nudge\)/);
   assert.match(surface, /setMeta\(commentMarksKey, true\)/);
-  assert.match(surface, /\}, \[markStyle\]\)/);
+  // And the document, since the announcement is filtered by it: a page that
+  // swapped documents without re-subscribing would compare against the old one
+  // and ignore every announcement (ADR-0151).
+  assert.match(surface, /\}, \[markStyle, handle\.doc\]\)/);
 });
 
 test('a thread folds, and so do all of them', () => {
@@ -1590,7 +1595,10 @@ test('a PDF is drawn by us, not by the browser', () => {
   // needed are gone with it (ADR-0048).
   const view = codeOf(new URL('../src/components/FileNodeView.ts', import.meta.url));
   assert.match(view, /display === 'full' && category === 'pdf'/);
-  assert.match(view, /mountPdfViewer\(host, url, this\.labels\.pdf\)/);
+  // With the file's id since ADR-0151: a comment about a place in the document
+  // is keyed by it, and reading it back out of the URL would be a second place
+  // that knows how `/api/files/<id>` is built.
+  assert.match(view, /mountPdfViewer\(host, url, this\.labels\.pdf, fileId\)/);
   assert.doesNotMatch(view, /onlyFirstPageInline|maxTouchPoints/);
 });
 
@@ -1965,8 +1973,9 @@ test('a canvas item can be commented on, from its own menu', () => {
   assert.match(panel, /thread\.item !== null \? t\('comment\.aboutItem'\) : thread\.quote/);
   // And it is never "detached": `range === null` means the text a comment
   // pointed at is gone, while an item comment has no range by design — the same
-  // test would have struck through every canvas thread.
-  assert.match(panel, /disabled=\{thread\.item === null && thread\.range === null\}/);
+  // test would have struck through every canvas thread. The sentence lives in
+  // `isDetached` now, in the core, beside the shape it is about (ADR-0151).
+  assert.match(panel, /disabled=\{isDetached\(thread\)\}/);
 });
 
 test('a relation asks where it points, in a second step', () => {

@@ -160,6 +160,7 @@ export const de: Record<keyof typeof en, string> = {
   'error.empty_message': 'Ein Kommentar braucht einen Inhalt.',
   'error.message_too_long': 'Dieser Kommentar ist länger, als ein Kommentar sein kann.',
   'error.invalid_anchor': 'Die Stelle, um die es ging, ist verloren gegangen. Bitte den Text noch einmal auswählen.',
+  'error.invalid_place': 'Diese Stelle im Dokument konnte nicht gelesen werden. Bitte den Abschnitt noch einmal auswählen.',
   'error.too_many_threads': 'Diese Seite trägt schon so viele Diskussionen, wie sie kann. Erst ein paar auflösen.',
   'error.not_your_link': 'Diese Verknüpfung wurde für ein anderes Konto begonnen.',
   'error.no_other_way_in':
@@ -267,6 +268,8 @@ export const de: Record<keyof typeof en, string> = {
   'file.pdfPageOf': 'Seite {page} von {total}',
   'file.pdfLoading': 'Dokument wird geöffnet\u2026',
   'file.pdfFailed': 'Dieses Dokument kann hier nicht gezeigt werden.',
+  'file.pdfComment': 'Kommentieren',
+  'file.pdfCommented': 'Dazu gibt es einen Kommentar',
   'workspace.delete.hint': 'Diesen Workspace entfernen — eine Zeit lang umkehrbar.',
   'workspace.delete.notYours':
     'Löschen kann nur, wer diesen Workspace besitzt oder Workspaces verwaltet.',
@@ -1675,6 +1678,7 @@ export const de: Record<keyof typeof en, string> = {
   'comment.mark.off': 'Gar nicht',
   'comment.start': 'Kommentieren',
   'comment.aboutItem': 'Zu einem Element auf der Fläche',
+  'comment.aboutPlace': 'Auf Seite {page} des Dokuments',
   'comment.startPlaceholder': 'Was ist damit?',
   'panel.guest': 'Gast',
   'panel.guestWriting':
