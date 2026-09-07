@@ -260,7 +260,7 @@ export function LoginScreen({
           <>
             <p className="auth-or muted">{t('auth.or')}</p>
             <a className="btn sso" href="/api/auth/oidc/start">
-              {sso.buttonLabel ?? 'Single sign-on'}
+              {sso.buttonLabel ?? t('auth.sso')}
             </a>
           </>
         )}

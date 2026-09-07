@@ -208,7 +208,7 @@ export function ColourRow({
         type="button"
         className={current === null ? 'block-menu-swatch none current' : 'block-menu-swatch none'}
         aria-pressed={current === null}
-        aria-label={`${label}: as designed`}
+        aria-label={t('swatch.asDesigned', { label })}
         disabled={disabled}
         onClick={() => onChoose(null)}
       />
@@ -265,7 +265,7 @@ export function ColourRow({
         <input
           type="color"
           value={isCustomColor(current) ? current : '#888888'}
-          aria-label={`${label}: a colour of your own`}
+          aria-label={t('swatch.own', { label })}
           disabled={disabled}
           onChange={(event) => onChoose(event.target.value)}
         />

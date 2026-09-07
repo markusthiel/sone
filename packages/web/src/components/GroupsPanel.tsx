@@ -120,7 +120,7 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
               {group.name}
             </button>
             <span className="muted">
-              {group.members} {group.members === 1 ? 'person' : 'people'}
+              {t('group.members', { count: group.members })}
             </span>
             {roles.length > 0 && (
               <select

@@ -310,7 +310,7 @@ export function SelectionToolbar({
               className="toolbar-button"
               onClick={() => void copyCode()}
             >
-              {copied ? 'Copied' : 'Copy'}
+              {copied ? t('format.copied') : t('format.copy')}
             </button>
           )}
         </>

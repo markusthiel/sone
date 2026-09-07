@@ -527,7 +527,7 @@ export function Sidebar({
                 <button
                   className="entry-more"
                   type="button"
-                  aria-label={`Remove ${entry.title || 'Untitled'} from favourites`}
+                  aria-label={t('sidebar.unfavourite', { title: entry.title || t('page.untitled') })}
                   onClick={() => onToggleFavourite(entry.pageId, false)}
                 >
                   <StarIcon />
@@ -628,7 +628,7 @@ export function Sidebar({
           aria-hidden="true"
         >
           {findNode(tree, drag.dragging)?.kind === 'folder' ? <FolderIcon /> : <PageIcon />}
-          {findNode(tree, drag.dragging)?.title || 'Untitled'}
+          {findNode(tree, drag.dragging)?.title || t('page.untitled')}
         </div>
       )}
     </>

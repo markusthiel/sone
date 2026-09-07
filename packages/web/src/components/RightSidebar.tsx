@@ -388,13 +388,13 @@ function FilesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
           {file.fileId ? (
             <a className="asset-row" href={`/api/files/${file.fileId}`} target="_blank" rel="noreferrer">
               <PaperclipIcon />
-              <span className="asset-name">{file.filename || 'Untitled file'}</span>
+              <span className="asset-name">{file.filename || t('panel.untitledFile')}</span>
               <span className="asset-meta">{describeFile(file.category, file.sizeBytes)}</span>
             </a>
           ) : (
             <span className="asset-row" aria-disabled="true">
               <PaperclipIcon />
-              <span className="asset-name">{file.filename || 'Untitled file'}</span>
+              <span className="asset-name">{file.filename || t('panel.untitledFile')}</span>
               <span className="asset-meta">{t('panel.uploading')}</span>
             </span>
           )}
@@ -402,7 +402,7 @@ function FilesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
             type="button"
             className="asset-jump"
             title={t('panel.showInPage')}
-            aria-label={`Show ${file.filename || 'this file'} in the page`}
+            aria-label={t('panel.showThisInPage', { filename: file.filename || t('panel.thisFile') })}
             onClick={() => scrollToBlock(file.blockId)}
           >
             <PageIcon />

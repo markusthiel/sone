@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { en } from '../src/i18n/messages.en.ts';
 import { codeOf } from './helpers/source.ts';
 
 const list = codeOf(new URL('../src/components/WorkspaceList.tsx', import.meta.url));
@@ -20,7 +21,8 @@ test('personal ones are folded away but still reachable', () => {
   // "Who has an account and what is in it" is a question this list should be
   // able to answer.
   assert.match(list, /showPersonal/);
-  assert.match(list, /One for each account/);
+  assert.match(list, /t\('workspaces\.personal\.note'/);
+  assert.match(en['workspaces.personal.note'], /One for each account/);
 });
 
 test('the list says which workspaces are alive', () => {
@@ -33,7 +35,7 @@ test('the workspace you are in is one row, marked', () => {
   // Not a separate screen: two interfaces for one job, and the one nobody uses
   // is the one that drifts.
   assert.match(list, /row\.id === currentWorkspaceId/);
-  assert.match(list, /you are here/);
+  assert.match(list, /t\('workspaces\.youAreHere'\)/);
 });
 
 // --- administering one of them ----------------------------------------------
