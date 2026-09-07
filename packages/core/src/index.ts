@@ -22,3 +22,4 @@ export { MAX_STORED_ENTRIES, PackError, packStored, type StoredEntry } from './a
 export * from './i18n/format.js';
 export * from './doc/contrast.js';
 export * from './doc/size.js';
+export * from './doc/roles.js';

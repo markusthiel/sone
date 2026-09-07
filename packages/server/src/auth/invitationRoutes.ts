@@ -21,7 +21,7 @@ import {
   type SupportedLocale,
 } from '../i18n/locale.js';
 import type { Letter } from '../mail/letter.js';
-import { words, type AddressForm, type Say } from '../mail/words.js';
+import { roleWord, words, type AddressForm, type RoleNamed, type Say } from '../mail/words.js';
 import { requireSession } from '../http/auth.js';
 import { holdsRight } from './rights.js';
 import { AuthError } from './password.js';
@@ -227,9 +227,10 @@ function accessLetter(
   deps: InvitationDeps,
   voice: Voice,
   where: string,
-  about: { workspace: string; by: string | null; role: string },
+  about: { workspace: string; by: string | null; role: RoleNamed },
 ): Letter {
   const base = deps.baseUrl ?? '';
+  const role = roleWord(voice, about.role);
   return {
     subject: voice.say('access.subject', { where, workspace: about.workspace }),
     heading: voice.say('access.heading', { workspace: about.workspace }),
@@ -239,8 +240,8 @@ function accessLetter(
         // cannot put a subject before its passive needs the whole sentence to
         // change, which is why there are two keys rather than a prefix.
         text: about.by
-          ? voice.say('access.by', { by: about.by, role: about.role })
-          : voice.say('access.anon', { role: about.role }),
+          ? voice.say('access.by', { by: about.by, role })
+          : voice.say('access.anon', { role }),
       },
       { text: voice.say('access.nothing') },
     ],
@@ -288,12 +289,15 @@ function roleChangeLetter(
   deps: InvitationDeps,
   voice: Voice,
   where: string,
-  about: { workspace: string; by: string | null; role: string },
+  about: { workspace: string; by: string | null; role: RoleNamed },
 ): Letter {
   const base = deps.baseUrl ?? '';
   return {
     subject: voice.say('role.subject', { where, workspace: about.workspace }),
-    heading: voice.say('role.heading', { role: about.role, workspace: about.workspace }),
+    heading: voice.say('role.heading', {
+      role: roleWord(voice, about.role),
+      workspace: about.workspace,
+    }),
     lines: [
       { text: about.by ? voice.say('role.by', { by: about.by }) : voice.say('role.anon') },
       { text: voice.say('role.mayDiffer') },
@@ -645,7 +649,7 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
             {
               workspace: where?.name ?? '',
               by: inviter?.display_name ?? null,
-              role: chosen.name,
+              role: chosen,
             },
           ),
         )
@@ -882,7 +886,7 @@ export function registerInvitationRoutes(router: Router, deps: InvitationDeps): 
         roleChangeLetter(deps, voice, instance, {
           workspace: where?.name ?? '',
           by: actor.display_name || null,
-          role: chosen.name,
+          role: chosen,
         }),
       );
     }
