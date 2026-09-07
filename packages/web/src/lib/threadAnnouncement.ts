@@ -74,9 +74,23 @@ function channel<T>(name: string): {
      */
     forget: (doc) => void latest.delete(doc),
     subscribe: (listener) => {
-      // The replay is the point. A subscriber is called once per document that
-      // has announced, synchronously, before this returns — so a viewer can be
-      // written as though the list had always been there.
+      /*
+       * The replay is the point. A subscriber is called once per document that
+       * has announced, **synchronously, before this returns** — so a viewer can
+       * be written as though the list had always been there.
+       *
+       * **Which means the listener runs inside its own subscriber's
+       * constructor**, and that has cost an editor once (ADR-0154): the PDF
+       * viewer subscribes halfway down `mountPdfViewer`, its listener reached a
+       * `const` declared further down, and reading one in its dead zone is a
+       * throw rather than an `undefined` — so the whole editor came down while
+       * ProseMirror was building a node view.
+       *
+       * So: everything a listener touches must exist before `subscribe` is
+       * called. Deferring the replay to a microtask would remove the hazard and
+       * is not done, because it would also remove the guarantee — a subscriber
+       * that must draw before the first paint would then draw a frame late.
+       */
       for (const [doc, payload] of latest) listener({ doc, payload });
 
       const on = (event: Event): void => {
