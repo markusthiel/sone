@@ -17,6 +17,7 @@ import {
   readTitleColor,
   type EntryCover,
   type EntryIcon,
+  type PdfPlace,
 } from '@sone/core';
 import { useEntryKind } from '../hooks/usePageWidth.ts';
 import { usePageWidth } from '../hooks/usePageWidth.ts';
@@ -56,6 +57,12 @@ interface PageViewProps {
   internalItemThreads?: Array<{ item: string | null; resolved: boolean }>;
   /** A selection somebody wants to comment on. */
   onComment: (anchor: CommentAnchor) => void;
+  /** A place in a PDF somebody wants to mark, saying nothing about it (ADR-0152). */
+  onMark: (place: PdfPlace, quote: string) => void;
+  /** And one they want to take off again. */
+  onUnmark: (markId: string) => void;
+  /** Whether the highlighter is offered — see `EditorSurfaceProps`. */
+  mayMark: boolean;
   /** How much to mark a commented passage (ADR-0046). */
   markStyle: 'highlight' | 'underline' | 'off';
   /**
@@ -93,6 +100,9 @@ export function PageView({
   itemThreads,
   internalItemThreads,
   onComment,
+  onMark,
+  onUnmark,
+  mayMark,
   markStyle,
   trail,
   members,
@@ -384,6 +394,9 @@ export function PageView({
             threads={threads}
             members={members}
             onComment={onComment}
+            onMark={onMark}
+            onUnmark={onUnmark}
+            mayMark={mayMark}
             markStyle={markStyle}
           />
         )}

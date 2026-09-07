@@ -29,7 +29,7 @@ import { createElement } from 'react';
 
 import { applyBlockAttrs } from './blockAttrs.ts';
 import { CollectionTable } from './CollectionTable.tsx';
-import { fileNodeView, type FileViewLabels } from './FileNodeView.ts';
+import { fileNodeView, type FileViewAbilities, type FileViewLabels } from './FileNodeView.ts';
 import { videoNodeView, type VideoViewLabels } from './VideoNodeView.ts';
 import { protectedSectionView } from './ProtectedSectionView.ts';
 
@@ -166,6 +166,15 @@ export const soneNodeViews = (
   onOpenContainer: (containerId: string) => void,
   /** The words a node view needs in the reader's language (ADR-0041). */
   labels: FileViewLabels & { video: VideoViewLabels },
+  /**
+   * What the reader may do in a document, as opposed to what it may say
+   * (ADR-0152).
+   *
+   * Beside the labels rather than among them, because it is not one: a label is
+   * a word and this is a right. It reaches the PDF viewer, which offers the
+   * highlighter only to somebody who could actually take a mark off again.
+   */
+  abilities: FileViewAbilities = { mayMark: false },
 ): EditorView['props']['nodeViews'] => ({
   collectionView: (node, view, getPos) =>
     new CollectionNodeView(node as unknown as PMNodeLike, () => {
@@ -173,7 +182,7 @@ export const soneNodeViews = (
       if (pos === undefined) return;
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
     }),
-  file: fileNodeView(labels),
+  file: fileNodeView(labels, abilities),
   video: videoNodeView(labels.video),
   protectedSection: protectedSectionView(onOpenContainer),
 });

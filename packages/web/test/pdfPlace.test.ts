@@ -199,7 +199,7 @@ describe('the hook', () => {
 
 describe('the editor surface', () => {
   test('only redraws its own document’s marks', () => {
-    assert.match(surface, /\.doc !== handle\.doc\.guid/);
+    assert.match(surface, /if \(doc !== handle\.doc\.guid\) return;/);
   });
 
   test('turns a place from the viewer into a comment', () => {

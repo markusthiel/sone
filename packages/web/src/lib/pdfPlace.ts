@@ -10,7 +10,7 @@
  * neither belongs here.
  */
 
-import { MAX_PLACE_RECTS } from '@sone/core';
+import { MAX_PLACE_RECTS, type PdfPlace } from '@sone/core';
 
 /** The four edges, in whatever coordinates the caller is working in. */
 export interface Box {
@@ -78,4 +78,31 @@ export function linesOf(rects: readonly Box[], limit: number = MAX_PLACE_RECTS):
    * quotation says what.
    */
   return lines.slice(0, limit);
+}
+
+/**
+ * Do these two places touch (ADR-0152)?
+ *
+ * What un-marking is asked with. A mark is taken off by selecting the passage
+ * again and pressing the button — there is no click target, because the marks
+ * are `pointer-events: none` so that the text above them stays selectable, and
+ * turning that off would mean a passage could be marked exactly once.
+ *
+ * **Touching, not containing.** Nobody re-selects the same run of glyphs twice:
+ * a drag over "roughly that sentence" starts a character early and ends a
+ * character late, and a rule that asked for containment would answer "there is
+ * nothing there" while the reader is looking straight at it. Overlap is what the
+ * gesture means.
+ *
+ * Same file and same page first, and that is not a formality: two pages of a
+ * document use the same coordinates, so on rectangles alone every mark on page
+ * three would touch every mark on page four.
+ */
+export function touches(one: PdfPlace, other: PdfPlace): boolean {
+  if (one.file !== other.file || one.page !== other.page) return false;
+  return one.rects.some(([ax, ay, aw, ah]) =>
+    other.rects.some(
+      ([bx, by, bw, bh]) => ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah,
+    ),
+  );
 }

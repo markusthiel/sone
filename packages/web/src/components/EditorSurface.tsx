@@ -11,7 +11,7 @@
  */
 
 import type { PageHandle } from '@sone/client';
-import { isPlace, pageContent, readStreamLink, readVideoLink } from '@sone/core';
+import { isPlace, pageContent, readStreamLink, readVideoLink, type PdfPlace } from '@sone/core';
 import {
   assignmentChips,
   authorHighlightKey,
@@ -34,7 +34,7 @@ import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
-import { THREADS_CHANGED, type ThreadAnnouncement } from '../lib/threadAnnouncement.ts';
+import { subscribeToThreads } from '../lib/threadAnnouncement.ts';
 import { registerHighlighter } from './authorHighlightBridge.ts';
 import { BlockMenu } from './BlockMenu.tsx';
 import { soneNodeViews } from './CollectionNodeView.tsx';
@@ -58,6 +58,18 @@ interface EditorSurfaceProps {
   threads: DrawnThread[];
   /** A selection somebody wants to comment on. */
   onComment: (anchor: CommentAnchor) => void;
+  /** A place in a PDF somebody wants to mark, saying nothing (ADR-0152). */
+  onMark: (place: PdfPlace, quote: string) => void;
+  /** And one they want to take off again. */
+  onUnmark: (markId: string) => void;
+  /**
+   * Whether the highlighter is offered at all.
+   *
+   * False for a share-link visitor: taking a mark off again would have to be
+   * offered too, and a link can only tell two visitors apart by the name they
+   * typed (ADR-0046). See `ViewerSubject`.
+   */
+  mayMark: boolean;
   /** How much to mark a commented passage (ADR-0046). */
   markStyle: 'highlight' | 'underline' | 'off';
   /** The workspace's people, for assigning a task (ADR-0052). */
@@ -83,6 +95,9 @@ export function EditorSurface({
   pageId,
   threads,
   onComment,
+  onMark,
+  onUnmark,
+  mayMark,
   markStyle,
   members,
 }: EditorSurfaceProps): ReactElement {
@@ -421,31 +436,30 @@ export function EditorSurface({
    * change says so directly, and this listens.
    */
   useEffect(() => {
-    const nudge = (event?: Event): void => {
-      /*
-       * The list from the event, when there is one: it was read after the change
-       * and before React re-rendered, so it is newer than anything the props or
-       * the ref can offer at this moment.
-       *
-       * **From this document only** (ADR-0151). A page with a protected section
-       * runs a second comment document, and it used to announce on the same
-       * event with nothing to tell the two apart — so an internal reply rebuilt
-       * the public marks from threads whose anchors resolve against a document
-       * this editor is not showing, which is to say from nothing.
-       */
-      const carried = (event as CustomEvent<ThreadAnnouncement> | undefined)?.detail;
-      if (carried) {
-        if (carried.doc !== handle.doc.guid) return;
-        threadsRef.current = carried.threads;
-      }
-
+    const nudge = (): void => {
       const view = viewRef.current;
       if (!view) return;
       view.dispatch(view.state.tr.setMeta(commentMarksKey, true));
     };
     nudge();
-    window.addEventListener(THREADS_CHANGED, nudge);
-    return () => window.removeEventListener(THREADS_CHANGED, nudge);
+
+    /*
+     * The list comes with the announcement, and that is the whole of why the
+     * announcement carries one: the hook reads it inside the Yjs transaction,
+     * before React has re-rendered, so a prop or a ref read at that moment
+     * holds the state from before the change.
+     *
+     * **From this document only** (ADR-0151). A page with a protected section
+     * runs a second comment document, and the two used to announce on one
+     * channel with nothing to tell them apart — so an internal reply rebuilt
+     * the public marks from threads whose anchors resolve against a document
+     * this editor is not showing, which is to say from nothing.
+     */
+    return subscribeToThreads(({ doc, threads: carried }) => {
+      if (doc !== handle.doc.guid) return;
+      threadsRef.current = carried;
+      nudge();
+    });
   }, [markStyle, handle.doc]);
 
   /**
@@ -512,6 +526,39 @@ export function EditorSurface({
     };
     window.addEventListener('sone:pdf-comment', wanted);
     return () => window.removeEventListener('sone:pdf-comment', wanted);
+  }, []);
+
+  /**
+   * And a place somebody wants to mark, or un-mark (ADR-0152).
+   *
+   * The same channel and the same checking as the comment above it. Two events
+   * rather than one with a flag, so each listener reads as one sentence.
+   */
+  const mayMarkRef = useRef(mayMark);
+  mayMarkRef.current = mayMark;
+  const onMarkRef = useRef(onMark);
+  onMarkRef.current = onMark;
+  const onUnmarkRef = useRef(onUnmark);
+  onUnmarkRef.current = onUnmark;
+  useEffect(() => {
+    const mark = (event: Event): void => {
+      const detail = (event as CustomEvent<{ place?: unknown; quote?: unknown }>).detail;
+      if (!detail || !isPlace(detail.place) || typeof detail.quote !== 'string') return;
+      onMarkRef.current(detail.place, detail.quote);
+    };
+    const unmark = (event: Event): void => {
+      const detail = (event as CustomEvent<{ marks?: unknown }>).detail;
+      if (!detail || !Array.isArray(detail.marks)) return;
+      for (const id of detail.marks) {
+        if (typeof id === 'string' && id !== '') onUnmarkRef.current(id);
+      }
+    };
+    window.addEventListener('sone:pdf-mark', mark);
+    window.addEventListener('sone:pdf-unmark', unmark);
+    return () => {
+      window.removeEventListener('sone:pdf-mark', mark);
+      window.removeEventListener('sone:pdf-unmark', unmark);
+    };
   }, []);
 
   canEditRef.current = handle.canEdit;
@@ -628,6 +675,9 @@ export function EditorSurface({
             next: t('file.pdfNext'),
             comment: t('file.pdfComment'),
             commented: t('file.pdfCommented'),
+            mark: t('file.pdfMark'),
+            unmark: t('file.pdfUnmark'),
+            marked: t('file.pdfMarked'),
           },
           video: {
             hlsFailed: t('video.hlsFailed'),
@@ -635,6 +685,9 @@ export function EditorSurface({
             openStream: t('video.openStream'),
           },
         },
+        // Read from a ref, because the editor is created once and this is a
+        // prop: the same arrangement `canEdit` and the mark style already use.
+        { mayMark: mayMarkRef.current },
       ),
     });
     viewRef.current = created;

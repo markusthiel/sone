@@ -74,6 +74,19 @@ export const DOC_KEYS = {
    * one that works.
    */
   comments: 'comments',
+  /**
+   * Marks on a PDF that nobody has said anything about (ADR-0152).
+   *
+   * Beside the comments rather than among them. A thread with no messages is
+   * not a thread (ADR-0046) — it *is* a highlight over nothing, which is
+   * exactly what this is for, so the two want opposite things from one shape.
+   * Every reader of the comments would otherwise have to ask "and does this one
+   * have anything in it".
+   *
+   * Absent in every document written before this key existed, and an absent map
+   * reads as an empty one — which is why this needed no schema bump.
+   */
+  pdfMarks: 'pdfMarks',
 } as const;
 
 export const META_KEYS = {
