@@ -176,6 +176,14 @@ describe(
     // --- changed -------------------------------------------------------------
 
     test('a role change is announced with the new role', async () => {
+      /*
+       * **This test is named after a check it did not make.** It asserted the
+       * workspace and the person who acted, under a title promising the role —
+       * the same shape ADR-0135 found in a comment and ADR-0137 in a stylesheet,
+       * arriving this time in a test's own name.
+       *
+       * So it names the role now, which is what let the next two exist.
+       */
       const bert = await member('bert@example.org');
       await expectStatus(await setRole(bert, 'guest'), 200);
 
@@ -183,6 +191,54 @@ describe(
       const said = JSON.stringify(posted[0]!.letter);
       assert.match(said, /Haus/);
       assert.match(said, /Anna Weber/);
+      assert.match(said, /Guest/);
+    });
+
+    test('and named in the reader’s language, not the row’s', async () => {
+      /*
+       * **The live fault** (ADR-0143). `roles.name` is seeded in English by a
+       * migration, and both of these letters passed it straight through — so a
+       * German reader of a fully German letter was told *„Sie sind jetzt Guest
+       * in Haus."*
+       *
+       * The two letters whose entire subject is a role were the two that named
+       * it in the wrong language, three rounds after ADR-0133 translated
+       * everything around them.
+       */
+      const bert = await member('bert@example.org');
+      await db.query(`UPDATE users SET locale = 'de' WHERE id = $1`, [bert]);
+      await expectStatus(await setRole(bert, 'guest'), 200);
+
+      const said = JSON.stringify(posted[0]!.letter);
+      assert.match(said, /Gast/);
+      assert.doesNotMatch(said, /Guest/, 'and not the word the row happens to hold');
+    });
+
+    test('but a role this workspace made keeps the name somebody typed', async () => {
+      /*
+       * The other half, and the reason this is not "translate the role". There
+       * is no German for „Redaktion" to find, and inventing one would rename
+       * somebody's role in a letter.
+       */
+      const bert = await member('bert@example.org');
+      await db.query(`UPDATE users SET locale = 'de' WHERE id = $1`, [bert]);
+      const made = await db.query<{ id: string }>(
+        `INSERT INTO roles (workspace_id, key, name, page_level)
+         VALUES ($1, NULL, 'Redaktion', 'editor') RETURNING id`,
+        [fx.workspaceId],
+      );
+      // By id, because a role this workspace made has no word to send
+      // (ADR-0103) — which is the same fact that makes its name untranslatable.
+      await expectStatus(
+        await fetch(`${base}/api/workspaces/${fx.workspaceId}/members/${bert}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json', cookie },
+          body: JSON.stringify({ roleId: made.rows[0]!.id }),
+        }),
+        200,
+      );
+
+      assert.match(JSON.stringify(posted[0]!.letter), /Redaktion/);
     });
 
     test('but a role set to the one somebody already has is not a change', async () => {

@@ -8,6 +8,7 @@
  */
 
 import { useT } from '../i18n/useT.tsx';
+import { roleLabel } from '../workspaceRights.ts';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { useEffect, useState, type ReactElement } from 'react';
 
@@ -132,7 +133,7 @@ export function GroupsPanel({ workspaceId }: { workspaceId: string }): ReactElem
                 <option value="">{t('role.groupNone')}</option>
                 {roles.map((role) => (
                   <option key={role.id} value={role.id}>
-                    {role.key ? t(`role.${role.key}` as MessageKey) : role.name}
+                    {roleLabel(role, t)}
                   </option>
                 ))}
               </select>

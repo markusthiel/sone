@@ -857,6 +857,7 @@ export const de: Record<keyof typeof en, string> = {
   'role.note':
     'Eine Rolle sagt zweierlei: was jemand auf Seiten darf, für die nichts Eigenes festgelegt ist, und was er im Workspace verwalten darf. Rollen lassen sich Personen und Gruppen geben.',
   'role.new': 'Neue Rolle',
+  'workspace.roleUnknown': 'Rolle unbekannt',
   'role.name': 'Name',
   'role.name.note': 'Wie die Rolle in Listen heißt.',
   'role.namePlaceholder': 'Redaktion',

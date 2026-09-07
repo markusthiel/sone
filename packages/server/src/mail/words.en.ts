@@ -62,6 +62,24 @@ export const en = {
     'Anything shared with you inside it has gone with it. If this is ' +
     'unexpected, ask whoever runs that workspace.',
 
+  /*
+   * What a role is called (ADR-0143).
+   *
+   * The four this application wrote, in its own words. A role a workspace made
+   * keeps the name somebody typed — there is nothing to translate, and a German
+   * for „Redaktion" would have to be invented.
+   *
+   * Capitalised, because the same slot holds a name somebody typed — a sentence
+   * reading "You are now Redaktion" beside one reading "you are now owner" is
+   * two answers to how a role is written.
+   *
+   * The letters passed the row's `name` before, which for these four is the
+   * English word a migration seeded: „Sie sind jetzt Owner in Marketing."
+   */
+  'role.word.owner': 'Owner',
+  'role.word.admin': 'Admin',
+  'role.word.member': 'Member',
+  'role.word.guest': 'Guest',
   // --- a role changed (ADR-0128) -------------------------------------------
   'role.subject': '{where}: your role in {workspace} has changed',
   'role.heading': 'You are now {role} in {workspace}.',

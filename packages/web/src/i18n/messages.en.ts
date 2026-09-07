@@ -785,6 +785,7 @@ export const en = {
   'role.note':
     'A role says two things: what somebody may do on pages with no rules of their own, and what they may manage in the workspace. Roles can be given to people and to groups.',
   'role.new': 'New role',
+  'workspace.roleUnknown': 'role unknown',
   'role.name': 'Name',
   'role.name.note': 'What the role is called in lists.',
   'role.namePlaceholder': 'Editorial',

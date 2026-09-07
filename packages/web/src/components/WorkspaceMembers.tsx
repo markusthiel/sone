@@ -24,6 +24,7 @@
  */
 
 import { useT } from '../i18n/useT.tsx';
+import { roleLabel } from '../workspaceRights.ts';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceMember, type WorkspaceRoleRow } from '../api/client.ts';
@@ -365,9 +366,11 @@ export function WorkspaceMembers({
                   ? offered.map((one) => (
                       <option key={one.id} value={one.id}>
                         {/* A system role is translated; a custom one is called
-                            what somebody called it (ADR-0087). The same rule as
-                            the picker in the table below. */}
-                        {one.key ? t(`role.${one.key}` as MessageKey) : one.name}
+                            what somebody called it (ADR-0087). "The same rule as
+                            the picker in the table below" is what this used to
+                            say, having copied it — so both are the one function
+                            now (ADR-0143). */}
+                        {roleLabel(one, t)}
                       </option>
                     ))
                   : FALLBACK.map((one) => (
@@ -424,16 +427,15 @@ export function WorkspaceMembers({
                         server is being told. */}
                     {roles.map((role) => (
                       <option key={role.id} value={role.id}>
-                        {role.key ? t(`role.${role.key}` as MessageKey) : role.name}
+                        {roleLabel(role, t)}
                       </option>
                     ))}
                   </select>
                 ) : (
                   // A custom role has no key to translate, so its own name is
-                  // the only name it has.
-                  member.roleId !== null && member.role === 'custom'
-                    ? member.roleName
-                    : t(`role.${member.role}` as MessageKey)
+                  // the only name it has — the condition `roleLabel` owns now
+                  // (ADR-0143), rather than this file's second spelling of it.
+                  roleLabel({ key: member.role, name: member.roleName }, t)
                 )}
               </td>
               <td className="muted">{new Date(member.joinedAt).toLocaleDateString()}</td>

@@ -247,7 +247,7 @@ function Profile({
             {workspace?.name ?? '—'}
             {/* The role's name, not the old enum word: somebody holding
                 "Redaktion" was being told they are a member (ADR-0102). */}
-            {workspace ? ` · ${roleLabel(workspace, '')}` : ''}
+            {workspace ? ` · ${roleLabel({ key: workspace.role, name: workspace.roleName }, t)}` : ''}
           </span>
         </div>
       </div>
