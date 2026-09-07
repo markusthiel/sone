@@ -8041,7 +8041,26 @@ select {
 }
 /* A slot keeps its height before and after its page is drawn, so releasing one
    does not move the scroll position under somebody's thumb. */
+/* A page, and the box its text layer is measured against (ADR-0150).
+ *
+ * The four custom properties are pdf.js's contract with whoever hosts its
+ * layer: `setLayerDimensions` writes
+ * `width: round(down, var(--total-scale-factor) * 612px, var(--scale-round-x))`,
+ * and with none of them defined that is `round(down, NaN, NaN)` — a layer of no
+ * size with every span piled at its origin.
+ *
+ * `--scale-factor` is set by the viewer, not here: it is the width the column
+ * gave the canvas, and it changes when the column does. The other three are
+ * constants of the arrangement — one user unit, and rounding to whole pixels.
+ *
+ * `position: relative`, because the layer is `inset: 0` and would otherwise
+ * measure itself against the scrolling column instead of this page. */
 .pdf-page {
+  position: relative;
+  --user-unit: 1;
+  --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
   background: var(--surface);
   box-shadow: var(--sone-shadow-sm);
 }

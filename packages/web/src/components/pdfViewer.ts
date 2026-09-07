@@ -116,6 +116,12 @@ export function mountPdfViewer(
       const [pdfjs, workerUrl] = await Promise.all([
         import('pdfjs-dist'),
         import('pdfjs-dist/build/pdf.worker.min.mjs?url').then((module) => module.default),
+        /*
+         * The engine's own stylesheet for its own layer (ADR-0150), on the same
+         * terms as the engine: loaded here so that nothing lands on somebody
+         * who never opens a PDF.
+         */
+        import('../pdfTextLayer.css'),
       ]);
       if (cancelled) return;
 
@@ -174,7 +180,16 @@ export function mountPdfViewer(
           try {
             const page = await doc.getPage(number);
             const unscaled = page.getViewport({ scale: 1 });
-            const width = pages.clientWidth || container.clientWidth || 800;
+            /*
+             * The slot's width, not the column's (ADR-0150).
+             *
+             * They differ by a scrollbar, and that is not a detail: the canvas
+             * is `width: 100%` of the slot, so the column's width made the
+             * canvas 688px wide and the text layer 700px — the invisible text
+             * running twelve pixels past the drawn glyphs by the right margin.
+             * Measured; the arithmetic is in the record.
+             */
+            const width = slot.clientWidth || pages.clientWidth || container.clientWidth || 800;
             /*
              * Bounded on purpose. A canvas at a phone's full pixel ratio times a
              * fitting scale is tens of megabytes for one page, and a document is
@@ -196,10 +211,47 @@ export function mountPdfViewer(
             if (cancelled || slot.dataset['drawn'] !== 'true') return;
             slot.textContent = '';
             slot.append(canvas);
-          } catch {
-            // One page that will not draw is one blank page, not a failed
-            // document: a PDF with a damaged object should still show the
-            // pages either side of it.
+
+            /*
+             * And the words, over the picture of them (ADR-0150).
+             *
+             * A second viewport, at the scale the *reader* sees: the canvas is
+             * rasterised at `fit * devicePixelRatio` and displayed at 100% of
+             * the column, so its buffer is two or three times its box. This
+             * layer is DOM, and its numbers are CSS pixels — handed the
+             * rasterising viewport, every span would sit two or three times too
+             * far along.
+             *
+             * The scale goes on the slot as a custom property because that is
+             * the engine's contract: everything it positions is written against
+             * `--total-scale-factor`, which is what lets a resize be a variable
+             * change instead of a re-render.
+             */
+            const cssViewport = page.getViewport({ scale: fit });
+            slot.style.setProperty('--scale-factor', String(fit));
+
+            const text = document.createElement('div');
+            text.className = 'textLayer';
+            slot.append(text);
+            await new pdfjs.TextLayer({
+              textContentSource: await page.getTextContent(),
+              container: text,
+              viewport: cssViewport,
+            }).render();
+          } catch (error) {
+            /*
+             * One page that will not draw is one blank page, not a failed
+             * document: a PDF with a damaged object should still show the pages
+             * either side of it.
+             *
+             * **Said out loud, though** (ADR-0150). It was swallowed whole, and
+             * a blank page with no trace anywhere is a page nobody can explain —
+             * it cost an afternoon here, where the cause turned out to be a
+             * browser older than the engine's own requirements. The reader still
+             * sees a gap and not an error; whoever is asked about the gap gets
+             * a line to go on.
+             */
+            console.warn(`SONE: page ${number} of this PDF could not be drawn`, error);
             slot.dataset['drawn'] = 'failed';
           }
         });
@@ -231,6 +283,45 @@ export function mountPdfViewer(
         { root: null, rootMargin: NEAR },
       );
 
+      /*
+       * The column's width is the zoom (ADR-0150).
+       *
+       * A canvas is `width: 100%` and follows a resize for nothing; the text
+       * layer is positioned in pixels derived from `--scale-factor`, so without
+       * this the words stay where they were drawn while the picture under them
+       * grows — a sidebar opening is enough. Re-setting one custom property per
+       * drawn slot is cheaper than redrawing, which is exactly what the engine
+       * designed the property for.
+       */
+      /*
+       * The slot's width is the zoom (ADR-0150).
+       *
+       * A canvas is `width: 100%` and follows a resize for nothing; the text
+       * layer is positioned in pixels derived from `--scale-factor`, so without
+       * this the words stay where they were drawn while the picture under them
+       * grows — a sidebar opening is enough. Re-setting one custom property per
+       * drawn slot is cheaper than redrawing, which is exactly what the engine
+       * designed the property for.
+       *
+       * **The slots are watched, not the column.** A scrollbar appearing
+       * changes the column's *content* box and leaves its border box alone, so
+       * an observer on the column sleeps through the one resize that is certain
+       * to happen: the moment the document turns out to be longer than the
+       * window.
+       */
+      const resize = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const slot = entry.target as HTMLElement;
+          if (slot.dataset['drawn'] !== 'true') continue;
+          const pageWidth = Number(slot.dataset['pageWidth'] ?? '0');
+          const width = slot.clientWidth;
+          if (pageWidth > 0 && width > 0) {
+            slot.style.setProperty('--scale-factor', String(width / pageWidth));
+          }
+        }
+      });
+      cleanups.push(() => resize.disconnect());
+
       // A slot per page, sized before it is drawn: a column that grows as pages
       // arrive is a column that jumps while somebody reads it.
       const first = await doc.getPage(1);
@@ -239,9 +330,13 @@ export function mountPdfViewer(
         const slot = document.createElement('div');
         slot.className = 'pdf-page';
         slot.dataset['page'] = String(number);
+        // What the scale is measured against on a resize, kept beside the slot
+        // rather than recomputed from a page the engine would have to fetch.
+        slot.dataset['pageWidth'] = String(shape.width);
         slot.style.aspectRatio = `${shape.width} / ${shape.height}`;
         pages.append(slot);
         observer.observe(slot);
+        resize.observe(slot);
       }
     } catch {
       if (cancelled) return;
