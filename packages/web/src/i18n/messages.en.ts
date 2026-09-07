@@ -801,6 +801,8 @@ export const en = {
   'role.heldBy':
     '{members, plural, =0 {No people} one {One person} other {# people}}' +
     '{groups, plural, =0 {} one {, one group} other {, # groups}}',
+  'role.heldByNamed':
+    '{rest, plural, =0 {{names}} one {{names} and one more} other {{names} and # more}}',
   'role.heldByNobody': 'Nobody has it yet',
   'role.card.onPages': 'On pages',
   'role.card.inWorkspace': 'In the workspace',
