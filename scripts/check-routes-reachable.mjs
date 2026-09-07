@@ -82,6 +82,7 @@ const NOT_FOR_THE_INTERFACE = new Map([
     // would be a client showing last month's mark out of a proxy (ADR-0123).
     'an <img src> the server hands out, with the key in the address',
   ],
+  ['/api/instance/logo/dark', 'the same, for the mark drawn on dark surfaces (ADR-0149)'],
 ]);
 
 const unreachable = routes.filter((route) => {

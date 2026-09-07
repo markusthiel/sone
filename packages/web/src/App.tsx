@@ -141,6 +141,9 @@ export function App(): ReactElement {
       <Instance
         value={{
           logo: instance?.brand?.logo ?? null,
+          /* The second mark, for dark surfaces (ADR-0149). Null is the ordinary
+             state: an instance with one mark uses it on every ground. */
+          logoOnDark: instance?.brand?.logoOnDark ?? null,
           /* `=== true` rather than truthiness: the field is optional on the
              payload, and an instance that has not loaded must not be an
              instance that promises mail (ADR-0139). */

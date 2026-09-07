@@ -471,10 +471,14 @@ export const de: Record<keyof typeof en, string> = {
     'Beides ist schon vor der Anmeldung zu sehen — das ist der Sinn davon.',
   'admin.brand.choose': 'Logo wählen',
   'admin.brand.remove': 'Logo entfernen',
+  'admin.brand.logo.onLight': 'Für helle Flächen',
+  'admin.brand.logo.onDark': 'Für dunkle Flächen',
   'admin.brand.logo.note':
     'Am besten quadratisch, PNG, JPEG oder WebP. Ein fast quadratisches Bild ' +
     'wird eingepasst, nicht verzerrt. Ohne Logo zeichnet die Oberfläche ihre ' +
-    'eigene Marke.',
+    'eigene Marke. Welche der beiden Fassungen gezeigt wird, entscheidet die ' +
+    'Fläche selbst — ein Workspace kann die schmale Leiste einfärben. Ist nur ' +
+    'eine hochgeladen, gilt sie überall.',
   'admin.brand.design': 'Basis-Design',
   'admin.brand.design.hint':
     'Gilt überall dort, wo ein Workspace nichts eigenes eingestellt hat. Ein ' +

@@ -97,11 +97,18 @@ export async function sweepOrphanFiles(
      -- somebody's download.
      SELECT result->>'key' FROM jobs WHERE result ? 'key'
       UNION
-     -- The instance's logo (ADR-0123). Not in the files table either, and it
-     -- belongs to no workspace and no page — a key on a setting, exactly as an
-     -- avatar is a key on a person.
+     -- The instance's marks (ADR-0123, ADR-0149). Not in the files table either,
+     -- and they belong to no workspace and no page — a key on a setting, exactly
+     -- as an avatar is a key on a person.
+     --
+     -- Two settings since ADR-0149, one mark per ground. Written as a set
+     -- rather than as an equality repeated: this file's own comment warns that
+     -- a holder the sweep has not learned about is a file it deletes a week
+     -- after somebody uploaded it, and a third mark would otherwise be the same
+     -- warning coming true again. (No backticks in here, either — this is a
+     -- template literal, and one ends the string mid-query.)
      SELECT value->>'key' FROM instance_settings
-      WHERE key = 'brandLogo' AND value ? 'key'`,
+      WHERE key IN ('brandLogo', 'brandLogoOnDark') AND value ? 'key'`,
   );
   const live = new Set(rows.map((row) => row.key));
 

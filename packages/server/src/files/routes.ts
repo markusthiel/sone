@@ -573,11 +573,35 @@ export { readBinary, safeFilename };
  * one that does not would collect the logo a week after it was uploaded
  * (ADR-0109).
  */
+/**
+ * The two marks, by the ground each is drawn for (ADR-0149).
+ *
+ * Named by the surface rather than by the ink — „das helle Logo" is ambiguous in
+ * both languages, and an administrator uploading the wrong one round would find
+ * out on a screen they were not looking at.
+ */
+const LOGO_SETTINGS = {
+  light: 'brandLogo',
+  dark: 'brandLogoOnDark',
+} as const;
+
+type LogoVariant = keyof typeof LOGO_SETTINGS;
+
+const isVariant = (value: string): value is LogoVariant => value in LOGO_SETTINGS;
+
 export function registerBrandRoutes(
   router: Router,
   deps: FileDeps & { settings: BrandSettings },
 ): void {
-  router.put('/api/admin/brand/logo', async (ctx) => {
+  /*
+   * One handler for both marks, and the plain path is the light one.
+   *
+   * Every instance that has a mark today uploaded it under `/logo`, for the
+   * surface it is drawn on. Moving that to a variant path would silently
+   * reassign it to the ground it was not drawn for — and two copies of this
+   * handler is how the type check on one of them stops matching the other.
+   */
+  const put = async (ctx: RequestContext, variant: LogoVariant): Promise<void> => {
     const auth = await requireSession(deps.pool, ctx);
     if (!auth) return;
     if (!(await isInstanceAdmin(deps.pool, auth.userId))) {
@@ -613,12 +637,16 @@ export function registerBrandRoutes(
     // The previous one is left for the orphan sweep rather than deleted, the
     // rule the avatar states: keys are content hashes, so deleting on replace
     // could take bytes something else still names.
-    await deps.settings.set('brandLogo', { key: stored.key, mime: detected.mime }, auth.userId);
+    await deps.settings.set(
+      LOGO_SETTINGS[variant],
+      { key: stored.key, mime: detected.mime },
+      auth.userId,
+    );
 
     ctx.send(200, { ok: true });
-  });
+  };
 
-  router.delete('/api/admin/brand/logo', async (ctx) => {
+  const remove = async (ctx: RequestContext, variant: LogoVariant): Promise<void> => {
     const auth = await requireSession(deps.pool, ctx);
     if (!auth) return;
     if (!(await isInstanceAdmin(deps.pool, auth.userId))) {
@@ -627,8 +655,40 @@ export function registerBrandRoutes(
     }
     // `null` deletes the row rather than storing null, so "no logo" has one
     // representation — the settings store's own rule.
-    await deps.settings.set('brandLogo', null, auth.userId);
+    await deps.settings.set(LOGO_SETTINGS[variant], null, auth.userId);
     ctx.send(200, { ok: true });
+  };
+
+  /*
+   * Named, always — there is no unnamed one.
+   *
+   * The first version kept `/api/admin/brand/logo` as the light one, arguing
+   * compatibility. `check-routes-reachable` refused it, and correctly: nothing
+   * in the interface calls it, so it was a path reachable only with curl. The
+   * compatibility that matters is the **setting**, not the path — an instance
+   * that uploaded a mark before this keeps it, because `brandLogo` is still
+   * where the light one lives.
+   *
+   * A variant nobody has heard of is 404 rather than 400: it is a path that does
+   * not exist, and answering anything else would describe the set of paths that
+   * do.
+   */
+  router.put('/api/admin/brand/logo/:variant', async (ctx) => {
+    const variant = ctx.params['variant'] ?? '';
+    if (!isVariant(variant)) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    await put(ctx, variant);
+  });
+
+  router.delete('/api/admin/brand/logo/:variant', async (ctx) => {
+    const variant = ctx.params['variant'] ?? '';
+    if (!isVariant(variant)) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    await remove(ctx, variant);
   });
 
   /**
@@ -639,8 +699,11 @@ export function registerBrandRoutes(
    * That is what makes the long cache safe — the bytes at a key never change,
    * but this path does not name a key.
    */
-  router.get('/api/instance/logo', async (ctx) => {
-    const logo = (await deps.settings.get('brandLogo')) as { key: string; mime: string } | null;
+  const serve = async (ctx: RequestContext, variant: LogoVariant): Promise<void> => {
+    const logo = (await deps.settings.get(LOGO_SETTINGS[variant])) as {
+      key: string;
+      mime: string;
+    } | null;
     if (!logo) {
       ctx.fail(404, 'not_found');
       return;
@@ -669,13 +732,20 @@ export function registerBrandRoutes(
       'x-content-type-options': 'nosniff',
     });
     ctx.res.end(bytes);
-  });
+  };
+
+  router.get('/api/instance/logo', (ctx) => serve(ctx, 'light'));
+  router.get('/api/instance/logo/dark', (ctx) => serve(ctx, 'dark'));
 }
 
 /** Only the two things the brand routes do to settings. */
 export interface BrandSettings {
-  get(key: 'brandLogo'): Promise<unknown>;
-  set(key: 'brandLogo', value: unknown, actorId: string | null): Promise<void>;
+  get(key: 'brandLogo' | 'brandLogoOnDark'): Promise<unknown>;
+  set(
+    key: 'brandLogo' | 'brandLogoOnDark',
+    value: unknown,
+    actorId: string | null,
+  ): Promise<void>;
 }
 
 /**
