@@ -77,6 +77,15 @@ test.
 a mark that stays mounted while the surface under it is replaced kept its first
 answer. It measures after every render now and bails out when nothing moved.
 
+**The compatibility path was an alias nothing called.** The first version kept
+`PUT /api/admin/brand/logo` as the light one, arguing that instances already use
+it. `check-routes-reachable` refused that in CI, and it was right: once the
+interface names both marks, nothing calls the unnamed path, and a route reachable
+only with curl is what that check exists to find. The compatibility that matters
+is the setting — an instance that uploaded a mark keeps it, because `brandLogo`
+is still where the light one lives, and the test says that in terms of the
+setting rather than of a URL.
+
 **A callback ref, for ADR-0142's reason.** The caller attaches it to an `<img>`
 in one branch and an `<svg>` in the other, and no single `RefObject<T>` fits
 both.

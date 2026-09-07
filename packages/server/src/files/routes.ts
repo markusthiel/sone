@@ -659,11 +659,15 @@ export function registerBrandRoutes(
     ctx.send(200, { ok: true });
   };
 
-  router.put('/api/admin/brand/logo', (ctx) => put(ctx, 'light'));
-  router.delete('/api/admin/brand/logo', (ctx) => remove(ctx, 'light'));
-
   /*
-   * And the same two by name.
+   * Named, always — there is no unnamed one.
+   *
+   * The first version kept `/api/admin/brand/logo` as the light one, arguing
+   * compatibility. `check-routes-reachable` refused it, and correctly: nothing
+   * in the interface calls it, so it was a path reachable only with curl. The
+   * compatibility that matters is the **setting**, not the path — an instance
+   * that uploaded a mark before this keeps it, because `brandLogo` is still
+   * where the light one lives.
    *
    * A variant nobody has heard of is 404 rather than 400: it is a path that does
    * not exist, and answering anything else would describe the set of paths that
