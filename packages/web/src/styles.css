@@ -6252,9 +6252,6 @@ select {
   border-block-end: 1px solid var(--sone-border);
 }
 .admin-row:last-child { border-block-end: 0; }
-/* A deactivated account is dimmed rather than hidden: it still exists, and
-   seeing it is how somebody reactivates it. */
-.admin-row[data-inactive='true'] { opacity: 0.55; }
 
 .admin-row-main { display: flex; flex-direction: column; gap: var(--sone-space-1); min-inline-size: 0; }
 .admin-name { font-weight: 500; }
@@ -6267,6 +6264,106 @@ select {
   flex-wrap: wrap;
 }
 .admin-toggle { display: inline-flex; align-items: center; gap: var(--sone-space-2); font-size: var(--sone-text-sm); }
+
+/* --- an account in that list (ADR-0146) --- */
+
+/* Three columns: who they are, what they are, and what can be done to them.
+ *
+ * It was one wrapping strip with `space-between`, which put two switches and
+ * two buttons — a state and an action, side by side at the same weight —
+ * wherever the width left room, so no two rows in the list agreed on anything.
+ * Reported from an iPad as „ein bisschen durcheinander", which is exactly what
+ * four controls of two kinds in one flex line look like.
+ *
+ * **The grid is the list, not the row**, and that took a measurement to learn.
+ * A grid per row aligns nothing across rows: every row sizes its own tracks, so
+ * the switches of an account with one button sat 300px from the switches of the
+ * account below it — tidier than a wrapping strip and still not a column. Grid
+ * tracks are shared by being one grid, so the rows are `display: contents` and
+ * every account's three cells are cells of this one.
+ *
+ * The middle track has a width of its own rather than sizing to its content, so
+ * that the column stays where it is when a name is long or a catalogue is
+ * changed. Wide enough for the longest label in either — „Verwaltet Workspaces"
+ * is the long one, and it was measured rather than guessed. */
+.account-list {
+  display: grid;
+  /* The buttons' track may shrink below its content, or a row of them in a
+     language with long words pushes the list past its own frame — measured at
+     810px, where „Zwei-Schritt-Anmeldung entfernen" beside „Deaktivieren"
+     wants 435px and the body has 744. Shrinking, they wrap; not shrinking,
+     they were clipped by the frame's `overflow: hidden` and simply gone. */
+  grid-template-columns: minmax(14rem, 1fr) 12rem minmax(0, max-content);
+}
+
+/* The row has no box of its own any more, so its padding and the rule under it
+   are drawn by its cells — and the space between columns is drawn by them too.
+   A `column-gap` was the obvious spelling and it broke the rule into three
+   pieces with two holes in it, which is visible at a glance and was: the first
+   screenshot of this layout has a dashed line under every account. */
+.account-row { display: contents; }
+.account-row > * {
+  padding: var(--sone-space-4);
+  border-block-end: 1px solid var(--sone-border);
+  /* Stretched to the row's height, not centred in it — `align-items: center` on
+     the list gave every cell a box the height of its own content, so the three
+     pieces of one rule sat at three heights and the line under an account had
+     steps in it. What is centred is the content inside the cell, which for the
+     two column-flex cells is what `justify-content` means. */
+  justify-content: center;
+}
+.account-row:last-child > * { border-block-end: 0; }
+/* A deactivated account is dimmed rather than hidden: it still exists, and
+   seeing it is how somebody reactivates it. */
+.account-row[data-inactive='true'] > * { opacity: 0.55; }
+
+/* Stacked, not side by side: two switches in a line put the longer label's box
+   out of line with the shorter one's as soon as it wraps, and a checkbox that
+   is not where the one above it is is the thing that reads as untidy. */
+.account-rights {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: var(--sone-space-2);
+  min-inline-size: 0;
+}
+
+/* The buttons end where the row ends, in both layouts — the grid puts them
+   there while there are three columns, and this keeps them there once the row
+   is one column and the group has the full width. */
+.account-actions { justify-content: end; }
+
+/* Below this the three columns stop fitting. Measured, in German, which is the
+ * language that decides it: 14rem of name, 12rem of switches, 435px of buttons
+ * and six paddings want about 900px, and the settings body is that wide at
+ * roughly 950px of window. 60rem is the width already in this file nearest that
+ * — a twentieth breakpoint for one list would be worse than eight pixels.
+ *
+ * The list goes back to a stack, and each account draws its own box again: with
+ * `display: contents` in one column, the rule under a cell would be a rule
+ * between an account's name and its own switches.
+ *
+ * **It has to be written here**, after the rules it overrides, and that is the
+ * whole reason this block is not up with the other widths: the settings area's
+ * breakpoint of the same size is declared five thousand lines earlier, and a
+ * media query does not add specificity. The first attempt put it there and lost
+ * to source order at equal specificity — measured at 560px, still three
+ * columns. ADR-0144 was the same mistake with `color-scheme`. */
+@media (max-width: 60rem) {
+  .account-list { display: flex; flex-direction: column; }
+  .account-row {
+    display: grid;
+    gap: var(--sone-space-3);
+    padding: var(--sone-space-4);
+    border-block-end: 1px solid var(--sone-border);
+  }
+  .account-row > * { padding: 0; border-block-end: 0; }
+  .account-row:last-child { border-block-end: 0; }
+  /* An account with nothing to switch draws the group anyway, because in three
+     columns the empty column is the alignment. Stacked there are no columns to
+     align, so it is a gap under a guest's name and nothing else. */
+  .account-rights:empty { display: none; }
+}
 
 .admin-subheading { margin-block: var(--sone-space-6) var(--sone-space-3); font-size: var(--sone-text-md); }
 .admin-explain { display: block; font-size: var(--sone-text-xs); line-height: 1.45; max-inline-size: 60ch; }
