@@ -30,11 +30,24 @@ import { createContext, useContext } from 'react';
 export interface InstanceFacts {
   /** The instance's own logo, or null for SONE's mark (ADR-0123). */
   logo: string | null;
+  /**
+   * A second mark, inked for dark surfaces (ADR-0149).
+   *
+   * Optional in the ordinary sense and in a stricter one: an instance with a
+   * single mark uses it on every ground, which is what every instance did
+   * before this existed. Two marks is the case where a workspace paints the
+   * rail dark and the one drawn for paper stops reading on it.
+   */
+  logoOnDark?: string | null;
   /** Whether a relay is configured at all (ADR-0059, ADR-0126). */
   canSendMail: boolean;
 }
 
-const InstanceContext = createContext<InstanceFacts>({ logo: null, canSendMail: false });
+const InstanceContext = createContext<InstanceFacts>({
+  logo: null,
+  logoOnDark: null,
+  canSendMail: false,
+});
 
 /** Wraps the whole application, once, in `App`. */
 export const Instance = InstanceContext.Provider;

@@ -140,6 +140,15 @@ export const SETTING_KEYS = {
    * refuses it is right.
    */
   brandLogo: { type: 'json', check: checkLogo },
+  /*
+   * The same thing again, for dark surfaces (ADR-0149).
+   *
+   * A second setting rather than a field inside the first: the two are uploaded,
+   * replaced and removed one at a time, and a single value holding both would
+   * make removing one a read-modify-write of the other — the shape that loses a
+   * logo when two administrators are on the screen at once.
+   */
+  brandLogoOnDark: { type: 'json', check: checkLogo },
 } as const;
 
 /**
@@ -189,6 +198,8 @@ export interface BrandInfo {
    * proxy.
    */
   logo: string | null;
+  /** The same, for the mark drawn on dark surfaces (ADR-0149). */
+  logoOnDark: string | null;
 }
 
 export type SettingKey = keyof typeof SETTING_KEYS;
@@ -219,6 +230,8 @@ export interface InstanceSettings {
   /** What the instance looks like where nobody said otherwise (ADR-0123). */
   brandTheme: WorkspaceTheme;
   brandLogo: BrandLogo | null;
+  /** And the one for dark ones, when the instance has uploaded a second (ADR-0149). */
+  brandLogoOnDark: BrandLogo | null;
 }
 
 /**
@@ -228,9 +241,13 @@ export interface InstanceSettings {
  * an object and a logo is bytes, and neither belongs in a compose file. Empty
  * is what a fresh instance has.
  */
-const NO_ENVIRONMENT: Pick<InstanceSettings, 'brandTheme' | 'brandLogo' | 'welcomeMail'> = {
+const NO_ENVIRONMENT: Pick<
+  InstanceSettings,
+  'brandTheme' | 'brandLogo' | 'brandLogoOnDark' | 'welcomeMail'
+> = {
   brandTheme: {},
   brandLogo: null,
+  brandLogoOnDark: null,
   // Off, and not from the environment: a welcome mail is a decision somebody
   // makes on a Tuesday, not a deployment choice (ADR-0130).
   welcomeMail: false,
@@ -335,6 +352,16 @@ export class SettingsStore {
       theme: values.brandTheme,
       logo: values.brandLogo
         ? `/api/instance/logo?v=${values.brandLogo.key.replace('/', '').slice(0, 12)}`
+        : null,
+      /*
+       * The mark for dark surfaces, at an address of its own (ADR-0149).
+       *
+       * Null far more often than not, and that is the answer rather than a gap:
+       * an instance with one mark uses it on every ground, which is what every
+       * instance did before there were two.
+       */
+      logoOnDark: values.brandLogoOnDark
+        ? `/api/instance/logo/dark?v=${values.brandLogoOnDark.key.replace('/', '').slice(0, 12)}`
         : null,
     };
   }

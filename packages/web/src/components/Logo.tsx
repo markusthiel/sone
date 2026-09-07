@@ -27,6 +27,7 @@
 
 import { type ReactElement } from 'react';
 
+import { useGroundTone } from '../hooks/useGroundTone.ts';
 import { useInstance } from './Instance.tsx';
 
 /**
@@ -91,7 +92,23 @@ export function SoneMark({
   /** Given only where the mark is the sole content of a link or button. */
   title?: string;
 }): ReactElement {
-  const { logo } = useInstance();
+  const { logo, logoOnDark } = useInstance();
+
+  /*
+   * Which of two marks this surface gets (ADR-0149).
+   *
+   * Measured where it is drawn rather than read off the theme: the rail may be
+   * painted with a workspace's accent (ADR-0122), so the same instance in the
+   * same light theme has a light rail in one workspace and a navy one in the
+   * next — *„bei einigen macht das Helle Logo mehr Sinn bei anderen das
+   * dunkle"*.
+   *
+   * With one mark uploaded, that mark is used on every ground. Losing a logo
+   * because a workspace changed a colour would be a worse answer than an
+   * imperfect contrast, and it is the state every instance is in today.
+   */
+  const { tone, ref } = useGroundTone();
+  const chosen = tone === 'dark' ? (logoOnDark ?? logo) : (logo ?? logoOnDark);
 
   /*
    * An instance's own mark replaces the drawing rather than sitting beside it.
@@ -103,11 +120,12 @@ export function SoneMark({
    * No `width`/`height` attributes beyond the box, and `alt` carries whatever
    * the drawing would have said — the mark is often the only content of a link.
    */
-  if (logo) {
+  if (chosen) {
     return (
       <img
+        ref={ref}
         className="brand-logo"
-        src={logo}
+        src={chosen}
         width={size}
         height={size}
         alt={title ?? ''}
@@ -118,6 +136,7 @@ export function SoneMark({
 
   return (
     <svg
+      ref={ref}
       viewBox="0 0 100 100"
       width={size}
       height={size}

@@ -446,9 +446,14 @@ export const en = {
     'Both are visible before anybody signs in, which is the point of them.',
   'admin.brand.choose': 'Choose a logo',
   'admin.brand.remove': 'Remove the logo',
+  // Two marks, named by the ground each is drawn for (ADR-0149).
+  'admin.brand.logo.onLight': 'For light surfaces',
+  'admin.brand.logo.onDark': 'For dark surfaces',
   'admin.brand.logo.note':
     'Square is best; PNG, JPEG or WebP. A nearly square picture is fitted ' +
-    'rather than stretched. With no logo the interface draws its own mark.',
+    'rather than stretched. With no logo the interface draws its own mark. ' +
+    'Which of the two is shown is decided by the surface itself — a workspace ' +
+    'may colour the rail. With only one uploaded, it is used everywhere.',
   'admin.brand.design': 'Base design',
   'admin.brand.design.hint':
     'Used wherever a workspace has set nothing of its own. A workspace fills ' +
