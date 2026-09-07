@@ -55,7 +55,9 @@ test('an inherited grant is shown but not editable here', () => {
   // Editing it here would silently change access to everything else under the
   // ancestor it was set on.
   assert.match(panel, /grant\.inheritedFrom \?/);
-  assert.match(panel, /from\{' '\}/);
+  // Where it came from, in one message rather than three JSX children
+  // (ADR-0148).
+  assert.match(panel, /t\('perm\.inheritedFrom'/);
 });
 
 test('somebody who may read but not manage gets no panel, not an error', () => {
@@ -66,14 +68,16 @@ test('somebody who may read but not manage gets no panel, not an error', () => {
 test('restricting explains that admins keep access', () => {
   // Otherwise it reads as a lock that locks everybody out, and somebody has to
   // be able to undo it.
-  assert.match(panel, /Owners and admins still can/);
+  assert.match(panel, /t\('perm\.restricted\.note'\)/);
+  assert.match(en['perm.restricted.note'], /Owners and admins still can/);
 });
 
 test('the panel says which direction a grant moves access', () => {
   // A grant on an unrestricted page widens and never narrows, which is not
   // obvious from a dropdown that lists "can view" under somebody who can
   // already edit.
-  assert.match(panel, /never less/);
+  assert.match(panel, /t\('perm\.open\.note'\)/);
+  assert.match(en['perm.open.note'], /never less/);
 });
 
 // --- groups -----------------------------------------------------------------

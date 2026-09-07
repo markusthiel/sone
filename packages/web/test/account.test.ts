@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { en } from '../src/i18n/messages.en.ts';
 import { codeOf } from './helpers/source.ts';
 
 const settings = codeOf(new URL('../src/components/Settings.tsx', import.meta.url));
@@ -26,8 +27,12 @@ test('changing a password asks for the current one', () => {
 
 test('the minimum matches the one the server enforces', () => {
   // A form that accepts eleven characters and a server that refuses them is a
-  // form that lies about what it will do.
-  assert.match(settings, /At least twelve characters/);
+  // form that lies about what it will do. The sentence moved into the catalogue
+  // (ADR-0148), so what is read is the message and the threshold beside it —
+  // which is what this test always meant.
+  assert.match(settings, /t\('you\.newPassword\.hint'\)/);
+  assert.match(en['you.newPassword.hint'], /twelve/);
+  assert.match(settings, /next\.length < 12/);
 });
 
 test('what cannot be changed says why', () => {

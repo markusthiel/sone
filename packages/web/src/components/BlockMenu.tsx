@@ -738,9 +738,7 @@ export function BlockMenu({ view, revision, members }: BlockMenuProps): ReactEle
           type="button"
           className="block-handle"
           aria-label={
-            size > 1
-              ? `Block actions (${size} blocks including children)`
-              : 'Block actions'
+            size > 1 ? t('block.actions.counted', { count: size }) : t('block.actions')
           }
           aria-expanded={open}
           onMouseDown={(event) => event.preventDefault()}
@@ -764,8 +762,7 @@ export function BlockMenu({ view, revision, members }: BlockMenuProps): ReactEle
             // Stated plainly, because acting on children the person did not
             // see selected is exactly the surprise worth avoiding.
             <p className="block-menu-note">
-              Applies to this block and {size - 1} nested{' '}
-              {size - 1 === 1 ? 'block' : 'blocks'}
+              {t('block.appliesToNested', { count: size - 1 })}
             </p>
           )}
 

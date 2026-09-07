@@ -149,7 +149,7 @@ export function MoveToWorkspaceDialog({
         className="dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={t('move.workspace.label', { title: entry.title || 'this entry' })}
+        aria-label={t('move.workspace.label', { title: entry.title || t('entry.thisOne') })}
         onPointerDown={(event) => event.stopPropagation()}
       >
         <h2 className="dialog-title">{t('move.workspace.title')}</h2>
@@ -189,7 +189,7 @@ export function MoveToWorkspaceDialog({
                 cannot express that (ADR-0011). */}
             <p>
               {t('move.workspace.intro', {
-                title: entry.title || 'this entry',
+                title: entry.title || t('entry.thisOne'),
                 workspace: chosen.name,
               })}
             </p>

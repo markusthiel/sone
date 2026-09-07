@@ -8,10 +8,34 @@
  */
 
 import { useT } from '../i18n/useT.tsx';
-import { useEffect, useState, type ReactElement } from 'react';
+import { Fragment, useEffect, useState, type ReactElement, type ReactNode } from 'react';
 
 import { ApiError, api } from '../api/client.ts';
 import { messageFor } from './Auth.tsx';
+
+/**
+ * A translated sentence with one word of it set in code (ADR-0148).
+ *
+ * The three sentences here name an environment variable and a path, and both
+ * were written as three JSX children — text, `<code>`, text — which is a
+ * sentence assembled from pieces and cannot be translated: word order differs
+ * by language and a translator cannot move a `<code>` element (ADR-0011).
+ *
+ * So the sentence is one message, the identifier appears inside it, and this
+ * finds it again to set it apart. A translator may put it anywhere in the
+ * sentence; if a translation drops it, the sentence is simply shown as it was
+ * written rather than losing a word.
+ */
+function withCode(sentence: string, word: string): ReactNode {
+  const parts = sentence.split(word);
+  if (parts.length === 1) return sentence;
+  return parts.map((part, at) => (
+    <Fragment key={at}>
+      {at > 0 && <code>{word}</code>}
+      {part}
+    </Fragment>
+  ));
+}
 
 interface Settings {
   issuer: string;
@@ -82,10 +106,7 @@ export function OidcPanel(): ReactElement {
         * form is broken. */}
       {!hasSecret && (
         <p className="warning">
-          No client secret is set. Add <code>SONE_OIDC_CLIENT_SECRET</code> to
-          the server&rsquo;s environment and restart it; single sign-on stays off
-          until then. The secret is deliberately not stored here — a secret in
-          the database is a secret in every backup.
+          {withCode(t('oidc.noSecret'), 'SONE_OIDC_CLIENT_SECRET')}
         </p>
       )}
 
@@ -95,11 +116,7 @@ export function OidcPanel(): ReactElement {
         <div className="settings-row">
           <span className="settings-row-label">
             <b>{t('oidc.issuer')}</b>
-            <span>
-              The provider&rsquo;s base URL. Everything else is read from its
-              discovery document, so nothing here needs to know which provider
-              it is.
-            </span>
+            <span>{t('oidc.issuer.hint')}</span>
           </span>
           <input
             id="oidc-issuer"
@@ -161,14 +178,11 @@ export function OidcPanel(): ReactElement {
         {t('oidc.showButton')}
       </label>
 
-      <p className="muted">
-        Add <code>/api/auth/oidc/callback</code> on this instance&rsquo;s public
-        URL to the provider&rsquo;s list of redirect URIs.
-      </p>
+      <p className="muted">{withCode(t('oidc.callback'), '/api/auth/oidc/callback')}</p>
 
       <div className="settings-actions">
         <button type="button" className="btn primary" disabled={busy} onClick={save}>
-          {busy ? 'Saving…' : 'Save'}
+          {busy ? t('action.saving') : t('action.save')}
         </button>
         {saved && <span className="muted">{t('action.saved')}</span>}
       </div>

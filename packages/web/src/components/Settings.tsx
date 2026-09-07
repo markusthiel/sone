@@ -650,10 +650,7 @@ function SignIn(): ReactElement {
         <div className="settings-row">
           <span className="settings-row-label">
             <b>{t('you.newPassword')}</b>
-            <span>
-              At least twelve characters. Length is what makes a password hard
-              to guess; a short one with symbols in it is not.
-            </span>
+            <span>{t('you.newPassword.hint')}</span>
           </span>
           <input
             id="account-next"
@@ -676,7 +673,7 @@ function SignIn(): ReactElement {
           disabled={busy || current === '' || next.length < 12}
           onClick={savePassword}
         >
-          {busy ? 'Changing…' : 'Change password'}
+          {busy ? t('you.changingPassword') : t('you.changePassword')}
         </button>
         {passwordDone && (
           <span className="muted">
@@ -1023,9 +1020,7 @@ function About(): ReactElement {
 
       {stale && (
         <p className="settings-warning">
-          This browser is running an older build than the server. Reload to pick
-          up the current version — until then, what you see may not match what
-          the server does.{' '}
+          {t('about.stale')}{' '}
           <button type="button" className="btn" onClick={() => window.location.reload()}>
             {t('action.reload')}
           </button>
@@ -1065,8 +1060,7 @@ function About(): ReactElement {
       </dl>
 
       <p className="muted" style={{ fontSize: '0.85rem' }}>
-        SONE is free software under the AGPL-3.0. No seat limits, no feature
-        gates, no enterprise edition.
+        {t('about.licence')}
       </p>
     </section>
   );

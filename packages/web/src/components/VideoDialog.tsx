@@ -90,13 +90,19 @@ export function VideoDialog({
         * correction and a refusal afterwards is a broken block. */}
       {embed && (
         <p className="muted video-dialog-verdict">
-          A {embed.provider === 'youtube' ? 'YouTube' : embed.provider === 'vimeo' ? 'Vimeo' : 'PeerTube'} video.
-          Nothing is loaded from them until somebody presses play.
+          {t('video.embedVerdict', {
+            provider:
+              embed.provider === 'youtube'
+                ? 'YouTube'
+                : embed.provider === 'vimeo'
+                  ? 'Vimeo'
+                  : 'PeerTube',
+          })}
         </p>
       )}
       {stream && (
         <p className="muted video-dialog-verdict">
-          A live {stream.kind === 'hls' ? 'HLS' : 'DASH'} stream, played in the page.
+          {t('video.streamVerdict', { kind: stream.kind === 'hls' ? 'HLS' : 'DASH' })}
         </p>
       )}
       {refused && !usable && (
@@ -110,7 +116,7 @@ export function VideoDialog({
           {t('action.cancel')}
         </button>
         <button type="button" className="btn primary" disabled={!usable} onClick={submit}>
-          Add
+          {t('video.add')}
         </button>
       </div>
     </div>

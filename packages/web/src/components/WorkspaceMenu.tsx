@@ -220,7 +220,7 @@ export function WorkspaceMenu({
 
       {open && (
         <div className="switcher-menu" ref={panelRef} role="menu">
-          {workspaces === null && !error && <p className="muted small">Loading…</p>}
+          {workspaces === null && !error && <p className="muted small">{t('workspaces.loading')}</p>}
           {error && <p className="error small">{messageFor(error)}</p>}
 
           {workspaces?.map((workspace, at) => (
@@ -280,7 +280,7 @@ export function WorkspaceMenu({
               </span>
               {workspace.memberCount > 1 && (
                 <span className="switcher-item-meta">
-                  {workspace.memberCount} people
+                  {t('workspaces.memberCount', { count: workspace.memberCount })}
                 </span>
               )}
             </button>
@@ -311,7 +311,7 @@ export function WorkspaceMenu({
                   disabled={busy || name.trim().length === 0}
                   onClick={() => void create()}
                 >
-                  {busy ? 'Creating…' : 'Create'}
+                  {busy ? t('workspaces.creating') : t('action.create')}
                 </button>
               </div>
             ) : (

@@ -331,7 +331,7 @@ export function PageView({
         <p className="error">{t('page.noAccess')}</p>
       )}
       {(handle.role === null || (handle.status === 'denied' && connectionState !== 'ready')) && (
-        <p className="muted">Opening…</p>
+        <p className="muted">{t('page.opening')}</p>
       )}
       {handle.status !== 'denied' && handle.role !== null && !handle.canEdit && (
         <p className="muted">{t('page.readOnly')}</p>
@@ -456,7 +456,7 @@ export function PageStatus({ handle, connectionState, failure }: {
         {label}
       </span>
       {peers.length > 0 && (
-        <div className="peers" aria-label={`${peers.length} other people here`}>
+        <div className="peers" aria-label={t('page.otherPeopleHere', { count: peers.length })}>
           {peers.slice(0, 5).map((peer, i) => (
             <span
               key={i}

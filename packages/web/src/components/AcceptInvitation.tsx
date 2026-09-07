@@ -111,15 +111,16 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
         {invitation && !invitation.instanceOnly && (
           <>
             <p>
-              You have been invited to join{' '}
-              <strong>{invitation.workspaceName ?? 'a workspace'}</strong>.
+              {t('invitation.invitedTo', {
+                workspace: invitation.workspaceName ?? t('invitation.aWorkspace'),
+              })}
             </p>
             <p className="muted">
               {t('invitation.keepsYours')}
             </p>
             <div className="settings-actions">
               <button type="button" className="btn primary" disabled={busy} onClick={accept}>
-                {busy ? 'Joining…' : 'Join'}
+                {busy ? t('invitation.joining') : t('invitation.join')}
               </button>
               {/* Declining is navigating away. There is nothing to record: an
                 * invitation nobody accepts expires on its own, and a "declined"
@@ -131,7 +132,7 @@ export function AcceptInvitation({ token, navigate, onJoined }: Props): ReactEle
           </>
         )}
 
-        {!invitation && !error && !spent && <p className="muted">Checking the invitation…</p>}
+        {!invitation && !error && !spent && <p className="muted">{t('invitation.checking')}</p>}
       </div>
     </div>
   );

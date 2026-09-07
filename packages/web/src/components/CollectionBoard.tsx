@@ -135,7 +135,7 @@ export function CollectionBoard({
                 className={`option-swatch option-${option.color}`}
                 aria-hidden="true"
               />
-              <span className="board-column-name">{option.name || 'Untitled'}</span>
+              <span className="board-column-name">{option.name || t('table.untitled')}</span>
               {/* A plus when there may be more: the number is true as far as
                   it goes, and the sign says how far that is. */}
               <span className="board-column-count">
@@ -182,7 +182,7 @@ export function CollectionBoard({
           style={{ left: drag.pointer.x, top: drag.pointer.y }}
           aria-hidden="true"
         >
-          {dragged.title || 'Untitled'}
+          {dragged.title || t('table.untitled')}
         </div>
       )}
     </div>
