@@ -179,6 +179,31 @@ export const de: Record<keyof typeof en, string> = {
     'formal {Sie bekommen das, weil Ihnen jemand einen Link geschickt hat. Es gibt nichts abzubestellen.} ' +
     'other {Du bekommst das, weil dir jemand einen Link geschickt hat. Es gibt nichts abzubestellen.}}',
 
+  // --- Ein Job, den jemand angestoßen hat, ist fertig ----------------------
+  'export.subject': '{where}: der Export von {workspace} ist fertig',
+  'export.heading':
+    '{address, select, formal {Der Export von {workspace}, den Sie angestoßen haben, ist fertig.} ' +
+    'other {Der Export von {workspace}, den du angestoßen hast, ist fertig.}}',
+  'export.what': '{pages, plural, one {Eine Seite} other {# Seiten}}, {size}.',
+  'export.until': 'Er kann bis {when} abgeholt werden.',
+  'export.action': 'Export öffnen',
+  'export.footer.notAttached':
+    'Das Archiv hängt nicht an: eine Kopie eines ganzen Workspace gehört nicht in ein Postfach.',
+  'export.footer.signedIn':
+    '{address, select, ' +
+    'formal {Der Link öffnet den Bildschirm, von dem aus Sie gefragt haben; für das Herunterladen ' +
+    'müssen Sie als Sie selbst angemeldet sein.} ' +
+    'other {Der Link öffnet den Bildschirm, von dem aus du gefragt hast; zum Herunterladen musst ' +
+    'du als du selbst angemeldet sein.}}',
+
+  'export.failed.subject': '{where}: der Export von {workspace} ist nicht fertig geworden',
+  'export.failed.heading':
+    '{address, select, formal {Der Export von {workspace}, den Sie angestoßen haben, ist nicht fertig geworden.} ' +
+    'other {Der Export von {workspace}, den du angestoßen hast, ist nicht fertig geworden.}}',
+  'export.failed.why':
+    'Es wurde mehrfach versucht. Der Export-Bildschirm sagt, woran es lag.',
+  'export.failed.action': 'Export-Bildschirm öffnen',
+
   // --- Was sich geändert hat -----------------------------------------------
   'digest.subject.weekly': 'SONE: was sich diese Woche geändert hat',
   'digest.subject.daily': 'SONE: was sich gestern geändert hat',
