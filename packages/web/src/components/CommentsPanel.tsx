@@ -10,7 +10,8 @@
  * decisions that were made, kept because those are worth being able to find.
  */
 
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import type * as Y from 'yjs';
 
 import { guestName, isGuestKey } from '@sone/client';
 import { isDetached, type CommentThread } from '@sone/core';
@@ -22,6 +23,7 @@ import {
   type CommentMarkStyle,
 } from '../hooks/useCommentMarkStyle.ts';
 import type { CommentActions } from '../hooks/useComments.ts';
+import { useDocAssets } from '../hooks/useDocAssets.ts';
 import { useFoldedThreads } from '../hooks/useFoldedThreads.ts';
 import { CheckSquareIcon, ChevronRightIcon, TrashIcon } from './icons.tsx';
 import { MentionDraftInput } from './MentionDraftInput.tsx';
@@ -38,6 +40,7 @@ function nameOf(author: string, members: WorkspaceMember[]): { name: string; gue
 
 function Thread({
   thread,
+  subjectShown,
   members,
   comments,
   canEdit,
@@ -47,6 +50,13 @@ function Thread({
   onToggle,
 }: {
   thread: CommentThread;
+  /**
+   * Whether the document this thread is about is on the page (ADR-0155).
+   *
+   * True for every thread that is not about a place — there is nothing to be
+   * missing. See `CommentsPanelProps` for where the answer comes from.
+   */
+  subjectShown: boolean;
   members: WorkspaceMember[];
   comments: CommentActions;
   /** May delete a message. */
@@ -99,7 +109,12 @@ function Thread({
            * struck through every canvas thread and disabled its button — the
            * difference between "cannot be found" and "was never text".
            */
-          disabled={isDetached(thread)}
+          /*
+           * And a place whose document is no longer shown leads nowhere either
+           * (ADR-0155). Not "detached" — the passage was never text here and
+           * has not been rewritten; it is simply not on this page to point at.
+           */
+          disabled={isDetached(thread) || !subjectShown}
           title={
             thread.item !== null
               ? t('comment.aboutItem')
@@ -114,7 +129,9 @@ function Thread({
                  * came first for.
                  */
                 thread.place !== null
-                ? t('comment.aboutPlace', { page: thread.place.page })
+                ? subjectShown
+                  ? t('comment.aboutPlace', { page: thread.place.page })
+                  : t('comment.placeGone')
                 : thread.range === null
                   ? t('comment.detached')
                   : t('comment.reveal')
@@ -142,6 +159,14 @@ function Thread({
 
       {isDetached(thread) && (
         <p className="comment-note">{t('comment.detached')}</p>
+      )}
+
+      {/* Its own sentence, and its own fact (ADR-0155). A place cannot drift —
+          the file's bytes are fixed — so this never says "the text was
+          rewritten"; it says the document is not here to look at. The quotation
+          above stays, because it is the whole of what the thread is about. */}
+      {!subjectShown && thread.place !== null && (
+        <p className="comment-note">{t('comment.placeGone')}</p>
       )}
 
       <ul className="comment-messages">
@@ -258,6 +283,7 @@ export function CommentsPanel({
   onCancelPending,
   marks,
   pageId,
+  doc,
 }: {
   comments: CommentActions;
   members: WorkspaceMember[];
@@ -297,6 +323,20 @@ export function CommentsPanel({
   marks: { style: CommentMarkStyle; setStyle: (style: CommentMarkStyle) => void };
   /** Which page's folding is being remembered. */
   pageId: string | null;
+  /**
+   * The page itself, for one question a thread cannot answer (ADR-0155).
+   *
+   * A comment about a place in a PDF points at a file, and whether that file is
+   * still *shown on this page* is a fact about the page — ADR-0151 said so when
+   * it left the question open. The document is where the answer is: a file
+   * block that was deleted, moved to another page, or switched back to a card
+   * all read the same way here, which is the same way they read to somebody
+   * looking for the passage.
+   *
+   * Read here rather than handed down as a set, so it is walked only while this
+   * tab is open — the arrangement the files, images and links panels use.
+   */
+  doc: Y.Doc | null;
 }): ReactElement {
   const { t } = useT();
   const [draft, setDraft] = useState('');
@@ -313,6 +353,26 @@ export function CommentsPanel({
    * and the set is of the *closed* ones, so a thread that arrives while nobody
    * is looking is open.
    */
+  /**
+   * The documents this page is actually showing (ADR-0155).
+   *
+   * **Shown, not merely present.** A PDF switched back to a card is still a file
+   * on the page and its *pages* are not — the marks are not drawn, the passage
+   * is not visible, and somebody looking for it is in exactly the position the
+   * deleted case puts them in. One sentence covers all three ways it can happen
+   * because all three leave the reader in the same place.
+   */
+  const { files } = useDocAssets(doc);
+  const shown = useMemo(
+    () =>
+      new Set(
+        files
+          .filter((file) => file.display === 'full' && file.fileId !== null)
+          .map((file) => file.fileId as string),
+      ),
+    [files],
+  );
+
   const { closed, toggle, setAll } = useFoldedThreads(
     pageId,
     comments.threads.map((thread) => thread.id),
@@ -467,6 +527,7 @@ export function CommentsPanel({
             <Thread
               key={thread.id}
               thread={thread}
+              subjectShown={thread.place === null || shown.has(thread.place.file)}
               members={members}
               comments={source}
               canEdit={canEdit}

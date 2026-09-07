@@ -34,6 +34,14 @@ export interface DocFile {
   /** 'image' | 'pdf' | 'text' | 'document' | 'archive', from the server. */
   category: string;
   sizeBytes: number | null;
+  /**
+   * How the block draws it: 'card', 'line' or 'full' (ADR-0155).
+   *
+   * Part of what the page holds rather than a detail of the block, because a
+   * PDF shown as a card is a file on the page whose *pages* are not on it — and
+   * a comment about a place inside it has nowhere to point.
+   */
+  display: string;
 }
 
 export interface DocImage {
@@ -170,6 +178,9 @@ export function readDocAssets(doc: Y.Doc): DocAssets {
         mimeType: text(block.props['mimeType']),
         category: text(block.props['category'], 'document'),
         sizeBytes: number(block.props['sizeBytes']),
+        // Absent means a card, which is what a file block was before it could
+        // be anything else.
+        display: text(block.props['display'], 'card'),
       });
       continue;
     }
