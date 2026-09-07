@@ -163,11 +163,37 @@ export const WORST_GROUND = { light: '#d0cec9', dark: '#3a3a37' } as const;
  * it past what it needs and past the fill beside it, which shows as a ring; at
  * no floor at all, a pale accent is a focus ring at 1.07:1.
  */
+/**
+ * Whether a surface is a light one or a dark one (ADR-0149).
+ *
+ * The comparison is `readableInk`'s, which has made it since ADR-0136 and named
+ * it nothing: a ground lighter than mid grey is a light ground, and everything
+ * else — including mid grey itself — is a dark one, because that is the side
+ * that needs the lighter thing drawn on it.
+ *
+ * Named because a second caller arrived: an instance may upload two marks, one
+ * inked for light grounds and one for dark, and the rail decides which it gets
+ * by its own colour. A copy of this line in the web package would be one rule
+ * with two homes, and this repository has spent enough rounds on that shape.
+ *
+ * A colour, never a theme. A workspace may paint the rail with its accent
+ * (ADR-0122), so a light instance can have the darkest surface on the screen —
+ * and a treatment compiles to `var(--accent)`, which is a colour only once the
+ * browser has resolved it.
+ */
+export type GroundTone = 'light' | 'dark';
+
+export function groundTone(ground: string | Rgb): GroundTone {
+  return luminance(ground) > luminance('#808080') ? 'light' : 'dark';
+}
+
 export function readableInk(color: string, ground: string, floor: number = AA.text): string {
   if (contrastRatio(color, ground) >= floor) return color;
 
   const start = parseHex(color);
-  const towardsDark = luminance(ground) > luminance('#808080');
+  // The same question, asked once (ADR-0149): moving a colour *down* is what a
+  // light ground needs.
+  const towardsDark = groundTone(ground) === 'light';
   /*
    * Rounded inside the search, not after it.
    *

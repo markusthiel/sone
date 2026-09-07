@@ -8613,6 +8613,32 @@ body {
   gap: var(--sone-space-6);
   margin-block: var(--sone-space-5);
 }
+
+/* Each mark previewed on the ground it is drawn for (ADR-0149).
+ *
+ * The preview above takes the chrome surface, which is the page's own — right
+ * while there was one mark, and useless for judging two: a mark inked for paper
+ * looks correct on paper, and the question being asked here is what it does on
+ * the other side. Fixed colours rather than tokens, because these two stand for
+ * *any* light and *any* dark surface a workspace might make, not for this
+ * theme's. */
+.brand-logo-preview[data-ground='light'] {
+  background: #ffffff;
+  color: #1a1a18;
+}
+.brand-logo-preview[data-ground='dark'] {
+  background: #101010;
+  color: #f4f3ef;
+}
+
+/* The ground this row is about, said in words as well as shown — a preview says
+   which is which only to somebody who already knows. */
+.brand-logo-label {
+  display: block;
+  inline-size: 100%;
+  font-weight: 550;
+}
+
 .brand-logo-preview {
   display: inline-flex;
   align-items: center;
@@ -8624,7 +8650,7 @@ body {
   background: var(--surface-chrome);
   color: var(--text-primary);
 }
-.brand-logo-actions { display: flex; gap: var(--sone-space-4); align-items: center; }
+.brand-logo-actions { display: flex; gap: var(--sone-space-4); align-items: center; flex-wrap: wrap; }
 /* The file input is the label; showing the browser's own control beside a
    button that does the same thing is two controls for one choice. */
 .brand-logo-actions input[type='file'] { display: none; }

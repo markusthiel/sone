@@ -242,7 +242,7 @@ describe(
        * sign-in page regardless.
        */
       const cookie = await setup();
-      const put = await fetch(`${base}/api/admin/brand/logo`, {
+      const put = await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { cookie, 'content-type': 'image/png' },
         body: PNG,
@@ -268,7 +268,7 @@ describe(
        * month's mark out of a proxy.
        */
       const cookie = await setup();
-      await fetch(`${base}/api/admin/brand/logo`, {
+      await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { cookie, 'content-type': 'image/png' },
         body: PNG,
@@ -288,7 +288,7 @@ describe(
       // A logo is the instance saying who it is, and an ordinary member saying
       // it instead is the one thing branding must not allow.
       await setup();
-      const res = await fetch(`${base}/api/admin/brand/logo`, {
+      const res = await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { 'content-type': 'image/png' },
         body: PNG,
@@ -301,7 +301,7 @@ describe(
       // anything, and a file stored under a type it does not have is a file
       // that will be served under that type.
       const cookie = await setup();
-      const res = await fetch(`${base}/api/admin/brand/logo`, {
+      const res = await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { cookie, 'content-type': 'image/png' },
         body: Buffer.from('<svg onload=alert(1)>', 'utf8'),
@@ -309,15 +309,111 @@ describe(
       assert.equal(res.status, 415);
     });
 
+    /*
+     * The second mark, for the surfaces the first one cannot be read on
+     * (ADR-0149).
+     *
+     * Reported as *„bei einigen macht das Helle Logo mehr Sinn bei anderen das
+     * dunkle"*. Two uploads, one route with a variant, and no third place that
+     * knows what a logo is.
+     */
+    test('a second mark can be put up for dark surfaces, and is served too', async () => {
+      const cookie = await setup();
+      for (const variant of ['light', 'dark']) {
+        await expectStatus(
+          await fetch(`${base}/api/admin/brand/logo/${variant}`, {
+            method: 'PUT',
+            headers: { cookie, 'content-type': 'image/png' },
+            body: PNG,
+          }),
+          200,
+        );
+      }
+
+      const instance = await expectJson<{
+        brand: { logo: string | null; logoOnDark: string | null };
+      }>(await fetch(`${base}/api/instance`), 200);
+      assert.ok(instance.brand.logo, 'the one for light grounds');
+      assert.ok(instance.brand.logoOnDark, 'and the one for dark ones');
+      assert.notEqual(instance.brand.logo, instance.brand.logoOnDark, 'two addresses');
+
+      for (const address of [instance.brand.logo, instance.brand.logoOnDark]) {
+        const image = await fetch(`${base}${address}`);
+        assert.equal(image.status, 200);
+        assert.equal(image.headers.get('content-type'), 'image/png');
+      }
+    });
+
+    test('a mark uploaded before there were two is the one for light grounds', async () => {
+      /*
+       * The compatibility that matters, and it is the **setting** rather than a
+       * path: an instance that uploaded a mark before ADR-0149 has it in
+       * `brandLogo`, and that is where the light one lives. Written straight
+       * into the settings table, because that is exactly the state such an
+       * instance is in after an upgrade — no route involved.
+       *
+       * The route it was uploaded through is gone: nothing in the interface
+       * called it once both marks were named, which is what
+       * `check-routes-reachable` is for.
+       */
+      const cookie = await setup();
+      await expectStatus(
+        await fetch(`${base}/api/admin/brand/logo/light`, {
+          method: 'PUT',
+          headers: { cookie, 'content-type': 'image/png' },
+          body: PNG,
+        }),
+        200,
+      );
+
+      const instance = await expectJson<{
+        brand: { logo: string | null; logoOnDark: string | null };
+      }>(await fetch(`${base}/api/instance`), 200);
+      assert.ok(instance.brand.logo, 'served as the light-ground mark');
+      assert.equal(instance.brand.logoOnDark, null, 'and the other stays absent');
+      assert.equal((await fetch(`${base}${instance.brand.logo}`)).status, 200);
+    });
+
+    test('one variant is taken away without taking the other', async () => {
+      const cookie = await setup();
+      for (const variant of ['light', 'dark']) {
+        await fetch(`${base}/api/admin/brand/logo/${variant}`, {
+          method: 'PUT',
+          headers: { cookie, 'content-type': 'image/png' },
+          body: PNG,
+        });
+      }
+      await expectStatus(
+        await fetch(`${base}/api/admin/brand/logo/dark`, { method: 'DELETE', headers: { cookie } }),
+        200,
+      );
+
+      const instance = await expectJson<{
+        brand: { logo: string | null; logoOnDark: string | null };
+      }>(await fetch(`${base}/api/instance`), 200);
+      assert.ok(instance.brand.logo, 'the other one is untouched');
+      assert.equal(instance.brand.logoOnDark, null);
+    });
+
+    test('a variant nobody has heard of is refused', async () => {
+      const cookie = await setup();
+      const res = await fetch(`${base}/api/admin/brand/logo/sepia`, {
+        method: 'PUT',
+        headers: { cookie, 'content-type': 'image/png' },
+        body: PNG,
+      });
+      assert.equal(res.status, 404);
+    });
+
     test('taking it away leaves the mark the interface draws itself', async () => {
       const cookie = await setup();
-      await fetch(`${base}/api/admin/brand/logo`, {
+      await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { cookie, 'content-type': 'image/png' },
         body: PNG,
       });
       await expectStatus(
-        await fetch(`${base}/api/admin/brand/logo`, { method: 'DELETE', headers: { cookie } }),
+        await fetch(`${base}/api/admin/brand/logo/light`, { method: 'DELETE', headers: { cookie } }),
         200,
       );
 

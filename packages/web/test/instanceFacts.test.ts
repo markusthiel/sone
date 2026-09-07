@@ -64,7 +64,10 @@ test('not knowing is never a promise', () => {
    * somebody waits on.
    */
   const context = codeOf(new URL('../src/components/Instance.tsx', import.meta.url));
-  assert.match(context, /createContext<InstanceFacts>\(\{ logo: null, canSendMail: false \}\)/);
+  // The default the context is created with, whatever else it has grown since
+  // (a second mark, ADR-0149): what this test is about is that not knowing
+  // whether mail can be sent reads as "no".
+  assert.match(context, /createContext<InstanceFacts>\(\{[^)]*canSendMail: false,?\s*\}\)/s);
 
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
   assert.match(app, /instance\?\.canSendMail === true/, 'compared, not coerced');

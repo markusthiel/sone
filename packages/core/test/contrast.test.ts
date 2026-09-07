@@ -16,6 +16,7 @@ import {
   AA,
   WORST_GROUND,
   contrastRatio,
+  groundTone,
   luminance,
   mixSrgb,
   parseHex,
@@ -301,6 +302,43 @@ describe('the accent as a line (ADR-0137)', () => {
     assert.ok(worst.ratio >= AA.nonText, `${worst.color} is ${worst.ratio.toFixed(3)}:1`);
     // What it was before, named so the size of it is visible.
     assert.ok(contrastRatio('#ffff00', '#ffffff') < 1.1, 'a yellow ring on white was 1.07:1');
+  });
+
+  /*
+   * Which of two marks belongs on a ground (ADR-0149).
+   *
+   * The question is *„je nachdem wie hell die schmale Leiste ist"*, and the
+   * comparison it needs already existed inside `readableInk`, written as
+   * `luminance(ground) > luminance('#808080')` and named nowhere. A second copy
+   * of that line in the web package would be the shape this project keeps
+   * finding: one rule, two homes, and a day when they disagree.
+   */
+  test('a ground is light or dark, and mid grey is decided by contrast', () => {
+    assert.equal(groundTone('#ffffff'), 'light');
+    assert.equal(groundTone('#f7f6f3'), 'light');
+    assert.equal(groundTone('#101010'), 'dark');
+    assert.equal(groundTone('#3a3a37'), 'dark', 'the darkest ground the interface makes');
+    assert.equal(groundTone('#d0cec9'), 'light', 'and the lightest one it makes');
+
+    /*
+     * Mid grey counts as dark, and that is not arbitrary: it is the side that
+     * needs the lighter thing drawn on it. Cross-checked against the function
+     * the line came from rather than restated — on a ground this calls dark,
+     * `readableInk` moves a colour *up*, toward white.
+     */
+    assert.equal(groundTone('#808080'), 'dark');
+    assert.ok(
+      luminance(readableInk('#333333', '#808080')) > luminance('#333333'),
+      'ink goes up on a ground this calls dark',
+    );
+  });
+
+  test('an accent-coloured rail is judged by its own colour, not by the theme', () => {
+    // A workspace may paint the rail with its accent (ADR-0122), so the rail of
+    // a light instance can be the dark surface on the screen. That is the whole
+    // reason this is measured per surface rather than read off `data-theme`.
+    assert.equal(groundTone('#1d4ed8'), 'dark', 'a deep blue rail');
+    assert.equal(groundTone('#fde68a'), 'light', 'a pale yellow one');
   });
 
   test('a theme emits four derivations and one chosen colour', () => {

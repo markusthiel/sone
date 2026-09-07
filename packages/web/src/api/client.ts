@@ -105,11 +105,22 @@ const post = <T>(path: string, body?: unknown): Promise<T> =>
 // --- types -----------------------------------------------------------------
 
 /** What an instance looks like, before anybody has signed in (ADR-0123). */
+/**
+ * Which ground a mark is drawn for (ADR-0149).
+ *
+ * Named by the surface, not by the ink: „das helle Logo" means both things in
+ * both languages, and an administrator who reads it the other way round finds
+ * out on a screen they were not looking at.
+ */
+export type LogoVariant = 'light' | 'dark';
+
 export interface Brand {
   name: string;
   theme: WorkspaceTheme;
   /** Where the mark is, with the storage key in the address. Null: draw ours. */
   logo: string | null;
+  /** And the mark for dark surfaces, when a second one was uploaded (ADR-0149). */
+  logoOnDark: string | null;
 }
 
 export interface InstanceInfo {
@@ -1929,8 +1940,8 @@ export const api = {
    * body, not in a JSON field, because base64 in a request is a third larger
    * and has to be decoded on the way out.
    */
-  setBrandLogo: async (file: File | Blob): Promise<void> => {
-    const response = await fetch('/api/admin/brand/logo', {
+  setBrandLogo: async (file: File | Blob, variant: LogoVariant = 'light'): Promise<void> => {
+    const response = await fetch(`/api/admin/brand/logo/${variant}`, {
       method: 'PUT',
       credentials: 'same-origin',
       headers: { 'content-type': 'application/octet-stream' },
@@ -1939,8 +1950,8 @@ export const api = {
     if (!response.ok) throw new ApiError(response.status, 'upload_failed');
   },
 
-  removeBrandLogo: () =>
-    request<{ ok: true }>('/api/admin/brand/logo', { method: 'DELETE' }),
+  removeBrandLogo: (variant: LogoVariant = 'light') =>
+    request<{ ok: true }>(`/api/admin/brand/logo/${variant}`, { method: 'DELETE' }),
 
   /**
    * The instance's base design, which every workspace's theme sits on.
