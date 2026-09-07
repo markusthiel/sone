@@ -62,7 +62,7 @@ import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
 import { resolveScheme } from '@sone/core';
 
-import { BrandLogo } from './components/Logo.tsx';
+import { Instance } from './components/Instance.tsx';
 import { useAppearance } from './hooks/useAppearance.ts';
 
 /**
@@ -138,7 +138,15 @@ export function App(): ReactElement {
         * in the switcher, and four routes to it are four chances to show two
         * different logos on one screen.
         */}
-      <BrandLogo value={instance?.brand?.logo ?? null}>
+      <Instance
+        value={{
+          logo: instance?.brand?.logo ?? null,
+          /* `=== true` rather than truthiness: the field is optional on the
+             payload, and an instance that has not loaded must not be an
+             instance that promises mail (ADR-0139). */
+          canSendMail: instance?.canSendMail === true,
+        }}
+      >
         <Routes
           state={state}
           route={route}
@@ -147,7 +155,7 @@ export function App(): ReactElement {
           logout={logout}
           selectWorkspace={selectWorkspace}
         />
-      </BrandLogo>
+      </Instance>
     </LocaleProvider>
   );
 }
@@ -330,7 +338,6 @@ function Routes({
       reloadSession={reload}
       // Whether this instance has a relay, for the controls that only make
       // sense with one (ADR-0126).
-      canSendMail={state.instance.canSendMail === true}
       route={route}
       navigate={navigate}
       onSwitchWorkspace={(id, to = paths.home()) => {
@@ -366,7 +373,6 @@ function Workspace({
   displayName,
   session,
   reloadSession,
-  canSendMail,
   route,
   navigate,
   onSwitchWorkspace,
@@ -379,7 +385,6 @@ function Workspace({
   /** Re-reads the session, for a setting the whole interface is drawn from. */
   reloadSession: () => Promise<void> | void;
   /** Whether this instance can send mail at all (ADR-0126). */
-  canSendMail: boolean;
   route: ReturnType<typeof useRoute>['route'];
   /** With `replace`, for the redirect of an old settings URL (ADR-0032). */
   navigate: (to: string, options?: { replace?: boolean }) => void;
@@ -1228,7 +1233,6 @@ function Workspace({
           threadCount={sharingId === pageId ? comments.threads.length : 0}
           // Offering to mail a link where no mail can be sent would be a
           // control that can only ever fail (ADR-0059, ADR-0126).
-          canSendMail={canSendMail}
           onClose={() => setSharingId(null)}
         />
       )}

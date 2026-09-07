@@ -15,6 +15,7 @@
 
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
+import { useInstance } from './Instance.tsx';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type CreatedShareLink, type ShareLink } from '../api/client.ts';
@@ -33,14 +34,6 @@ interface ShareDialogProps {
   pageTitle: string;
   /** For the list of people who could be given access. */
   workspaceId: string;
-  /**
-   * Whether this instance has a mail relay (ADR-0126).
-   *
-   * Without one the send form is *absent* rather than disabled — ADR-0059's
-   * rule for the password reset, applied to the other thing that needs a relay.
-   * A control that can only ever fail is worse than one that is not there.
-   */
-  canSendMail?: boolean;
   onClose: () => void;
 }
 
@@ -66,10 +59,22 @@ export function ShareDialog({
   threadCount,
   pageTitle,
   workspaceId,
-  canSendMail,
   onClose,
 }: ShareDialogProps): ReactElement {
   const { t } = useT();
+  /*
+   * Whether this instance has a mail relay (ADR-0126, ADR-0139).
+   *
+   * Without one the send form is *absent* rather than disabled — ADR-0059's
+   * rule for the password reset, applied to the other thing that needs a relay.
+   * A control that can only ever fail is worse than one that is not there.
+   *
+   * Asked for rather than handed down: it was a prop, and a fact about the
+   * instance that arrives by four different routes is four chances for two
+   * screens to answer differently. Which had happened — the empty inbox denied
+   * what this dialog offers.
+   */
+  const { canSendMail } = useInstance();
   const [links, setLinks] = useState<ShareLink[] | null>(null);
   const [created, setCreated] = useState<CreatedShareLink | null>(null);
   const [error, setError] = useState<string | null>(null);

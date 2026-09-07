@@ -55,6 +55,12 @@ export const en = {
   'inbox.reply': 'A reply in a thread',
   'inbox.assignment': 'Assigned to you',
   'inbox.noEmail': 'SONE does not send email. This is where notifications are.',
+  // The same sentence for an instance that does (ADR-0139). It names the
+  // setting rather than the answer: whether *you* are emailed is yours, and
+  // this screen is not the place to state somebody's own preference back at
+  // them.
+  'inbox.andEmail':
+    'Notifications live here. Whether you are also emailed is up to you, under You → Notifications.',
   'account.trash': 'Trash',
   'account.signOut': 'Sign out',
   'account.version': 'Version and licence',
@@ -249,6 +255,9 @@ export const en = {
     'Every page you can read, as Markdown files with their attachments, in one ' +
     'archive. It is packed in the background \u2014 you can leave this page.',
   'workspace.export.start': 'Prepare an archive',
+  // Only shown where the instance has a relay (ADR-0139).
+  'workspace.export.willMail':
+    'It keeps going if you close this. You will be emailed when the archive is ready.',
   'workspace.export.rights':
     'An archive holds what you can read at the moment it is packed. If your ' +
     'access changes in between, it holds less \u2014 never more.',

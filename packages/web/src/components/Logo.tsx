@@ -25,7 +25,9 @@
  * default accent rather than the workspace's.
  */
 
-import { createContext, useContext, type ReactElement } from 'react';
+import { type ReactElement } from 'react';
+
+import { useInstance } from './Instance.tsx';
 
 /**
  * The instance's own mark, when it has one (ADR-0123).
@@ -39,9 +41,15 @@ import { createContext, useContext, type ReactElement } from 'react';
  * here waits for an answer: an instance with no logo and an instance whose
  * `/api/instance` has not arrived yet look the same, and both are correct.
  */
-const BrandLogoContext = createContext<string | null>(null);
-
-export const BrandLogo = BrandLogoContext.Provider;
+/*
+ * The logo comes from the instance context now (ADR-0139).
+ *
+ * It was a context of its own, for the reason `App` states where it provides
+ * it: four routes to the mark are four chances to show two different logos on
+ * one screen. The same argument turned out to apply to whether this instance
+ * can send mail — and there it had already gone wrong — so the two facts share
+ * one context rather than growing one each.
+ */
 
 /**
  * The mark with the wordmark beside it — the horizontal lockup (ADR-0132).
@@ -64,7 +72,7 @@ export function SoneLockup({
   /** What this instance calls itself, shown where it has a mark of its own. */
   name?: string;
 }): ReactElement {
-  const logo = useContext(BrandLogoContext);
+  const { logo } = useInstance();
   return (
     <span className="sone-lockup">
       <SoneMark size={size} />
@@ -83,7 +91,7 @@ export function SoneMark({
   /** Given only where the mark is the sole content of a link or button. */
   title?: string;
 }): ReactElement {
-  const logo = useContext(BrandLogoContext);
+  const { logo } = useInstance();
 
   /*
    * An instance's own mark replaces the drawing rather than sitting beside it.
