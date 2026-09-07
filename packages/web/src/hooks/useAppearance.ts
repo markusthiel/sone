@@ -2,7 +2,7 @@
  * SONE web — appearance.
  *
  * Two independent text scales, one for the interface and one for the editor,
- * and the light-or-dark scheme.
+ * the light-or-dark scheme, and how tightly the interface is packed.
  *
  * **The scales are per browser and the scheme is not**, and that split is the
  * subject of ADR-0124. A text size is a property of the screen being read: a
@@ -44,17 +44,40 @@ export type ThemePreference = ColorScheme;
 export const TEXT_SCALES = ['small', 'default', 'large', 'larger'] as const;
 export type TextScale = (typeof TEXT_SCALES)[number];
 
+/**
+ * How tightly the interface is packed (ADR-0140).
+ *
+ * **Per browser, with the text scales, and for the same reason they are.** The
+ * note above says it about a size and it is truer here: *a scale that suits a
+ * phone is wrong on a 27-inch monitor, and syncing it would make one device's
+ * setting the other's problem.* Density is about the screen and the pointer —
+ * comfortable under a thumb, compact under a mouse — and a person who works on
+ * both wants two different answers, not one carried between them.
+ *
+ * It was filed as a workspace theme, beside the corners (ADR-0122). That would
+ * have been a workspace deciding how close together somebody else's fingers
+ * are.
+ *
+ * Named rather than numeric, like everything else here: a stored `0.75` says
+ * nothing about intent, and changing what compact means would silently change
+ * what everyone had chosen.
+ */
+export const DENSITIES = ['compact', 'default', 'comfortable'] as const;
+export type Density = (typeof DENSITIES)[number];
+
 export interface Appearance {
   /** The resolved scheme — what to paint, not what anybody chose. */
   theme: ColorScheme;
   uiScale: TextScale;
   editorScale: TextScale;
+  density: Density;
 }
 
 const DEFAULTS: Appearance = {
   theme: 'system',
   uiScale: 'default',
   editorScale: 'default',
+  density: 'default',
 };
 
 const KEY = 'sone.appearance';
@@ -73,6 +96,7 @@ function read(): Appearance {
           : DEFAULTS.theme,
       uiScale: isScale(parsed.uiScale) ? parsed.uiScale : DEFAULTS.uiScale,
       editorScale: isScale(parsed.editorScale) ? parsed.editorScale : DEFAULTS.editorScale,
+      density: isDensity(parsed.density) ? parsed.density : DEFAULTS.density,
     };
   } catch {
     // Corrupt or unavailable storage must not stop the app rendering.
@@ -82,6 +106,9 @@ function read(): Appearance {
 
 const isScale = (value: unknown): value is TextScale =>
   typeof value === 'string' && (TEXT_SCALES as readonly string[]).includes(value);
+
+const isDensity = (value: unknown): value is Density =>
+  typeof value === 'string' && (DENSITIES as readonly string[]).includes(value);
 
 /**
  * Apply to the document.
@@ -95,6 +122,7 @@ export function applyAppearance(appearance: Appearance): void {
   root.dataset['theme'] = appearance.theme;
   root.dataset['uiScale'] = appearance.uiScale;
   root.dataset['editorScale'] = appearance.editorScale;
+  root.dataset['density'] = appearance.density;
 
   // color-scheme drives form controls, scrollbars and the browser's own
   // rendering, which CSS variables cannot reach.
@@ -116,6 +144,7 @@ export function useAppearance(
   appearance: Appearance;
   setUiScale: (scale: TextScale) => void;
   setEditorScale: (scale: TextScale) => void;
+  setDensity: (density: Density) => void;
 } {
   const [appearance, setAppearance] = useState<Appearance>(read);
 
@@ -150,6 +179,7 @@ export function useAppearance(
     appearance,
     setUiScale: (uiScale) => update({ uiScale }),
     setEditorScale: (editorScale) => update({ editorScale }),
+    setDensity: (density) => update({ density }),
   };
 }
 
@@ -158,4 +188,10 @@ export const SCALE_LABELS: Record<TextScale, string> = {
   default: 'Default',
   large: 'Large',
   larger: 'Larger',
+};
+
+export const DENSITY_LABELS: Record<Density, string> = {
+  compact: 'Compact',
+  default: 'Default',
+  comfortable: 'Comfortable',
 };

@@ -630,6 +630,9 @@ export const en = {
   'you.interfaceSize.hint': 'The sidebar, menus and settings — everything but your writing.',
   'you.editorSize': 'Editor text size',
   'you.editorSize.hint': 'Your writing, and nothing else.',
+  'you.density': 'Density',
+  'you.density.hint':
+    'How tightly the interface is packed. Kept in this browser, like the sizes above — a phone and a monitor want different answers.',
   'you.thisBrowser': 'This browser',
 
   'about.server': 'Server',
