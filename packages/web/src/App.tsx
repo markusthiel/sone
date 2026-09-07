@@ -80,6 +80,7 @@ import { ExportDialog } from './components/ExportDialog.tsx';
 import { ImportDialog } from './components/ImportDialog.tsx';
 import { InboxScreen } from './components/InboxScreen.tsx';
 import { useComments } from './hooks/useComments.ts';
+import { usePdfMarks } from './hooks/usePdfMarks.ts';
 import { useScrolled } from './hooks/useScrolled.ts';
 import { useSession } from './hooks/useSession.ts';
 import { useSidebar } from './hooks/useSidebar.ts';
@@ -620,6 +621,15 @@ function Workspace({
 
   const comments = useComments(handle?.doc ?? null, session.user.id);
   const internalComments = useComments(internalHandle?.doc ?? null, session.user.id);
+
+  /*
+   * The marks on the PDFs in this page (ADR-0152).
+   *
+   * Beside the comments and not among them: the panel lists what was *said*,
+   * and a mark says nothing. Only the page's own document — there is no
+   * internal counterpart, because a mark carries no words to be internal about.
+   */
+  const pdfMarks = usePdfMarks(handle?.doc ?? null, session.user.id);
   /**
    * A selection somebody has pressed Comment on, before they have written
    * anything.
@@ -1085,6 +1095,14 @@ function Workspace({
               setPendingComment(anchor);
               setRightOpen(true);
             }}
+            /* A mark is the opposite of the line above: there is nothing to
+             * wait for, because there is nothing to say. It goes into the
+             * document at once and the panel does not open (ADR-0152). */
+            onMark={(place, quote) => pdfMarks.add(place, quote)}
+            onUnmark={(markId) => pdfMarks.remove(markId)}
+            // A signed-in member, so the pair — marking and un-marking — can
+            // both be offered.
+            mayMark={!session.user.isGuest}
             // Keeps the sidebar in step with the heading as it is typed. The
             // tree comes from the projection over HTTP, so without this it
             // showed the old name until something refetched.
@@ -2066,6 +2084,14 @@ function ShareSession({
               setPendingComment(anchor);
               setRightOpen(true);
             }}
+            /* Not offered here, and said rather than omitted: a link can only
+             * tell two visitors apart by the name they typed (ADR-0046), so a
+             * mark could be made and never taken off again — which is worse
+             * than one that is not offered (ADR-0152). The two callbacks stay
+             * to keep the shape of the surface one shape. */
+            onMark={() => undefined}
+            onUnmark={() => undefined}
+            mayMark={false}
             markStyle={marks.style}
             // No trail here: this path renders a page outside the tree, so
             // there are no folders above it to name.

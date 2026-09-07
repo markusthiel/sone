@@ -1358,9 +1358,12 @@ test('the marks are redrawn by whatever noticed the change', () => {
   assert.match(hook, /announceThreads\(doc\.guid, readThreads\(doc\)\)/);
 
   const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
-  assert.match(surface, /addEventListener\(THREADS_CHANGED, nudge\)/);
-  assert.match(surface, /threadsRef\.current = carried\.threads/);
-  assert.match(surface, /removeEventListener\(THREADS_CHANGED, nudge\)/);
+  // Through the announcement module rather than a raw window listener since
+  // ADR-0152, which is where the event name, the per-document cache and the
+  // replay for a late subscriber all live — there are two of these channels
+  // now, and the second copy is where a fix stops being applied to both.
+  assert.match(surface, /return subscribeToThreads\(\(\{ doc, threads: carried \}\) => \{/);
+  assert.match(surface, /threadsRef\.current = carried/);
   assert.match(surface, /setMeta\(commentMarksKey, true\)/);
   // And the document, since the announcement is filtered by it: a page that
   // swapped documents without re-subscribing would compare against the old one
@@ -1598,7 +1601,9 @@ test('a PDF is drawn by us, not by the browser', () => {
   // With the file's id since ADR-0151: a comment about a place in the document
   // is keyed by it, and reading it back out of the URL would be a second place
   // that knows how `/api/files/<id>` is built.
-  assert.match(view, /mountPdfViewer\(host, url, this\.labels\.pdf, fileId\)/);
+  assert.match(view, /mountPdfViewer\(host, url, this\.labels\.pdf, \{/);
+  // And what may be done to it, which is not a label (ADR-0152).
+  assert.match(view, /mayMark: this\.abilities\.mayMark/);
   assert.doesNotMatch(view, /onlyFirstPageInline|maxTouchPoints/);
 });
 

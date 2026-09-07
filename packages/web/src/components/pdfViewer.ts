@@ -16,10 +16,10 @@
  * import stays dynamic, because a static one would be an invisible regression.
  */
 
-import { isPlace, type PdfPlace, type PlaceRect } from '@sone/core';
+import { isPlace, type PdfMark, type PdfPlace, type PlaceRect } from '@sone/core';
 
-import { linesOf } from '../lib/pdfPlace.ts';
-import { subscribeToThreads } from '../lib/threadAnnouncement.ts';
+import { linesOf, touches } from '../lib/pdfPlace.ts';
+import { subscribeToPdfMarks, subscribeToThreads } from '../lib/threadAnnouncement.ts';
 
 const MAX_SCALE = 2;
 /** How near the viewport a page has to be before it is worth drawing. */
@@ -38,6 +38,11 @@ interface ViewerLabels {
   comment: string;
   /** What a drawn mark says it is. */
   commented: string;
+  /** The highlighter beside it, and the same button taking one off (ADR-0152). */
+  mark: string;
+  unmark: string;
+  /** What a plain mark says it is, having nothing else to say. */
+  marked: string;
 }
 
 /**
@@ -49,6 +54,29 @@ interface ViewerLabels {
  * was drawn with, rotation included, and the hand-written version of that is
  * `height - y`, which is silently wrong on every landscape scan.
  */
+/** What this viewer is showing, and what may be done to it. */
+export interface ViewerSubject {
+  /**
+   * The file, by its id (ADR-0151).
+   *
+   * Handed in rather than read back out of the URL. The viewer is given
+   * `/api/files/<id>`; taking the id out of that string again would be a second
+   * place that knows how the route is built, and it would be wrong on the day
+   * the route changes without anything failing to compile.
+   */
+  fileId: string;
+  /**
+   * Whether the highlighter is offered at all (ADR-0152).
+   *
+   * A share-link visitor may comment on a place and may not mark one. Not
+   * because a highlighter is more dangerous than a sentence — it says strictly
+   * less — but because taking a mark off again would have to be offered too,
+   * and a link can only tell two visitors apart by the name they typed
+   * (ADR-0046). The pair is offered together or not at all.
+   */
+  mayMark: boolean;
+}
+
 interface PageShape {
   width: number;
   height: number;
@@ -71,16 +99,9 @@ export function mountPdfViewer(
   container: HTMLElement,
   url: string,
   labels: ViewerLabels,
-  /**
-   * The file, by its id (ADR-0151).
-   *
-   * Handed in rather than read back out of the URL. The viewer is given
-   * `/api/files/<id>`; taking the id out of that string again would be a second
-   * place that knows how the route is built, and it would be wrong on the day
-   * the route changes without anything failing to compile.
-   */
-  fileId: string,
+  what: ViewerSubject,
 ): PdfViewerHandle {
+  const { fileId, mayMark } = what;
   container.className = 'pdf-viewer';
   container.textContent = '';
 
@@ -151,7 +172,21 @@ export function mountPdfViewer(
   const shapes = new Map<number, PageShape>();
 
   /**
-   * The places to mark, per comment document and then per page.
+   * Something drawn on a page, and why (ADR-0152).
+   *
+   * Two reasons now: a passage somebody is discussing, and a passage somebody
+   * marked and said nothing about. They are drawn in **two weights of one
+   * colour** rather than in two colours — a second hue would be a second
+   * convention to learn for a distinction that is one of degree.
+   */
+  interface Drawn {
+    rects: PlaceRect[];
+    kind: 'comment' | 'plain';
+    title: string;
+  }
+
+  /**
+   * The commented places, per comment document and then per page.
    *
    * **Per document, and that is not over-thinking it.** A page with a protected
    * section has two comment documents (ADR-0093) and each announces only its
@@ -160,9 +195,28 @@ export function mountPdfViewer(
    * other way round.
    */
   const byDoc = new Map<string, Map<number, PlaceRect[][]>>();
-  const placesOn = (number: number): PlaceRect[][] => {
-    const all: PlaceRect[][] = [];
-    for (const perPage of byDoc.values()) all.push(...(perPage.get(number) ?? []));
+
+  /**
+   * And the plain marks, per document, kept whole rather than by page.
+   *
+   * Whole because they are asked two questions: what to draw on page seven, and
+   * which of them a selection is sitting on — and the second needs the id, which
+   * a list of rectangles has thrown away.
+   */
+  const marksByDoc = new Map<string, PdfMark[]>();
+  const everyMark = (): PdfMark[] => [...marksByDoc.values()].flat();
+
+  const placesOn = (number: number): Drawn[] => {
+    const all: Drawn[] = [];
+    for (const perPage of byDoc.values()) {
+      for (const rects of perPage.get(number) ?? []) {
+        all.push({ rects, kind: 'comment', title: labels.commented });
+      }
+    }
+    for (const mark of everyMark()) {
+      if (mark.place.page !== number) continue;
+      all.push({ rects: mark.place.rects, kind: 'plain', title: labels.marked });
+    }
     return all;
   };
 
@@ -187,8 +241,8 @@ export function mountPdfViewer(
 
     const marks = document.createElement('div');
     marks.className = 'pdf-marks';
-    for (const rects of places) {
-      for (const [x, y, wide, tall] of rects) {
+    for (const drawn of places) {
+      for (const [x, y, wide, tall] of drawn.rects) {
         // A PDF counts up from the foot of the page and a screen counts down
         // from the top, so the rectangle's corners swap: the *lower* left in
         // the document is the *upper* left on the screen.
@@ -196,7 +250,8 @@ export function mountPdfViewer(
         const [bx, by] = shape.convertToViewportPoint(x + wide, y);
         const mark = document.createElement('div');
         mark.className = 'pdf-mark';
-        mark.title = labels.commented;
+        mark.dataset['kind'] = drawn.kind;
+        mark.title = drawn.title;
         mark.style.left = `${(Math.min(ax!, bx!) / shape.width) * 100}%`;
         mark.style.top = `${(Math.min(ay!, by!) / shape.height) * 100}%`;
         mark.style.width = `${(Math.abs(bx! - ax!) / shape.width) * 100}%`;
@@ -209,6 +264,12 @@ export function mountPdfViewer(
     else slot.append(marks);
   };
 
+  const redrawEverything = (): void => {
+    for (const slot of pages.querySelectorAll<HTMLElement>('.pdf-page')) {
+      drawMarks(slot, Number(slot.dataset['page'] ?? '0'));
+    }
+  };
+
   const stopThreads = subscribeToThreads(({ doc, threads }) => {
     const perPage = new Map<number, PlaceRect[][]>();
     for (const thread of threads) {
@@ -219,32 +280,61 @@ export function mountPdfViewer(
       perPage.set(place.page, [...(perPage.get(place.page) ?? []), place.rects]);
     }
     byDoc.set(doc, perPage);
-    for (const slot of pages.querySelectorAll<HTMLElement>('.pdf-page')) {
-      drawMarks(slot, Number(slot.dataset['page'] ?? '0'));
-    }
+    redrawEverything();
   });
   cleanups.push(() => stopThreads());
 
+  const stopMarks = subscribeToPdfMarks(({ doc, marks }) => {
+    marksByDoc.set(
+      doc,
+      marks.filter((mark) => mark.place.file === fileId),
+    );
+    redrawEverything();
+  });
+  cleanups.push(() => stopMarks());
+
   /*
-   * The button over a selection, and what it would send.
+   * What is offered over a selection, and what it would send.
    *
-   * Computed when the button appears rather than when it is pressed: pressing
-   * it is a `mousedown` on a button, which in some browsers collapses the
+   * Computed when the buttons appear rather than when one is pressed: pressing
+   * one is a `mousedown` on a button, which in some browsers collapses the
    * selection before the click is delivered — so by then there would be nothing
    * left to read.
    */
-  const ask = document.createElement('button');
-  ask.type = 'button';
-  ask.className = 'pdf-comment-start';
-  ask.textContent = labels.comment;
-  let pending: { place: PdfPlace; quote: string } | null = null;
+  const tools = document.createElement('div');
+  tools.className = 'pdf-selection-tools';
   // The press must not take the selection with it: `mousedown` on a button
   // collapses it in every browser, and the click that follows would then be
-  // asked to comment on nothing.
-  ask.addEventListener('mousedown', (event) => event.preventDefault());
+  // asked to act on nothing.
+  tools.addEventListener('mousedown', (event) => event.preventDefault());
+
+  /**
+   * The highlighter, and the same button as the way to take one off (ADR-0152).
+   *
+   * One control rather than two, because the marks are `pointer-events: none`
+   * so that the text above them stays selectable — there is nothing to click on
+   * a mark, and adding a click target would mean a passage could be marked
+   * exactly once. So un-marking is asked the way marking is: select the passage
+   * again. The button says which of the two it would do.
+   */
+  const paint = document.createElement('button');
+  paint.type = 'button';
+  paint.className = 'pdf-selection-tool';
+
+  const ask = document.createElement('button');
+  ask.type = 'button';
+  ask.className = 'pdf-selection-tool';
+  ask.textContent = labels.comment;
+
+  // Marking first: it is the lighter of the two acts, and the one a reader
+  // reaches for more often.
+  if (mayMark) tools.append(paint);
+  tools.append(ask);
+
+  let pending: { place: PdfPlace; quote: string; touching: string[] } | null = null;
 
   const forget = (): void => {
-    ask.remove();
+    tools.remove();
     pending = null;
   };
 
@@ -309,12 +399,27 @@ export function mountPdfViewer(
     // the button must not offer to make one, because the route would refuse it
     // and the refusal would arrive as a comment that silently did not happen.
     if (!isPlace(place)) return;
-    pending = { place, quote };
+
+    /*
+     * Which marks this selection is sitting on (ADR-0152).
+     *
+     * **All of them, not the nearest one.** Nobody re-selects the same run of
+     * glyphs twice, so the gesture is "roughly that bit" — and if it lands
+     * across two marks, taking off one and leaving the other would be a result
+     * nobody could predict from the drag they made.
+     */
+    const touching = everyMark()
+      .filter((mark) => touches(mark.place, place))
+      .map((mark) => mark.id);
+    pending = { place, quote, touching };
+
+    paint.textContent = touching.length > 0 ? labels.unmark : labels.mark;
+    paint.dataset['act'] = touching.length > 0 ? 'unmark' : 'mark';
 
     const last = lines[lines.length - 1]!;
-    ask.style.left = `${(last.right / box.width) * 100}%`;
-    ask.style.top = `${(last.bottom / box.height) * 100}%`;
-    slot.append(ask);
+    tools.style.left = `${(last.right / box.width) * 100}%`;
+    tools.style.top = `${(last.bottom / box.height) * 100}%`;
+    slot.append(tools);
   };
 
   ask.addEventListener('click', () => {
@@ -328,7 +433,26 @@ export function mountPdfViewer(
      * surface listens, checks the shape, and hands it to the page as an anchor
      * like any other.
      */
-    window.dispatchEvent(new CustomEvent('sone:pdf-comment', { detail: pending }));
+    window.dispatchEvent(
+      new CustomEvent('sone:pdf-comment', {
+        detail: { place: pending.place, quote: pending.quote },
+      }),
+    );
+    forget();
+    document.getSelection()?.removeAllRanges();
+  });
+
+  paint.addEventListener('click', () => {
+    if (!pending) return;
+    // Two events rather than one with a flag, so a listener reads as two
+    // sentences: put a mark here, take these marks off.
+    window.dispatchEvent(
+      pending.touching.length > 0
+        ? new CustomEvent('sone:pdf-unmark', { detail: { marks: pending.touching } })
+        : new CustomEvent('sone:pdf-mark', {
+            detail: { place: pending.place, quote: pending.quote },
+          }),
+    );
     forget();
     document.getSelection()?.removeAllRanges();
   });

@@ -149,6 +149,8 @@ export const en = {
   'error.message_too_long': 'That comment is longer than a comment can be.',
   'error.invalid_anchor': 'That comment lost the passage it was about. Select the text again.',
   'error.invalid_place': 'That place in the document could not be read. Select the passage again.',
+  'error.marks_need_an_account': 'Marking a document needs an account. A link may comment on a passage, which says more.',
+  'error.too_many_marks': 'This page holds as many marks as it can. Remove one before adding another.',
   'error.too_many_threads': 'This page is holding as many threads as it can. Resolve a few first.',
   'error.not_your_link': 'That connection was begun for a different account.',
   'error.no_other_way_in':
@@ -247,6 +249,9 @@ export const en = {
   'file.pdfFailed': 'This document could not be shown here.',
   'file.pdfComment': 'Comment',
   'file.pdfCommented': 'Somebody has commented on this',
+  'file.pdfMark': 'Highlight',
+  'file.pdfUnmark': 'Remove the highlight',
+  'file.pdfMarked': 'Somebody has marked this',
   'workspace.delete.hint': 'Remove this workspace, reversibly, for a while.',
   'workspace.delete.notYours':
     'Only an owner of this workspace, or somebody who manages workspaces, can ' +
