@@ -203,4 +203,89 @@ describe('the mark on a coloured ground', () => {
     assert.equal(drawn(), ON_DARK);
     delete dom.window.document.documentElement.dataset['theme'];
   });
+
+  test('a control the pointer is on is not a ground (ADR-0153)', async () => {
+    /*
+     * Reported: *„Wenn ich auf das Logo drauf klicke wird es dunkel."*
+     *
+     * The mark sits inside the rail's brand link, and that link paints
+     * `--surface-hover` while the pointer is on it. On an accent-coloured rail
+     * that surface is `color-mix(--accent-contrast 14%, --accent)` — the rail's
+     * own green with a seventh of white in it.
+     *
+     * **And that step crosses the line.** Measured in Chromium: the rail is
+     * rgb(47, 125, 111) at luminance 0.164, its hover surface rgb(76, 143, 131)
+     * at 0.229 — and mid-grey, the threshold `groundTone` uses, is 0.216. So
+     * pointing at the mark made the ground "light" by thirteen thousandths and
+     * swapped in the mark inked for white paper, which on that green is nearly
+     * invisible.
+     *
+     * A control's hover is a state of the control, not the surface the mark is
+     * drawn on.
+     */
+    const react = await import('react');
+    const { SoneMark } = await import('../src/components/Logo.tsx');
+    const { Instance } = await import('../src/components/Instance.tsx');
+
+    await render(
+      react.createElement(
+        Instance,
+        {
+          value: {
+            logo: ON_LIGHT,
+            logoOnDark: ON_DARK,
+            canSendMail: false,
+          },
+        },
+        react.createElement(
+          'div',
+          { className: 'icon-rail', style: { background: '#2f7d6f' } },
+          react.createElement(
+            'a',
+            { className: 'rail-brand', href: '#x' },
+            react.createElement(SoneMark, { size: 26, title: 'Haus Thiel' }),
+          ),
+        ),
+      ),
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.equal(drawn(), ON_DARK, 'the rail is dark green');
+
+    /*
+     * jsdom has no pointer, so the state is stated rather than performed: the
+     * link paints its hover colour and answers `:hover`, which is what the
+     * browser presents while somebody points at the mark.
+     */
+    const link = container.querySelector('.rail-brand') as HTMLElement;
+    link.style.background = '#4c8f83';
+
+    /*
+     * The rail answers `:hover` too, and that is not an embellishment — it is
+     * the fault the first fix had. `:hover` matches every *ancestor* of the
+     * element under the pointer, so a rule that stepped over anything hovered
+     * walked past the rail, the shell and the body and answered with the
+     * page's white. Only a *control* the pointer is on is skipped.
+     */
+    for (const element of [
+      link,
+      container.querySelector('.icon-rail') as HTMLElement,
+      container.querySelector('img') as HTMLElement,
+    ]) {
+      const real = element.matches.bind(element);
+      element.matches = (selector: string): boolean =>
+        /:hover|:active/.test(selector) ? true : real(selector);
+    }
+
+    await act(async () => {
+      // Anything that makes the hook measure again; a theme write is what does
+      // it in the application.
+      dom.window.document.documentElement.style.setProperty('--probe', '1');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    assert.equal(drawn(), ON_DARK, 'and it is still the rail’s mark');
+    dom.window.document.documentElement.style.removeProperty('--probe');
+  });
 });
