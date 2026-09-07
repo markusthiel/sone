@@ -64,6 +64,7 @@ import { sendMail } from './mail/send.js';
 import { pollReplies, type ReplyDeps } from './jobs/replies.js';
 import { sendActivityDigests } from './jobs/activityDigest.js';
 import { sendRequirementMails } from './jobs/requirementMails.js';
+import { tellAboutJob } from './mail/jobDone.js';
 import { runOneJob, type Job, type JobContext } from './jobs/runner.js';
 import {
   EMAIL_NOTIFICATIONS,
@@ -872,7 +873,32 @@ async function main(): Promise<void> {
   mailTimer.unref();
 
   const jobTimer = setInterval(() => {
-    void runOneJob(pool, jobHandlers).catch(() => {
+    void runOneJob(pool, jobHandlers, (job, outcome) =>
+      /*
+       * Telling whoever asked (ADR-0138).
+       *
+       * Handed to the runner rather than reached for by it: the queue does not
+       * know that anybody is ever told anything, in the same way it does not
+       * know that a result happens to be a key in a file store.
+       *
+       * Every setting read per send, like everything else here — an operator
+       * who configures the relay while SONE runs should not have to restart for
+       * the next export to be announced.
+       */
+      tellAboutJob(
+        {
+          pool,
+          baseUrl: config.publicUrl,
+          instanceName: async () => (await settings.resolve()).values.instanceName,
+          addressForm,
+          sendLetter: async (to, letter) => {
+            await deliver(to, letter);
+          },
+        },
+        job,
+        outcome,
+      ).then(() => undefined),
+    ).catch(() => {
       // Logged by the job row itself. A throw here would be an unhandled
       // rejection in a timer, which takes the process down for one bad export.
     });

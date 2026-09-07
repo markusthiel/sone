@@ -13,6 +13,8 @@
 
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
+import { readableSize } from '@sone/core';
+
 import { api, ApiError } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
@@ -27,13 +29,6 @@ interface JobRow {
   pages: number | null;
   createdAt: string;
   expiresAt: string | null;
-}
-
-/** Bytes as something a person reads. */
-function readableSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function WorkspaceExport({ workspaceId }: { workspaceId: string }): ReactElement {

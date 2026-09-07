@@ -58,6 +58,7 @@ describe('the catalogue', () => {
       days: 3,
       count: 2,
       others: 2,
+      size: '48.2 MB',
     };
 
     for (const locale of ['en', 'de'] as const) {
