@@ -351,6 +351,15 @@ export const de: Record<keyof typeof en, string> = {
     'Deaktivieren behält das Konto und seine Arbeit und meldet es sofort ab. Konten ' +
     'werden hier nie gelöscht: eines zu entfernen nähme jede Seite mit, die es angelegt ' +
     'hat — und „diese Person ist gegangen" ist nicht „ihre Arbeit hat nie stattgefunden".',
+  'admin.account.you': '{address, select, formal {Sie} other {du}}',
+  'admin.account.noAddress': 'keine Adresse',
+  'admin.account.guest': 'Gast über Freigabe-Link',
+  'admin.account.workspaces': '{count, plural, one {# Workspace} other {# Workspaces}}',
+  'admin.account.deactivated': 'deaktiviert',
+  'admin.account.administrator': 'Administrator',
+  'admin.account.managesWorkspaces': 'Verwaltet Workspaces',
+  'admin.account.deactivate': 'Deaktivieren',
+  'admin.account.reactivate': 'Reaktivieren',
   'admin.invitations': 'Einladungen',
   'admin.invitations.hint': 'Ein Konto und ein eigener Workspace — kein Team',
   'admin.sso': 'Single Sign-on',
