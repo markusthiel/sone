@@ -242,7 +242,7 @@ describe(
        * sign-in page regardless.
        */
       const cookie = await setup();
-      const put = await fetch(`${base}/api/admin/brand/logo`, {
+      const put = await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { cookie, 'content-type': 'image/png' },
         body: PNG,
@@ -268,7 +268,7 @@ describe(
        * month's mark out of a proxy.
        */
       const cookie = await setup();
-      await fetch(`${base}/api/admin/brand/logo`, {
+      await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { cookie, 'content-type': 'image/png' },
         body: PNG,
@@ -288,7 +288,7 @@ describe(
       // A logo is the instance saying who it is, and an ordinary member saying
       // it instead is the one thing branding must not allow.
       await setup();
-      const res = await fetch(`${base}/api/admin/brand/logo`, {
+      const res = await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { 'content-type': 'image/png' },
         body: PNG,
@@ -301,7 +301,7 @@ describe(
       // anything, and a file stored under a type it does not have is a file
       // that will be served under that type.
       const cookie = await setup();
-      const res = await fetch(`${base}/api/admin/brand/logo`, {
+      const res = await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { cookie, 'content-type': 'image/png' },
         body: Buffer.from('<svg onload=alert(1)>', 'utf8'),
@@ -344,13 +344,21 @@ describe(
       }
     });
 
-    test('the plain address is still the one for light grounds', async () => {
-      // Every instance that has a mark today has it under this path, and it was
-      // uploaded for the surface it is drawn on. A rename would silently move
-      // it to the ground it was not drawn for.
+    test('a mark uploaded before there were two is the one for light grounds', async () => {
+      /*
+       * The compatibility that matters, and it is the **setting** rather than a
+       * path: an instance that uploaded a mark before ADR-0149 has it in
+       * `brandLogo`, and that is where the light one lives. Written straight
+       * into the settings table, because that is exactly the state such an
+       * instance is in after an upgrade — no route involved.
+       *
+       * The route it was uploaded through is gone: nothing in the interface
+       * called it once both marks were named, which is what
+       * `check-routes-reachable` is for.
+       */
       const cookie = await setup();
       await expectStatus(
-        await fetch(`${base}/api/admin/brand/logo`, {
+        await fetch(`${base}/api/admin/brand/logo/light`, {
           method: 'PUT',
           headers: { cookie, 'content-type': 'image/png' },
           body: PNG,
@@ -361,8 +369,9 @@ describe(
       const instance = await expectJson<{
         brand: { logo: string | null; logoOnDark: string | null };
       }>(await fetch(`${base}/api/instance`), 200);
-      assert.ok(instance.brand.logo);
+      assert.ok(instance.brand.logo, 'served as the light-ground mark');
       assert.equal(instance.brand.logoOnDark, null, 'and the other stays absent');
+      assert.equal((await fetch(`${base}${instance.brand.logo}`)).status, 200);
     });
 
     test('one variant is taken away without taking the other', async () => {
@@ -398,13 +407,13 @@ describe(
 
     test('taking it away leaves the mark the interface draws itself', async () => {
       const cookie = await setup();
-      await fetch(`${base}/api/admin/brand/logo`, {
+      await fetch(`${base}/api/admin/brand/logo/light`, {
         method: 'PUT',
         headers: { cookie, 'content-type': 'image/png' },
         body: PNG,
       });
       await expectStatus(
-        await fetch(`${base}/api/admin/brand/logo`, { method: 'DELETE', headers: { cookie } }),
+        await fetch(`${base}/api/admin/brand/logo/light`, { method: 'DELETE', headers: { cookie } }),
         200,
       );
 
