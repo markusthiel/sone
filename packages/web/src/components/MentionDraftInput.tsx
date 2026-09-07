@@ -15,6 +15,7 @@
 
 import { useRef, useState, type ReactElement, type KeyboardEvent } from 'react';
 
+import { useChoiceList } from '../hooks/useChoiceList.ts';
 import { useT } from '../i18n/useT.tsx';
 import { filterPeople, type MentionCandidate } from './MentionMenu.tsx';
 import { mentionQueryAt, withMention, type Picked } from './mentionDraft.ts';
@@ -56,14 +57,12 @@ export function MentionDraftInput({
   const { t } = useT();
   const areaRef = useRef<HTMLTextAreaElement | null>(null);
   const [at, setAt] = useState<{ from: number; query: string } | null>(null);
-  const [index, setIndex] = useState(0);
 
   const found = at ? filterPeople(at.query, people) : [];
 
   const update = (text: string, caret: number): void => {
     onChange(text, picked);
     setAt(mentionQueryAt(text, caret));
-    setIndex(0);
   };
 
   const choose = (person: MentionCandidate): void => {
@@ -79,27 +78,25 @@ export function MentionDraftInput({
     });
   };
 
+  const choices = useChoiceList({
+    count: at ? found.length : 0,
+    onChoose: (position) => {
+      const person = found[position];
+      if (person) choose(person);
+    },
+    resetOn: at?.query,
+  });
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (at && found.length > 0) {
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        setIndex((n) => (n + 1) % found.length);
-        return;
-      }
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        setIndex((n) => (n - 1 + found.length) % found.length);
-        return;
-      }
-      if (event.key === 'Enter' || event.key === 'Tab') {
-        // Enter picks a person while the list is open, and only then. Otherwise
-        // choosing a name and ending the comment would be the same keystroke.
-        event.preventDefault();
-        const person = found[index];
-        if (person) choose(person);
-        return;
-      }
-    }
+    /*
+     * The list first (ADR-0142). Enter picks a person while it is open, and
+     * only then — otherwise choosing a name and ending the comment would be the
+     * same keystroke.
+     *
+     * `handleKey` answers whether the key was the list's; everything below is
+     * what this box means by the keys the list did not want.
+     */
+    if (choices.handleKey(event)) return;
     if (event.key === 'Escape') {
       if (at) {
         // Escape closes the list first, and the composer only if there is no
@@ -142,7 +139,16 @@ export function MentionDraftInput({
         onKeyDown={onKeyDown}
       />
       {at && (
-        <div className="comment-mention-menu" role="listbox" aria-label={t('mention.pick')}>
+        <div
+          className="comment-mention-menu"
+          role="listbox"
+          aria-label={t('mention.pick')}
+          // On the list rather than on the textarea: a composer that happens to
+          // be showing a mention list is not a combobox, and saying it is would
+          // tell a screen reader the whole box is a chooser.
+          aria-activedescendant={choices.activeId}
+          ref={choices.listRef}
+        >
           {found.length === 0 ? (
             <p className="slash-empty">
               {people.length === 0 ? t('mention.nobody') : t('mention.noMatch', { query: at.query })}
@@ -153,8 +159,7 @@ export function MentionDraftInput({
                 key={person.userId}
                 type="button"
                 className="slash-item"
-                data-selected={position === index ? 'true' : undefined}
-                onPointerEnter={() => setIndex(position)}
+                {...choices.optionProps(position)}
                 // Pointer-down rather than click: a click would blur the
                 // textarea first, and the caret this needs would be gone.
                 onPointerDown={(event) => {
