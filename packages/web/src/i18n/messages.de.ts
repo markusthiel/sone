@@ -689,6 +689,9 @@ export const de: Record<keyof typeof en, string> = {
   'you.editorSize': 'Schriftgröße im Editor',
   'you.editorSize.hint':
     '{address, select, formal {Ihr Geschriebenes} other {Dein Geschriebenes}}, und sonst nichts.',
+  'you.density': 'Dichte',
+  'you.density.hint':
+    'Wie eng die Oberfläche gepackt ist. Bleibt in diesem Browser, wie die Größen darüber — ein Telefon und ein Monitor wollen verschiedene Antworten.',
   'you.thisBrowser': 'Dieser Browser',
 
   'about.server': 'Server',
