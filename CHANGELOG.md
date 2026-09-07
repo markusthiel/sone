@@ -15,6 +15,19 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 Nothing yet.
 
+## 0.12.1
+
+Pull and restart, sonst ist nichts zu tun. Keine Migration.
+
+**Ein Logo für helle Flächen, eines für dunkle — und die Fläche entscheidet
+selbst.** Wer die schmale Leiste in einem Workspace einfärbt, hatte bisher die
+Wahl zwischen einer Marke, die dort lesbar ist, und einer, die überall sonst
+lesbar ist. Unter Verwaltung → Erscheinung lassen sich jetzt zwei hochladen, je
+mit einer Vorschau auf dem Grund, für den sie gedacht ist; welche gezeichnet
+wird, misst die Marke an der Farbe, die tatsächlich hinter ihr liegt — nicht am
+Hell-oder-Dunkel der Instanz, denn die Leiste, um die es geht, hat ein Workspace
+eingefärbt. Ist nur eine hochgeladen, gilt sie überall wie bisher.
+
 ## 0.12.0
 
 Pull and restart. 21 Migrationen laufen von selbst; sonst ist nichts zu tun.
