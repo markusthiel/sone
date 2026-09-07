@@ -1095,7 +1095,12 @@ export const api = {
 
   /** An account here, without a decision about which team they belong to. */
   inviteToInstance: (input: { email?: string | null; maxUses?: number }) =>
-    request<{ token: string; invitationId: string; expiresAt: string }>(
+    /*
+     * `mailed` says whether the letter went out (ADR-0121), and this type
+     * dropped it — so the screen could only guess, and guessed „this instance
+     * does not send mail" out loud (ADR-0147).
+     */
+    request<{ token: string; invitationId: string; expiresAt: string; mailed: boolean }>(
       '/api/admin/invitations',
       { method: 'POST', body: JSON.stringify(input) },
     ),

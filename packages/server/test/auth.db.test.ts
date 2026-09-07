@@ -918,6 +918,45 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
     assert.equal(uses.rows[0]?.uses, 1, 'the second time spends nothing');
   });
 
+  test('a link with no uses left admits nobody new', async () => {
+    /*
+     * The other side of the test above (ADR-0147). *„Arriving rather than being
+     * refused"* is for the person who already used it; for anybody else a
+     * spent link is a spent link, and the lookup that used to enforce that is
+     * now asked to find spent ones on purpose.
+     *
+     * Proved to bite by removing the refusal and watching this go red — a test
+     * about a refusal that has never seen the refusal fail is a test about
+     * nothing (ADR-0145).
+     */
+    const first = await register(db, 'open', {
+      email: `first-${Date.now()}@example.org`,
+      password: PASSWORD,
+      displayName: 'First',
+    });
+    const second = await register(db, 'open', {
+      email: `second-${Date.now()}@example.org`,
+      password: PASSWORD,
+      displayName: 'Second',
+    });
+    const invite = await createInvitation(db, {
+      workspaceId: fx.workspaceId,
+      invitedBy: fx.userId,
+    });
+
+    await acceptInvitation(db, { token: invite.token, userId: first.userId });
+    await assert.rejects(
+      () => acceptInvitation(db, { token: invite.token, userId: second.userId }),
+      AuthError,
+    );
+
+    const members = await db.query(
+      `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+      [fx.workspaceId, second.userId],
+    );
+    assert.equal(members.rowCount, 0, 'and did not quietly add them');
+  });
+
   test('an address-bound invitation cannot be accepted by somebody else', async () => {
     // Otherwise a link intended for one person adds whoever opens it while
     // signed in as somebody else — a plausible accident as well as a

@@ -6371,6 +6371,17 @@ select {
 .btn.destructive { border-color: var(--sone-danger); color: var(--sone-danger); }
 .btn.destructive:hover:not(:disabled) { background: var(--sone-danger); color: #fff; }
 
+/* --- an invitation, and what it says about itself (ADR-0147) --- */
+
+/* The count sits in a column of numbers, so it is read as one. Empty where a
+   count would be noise: an invitation for one person, in a list that no longer
+   holds used-up ones, is unused by definition. */
+.invite-uses { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* The link, shown once. Marked so that the card carrying a credential is not
+   the same plain card as the form above it. */
+.invite-created { border-color: var(--sone-accent); }
+
 /* --- share dialog --- */
 
 .share-dialog { inline-size: min(520px, 100%); overflow-y: auto; }
