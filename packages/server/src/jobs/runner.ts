@@ -27,6 +27,30 @@ export interface Job {
   attempts: number;
 }
 
+/**
+ * A job as it stands once the runner has stopped working on it (ADR-0138).
+ *
+ * The row plus what was just written to it — a handler's result and when it
+ * stops being fetchable — because whoever is told about it needs both and
+ * neither is on `Job`.
+ */
+export interface FinishedJob extends Job {
+  result?: Record<string, unknown> | null;
+  expiresAt?: Date | null;
+}
+
+/**
+ * Told when a job is finished with, either way (ADR-0138).
+ *
+ * Handed in rather than reached for, exactly as `deleteResult` is below: this
+ * module must not know that anybody is ever told anything about a job, any more
+ * than it knows that a result happens to be a key in a file store.
+ *
+ * Called once and only at the end — a job the runner is about to try again has
+ * not finished, and a letter per attempt is four letters about one export.
+ */
+export type OnFinished = (job: FinishedJob, outcome: 'done' | 'failed') => Promise<void>;
+
 export interface JobContext {
   /** Say what is happening, for somebody watching. */
   report: (progress: string) => Promise<void>;
@@ -162,7 +186,19 @@ export async function claimJob(pool: Pool, kinds: string[]): Promise<Job | null>
 export async function runOneJob(
   pool: Pool,
   handlers: Record<string, JobHandler>,
+  onFinished?: OnFinished,
 ): Promise<boolean> {
+  /*
+   * Nothing about telling somebody may fail a job.
+   *
+   * The work is done and recorded before this is reached; an exception here
+   * would take the run down and leave a finished export looking like a failure.
+   * The rule ADR-0121 states for a grant, applied to a file.
+   */
+  const tell = async (job: FinishedJob, outcome: 'done' | 'failed'): Promise<void> => {
+    if (!onFinished) return;
+    await onFinished(job, outcome).catch(() => undefined);
+  };
   const job = await claimJob(pool, Object.keys(handlers));
   if (!job) return false;
 
@@ -175,6 +211,9 @@ export async function runOneJob(
       `UPDATE jobs SET state = 'failed', error = $2, finished_at = now() WHERE id = $1`,
       [job.id, `unknown job kind: ${job.kind}`],
     );
+    // Told, because from outside it is a job that will never finish, and this
+    // is the one path where retrying is not what happens next.
+    await tell(job, 'failed');
     return true;
   }
 
@@ -198,6 +237,15 @@ export async function runOneJob(
         result,
         expiresAt ?? new Date(Date.now() + JOB_RESULT_HOURS * 3600_000),
       ],
+    );
+
+    await tell(
+      {
+        ...job,
+        result,
+        expiresAt: expiresAt ?? new Date(Date.now() + JOB_RESULT_HOURS * 3600_000),
+      },
+      'done',
     );
   } catch (error) {
     /*
@@ -231,6 +279,10 @@ export async function runOneJob(
         `UPDATE jobs SET state = 'failed', error = $2, finished_at = now() WHERE id = $1`,
         [job.id, message],
       );
+      // Only here. The branch above is a job that will be tried again, and
+      // "your export failed" four times before it succeeds is worse than
+      // silence.
+      await tell(job, 'failed');
     }
   }
   return true;
