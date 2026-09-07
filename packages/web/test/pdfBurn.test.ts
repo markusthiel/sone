@@ -16,7 +16,9 @@
  */
 
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { after, before, describe, test } from 'node:test';
+
+import { JSDOM } from 'jsdom';
 
 import { burnMarks, conversationText, type Burnable } from '../src/lib/pdfBurn.ts';
 import { codeOf } from './helpers/source.ts';
@@ -332,5 +334,78 @@ describe('the viewer’s half of it', () => {
      * this time in the worker, where a page's polyfill never reaches.
      */
     assert.match(viewer, /error instanceof Error \? error\.message : error/);
+  });
+});
+
+describe('mounting a viewer on a page that already has marks', () => {
+  let dom: JSDOM;
+
+  before(() => {
+    dom = new JSDOM('<!doctype html><html><body><div id="host"></div></body></html>', {
+      pretendToBeVisual: true,
+      url: 'http://localhost/',
+    });
+    for (const name of ['window', 'document', 'Event', 'CustomEvent', 'Element', 'Node'] as const) {
+      Object.defineProperty(globalThis, name, {
+        value: (dom.window as unknown as Record<string, unknown>)[name],
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+
+  after(() => dom.window.close());
+
+  test('does not throw before it has finished being built', async () => {
+    /*
+     * **Reported as „The editor stopped working", and it is a rule rather than
+     * a typo.**
+     *
+     *   ReferenceError: Cannot access 'H' before initialization
+     *
+     * `subscribeToThreads` replays the last announcement **synchronously,
+     * before it returns** — that is its whole point (ADR-0151): a viewer
+     * mounted long after the page opened would otherwise draw no marks at all.
+     * So the listener runs *in the middle of* `mountPdfViewer`'s own body, and
+     * everything it touches has to exist by then.
+     *
+     * It did not. The listener redraws, redrawing asks whether there is
+     * anything to offer a copy of (ADR-0154), and that question was declared
+     * two hundred lines further down — a `const`, so reading it early is a
+     * throw and not an `undefined`. The whole editor came down with it, because
+     * this runs while ProseMirror is building a node view.
+     *
+     * The order is fixed. This is the test that keeps it fixed, and it is
+     * written as the report was: announce first, mount second.
+     */
+    const { announceThreads } = await import('../src/lib/threadAnnouncement.ts');
+    const { announcePdfMarks } = await import('../src/lib/threadAnnouncement.ts');
+    const { mountPdfViewer } = await import('../src/components/pdfViewer.ts');
+
+    announceThreads('a-page', [
+      {
+        id: 't1',
+        place: { file: 'f1', page: 1, rects: [HELLO] },
+        resolved: false,
+        messages: [{ id: 'm1', author: 'u1', text: 'Dazu eine Frage.', at: 0 }],
+      } as never,
+    ]);
+    announcePdfMarks('a-page', [
+      { id: 'k1', place: { file: 'f1', page: 1, rects: [FOOTER] }, quote: '', author: 'u1', createdAt: 0 } as never,
+    ]);
+
+    const host = dom.window.document.getElementById('host') as unknown as HTMLElement;
+    const handle = mountPdfViewer(
+      host,
+      '/api/files/f1',
+      {
+        pageOf: (page, total) => `${page}/${total}`,
+        loading: '…', failed: '…', openOriginal: '…', document: '…',
+        previous: '…', next: '…', comment: '…', commented: '…',
+        mark: '…', unmark: '…', marked: '…', download: '…', markedSuffix: '…',
+      },
+      { fileId: 'f1', mayMark: true, filename: 'x.pdf', nameOf: () => '' },
+    );
+    handle.destroy();
   });
 });
