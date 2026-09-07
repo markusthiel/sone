@@ -23,6 +23,7 @@ import { registerInvitationRoutes } from '../src/auth/invitationRoutes.js';
 import { registerGroupRoutes } from '../src/pages/groupRoutes.js';
 import { registerRoleRoutes } from '../src/auth/roleRoutes.js';
 import { registerWorkspaceRoutes } from '../src/http/workspaces.js';
+import { createSession } from '../src/auth/session.js';
 import { loadWorkspaceStanding } from '../src/auth/standing.js';
 import { Router } from '../src/http/router.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase } from './support/db.js';
@@ -38,6 +39,8 @@ interface RoleJson {
   rights: string[];
   members: number;
   groups: number;
+  /** Who holds it, by name — only for somebody who may decide that (ADR-0145). */
+  heldBy?: { people: string[]; groups: string[] };
 }
 
 describe(
@@ -146,6 +149,101 @@ describe(
       const member = list.find((one) => one.key === 'member')!;
       assert.equal(member.pageLevel, 'editor');
       assert.deepEqual(member.rights, [], 'and decides nothing about who is here');
+    });
+
+    // --- who holds it (ADR-0145) ---------------------------------------------
+
+    test('a role says who holds it, by name', async () => {
+      /*
+       * The card said *„Eine Person"* and nothing else, so the answer to
+       * „wen betrifft es, wenn ich das ändere" was a number and a trip to
+       * another screen to turn it into people.
+       *
+       * Sorted, so the card reads the same on every visit, and the count beside
+       * it stays the whole truth: the names are the first few of it.
+       */
+      const list = await roles();
+      const member = list.find((one) => one.key === 'member')!;
+
+      assert.equal(member.members, 1);
+      assert.deepEqual(member.heldBy?.people, ['Colleague']);
+      assert.deepEqual(member.heldBy?.groups, []);
+    });
+
+    test('and a role nobody holds says so with an empty list, not a missing one', async () => {
+      // Empty is an answer; absent is the refusal below. The screen has to be
+      // able to tell them apart (ADR-0139).
+      const guest = (await roles()).find((one) => one.key === 'guest')!;
+      assert.deepEqual(guest.heldBy, { people: [], groups: [] });
+    });
+
+    test('a group that carries a role is named too', async () => {
+      const made = await db.query<{ id: string }>(
+        `INSERT INTO groups (workspace_id, name, role_id)
+         VALUES ($1, 'Redaktion', (SELECT id FROM roles WHERE key='admin')) RETURNING id`,
+        [workspaceId],
+      );
+      assert.ok(made.rows[0]);
+
+      const admin = (await roles()).find((one) => one.key === 'admin')!;
+      assert.deepEqual(admin.heldBy?.groups, ['Redaktion']);
+    });
+
+    test('but only the first few, because a card is not a member list', async () => {
+      for (let at = 0; at < 8; at++) {
+        const one = await db.query<{ id: string }>(
+          `INSERT INTO users (email, display_name, password_hash)
+           VALUES ($1, $2, 'x') RETURNING id`,
+          [`many${at}@example.org`, `Person ${String(at).padStart(2, '0')}`],
+        );
+        await db.query(
+          `INSERT INTO workspace_members (workspace_id, user_id, role_id, is_owner)
+           VALUES ($1,$2,(SELECT id FROM roles WHERE key='guest'),false)`,
+          [workspaceId, one.rows[0]!.id],
+        );
+      }
+
+      const guest = (await roles()).find((one) => one.key === 'guest')!;
+      assert.equal(guest.members, 8, 'the count is all of them');
+      assert.deepEqual(
+        guest.heldBy?.people,
+        ['Person 00', 'Person 01', 'Person 02', 'Person 03', 'Person 04'],
+        'and the names are the first five, in order',
+      );
+    });
+
+    test('but who holds it is not for somebody who only defines what it means', async () => {
+      /*
+       * **The line ADR-0087 drew, applied to a screen that had not been asked.**
+       *
+       * > Was eine Rolle bedeutet, festzulegen ist `roles.manage`; wer sie hält,
+       * > zu entscheiden ist `people.manage`.
+       *
+       * Both rights reach this list — you need it to define a role and you need
+       * it to give somebody one — so the *count* travels for both, and it did
+       * before this round. The names are the other question.
+       *
+       * Absent, not empty: empty means nobody holds it, and a card that cannot
+       * tell those apart prints "nobody" at somebody who was not told (ADR-0139).
+       */
+      const defines = await db.query<{ id: string }>(
+        `INSERT INTO roles (workspace_id, name, page_level, rights)
+         VALUES ($1, 'Rollenpflege', 'viewer', ARRAY['roles.manage']) RETURNING id`,
+        [workspaceId],
+      );
+      await db.query(`UPDATE workspace_members SET role_id = $1 WHERE user_id = $2`, [
+        defines.rows[0]!.id,
+        colleagueId,
+      ]);
+      const session = await createSession(db, colleagueId, {});
+      const res = await fetch(`${base}/api/workspaces/${workspaceId}/roles`, {
+        headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(session.token)}` },
+      });
+      const body = await expectJson<{ roles: RoleJson[] }>(res, 200);
+
+      const member = body.roles.find((one) => one.key === 'member')!;
+      assert.equal(member.members, 0, 'the count is still there');
+      assert.equal(member.heldBy, undefined, 'and the names are not');
     });
 
     test('a read-only role can be made, which is the whole point', async () => {
