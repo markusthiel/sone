@@ -4244,6 +4244,10 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 @media (prefers-reduced-motion: reduce) {
   button:not(:disabled):active, .btn:not(:disabled):active { transform: none; }
   .tree-children, .right-body { animation: none; }
+  /* The pulse goes and the ring stays (ADR-0156). Which mark you were taken to
+     is information, and the rule above is about decoration — turning this off
+     entirely would answer "show me this" with nothing at all. */
+  .pdf-mark[data-found] { animation: none; }
 }
 
 /* A checkbox and what it says.
@@ -8105,6 +8109,33 @@ select {
  * because it is the lesser claim on the reader's attention. */
 .pdf-mark[data-kind='plain'] {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* The one the panel asked for (ADR-0156).
+ *
+ * **The fill and the outline carry it; the pulse is decoration.** This
+ * stylesheet's own rule is that motion is switched off rather than shortened
+ * for somebody who asked for less, "because none of this carries information".
+ * This does — which of a page's marks is the one you asked for is the whole
+ * message — so it is said with a stronger fill and a ring that simply hold for
+ * as long as the viewer keeps the attribute, and only the pulse goes.
+ *
+ * Both weights, because a plain mark can be revealed as readily as a discussed
+ * one once the panel can list them. */
+.pdf-mark[data-found] {
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+  /* `--accent-line`, not the raw accent: this stylesheet derives a line's
+     colour for the ground it is drawn on, and a ring in the chosen brand colour
+     is a ring that a pale brand makes invisible. A test says so, and it caught
+     this. */
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+  border-radius: 2px;
+  animation: sone-found var(--motion-enter) var(--motion-ease) 2 alternate;
+}
+@keyframes sone-found {
+  from { outline-color: transparent; }
+  to { outline-color: var(--accent-line); }
 }
 
 /* What is offered over a selection: marking it, and commenting on it.
