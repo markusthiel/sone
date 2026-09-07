@@ -16,6 +16,7 @@ import { useState, type ReactElement } from 'react';
 import type { WorkspaceTag } from '../api/client.ts';
 import { derivedTagColor } from '@sone/core';
 
+import { useChoiceList } from '../hooks/useChoiceList.ts';
 import { TagIcon } from './icons.tsx';
 import { popupItem } from './popup.ts';
 
@@ -80,6 +81,24 @@ export function TagEditor({
   const colorFor = (tag: string): string =>
     known.find((entry) => entry.key === keyOf(tag))?.color ?? derivedTagColor(tag);
 
+  /*
+   * The suggestions, and the keys that reach them (ADR-0142).
+   *
+   * They were buttons under a field, so **Tab was the only key that reached
+   * them** — and Tab is the key that means "leave this field", which here runs
+   * `add(draft)` on the way out. Tabbing to a suggestion therefore added the
+   * half-typed word *and* the suggestion: "meet" and "Meeting", two chips, from
+   * one intention.
+   */
+  const list = useChoiceList({
+    count: suggestions.length,
+    onChoose: (at) => {
+      const tag = suggestions[at];
+      if (tag) add(tag.label);
+    },
+    resetOn: draft,
+  });
+
   return (
     <div className="tag-editor">
       <div className="tag-chips">
@@ -111,8 +130,12 @@ export function TagEditor({
             value={draft}
             placeholder={t('tag.add')}
             aria-label={t('tag.add')}
+            {...list.fieldProps}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
+              // The list first: with a suggestion highlighted, Enter and Tab
+              // take it. With none, both keep the meanings below.
+              if (list.handleKey(event)) return;
               if (event.key === 'Enter' || event.key === ',') {
                 event.preventDefault();
                 add(draft);
@@ -126,12 +149,13 @@ export function TagEditor({
           />
 
           {suggestions.length > 0 && (
-            <div className="tag-suggestions">
-              {suggestions.map((tag) => (
+            <div className="tag-suggestions" {...list.listProps} ref={list.listRef}>
+              {suggestions.map((tag, at) => (
                 <button
                   key={tag.key}
                   type="button"
                   className="tag-suggestion"
+                  {...list.optionProps(at)}
                   // mousedown is prevented so the input does not blur and add
                   // the half-typed draft before the suggestion is chosen; the
                   // choice itself happens on click, which a scroll gesture does
