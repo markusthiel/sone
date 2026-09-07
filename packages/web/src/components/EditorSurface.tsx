@@ -11,7 +11,7 @@
  */
 
 import type { PageHandle } from '@sone/client';
-import { pageContent, readStreamLink, readVideoLink } from '@sone/core';
+import { isPlace, pageContent, readStreamLink, readVideoLink } from '@sone/core';
 import {
   assignmentChips,
   authorHighlightKey,
@@ -34,6 +34,7 @@ import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
+import { THREADS_CHANGED, type ThreadAnnouncement } from '../lib/threadAnnouncement.ts';
 import { registerHighlighter } from './authorHighlightBridge.ts';
 import { BlockMenu } from './BlockMenu.tsx';
 import { soneNodeViews } from './CollectionNodeView.tsx';
@@ -421,20 +422,31 @@ export function EditorSurface({
    */
   useEffect(() => {
     const nudge = (event?: Event): void => {
-      // The list from the event, when there is one: it was read after the change
-      // and before React re-rendered, so it is newer than anything the props or
-      // the ref can offer at this moment.
-      const carried = (event as CustomEvent<DrawnThread[]> | undefined)?.detail;
-      if (Array.isArray(carried)) threadsRef.current = carried;
+      /*
+       * The list from the event, when there is one: it was read after the change
+       * and before React re-rendered, so it is newer than anything the props or
+       * the ref can offer at this moment.
+       *
+       * **From this document only** (ADR-0151). A page with a protected section
+       * runs a second comment document, and it used to announce on the same
+       * event with nothing to tell the two apart — so an internal reply rebuilt
+       * the public marks from threads whose anchors resolve against a document
+       * this editor is not showing, which is to say from nothing.
+       */
+      const carried = (event as CustomEvent<ThreadAnnouncement> | undefined)?.detail;
+      if (carried) {
+        if (carried.doc !== handle.doc.guid) return;
+        threadsRef.current = carried.threads;
+      }
 
       const view = viewRef.current;
       if (!view) return;
       view.dispatch(view.state.tr.setMeta(commentMarksKey, true));
     };
     nudge();
-    window.addEventListener('sone:comments-changed', nudge);
-    return () => window.removeEventListener('sone:comments-changed', nudge);
-  }, [markStyle]);
+    window.addEventListener(THREADS_CHANGED, nudge);
+    return () => window.removeEventListener(THREADS_CHANGED, nudge);
+  }, [markStyle, handle.doc]);
 
   /**
    * Scroll to a thread's text when the panel asks.
@@ -467,6 +479,41 @@ export function EditorSurface({
     window.addEventListener('sone:reveal-comment', reveal);
     return () => window.removeEventListener('sone:reveal-comment', reveal);
   }, []);
+
+  /**
+   * A place in a PDF somebody wants to comment on (ADR-0151).
+   *
+   * The same arrangement as `sone:reveal-comment` above, and for a sharper
+   * version of its reason. The viewer is a node view: ProseMirror created it,
+   * from a map of constructors handed to `createEditor`, and it is destroyed and
+   * recreated as somebody edits around it. Handing it a callback would mean
+   * threading `onComment` through `createEditor`, `soneNodeViews`, the file
+   * block's labels and a viewer handle — five parameters for one message, and
+   * every one of them rebuilt on a render.
+   *
+   * The anchor is empty on both ends, exactly like a canvas item's: there is no
+   * text in *this* document to point at. The quotation is the words from the
+   * PDF, which is what ADR-0150 was for.
+   */
+  const onCommentRef = useRef(onComment);
+  onCommentRef.current = onComment;
+  useEffect(() => {
+    const wanted = (event: Event): void => {
+      const detail = (event as CustomEvent<{ place?: unknown; quote?: unknown }>).detail;
+      // Checked rather than believed, on the way in as everywhere else: a
+      // window event is a channel anything on the page can shout down.
+      if (!detail || !isPlace(detail.place) || typeof detail.quote !== 'string') return;
+      onCommentRef.current({
+        from: new Uint8Array(),
+        to: new Uint8Array(),
+        quote: detail.quote,
+        place: detail.place,
+      });
+    };
+    window.addEventListener('sone:pdf-comment', wanted);
+    return () => window.removeEventListener('sone:pdf-comment', wanted);
+  }, []);
+
   canEditRef.current = handle.canEdit;
   /** The lock, read from the document so it arrives like any other edit. */
   const locked = usePageLocked(handle.doc);
@@ -579,6 +626,8 @@ export function EditorSurface({
             document: t('file.pdfDocument'),
             previous: t('file.pdfPrevious'),
             next: t('file.pdfNext'),
+            comment: t('file.pdfComment'),
+            commented: t('file.pdfCommented'),
           },
           video: {
             hlsFailed: t('video.hlsFailed'),

@@ -31,6 +31,18 @@ export const THREAD_KEYS = {
    * quotation to survive a rewrite — the item either exists or it does not.
    */
   item: 'item',
+  /**
+   * A place in a PDF, when the thread is about one (ADR-0151).
+   *
+   * The third anchor, and the simplest of the three: a file id, a page number
+   * and rectangles in the page's own points. Nothing about it can move —
+   * storage is content-addressed, so the bytes a file id names never change —
+   * which is why it needs neither a relative position nor a resolution step.
+   *
+   * Absent for everything else, like `item`: absence is what every thread
+   * written before this key existed says.
+   */
+  place: 'place',
   /** Encoded Y.RelativePosition for the start of the commented range. */
   from: 'from',
   /** And its end. */
@@ -118,6 +130,75 @@ export interface CommentMessage {
   hadAttachments?: boolean;
 }
 
+/**
+ * A rectangle on a page, in the page's own points (ADR-0151).
+ *
+ * `[x, y, width, height]`, origin at the bottom left, which is the PDF's own
+ * coordinate system and the only one that survives being read on another
+ * screen. Screen pixels would be a mark that is right on the machine that made
+ * it and wrong on the next one, at a different width or a different zoom.
+ */
+export type PlaceRect = [number, number, number, number];
+
+export interface PdfPlace {
+  /**
+   * The file, by its id — never by the hash of its contents.
+   *
+   * Storage is content-addressed, so the same bytes uploaded into two
+   * workspaces are one file; a mark keyed by that hash would be a comment
+   * leaking across a boundary the rest of the system defends.
+   */
+  file: string;
+  /** Counting from one, as a reader counts them. */
+  page: number;
+  /** One rectangle per line of a selection, so a wrapped phrase is one mark. */
+  rects: PlaceRect[];
+}
+
+/** Enough rectangles for a selection across a paragraph, and not a page of them. */
+export const MAX_PLACE_RECTS = 32;
+/** A bound on a coordinate: the largest PDF page is 200 inches, or 14400 points. */
+const MAX_POINT = 20_000;
+
+/**
+ * Whether a value is a place, checked rather than described (ADR-0092).
+ *
+ * The rule that file arrived at for anchors, applied to the shape that follows
+ * it: a page number of zero, a rectangle of three numbers, a width of nothing —
+ * each is a mark that nothing can draw, and the moment to say so is before it
+ * is in somebody's document rather than when a reader opens the page.
+ *
+ * One home, for the route that accepts one and the interface that makes one.
+ */
+export function isPlace(value: unknown): value is PdfPlace {
+  if (!value || typeof value !== 'object') return false;
+  const place = value as Record<string, unknown>;
+
+  if (typeof place['file'] !== 'string' || place['file'] === '') return false;
+  if (place['file'].length > 200) return false;
+
+  const page = place['page'];
+  if (typeof page !== 'number' || !Number.isInteger(page) || page < 1 || page > 100_000) {
+    return false;
+  }
+
+  const rects = place['rects'];
+  if (!Array.isArray(rects) || rects.length === 0 || rects.length > MAX_PLACE_RECTS) {
+    return false;
+  }
+  return rects.every((rect) => {
+    if (!Array.isArray(rect) || rect.length !== 4) return false;
+    const [x, y, width, height] = rect as unknown[];
+    const numbers = [x, y, width, height];
+    if (!numbers.every((one) => typeof one === 'number' && Number.isFinite(one))) return false;
+    const [left, bottom, wide, tall] = numbers as number[];
+    if (wide! <= 0 || tall! <= 0) return false;
+    return [left!, bottom!, left! + wide!, bottom! + tall!].every(
+      (one) => one >= -MAX_POINT && one <= MAX_POINT,
+    );
+  });
+}
+
 export interface CommentThread {
   id: string;
   /**
@@ -133,6 +214,8 @@ export interface CommentThread {
   to: Uint8Array;
   /** A canvas item, when the thread is about one rather than about text. */
   item: string | null;
+  /** A place in a PDF, when it is about one (ADR-0151). */
+  place: PdfPlace | null;
   quote: string;
   resolved: boolean;
   resolvedBy?: string;
@@ -236,6 +319,19 @@ export function readThread(doc: Y.Doc, id: string, entry: Y.Map<unknown>): Comme
       const item = entry.get(THREAD_KEYS.item);
       return typeof item === 'string' && item !== '' ? item : null;
     })(),
+    /*
+     * Checked on the way out as well as on the way in (ADR-0151).
+     *
+     * The document is a CRDT: anything that ever reached it stays readable, and
+     * a place written by an older build, or by a client that got it wrong, is
+     * not a reason for the whole page's comments to fail to read. A shape that
+     * is not a place reads as no place, which draws nothing.
+     */
+    place: (() => {
+      const place = entry.get(THREAD_KEYS.place);
+      const plain = place instanceof Y.Map ? place.toJSON() : place;
+      return isPlace(plain) ? plain : null;
+    })(),
     quote: asString(entry.get(THREAD_KEYS.quote)),
     resolved: entry.get(THREAD_KEYS.resolved) === true,
     ...(typeof entry.get(THREAD_KEYS.resolvedBy) === 'string'
@@ -256,6 +352,24 @@ export function readThread(doc: Y.Doc, id: string, entry: Y.Map<unknown>): Comme
         ? { from: Math.min(from, to), to: Math.max(from, to) }
         : null,
   };
+}
+
+/**
+ * Whether the thing a thread was about is gone (ADR-0151).
+ *
+ * **One home, because it had four.** The panel asked it three times and the
+ * hook once, each as `item === null && range === null` — and each would have
+ * called a thread about page three of a PDF *detached*, because a place has no
+ * item and resolves against no text.
+ *
+ * Detached means what it has always meant: a thread about a range of text whose
+ * text is gone. A place does not detach — the file it names is content
+ * addressed, so its bytes cannot change under the mark. Whether that file is
+ * still shown on this page is a different sentence, and it belongs to whoever
+ * draws the page rather than to the thread.
+ */
+export function isDetached(thread: CommentThread): boolean {
+  return thread.item === null && thread.place === null && thread.range === null;
 }
 
 /** Every thread, oldest first. */
@@ -282,6 +396,8 @@ export interface NewThread {
   at?: number;
   /** Who was addressed in the first message (ADR-0052). */
   mentions?: string[];
+  /** A place in a PDF, for a thread about one (ADR-0151). */
+  place?: PdfPlace;
   /** A canvas item, for a thread about one rather than about text. */
   item?: string;
 }
@@ -303,6 +419,10 @@ export function addThread(doc: Y.Doc, input: NewThread): void {
     // Only when there is one: absence means "about text", which is what every
     // thread written before this key existed says by saying nothing.
     if (input.item) entry.set(THREAD_KEYS.item, input.item);
+    // The same, for a place in a PDF (ADR-0151). Refused rather than mended: a
+    // rectangle nothing can draw is not a mark, and storing it would put the
+    // question in every reader instead of here.
+    if (input.place && isPlace(input.place)) entry.set(THREAD_KEYS.place, input.place);
     entry.set(THREAD_KEYS.quote, input.quote.slice(0, MAX_QUOTE));
     entry.set(THREAD_KEYS.createdAt, input.at ?? Date.now());
 

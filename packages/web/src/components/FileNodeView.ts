@@ -40,6 +40,10 @@ export interface FileViewLabels {
     document: string;
     previous: string;
     next: string;
+    /** The button over a selection in the document (ADR-0151). */
+    comment: string;
+    /** What a mark on a commented place says it is. */
+    commented: string;
   };
 }
 
@@ -172,7 +176,7 @@ class FileNodeView implements NodeView {
       // `render()` has already torn down whatever was here, which is why there
       // is no destroy call in front of this one — the compiler pointed out that
       // the field is provably null by now.
-      this.pdf = mountPdfViewer(host, url, this.labels.pdf);
+      this.pdf = mountPdfViewer(host, url, this.labels.pdf, fileId);
       return;
     }
 

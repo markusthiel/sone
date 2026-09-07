@@ -13,7 +13,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { guestName, isGuestKey } from '@sone/client';
-import type { CommentThread } from '@sone/core';
+import { isDetached, type CommentThread } from '@sone/core';
 
 import type { WorkspaceMember } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
@@ -79,7 +79,7 @@ function Thread({
   return (
     <li
       className="comment-thread"
-      data-detached={thread.item === null && thread.range === null ? 'true' : undefined}
+      data-detached={isDetached(thread) ? 'true' : undefined}
     >
       {/* The words it is about, as they read when it was written. A thread whose
           text has changed is only readable because of this. */}
@@ -99,13 +99,25 @@ function Thread({
            * struck through every canvas thread and disabled its button — the
            * difference between "cannot be found" and "was never text".
            */
-          disabled={thread.item === null && thread.range === null}
+          disabled={isDetached(thread)}
           title={
             thread.item !== null
               ? t('comment.aboutItem')
-              : thread.range === null
-                ? t('comment.detached')
-                : t('comment.reveal')
+              : /*
+                 * A thread about a place in a PDF says which page (ADR-0151).
+                 *
+                 * It has no range — it was never text in *this* document — so
+                 * without this branch it read as "the text this was about has
+                 * been deleted", which is the same wrong sentence ADR-0057 had
+                 * to take off the canvas threads. And it keeps its quotation as
+                 * its label: a place has words, which is exactly what ADR-0150
+                 * came first for.
+                 */
+                thread.place !== null
+                ? t('comment.aboutPlace', { page: thread.place.page })
+                : thread.range === null
+                  ? t('comment.detached')
+                  : t('comment.reveal')
           }
           onClick={() => onReveal(thread)}
         >
@@ -128,7 +140,7 @@ function Thread({
         </button>
       </div>
 
-      {thread.item === null && thread.range === null && (
+      {isDetached(thread) && (
         <p className="comment-note">{t('comment.detached')}</p>
       )}
 

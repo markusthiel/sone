@@ -8065,6 +8065,53 @@ select {
   box-shadow: var(--sone-shadow-sm);
 }
 .pdf-page canvas { display: block; }
+
+/* A place somebody has commented on (ADR-0151).
+ *
+ * `pointer-events: none` is the load-bearing line. The marks sit between the
+ * canvas and pdf.js's text layer, and the layer above is what a selection is
+ * made out of — a mark that took the pointer would mean a passage could be
+ * commented on exactly once, after which it was no longer selectable.
+ *
+ * Every mark is positioned in percentages of this box by the viewer, which is
+ * why nothing here has a size: a fraction of the page is the same fraction at
+ * every column width, so the marks follow a resize with no observer at all. */
+.pdf-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pdf-mark {
+  position: absolute;
+  border-radius: 2px;
+  /* The workspace's accent, faint — the same mark a commented passage in the
+     text gets (ADR-0046), because it is the same fact about the same kind of
+     thing and a second colour would be a second convention to learn.
+     Multiplied rather than laid over, so the glyphs on the canvas underneath
+     stay black instead of going the colour of weak tea. */
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  mix-blend-mode: multiply;
+}
+
+/* The offer to comment on what is selected.
+ *
+ * Inside the page slot rather than floating over the viewer, so it scrolls with
+ * the words it belongs to and needs no repositioning on a scroll — and in
+ * percentages, for the reason the marks are. */
+.pdf-comment-start {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-100%, var(--sone-space-1));
+  padding: var(--sone-space-1) var(--sone-space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--sone-radius-sm);
+  background: var(--surface);
+  box-shadow: var(--sone-shadow-sm);
+  color: var(--sone-text);
+  font-size: var(--sone-text-xs);
+  cursor: pointer;
+}
+.pdf-comment-start:hover { border-color: var(--accent-line); }
 .pdf-status,
 .pdf-fallback {
   padding: var(--sone-space-4);

@@ -17,6 +17,8 @@ import {
   addMessage,
   addThread,
   commentText,
+  isDetached,
+  isPlace,
   readThreads,
   removeMessage,
   removeThread,
@@ -253,6 +255,125 @@ test('a thread can be about a canvas item instead of a range of text', () => {
 
   const thread = readThreads(doc)[0];
   assert.equal(thread?.item, 'item-7');
+});
+
+/*
+ * A place in a PDF, which is the third kind of anchor (ADR-0151).
+ *
+ * Reported as *„Gibt es eine Möglichkeit auch Bearbeitungsfunktionen, vor allem
+ * Kommentare und Markierungen zu machen?"* — and the answer is that a mark on a
+ * PDF is not a new feature but a new anchor: a file, a page and a rectangle in
+ * the page's own points, in a file whose bytes cannot change because the key
+ * they are stored under is their hash.
+ */
+test('a thread can be about a place in a PDF', () => {
+  const doc = new Y.Doc();
+  addThread(doc, {
+    id: 't1',
+    from: new Uint8Array(),
+    to: new Uint8Array(),
+    place: { file: 'f-7', page: 3, rects: [[72, 700, 125, 24]] },
+    quote: 'Hallo Welt',
+    messageId: 'm1',
+    author: 'anna',
+    text: 'Stimmt die Zahl?',
+  });
+
+  const thread = readThreads(doc)[0];
+  assert.deepEqual(thread?.place, { file: 'f-7', page: 3, rects: [[72, 700, 125, 24]] });
+  assert.equal(thread?.item, null, 'a place is not an item');
+  assert.equal(thread?.range, null, 'and it resolves against no text');
+});
+
+test('and a place is not a detached thread', () => {
+  /*
+   * **The half that would have broken quietly.** Detached means *the thing this
+   * was about is gone*, and it was computed in four places as "no item and no
+   * range" — which a place thread satisfies while pointing at a perfectly good
+   * rectangle on page three. One name, in one file, so a fourth anchor kind is
+   * one change rather than four.
+   */
+  const doc = new Y.Doc();
+  addThread(doc, {
+    id: 't1',
+    from: new Uint8Array(),
+    to: new Uint8Array(),
+    place: { file: 'f-7', page: 1, rects: [[10, 10, 50, 12]] },
+    quote: 'etwas',
+    messageId: 'm1',
+    author: 'anna',
+    text: 'dazu',
+  });
+  assert.equal(isDetached(readThreads(doc)[0]!), false);
+});
+
+test('a place in a file that is no longer on the page is still not detached', () => {
+  // The file block can be deleted, and then the mark points at something this
+  // page no longer shows. That is a different sentence from "the text you
+  // commented on is gone", and it is the viewer's to say — a thread does not
+  // detach because a reader cannot see its page today.
+  const doc = new Y.Doc();
+  addThread(doc, {
+    id: 't1',
+    from: new Uint8Array(),
+    to: new Uint8Array(),
+    place: { file: 'gone', page: 9, rects: [[0, 0, 1, 1]] },
+    quote: 'x',
+    messageId: 'm1',
+    author: 'anna',
+    text: 'y',
+  });
+  assert.equal(isDetached(readThreads(doc)[0]!), false);
+});
+
+test('a thread whose text is gone is still detached', () => {
+  // What the name always meant, kept: the two tests above must not have widened
+  // it into "nothing is ever detached".
+  const doc = new Y.Doc();
+  const text = doc.getText('t');
+  text.insert(0, 'Ein Satz');
+  const from = Y.encodeRelativePosition(Y.createRelativePositionFromTypeIndex(text, 0));
+  const to = Y.encodeRelativePosition(Y.createRelativePositionFromTypeIndex(text, 8));
+  addThread(doc, {
+    id: 't1',
+    from,
+    to,
+    quote: 'Ein Satz',
+    messageId: 'm1',
+    author: 'anna',
+    text: 'weg damit',
+  });
+  text.delete(0, 8);
+  assert.equal(isDetached(readThreads(doc)[0]!), true);
+});
+
+test('a place is checked before it is stored, not described', () => {
+  /*
+   * The rule ADR-0092 arrived at for anchors: a shape is not validated by
+   * describing it. A page number of zero, a rectangle of five numbers, a
+   * coordinate that is not one — each is a mark nothing can draw, and the
+   * moment to say so is before it is in somebody's document.
+   */
+  assert.equal(isPlace({ file: 'f', page: 1, rects: [[0, 0, 10, 10]] }), true);
+
+  assert.equal(isPlace(null), false);
+  assert.equal(isPlace({ page: 1, rects: [[0, 0, 1, 1]] }), false, 'no file');
+  assert.equal(isPlace({ file: '', page: 1, rects: [[0, 0, 1, 1]] }), false, 'an empty file');
+  assert.equal(isPlace({ file: 'f', page: 0, rects: [[0, 0, 1, 1]] }), false, 'pages count from one');
+  assert.equal(isPlace({ file: 'f', page: 1.5, rects: [[0, 0, 1, 1]] }), false);
+  assert.equal(isPlace({ file: 'f', page: 1, rects: [] }), false, 'a mark of nothing');
+  assert.equal(isPlace({ file: 'f', page: 1, rects: [[0, 0, 1]] }), false, 'three numbers');
+  assert.equal(isPlace({ file: 'f', page: 1, rects: [[0, 0, 0, 10]] }), false, 'no width');
+  assert.equal(
+    isPlace({ file: 'f', page: 1, rects: [[0, 0, Number.NaN, 10]] }),
+    false,
+    'not a number',
+  );
+  assert.equal(
+    isPlace({ file: 'f', page: 1, rects: Array.from({ length: 40 }, () => [0, 0, 1, 1]) }),
+    false,
+    'a selection is a few rectangles, not forty',
+  );
 });
 
 test('a thread about text says so by saying nothing', () => {
