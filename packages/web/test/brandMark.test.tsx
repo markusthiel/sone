@@ -78,13 +78,14 @@ describe('the mark', () => {
   });
 
   test('and is the instance’s picture when it has one', async () => {
-    const { SoneMark, BrandLogo } = await import('../src/components/Logo.tsx');
+    const { SoneMark } = await import('../src/components/Logo.tsx');
+    const { Instance } = await import('../src/components/Instance.tsx');
     const react = await import('react');
 
     await render(
       react.createElement(
-        BrandLogo,
-        { value: '/api/instance/logo?v=abc123' },
+        Instance,
+        { value: { logo: '/api/instance/logo?v=abc123', canSendMail: false } },
         react.createElement(SoneMark, { size: 26, title: 'Haus Thiel' }),
       ),
     );
@@ -120,13 +121,14 @@ describe('the mark', () => {
   test('and an instance with its own mark is not signed “SONE”', async () => {
     // Putting our wordmark beside somebody else's logo would be this software
     // signing their letterhead.
-    const { SoneLockup, BrandLogo } = await import('../src/components/Logo.tsx');
+    const { SoneLockup } = await import('../src/components/Logo.tsx');
+    const { Instance } = await import('../src/components/Instance.tsx');
     const react = await import('react');
 
     await render(
       react.createElement(
-        BrandLogo,
-        { value: '/api/instance/logo?v=abc123' },
+        Instance,
+        { value: { logo: '/api/instance/logo?v=abc123', canSendMail: false } },
         react.createElement(SoneLockup, { size: 32, name: 'Haus Thiel' }),
       ),
     );
@@ -139,13 +141,14 @@ describe('the mark', () => {
     // `title` is given only where the mark is the sole content of a link or a
     // button; everywhere else it sits beside a label, and a screen reader
     // announcing the instance's name twice is worse than not at all.
-    const { SoneMark, BrandLogo } = await import('../src/components/Logo.tsx');
+    const { SoneMark } = await import('../src/components/Logo.tsx');
+    const { Instance } = await import('../src/components/Instance.tsx');
     const react = await import('react');
 
     await render(
       react.createElement(
-        BrandLogo,
-        { value: '/api/instance/logo?v=abc123' },
+        Instance,
+        { value: { logo: '/api/instance/logo?v=abc123', canSendMail: false } },
         react.createElement(SoneMark, { size: 17 }),
       ),
     );

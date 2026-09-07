@@ -17,6 +17,7 @@ import { readableSize } from '@sone/core';
 
 import { api, ApiError } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
+import { useInstance } from './Instance.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
 
 interface JobRow {
@@ -33,6 +34,7 @@ interface JobRow {
 
 export function WorkspaceExport({ workspaceId }: { workspaceId: string }): ReactElement {
   const { t } = useT();
+  const { canSendMail } = useInstance();
   const [jobs, setJobs] = useState<JobRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
@@ -109,6 +111,15 @@ export function WorkspaceExport({ workspaceId }: { workspaceId: string }): React
         * whoever asked, as they are when it runs. So an archive can hold less
         * than somebody expected and never more. */}
       <p className="settings-note">{t('workspace.export.rights')}</p>
+
+      {/* Said only where it is true (ADR-0139).
+        *
+        * An export takes minutes and this screen only polls while somebody is
+        * watching it, so the useful thing to know is that the tab can be
+        * closed. ADR-0138 left it unsaid, on the belief that the interface had
+        * no way to know whether this instance sends mail — it has had one all
+        * along, and two other screens were already using it. */}
+      {canSendMail && <p className="settings-note">{t('workspace.export.willMail')}</p>}
 
       {jobs && jobs.length > 0 && (
         <ul className="job-list">
