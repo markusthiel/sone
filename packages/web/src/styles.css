@@ -3258,6 +3258,13 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   color: var(--sone-text-muted);
 }
 
+/* Tags the field found, inside the same box the people matches use, so both
+   fields say "these are on offer" the same way. */
+.search-facet-matches .search-facet-tags {
+  padding-inline-start: var(--sone-space-4);
+  padding-block: var(--sone-space-1);
+}
+
 /* Somebody the field is offering, in a box of its own so the chosen ones above
    it stay distinguishable from the ones on offer. */
 .search-facet-matches {
