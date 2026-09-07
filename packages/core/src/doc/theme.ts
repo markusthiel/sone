@@ -20,7 +20,7 @@
  * every workspace rendered before themes existed.
  */
 
-import { luminance, readableInk, WORST_GROUND } from './contrast.js';
+import { AA, luminance, readableInk, WORST_GROUND } from './contrast.js';
 
 /** The kinds of element a theme can speak about. */
 export const THEMED_ELEMENTS = [
@@ -635,6 +635,34 @@ export function themeProperties(theme: WorkspaceTheme): Record<string, string> {
     if (literal) {
       properties['--sone-theme-accent-on-light'] = readableInk(literal, WORST_GROUND.light);
       properties['--sone-theme-accent-on-dark'] = readableInk(literal, WORST_GROUND.dark);
+
+      /*
+       * And the accent as a *line*, at the floor a line has (ADR-0137).
+       *
+       * A focus ring, the border of a focused field, the rule beside a selected
+       * item: a control's boundary, which the standard asks 3:1 of rather than
+       * 4.5:1. Two reasons it is not simply the text derivation.
+       *
+       * It would be **darker than it needs to be**, and a border drawn beside a
+       * fill of the same accent would no longer match it — a ring around every
+       * primary button.
+       *
+       * And it would be **darker than the fill it outlines**, which is the same
+       * ring seen from the other side.
+       *
+       * The floor is lower, so the colour moves less and stays nearer the one
+       * the workspace chose, which is the whole point of letting them choose.
+       */
+      properties['--sone-theme-accent-line-on-light'] = readableInk(
+        literal,
+        WORST_GROUND.light,
+        AA.nonText,
+      );
+      properties['--sone-theme-accent-line-on-dark'] = readableInk(
+        literal,
+        WORST_GROUND.dark,
+        AA.nonText,
+      );
     }
   }
 

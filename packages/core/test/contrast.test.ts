@@ -250,3 +250,69 @@ describe('the accent read as text (ADR-0136)', () => {
     assert.equal(properties['--sone-theme-accent-on-dark'], readableInk('#f0e68c', WORST_GROUND.dark));
   });
 });
+
+describe('the accent as a line (ADR-0137)', () => {
+  test('a line is derived at a line’s floor', () => {
+    // 3:1, which is what the standard asks of a control's boundary. Text wants
+    // 4.5:1 and a line is not text.
+    for (const color of ['#ffff00', '#f0e68c', '#d4d2ca']) {
+      const line = readableInk(color, WORST_GROUND.light, AA.nonText);
+      assert.ok(contrastRatio(line, WORST_GROUND.light) >= AA.nonText);
+      assert.ok(contrastRatio(line, WORST_GROUND.light) < AA.text, 'and not further than that');
+    }
+  });
+
+  test('and it stays nearer the colour somebody chose than the text does', () => {
+    /*
+     * The reason there are two derivations rather than one. Deriving a border
+     * at the text floor darkens it past the fill it sits beside, which shows as
+     * a ring around every primary button — and the fill is the colour the
+     * workspace actually picked.
+     */
+    for (const color of ['#ffff00', '#7c3aed', '#2f7d6f']) {
+      const line = luminance(readableInk(color, WORST_GROUND.light, AA.nonText));
+      const text = luminance(readableInk(color, WORST_GROUND.light, AA.text));
+      const chosen = luminance(color);
+      assert.ok(
+        Math.abs(line - chosen) <= Math.abs(text - chosen),
+        `${color}: the line moved further than the text`,
+      );
+    }
+  });
+
+  test('a focus ring is visible whatever a workspace picked', () => {
+    /*
+     * **The bug.** A focus ring was the raw accent, so a pale one was 1.07:1 on
+     * the page — the ring is there and nobody can see it, which is a keyboard
+     * user who cannot tell where they are. Not a cosmetic failure.
+     */
+    let worst = { ratio: Number.POSITIVE_INFINITY, color: '' };
+    for (let r = 0; r < 256; r += 17) {
+      for (let g = 0; g < 256; g += 17) {
+        for (let b = 0; b < 256; b += 17) {
+          const color = toHex({ r, g, b });
+          for (const ground of Object.values(WORST_GROUND)) {
+            const found = contrastRatio(readableInk(color, ground, AA.nonText), ground);
+            if (found < worst.ratio) worst = { ratio: found, color };
+          }
+        }
+      }
+    }
+    assert.ok(worst.ratio >= AA.nonText, `${worst.color} is ${worst.ratio.toFixed(3)}:1`);
+    // What it was before, named so the size of it is visible.
+    assert.ok(contrastRatio('#ffff00', '#ffffff') < 1.1, 'a yellow ring on white was 1.07:1');
+  });
+
+  test('a theme emits four derivations and one chosen colour', () => {
+    const properties = themeProperties(sanitiseTheme({ accent: '#ffff00' }));
+    assert.equal(properties['--accent'], '#ffff00');
+    for (const name of [
+      '--sone-theme-accent-on-light',
+      '--sone-theme-accent-on-dark',
+      '--sone-theme-accent-line-on-light',
+      '--sone-theme-accent-line-on-dark',
+    ]) {
+      assert.match(properties[name] ?? '', /^#[0-9a-f]{6}$/, name);
+    }
+  });
+});
