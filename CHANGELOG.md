@@ -13,6 +13,10 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.12.2
+
 Pull and restart, sonst ist nichts zu tun. Keine Migration.
 
 **Eine Stelle im PDF kann jetzt ein Kommentar sein.** In einem PDF im Dokument
