@@ -13,6 +13,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Pull and restart, sonst ist nichts zu tun. Keine Migration.
+
 **Eine Stelle im PDF kann jetzt ein Kommentar sein.** In einem PDF im Dokument
 lässt sich Text auswählen; über der Auswahl erscheint *Kommentieren*, und der
 Faden hängt anschließend an genau dieser Stelle — Seite und Rechtecke in den
@@ -21,15 +23,11 @@ hat, liegt eine Markierung auf der Seite, in derselben Farbe wie eine
 kommentierte Stelle im Fließtext. Die Markierung sitzt richtig, egal wie breit
 die Spalte gerade ist.
 
-**Und das Ganze als Datei mitnehmen.** Über der Seitenzahl im PDF steht jetzt
-ein Pfeil: er erzeugt eine Kopie des Dokuments, in der die Markierungen und
-Kommentare als echte PDF-Anmerkungen stehen — lesbar in Acrobat, in der Vorschau,
-überall. Kommentierte Stellen bringen das Gespräch als Notiz mit (zugeklappt,
-damit sie den Text nicht verdecken), bloß markierte Stellen bringen nichts mit.
-Die Farbe ist die, die gerade auf dem Bildschirm zu sehen ist. Die Kopie heißt
-wie das Original mit „mit Markierungen" dahinter, und das Original bleibt Byte
-für Byte darin stehen — angehängt, nicht neu geschrieben. Der Knopf erscheint
-nur, wenn es etwas einzutragen gibt.
+Zwei Fehler sind dabei aufgefallen, beide ohne PDF-Bezug: auf einer Seite mit
+geschütztem Abschnitt haben sich die Markierungen im Fließtext gegenseitig
+überschrieben, weil zwei Kommentardokumente dieselbe Meldung benutzt haben; und
+ein Kommentarfaden ohne Textstelle wäre in keiner der drei Gruppen der
+Kommentarleiste aufgetaucht.
 
 **Und markieren, ohne etwas dazu zu sagen.** Neben *Kommentieren* steht jetzt
 *Markieren*: der Textmarker, ohne Faden. Wo schon markiert ist, heißt derselbe
@@ -39,6 +37,22 @@ kommentierte, nur heller: das eine wird besprochen, das andere ist einen zweiten
 Blick wert. Markieren braucht ein Konto; über einen Freigabe-Link lässt sich eine
 Stelle kommentieren, was ohnehin mehr sagt.
 
+**Und das Ganze als Datei mitnehmen.** In der Leiste über dem Dokument steht ein
+Pfeil: er erzeugt eine Kopie, in der die Markierungen und Kommentare als echte
+PDF-Anmerkungen stehen — lesbar in Acrobat, in der Vorschau, überall.
+Kommentierte Stellen bringen das Gespräch als Notiz mit (zugeklappt, damit sie
+den Text nicht verdecken), bloß markierte Stellen bringen nichts mit. Die Farbe
+ist die, die gerade auf dem Bildschirm zu sehen ist. Die Kopie heißt wie das
+Original mit „mit Markierungen" dahinter, und das Original bleibt Byte für Byte
+darin stehen — angehängt, nicht neu geschrieben. Der Knopf erscheint nur, wenn es
+etwas einzutragen gibt.
+
+Für diesen einen Knopf gilt eine höhere Browser-Untergrenze als für alles andere:
+das Schreiben läuft im Worker der PDF-Bibliothek, und die verlangt dort
+Chrome/Edge ab 138, Firefox ab 141 oder Safari 26. Ältere Browser zeigen und
+kommentieren das Dokument weiterhin; nur die Kopie entsteht dann nicht, und die
+Konsole sagt warum.
+
 **Behoben: das Logo wechselte, sobald der Zeiger darauf lag.** Gemeldet bei
 grüner Leiste mit beiden Marken: *„Wenn ich auf das Logo drauf klicke wird es
 dunkel."* Die Schaltfläche färbt sich unter dem Zeiger etwas heller, und bei
@@ -46,12 +60,6 @@ einer akzentfarbenen Leiste reicht dieser Schritt gerade über die Grenze
 zwischen hell und dunkel — die Marke für weißes Papier landete auf Grün.
 Gemessen: die Leiste bei Helligkeit 0,164, ihre Hover-Fläche bei 0,229, die
 Grenze bei 0,216. Der Zustand einer Schaltfläche ist jetzt kein Untergrund mehr.
-
-Zwei Fehler, die dabei aufgefallen sind und beide nichts mit PDFs zu tun hatten:
-auf einer Seite mit geschütztem Abschnitt haben sich die Markierungen im Text
-gegenseitig überschrieben, weil zwei Kommentardokumente dieselbe Meldung
-benutzt haben; und ein Kommentarfaden ohne Textstelle wäre in keiner der drei
-Gruppen der Kommentarleiste aufgetaucht.
 
 ## 0.12.1
 
