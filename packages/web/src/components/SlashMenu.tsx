@@ -198,7 +198,7 @@ export function SlashMenu({
         aria-label={t('slash.insert')}
         {...keepsEditorSelection}
       >
-        <p className="slash-empty">No blocks match “{menu.query}”</p>
+        <p className="slash-empty">{t('slash.noMatch', { query: menu.query })}</p>
       </div>
     );
   }

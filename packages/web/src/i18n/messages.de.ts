@@ -323,7 +323,12 @@ export const de: Record<keyof typeof en, string> = {
   'template.heading': 'Aus einer Vorlage',
   'template.use': 'Als Vorlage anbieten',
   'template.stop': 'Nicht mehr als Vorlage anbieten',
+  'swatch.asDesigned': '{label}: wie gestaltet',
+  'swatch.own': '{label}: eine eigene Farbe',
+  'sidebar.unfavourite': '{title} aus den Favoriten entfernen',
   'entry.untitled': 'Ohne Titel',
+  // Im Akkusativ, weil beide Sätze, die ihn einsetzen, ihn dort brauchen.
+  'entry.thisOne': 'diesen Eintrag',
   'entry.actions': 'Was mit diesem Eintrag geschehen soll',
   'entry.new': 'Neu',
   'entry.newPage': 'Neue Seite',
@@ -344,6 +349,13 @@ export const de: Record<keyof typeof en, string> = {
   // --- der Verwaltungsbereich --------------------------------------------
   'admin.instance': 'Diese Instanz',
   'admin.instance.hint': 'Name, Registrierung und Vorgaben',
+  'admin.counts.admins': '{count, plural, one {# Administrator} other {# Administratoren}}',
+  'admin.counts.deactivated': '{count} deaktiviert',
+  'admin.counts.content':
+    '{pages, plural, one {# Seite} other {# Seiten}} in ' +
+    '{folders, plural, one {# Ordner} other {# Ordnern}}',
+  'admin.counts.files': '{count, plural, one {# Anhang} other {# Anhänge}}',
+  'admin.counts.onDisk': '{size} auf der Platte',
   'admin.workspaces': 'Workspaces',
   'admin.accounts': 'Konten',
   'admin.accounts.hint': 'Alle, die hier ein Konto haben',
@@ -478,6 +490,13 @@ export const de: Record<keyof typeof en, string> = {
     'zweiter Faktor zum Anbieter. Vorher braucht man selbst einen.',
   'admin.mayCreateWorkspaces': 'Mitglieder dürfen Workspaces anlegen',
   'admin.addressForm': 'Wie die Oberfläche die Leute anspricht',
+  'admin.addressForm.hint':
+    'Im Deutschen und in anderen Sprachen, die das unterscheiden. Englisch hat nur ' +
+    'eine Form und bleibt unberührt.',
+  'admin.mail.noUser': '(kein Benutzer)',
+  'admin.mail.usingLine': '{user} @ {host}:{port} · {security} · von {from}',
+  'admin.pendingNote': 'normal, während Leute schreiben',
+  'admin.noMessage': 'keine Meldung aufgezeichnet',
   'admin.addressForm.informal': 'Vertraut — „du"',
   'admin.addressForm.formal': 'Förmlich — „Sie"',
   'admin.version': 'Version',
@@ -660,6 +679,11 @@ export const de: Record<keyof typeof en, string> = {
     'Wo {address, select, formal {Sie gerade sind} other {du gerade bist}}.',
   'you.saved': 'Gespeichert.',
   'you.save': 'Speichern',
+  'you.newPassword.hint':
+    'Mindestens zwölf Zeichen. Länge ist es, was ein Passwort schwer zu erraten ' +
+    'macht; ein kurzes mit Sonderzeichen ist es nicht.',
+  'you.changePassword': 'Passwort ändern',
+  'you.changingPassword': 'Wird geändert…',
   'you.passwordChanged':
     'Geändert. {address, select, formal {Ihre anderen Sitzungen bleiben angemeldet.} ' +
     'other {Deine anderen Sitzungen bleiben angemeldet.}}',
@@ -705,6 +729,12 @@ export const de: Record<keyof typeof en, string> = {
 
   'about.server': 'Server',
   'about.documentFormat': 'Dokumentformat',
+  'about.stale':
+    'Dieser Browser läuft mit einem älteren Stand als der Server. Neu laden holt die ' +
+    'aktuelle Fassung — bis dahin kann das Gezeigte von dem abweichen, was der Server tut.',
+  'about.licence':
+    'SONE ist freie Software unter der AGPL-3.0. Keine Platzbeschränkung, keine ' +
+    'abgesperrten Funktionen, keine Enterprise-Ausgabe.',
   'about.syncProtocol': 'Sync-Protokoll',
   'about.checking': 'wird geprüft…',
 
@@ -740,6 +770,9 @@ export const de: Record<keyof typeof en, string> = {
     'Einladung fügt nichts hinzu.',
   'page.title': 'Seitentitel',
   'page.untitled': 'Ohne Titel',
+  'page.opening': 'Wird geöffnet…',
+  'page.otherPeopleHere':
+    '{count, plural, one {# weitere Person hier} other {# weitere Leute hier}}',
   'page.readOnly':
     '{address, select, formal {Sie können} other {Du kannst}} diese Seite nur lesen.',
   'page.noAccess':
@@ -755,6 +788,8 @@ export const de: Record<keyof typeof en, string> = {
   'format.link': 'Link (Mod-K)',
   'format.linkAddress': 'Adresse des Links',
   'format.linkPlaceholder': 'example.org',
+  'format.copied': 'Kopiert',
+  'format.copy': 'Kopieren',
   'format.copyCode': 'Code kopieren',
   'format.linkWord': 'Link',
   'format.bold': 'Fett (Mod-B)',
@@ -762,6 +797,7 @@ export const de: Record<keyof typeof en, string> = {
   'format.strikethrough': 'Durchgestrichen',
   'format.code': 'Code (Mod-E)',
   'format.removeLink': 'Entfernen',
+  'slash.noMatch': 'Kein Block passt zu „{query}"',
   'slash.insert': 'Block einfügen',
   'tableBlock.label': 'Tabelle',
   'tableBlock.addRow': '+ Zeile',
@@ -781,6 +817,15 @@ export const de: Record<keyof typeof en, string> = {
   'video.upload': 'Video hochladen',
   'gallery.empty': 'Noch nichts hier.',
   'workspaces.shared': 'Geteilte Workspaces',
+  'workspaces.loading': 'Wird geladen…',
+  'workspaces.youAreHere': '{address, select, formal {Sie sind hier} other {du bist hier}}',
+  'workspaces.deleted': 'gelöscht',
+  'workspaces.personal.note':
+    'Einer je Konto. {count, plural, one {# insgesamt} other {# insgesamt}}.',
+  'workspaces.show': 'Zeigen',
+  'workspaces.hide': 'Verbergen',
+  'workspaces.creating': 'Wird angelegt…',
+  'workspaces.memberCount': '{count, plural, one {# Person} other {# Leute}}',
   'workspaces.personal': 'Persönliche Workspaces',
   'workspaces.nonePersonal':
     'Noch keine — jeder Workspace hier gehört einer Person.',
@@ -814,6 +859,7 @@ export const de: Record<keyof typeof en, string> = {
     'Optional. Mit Adresse gilt die Einladung für diese Person und lässt sich einmal ' +
     'benutzen. Ohne Adresse ist sie ein Link, den jeder benutzen darf, der ihn hat — so ' +
     'lädt man eine Gruppe ein, ohne jede Adresse zu tippen.',
+  'group.members': '{count, plural, one {# Person} other {# Leute}}',
   'group.note':
     'Eine Gruppe ist eine Liste von Leuten. Gib einer Gruppe einmal Zugriff auf eine ' +
     'Seite, und jeder darin hat ihn — auch wer später dazukommt. Das ist es, was das ' +
@@ -825,6 +871,17 @@ export const de: Record<keyof typeof en, string> = {
     'Anmeldung über einen Identitätsanbieter. Jeder Anbieter, der OpenID Connect ' +
     'spricht, funktioniert — Keycloak, Authentik, Zitadel, Entra, Google und andere. Das ' +
     'ist also eine Konfiguration und keine Wahl der Anbindung.',
+  'oidc.noSecret':
+    'Es ist kein Client-Secret gesetzt. SONE_OIDC_CLIENT_SECRET in die Umgebung des ' +
+    'Servers eintragen und ihn neu starten; bis dahin bleibt Single Sign-on aus. Das ' +
+    'Secret wird hier absichtlich nicht gespeichert — ein Secret in der Datenbank ist ' +
+    'ein Secret in jedem Backup.',
+  'oidc.issuer.hint':
+    'Die Basis-URL des Providers. Alles Weitere wird aus seinem Discovery-Dokument ' +
+    'gelesen, hier muss also nichts wissen, welcher Provider es ist.',
+  'oidc.callback':
+    '/api/auth/oidc/callback unter der öffentlichen URL dieser Instanz in die Liste ' +
+    'der Redirect-URIs des Providers eintragen.',
   'oidc.buttonLabel.hint':
     'Was auf der Anmeldeseite steht. Leute erkennen ihren eigenen Login am Namen, nicht ' +
     'am Protokoll dahinter.',
@@ -834,12 +891,22 @@ export const de: Record<keyof typeof en, string> = {
   'invitation.used':
     'Diese Einladung wurde schon benutzt. Wenn das gerade {address, select, formal ' +
     '{Sie waren, ist Ihr Konto} other {du warst, ist dein Konto}} fertig.',
+  'invitation.invitedTo':
+    '{address, select, formal {Sie sind eingeladen} other {Du bist eingeladen}}, ' +
+    '{workspace} beizutreten.',
+  'invitation.aWorkspace': 'einem Workspace',
+  'invitation.join': 'Beitreten',
+  'invitation.joining': 'Tritt bei…',
+  'invitation.checking': 'Einladung wird geprüft…',
   'invitation.keepsYours':
     'Der eigene Workspace bleibt, wo er ist. Ein Beitritt stellt diesen daneben.',
   'option.rename.note':
     'Eine Option lässt sich frei umbenennen — die Einträge behalten sie. Eine zu ' +
     'entfernen verbirgt sie in den Einträgen, die sie benutzen, und eine neue Option mit ' +
     'demselben Namen bringt sie nicht zurück.',
+  'video.embedVerdict':
+    'Ein {provider}-Video. Von dort wird nichts geladen, bis jemand auf Abspielen drückt.',
+  'video.streamVerdict': 'Ein Live-Stream über {kind}, in der Seite abgespielt.',
   'video.providers':
     'Diese Instanz bettet YouTube, Vimeo und PeerTube ein und spielt HLS- oder ' +
     'DASH-Streams. Andere Adressen können als gewöhnlicher Link in die Seite.',
@@ -975,6 +1042,14 @@ export const de: Record<keyof typeof en, string> = {
   'perm.addGroup': 'Gruppe hinzufügen',
   'perm.chooseGroup': 'Eine Gruppe wählen…',
   'perm.checking': 'Wird geprüft…',
+  'perm.restricted.note':
+    'Der Workspace erreicht diese Seite und alles darunter nicht. Besitzer und ' +
+    'Administratoren schon — jemand muss das rückgängig machen können.',
+  'perm.open.note':
+    'Alle im Workspace erreichen diese Seite. Wer unten hinzukommt, bekommt mehr, ' +
+    'als seine Rolle gibt, nie weniger.',
+  'perm.inheritedFrom': '{level} · von {source}',
+  'perm.accessFor': 'Zugriff für {who}',
   'perm.onlyAdded': 'Nur die unten hinzugefügten Leute',
   'perm.remove': 'Entfernen',
 
@@ -998,6 +1073,7 @@ export const de: Record<keyof typeof en, string> = {
   'member.remove': 'Entfernen',
 
   // --- Schlagwörter ------------------------------------------------------
+  'tag.remove': '{tag} entfernen',
   'tag.add': 'Schlagwort hinzufügen',
   'tag.none': 'Keine',
 
@@ -1036,6 +1112,22 @@ export const de: Record<keyof typeof en, string> = {
   'error.invalid_address': 'Das sieht nicht nach einer E-Mail-Adresse aus.',
   'error.no_relay': 'Diese Instanz kann keine Mails senden.',
   'share.revoke': 'Widerrufen',
+  'share.copy': 'Kopieren',
+  'share.copied': 'Kopiert',
+  'share.includeSubpages': 'Unterseiten einschließen',
+  'share.password': 'Passwort (optional)',
+  'share.password.tooShort':
+    'Mindestens {count} Zeichen — ein Link-Passwort schützt denselben Inhalt wie ein ' +
+    'Konto-Passwort.',
+  'share.withSubpages': 'mit Unterseiten',
+  'share.thisPageOnly': 'nur diese Seite',
+  'share.hasPassword': 'Passwort',
+  'share.until': 'bis {date}',
+  'share.noExpiry': 'ohne Ablauf',
+  'share.inUseBy': 'in Benutzung von {count}',
+  'share.onASubpage': 'auf einer Unterseite',
+  'share.show': 'Link zeigen',
+  'share.shown': 'Gezeigt',
   'share.subpages.hint':
     'Standardmäßig an: ein Link, der aufhört zu funktionieren, sobald jemand eine ' +
     'Unterseite anlegt, ist schlechter als einer, der etwas mehr abdeckt als erwartet.',
@@ -1165,11 +1257,18 @@ export const de: Record<keyof typeof en, string> = {
   'folder.pages': 'Seiten',
 
   // --- innerhalb eines Workspace verschieben -----------------------------
+  'move.heading': '„{title}" verschieben',
   'move.title': 'Verschieben nach',
   'move.root': 'Wurzel des Workspace',
   'move.find': 'Ordner suchen',
   'move.noMatch': 'Kein Ordner passt.',
 
+  'action.saving': 'Wird gespeichert…',
+  'theme.reset': '{name} zurücksetzen',
+  'theme.elementSize': '{element}: Größe',
+  'theme.elementColour': '{element}: Farbe',
+  'theme.elementSpaceAbove': '{element}: Abstand darüber',
+  'theme.elementSpaceBelow': '{element}: Abstand darunter',
   'action.saved': 'Gespeichert.',
 
   // --- der Papierkorb ----------------------------------------------------
@@ -1295,9 +1394,22 @@ export const de: Record<keyof typeof en, string> = {
   'field.email': 'E-Mail',
   'field.phone': 'Telefon',
   'field.files': 'Dateien',
+  'table.groupBy': 'Nach {field} gruppieren',
+  'table.selectNone': 'Auswahl aufheben',
+  'table.selectAll': 'Alle gezeigten Einträge auswählen',
+  'table.nameColumn': 'Name',
+  'table.selectEntry': '{title} auswählen',
+  'table.openEntry': '{title} öffnen',
+  'table.thisEntry': 'diesen Eintrag',
+  'table.renameColumn': 'Spalte {field} umbenennen',
+  'table.editOptions': 'Optionen von {field} bearbeiten',
+  'table.removeColumn': 'Spalte {field} entfernen',
   'table.titleColumn': 'Jeder Eintrag hat einen Titel',
   'table.name': 'Name',
   'table.untitled': 'Ohne Titel',
+  'option.colourFor': 'Farbe für {option}',
+  'option.remove': '{option} entfernen',
+  'option.thisOne': 'diese Option',
   'table.removedOption': 'Diese Option wurde entfernt',
   'table.selected': '{count, plural, one {# ausgewählt} other {# ausgewählt}}',
   'table.selectedLabel': 'Ausgewählte Einträge',
@@ -1395,6 +1507,12 @@ export const de: Record<keyof typeof en, string> = {
   'block.display.player': 'Player',
   'block.display.image': 'Bild',
   'block.display.link': 'Link',
+  'block.actions.counted':
+    'Was mit diesem Block geschehen soll ({count, plural, one {# Block} ' +
+    'other {# Blöcke}} samt Kindern)',
+  'block.appliesToNested':
+    'Gilt für diesen Block und {count, plural, one {# verschachtelten Block} ' +
+    'other {# verschachtelte Blöcke}}',
   'block.actions': 'Was mit diesem Block geschehen soll',
   'block.moveUp': 'Nach oben',
   'block.moveDown': 'Nach unten',
@@ -1633,6 +1751,9 @@ export const de: Record<keyof typeof en, string> = {
   'panel.untitledTask': 'Aufgabe ohne Text',
   'panel.goToTask': 'Zu dieser Aufgabe',
   'panel.openImage': 'Dieses Bild öffnen',
+  'panel.untitledFile': 'Datei ohne Namen',
+  'panel.thisFile': 'diese Datei',
+  'panel.showThisInPage': '{filename} in der Seite zeigen',
   'panel.showInPage': 'Zeigen, wo es in der Seite steht',
   'panel.showLinkInPage': 'Diesen Link in der Seite zeigen',
   'panel.done': 'Erledigt',
@@ -1773,6 +1894,7 @@ export const de: Record<keyof typeof en, string> = {
   'auth.createAccount': 'Konto anlegen',
   'auth.createAccountAction': 'Konto anlegen',
   'auth.creatingAccount': 'Wird angelegt…',
+  'auth.sso': 'Single Sign-on',
   'auth.or': 'oder',
   'auth.noAccount': 'Noch kein Konto?',
   'auth.createOne': 'Eines anlegen',

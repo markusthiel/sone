@@ -59,7 +59,7 @@ export function WorkspaceList({
   }, []);
 
   if (error) return <p className="error">{messageFor(error)}</p>;
-  if (!rows) return <p className="muted">Loading…</p>;
+  if (!rows) return <p className="muted">{t('workspaces.loading')}</p>;
 
   /*
    * The one being looked at first (ADR-0067 amendment).
@@ -107,16 +107,16 @@ export function WorkspaceList({
                   style={titleColorStyle(row.icon ?? null)}
                   onClick={() => onOpen(row.id, row.name, row.icon ?? null)}
                 >
-                  {row.name || 'Untitled'}
+                  {row.name || t('workspace.untitled')}
                 </button>
               </span>
               {row.id === currentWorkspaceId && (
-                <span className="muted"> · you are here</span>
+                <span className="muted"> · {t('workspaces.youAreHere')}</span>
               )}
               {row.deletedAt && (
                 <>
                   {' '}
-                  <span className="muted">· deleted</span>{' '}
+                  <span className="muted">· {t('workspaces.deleted')}</span>{' '}
                   <button
                     type="button"
                     className="link-button"
@@ -154,11 +154,9 @@ export function WorkspaceList({
         * They are still here, because "who has an account and what is in it" is
         * a question this list should be able to answer. */}
       <h3 className="settings-heading">{t('workspaces.personal')}</h3>
-      <p className="muted">
-        One for each account. {personal.length} in total.
-      </p>
+      <p className="muted">{t('workspaces.personal.note', { count: personal.length })}</p>
       <button type="button" className="btn" onClick={() => setShowPersonal(!showPersonal)}>
-        {showPersonal ? 'Hide' : 'Show'}
+        {showPersonal ? t('workspaces.hide') : t('workspaces.show')}
       </button>
       {showPersonal && table(personal)}
     </section>

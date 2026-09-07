@@ -82,7 +82,7 @@ export function OptionEditor({
             <select
               className="option-color"
               value={option.color}
-              aria-label={`Colour for ${option.name || 'this option'}`}
+              aria-label={t('option.colourFor', { option: option.name || t('option.thisOne') })}
               onChange={(event) => update(option.id, { color: event.target.value })}
             >
               {OPTION_COLORS.map((color) => (
@@ -94,7 +94,7 @@ export function OptionEditor({
             <button
               type="button"
               className="option-remove"
-              aria-label={`Remove ${option.name || 'this option'}`}
+              aria-label={t('option.remove', { option: option.name || t('option.thisOne') })}
               onClick={() =>
                 setDraft((current) => current.filter((entry) => entry.id !== option.id))
               }

@@ -113,7 +113,7 @@ export function TagEditor({
             {canEdit && (
               <button
                 type="button"
-                aria-label={`Remove ${tag}`}
+                aria-label={t('tag.remove', { tag })}
                 onClick={() => onChange(tags.filter((other) => keyOf(other) !== keyOf(tag)))}
               >
                 ×

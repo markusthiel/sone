@@ -14,6 +14,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { formatMessage } from '@sone/core';
+import { readableStrings } from './helpers/readable.ts';
 import { LANGUAGE_NAMES, LOCALES, resolveLocale } from '../src/i18n/useT.tsx';
 import { en } from '../src/i18n/messages.en.ts';
 import { de } from '../src/i18n/messages.de.ts';
@@ -243,48 +244,91 @@ test('the untranslatable file is named, and it is only the one', () => {
   assert.doesNotMatch(boundary, /useT/);
 });
 
+/**
+ * Words that read the same in every language.
+ *
+ * A brand is a name, a protocol is a name, and a command somebody pastes into a
+ * shell is neither prose nor ours to translate. Each is listed with the file it
+ * is in, and a second test refuses one that has stopped being used — an
+ * exception nobody can find any more is how a list of exceptions turns into a
+ * list of excuses.
+ */
+const SAME_IN_EVERY_LANGUAGE = [
+  // How a mail server is reached, with the port people look for (Admin).
+  'STARTTLS (587)',
+  'TLS (465)',
+  // A command to paste into a shell, which is not ours to translate (Admin).
+  'docker exec -u 0 &lt;container&gt; chown -R 10001:10001 /var/lib/sone',
+];
+
+/*
+ * Seven names left this list while it was being written, and that is the
+ * interesting part of it.
+ *
+ * `YouTube`, `Vimeo`, `PeerTube`, `HLS` and `DASH` were listed because they sat
+ * in the markup as English words. They are values now — the sentence around
+ * them is a message and the name is passed into it — so nothing about them is
+ * exempt any more; they simply are not text this file wrote.
+ * `SONE_OIDC_CLIENT_SECRET` and the callback path went the same way, into the
+ * sentences that name them.
+ *
+ * **An exception that disappears when the code is written properly was never an
+ * exception.** Which is what the test below is for.
+ */
+
+test('the guard sees every shape a string can reach the screen in', () => {
+  /*
+   * The fixture is the thing this has to catch, and three of its shapes are
+   * there because they were missed once each (ADR-0148). A guard that has never
+   * been shown a string it must find is a guard nobody has tested — which is
+   * how the same file sat on the migrated list, reported clean, with eight
+   * English strings in it.
+   */
+  const fixture = readFileSync(
+    new URL('./helpers/readable.fixture.tsx', import.meta.url),
+    'utf8',
+  );
+  const found = readableStrings(fixture).map((one) => one.text);
+
+  assert.deepEqual(found.sort(), [
+    'A sentence written across two lines.',
+    'Close the panel',
+    'Do the thing',
+    'More than one',
+    'No name yet',
+    'Outline',
+    'Something switchable',
+    'Working…',
+    // A template is reported with its holes replaced, so what is read is the
+    // words somebody wrote and not the expression between them.
+    '… things counted',
+  ].sort());
+});
+
 test('a migrated file has no English left in its markup', () => {
+  const left: string[] = [];
+
   for (const file of MIGRATED) {
     const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-
-    // Text between tags: `>Sign out</span>`. The closing `</` is required, which
-    // is what tells JSX text apart from a generic type argument — `new
-    // Map<string, CollectionFile>(` matched the looser pattern and reported
-    // "new Map" as an untranslated sentence.
-    // Newlines are part of the text, which they were not before — and that was
-    // the hole. A paragraph written across three lines never matched, so every
-    // long explanation in the administration area sat in English with the guard
-    // reporting the file clean. The short labels were all it had ever seen.
-    const literals = [...source.matchAll(/>\s*([A-Za-z][A-Za-z ,.'’—\-\n]{3,}?)\s*<\//g)]
-      .map(([, text]) => text.replace(/\s+/g, ' ').trim())
-      // A single word between tags is usually a fragment of prose split by a
-      // `<code>` or an `<a>`, and those are reported by the surrounding text.
-      .filter((text) => text.includes(' '));
-    assert.deepEqual(literals, [], `${file} still has literal text: ${literals.join(' | ')}`);
-
-    // Labels held in a data structure rather than in markup: `label: 'Outline'`
-    // in a table of tabs is a heading somebody reads, and the panel's seven were
-    // English for a week because this guard only looked at JSX. A key is
-    // dotted and lower-case, so a capital letter or a space is the tell.
-    const inData = [
-      ...source.matchAll(/\b(?:label|hint|title|heading|placeholder):\s*'([^']{4,})'/g),
-    ]
-      .map(([, text]) => text)
-      // A key is dotted and has no spaces — `you.signIn` is a key, `Sign in` is
-      // a sentence. Capitals are no help: the keys are camel-cased.
-      .filter((text) => /\s/.test(text) || !text.includes('.'));
-    assert.deepEqual(inData, [], `${file} has literal labels: ${inData.join(' | ')}`);
-
-    // And the attributes people read: a title or an aria-label in English is
-    // invisible to a screenshot and perfectly visible to a screen reader.
-    // The attribute name has to stand alone: `data-placeholder="true"` is not a
-    // placeholder anybody reads, and matching it made the guard cry wolf on its
-    // first real use.
-    const attributes = [
-      ...source.matchAll(/(?<![\w-])(?:title|aria-label|placeholder)="([^"]{4,})"/g),
-    ].map(([, text]) => text);
-    assert.deepEqual(attributes, [], `${file} has literal attributes: ${attributes.join(' | ')}`);
+    for (const one of readableStrings(source, file)) {
+      if (SAME_IN_EVERY_LANGUAGE.includes(one.text)) continue;
+      left.push(`${file}:${one.line} ${one.kind} — ${one.text}`);
+    }
   }
+
+  assert.deepEqual(left, [], `English left on migrated screens:\n${left.join('\n')}`);
+});
+
+test('every exception is still an exception somebody can find', () => {
+  // A name that has left the tree is a line that outlives its reason, and the
+  // next reader takes the list for a policy rather than for ten decisions.
+  const unused = SAME_IN_EVERY_LANGUAGE.filter((word) =>
+    MIGRATED.every((file) => {
+      const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+      return !readableStrings(source, file).some((one) => one.text === word);
+    }),
+  );
+  assert.deepEqual(unused, [], 'listed as untranslatable and no longer anywhere');
 });
 
 test('the language can be changed, and changing it does not reload', () => {
