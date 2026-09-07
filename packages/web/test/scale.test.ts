@@ -1866,8 +1866,16 @@ test('an inbox spans workspaces, so its route carries none', () => {
    * unchanged, which is what this asserts.
    */
   assert.match(screen, /if \(group\.unread > 0\) onRead\(group\.items\.map/);
-  // And it says there is no email, rather than letting somebody assume one.
-  assert.match(screen, /t\('inbox\.noEmail'\)/);
+  /*
+   * And it says what this instance actually does about mail, rather than
+   * letting somebody assume (ADR-0052) — or, as it did until ADR-0139, telling
+   * them the opposite of what the share dialog three clicks away was offering.
+   *
+   * Both keys, and the condition between them: asserting only the sentence for
+   * an instance with no relay is how the wrong one survived being right once.
+   */
+  assert.match(screen, /canSendMail \? 'inbox\.andEmail' : 'inbox\.noEmail'/);
+  assert.match(screen, /useInstance\(\)/, 'and it asks rather than assuming');
 });
 
 test('a share link says what it gives away, with the count', () => {
