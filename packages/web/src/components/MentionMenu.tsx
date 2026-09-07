@@ -13,6 +13,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 
+import { useChoiceList } from '../hooks/useChoiceList.ts';
+
 import { closeMentionMenu, insertMention, mentionMenuState } from '@sone/editor';
 import type { EditorView } from 'prosemirror-view';
 
@@ -82,7 +84,6 @@ export function MentionMenu({ view, revision, people }: MentionMenuProps): React
   const { t } = useT();
   const menu = mentionMenuState(view.state);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const [index, setIndex] = useState(0);
   const [placement, setPlacement] = useState<{ top: number; left: number } | null>(null);
   const [retryToken, setRetryToken] = useState(0);
 
@@ -90,14 +91,26 @@ export function MentionMenu({ view, revision, people }: MentionMenuProps): React
   const query = menu?.query ?? '';
   const found = menu ? filterPeople(query, people) : [];
 
+  /*
+   * The highlight and the keys (ADR-0142).
+   *
+   * `fieldProps` is not used here: the field is ProseMirror's contenteditable,
+   * which this component does not render — so the active option is named on the
+   * list itself, which is what the slash menu does for the same reason.
+   */
+  const choices = useChoiceList({
+    count: found.length,
+    onChoose: (at) => {
+      const person = found[at];
+      if (person) insertMention(view, { userId: person.userId, label: person.displayName });
+    },
+    // Back to the top whenever the query changes: the old highlight is about a
+    // list that no longer exists.
+    resetOn: query,
+  });
+
   // The editor's element as well as the window (ADR-0083).
   const viewportToken = useViewportChanges(from !== null, view.dom as HTMLElement);
-
-  // Back to the top whenever the query changes: the old highlight is about a
-  // list that no longer exists.
-  useEffect(() => {
-    setIndex(0);
-  }, [query]);
 
   // After layout, so the measured height is the real one.
   useLayoutEffect(() => {
@@ -137,28 +150,25 @@ export function MentionMenu({ view, revision, people }: MentionMenuProps): React
    * highlighted — that is the whole point of it holding a query and not a list.
    * Capture phase on the editor's own element, so these are seen before
    * ProseMirror turns Enter into a block split.
+   *
+   * The eleven lines that used to be here are `useChoiceList` now, which is
+   * where the same eleven lines from the comment composer went (ADR-0142).
+   *
+   * The handler sits in a ref rather than in the dependency list — `useNudge`'s
+   * rule, for its reason: it closes over this render's list, so listing it
+   * would tear the subscription down and build it again on every keystroke.
    */
+  const handleKey = useRef(choices.handleKey);
+  handleKey.current = choices.handleKey;
   useEffect(() => {
     if (!menu) return;
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (found.length === 0) return;
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        setIndex((n) => (n + 1) % found.length);
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        setIndex((n) => (n - 1 + found.length) % found.length);
-      } else if (event.key === 'Enter' || event.key === 'Tab') {
-        const person = found[index];
-        if (!person) return;
-        event.preventDefault();
-        insertMention(view, { userId: person.userId, label: person.displayName });
-      }
+      handleKey.current(event);
     };
     const dom = view.dom;
     dom.addEventListener('keydown', onKeyDown, { capture: true });
     return () => dom.removeEventListener('keydown', onKeyDown, { capture: true });
-  }, [menu, found, index, view]);
+  }, [menu, view]);
 
   // Clicking elsewhere closes it, on pointerdown so the menu is gone before the
   // click lands somewhere unexpected.
@@ -177,10 +187,14 @@ export function MentionMenu({ view, revision, people }: MentionMenuProps): React
   return (
     <div
       className="slash-menu mention-menu"
-      ref={listRef}
+      ref={(element) => {
+        listRef.current = element;
+        choices.listRef(element);
+      }}
       style={placement ? { top: placement.top, left: placement.left } : { top: -9999, left: -9999 }}
       role="listbox"
       aria-label={t('mention.pick')}
+      aria-activedescendant={choices.activeId}
       {...keepsEditorSelection}
     >
       {found.length === 0 ? (
@@ -198,8 +212,7 @@ export function MentionMenu({ view, revision, people }: MentionMenuProps): React
             key={person.userId}
             type="button"
             className="slash-item"
-            data-selected={at === index ? 'true' : undefined}
-            onPointerEnter={() => setIndex(at)}
+            {...choices.optionProps(at)}
             onClick={() =>
               insertMention(view, { userId: person.userId, label: person.displayName })
             }

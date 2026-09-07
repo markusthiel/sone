@@ -40,6 +40,8 @@ import {
 } from '@sone/core';
 import { useEffect, useState, type ReactElement } from 'react';
 
+import { useChoiceList } from '../hooks/useChoiceList.ts';
+
 import { api, type PageNode, type WorkspaceMember, type WorkspaceTag } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
 
@@ -234,13 +236,52 @@ export function SearchPanel({
           .map(asOffered)
           .sort(byLabel);
 
-  const tagChip = (tag: OfferedTag): ReactElement => (
+  /*
+   * The keys for the two fields in this panel (ADR-0142).
+   *
+   * Declared before the chips that use them, and one each: two lists under two
+   * fields are two highlights, and sharing one would move the tag highlight by
+   * typing a name.
+   */
+  const chooseTag = (at: number): void => {
+    const tag = foundTags[at];
+    if (!tag) return;
+    toggle((f) => f.tags, tag.key);
+    setWhichTag('');
+  };
+  const tagChoices = useChoiceList({
+    count: foundTags.length,
+    onChoose: chooseTag,
+    resetOn: whichTag,
+  });
+
+  const chooseAuthor = (at: number): void => {
+    const member = matching[at];
+    if (!member) return;
+    toggle((f) => f.authors, member.displayName);
+    setWho('');
+  };
+  const authorChoices = useChoiceList({
+    count: matching.length,
+    onChoose: chooseAuthor,
+    resetOn: who,
+  });
+
+  /**
+   * One tag as a button.
+   *
+   * `at` is its position among the ones the field *found* — those are the
+   * options of a list somebody is arrowing through (ADR-0142); the chips above
+   * are filters that are already on, and are not.
+   */
+  const tagChip = (tag: OfferedTag, at?: number): ReactElement => (
     <button
       key={tag.key}
       type="button"
       className="search-facet-tag"
       data-color={tag.color}
       aria-pressed={has(filters.tags, tag.key)}
+      {...(at === undefined ? {} : tagChoices.optionProps(at))}
       onClick={() => {
         toggle((f) => f.tags, tag.key);
         // Cleared, because the tag has just moved up into the row above: a
@@ -373,8 +414,11 @@ export function SearchPanel({
         <section className="search-facet">
           <h2 className="sidebar-label">{t('search.facet.tags')}</h2>
           <div className="search-facet-tags">
-            {chosenTags.map(tagChip)}
-            {offeredTags.map(tagChip)}
+            {/* Not `.map(tagChip)`: that hands the index in as `at`, which
+                would mark every chip on show as an option of a list nobody is
+                arrowing through. */}
+            {chosenTags.map((tag) => tagChip(tag))}
+            {offeredTags.map((tag) => tagChip(tag))}
           </div>
 
           {/* The field appears only when there is something behind it — over
@@ -388,11 +432,15 @@ export function SearchPanel({
                 value={whichTag}
                 placeholder={t('search.facet.findTagPlaceholder')}
                 aria-label={t('search.facet.findTag')}
+                {...tagChoices.fieldProps}
                 onChange={(event) => setWhichTag(event.target.value)}
+                onKeyDown={(event) => tagChoices.handleKey(event)}
               />
               {foundTags.length > 0 && (
-                <div className="search-facet-matches">
-                  <div className="search-facet-tags">{foundTags.map(tagChip)}</div>
+                <div className="search-facet-matches" ref={tagChoices.listRef}>
+                  <div className="search-facet-tags" {...tagChoices.listProps}>
+                    {foundTags.map((tag, at) => tagChip(tag, at))}
+                  </div>
                 </div>
               )}
             </>
@@ -451,21 +499,21 @@ export function SearchPanel({
           value={who}
           placeholder={t('search.facet.whoPlaceholder')}
           aria-label={t('search.facet.who')}
+          {...authorChoices.fieldProps}
           onChange={(event) => setWho(event.target.value)}
+          onKeyDown={(event) => authorChoices.handleKey(event)}
         />
         {matching.length > 0 && (
-          <div className="search-facet-matches">
-            {matching.map((member) => (
+          <div className="search-facet-matches" {...authorChoices.listProps} ref={authorChoices.listRef}>
+            {matching.map((member, at) => (
               <button
                 key={member.userId}
                 type="button"
                 className="search-facet-row"
+                {...authorChoices.optionProps(at)}
                 // The display name, because `author:` is a prefix match against
                 // the names a page carries — a whole name is a prefix of itself.
-                onClick={() => {
-                  toggle((f) => f.authors, member.displayName);
-                  setWho('');
-                }}
+                onClick={() => chooseAuthor(at)}
               >
                 {t('search.facet.writtenBy', { name: member.displayName })}
               </button>
