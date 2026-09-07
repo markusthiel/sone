@@ -301,6 +301,40 @@ export function mountPdfViewer(
     else slot.append(marks);
   };
 
+  /*
+   * ---- A copy with the marks in it (ADR-0154) --------------------------------
+   *
+   * **Above the subscriptions, and that is not a tidiness.** They replay their
+   * last announcement synchronously, before they return (ADR-0151), so their
+   * listener runs in the middle of this function's own body — and everything it
+   * touches has to exist by the time it does. Declared below them, the question
+   * `redrawEverything` asks was a `const` in its dead zone, which is a throw and
+   * not an `undefined`: the whole editor came down, because this runs while
+   * ProseMirror is building a node view.
+   */
+
+  /** The open document, once there is one. Nothing can be written before that. */
+  let burnable: Burnable | null = null;
+  /** The keys a previous save wrote, so a second one replaces rather than adds. */
+  let written: string[] = [];
+
+  /** Everything this file carries, in the shape the writer takes. */
+  const whatToWrite = (): BurnableMark[] => [
+    ...everyThread().map((thread) => ({
+      page: thread.place!.page,
+      rects: thread.place!.rects,
+      contents: conversationText(thread.messages, nameOf),
+      ...(thread.messages[0] ? { author: nameOf(thread.messages[0].author) } : {}),
+    })),
+    ...everyMark().map((mark) => ({ page: mark.place.page, rects: mark.place.rects })),
+  ];
+
+  /** Offered only when there is something to write; see the button above. */
+  const offerTheCopy = (): void => {
+    download.hidden = burnable === null || whatToWrite().length === 0;
+  };
+
+
   const redrawEverything = (): void => {
     for (const slot of pages.querySelectorAll<HTMLElement>('.pdf-page')) {
       drawMarks(slot, Number(slot.dataset['page'] ?? '0'));
@@ -499,27 +533,6 @@ export function mountPdfViewer(
   /*
    * ---- A copy with the marks in it (ADR-0154) --------------------------------
    */
-
-  /** The open document, once there is one. Nothing can be written before that. */
-  let burnable: Burnable | null = null;
-  /** The keys a previous save wrote, so a second one replaces rather than adds. */
-  let written: string[] = [];
-
-  /** Everything this file carries, in the shape the writer takes. */
-  const whatToWrite = (): BurnableMark[] => [
-    ...everyThread().map((thread) => ({
-      page: thread.place!.page,
-      rects: thread.place!.rects,
-      contents: conversationText(thread.messages, nameOf),
-      ...(thread.messages[0] ? { author: nameOf(thread.messages[0].author) } : {}),
-    })),
-    ...everyMark().map((mark) => ({ page: mark.place.page, rects: mark.place.rects })),
-  ];
-
-  /** Offered only when there is something to write; see the button above. */
-  const offerTheCopy = (): void => {
-    download.hidden = burnable === null || whatToWrite().length === 0;
-  };
 
   download.addEventListener('click', () => {
     if (!burnable) return;
