@@ -3191,6 +3191,13 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   cursor: pointer;
 }
 .search-facet-tag:hover { background: var(--sone-bg-hover); }
+/* Inside the matches box these are options of a list somebody is arrowing
+   through, so the highlight follows the selection and not the pointer. */
+.search-facet-matches .search-facet-tag:hover { background: transparent; }
+.search-facet-tag[data-selected='true'] {
+  background: var(--sone-bg-hover);
+  color: var(--sone-text);
+}
 /* Pressed, not a class: the state is "this filter is on", which the browser
    and a screen reader both already know how to say from aria-pressed. */
 .search-facet-tag[aria-pressed='true'] {
@@ -3214,6 +3221,11 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   cursor: pointer;
 }
 .search-facet-row:hover { background: var(--sone-bg-hover); }
+.search-facet-matches .search-facet-row:hover { background: transparent; }
+.search-facet-row[data-selected='true'] {
+  background: var(--sone-bg-hover);
+  color: var(--sone-text);
+}
 .search-facet-row[aria-pressed='true'] {
   background: var(--sone-bg-hover);
   color: var(--sone-text);
@@ -6111,7 +6123,12 @@ select {
   text-align: start;
   font-size: var(--sone-text-xs);
 }
-.tag-suggestion:hover { background: var(--sone-bg-hover); }
+/* Highlighted by `data-selected`, not by `:hover` — the slash menu's rule
+   (ADR-0142): "a :hover rule would light up a second row while the keyboard
+   selection sits elsewhere". The pointer still highlights, by moving the
+   selection rather than by painting a second one. */
+.tag-suggestion[data-selected='true'] { background: var(--sone-bg-hover); }
+.tag-suggestion:hover { background: transparent; }
 
 /* ---------------------------------------------------------------------------
  * Settings, with a sub-navigation
@@ -8737,7 +8754,8 @@ body {
   text-align: start;
   cursor: pointer;
 }
-.person-suggestion:hover:not(:disabled) { background: var(--sone-bg-hover); }
+.person-suggestion[data-selected='true']:not(:disabled) { background: var(--sone-bg-hover); }
+.person-suggestion:hover { background: transparent; }
 /* Shown and refused, not hidden: hidden reads as "no such person", which is the
    confusion this whole change is fixing. */
 .person-suggestion:disabled { cursor: default; opacity: 0.65; }

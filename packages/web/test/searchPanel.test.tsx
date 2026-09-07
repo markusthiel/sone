@@ -430,6 +430,51 @@ describe('the search panel', () => {
     assert.deepEqual(asked, ['author:"anna weber"']);
   });
 
+  test('both fields are worked with the keyboard, not only the mouse', async () => {
+    /*
+     * The lists under these two fields were buttons, which meant Tab reached
+     * them and nothing else did (ADR-0142). The arrows and Enter now do what
+     * they do in the `@` menus and the slash menu — and the field says which
+     * option Enter would take, which is the half a screen reader was missing.
+     */
+    await mount('', manyTags(30));
+
+    await findTag('tag-05');
+    const tagField = container.querySelector<HTMLInputElement>(TAG_FIELD);
+    assert.ok(tagField);
+    assert.equal(tagField.getAttribute('role'), 'combobox');
+    assert.ok(tagField.getAttribute('aria-activedescendant'), 'and it names an option');
+
+    await act(async () => {
+      tagField.dispatchEvent(
+        new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      );
+    });
+    assert.deepEqual(asked, ['tag:tag-05'], 'Enter took the highlighted tag');
+  });
+
+  test('and the people field the same way, with the arrows', async () => {
+    await mount('');
+    await type('an');
+
+    const field = container.querySelector<HTMLInputElement>(PEOPLE_FIELD);
+    assert.ok(field);
+    const press = async (key: string): Promise<void> => {
+      await act(async () => {
+        field.dispatchEvent(
+          new dom.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+        );
+      });
+    };
+
+    // One match here, so the arrows wrap onto the same person — which is the
+    // point worth pinning: a one-item list must not leave the highlight off it.
+    await press('ArrowDown');
+    await press('Enter');
+
+    assert.deepEqual(asked, ['author:"anna weber"']);
+  });
+
   test('somebody already chosen stays visible, and can be taken off', async () => {
     // A filter you cannot see is a filter you cannot remove — and the field
     // that chose them is empty again by then.

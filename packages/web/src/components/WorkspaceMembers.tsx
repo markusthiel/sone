@@ -28,6 +28,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceMember, type WorkspaceRoleRow } from '../api/client.ts';
 import type { MessageKey } from '../i18n/messages.en.ts';
+import { useChoiceList } from '../hooks/useChoiceList.ts';
 import { messageFor } from './Auth.tsx';
 import { PendingInvitations } from './PendingInvitations.tsx';
 
@@ -155,6 +156,20 @@ export function WorkspaceMembers({
       setFound([]);
       return undefined;
     }
+    /*
+     * Not while the field is holding somebody who has been chosen.
+     *
+     * Choosing writes their name into the field, which is a change to the
+     * query — so the lookup ran again, the person matched their own name, and
+     * the list reopened under a field that had already been answered. Invisible
+     * with a mouse, because the pointer is on its way to the button by then.
+     * With the keyboard it is the difference between Enter adding somebody and
+     * Enter choosing them a second time (ADR-0142).
+     */
+    if (picked && wanted === picked.displayName) {
+      setFound([]);
+      return undefined;
+    }
     let live = true;
     const timer = setTimeout(() => {
       void api.findPeople(workspaceId, wanted).then(
@@ -168,7 +183,7 @@ export function WorkspaceMembers({
       live = false;
       clearTimeout(timer);
     };
-  }, [lookup, workspaceId]);
+  }, [lookup, workspaceId, picked]);
 
   const offered = roles.filter((one) => one.key !== 'owner');
   const usingIds = offered.length > 0;
@@ -176,6 +191,27 @@ export function WorkspaceMembers({
   const selectedKey = usingIds
     ? (offered.find((one) => one.id === role)?.key ?? null)
     : role;
+
+  /** Take one of the suggestions, by pointer or by key. */
+  const choose = (person: (typeof found)[number]): void => {
+    // Somebody already here is offered and refused rather than hidden, so the
+    // keyboard has to refuse them too — otherwise Enter would silently fill the
+    // field with a person the button beside it will not add.
+    if (person.member) return;
+    setPicked(person);
+    setEmail(person.email);
+    setLookup(person.displayName);
+    setFound([]);
+  };
+
+  const list = useChoiceList({
+    count: found.length,
+    onChoose: (at) => {
+      const person = found[at];
+      if (person) choose(person);
+    },
+    resetOn: lookup,
+  });
 
   const add = (): void => {
     const address = email.trim();
@@ -238,10 +274,7 @@ export function WorkspaceMembers({
                   value={lookup}
                   placeholder={t('access.example')}
                   aria-label={t('access.person')}
-                  autoComplete="off"
-                  role="combobox"
-                  aria-expanded={found.length > 0}
-                  aria-controls="person-suggestions"
+                  {...list.fieldProps}
                   onChange={(event) => {
                     setLookup(event.target.value);
                     // Typing after choosing somebody un-chooses them: the field
@@ -251,6 +284,21 @@ export function WorkspaceMembers({
                     setEmail(event.target.value);
                   }}
                   onKeyDown={(event) => {
+                    /*
+                     * The list first, and the form only if the list did not
+                     * want the key (ADR-0142).
+                     *
+                     * This field said `role="combobox"` over a listbox of
+                     * options — a contract in which Enter takes the current
+                     * one. There was no current one, and Enter ran `add()`,
+                     * which sends what is in the address box; while somebody
+                     * is searching by name, that is **the name**. So Enter on
+                     * a visible Anna Weber tried to add a member called "an".
+                     *
+                     * With nothing highlighted the key is still the form's,
+                     * because the field takes a typed address too (ADR-0119).
+                     */
+                    if (list.handleKey(event)) return;
                     if (event.key === 'Enter') {
                       event.preventDefault();
                       add();
@@ -258,24 +306,22 @@ export function WorkspaceMembers({
                   }}
                 />
                 {found.length > 0 && (
-                  <ul className="person-suggestions" id="person-suggestions" role="listbox">
-                    {found.map((person) => (
+                  <ul className="person-suggestions" {...list.listProps} ref={list.listRef}>
+                    {found.map((person, at) => (
                       <li key={person.id}>
                         <button
                           type="button"
                           className="person-suggestion"
-                          role="option"
-                          aria-selected={picked?.email === person.email}
+                          {...list.optionProps(at)}
                           /* Somebody already here is shown and refused rather
                              than hidden. Hidden, they read as "no such person",
                              which is the confusion this change is fixing. */
                           disabled={person.member}
-                          onClick={() => {
-                            setPicked(person);
-                            setEmail(person.email);
-                            setLookup(person.displayName);
-                            setFound([]);
-                          }}
+                          // As well as `disabled`: with `role="option"` the
+                          // element is no longer read as a button, and this is
+                          // the attribute an option is refused by.
+                          aria-disabled={person.member || undefined}
+                          onClick={() => choose(person)}
                         >
                           <span className="person-suggestion-name">{person.displayName}</span>
                           <span className="person-suggestion-mail">{person.email}</span>
