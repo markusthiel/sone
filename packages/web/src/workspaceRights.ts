@@ -14,6 +14,8 @@
  * screen of disabled controls and no explanation.
  */
 
+import { nameOfRole, type SystemRoleKey } from '@sone/core';
+
 /** The shape the session and the workspace listing both send (ADR-0102). */
 export interface WorkspaceStandingView {
   rights: readonly string[];
@@ -35,13 +37,23 @@ export const mayEditWorkspace = (
 ): boolean => manages || workspace?.rights.includes('workspace.settings') === true;
 
 /**
- * How to name the caller's role on screen.
+ * How to name a role on screen.
  *
  * The role's own name, because a custom role has one and has no word: somebody
  * holding "Redaktion" was being told they are a `member`, which is what the
  * enum column said after an assignment that could not name their role.
+ *
+ * **And the four system roles are named by their word** (ADR-0143). Their rows
+ * are seeded in English by a migration, so returning the row's `name` put
+ * "Owner" in a German interface — here, and only here, because the three
+ * screens that draw a role list had each written the condition out for
+ * themselves and this one had not.
+ *
+ * The key is built here rather than at the four call sites, which is what makes
+ * "one place decides" checkable rather than a habit.
  */
 export const roleLabel = (
-  workspace: { role: string; roleName: string } | null | undefined,
-  fallback: string,
-): string => workspace?.roleName ?? workspace?.role ?? fallback;
+  role: { key?: string | null | undefined; name?: string | null | undefined } | null | undefined,
+  translate: (key: `role.${SystemRoleKey}`) => string,
+  fallback = '',
+): string => (role ? nameOfRole(role, (key) => translate(`role.${key}`)) || fallback : fallback);

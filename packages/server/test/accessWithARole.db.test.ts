@@ -304,6 +304,27 @@ describe(
       assert.doesNotMatch(said, /token|accept the invitation/i);
     });
 
+    test('and a system role is named in the reader’s language', async () => {
+      /*
+       * The other letter that names a role (ADR-0143), and it had the same
+       * fault: `roles.name` is seeded in English by a migration, and this
+       * passed it through — so a German reader was told *„Anna hat dir Zugriff
+       * gegeben, als Member."*
+       *
+       * A role somebody made is untouched by this, which the assertion above
+       * about „Redaktion" is: there is nothing to translate, and inventing a
+       * German for it would rename their role in a letter.
+       */
+      await named('bert@example.org', 'Bert Loos');
+      await db.query(`UPDATE users SET locale = 'de' WHERE email = $1`, ['bert@example.org']);
+
+      await expectStatus(await give({ email: 'bert@example.org', role: 'member' }), 201);
+
+      const said = (posted[0]?.letter.lines ?? []).map((one) => one.text).join('\n');
+      assert.match(said, /Mitglied/);
+      assert.doesNotMatch(said, /Member/, 'and not the word the row happens to hold');
+    });
+
     test('and a mail that cannot be sent does not undo the access', async () => {
       /*
        * The important half. They have the access whether or not their mailbox

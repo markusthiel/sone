@@ -132,7 +132,11 @@ export function WorkspaceSettingsScreen({
     // and the standing is genuinely unknown — whoever is looking is here on
     // the instance-wide right, which `manages` below answers for.
     (fetched
-      ? { ...fetched, role: 'unknown', roleName: 'unknown', rights: [] as string[], isOwner: false }
+      ? // Empty rather than the word "unknown": a placeholder written as data
+        // is a claim, and this one reached the screen as the literal string
+        // `unknown` in a German interface. The absence is what is true, and the
+        // fallback says it in the reader's language (ADR-0143).
+        { ...fetched, role: '', roleName: '', rights: [] as string[], isOwner: false }
       : undefined);
   const canAdminister =
     session.user.isInstanceAdmin || session.user.canManageWorkspaces;
@@ -172,7 +176,11 @@ export function WorkspaceSettingsScreen({
           workspaceId={workspaceId}
           name={workspace?.name ?? ''}
           icon={workspace?.icon ?? null}
-          role={roleLabel(workspace, 'unknown')}
+          role={roleLabel(
+            { key: workspace?.role, name: workspace?.roleName },
+            t,
+            t('workspace.roleUnknown'),
+          )}
           canEdit={canEdit}
         />
       )}

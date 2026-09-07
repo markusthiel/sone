@@ -30,6 +30,7 @@ import { useEffect, useState, type ReactElement } from 'react';
 
 import { ApiError, api, type WorkspaceRoleRow } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
+import { roleLabel } from '../workspaceRights.ts';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { messageFor } from './Auth.tsx';
 
@@ -109,7 +110,10 @@ export function RolesPanel({ workspaceId }: { workspaceId: string }): ReactEleme
       setError('role_in_use');
       return;
     }
-    if (!window.confirm(t('role.confirmDelete', { name: role.name }))) return;
+    // By the name it is shown under, which for a role somebody made is the one
+    // they typed and for a system role would be the translated word — though
+    // the four cannot be deleted, so this is the custom case in practice.
+    if (!window.confirm(t('role.confirmDelete', { name: roleLabel(role, t) }))) return;
     act(api.deleteRole(workspaceId, role.id));
   };
 
@@ -145,7 +149,7 @@ export function RolesPanel({ workspaceId }: { workspaceId: string }): ReactEleme
           <li className="role-card" key={role.id}>
             <div className="role-card-head">
               <b className="role-card-name">
-                {role.key ? t(`role.${role.key}` as MessageKey) : role.name}
+                {roleLabel(role, t)}
               </b>
               {role.key !== null && <span className="role-card-badge">{t('role.builtIn')}</span>}
             </div>
