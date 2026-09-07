@@ -64,12 +64,65 @@ export function parseComputed(
 }
 
 /**
+ * The things a person points at, as opposed to the surfaces they sit on.
+ *
+ * Written out rather than inferred: an element is a control because it is one
+ * of these, not because it happens to have a click handler, and a list is
+ * something the next person can read and add to.
+ */
+const CONTROL = 'a, button, summary, [role="button"], [role="link"]';
+
+/**
+ * Is this element a control that somebody is currently pointing at (ADR-0153)?
+ *
+ * **Both halves, and the second one is the one I got wrong first.** `:hover`
+ * matches every *ancestor* of the element under the pointer — so a rule that
+ * skipped anything hovered walked straight past the rail, the shell and the
+ * body, and answered with the page's white. The surface a mark sits on is
+ * hovered whenever the mark is; that is not a state of the surface.
+ *
+ * `:hover` and `:active` are the two states that repaint a control's own
+ * background in this interface. Asked of the element rather than tracked with
+ * listeners: the browser already knows, and a second copy of "is the pointer
+ * here" kept in React is a copy that can be wrong.
+ *
+ * Not `:focus-visible`. Focus draws an outline and never a background, and a
+ * mark that changed when somebody tabbed past it would be a second surprise
+ * added while removing the first.
+ *
+ * Wrapped, because `matches` throws on a selector an engine does not know, and
+ * a mark must not disappear over a selector.
+ */
+function pointedAtControl(element: Element): boolean {
+  try {
+    if (!element.matches(CONTROL)) return false;
+    return element.matches(':hover') || element.matches(':active');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The colour actually behind an element.
  *
  * Walks up until something paints. A transparent background is not a colour —
  * it is the parent's — and stopping at the first one would call every element
  * light, because `rgba(0, 0, 0, 0)` parses to black with no alpha and reads as
  * a dark ground.
+ *
+ * **A control the pointer is on is stepped over** (ADR-0153). Reported as
+ * *„wenn ich auf das Logo drauf klicke wird es dunkel"*: the mark sits inside
+ * the rail's brand link, that link paints `--surface-hover` while the pointer
+ * is on it, and on an accent-coloured rail that surface is the rail's own green
+ * with a seventh of white mixed in. Measured, the rail is at luminance 0.164
+ * and its hover surface at 0.229 — with the threshold at 0.216, so a hover
+ * crossed it by thirteen thousandths and swapped in the mark inked for white
+ * paper.
+ *
+ * The rule that follows is not about that arithmetic. **A control's hover is a
+ * state of the control, not the surface the mark is drawn on**: which picture
+ * belongs on a rail is a fact about the rail, and a picture that changes as the
+ * pointer arrives is wrong even when both pictures would be legible.
  *
  * Semi-transparent surfaces are taken as their own colour rather than composited
  * with what is under them: the interface has none today, and guessing at a
@@ -78,6 +131,10 @@ export function parseComputed(
 function groundOf(element: Element | null): GroundTone {
   let at: Element | null = element;
   while (at) {
+    if (pointedAtControl(at)) {
+      at = at.parentElement;
+      continue;
+    }
     const parsed = parseComputed(getComputedStyle(at).backgroundColor);
     if (parsed && parsed.alpha > 0) return groundTone(parsed);
     at = at.parentElement;
