@@ -873,6 +873,8 @@ export const de: Record<keyof typeof en, string> = {
   'role.heldBy':
     '{members, plural, =0 {Keine Person} one {Eine Person} other {# Personen}}' +
     '{groups, plural, =0 {} one {, eine Gruppe} other {, # Gruppen}}',
+  'role.heldByNamed':
+    '{rest, plural, =0 {{names}} one {{names} und eine weitere} other {{names} und # weitere}}',
   'role.heldByNobody': 'Hat noch niemand',
   'role.card.onPages': 'Auf Seiten',
   'role.card.inWorkspace': 'Im Workspace',
