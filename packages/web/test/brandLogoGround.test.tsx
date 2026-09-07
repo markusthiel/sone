@@ -116,7 +116,7 @@ describe('the mark on a coloured ground', () => {
      * stylesheet: untreated in the light theme, and painted with a workspace's
      * accent in each.
      */
-    const { parseComputed } = await import('../src/hooks/useGroundTone.ts');
+    const { parseComputed } = await import('../src/lib/computedColor.ts');
     const { groundTone } = await import('@sone/core');
 
     const tone = (value: string): string => {

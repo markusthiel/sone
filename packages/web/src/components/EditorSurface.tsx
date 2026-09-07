@@ -678,6 +678,8 @@ export function EditorSurface({
             mark: t('file.pdfMark'),
             unmark: t('file.pdfUnmark'),
             marked: t('file.pdfMarked'),
+            download: t('file.pdfDownloadMarked'),
+            markedSuffix: t('file.pdfMarkedSuffix'),
           },
           video: {
             hlsFailed: t('video.hlsFailed'),
@@ -687,7 +689,14 @@ export function EditorSurface({
         },
         // Read from a ref, because the editor is created once and this is a
         // prop: the same arrangement `canEdit` and the mark style already use.
-        { mayMark: mayMarkRef.current },
+        {
+          mayMark: mayMarkRef.current,
+          // Through a ref, because the editor is created once and the people
+          // arrive afterwards — the same arrangement the threads use.
+          // The map the assignment chips already keep (ADR-0052): one list of
+          // the workspace's people, not a second one for the same question.
+          nameOf: (author: string) => membersRef.current.get(author) ?? '',
+        },
       ),
     });
     viewRef.current = created;
