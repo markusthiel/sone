@@ -109,11 +109,24 @@ asked for, an account with no address, a deactivated one, an instance with no
 relay. A letter about a finished job is one more thing that can be more generous
 than the route it points at.
 
-**The interface promises nothing.** No sentence was added to the export screen
-saying a mail will arrive, and that is a decision: the client has no way to know
-whether this instance has a relay — it finds out by being refused — so the
-promise would be a lie on an instance with none. Making it truthful means a flag
-in the session, which is a different change from this one.
+**The interface promises nothing** — corrected, see below. No sentence was added
+to the export screen saying a mail will arrive, and this record gave the reason
+as: *the client has no way to know whether this instance has a relay — it finds
+out by being refused — so the promise would be a lie on an instance with none.
+Making it truthful means a flag in the session, which is a different change from
+this one.*
+
+> ## Correction (ADR-0139)
+>
+> **That reason was wrong.** `canSendMail` has been on the instance payload
+> since ADR-0059, typed in the client, read in `App`, and used by two screens —
+> and its own comment records a second reader arriving. The conclusion came from
+> a search that returned nothing because it was run in the wrong directory, and
+> an empty result is not evidence of absence unless you know where it looked.
+>
+> The decision it produced was still the right one for the wrong reason: the
+> screen should say so, and it does now. ADR-0139 has the sentence, and the two
+> other things that had gone wrong beside the same flag.
 
 **Every job kind added from here gets this for free**, and gets it right by
 default: if somebody asked for it, they hear; if the machinery queued it for

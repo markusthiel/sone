@@ -62,6 +62,12 @@ export const de: Record<keyof typeof en, string> = {
   'inbox.reply': 'Antwort im Verlauf',
   'inbox.assignment': 'Zuweisung',
   'inbox.noEmail': 'SONE verschickt keine E-Mails. Benachrichtigungen stehen hier.',
+  'inbox.andEmail':
+    '{address, select, ' +
+    'formal {Benachrichtigungen stehen hier. Ob Sie zusätzlich eine E-Mail bekommen, ' +
+    'entscheiden Sie unter Sie → Benachrichtigungen.} ' +
+    'other {Benachrichtigungen stehen hier. Ob du zusätzlich eine E-Mail bekommst, ' +
+    'entscheidest du unter Du → Benachrichtigungen.}}',
   'account.trash': 'Papierkorb',
   'account.signOut': 'Abmelden',
   'account.version': 'Version und Lizenz',
@@ -272,6 +278,12 @@ export const de: Record<keyof typeof en, string> = {
     'Archiv. Es wird im Hintergrund gepackt; diese Seite muss dabei nicht ' +
     'offen bleiben.',
   'workspace.export.start': 'Ein Archiv vorbereiten',
+  'workspace.export.willMail':
+    '{address, select, ' +
+    'formal {Es läuft weiter, wenn Sie das hier schließen. Sie bekommen eine E-Mail, ' +
+    'sobald das Archiv fertig ist.} ' +
+    'other {Es läuft weiter, wenn du das hier schließt. Du bekommst eine E-Mail, ' +
+    'sobald das Archiv fertig ist.}}',
   'workspace.export.rights':
     'Ein Archiv enthält, was im Moment des Packens lesbar ist. Ändert sich der ' +
     'Zugang dazwischen, enthält es weniger \u2014 nie mehr.',

@@ -38,6 +38,7 @@ import { paths } from '../routes/paths.ts';
 import { usePageLink } from '../routes/pageLink.tsx';
 import { useDismiss } from '../hooks/useDismiss.ts';
 import { messageFor } from './Auth.tsx';
+import { useInstance } from './Instance.tsx';
 import { ClockIcon } from './icons.tsx';
 import type { InboxItem } from '../hooks/useInbox.ts';
 import { groupsIn, isAsleep, type InboxGroup, type InboxView } from './InboxPanel.tsx';
@@ -77,6 +78,9 @@ export function InboxScreen({
   onGoTo: (workspaceId: string, to: string) => void;
 }): ReactElement {
   const { t } = useT();
+  // Whether this server sends mail at all, so the empty inbox can stop saying
+  // the opposite of what the share dialog says (ADR-0139).
+  const { canSendMail } = useInstance();
   const groups = items === null ? null : groupsIn(items, view);
   const rows = useRef<Array<HTMLAnchorElement | null>>([]);
   /*
@@ -170,9 +174,18 @@ export function InboxScreen({
       {groups?.length === 0 && (
         <>
           <p className="muted">{t('inbox.emptyView')}</p>
-          {/* Said here rather than left to be assumed: nothing about this
-              interface should imply an email is on its way (ADR-0052). */}
-          <p className="settings-note">{t('inbox.noEmail')}</p>
+          {/* Said here rather than left to be assumed (ADR-0052) — and it has
+              to ask first (ADR-0139).
+             *
+             * The sentence was *"SONE does not send email. This is where
+             * notifications are."*, unconditionally. True when the inbox was
+             * built and false since ADR-0058: on an instance with a relay,
+             * notifications *are* emailed, on each person's own settings. So
+             * the empty inbox denied what the share dialog three clicks away
+             * was offering. */}
+          <p className="settings-note">
+            {t(canSendMail ? 'inbox.andEmail' : 'inbox.noEmail')}
+          </p>
         </>
       )}
 
