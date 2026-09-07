@@ -270,7 +270,7 @@ export function SearchScreen({
                       kind={entryKind(entry.kind)}
                     />
                     <span className="search-hit-title" style={titleColorStyle(entry.icon)}>
-                      {entry.title || 'Untitled'}
+                      {entry.title || t('entry.untitled')}
                     </span>
                   </span>
                   {entry.trail.length > 0 && (
@@ -319,7 +319,7 @@ function Group({
                   kind={entryKind(result.kind)}
                 />
                 <span className="search-hit-title" style={titleColorStyle(result.icon)}>
-                  {result.title || 'Untitled'}
+                  {result.title || t('entry.untitled')}
                 </span>
                 {/* Said, not inferred. A rank number means nothing to a reader,
                     and "why is this here" is the question a search result has to

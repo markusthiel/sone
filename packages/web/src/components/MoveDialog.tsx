@@ -11,6 +11,7 @@
  */
 
 import { useT } from '../i18n/useT.tsx';
+import type { MessageKey } from '../i18n/messages.en.ts';
 import { useMemo, useState, type ReactElement } from 'react';
 
 import type { PageNode } from '../api/client.ts';
@@ -45,7 +46,15 @@ interface Destination {
  * rules would drift, and the failure would be silent: the interface would offer
  * a destination the server refuses, or refuse one it would have accepted.
  */
-function destinations(tree: PageNode[], entry: PageNode): Destination[] {
+function destinations(
+  tree: PageNode[],
+  entry: PageNode,
+  // Passed in rather than reached for: this is not a component, and a name a
+  // reader sees belongs to the catalogue wherever it is built (ADR-0148). It
+  // also retires a key that used to travel inside `label` and be recognised
+  // again at render — one place decides what a destination is called now.
+  t: (key: MessageKey) => string,
+): Destination[] {
   const out: Destination[] = [];
 
   const refusalFor = (target: string | null): string | undefined =>
@@ -54,7 +63,7 @@ function destinations(tree: PageNode[], entry: PageNode): Destination[] {
   const rootRefusal = refusalFor(null);
   out.push({
     id: null,
-    label: 'move.root',
+    label: t('move.root'),
     path: '',
     depth: 0,
     ...(rootRefusal ? { disabled: rootRefusal } : {}),
@@ -67,13 +76,13 @@ function destinations(tree: PageNode[], entry: PageNode): Destination[] {
       const refusal = refusalFor(node.id);
       out.push({
         id: node.id,
-        label: node.title || 'Untitled folder',
+        label: node.title || t('folder.untitled'),
         path: trail.join(' / '),
         depth: trail.length,
         ...(refusal ? { disabled: refusal } : {}),
       });
 
-      walk(node.children, [...trail, node.title || 'Untitled folder']);
+      walk(node.children, [...trail, node.title || t('folder.untitled')]);
     }
   };
 
@@ -89,7 +98,7 @@ export function MoveDialog({
 }: MoveDialogProps): ReactElement {
   const { t } = useT();
   const [filter, setFilter] = useState('');
-  const all = useMemo(() => destinations(tree, entry), [tree, entry]);
+  const all = useMemo(() => destinations(tree, entry, t), [tree, entry, t]);
 
   const needle = filter.trim().toLowerCase();
   const shown = needle
@@ -113,7 +122,11 @@ export function MoveDialog({
     >
       <div className="dialog" role="dialog" aria-modal="true" aria-label={t('move.title')}>
         <h2 className="dialog-title">
-          Move “{entry.title || (entry.kind === 'folder' ? 'Untitled folder' : 'Untitled')}”
+          {t('move.heading', {
+            title:
+              entry.title ||
+              (entry.kind === 'folder' ? t('folder.untitled') : t('entry.untitled')),
+          })}
         </h2>
 
         <input
@@ -144,7 +157,7 @@ export function MoveDialog({
               <span className="dialog-item-label">
                 {/* The root's name is ours and translated; every other entry is
                     an entry's own title. */}
-                {destination.label === 'move.root' ? t('move.root') : destination.label}
+                {destination.label}
               </span>
               {destination.path && (
                 <span className="dialog-item-path">{destination.path}</span>

@@ -80,7 +80,7 @@ export function FolderView({
           {trail.map((ancestor) => (
             <span key={ancestor.id}>
               <a href={pageLink(ancestor.id, ancestor.title ?? undefined)}>
-                {ancestor.title || 'Untitled folder'}
+                {ancestor.title || t('folder.untitled')}
               </a>
               <span aria-hidden="true"> / </span>
             </span>
@@ -194,7 +194,7 @@ export function FolderView({
                         className="folder-list-name"
                         style={titleColorStyle(child.icon)}
                       >
-                        {child.title || 'Untitled folder'}
+                        {child.title || t('folder.untitled')}
                       </span>
                       <span className="folder-list-meta">
                         {describeContents(child)}
@@ -218,7 +218,7 @@ export function FolderView({
                         className="folder-list-name"
                         style={titleColorStyle(child.icon)}
                       >
-                        {child.title || 'Untitled'}
+                        {child.title || t('entry.untitled')}
                       </span>
                       <span className="folder-list-meta">
                         {formatEdited(child.lastEditedAt)}

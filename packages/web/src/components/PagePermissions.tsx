@@ -148,9 +148,7 @@ export function PagePermissions({
         {t('perm.onlyAdded')}
       </label>
       <p className="muted">
-        {restricted
-          ? 'The workspace cannot reach this page or anything under it. Owners and admins still can — somebody has to be able to undo this.'
-          : 'Everybody in the workspace can reach this page. Adding someone below gives them more than their role does, never less.'}
+        {restricted ? t('perm.restricted.note') : t('perm.open.note')}
       </p>
 
       {/* The ceiling (ADR-0087).
@@ -206,14 +204,16 @@ export function PagePermissions({
               * under that ancestor. */}
             {grant.inheritedFrom ? (
               <span className="muted">
-                {levelLabel(grant.access, t)} · from{' '}
-                {grant.inheritedFrom}
+                {t('perm.inheritedFrom', {
+                  level: levelLabel(grant.access, t),
+                  source: grant.inheritedFrom,
+                })}
               </span>
             ) : (
               <>
                 <select
                   value={grant.access}
-                  aria-label={`Access for ${grant.displayName}`}
+                  aria-label={t('perm.accessFor', { who: grant.displayName })}
                   onChange={(event) =>
                     act(api.grantPageAccess(pageId, grant.userId, event.target.value))
                   }
@@ -251,14 +251,16 @@ export function PagePermissions({
                 <span>{grant.name}</span>
                 {grant.inheritedFrom ? (
                   <span className="muted">
-                    {levelLabel(grant.access, t)} · from{' '}
-                    {grant.inheritedFrom}
+                    {t('perm.inheritedFrom', {
+                      level: levelLabel(grant.access, t),
+                      source: grant.inheritedFrom,
+                    })}
                   </span>
                 ) : (
                   <>
                     <select
                       value={grant.access}
-                      aria-label={`Access for ${grant.name}`}
+                      aria-label={t('perm.accessFor', { who: grant.name })}
                       onChange={(event) =>
                         act(
                           api.grantPageAccessToGroup(pageId, grant.groupId, event.target.value),

@@ -139,26 +139,31 @@ export function InstancePanel(): ReactElement {
             {counts.admins > 0 && (
               <span className="muted">
                 {' '}
-                · {counts.admins} administrator{counts.admins === 1 ? '' : 's'}
+                · {t('admin.counts.admins', { count: counts.admins })}
               </span>
             )}
             {counts.deactivated > 0 && (
-              <span className="muted"> · {counts.deactivated} deactivated</span>
+              <span className="muted">
+                {' '}
+                · {t('admin.counts.deactivated', { count: counts.deactivated })}
+              </span>
             )}
           </dd>
           <dt>{t('admin.workspaces')}</dt>
           <dd>{counts.workspaces}</dd>
           <dt>{t('admin.content')}</dt>
           <dd>
-            {counts.pages} page{counts.pages === 1 ? '' : 's'} in {counts.folders} folder
-            {counts.folders === 1 ? '' : 's'}
+            {t('admin.counts.content', { pages: counts.pages, folders: counts.folders })}
           </dd>
           <dt>{t('admin.files')}</dt>
           <dd>
-            {counts.files} attachment{counts.files === 1 ? '' : 's'}
+            {t('admin.counts.files', { count: counts.files })}
             {/* Distinct files, not rows: storage is content-addressed, so the
                 same image on five pages is five rows and one file. */}
-            <span className="muted"> · {formatBytes(counts.fileBytes)} on disk</span>
+            <span className="muted">
+              {' '}
+              · {t('admin.counts.onDisk', { size: formatBytes(counts.fileBytes) })}
+            </span>
           </dd>
         </dl>
       </section>
@@ -206,8 +211,7 @@ export function InstancePanel(): ReactElement {
             <span className="settings-row-label">
               <b>{t('admin.addressForm')}</b>
               <span>
-                In German and other languages that distinguish it. English has one
-                form and is unaffected.
+                {t('admin.addressForm.hint')}
                 <SettingSource source={settingSources['addressForm']} />
               </span>
             </span>
@@ -696,8 +700,13 @@ function MailTest(): ReactElement {
           <dt>{t('admin.mail.using')}</dt>
           <dd>
             <code>
-              {state.using.user || '(no user)'} @ {state.using.host}:{state.using.port} ·{' '}
-              {state.using.security} · from {state.using.from}
+              {t('admin.mail.usingLine', {
+                user: state.using.user || t('admin.mail.noUser'),
+                host: state.using.host,
+                port: state.using.port,
+                security: state.using.security,
+                from: state.using.from,
+              })}
             </code>
           </dd>
           <dt>{t('admin.mail.usingPassword')}</dt>
@@ -1240,7 +1249,7 @@ export function MaintenancePanel(): ReactElement {
         <dd>
           {counts.pendingMaterialisations}
           {counts.pendingMaterialisations > 0 && (
-            <span className="muted"> · normal while people are editing</span>
+            <span className="muted"> · {t('admin.pendingNote')}</span>
           )}
         </dd>
       </dl>
@@ -1254,7 +1263,7 @@ export function MaintenancePanel(): ReactElement {
                 <div className="admin-row-main">
                   <span className="admin-name">{failure.pageId.slice(0, 8)}</span>
                   <span className="admin-meta">
-                    {failure.error ?? 'no message recorded'}
+                    {failure.error ?? t('admin.noMessage')}
                     {retried[failure.pageId] && ` · ${retried[failure.pageId]}`}
                   </span>
                 </div>

@@ -50,7 +50,9 @@ test('the secret is never in the form, in either direction', () => {
 test('the missing secret is said first, not discovered later', () => {
   // Everything else can be filled in correctly and still not work without it,
   // and somebody who does not know that will conclude the form is broken.
-  const warningAt = panel.indexOf('No client secret is set');
+  // The sentence is a message now (ADR-0148); where it is rendered is still
+  // the thing being asserted.
+  const warningAt = panel.indexOf("t('oidc.noSecret')");
   const issuerAt = panel.indexOf('oidc-issuer');
   assert.ok(warningAt > 0 && warningAt < issuerAt, 'before the fields');
 });

@@ -378,7 +378,7 @@ export function ThemeSettings({
                   <button
                     type="button"
                     className="theme-palette-reset"
-                    aria-label={`Reset ${name}`}
+                    aria-label={t('theme.reset', { name })}
                     title={t('type.asDesigned')}
                     onClick={() => {
                       setSaved(false);
@@ -563,7 +563,7 @@ export function ThemeSettings({
                     <select
                       value={entry.size ?? ''}
                       disabled={!canEdit}
-                      aria-label={`${LABELS[element]} size`}
+                      aria-label={t('theme.elementSize', { element: LABELS[element] })}
                       onChange={(event) =>
                         change(
                           element,
@@ -585,7 +585,7 @@ export function ThemeSettings({
                     <select
                       value={entry.color ?? ''}
                       disabled={!canEdit}
-                      aria-label={`${LABELS[element]} colour`}
+                      aria-label={t('theme.elementColour', { element: LABELS[element] })}
                       onChange={(event) =>
                         change(
                           element,
@@ -608,7 +608,12 @@ export function ThemeSettings({
                       <select
                         value={entry[property] ?? ''}
                         disabled={!canEdit}
-                        aria-label={`${LABELS[element]} ${property === 'spaceAbove' ? 'space above' : 'space below'}`}
+                        aria-label={t(
+                          property === 'spaceAbove'
+                            ? 'theme.elementSpaceAbove'
+                            : 'theme.elementSpaceBelow',
+                          { element: LABELS[element] },
+                        )}
                         onChange={(event) =>
                           change(
                             element,
@@ -667,7 +672,7 @@ export function ThemeSettings({
       {canEdit && (
         <div className="settings-actions">
           <button type="button" className="btn primary" disabled={busy} onClick={save}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t('action.saving') : t('action.save')}
           </button>
           {saved && <span className="muted">{t('action.saved')}</span>}
         </div>

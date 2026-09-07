@@ -276,7 +276,7 @@ export function ShareDialog({
             <div className="share-created-row">
               <input readOnly value={created.url} onFocus={(e) => e.target.select()} />
               <button type="button" className="btn primary" onClick={() => void copy()}>
-                {copied ? 'Copied' : 'Copy'}
+                {copied ? t('share.copied') : t('share.copy')}
               </button>
             </div>
           </div>
@@ -309,7 +309,7 @@ export function ShareDialog({
                 checked={includeSubtree}
                 onChange={(event) => setIncludeSubtree(event.target.checked)}
               />{' '}
-              Include subpages
+              {t('share.includeSubpages')}
             </label>
             <span className="muted settings-note">
               {t('share.subpages.hint')}
@@ -332,7 +332,7 @@ export function ShareDialog({
           </div>
 
           <div className="field">
-            <label htmlFor="share-password">Password (optional)</label>
+            <label htmlFor="share-password">{t('share.password')}</label>
             <input
               id="share-password"
               type="password"
@@ -342,8 +342,7 @@ export function ShareDialog({
             />
             {passwordTooShort && (
               <span className="error">
-                At least {MIN_PASSWORD_LENGTH} characters — a link password
-                protects the same content an account password does.
+                {t('share.password.tooShort', { count: MIN_PASSWORD_LENGTH })}
               </span>
             )}
           </div>
@@ -376,16 +375,19 @@ export function ShareDialog({
                   })()}
                 </span>
                 <span className="admin-meta">
-                  {link.includeSubtree ? 'with subpages' : 'this page only'}
-                  {link.hasPassword && ' · password'}
+                  {link.includeSubtree ? t('share.withSubpages') : t('share.thisPageOnly')}
+                  {link.hasPassword && ` · ${t('share.hasPassword')}`}
+                  {' · '}
                   {link.expiresAt
-                    ? ` · until ${new Date(link.expiresAt).toLocaleDateString()}`
-                    : ' · no expiry'}
+                    ? t('share.until', {
+                        date: new Date(link.expiresAt).toLocaleDateString(),
+                      })
+                    : t('share.noExpiry')}
                   {/* The useful number: "four people are using this right now"
                       is actionable, an opaque id is not. */}
                   {link.activeSessions > 0 &&
-                    ` · in use by ${link.activeSessions}`}
-                  {link.scopePageId !== pageId && ' · on a subpage'}
+                    ` · ${t('share.inUseBy', { count: link.activeSessions })}`}
+                  {link.scopePageId !== pageId && ` · ${t('share.onASubpage')}`}
                 </span>
               </div>
               <div className="admin-row-actions">
@@ -394,7 +396,7 @@ export function ShareDialog({
                   className="btn"
                   onClick={() => void revealExisting(link.id)}
                 >
-                  {revealed?.linkId === link.id ? 'Shown' : 'Show link'}
+                  {revealed?.linkId === link.id ? t('share.shown') : t('share.show')}
                 </button>
                 {/* Absent without a relay, not disabled (ADR-0059). */}
                 {canSendMail && (
@@ -483,7 +485,7 @@ export function ShareDialog({
                         .catch(() => setError('clipboard_unavailable'));
                     }}
                   >
-                    {copiedId === link.id ? 'Copied' : 'Copy'}
+                    {copiedId === link.id ? t('share.copied') : t('share.copy')}
                   </button>
                 </div>
               )}

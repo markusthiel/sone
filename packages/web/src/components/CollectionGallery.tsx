@@ -160,7 +160,7 @@ export function CollectionGallery({
               )}
 
               <span className="gallery-card-body">
-                <strong>{row.title || 'Untitled'}</strong>
+                <strong>{row.title || t('table.untitled')}</strong>
                 <span className="gallery-chips">
                   {chipsOf(row, fields, files).map((chip, at) => (
                     <span className="gallery-chip" key={`${chip}-${at}`}>

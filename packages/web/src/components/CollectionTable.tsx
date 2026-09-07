@@ -991,7 +991,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               type="button"
               className="view-tab add"
               onClick={() => void addBoard(selectColumns[0]!.id)}
-              title={`Group by ${selectColumns[0]!.name}`}
+              title={t('table.groupBy', { field: selectColumns[0]!.name })}
             >
               <PlusIcon /> {t('table.addBoard')}
             </button>
@@ -1126,8 +1126,8 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                   type="checkbox"
                   aria-label={
                     selected.size === data.rows.length && data.rows.length > 0
-                      ? 'Clear the selection'
-                      : 'Select every entry shown'
+                      ? t('table.selectNone')
+                      : t('table.selectAll')
                   }
                   checked={selected.size > 0 && selected.size === data.rows.length}
                   // Some but not all: the box shows neither state, because
@@ -1149,7 +1149,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
               </th>
 
               <th className="collection-title-column">
-                {titleField?.name ?? 'Name'}
+                {titleField?.name ?? t('table.nameColumn')}
                 <span className="collection-column-fixed" title={t('table.titleColumn')}>
                   {t('table.always')}
                 </span>
@@ -1235,7 +1235,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                   <input
                     type="checkbox"
                     checked={selected.has(row.id)}
-                    aria-label={`Select ${row.title || 'this entry'}`}
+                    aria-label={t('table.selectEntry', { title: row.title || t('table.thisEntry') })}
                     onChange={(event) =>
                       setSelected((current) => {
                         // A new set each time rather than a mutation: React
@@ -1266,8 +1266,10 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
                   <a
                     className="collection-open-row"
                     href={pageLink(row.id, row.title)}
-                    title={`Open ${row.title || 'this entry'}`}
-                    aria-label={`Open ${row.title || 'this entry'}`}
+                    title={t('table.openEntry', { title: row.title || t('table.thisEntry') })}
+                    aria-label={t('table.openEntry', {
+                      title: row.title || t('table.thisEntry'),
+                    })}
                   >
                     <ChevronRightIcon />
                   </a>
@@ -1781,7 +1783,7 @@ function ColumnHeader({
       <input
         className="collection-column-input"
         value={name}
-        aria-label={`Rename the ${field.name} column`}
+        aria-label={t('table.renameColumn', { field: field.name })}
         onChange={(event) => setName(event.target.value)}
         onBlur={() => {
           const trimmed = name.trim();
@@ -1854,7 +1856,7 @@ function ColumnHeader({
         <button
           type="button"
           className="collection-column-options"
-          aria-label={`Edit the options of ${field.name}`}
+          aria-label={t('table.editOptions', { field: field.name })}
           onClick={(event) => {
             if (editingOptions) {
               setEditingOptions(null);
@@ -1870,7 +1872,7 @@ function ColumnHeader({
       <button
         type="button"
         className="collection-column-remove"
-        aria-label={`Remove the ${field.name} column`}
+        aria-label={t('table.removeColumn', { field: field.name })}
         onClick={onRemove}
       >
         <TrashIcon />

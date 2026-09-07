@@ -297,7 +297,12 @@ export const en = {
   'template.heading': 'From a template',
   'template.use': 'Use as a template',
   'template.stop': 'Stop offering as a template',
+  'swatch.asDesigned': '{label}: as designed',
+  'swatch.own': '{label}: a colour of your own',
+  'sidebar.unfavourite': 'Remove {title} from favourites',
   'entry.untitled': 'Untitled',
+  // What an entry is called in a sentence when it has no title of its own.
+  'entry.thisOne': 'this entry',
   'entry.actions': 'What to do with this entry',
   'entry.new': 'New',
   'entry.newPage': 'New page',
@@ -317,6 +322,15 @@ export const en = {
   // --- the administration area -------------------------------------------
   'admin.instance': 'This instance',
   'admin.instance.hint': 'Name, sign-up and defaults',
+  // The counts on the overview, which were assembled in the markup from a
+  // number and an `s` (ADR-0148).
+  'admin.counts.admins': '{count, plural, one {# administrator} other {# administrators}}',
+  'admin.counts.deactivated': '{count} deactivated',
+  'admin.counts.content':
+    '{pages, plural, one {# page} other {# pages}} in ' +
+    '{folders, plural, one {# folder} other {# folders}}',
+  'admin.counts.files': '{count, plural, one {# attachment} other {# attachments}}',
+  'admin.counts.onDisk': '{size} on disk',
   'admin.workspaces': 'Workspaces',
   'admin.accounts': 'Accounts',
   'admin.accounts.hint': 'Everybody with an account here',
@@ -450,6 +464,13 @@ export const en = {
     'second factor belongs. You need one yourself before you can require it.',
   'admin.mayCreateWorkspaces': 'Members may create workspaces',
   'admin.addressForm': 'How the interface addresses people',
+  'admin.addressForm.hint':
+    'In German and other languages that distinguish it. English has one form and is ' +
+    'unaffected.',
+  'admin.mail.noUser': '(no user)',
+  'admin.mail.usingLine': '{user} @ {host}:{port} · {security} · from {from}',
+  'admin.pendingNote': 'normal while people are editing',
+  'admin.noMessage': 'no message recorded',
   'admin.addressForm.informal': 'Informally — “du”',
   'admin.addressForm.formal': 'Formally — “Sie”',
   'admin.version': 'Version',
@@ -610,6 +631,11 @@ export const en = {
   'you.workspace.hint': 'Where you are right now.',
   'you.saved': 'Saved.',
   'you.save': 'Save',
+  'you.newPassword.hint':
+    'At least twelve characters. Length is what makes a password hard to guess; a ' +
+    'short one with symbols in it is not.',
+  'you.changePassword': 'Change password',
+  'you.changingPassword': 'Changing…',
   'you.passwordChanged': 'Changed. Your other sessions stay signed in.',
   'action.reload': 'Reload',
 
@@ -648,6 +674,12 @@ export const en = {
 
   'about.server': 'Server',
   'about.documentFormat': 'Document format',
+  'about.stale':
+    'This browser is running an older build than the server. Reload to pick up the ' +
+    'current version — until then, what you see may not match what the server does.',
+  'about.licence':
+    'SONE is free software under the AGPL-3.0. No seat limits, no feature gates, no ' +
+    'enterprise edition.',
   'about.syncProtocol': 'Sync protocol',
   'about.checking': 'checking…',
 
@@ -679,6 +711,8 @@ export const en = {
   'invitation.alreadyMember': 'You already have an account here, so this invitation has nothing to add.',
   'page.title': 'Page title',
   'page.untitled': 'Untitled',
+  'page.opening': 'Opening…',
+  'page.otherPeopleHere': '{count, plural, one {# other person here} other {# other people here}}',
   'page.readOnly': 'You have read-only access to this page.',
   'page.noAccess': 'You no longer have access to this page.',
   'error.technicalDetail': 'Technical detail',
@@ -690,6 +724,8 @@ export const en = {
   'format.link': 'Link (Mod-K)',
   'format.linkAddress': 'Link address',
   'format.linkPlaceholder': 'example.org',
+  'format.copied': 'Copied',
+  'format.copy': 'Copy',
   'format.copyCode': 'Copy the code',
   'format.linkWord': 'Link',
   // The letter on each button is not translated — B, I, S are the shapes people
@@ -699,6 +735,7 @@ export const en = {
   'format.strikethrough': 'Strikethrough',
   'format.code': 'Code (Mod-E)',
   'format.removeLink': 'Remove',
+  'slash.noMatch': 'No blocks match “{query}”',
   'slash.insert': 'Insert block',
   'tableBlock.label': 'Table',
   'tableBlock.addRow': '+ Row',
@@ -718,6 +755,15 @@ export const en = {
   'video.upload': 'Upload a video',
   'gallery.empty': 'Nothing here yet.',
   'workspaces.shared': 'Shared workspaces',
+  'workspaces.loading': 'Loading…',
+  'workspaces.youAreHere': 'you are here',
+  'workspaces.deleted': 'deleted',
+  'workspaces.personal.note':
+    'One for each account. {count, plural, one {# in total} other {# in total}}.',
+  'workspaces.show': 'Show',
+  'workspaces.hide': 'Hide',
+  'workspaces.creating': 'Creating…',
+  'workspaces.memberCount': '{count, plural, one {# person} other {# people}}',
   'workspaces.personal': 'Personal workspaces',
   'workspaces.nonePersonal': 'None yet — every workspace here belongs to one person.',
   'workspaces.name': 'Name',
@@ -749,6 +795,7 @@ export const en = {
     'Optional. With one, the invitation is for that person and can be used once. ' +
     'Without one it is a link anybody holding it may use — which is how you invite a ' +
     'group without typing every address.',
+  'group.members': '{count, plural, one {# person} other {# people}}',
   'group.note':
     'A group is a list of people. Give a group access to a page once, and everybody in ' +
     'it has it — including whoever joins later, which is what makes this worth keeping ' +
@@ -760,6 +807,16 @@ export const en = {
     'Sign in through an identity provider. Any provider that speaks OpenID Connect ' +
     'works — Keycloak, Authentik, Zitadel, Entra, Google and others — so this is a ' +
     'configuration rather than a choice of integration.',
+  'oidc.noSecret':
+    'No client secret is set. Add SONE_OIDC_CLIENT_SECRET to the server’s environment ' +
+    'and restart it; single sign-on stays off until then. The secret is deliberately ' +
+    'not stored here — a secret in the database is a secret in every backup.',
+  'oidc.issuer.hint':
+    'The provider’s base URL. Everything else is read from its discovery document, so ' +
+    'nothing here needs to know which provider it is.',
+  'oidc.callback':
+    'Add /api/auth/oidc/callback on this instance’s public URL to the provider’s list ' +
+    'of redirect URIs.',
   'oidc.buttonLabel.hint':
     'What the sign-in page says. People recognise their own login by name, not by the ' +
     'protocol behind it.',
@@ -769,10 +826,19 @@ export const en = {
   'invitation.used':
     'This invitation has already been used. If that was you just now, your account is ' +
     'ready.',
+  'invitation.invitedTo': 'You have been invited to join {workspace}.',
+  'invitation.aWorkspace': 'a workspace',
+  'invitation.join': 'Join',
+  'invitation.joining': 'Joining…',
+  'invitation.checking': 'Checking the invitation…',
   'invitation.keepsYours': 'Your own workspace stays where it is. Joining adds this one beside it.',
   'option.rename.note':
     'Rename an option freely — entries keep it. Removing one hides it from the entries ' +
     'that use it, and adding a new option with the same name does not bring them back.',
+  // The provider's name stays as it is written; the sentence around it does not
+  // (ADR-0148).
+  'video.embedVerdict': 'A {provider} video. Nothing is loaded from them until somebody presses play.',
+  'video.streamVerdict': 'A live {kind} stream, played in the page.',
   'video.providers':
     'This instance embeds YouTube, Vimeo and PeerTube, and plays HLS or DASH streams. ' +
     'Other addresses can go in the page as an ordinary link.',
@@ -887,6 +953,14 @@ export const en = {
   'perm.addGroup': 'Add a group',
   'perm.chooseGroup': 'Choose a group…',
   'perm.checking': 'Checking…',
+  'perm.restricted.note':
+    'The workspace cannot reach this page or anything under it. Owners and admins ' +
+    'still can — somebody has to be able to undo this.',
+  'perm.open.note':
+    'Everybody in the workspace can reach this page. Adding someone below gives them ' +
+    'more than their role does, never less.',
+  'perm.inheritedFrom': '{level} · from {source}',
+  'perm.accessFor': 'Access for {who}',
   'perm.onlyAdded': 'Only people added below',
   'perm.remove': 'Remove',
 
@@ -906,6 +980,7 @@ export const en = {
   'member.remove': 'Remove',
 
   // --- tags --------------------------------------------------------------
+  'tag.remove': 'Remove {tag}',
   'tag.add': 'Add a tag',
   'tag.none': 'None',
 
@@ -939,6 +1014,23 @@ export const en = {
   'error.invalid_address': 'That does not look like an email address.',
   'error.no_relay': 'This instance cannot send mail.',
   'share.revoke': 'Revoke',
+  // The link dialog's own words (ADR-0148).
+  'share.copy': 'Copy',
+  'share.copied': 'Copied',
+  'share.includeSubpages': 'Include subpages',
+  'share.password': 'Password (optional)',
+  'share.password.tooShort':
+    'At least {count} characters — a link password protects the same content an ' +
+    'account password does.',
+  'share.withSubpages': 'with subpages',
+  'share.thisPageOnly': 'this page only',
+  'share.hasPassword': 'password',
+  'share.until': 'until {date}',
+  'share.noExpiry': 'no expiry',
+  'share.inUseBy': 'in use by {count}',
+  'share.onASubpage': 'on a subpage',
+  'share.show': 'Show link',
+  'share.shown': 'Shown',
   'share.subpages.hint':
     'On by default, because a link that stops working the moment somebody adds a ' +
     'subpage is worse than one that covers slightly more than expected.',
@@ -1063,11 +1155,20 @@ export const en = {
   'folder.pages': 'Pages',
 
   // --- moving inside a workspace -----------------------------------------
+  'move.heading': 'Move “{title}”',
   'move.title': 'Move to',
   'move.root': 'Workspace root',
   'move.find': 'Find a folder',
   'move.noMatch': 'No folder matches.',
 
+  'action.saving': 'Saving…',
+  // The theme table's controls, named for a screen reader by element and by
+  // what the control changes (ADR-0148).
+  'theme.reset': 'Reset {name}',
+  'theme.elementSize': '{element} size',
+  'theme.elementColour': '{element} colour',
+  'theme.elementSpaceAbove': '{element} space above',
+  'theme.elementSpaceBelow': '{element} space below',
   'action.saved': 'Saved.',
 
   // --- the trash ---------------------------------------------------------
@@ -1192,9 +1293,24 @@ export const en = {
   'field.email': 'Email',
   'field.phone': 'Phone',
   'field.files': 'Files',
+  // The table's own labels, most of them read only by a screen reader
+  // (ADR-0148).
+  'table.groupBy': 'Group by {field}',
+  'table.selectNone': 'Clear the selection',
+  'table.selectAll': 'Select every entry shown',
+  'table.nameColumn': 'Name',
+  'table.selectEntry': 'Select {title}',
+  'table.openEntry': 'Open {title}',
+  'table.thisEntry': 'this entry',
+  'table.renameColumn': 'Rename the {field} column',
+  'table.editOptions': 'Edit the options of {field}',
+  'table.removeColumn': 'Remove the {field} column',
   'table.titleColumn': 'Every entry has a title',
   'table.name': 'Name',
   'table.untitled': 'Untitled',
+  'option.colourFor': 'Colour for {option}',
+  'option.remove': 'Remove {option}',
+  'option.thisOne': 'this option',
   'table.removedOption': 'This option was removed',
   'table.selected': '{count, plural, one {# selected} other {# selected}}',
   'table.selectedLabel': 'Selected entries',
@@ -1296,6 +1412,11 @@ export const en = {
   'block.display.player': 'Player',
   'block.display.image': 'Image',
   'block.display.link': 'Link',
+  'block.actions.counted':
+    'What to do with this block ({count, plural, one {# block} other {# blocks}} ' +
+    'including children)',
+  'block.appliesToNested':
+    'Applies to this block and {count, plural, one {# nested block} other {# nested blocks}}',
   'block.actions': 'What to do with this block',
   'block.moveUp': 'Move up',
   'block.moveDown': 'Move down',
@@ -1530,6 +1651,9 @@ export const en = {
   'panel.untitledTask': 'Untitled task',
   'panel.goToTask': 'Go to this task',
   'panel.openImage': 'Open this picture',
+  'panel.untitledFile': 'Untitled file',
+  'panel.thisFile': 'this file',
+  'panel.showThisInPage': 'Show {filename} in the page',
   'panel.showInPage': 'Show where it sits in the page',
   'panel.showLinkInPage': 'Show this link in the page',
   'panel.done': 'Done',
@@ -1671,6 +1795,7 @@ export const en = {
   'auth.createAccount': 'Create an account',
   'auth.createAccountAction': 'Create account',
   'auth.creatingAccount': 'Creating…',
+  'auth.sso': 'Single sign-on',
   'auth.or': 'or',
   'auth.noAccount': 'No account?',
   'auth.createOne': 'Create one',

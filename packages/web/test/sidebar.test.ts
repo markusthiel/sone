@@ -12,6 +12,14 @@ import { test } from 'node:test';
 import { buildPageTree, type PageSummary } from '../src/api/client.ts';
 import { findAncestors } from '../src/components/Sidebar.tsx';
 import { destinations } from '../src/components/MoveDialog.tsx';
+import { en, type MessageKey } from '../src/i18n/messages.en.ts';
+
+/**
+ * The destinations are built with the interface's words now (ADR-0148), so a
+ * caller passes the catalogue in. English, because what these tests read is
+ * which folders are offered and why — not what they are called.
+ */
+const say = (key: MessageKey): string => en[key];
 import {
   canMoveInto,
   canReorderInto,
@@ -119,7 +127,7 @@ test('the folder being moved and its subtree are offered but disabled', () => {
   ]);
   const outer = tree.find((node) => node.id === 'outer')!;
 
-  const options = destinations(tree, outer);
+  const options = destinations(tree, outer, say);
   const byId = new Map(options.map((option) => [option.id, option]));
 
   assert.ok(byId.get('outer')?.disabled, 'a folder cannot contain itself');
@@ -136,9 +144,9 @@ test('the workspace root is offered to a folder and refused to a page', () => {
   const folder = tree.find((node) => node.id === 'folder')!;
   const doc = folder.children[0]!;
 
-  assert.equal(destinations(tree, folder)[0]!.disabled, undefined);
+  assert.equal(destinations(tree, folder, say)[0]!.disabled, undefined);
   assert.ok(
-    destinations(tree, doc)[0]!.disabled,
+    destinations(tree, doc, say)[0]!.disabled,
     'a root full of loose pages is the pile folders exist to replace',
   );
 });
@@ -151,7 +159,7 @@ test('the current parent is marked rather than offered', () => {
     page('doc', 'folder', 'page'),
   ]);
   const doc = tree[0]!.children[0]!;
-  const option = destinations(tree, doc).find((entry) => entry.id === 'folder');
+  const option = destinations(tree, doc, say).find((entry) => entry.id === 'folder');
   assert.equal(option?.disabled, 'Already here');
 });
 
@@ -162,7 +170,7 @@ test('only folders are destinations', () => {
     page('other', null, 'folder'),
   ]);
   const other = tree.find((node) => node.id === 'other')!;
-  const ids = destinations(tree, other).map((entry) => entry.id);
+  const ids = destinations(tree, other, say).map((entry) => entry.id);
   assert.ok(!ids.includes('doc'), 'a page cannot hold anything');
 });
 
@@ -240,7 +248,7 @@ test('the dialog and dragging cannot disagree', () => {
   ]);
   const outer = tree.find((node) => node.id === 'outer')!;
 
-  for (const option of destinations(tree, outer)) {
+  for (const option of destinations(tree, outer, say)) {
     assert.equal(
       option.disabled === undefined,
       canMoveInto(tree, outer, option.id),
