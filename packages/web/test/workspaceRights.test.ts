@@ -59,15 +59,32 @@ describe('who may change a workspace', () => {
 });
 
 describe('what the role is called', () => {
+  /** Standing in for a catalogue; the real ones are checked in `roleNames`. */
+  const say = (key: string): string =>
+    ({ 'role.owner': 'Eigentümer', 'role.guest': 'Gast' })[key] ?? key;
+
   test('a custom role is named, not translated into the nearest word', () => {
-    assert.equal(roleLabel(ws([], 'custom', 'Redaktion'), 'unknown'), 'Redaktion');
+    assert.equal(roleLabel({ key: 'custom', name: 'Redaktion' }, say, 'unbekannt'), 'Redaktion');
   });
 
-  test('a system role keeps its own name', () => {
-    assert.equal(roleLabel(ws([], 'owner', 'Owner'), 'unknown'), 'Owner');
+  test('but a system role is named by the word this application wrote', () => {
+    /*
+     * **This test used to assert the opposite**, under the heading *"a system
+     * role keeps its own name"* — true of the code and wrong about the product
+     * (ADR-0143). `roles.name` for the four is the English word a migration
+     * seeded; nobody chose it, and returning it put "Owner" in a German
+     * interface on the two screens that used this helper.
+     *
+     * Rewritten rather than deleted, like every other red test holding a
+     * replaced decision here (ADR-0118).
+     */
+    assert.equal(roleLabel({ key: 'owner', name: 'Owner' }, say, 'unbekannt'), 'Eigentümer');
   });
 
   test('and a workspace nobody fetched says so rather than guessing', () => {
-    assert.equal(roleLabel(undefined, 'unknown'), 'unknown');
+    assert.equal(roleLabel(undefined, say, 'unbekannt'), 'unbekannt');
+    // Nor the key: it ended `?? workspace?.role`, so a half-loaded summary
+    // showed the system word `member`, lower-case and in English.
+    assert.equal(roleLabel({ key: '', name: '' }, say, 'unbekannt'), 'unbekannt');
   });
 });

@@ -26,7 +26,7 @@
  * `formatMessage` leaves an unused value alone.
  */
 
-import { formatMessage, type MessageValues } from '@sone/core';
+import { formatMessage, nameOfRole, type MessageValues } from '@sone/core';
 
 import type { SupportedLocale } from '../i18n/locale.js';
 import { de } from './words.de.js';
@@ -64,4 +64,25 @@ export function words(locale: SupportedLocale, address: AddressForm = 'informal'
      * from one that does not.
      */
     formatMessage(catalogue[key] ?? en[key], { address, ...values }, locale);
+}
+
+/** A role row, as a letter receives it. */
+export interface RoleNamed {
+  key: string | null;
+  name: string;
+}
+
+/**
+ * What to call a role inside a letter (ADR-0143).
+ *
+ * The same decision the interface makes, from the same function — the four
+ * this application wrote are its own words, a role a workspace made keeps the
+ * name somebody typed. The catalogues differ; the rule does not.
+ *
+ * Both letters passed the row's `name` before, which for the four is the
+ * English word a migration seeded. So the two letters whose entire subject is a
+ * role were the two that named it in the wrong language.
+ */
+export function roleWord(voice: { say: Say }, role: RoleNamed): string {
+  return nameOfRole(role, (key) => voice.say(`role.word.${key}`));
 }

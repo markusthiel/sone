@@ -72,6 +72,13 @@ export const de: Record<keyof typeof en, string> = {
     'frag, wer diesen Workspace betreut.}}',
 
   // --- Rolle geändert ------------------------------------------------------
+  // Wie die vier Rollen im Satz heißen (ADR-0143). Eine Rolle, die ein
+  // Workspace selbst angelegt hat, behält den getippten Namen — dafür gibt es
+  // nichts zu übersetzen.
+  'role.word.owner': 'Eigentümer',
+  'role.word.admin': 'Admin',
+  'role.word.member': 'Mitglied',
+  'role.word.guest': 'Gast',
   'role.subject':
     '{where}: {address, select, formal {Ihre Rolle in {workspace} hat sich geändert} other {Deine Rolle in {workspace} hat sich geändert}}',
   'role.heading':
