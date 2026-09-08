@@ -90,7 +90,7 @@ describe('the links panel', () => {
     const { LinksPanel } = await import('../src/components/LinksPanel.tsx');
     const { LocaleProvider } = await import('../src/i18n/useT.tsx');
     // `initial`, not `locale` — the name that made another test in this suite
-    // pass twice and fail twice (ADR-0155).
+    // pass twice and fail twice (ADR-0159).
     await render(null);
     await render(
       react.createElement(

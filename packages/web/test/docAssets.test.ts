@@ -58,7 +58,7 @@ test('a file block is read with its name, kind and size', () => {
       mimeType: 'application/pdf',
       category: 'pdf',
       sizeBytes: 20480,
-      // How the block draws it (ADR-0155). Absent means a card, which is what
+      // How the block draws it (ADR-0159). Absent means a card, which is what
       // a file block was before it could be anything else — and the difference
       // matters to a comment about a place inside the document, which has
       // nowhere to point when the pages are not on the page.

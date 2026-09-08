@@ -1,5 +1,5 @@
 /**
- * The gallery view (ADR-0039).
+ * The gallery view (ADR-0160).
  *
  * The decision it records is what the picture on a card *is*, so that is what
  * these check: the cover comes from a files column and from nowhere else, and a

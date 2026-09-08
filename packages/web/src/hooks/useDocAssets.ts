@@ -35,7 +35,7 @@ export interface DocFile {
   category: string;
   sizeBytes: number | null;
   /**
-   * How the block draws it: 'card', 'line' or 'full' (ADR-0155).
+   * How the block draws it: 'card', 'line' or 'full' (ADR-0159).
    *
    * Part of what the page holds rather than a detail of the block, because a
    * PDF shown as a card is a file on the page whose *pages* are not on it — and
