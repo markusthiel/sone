@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**„Kommentieren" bringt die Kommentare nach vorne.** Bisher ging die rechte
+Leiste zwar auf, blieb aber auf dem zuletzt gewählten Reiter stehen — stand der
+auf *Gliederung*, war das Feld für den neuen Kommentar nirgends zu sehen, obwohl
+die markierte Stelle schon festgehalten war. Jetzt springt die Leiste auf
+*Kommentare*, genau wie beim Klick auf einen markierten Kommentar im Text.
+
 **Ein Klick auf einen farbig hinterlegten Kommentar im Text öffnet ihn rechts.**
 Die Leiste geht auf, springt auf *Kommentare*, und der gemeinte Faden leuchtet
 kurz auf — die Gegenrichtung zu dem, was die Leiste schon konnte. Ein
