@@ -578,6 +578,9 @@ export const de: Record<keyof typeof en, string> = {
     '{address, select, formal {Ihr Name, Ihre Adresse und Ihr Bild} ' +
     'other {Dein Name, deine Adresse und dein Bild}}',
   'you.signIn': 'Anmelden',
+  'pageLink.pick': 'Eine Seite verlinken',
+  'pageLink.nothing': 'Es gibt noch keine andere Seite zum Verlinken.',
+  'pageLink.noMatch': 'Keine Seite passt zu „{query}“.',
   'mention.pick': 'Jemanden erwähnen',
   'mention.nobody': 'In diesem Workspace ist sonst noch niemand.',
   'mention.noMatch': 'Hier passt niemand zu „{query}“.',

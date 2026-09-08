@@ -13,6 +13,7 @@ export * from './codeCopy.js';
 export * from './markdownPaste.js';
 export * from './slashMenu.js';
 export * from './mentionMenu.js';
+export * from './pageLinkMenu.js';
 export * from './editor.js';
 export * from './authorship.js';
 export * from './authorHighlight.js';
