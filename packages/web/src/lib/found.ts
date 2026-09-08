@@ -53,15 +53,32 @@ export function showAsFound(blockId: string): void {
 }
 
 /**
- * Somebody clicked a comment mark in the writing (ADR-0168).
+ * Bring the comments forward (ADR-0168, ADR-0169).
  *
- * A named event for the reason every other one here is: the editor knows which
- * thread was clicked, and the three things that have to answer — the panel
- * opening, the tab changing, the thread lighting up — are three components with
- * no path between them. Each listens for what concerns it.
+ * A named event for the reason every other one here is: the three things that
+ * have to answer — the panel opening, the tab changing, the thread lighting up
+ * — are three components with no path between them. Each listens for what
+ * concerns it.
+ *
+ * The detail names a thread when there is one to name, and does not when there
+ * is not. Only the third listener reads it: *which tab* and *whether the panel
+ * is open* are the same answer either way.
  */
 export const OPEN_THREAD_EVENT = 'sone:open-thread';
 
+/** Somebody clicked a comment mark in the writing (ADR-0168). */
 export function askForThread(threadId: string): void {
   window.dispatchEvent(new CustomEvent(OPEN_THREAD_EVENT, { detail: threadId }));
+}
+
+/**
+ * Somebody pressed *Kommentieren* (ADR-0169).
+ *
+ * There is no thread yet — the anchor is held until a first message exists
+ * (ADR-0046) — so nothing is named, and the panel lights nothing. What has to
+ * happen is the other two thirds: the panel opens and the comments come
+ * forward, because the composer for that anchor is drawn nowhere else.
+ */
+export function showComments(): void {
+  window.dispatchEvent(new CustomEvent(OPEN_THREAD_EVENT, { detail: null }));
 }
