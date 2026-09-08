@@ -166,7 +166,13 @@ test('text with no link produces nothing', () => {
 
 // --- the panel ---------------------------------------------------------------
 
-const panel = codeOf(new URL('../src/components/RightSidebar.tsx', import.meta.url));
+// Two files since ADR-0158: the links panel moved into its own, and the empty
+// wordings it owns moved with it. Read as one text, because what these tests
+// hold is that the panel *somewhere* says these things — not which file the
+// sentence is written in.
+const panel =
+  codeOf(new URL('../src/components/RightSidebar.tsx', import.meta.url)) +
+  codeOf(new URL('../src/components/LinksPanel.tsx', import.meta.url));
 const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 
 test('the tabs are icons, and every one still says its name', () => {
