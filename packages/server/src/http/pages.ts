@@ -788,6 +788,67 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
     return true;
   };
 
+
+  /**
+   * Which pages point at this one (ADR-0174).
+   *
+   * The other direction of the links panel. *What does this page link to* is
+   * answered from the open document; *who points here* is a question about
+   * documents nobody has open, so it is answered from the projection.
+   *
+   * **The visibility condition is on the source page, not the target.** The
+   * reader is already looking at the target — `mayReadPage` has just said so —
+   * and what must not leak is the existence, the title or the count of the
+   * pages linking in. A backlink from a page somebody may not open is a
+   * disclosure exactly as a search result from it is, which is what
+   * `visiblePagesCondition`'s own comment says about the copy that drifts.
+   *
+   * Read rights are enough to ask. Somebody who may read this page may be told
+   * which of the pages they may *also* read refer to it — the condition is the
+   * same one the tree and search use, so the answer cannot be larger than what
+   * the sidebar already shows them.
+   */
+  router.get('/api/pages/:pageId/backlinks', async (ctx) => {
+    const pageId = ctx.params['pageId'] ?? '';
+    if (!(await mayReadPage(ctx, pageId))) return;
+
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    const rows = await queryRows<{
+      id: string;
+      title: string | null;
+      icon: unknown;
+      kind: string;
+      from_block_id: string;
+    }>(
+      deps.pool,
+      `SELECT src.id, src.title, src.icon, src.kind, l.from_block_id
+         FROM page_links l
+         JOIN pages src ON src.id = l.from_page_id
+        WHERE l.to_page_id = $1
+          -- The trash is not a place to be sent (ADR-0027), and a page on its
+          -- way out still holds its links.
+          AND src.archived_at IS NULL
+          AND ${visiblePagesCondition('src', '$2')}
+        -- By title so the list reads as a list, with the id as a tiebreaker so
+        -- two pages of one name do not swap places between requests.
+        ORDER BY src.title, src.id, l.from_block_id
+        LIMIT 200`,
+      [pageId, session.userId],
+    );
+
+    ctx.send(200, {
+      backlinks: rows.map((row) => ({
+        pageId: row.id,
+        title: row.title,
+        icon: row.icon,
+        kind: row.kind === 'canvas' ? 'canvas' : row.kind === 'folder' ? 'folder' : 'page',
+        blockId: row.from_block_id,
+      })),
+    });
+  });
+
   /**
    * What this page said, at moments worth keeping (ADR-0047).
    *

@@ -19,12 +19,14 @@
  * text and the address, and nothing to click.
  */
 
-import type { ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 
 import type { PageHandle } from '@sone/client';
 import { isFollowable, isSameOrigin } from '@sone/editor';
 
+import { api } from '../api/client.ts';
 import { useDocAssets } from '../hooks/useDocAssets.ts';
+import { usePageLink } from '../routes/pageLink.tsx';
 import { scrollToBlock } from '../hooks/useOutline.ts';
 import { useT } from '../i18n/useT.tsx';
 // `DuplicateIcon` rather than a new one: it is the two-rectangles glyph
@@ -47,17 +49,98 @@ export function hostOf(href: string): string {
   }
 }
 
-export function LinksPanel({ handle }: { handle: PageHandle | null }): ReactElement {
+/** A page that points here, as the projection reports it (ADR-0174). */
+interface Backlink {
+  pageId: string;
+  title: string | null;
+  kind: 'page' | 'canvas' | 'folder';
+  blockId: string;
+}
+
+export function LinksPanel({
+  handle,
+  pageId,
+}: {
+  handle: PageHandle | null;
+  /** Whose backlinks to ask for. Null before a page is open. */
+  pageId: string | null;
+}): ReactElement {
   const { t } = useT();
   const { links } = useDocAssets(handle?.doc ?? null);
   const { copy, copied } = useCopyToClipboard();
+  const pageLink = usePageLink();
+
+  /*
+   * Who points here (ADR-0174).
+   *
+   * Asked of the server rather than read from a document, because the pages
+   * that point here are documents nobody has open — and answered only for the
+   * ones this person may read, which the route decides.
+   *
+   * A failure leaves the list empty and says nothing. On a share link the
+   * request is refused for want of a session, and that is the correct answer to
+   * draw: a visitor is not told what else the workspace contains (ADR-0026).
+   */
+  const [backlinks, setBacklinks] = useState<Backlink[]>([]);
+  useEffect(() => {
+    if (!pageId) {
+      setBacklinks([]);
+      return undefined;
+    }
+    let live = true;
+    void api
+      .backlinks(pageId)
+      .then((answer) => {
+        if (live) setBacklinks(answer.backlinks);
+      })
+      .catch(() => {
+        if (live) setBacklinks([]);
+      });
+    return () => {
+      live = false;
+    };
+  }, [pageId, handle]);
+
+  const pointingHere =
+    backlinks.length === 0 ? null : (
+      /*
+       * `section` + `panel-heading`, the shape the comments panel uses for the
+       * same job (ADR-0057). A heading only once there is a second list under
+       * it: one list in a panel needs no name, two do.
+       */
+      <section className="panel-section">
+        <h3 className="panel-heading">{t('panel.pointsHere')}</h3>
+        <ul className="asset-list">
+          {backlinks.map((one) => (
+            <li key={`${one.pageId}-${one.blockId}`}>
+              <a
+                className="asset-row"
+                href={pageLink(one.pageId, one.title ?? '', one.blockId)}
+              >
+                <PageIcon />
+                <span className="asset-name">
+                  {one.title?.trim() || t('panel.untitled')}
+                  <span className="asset-sub">{t('panel.pointsHereSub')}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
 
   if (!handle) return <p className="panel-empty">{t('panel.openForLinks')}</p>;
   if (links.length === 0) {
-    return <p className="panel-empty">{t('panel.noLinks')}</p>;
+    return (
+      <>
+        <p className="panel-empty">{t('panel.noLinks')}</p>
+        {pointingHere}
+      </>
+    );
   }
 
   return (
+    <>
     <ul className="asset-list">
       {links.map((link, at) => {
         const key = `${link.blockId}-${at}`;
@@ -149,5 +232,7 @@ export function LinksPanel({ handle }: { handle: PageHandle | null }): ReactElem
         );
       })}
     </ul>
+    {pointingHere}
+    </>
   );
 }

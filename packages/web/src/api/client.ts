@@ -1890,6 +1890,25 @@ export const api = {
   restoreVersion: (pageId: string, versionId: string) =>
     post<{ ok: true }>(`/api/pages/${pageId}/versions/${versionId}/restore`, {}),
 
+  /**
+   * Which pages point at this one (ADR-0174).
+   *
+   * Only the ones this person may open — the condition is on the *source*
+   * page, server-side, because a backlink from a page somebody may not read is
+   * a disclosure exactly as a search result from it is.
+   */
+  backlinks: (pageId: string) =>
+    request<{
+      backlinks: Array<{
+        pageId: string;
+        title: string | null;
+        icon: { kind: string; value: string; color?: string } | null;
+        kind: 'page' | 'canvas' | 'folder';
+        /** The block the link sits in, so the panel can offer to go there. */
+        blockId: string;
+      }>;
+    }>(`/api/pages/${pageId}/backlinks`),
+
   /** The shapes a page can be started from in this workspace (ADR-0045). */
   templates: (workspaceId: string) =>
     request<{

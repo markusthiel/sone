@@ -13,6 +13,23 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Die Linkleiste sagt jetzt auch, wer hierher verweist.** Unter *„Worauf zeigt
+diese Seite"* steht ein zweiter Abschnitt *„Verweist hierher"* mit den Seiten,
+die auf die geöffnete verlinken — ein Klick springt an die Stelle, an der der
+Link steht. Der Abschnitt erscheint nur, wenn es solche Seiten gibt.
+
+Gezeigt werden ausschließlich Seiten, die du ohnehin öffnen darfst: eine
+verlinkende Seite, die für dich gesperrt ist, taucht nicht auf — auch nicht als
+Zahl. Über einen Freigabe-Link gibt es den Abschnitt nicht, denn wer einen Link
+hat, soll nicht erfahren, was der Arbeitsbereich sonst enthält.
+
+Beim ersten Start nach dem Update legt SONE die Tabelle dafür an; sie ist beim
+Anlegen leer. **Bestehende Verlinkungen erscheinen erst, wenn die verlinkende
+Seite das nächste Mal bearbeitet wird** — wer sie sofort alle sehen will, kann
+im Serververzeichnis einmal `pnpm --filter @sone/server rematerialize` laufen
+lassen; das schreibt nur abgeleitete Tabellen neu und ist im laufenden Betrieb
+gefahrlos.
+
 **`[[` verlinkt eine Seite, ohne dass du die Zeile verlässt.** Zwei eckige
 Klammern tippen, es klappt eine Liste der Seiten auf, weitertippen filtert nach
 Titel, Enter setzt den Link mit dem Seitentitel als Text. Unter jedem Titel steht,

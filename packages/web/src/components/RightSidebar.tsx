@@ -332,7 +332,7 @@ export function RightSidebar({
           )}
           {tab === 'files' && <FilesPanel handle={handle} />}
           {tab === 'images' && <ImagesPanel handle={handle} />}
-          {tab === 'links' && <LinksPanel handle={handle} />}
+          {tab === 'links' && <LinksPanel handle={handle} pageId={pageId} />}
           {/* Guarded on the props as well as the tab.
             *
             * These two are the tabs a restricted panel leaves out, so their
