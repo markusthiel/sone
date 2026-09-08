@@ -51,7 +51,7 @@ function Thread({
 }: {
   thread: CommentThread;
   /**
-   * Whether the document this thread is about is on the page (ADR-0155).
+   * Whether the document this thread is about is on the page (ADR-0159).
    *
    * True for every thread that is not about a place — there is nothing to be
    * missing. See `CommentsPanelProps` for where the answer comes from.
@@ -111,7 +111,7 @@ function Thread({
            */
           /*
            * And a place whose document is no longer shown leads nowhere either
-           * (ADR-0155). Not "detached" — the passage was never text here and
+           * (ADR-0159). Not "detached" — the passage was never text here and
            * has not been rewritten; it is simply not on this page to point at.
            */
           disabled={isDetached(thread) || !subjectShown}
@@ -161,7 +161,7 @@ function Thread({
         <p className="comment-note">{t('comment.detached')}</p>
       )}
 
-      {/* Its own sentence, and its own fact (ADR-0155). A place cannot drift —
+      {/* Its own sentence, and its own fact (ADR-0159). A place cannot drift —
           the file's bytes are fixed — so this never says "the text was
           rewritten"; it says the document is not here to look at. The quotation
           above stays, because it is the whole of what the thread is about. */}
@@ -324,7 +324,7 @@ export function CommentsPanel({
   /** Which page's folding is being remembered. */
   pageId: string | null;
   /**
-   * The page itself, for one question a thread cannot answer (ADR-0155).
+   * The page itself, for one question a thread cannot answer (ADR-0159).
    *
    * A comment about a place in a PDF points at a file, and whether that file is
    * still *shown on this page* is a fact about the page — ADR-0151 said so when
@@ -354,7 +354,7 @@ export function CommentsPanel({
    * is looking is open.
    */
   /**
-   * The documents this page is actually showing (ADR-0155).
+   * The documents this page is actually showing (ADR-0159).
    *
    * **Shown, not merely present.** A PDF switched back to a card is still a file
    * on the page and its *pages* are not — the marks are not drawn, the passage

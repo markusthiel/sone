@@ -1,4 +1,8 @@
-# ADR-0039: A gallery is a table drawn as covers
+# ADR-0160: A gallery is a table drawn as covers
+
+> **Renumbered.** Written as ADR-0039 and moved here by ADR-0161: the sync
+> protocol's record was written in the same batch and kept that number. The
+> changelog entry and the commits from that week call this one 0039.
 
 ## Status
 

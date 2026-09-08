@@ -1,4 +1,8 @@
-# ADR-0155: The document that is not there
+# ADR-0159: The document that is not there
+
+> **Renumbered.** Written as ADR-0155 and moved here by ADR-0161: another record
+> already held that number. Commits and pull requests from the week it was
+> written cite it as 0155 — this is the record they mean.
 
 ## Status
 
