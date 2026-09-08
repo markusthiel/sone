@@ -16,12 +16,20 @@
  * breadcrumb says on the page itself.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from 'react';
 
 import { closePageLinkMenu, insertPageLink, pageLinkMenuState } from '@sone/editor';
 import type { EditorView } from 'prosemirror-view';
 
 import { useChoiceList } from '../hooks/useChoiceList.ts';
+import { useLinkTargets } from '../hooks/useLinkTargets.ts';
 import { useViewportChanges } from '../hooks/useViewportChanges.ts';
 import { useT } from '../i18n/useT.tsx';
 import { documentAddress } from '../routes/internalLinks.ts';
@@ -50,6 +58,65 @@ export interface LinkablePage {
   /** Here only as a path to something below it — nothing to open (ADR-0026). */
   pathOnly?: boolean;
   archived?: boolean;
+  /** Which workspace it is in (ADR-0176). Absent for the current one's own list. */
+  workspaceId?: string;
+  /** And its name, for the heading over the group. */
+  workspaceName?: string;
+}
+
+/** One workspace's worth of matches, in the order they are drawn. */
+export interface PageGroup {
+  workspaceId: string | null;
+  /** Null for the workspace somebody is standing in — see `groupPages`. */
+  label: string | null;
+  pages: LinkablePage[];
+}
+
+/**
+ * The matches, this workspace first (ADR-0176).
+ *
+ * The ordinary reference is to a page next door, so a list sorted purely by
+ * match would let a page from a workspace nobody has opened in a month sit
+ * above the one they meant.
+ *
+ * **The first group carries no heading.** "Here" is where somebody already is;
+ * naming it would state the obvious and push the first row down. The others are
+ * named, because without the name three pages called *Protokoll* from three
+ * workspaces are a list nobody can choose from — the problem the folder path
+ * already solved inside one workspace, and does not solve across them.
+ *
+ * A workspace with nothing matching is not a heading over nothing.
+ *
+ * **A row with no workspace on it is one of ours.** The list this shell already
+ * held *is* the current workspace, by construction — so there is no id to pass
+ * in, and nothing has to hand the editor a workspace it might not have. The
+ * share view has none at all and says so rather than passing a placeholder,
+ * which is the shape that comment in `App.tsx` warns about.
+ */
+export function groupPages(pages: LinkablePage[]): PageGroup[] {
+  const mine: LinkablePage[] = [];
+  const others = new Map<string, PageGroup>();
+
+  for (const page of pages) {
+    if (page.workspaceId === undefined) {
+      mine.push(page);
+      continue;
+    }
+    const group = others.get(page.workspaceId) ?? {
+      workspaceId: page.workspaceId,
+      label: page.workspaceName ?? page.workspaceId,
+      pages: [],
+    };
+    group.pages.push(page);
+    others.set(page.workspaceId, group);
+  }
+
+  // By name, so the list does not rearrange itself between two keystrokes that
+  // matched the same rows.
+  const rest = [...others.values()].sort((a, b) =>
+    (a.label ?? '').localeCompare(b.label ?? ''),
+  );
+  return mine.length > 0 ? [{ workspaceId: null, label: null, pages: mine }, ...rest] : rest;
 }
 
 /** Case- and accent-insensitive, so a search is not a spelling test. */
@@ -145,7 +212,24 @@ export function PageLinkMenu({
 
   const from = menu?.from ?? null;
   const query = menu?.query ?? '';
-  const found = menu ? filterPages(query, pages, here) : [];
+
+  /*
+   * The other workspaces, fetched once a picker is actually open (ADR-0176).
+   *
+   * Merged rather than requested per keystroke: what makes this feel like part
+   * of typing is that it filters in memory. Rows already in the list this shell
+   * holds are skipped, so a page is offered once and lands in the group with no
+   * heading — the one somebody is standing in.
+   */
+  const elsewhere = useLinkTargets(menu !== null);
+  const all = useMemo(() => {
+    if (elsewhere.length === 0) return pages;
+    const known = new Set(pages.map((one) => one.id));
+    return [...pages, ...elsewhere.filter((one) => !known.has(one.id))];
+  }, [pages, elsewhere]);
+
+  const found = menu ? filterPages(query, all, here) : [];
+  const groups = groupPages(found);
 
   const choose = (page: LinkablePage): void => {
     const title = (page.title ?? '').trim();
@@ -259,23 +343,36 @@ export function PageLinkMenu({
           {pages.length === 0 ? t('pageLink.nothing') : t('pageLink.noMatch', { query })}
         </p>
       ) : (
-        found.map((page, at) => {
-          const trail = pathOf(page, pages);
-          return (
-            <button
-              key={page.id}
-              type="button"
-              className="slash-item"
-              {...choices.optionProps(at)}
-              {...popupItem(() => choose(page))}
-            >
-              <span className="slash-text">
-                <span className="slash-title">{page.title}</span>
-                {trail !== '' && <span className="slash-hint">{trail}</span>}
-              </span>
-            </button>
-          );
-        })
+        groups.map((group) => (
+          <div className="slash-group" key={group.workspaceId ?? 'here'}>
+            {/* Named only when it is not the workspace somebody is standing in.
+                A heading over "here" states the obvious and pushes the first
+                row down. */}
+            {group.label !== null && (
+              <p className="slash-group-label">{group.label}</p>
+            )}
+            {group.pages.map((page) => {
+              // The index across the whole list, because the highlight and the
+              // keys are about the list and not about a group in it.
+              const at = found.indexOf(page);
+              const trail = pathOf(page, all);
+              return (
+                <button
+                  key={page.id}
+                  type="button"
+                  className="slash-item"
+                  {...choices.optionProps(at)}
+                  {...popupItem(() => choose(page))}
+                >
+                  <span className="slash-text">
+                    <span className="slash-title">{page.title}</span>
+                    {trail !== '' && <span className="slash-hint">{trail}</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))
       )}
     </div>
   );

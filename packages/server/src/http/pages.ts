@@ -789,6 +789,81 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
   };
 
 
+
+  /**
+   * Everything this person could link to, across every workspace they are in
+   * (ADR-0176).
+   *
+   * The `[[` picker used to offer the workspace somebody was standing in,
+   * because that is the list the sidebar already had. A page in another one is
+   * just as linkable — the address names a uuid and nothing else (ADR-0016),
+   * and ADR-0175 made such a link open.
+   *
+   * **One list rather than a search per keystroke.** The picker filters titles
+   * in memory, which is what makes it feel like part of typing; a request per
+   * character would put a network between `[[` and the list. So this is fetched
+   * once when the picker first opens and kept for the session.
+   *
+   * The cap is the consequence of that choice, and it is stated rather than
+   * hidden: past it the rows are the most recently edited, and somebody with
+   * more pages than this would need the picker to become a search. Nothing in
+   * the interface pretends otherwise — the list simply ends.
+   *
+   * Every row is a page this person may open, decided by the same condition the
+   * tree and search use. Not a second one: its own comment says the copy that
+   * drifts is a disclosure, and a title in a picker discloses as much as a
+   * title in a search result.
+   */
+  router.get('/api/link-targets', async (ctx) => {
+    const session = await requireSession(deps.pool, ctx);
+    if (!session) return;
+
+    const rows = await queryRows<{
+      id: string;
+      title: string | null;
+      parent_page_id: string | null;
+      kind: string;
+      workspace_id: string;
+      workspace_name: string;
+    }>(
+      deps.pool,
+      `SELECT p.id, p.title, p.parent_page_id, p.kind,
+              p.workspace_id, w.name AS workspace_name
+         FROM pages p
+         JOIN workspaces w ON w.id = p.workspace_id
+        WHERE p.archived_at IS NULL
+          -- A workspace on its way out is not a place to link to (ADR-0027).
+          AND w.deleted_at IS NULL
+          -- An untitled row is one nobody could choose on purpose.
+          AND p.title IS NOT NULL
+          -- Nothing is needed against a path-only entry: that is a page
+          -- somebody may *not* see, listed in the tree only so a child they may
+          -- see has a path to it, and it enters a listing only where the tree
+          -- adds isPathOnlyCondition beside this one. A picker does not, so
+          -- there is nothing to exclude -- and the column that would have
+          -- expressed it does not exist, which the schema test said before this
+          -- comment did (ADR-0176).
+          AND p.kind NOT IN ('row', 'container')
+          AND ${visiblePagesCondition('p', '$1')}
+        -- Most recently edited first, because that is what a cap should keep:
+        -- the pages somebody is actually working in.
+        ORDER BY p.last_edited_at DESC, p.id
+        LIMIT 2000`,
+      [session.userId],
+    );
+
+    ctx.send(200, {
+      pages: rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        parentPageId: row.parent_page_id,
+        kind: row.kind === 'folder' ? 'folder' : row.kind === 'canvas' ? 'canvas' : 'page',
+        workspaceId: row.workspace_id,
+        workspaceName: row.workspace_name,
+      })),
+    });
+  });
+
   /**
    * Which pages point at this one (ADR-0174).
    *
@@ -821,12 +896,18 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       icon: unknown;
       kind: string;
       from_block_id: string;
+      workspace_id: string;
+      workspace_name: string;
     }>(
       deps.pool,
-      `SELECT src.id, src.title, src.icon, src.kind, l.from_block_id
+      `SELECT src.id, src.title, src.icon, src.kind, l.from_block_id,
+              src.workspace_id, w.name AS workspace_name
          FROM page_links l
          JOIN pages src ON src.id = l.from_page_id
+         JOIN workspaces w ON w.id = src.workspace_id
         WHERE l.to_page_id = $1
+          -- A workspace on its way out is not a place to be sent (ADR-0027).
+          AND w.deleted_at IS NULL
           -- The trash is not a place to be sent (ADR-0027), and a page on its
           -- way out still holds its links.
           AND src.archived_at IS NULL
@@ -845,6 +926,11 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
         icon: row.icon,
         kind: row.kind === 'canvas' ? 'canvas' : row.kind === 'folder' ? 'folder' : 'page',
         blockId: row.from_block_id,
+        // Where it lives, so the panel can say so when it is not here
+        // (ADR-0176). A reference from another workspace looks identical
+        // otherwise, and clicking it changes which workspace you are in.
+        workspaceId: row.workspace_id,
+        workspaceName: row.workspace_name,
       })),
     });
   });

@@ -1891,6 +1891,25 @@ export const api = {
     post<{ ok: true }>(`/api/pages/${pageId}/versions/${versionId}/restore`, {}),
 
   /**
+   * Everything this person could link to, across every workspace (ADR-0176).
+   *
+   * One list, fetched when the `[[` picker first opens and kept: the picker
+   * filters in memory, which is what makes it feel like part of typing, and a
+   * request per keystroke would put a network in the middle of that.
+   */
+  linkTargets: () =>
+    request<{
+      pages: Array<{
+        id: string;
+        title: string | null;
+        parentPageId: string | null;
+        kind: 'page' | 'canvas' | 'folder';
+        workspaceId: string;
+        workspaceName: string;
+      }>;
+    }>('/api/link-targets'),
+
+  /**
    * Which pages point at this one (ADR-0174).
    *
    * Only the ones this person may open — the condition is on the *source*
@@ -1906,6 +1925,9 @@ export const api = {
         kind: 'page' | 'canvas' | 'folder';
         /** The block the link sits in, so the panel can offer to go there. */
         blockId: string;
+        /** Where it lives, so the panel can say so when it is not here. */
+        workspaceId: string;
+        workspaceName: string;
       }>;
     }>(`/api/pages/${pageId}/backlinks`),
 
