@@ -13,6 +13,20 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**`[[` findet jetzt Seiten aus allen deinen Arbeitsbereichen.** Oben stehen die
+Treffer aus dem Arbeitsbereich, in dem du gerade bist — ohne Überschrift, denn da
+bist du ja. Darunter je ein Abschnitt pro weiterem Arbeitsbereich, mit seinem
+Namen; ohne den wären drei Seiten namens *Protokoll* aus drei Arbeitsbereichen
+nicht auseinanderzuhalten. Die Liste wird einmal geladen, wenn du zum ersten Mal
+`[[` tippst, und danach im Speicher gefiltert — es liegt also kein Netz zwischen
+Tippen und Liste. Sehr große Bestände sind auf die 2000 zuletzt bearbeiteten
+Seiten begrenzt.
+
+**Und „Verweist hierher" zeigt jetzt auch Verweise aus anderen
+Arbeitsbereichen** — mit dem Namen des Arbeitsbereichs in der Zeile, wenn er
+nicht der aktuelle ist. Zu sehen bekommst du nur, was du ohnehin öffnen darfst:
+ein Verweis aus einem Arbeitsbereich, in dem du nicht bist, taucht nicht auf.
+
 **Behoben: ein Link auf eine Seite in einem anderen Arbeitsbereich ging nicht
 auf.** Er landete auf der richtigen Adresse, aber mit einer Verbindung, die am
 falschen Arbeitsbereich hing — und die Seite meldete „du hast keinen Zugriff

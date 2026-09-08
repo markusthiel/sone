@@ -55,15 +55,23 @@ interface Backlink {
   title: string | null;
   kind: 'page' | 'canvas' | 'folder';
   blockId: string;
+  workspaceId: string;
+  workspaceName: string;
 }
 
 export function LinksPanel({
   handle,
   pageId,
+  workspaceId,
 }: {
   handle: PageHandle | null;
   /** Whose backlinks to ask for. Null before a page is open. */
   pageId: string | null;
+  /**
+   * The workspace being read, so a reference from another one says which
+   * (ADR-0176). Empty on a share link, where there are no backlinks at all.
+   */
+  workspaceId: string;
 }): ReactElement {
   const { t } = useT();
   const { links } = useDocAssets(handle?.doc ?? null);
@@ -120,7 +128,15 @@ export function LinksPanel({
                 <PageIcon />
                 <span className="asset-name">
                   {one.title?.trim() || t('panel.untitled')}
-                  <span className="asset-sub">{t('panel.pointsHereSub')}</span>
+                  {/* The workspace only when it is not this one (ADR-0176).
+                      Naming the one somebody is standing in would be noise on
+                      every row; leaving it off the others would make a click
+                      that changes workspace look like one that does not. */}
+                  <span className="asset-sub">
+                    {one.workspaceId === workspaceId
+                      ? t('panel.pointsHereSub')
+                      : one.workspaceName}
+                  </span>
                 </span>
               </a>
             </li>
