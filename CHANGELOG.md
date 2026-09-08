@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Behoben: die beiden Knöpfe auf einem randlosen Titelbild ließen sich nicht
+anklicken** — sie lagen im Streifen der oberen Leiste, und die nimmt dort jeden
+Klick entgegen. Sie stehen jetzt darunter und außerdem an der Ecke des *Bildes*
+statt an der Kante der Textspalte, wo sie mitten im Bild schwebten.
+
+**Behoben: mit ausgeblendeter Seitenleiste begann ein randloses Titelbild nicht
+mehr ganz oben.** Ohne Seitenleiste zeigt eine Seite ihren Pfad („Ordner 1 /
+…"), und der stand über dem Bild und hat es um seine eigene Höhe nach unten
+geschoben. Der Pfad steht jetzt unter dem Bild und über dem Titel — wo er sich
+auch besser liest: erst die Ordner, dann der Name.
+
 **Und eine dritte Stufe: randlos bis an den oberen Rand.** In derselben Zeile
 steht jetzt *Spalte*, *Ganze Seite* und *Randlos* — bei der letzten beginnt das
 Bild dort, wo das Fenster beginnt, und die obere Leiste liegt darauf. Damit
