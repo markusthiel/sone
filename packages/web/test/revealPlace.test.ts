@@ -1,7 +1,7 @@
 /**
  * The panel takes you to the passage (ADR-0156).
  *
- * ADR-0155 disabled the quotation button where there was provably nothing to
+ * ADR-0159 disabled the quotation button where there was provably nothing to
  * reach, and named what it left behind: for every *other* place thread the
  * button was still dead, because the page only reveals a thread that has a
  * **range**. A comment about page seven of a PDF listed a quotation and, when

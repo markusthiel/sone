@@ -999,7 +999,7 @@ export function CollectionTable({ collectionId }: CollectionTableProps): ReactEl
       </div>
 
       {/* The offer to add a gallery, where the board's offer is and on the same
-          rule: only when the collection has something to draw it with (ADR-0039).
+          rule: only when the collection has something to draw it with (ADR-0160).
           A gallery of blank panels is not a view. */}
       {data.canEdit &&
         !data.views.some((entry) => entry.viewType === 'gallery') &&
