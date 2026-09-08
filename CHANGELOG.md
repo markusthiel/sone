@@ -13,6 +13,18 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Mehrere markierte Zeilen lassen sich jetzt gemeinsam umwandeln.** Vier Zeilen
+markieren, im Blockmenü (⋮⋮ neben einer davon) *Aufzählung* wählen — und alle
+vier werden zu einer. Genauso mit Überschrift, Aufgabe, Zitat und den Tastenwegen
+(`Strg`/`Cmd` + `Umschalt` + `8` für Aufzählung, `7` für Nummerierung). Bisher
+wurde immer nur die eine Zeile umgewandelt, in der der Cursor stand.
+
+Eine gemischte Auswahl wird angeglichen statt einzeln umgeschaltet: zwei
+Aufzählungspunkte und zwei Absätze werden vier Aufzählungspunkte. Zurück in
+Absätze geht es, wenn alle markierten Zeilen schon von der Art sind. Blöcke ohne
+Text — eine Trennlinie etwa — werden dabei übersprungen statt die ganze
+Umwandlung zu verweigern.
+
 **Behoben: die beiden Knöpfe auf einem randlosen Titelbild ließen sich nicht
 anklicken** — sie lagen im Streifen der oberen Leiste, und die nimmt dort jeden
 Klick entgegen. Sie stehen jetzt darunter und außerdem an der Ecke des *Bildes*
