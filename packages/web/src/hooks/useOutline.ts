@@ -100,6 +100,10 @@ export function useOutline(doc: Y.Doc | null): OutlineEntry[] {
  *
  * ## And the flash, which is not the same answer twice
  *
+ * Announced rather than written onto the element: ProseMirror owns that
+ * element and reconciles a foreign attribute away within a tick (ADR-0167).
+ * The editor draws it as a decoration.
+ *
  * The scroll decides where to look; the flash says *this one*. They come apart
  * at the end of a document, where the last paragraph cannot be put at the top
  * however far the page scrolls — arriving *near* something is not being shown
@@ -114,6 +118,6 @@ export function scrollToBlock(blockId: string): boolean {
     behavior: 'smooth',
     block: 'start',
   });
-  showAsFound(element as HTMLElement);
+  showAsFound(blockId);
   return true;
 }

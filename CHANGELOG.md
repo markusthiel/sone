@@ -13,7 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Behoben: der Block leuchtete nicht auf.** Der Sprung aus der rechten Leiste
+scrollte richtig, aber die Stelle blieb unmarkiert — das Aufleuchten wurde vom
+Editor innerhalb eines Wimpernschlags wieder weggeräumt, weil ihm die Absätze
+gehören und er alles zurücksetzt, was von außen an ihnen geändert wird. Jetzt
+zeichnet er es selbst, und es bleibt die anderthalb Sekunden stehen — auch dann,
+wenn nebenher weitergeschrieben wird.
 
 ## 0.12.5
 

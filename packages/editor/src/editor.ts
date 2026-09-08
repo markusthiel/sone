@@ -35,6 +35,7 @@ import { blockIds, type IdGenerator } from './blockIds.js';
 import { soneInputRules } from './inputRules.js';
 import { soneKeymap } from './keymap.js';
 import { codeCopy } from './codeCopy.js';
+import { foundBlock } from './foundBlock.js';
 import { followLinks } from './links.js';
 import { collapse } from './collapse.js';
 import { listNumbers } from './listNumbers.js';
@@ -215,6 +216,10 @@ export function createEditorState(opts: EditorOptions): EditorState {
     collapse(),
     placeholders(),
     codeCopy(),
+    // The block the right sidebar took somebody to, lit for a moment
+    // (ADR-0167). A decoration, because an attribute written onto the element
+    // from outside is reconciled away within a tick.
+    foundBlock(),
     // Following one (ADR-0157). A plain click in a read-only view, and the
     // platform's modifier in an editable one — where a plain click has to keep
     // putting the caret in the word, or a link would be a phrase nobody can
@@ -369,6 +374,7 @@ export function jsonToFragment(
 export { schema } from './schema.js';
 export { readProps, writeProps, BLOCK_TYPE_ORDER } from './schema.js';
 export { blockIds, assignMissingIds, collectBlockIds } from './blockIds.js';
+export { foundBlock, foundBlockId, showFoundBlock } from './foundBlock.js';
 export {
   blocksInSelection,
   soneKeymap,

@@ -25,7 +25,12 @@ let dom: JSDOM;
 describe('taking somebody to a block', () => {
   before(() => {
     dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
-    for (const key of ['window', 'document', 'CSS', 'HTMLElement', 'Element'] as const) {
+    // `CustomEvent` among them, and it matters: dispatching Node's own
+    // CustomEvent at a jsdom window is refused, because they are two classes
+    // with one name.
+    for (const key of [
+      'window', 'document', 'CSS', 'HTMLElement', 'Element', 'Event', 'CustomEvent',
+    ] as const) {
       const value = (dom.window as unknown as Record<string, unknown>)[key];
       if (value === undefined) continue;
       Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
@@ -70,21 +75,36 @@ describe('taking somebody to a block', () => {
   });
 
   test('and it says which block, for as long as that is useful', async () => {
-    // The half that still works when the scroll cannot reach the top: the last
-    // paragraph of a document cannot be put at the top, and arriving *near*
-    // something is not the same as being shown it.
+    /*
+     * The half that still works when the scroll cannot reach the top: the last
+     * paragraph of a document cannot be put at the top, and arriving *near*
+     * something is not the same as being shown it.
+     *
+     * **What is asserted is the announcement, not an attribute.** The first
+     * version of this test set `data-found` on a plain jsdom element and read
+     * it back, which is a fixture agreeing with itself: in the application that
+     * element belongs to ProseMirror, which reconciled the attribute away
+     * within a tick (ADR-0167). What reaches the editor is this event; that it
+     * draws something is `foundBlock.test.ts`, against a mounted editor.
+     */
     mock.timers.enable({ apis: ['setTimeout'] });
+    const heard: Array<string | null> = [];
+    const listen = (event: Event): void => {
+      heard.push((event as CustomEvent<string | null>).detail);
+    };
+    dom.window.addEventListener('sone:found-block', listen);
     try {
       const { scrollToBlock } = await import('../src/hooks/useOutline.ts');
       const { FOUND_MS } = await import('../src/lib/found.ts');
-      const { element } = blockNamed('b2');
+      blockNamed('b2');
 
       scrollToBlock('b2');
-      assert.equal(element.dataset['found'], '', 'lit on arrival');
+      assert.deepEqual(heard, ['b2'], 'lit on arrival');
 
       mock.timers.tick(FOUND_MS + 10);
-      assert.equal(element.dataset['found'], undefined, 'and it stops being lit');
+      assert.deepEqual(heard, ['b2', null], 'and it stops being lit');
     } finally {
+      dom.window.removeEventListener('sone:found-block', listen);
       mock.timers.reset();
     }
   });
@@ -92,22 +112,33 @@ describe('taking somebody to a block', () => {
   test('a second jump lights the second block, not both', async () => {
     // A block that stayed lit would make the *next* jump look like nothing
     // happened — the sentence ADR-0156 wrote about the PDF marks, one floor up.
+    // The timer of the first is cancelled, so nothing puts the second one out
+    // early either.
     mock.timers.enable({ apis: ['setTimeout'] });
+    const heard: Array<string | null> = [];
+    const listen = (event: Event): void => {
+      heard.push((event as CustomEvent<string | null>).detail);
+    };
+    dom.window.addEventListener('sone:found-block', listen);
     try {
       const { scrollToBlock } = await import('../src/hooks/useOutline.ts');
+      const { FOUND_MS } = await import('../src/lib/found.ts');
       dom.window.document.body.innerHTML = '';
-      const first = blockNamed('c1').element;
-      const second = dom.window.document.createElement('p');
-      second.setAttribute('data-block-id', 'c2');
-      (second as unknown as { scrollIntoView: unknown }).scrollIntoView = () => undefined;
-      dom.window.document.body.append(second);
+      for (const id of ['c1', 'c2']) {
+        const element = dom.window.document.createElement('p');
+        element.setAttribute('data-block-id', id);
+        (element as unknown as { scrollIntoView: unknown }).scrollIntoView = () => undefined;
+        dom.window.document.body.append(element);
+      }
 
       scrollToBlock('c1');
       scrollToBlock('c2');
+      assert.deepEqual(heard, ['c1', 'c2']);
 
-      assert.equal(first.dataset['found'], undefined, 'the first one let go');
-      assert.equal(second.dataset['found'], '', 'and the second is the one');
+      mock.timers.tick(FOUND_MS + 10);
+      assert.deepEqual(heard, ['c1', 'c2', null], 'one timer, not two');
     } finally {
+      dom.window.removeEventListener('sone:found-block', listen);
       mock.timers.reset();
     }
   });
@@ -165,5 +196,17 @@ describe('how long a found thing stays lit', () => {
     const viewer = codeOf(new URL('../src/components/pdfViewer.ts', import.meta.url));
     assert.doesNotMatch(viewer, /const FOUND_MS =/);
     assert.match(viewer, /import \{ FOUND_MS \} from '\.\.\/lib\/found\.ts';/);
+  });
+
+  test('and the editor is the one that draws it', async () => {
+    // The surface listens and hands the id to the plugin; the plugin decides
+    // what lit looks like. Nothing here writes to an element the editor owns
+    // — that was ADR-0166's mistake and it lasted exactly one tick.
+    const { codeOf } = await import('./helpers/source.ts');
+    const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+    const found = codeOf(new URL('../src/lib/found.ts', import.meta.url));
+    assert.match(surface, /window\.addEventListener\(FOUND_EVENT, lightUp\)/);
+    assert.match(surface, /showFoundBlock\(view, id\)/);
+    assert.doesNotMatch(found, /dataset/);
   });
 });

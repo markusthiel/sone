@@ -1,12 +1,21 @@
 /**
- * SONE web — saying *this is the one you asked for* (ADR-0156, ADR-0166).
+ * SONE web — saying *this is the one you asked for* (ADR-0156, ADR-0166, ADR-0167).
  *
  * Two places take somebody to a thing and then have to point at it: a PDF mark
  * revealed from the comments panel, and a block revealed from the right
  * sidebar. They light it differently — the mark is redrawn from state the
- * viewer holds, the block is an element already in the document — but **how
- * long a moment lasts** is one decision, and it was written down twice the
- * moment the second one arrived.
+ * viewer holds, the block is a ProseMirror decoration — but **how long a moment
+ * lasts** is one decision, and it was written down twice the moment the second
+ * one arrived.
+ *
+ * ## Why this announces rather than writes
+ *
+ * The first version set `data-found` on the block's own element. ProseMirror
+ * owns that element: its DOM observer sees the attribute appear and reconciles
+ * it away within a tick (ADR-0167). So the flash is a decoration inside the
+ * editor now, and this side only says *which block, and for how long* — down
+ * the same named channel `sone:reveal-comment` and `sone:pdf-comment` use,
+ * because only the editor can turn an id into something drawn.
  */
 
 /**
@@ -18,37 +27,27 @@
  */
 export const FOUND_MS = 1600;
 
-/** The timeout for the element currently lit, so a second ask can end the first. */
+/** The event the editor listens for. Null means "put it out". */
+export const FOUND_EVENT = 'sone:found-block';
+
 let letGo: ReturnType<typeof setTimeout> | null = null;
-let lit: HTMLElement | null = null;
+
+const announce = (blockId: string | null): void => {
+  window.dispatchEvent(new CustomEvent(FOUND_EVENT, { detail: blockId }));
+};
 
 /**
- * Mark an element as the one somebody asked for, for a moment.
+ * Light a block for a moment.
  *
- * The attribute rather than an inline style, because what *found* looks like is
- * the stylesheet's decision — including the part that matters, which is that
- * the ring holds for a reader who has asked for less motion and only the pulse
- * goes (ADR-0156).
- *
- * ## It can be cut short, and that is acceptable
- *
- * The element belongs to ProseMirror, which owns its DOM: a node re-render
- * while the flash is on takes the attribute with it. That needs a keystroke in
- * that block during the second and a half after pressing something in a panel,
- * and the cost is a flash that ends early — against a decoration plugin and a
- * transaction for something that is not part of the document.
+ * The timer lives here rather than in the editor's plugin so that *how long*
+ * stays beside the other duration this file owns. The plugin draws what it is
+ * told and holds no policy about time.
  */
-export function showAsFound(element: HTMLElement): void {
+export function showAsFound(blockId: string): void {
   if (letGo) clearTimeout(letGo);
-  // Explicitly, rather than trusting the timeout that is about to be cleared:
-  // two jumps in quick succession must leave exactly one thing lit.
-  if (lit && lit !== element) delete lit.dataset['found'];
-
-  lit = element;
-  element.dataset['found'] = '';
+  announce(blockId);
   letGo = setTimeout(() => {
-    delete element.dataset['found'];
-    if (lit === element) lit = null;
+    announce(null);
     letGo = null;
   }, FOUND_MS);
 }
