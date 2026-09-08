@@ -246,6 +246,23 @@ describe('the cover above a heading', () => {
     assert.deepEqual(chosen, [{ kind: 'image', url: FILE, width: 'full' }]);
   });
 
+  test('the width row is three steps, widest last (ADR-0163)', async () => {
+    // Column, the page, and the page including the strip the bar sits on. One
+    // row rather than a second setting: „bis oben" is the widest of three
+    // steps, not a second question about the same picture.
+    await mount({ kind: 'image', url: FILE });
+    await click(buttonSaying('Change cover')!);
+
+    const row = container.querySelectorAll('.entry-cover-shape')[0];
+    assert.deepEqual(
+      [...(row?.querySelectorAll('button') ?? [])].map((b) => (b.textContent ?? '').trim()),
+      ['Column', 'Full page', 'Edge to edge'],
+    );
+
+    await click(buttonSaying('Edge to edge')!);
+    assert.deepEqual(chosen, [{ kind: 'image', url: FILE, width: 'bleed' }]);
+  });
+
   test('and choosing the default takes the field back out', async () => {
     /*
      * Absent rather than `width: 'column'`, which is how `template` and
@@ -301,10 +318,13 @@ describe('what the shape settings draw', () => {
   const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 
   test('three heights, and three different ones', () => {
+    // Read as a custom property since ADR-0163: a band that runs up under the
+    // bar has to add the bar's height to its own, and `calc()` cannot add to a
+    // value it has to re-derive from a selector.
     const heights = ['slim', 'medium', 'tall'].map((name) => {
       const rule = new RegExp(`\\.entry-cover\\[data-height='${name}'\\][^{]*\\{([^}]*)\\}`).exec(css);
       assert.ok(rule, `${name} has a rule`);
-      const size = /block-size:([^;]+);/.exec(rule[1] ?? '');
+      const size = /--cover-block-size:([^;]+);/.exec(rule[1] ?? '');
       assert.ok(size, `${name} sets a height`);
       return (size[1] ?? '').trim();
     });
@@ -318,7 +338,7 @@ describe('what the shape settings draw', () => {
     // one that says `medium` are the same clamp, written once.
     assert.match(
       css,
-      /\.entry-cover,\s*\n\.entry-cover\[data-height='medium'\] \{[^}]*block-size: clamp\(120px, 20vh, 210px\)/s,
+      /\.entry-cover,\s*\n\.entry-cover\[data-height='medium'\] \{[^}]*--cover-block-size: clamp\(120px, 20vh, 210px\)/s,
     );
   });
 
@@ -332,7 +352,7 @@ describe('what the shape settings draw', () => {
      * editor's own left padding, and a cover sits in a symmetrically padded
      * page body. Copying it would push the band half an indent off centre.
      */
-    const rule = /\.entry-cover\[data-width='full'\] \{([^}]*)\}/.exec(css);
+    const rule = /\.entry-cover\[data-width='full'\],\n\.entry-cover\[data-width='bleed'\] \{([^}]*)\}/.exec(css);
     assert.ok(rule, 'there is a rule');
     assert.match(rule[1] ?? '', /margin-inline: calc\(50% - 50cqw\)/);
     assert.match(rule[1] ?? '', /inline-size: 100cqw/);
@@ -343,7 +363,7 @@ describe('what the shape settings draw', () => {
     // The rule a full-width block states about itself: a rounded corner or a
     // border is what tells you where a thing ends, and a band running to both
     // edges of the page has no ends to mark.
-    const rule = /\.entry-cover\[data-width='full'\] \{([^}]*)\}/.exec(css);
+    const rule = /\.entry-cover\[data-width='full'\],\n\.entry-cover\[data-width='bleed'\] \{([^}]*)\}/.exec(css);
     assert.match(rule?.[1] ?? '', /border-radius: 0/);
     assert.match(rule?.[1] ?? '', /box-shadow: none/);
   });
@@ -353,7 +373,86 @@ describe('what the shape settings draw', () => {
     // sideways — the same clause the blocks have, for the same reason.
     assert.match(
       css,
-      /@media \(max-width: 720px\) \{[^}]*\.entry-cover\[data-width='full'\] \{[^}]*margin-inline: 0/s,
+      /@media \(max-width: 720px\) \{[^}]*\.entry-cover\[data-width='full'\],\n\s*\.entry-cover\[data-width='bleed'\] \{[^}]*margin-inline: 0/s,
     );
+  });
+});
+
+/*
+ * And up under the top bar (ADR-0163).
+ *
+ * *„Eine weitere Einstellung dass das Titelbild bis oben zum Seitenrand läuft.
+ * Das hat zur Folge das die buttons für die Seitenleisten und das Synced und die
+ * User-Kürzel dann im Bild stehen. Die könnte man dann abheben mit den selben
+ * Flächen, die man beim Hover auf der schmalen Leiste hat."*
+ *
+ * All of it is in the stylesheet and none of it in a component: the bar is
+ * rendered by `App` and the cover by `PageView`, two siblings that would
+ * otherwise have to agree about a value one of them owns. `:has()` reads the
+ * live document instead, which cannot go stale.
+ */
+describe('a cover that runs to the top edge', () => {
+  const css = stylesOf(new URL('../src/styles.css', import.meta.url));
+
+  test('the bar declares a height instead of happening to have one', () => {
+    // The band is pulled up by exactly this, so it cannot be a number somebody
+    // measured once: the next control added to the bar would make the offset
+    // silently wrong. Declared, and enforced on the bar itself.
+    assert.match(css, /--topbar-block-size:\s*\d+px/);
+    assert.match(css, /\.topbar \{[^}]*min-block-size: var\(--topbar-block-size\)/s);
+  });
+
+  test('the band grows by what it swallows, so nothing below it moves', () => {
+    /*
+     * Up by the bar *and* the page body's own top padding, and taller by the
+     * same two — otherwise the heading under the picture jumps up when the
+     * setting is turned on, which is a setting that moves the text somebody
+     * was reading.
+     */
+    const rule = /\.topbar \+ \.page-body \.entry-cover\[data-width='bleed'\] \{([^}]*)\}/.exec(css);
+    assert.ok(rule, 'there is a rule');
+    assert.match(
+      rule[1] ?? '',
+      /margin-block-start: calc\(\(var\(--topbar-block-size\) \+ var\(--page-body-block-start\)\) \* -1\)/,
+    );
+    assert.match(
+      rule[1] ?? '',
+      /block-size: calc\(var\(--cover-block-size\) \+ var\(--topbar-block-size\) \+ var\(--page-body-block-start\)\)/,
+    );
+  });
+
+  test('and only when nothing stands between the bar and the page', () => {
+    /*
+     * `.topbar + .page-body`, so a banner — a stale bundle, a two-factor
+     * deadline — takes the bleed off by existing. A picture reaching the window
+     * edge is worth less than a sentence saying your browser is running an old
+     * build, and no component has to know about the other for this to be true.
+     */
+    assert.match(css, /\.topbar \+ \.page-body \.entry-cover\[data-width='bleed'\]/);
+    assert.doesNotMatch(css, /\.main \.entry-cover\[data-width='bleed'\] \{/);
+  });
+
+  test('the bar goes transparent over it, and fills again on the first scroll', () => {
+    // The behaviour the bar has had since ADR-0042 — no fill until something is
+    // above the fold — doing exactly the right thing here for free.
+    assert.match(
+      css,
+      /\.main:not\(\[data-scrolled='true'\]\):has\(\.topbar \+ \.page-body \.entry-cover\[data-width='bleed'\]\)[^{]*\.topbar \{[^}]*background: transparent/s,
+    );
+  });
+
+  test('and every control in it brings its own ground', () => {
+    /*
+     * The half that is not decoration. `readableInk` decides ink against a
+     * known ground, and a photograph has none — it is dark on one side and
+     * light on the other. An opaque chip under each control puts a known ground
+     * back, which is the same pairing `contrast.test.ts` already governs
+     * everywhere else.
+     */
+    const rule =
+      /:has\(\.topbar \+ \.page-body \.entry-cover\[data-width='bleed'\]\)\s*\.topbar\s*:where\([^)]*\)\s*\{([^}]*)\}/.exec(css);
+    assert.ok(rule, 'the controls get a surface');
+    assert.match(rule[1] ?? '', /background: var\(--surface-hover\)/);
+    assert.match(rule[1] ?? '', /color: var\(--text-primary\)/);
   });
 });

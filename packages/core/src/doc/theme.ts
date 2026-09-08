@@ -984,8 +984,15 @@ export type EntryCover = (
  * words: *"all three read as the width of the text, or a bit more. An image is
  * either in the column with the writing or across the page."* A cover is that
  * picture, one line higher up.
+ *
+ * And a third step above `full` (ADR-0163): `bleed` is the whole page *and* up
+ * under the top bar, so the picture starts at the edge of the window. A third
+ * value in the same field rather than a second field, because it is the widest
+ * of three steps and not a second question — a band in the reading column that
+ * also ran under the bar would put the page's controls over the page's own
+ * background, which is where they already are.
  */
-export const COVER_WIDTHS = ['column', 'full'] as const;
+export const COVER_WIDTHS = ['column', 'full', 'bleed'] as const;
 export type CoverWidth = (typeof COVER_WIDTHS)[number];
 
 /**
@@ -1057,7 +1064,7 @@ export function readEntryCover(value: unknown): EntryCover | null {
    * heights — one of them is simply written as silence.
    */
   const shape: CoverShape = {};
-  if (raw['width'] === 'full') shape.width = 'full';
+  if (raw['width'] === 'full' || raw['width'] === 'bleed') shape.width = raw['width'];
   if (COVER_HEIGHTS.includes(raw['height'] as CoverHeight) && raw['height'] !== 'medium') {
     shape.height = raw['height'] as CoverHeight;
   }

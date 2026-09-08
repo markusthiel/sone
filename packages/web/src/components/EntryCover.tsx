@@ -292,6 +292,11 @@ export function EntryCoverHead({
                   [
                     { id: undefined, label: 'block.width.column' },
                     { id: 'full', label: 'block.width.full' },
+                    // And one step wider still (ADR-0163): the page including
+                    // the strip the top bar sits on. Its own word rather than
+                    // a second setting — this row is a scale, and „bis oben" is
+                    // its top end.
+                    { id: 'bleed', label: 'cover.width.bleed' },
                   ] as const
                 ).map((choice) => (
                   <button
