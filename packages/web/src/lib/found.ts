@@ -51,3 +51,17 @@ export function showAsFound(blockId: string): void {
     letGo = null;
   }, FOUND_MS);
 }
+
+/**
+ * Somebody clicked a comment mark in the writing (ADR-0168).
+ *
+ * A named event for the reason every other one here is: the editor knows which
+ * thread was clicked, and the three things that have to answer — the panel
+ * opening, the tab changing, the thread lighting up — are three components with
+ * no path between them. Each listens for what concerns it.
+ */
+export const OPEN_THREAD_EVENT = 'sone:open-thread';
+
+export function askForThread(threadId: string): void {
+  window.dispatchEvent(new CustomEvent(OPEN_THREAD_EVENT, { detail: threadId }));
+}
