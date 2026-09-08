@@ -1561,7 +1561,7 @@ export function registerCollectionRoutes(router: Router, deps: CollectionDeps): 
     }
 
     const viewType = body.viewType;
-    // A gallery is a third view type rather than a mode of the table (ADR-0039),
+    // A gallery is a third view type rather than a mode of the table (ADR-0160),
     // so filters, sorting and the search box apply to it as they do to any view.
     if (viewType !== 'table' && viewType !== 'board' && viewType !== 'gallery') {
       // 'list' is in the model and has no renderer, so it is not offered.

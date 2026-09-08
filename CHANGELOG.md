@@ -1812,7 +1812,7 @@ been adjusting a number that never decided anything.
 **Fixed: a select column's option editor was cut off** at the edge of the table,
 the same way the column menu used to be — a scrolling container clips both axes.
 
-**A collection can be shown as a gallery** ([ADR-0039](docs/adr/0039-gallery-view.md)):
+**A collection can be shown as a gallery** ([ADR-0160](docs/adr/0160-gallery-view.md)):
 cards with a cover, switched to like the board. The cover is the first image in a
 files column, and an entry without one gets a blank panel rather than a
 placeholder. The offer to add one appears once the table has a files column. No

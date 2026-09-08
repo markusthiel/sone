@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Built. Closes the dead control ADR-0155 named on its way past.
+Accepted. Built. Closes the dead control ADR-0159 named on its way past.
 
 ## Context
 
@@ -13,7 +13,7 @@ job, so revealing is a message rather than a scroll from the page.
 
 A place in a PDF had no such message. The page dispatched only for a thread with
 a **range**, so every comment about page seven of a document listed a quotation
-and, when pressed, did nothing at all. ADR-0155 disabled the button where the
+and, when pressed, did nothing at all. ADR-0159 disabled the button where the
 document had gone from the page and wrote down what it was leaving behind: for
 every other place thread the button was still dead.
 

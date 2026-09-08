@@ -1,5 +1,5 @@
 /**
- * SONE web — a collection drawn as covers (ADR-0039).
+ * SONE web — a collection drawn as covers (ADR-0160).
  *
  * The same rows as the table, with a picture attached: filters, sorting and the
  * search box are the view's and apply here unchanged, which is the reason a
