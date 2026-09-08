@@ -97,6 +97,84 @@ describe('what a cover may be', () => {
   });
 });
 
+describe('the shape of the band (ADR-0162)', () => {
+  /*
+   * Asked for after living with it: *„dass das Titelbild auch über die ganze
+   * breite geht. Und vielleicht noch 3 Möglichkeiten was die Höhe angeht"*.
+   *
+   * Two fields beside `kind` rather than three more kinds: how tall a band is
+   * and how wide it runs are true of a picture, a colour and a gradient alike,
+   * and a union that multiplied them would have nine members saying three
+   * things.
+   */
+  test('a cover nobody has adjusted carries nothing about its shape', () => {
+    // The default is absence, the way `template` and `locked` are absent rather
+    // than false. Every cover written before this round is one of these, and it
+    // has to keep drawing exactly as it did.
+    assert.deepEqual(readEntryCover({ kind: 'image', url: FILE }), {
+      kind: 'image',
+      url: FILE,
+    });
+  });
+
+  test('a width and a height are kept, whatever the cover is', () => {
+    assert.deepEqual(readEntryCover({ kind: 'image', url: FILE, width: 'full', height: 'tall' }), {
+      kind: 'image',
+      url: FILE,
+      width: 'full',
+      height: 'tall',
+    });
+    assert.deepEqual(readEntryCover({ kind: 'color', color: 'blue', height: 'slim' }), {
+      kind: 'color',
+      color: 'blue',
+      height: 'slim',
+    });
+    assert.deepEqual(readEntryCover({ kind: 'gradient', from: 'blue', to: 'purple', width: 'full' }), {
+      kind: 'gradient',
+      from: 'blue',
+      to: 'purple',
+      width: 'full',
+    });
+  });
+
+  test('the default has one spelling, and it is silence', () => {
+    /*
+     * `column` and `medium` are what a cover does when it says nothing, so the
+     * reader refuses to store them as words. Two spellings for one state is a
+     * control that has to decide which of them counts as chosen — and a band
+     * that reads as adjusted while looking exactly like every band nobody has
+     * touched.
+     */
+    assert.deepEqual(
+      readEntryCover({ kind: 'image', url: FILE, width: 'column', height: 'medium' }),
+      { kind: 'image', url: FILE },
+    );
+  });
+
+  test('and a shape nobody offers is dropped without taking the cover with it', () => {
+    /*
+     * The rule this file already states, applied one level down: a malformed
+     * cover loses its cover and not its place in the tree, so a cover with a
+     * height nobody has heard of loses the height and not the picture. The
+     * alternative is a page that shows nothing above its heading because
+     * somebody's client wrote `height: 'huge'`.
+     */
+    for (const shape of [
+      { width: 'gigantic' },
+      { width: 'wide' },
+      { height: 'huge' },
+      { height: 42 },
+      { width: null, height: null },
+    ]) {
+      assert.deepEqual(
+        readEntryCover({ kind: 'image', url: FILE, ...shape }),
+        { kind: 'image', url: FILE },
+        JSON.stringify(shape),
+      );
+    }
+  });
+});
+
 describe('drawing one', () => {
   test('a colour becomes a colour, a name becomes the workspace’s variable', () => {
     assert.equal(coverBackground({ kind: 'color', color: '#112233' }), '#112233');

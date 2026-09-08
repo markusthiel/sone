@@ -20,6 +20,8 @@ import { after, before, describe, test } from 'node:test';
 
 import { JSDOM } from 'jsdom';
 
+import { stylesOf } from './helpers/source.ts';
+
 let dom: JSDOM;
 let act: <T>(fn: () => T | Promise<T>) => Promise<void>;
 let container: HTMLElement;
@@ -196,6 +198,79 @@ describe('the cover above a heading', () => {
     assert.deepEqual(chosen, [null]);
   });
 
+  /*
+   * How wide it runs and how tall it is (ADR-0162).
+   *
+   * *„Ich könnte mir zb vorstellen dass das Titelbild auch über die ganze
+   * breite geht. Und vielleicht noch 3 Möglichkeiten was die Höhe angeht."*
+   *
+   * Mounted for the same reason the rest of this file is: what is asserted is
+   * that a choice reaches the document unchanged and that the default leaves
+   * nothing behind — a source test would see both spellings written down.
+   */
+  test('a cover nobody has adjusted says nothing about its shape', async () => {
+    await mount({ kind: 'image', url: FILE });
+    const band = container.querySelector('.entry-cover') as HTMLElement;
+    assert.equal(band.dataset['width'], undefined, 'no width attribute');
+    assert.equal(band.dataset['height'], undefined, 'no height attribute');
+  });
+
+  test('and one that has, carries both on the band', async () => {
+    // On the band rather than in a style attribute: the sizes are a decision
+    // the stylesheet makes, and three heights spelled out in a component are
+    // three numbers nobody can find from the CSS.
+    await mount({ kind: 'image', url: FILE, width: 'full', height: 'tall' });
+    const band = container.querySelector('.entry-cover') as HTMLElement;
+    assert.equal(band.dataset['width'], 'full');
+    assert.equal(band.dataset['height'], 'tall');
+  });
+
+  test('the two rows are offered once there is a cover, and not before', async () => {
+    // The width of nothing is nothing. On a page with no cover the picker is
+    // how one is chosen, and two rows of shape settings above that are two
+    // questions about a thing that does not exist yet.
+    await mount(null);
+    await click(buttonSaying('Cover')!);
+    assert.equal(container.querySelector('.entry-cover-shape'), null);
+
+    await mount({ kind: 'color', color: 'blue' });
+    await click(buttonSaying('Change cover')!);
+    assert.equal(container.querySelectorAll('.entry-cover-shape').length, 2, 'width and height');
+  });
+
+  test('choosing a width keeps the cover it is the width of', async () => {
+    await mount({ kind: 'image', url: FILE });
+    await click(buttonSaying('Change cover')!);
+    await click(buttonSaying('Full page')!);
+
+    assert.deepEqual(chosen, [{ kind: 'image', url: FILE, width: 'full' }]);
+  });
+
+  test('and choosing the default takes the field back out', async () => {
+    /*
+     * Absent rather than `width: 'column'`, which is how `template` and
+     * `locked` say the same thing. A value written in for the default is a
+     * cover that claims a decision nobody made — and it would make every cover
+     * on the instance differ from every cover written before this round.
+     */
+    await mount({ kind: 'image', url: FILE, width: 'full', height: 'tall' });
+    await click(buttonSaying('Change cover')!);
+    await click(buttonSaying('Column')!);
+
+    assert.deepEqual(chosen, [{ kind: 'image', url: FILE, height: 'tall' }]);
+  });
+
+  test('the current choice says it is the current one', async () => {
+    // `aria-checked` on a radio, the shape the block menu's own width row uses.
+    // A row of buttons where the chosen one is only a shade darker is a row a
+    // screen reader reads as four identical buttons.
+    await mount({ kind: 'image', url: FILE, height: 'slim' });
+    await click(buttonSaying('Change cover')!);
+
+    assert.equal(buttonSaying('Slim')?.getAttribute('aria-checked'), 'true');
+    assert.equal(buttonSaying('Medium')?.getAttribute('aria-checked'), 'false');
+  });
+
   test('Escape closes the picker without choosing anything', async () => {
     // A panel that only closes by choosing something is a panel somebody has to
     // choose their way out of.
@@ -211,5 +286,74 @@ describe('the cover above a heading', () => {
 
     assert.equal(container.querySelector('.entry-cover-picker'), null);
     assert.deepEqual(chosen, []);
+  });
+});
+
+/*
+ * The sizes themselves, read from the stylesheet (ADR-0162).
+ *
+ * jsdom applies no stylesheet, so the mounted tests above can only say that the
+ * band carries the right attribute. What that attribute *does* is here, and the
+ * measurement that neither can make is in the ADR: a full-width cover was drawn
+ * in Chromium and its edges compared with the page's.
+ */
+describe('what the shape settings draw', () => {
+  const css = stylesOf(new URL('../src/styles.css', import.meta.url));
+
+  test('three heights, and three different ones', () => {
+    const heights = ['slim', 'medium', 'tall'].map((name) => {
+      const rule = new RegExp(`\\.entry-cover\\[data-height='${name}'\\][^{]*\\{([^}]*)\\}`).exec(css);
+      assert.ok(rule, `${name} has a rule`);
+      const size = /block-size:([^;]+);/.exec(rule[1] ?? '');
+      assert.ok(size, `${name} sets a height`);
+      return (size[1] ?? '').trim();
+    });
+    assert.equal(new Set(heights).size, 3, 'three names, three heights');
+  });
+
+  test('and the middle one is what a cover has always been', () => {
+    // „Wenn nichts gesetzt ist, soll alles so aussehen wie bisher" is the
+    // sentence this feature was built under (ADR-0117), and it now has to hold
+    // across a round that gives the band a setting. So the unset band and the
+    // one that says `medium` are the same clamp, written once.
+    assert.match(
+      css,
+      /\.entry-cover,\s*\n\.entry-cover\[data-height='medium'\] \{[^}]*block-size: clamp\(120px, 20vh, 210px\)/s,
+    );
+  });
+
+  test('full width is measured against the page, not the window', () => {
+    /*
+     * `100cqw` against `.main`'s container, the arithmetic a full-width block
+     * already uses. `100vw` is the *window* — sidebar included — which is how a
+     * full-width block once pushed the whole page sideways.
+     *
+     * And no text-indent correction here: that half-indent belongs to the
+     * editor's own left padding, and a cover sits in a symmetrically padded
+     * page body. Copying it would push the band half an indent off centre.
+     */
+    const rule = /\.entry-cover\[data-width='full'\] \{([^}]*)\}/.exec(css);
+    assert.ok(rule, 'there is a rule');
+    assert.match(rule[1] ?? '', /margin-inline: calc\(50% - 50cqw\)/);
+    assert.match(rule[1] ?? '', /inline-size: 100cqw/);
+    assert.doesNotMatch(rule[1] ?? '', /text-indent/);
+  });
+
+  test('and a band with no ends does not draw any', () => {
+    // The rule a full-width block states about itself: a rounded corner or a
+    // border is what tells you where a thing ends, and a band running to both
+    // edges of the page has no ends to mark.
+    const rule = /\.entry-cover\[data-width='full'\] \{([^}]*)\}/.exec(css);
+    assert.match(rule?.[1] ?? '', /border-radius: 0/);
+    assert.match(rule?.[1] ?? '', /box-shadow: none/);
+  });
+
+  test('nothing breaks out on a narrow screen', () => {
+    // There is no margin to break into, and doing it anyway pushes the page
+    // sideways — the same clause the blocks have, for the same reason.
+    assert.match(
+      css,
+      /@media \(max-width: 720px\) \{[^}]*\.entry-cover\[data-width='full'\] \{[^}]*margin-inline: 0/s,
+    );
   });
 });
