@@ -35,6 +35,7 @@ import { CanvasSurface } from './CanvasSurface.tsx';
 import { VersionDiff } from './VersionDiff.tsx';
 import { VersionView } from './VersionView.tsx';
 import { EditorSurface } from './EditorSurface.tsx';
+import { Breadcrumb } from './Breadcrumb.tsx';
 import { EntryCoverHead } from './EntryCover.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
@@ -261,24 +262,6 @@ export function PageView({
 
   return (
     <div className="page-body" data-width={width} data-kind={isCanvas ? 'canvas' : undefined}>
-      {/* Where this page sits, when the sidebar is not saying so.
-        *
-        * Above the title, which is where a location belongs — reading it
-        * downwards gives the folders and then the page. The same markup a
-        * folder's own trail uses, so the two do not drift apart. */}
-      {trail.length > 0 && (
-        <nav className="breadcrumb" aria-label={t('folder.location')}>
-          {trail.map((ancestor) => (
-            <span key={ancestor.id}>
-              <a href={pageLink(ancestor.id, ancestor.title ?? undefined)}>
-                {ancestor.title || t('folder.untitled')}
-              </a>
-              <span aria-hidden="true"> / </span>
-            </span>
-          ))}
-        </nav>
-      )}
-
       {/* The cover, and the heading it sits above, in one hover region
         * (ADR-0117). The control to add one appears on hovering the heading,
         * which is why the two are wrapped rather than stacked. */}
@@ -295,6 +278,16 @@ export function PageView({
             }
           : {})}
       >
+        {/* Where this page sits, when the sidebar is not saying so — under the
+          * cover and above the title, which is where a location belongs:
+          * reading downwards gives the folders and then the page.
+          *
+          * Inside the heading region rather than above the cover (ADR-0164). A
+          * cover that runs to the top edge is only at the top when it is the
+          * first thing in the body, and a trail above it pushed the picture
+          * down by its own height. */}
+        <Breadcrumb trail={trail} />
+
         {/* The icon and the name on one line, the same shape a folder has. */}
         <div className="entry-heading">
           <span className="entry-heading-icon">

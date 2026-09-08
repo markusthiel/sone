@@ -1957,7 +1957,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
  * the picture slide underneath it. Neither component has to know about the
  * other for that to be true — the selector is the agreement.
  */
-.topbar + .page-body .entry-cover[data-width='bleed'] {
+.topbar + .page-body > .entry-head:first-child .entry-cover[data-width='bleed'] {
   margin-block-start: calc((var(--topbar-block-size) + var(--page-body-block-start)) * -1);
   block-size: calc(var(--cover-block-size) + var(--topbar-block-size) + var(--page-body-block-start));
 }
@@ -1970,7 +1970,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
  * rest it floats over the band, and the first scroll fills it again, because
  * from then on there is writing passing behind it.
  */
-.main:not([data-scrolled='true']):has(.topbar + .page-body .entry-cover[data-width='bleed'])
+.main:not([data-scrolled='true']):has(
+    .topbar + .page-body > .entry-head:first-child .entry-cover[data-width='bleed']
+  )
   .topbar {
   background: transparent;
 }
@@ -1988,7 +1990,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
  * Asked for in exactly those words: „die könnte man dann abheben mit den selben
  * Flächen, die man beim Hover auf der schmalen Leiste hat".
  */
-.main:not([data-scrolled='true']):has(.topbar + .page-body .entry-cover[data-width='bleed'])
+.main:not([data-scrolled='true']):has(
+    .topbar + .page-body > .entry-head:first-child .entry-cover[data-width='bleed']
+  )
   .topbar
   :where(.quiet, .status-chip) {
   background: var(--surface-hover);
@@ -2048,6 +2052,39 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   inset-inline-end: 10px;
   padding-inline-start: 0;
   margin-block-end: 0;
+}
+
+/*
+ * And they follow the picture when the picture leaves the column (ADR-0164).
+ *
+ * They are positioned against `.entry-head`, which is the reading column — so
+ * on a band that runs to the page's edges they sat ten pixels inside the
+ * *column's* right edge, floating in the middle of the picture. The same
+ * breakout the band itself uses puts them back on its corner.
+ */
+.entry-cover[data-width='full'] ~ .entry-cover-actions[data-over='cover'] {
+  inset-inline-end: calc(10px + 50% - 50cqw);
+}
+
+/*
+ * Below the bar, because the bar owns that strip.
+ *
+ * A bleeding band starts under the top bar, and the bar is a full-width sticky
+ * element at `z-index: 5` — so it took every click in the first 52 pixels, and
+ * the two buttons sitting there could be seen and not pressed. Measured, and it
+ * was true whether or not the sidebar was showing; toggling it only moved them
+ * far enough to notice.
+ *
+ * Moved rather than lifted above the bar: raising them would put them over the
+ * bar's own controls at the same corner, and the answer to "who owns the top
+ * strip" is the bar.
+ */
+.entry-cover[data-width='bleed'] ~ .entry-cover-actions[data-over='cover'] {
+  /* The same breakout as the rule above — written out rather than grouped with
+     it, because this one also has to move down and a grouped rule would need a
+     second rule for that anyway. */
+  inset-inline-end: calc(10px + 50% - 50cqw);
+  inset-block-start: calc(var(--topbar-block-size) + 10px);
 }
 
 .entry-cover-button {

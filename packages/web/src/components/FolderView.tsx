@@ -18,6 +18,7 @@ import { type PageNode } from '../api/client.ts';
 import type { EntryCover } from '@sone/core';
 import { paths } from '../routes/paths.ts';
 import { usePageLink } from '../routes/pageLink.tsx';
+import { Breadcrumb } from './Breadcrumb.tsx';
 import { EntryCoverHead } from './EntryCover.tsx';
 import { EntryIconView, entryKind, titleColorStyle } from './EntryIconView.tsx';
 import {
@@ -75,19 +76,6 @@ export function FolderView({
 
   return (
     <div className="page-body folder-view">
-      {trail.length > 0 && (
-        <nav className="breadcrumb" aria-label={t('folder.location')}>
-          {trail.map((ancestor) => (
-            <span key={ancestor.id}>
-              <a href={pageLink(ancestor.id, ancestor.title ?? undefined)}>
-                {ancestor.title || t('folder.untitled')}
-              </a>
-              <span aria-hidden="true"> / </span>
-            </span>
-          ))}
-        </nav>
-      )}
-
       {/* The folder's icon and its name, on one line — the same shape and the
           same element a page has (ADR-0030).
         *
@@ -108,6 +96,12 @@ export function FolderView({
           ? { onChange: (next: EntryCover | null) => onSetCover(folder.id, next) }
           : {})}
       >
+      {/* Under the cover and above the name (ADR-0164): a cover that runs to
+          the top edge is only at the top when it is the first thing in the
+          body, and a trail above it pushed the picture down by its own
+          height. */}
+      <Breadcrumb trail={trail} />
+
       <div className="entry-heading">
         <span className="entry-heading-icon">
           <EntryIconView icon={folder.icon} kind="folder" />
