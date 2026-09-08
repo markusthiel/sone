@@ -20,7 +20,7 @@ import { after, before, describe, test } from 'node:test';
 
 import { JSDOM } from 'jsdom';
 
-import { stylesOf } from './helpers/source.ts';
+import { codeOf, stylesOf } from './helpers/source.ts';
 
 let dom: JSDOM;
 let act: <T>(fn: () => T | Promise<T>) => Promise<void>;
@@ -409,7 +409,10 @@ describe('a cover that runs to the top edge', () => {
      * setting is turned on, which is a setting that moves the text somebody
      * was reading.
      */
-    const rule = /\.topbar \+ \.page-body \.entry-cover\[data-width='bleed'\] \{([^}]*)\}/.exec(css);
+    const rule =
+      /\.topbar \+ \.page-body > \.entry-head:first-child \.entry-cover\[data-width='bleed'\] \{([^}]*)\}/.exec(
+        css,
+      );
     assert.ok(rule, 'there is a rule');
     assert.match(
       rule[1] ?? '',
@@ -428,7 +431,7 @@ describe('a cover that runs to the top edge', () => {
      * edge is worth less than a sentence saying your browser is running an old
      * build, and no component has to know about the other for this to be true.
      */
-    assert.match(css, /\.topbar \+ \.page-body \.entry-cover\[data-width='bleed'\]/);
+    assert.match(css, /\.topbar \+ \.page-body > \.entry-head:first-child/);
     assert.doesNotMatch(css, /\.main \.entry-cover\[data-width='bleed'\] \{/);
   });
 
@@ -437,7 +440,24 @@ describe('a cover that runs to the top edge', () => {
     // above the fold — doing exactly the right thing here for free.
     assert.match(
       css,
-      /\.main:not\(\[data-scrolled='true'\]\):has\(\.topbar \+ \.page-body \.entry-cover\[data-width='bleed'\]\)[^{]*\.topbar \{[^}]*background: transparent/s,
+      /\.main:not\(\[data-scrolled='true'\]\):has\(\s*\.topbar \+ \.page-body > \.entry-head:first-child \.entry-cover\[data-width='bleed'\]\s*\)\s*\.topbar \{[^}]*background: transparent/s,
+    );
+  });
+
+  test('the picture is only pulled up when it is the first thing in the body', () => {
+    /*
+     * Reported: *„wenn die linke seitenleiste ausgeblendet wird, das bild nicht
+     * mehr bis ganz zum oberen rand geht. Es entsteht ein Abstand."*
+     *
+     * Hiding the sidebar makes a page draw its breadcrumb, which was the page
+     * body's first child — so the band started a breadcrumb's height too low,
+     * because the arithmetic that pulls it up is only true when nothing is
+     * above it. The trail moved under the cover (ADR-0164); this is the guard
+     * that says so, for whatever somebody puts there next.
+     */
+    assert.match(
+      css,
+      /\.topbar \+ \.page-body > \.entry-head:first-child \.entry-cover\[data-width='bleed'\]/,
     );
   });
 
@@ -450,9 +470,83 @@ describe('a cover that runs to the top edge', () => {
      * everywhere else.
      */
     const rule =
-      /:has\(\.topbar \+ \.page-body \.entry-cover\[data-width='bleed'\]\)\s*\.topbar\s*:where\([^)]*\)\s*\{([^}]*)\}/.exec(css);
+      /:has\(\s*\.topbar \+ \.page-body > \.entry-head:first-child \.entry-cover\[data-width='bleed'\]\s*\)\s*\.topbar\s*:where\([^)]*\)\s*\{([^}]*)\}/.exec(
+        css,
+      );
     assert.ok(rule, 'the controls get a surface');
     assert.match(rule[1] ?? '', /background: var\(--surface-hover\)/);
     assert.match(rule[1] ?? '', /color: var\(--text-primary\)/);
+  });
+});
+
+/*
+ * The two buttons on the picture (ADR-0164).
+ *
+ * Reported together with the gap above: *„Außerdem lässt sich der Titelbild
+ * ändern Button und der daneben zum entfernen nicht mehr korrekt anklicken. Es
+ * scheint vor allem verschoben zu sein."* Both halves were true, and the
+ * clicking half was true whether or not the sidebar was showing — toggling it
+ * only moved them far enough to notice.
+ */
+describe('the controls on a cover that left the column', () => {
+  const css = stylesOf(new URL('../src/styles.css', import.meta.url));
+
+  test('they follow the picture rather than the reading column', () => {
+    // They are positioned against `.entry-head`, which *is* the column, so on a
+    // band running to the page's edges they sat ten pixels inside the column's
+    // right edge — in the middle of the picture. The same breakout the band
+    // uses puts them back on its corner.
+    assert.match(
+      css,
+      /\.entry-cover\[data-width='full'\] ~ \.entry-cover-actions\[data-over='cover'\] \{[^}]*inset-inline-end: calc\(10px \+ 50% - 50cqw\)/s,
+    );
+  });
+
+  test('and they sit below the bar, which owns that strip', () => {
+    /*
+     * The bar is a full-width sticky element at `z-index: 5`. A bleeding band
+     * starts underneath it, so the buttons at ten pixels from the top were
+     * inside the bar's box: visible, and every click landing on the bar.
+     *
+     * Moved rather than raised above it — lifting them would put them over the
+     * bar's own controls in the same corner, and the answer to who owns the top
+     * strip is the bar.
+     */
+    assert.match(
+      css,
+      /\.entry-cover\[data-width='bleed'\] ~ \.entry-cover-actions\[data-over='cover'\] \{[^}]*inset-block-start: calc\(var\(--topbar-block-size\) \+ 10px\)/s,
+    );
+  });
+});
+
+/*
+ * Where the trail sits (ADR-0164).
+ *
+ * A source test, for the one thing a source test is right for: *where*
+ * something is written. What it does is measured in a browser — the ADR has the
+ * numbers.
+ */
+describe('the breadcrumb, and the cover above it', () => {
+  const page = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
+  const folder = codeOf(new URL('../src/components/FolderView.tsx', import.meta.url));
+
+  test('there is one breadcrumb, not one per screen', () => {
+    // The older copy said so itself: „the same markup a folder's own trail
+    // uses, so the two do not drift apart". They drifted the moment the trail
+    // had to move, because moving it meant moving it twice.
+    for (const [name, source] of [['PageView', page], ['FolderView', folder]] as const) {
+      assert.doesNotMatch(source, /className="breadcrumb"/, `${name} draws its own`);
+      assert.match(source, /<Breadcrumb trail=\{trail\} \/>/, `${name} uses the one`);
+    }
+  });
+
+  test('and it is inside the heading region, under the cover', () => {
+    // Above it, the trail was the page body's first child and pushed a
+    // bleeding cover down by its own height.
+    for (const [name, source] of [['PageView', page], ['FolderView', folder]] as const) {
+      const head = source.indexOf('<EntryCoverHead');
+      const crumb = source.indexOf('<Breadcrumb');
+      assert.ok(head > 0 && crumb > head, `${name}: the trail is inside the head`);
+    }
   });
 });
