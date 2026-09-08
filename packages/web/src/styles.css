@@ -4478,6 +4478,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
      is information, and the rule above is about decoration — turning this off
      entirely would answer "show me this" with nothing at all. */
   .pdf-mark[data-found] { animation: none; }
+  [data-block-id][data-found] { animation: none; }
 }
 
 /* A checkbox and what it says.
@@ -8370,6 +8371,38 @@ select {
  *
  * Both weights, because a plain mark can be revealed as readily as a discussed
  * one once the panel can list them. */
+/*
+ * And a block in the writing, revealed from the right sidebar (ADR-0166).
+ *
+ * The same vocabulary one floor up: the ring carries the message, the pulse is
+ * decoration, and the animation is the one named below rather than a second one
+ * that would drift the first time either was tuned.
+ *
+ * A tint rather than the mark's 34% fill: a mark is a few words and a block is
+ * a paragraph, and a paragraph filled at that weight is a paragraph nobody can
+ * read while it is being pointed at.
+ */
+.ProseMirror [data-block-id][data-found],
+[data-block-id][data-found] {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: 2px solid var(--accent-line);
+  outline-offset: 3px;
+  border-radius: var(--sone-radius-sm);
+  animation: sone-found var(--motion-enter) var(--motion-ease) 2 alternate;
+}
+
+/*
+ * Where the top is (ADR-0166).
+ *
+ * `block: 'start'` puts a block at the top of the scrolling box, and the bar is
+ * sticky over the first 52 pixels of it — so without this, the thing somebody
+ * asked to see arrives underneath the thing they asked from. The gap on top of
+ * the bar is so it reads as *below* the bar rather than *against* it.
+ */
+[data-block-id] {
+  scroll-margin-block-start: calc(var(--topbar-block-size) + var(--sone-space-5));
+}
+
 .pdf-mark[data-found] {
   background: color-mix(in srgb, var(--accent) 34%, transparent);
   /* `--accent-line`, not the raw accent: this stylesheet derives a line's
