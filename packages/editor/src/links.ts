@@ -18,7 +18,7 @@
 import type { Mark } from 'prosemirror-model';
 import { Plugin, TextSelection, type Command, type EditorState } from 'prosemirror-state';
 
-import { isFollowable } from './hrefs.js';
+import { isFollowable, isSameOrigin } from './hrefs.js';
 import { schema } from './schema.js';
 
 export interface LinkRange {
@@ -251,6 +251,23 @@ export function followLinks(): Plugin {
           // every other shortcut in this editor is built from.
           const asked = event.metaKey || event.ctrlKey;
           if (view.editable && !asked) return false;
+
+          /*
+           * A link home is left to the application (ADR-0171).
+           *
+           * Not prevented and not opened: the click carries on up to the
+           * application's own interception, which navigates in place. Opening
+           * it here would be a second copy of the application in a second tab,
+           * with a second sync connection and the reading position gone — the
+           * fault ADR-0170 named in the links panel, in the other place that
+           * follows a link.
+           *
+           * Unless the modifier was held, which is the one gesture that does
+           * mean *somewhere else*, in every browser and every application. An
+           * address pointing home is not an exception to something that
+           * general, so that case falls through to `openLink` below.
+           */
+          if (!asked && isSameOrigin(href, window.location.origin)) return false;
 
           openLink(href);
           // Handled, and the browser told so: without this it follows the

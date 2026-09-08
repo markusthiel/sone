@@ -17,8 +17,9 @@
 import {
   canLink,
   codeTextAt,
+  isFollowable,
+  isSameOrigin,
   linkAt,
-  openLink,
   normaliseHref,
   removeLink,
   schema,
@@ -227,13 +228,40 @@ export function SelectionToolbar({
             {existingLink.href}
           </span>
           <span className="toolbar-divider" aria-hidden="true" />
-          <button
-            type="button"
-            className="toolbar-button"
-            onClick={() => openLink(existingLink.href)}
-          >
-            {t('format.linkOpen')}
-          </button>
+          {/* An anchor, not a button (ADR-0171).
+            *
+            * *Öffnen* called `openLink`, which is `window.open(…, '_blank')` —
+            * so following a link **home** from the card opened a second copy of
+            * the application, with its own sync connection and none of the
+            * reading position. The same fault ADR-0170 fixed in the links
+            * panel, in the other place that follows a link.
+            *
+            * As a real anchor, one address gets one treatment: the
+            * application's interception answers a link home exactly as it
+            * answers one in the text, and the browser opens an external one in
+            * its own tab with the `noopener` pair `openLink` existed to give.
+            * `rel` on the element rather than a call, because that is where a
+            * browser looks for it.
+            *
+            * An address that executes is drawn as a disabled row instead, the
+            * shape the links panel already uses for the same refusal — the
+            * schema closed that door, and a CRDT keeps what reached it before
+            * the door was there (ADR-0157). */}
+          {isFollowable(existingLink.href) ? (
+            <a
+              className="toolbar-button"
+              href={existingLink.href}
+              {...(isSameOrigin(existingLink.href, window.location.origin)
+                ? {}
+                : { target: '_blank', rel: 'noopener noreferrer' })}
+            >
+              {t('format.linkOpen')}
+            </a>
+          ) : (
+            <span className="toolbar-button" aria-disabled="true" title={t('panel.linkRefused')}>
+              {t('format.linkOpen')}
+            </span>
+          )}
           <button
             type="button"
             className="toolbar-button"

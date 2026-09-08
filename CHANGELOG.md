@@ -25,6 +25,14 @@ und ein Kürzel im Inhalt wäre ein Zugang, der bei jeder weiteren Freigabe
 mitwandert. Wer über einen Freigabe-Link liest, behält seinen Zugang trotzdem —
 er wird beim Klick aus der Adresszeile ergänzt.
 
+**Ein Klick auf einen Link bedeutet überall dasselbe.** Beim Schreiben setzt ein
+einfacher Klick den Cursor ins Wort — bei internen Links jetzt genauso wie bei
+externen; zum Öffnen dient die Karte über dem Link oder Strg/Cmd-Klick. Beim
+Lesen (Freigabe-Link, gesperrte Seite, alte Fassung) folgt ein Klick dem Link
+direkt. Und ein Link, der zurück in den Arbeitsbereich zeigt, öffnet nirgends
+mehr einen zweiten Tab: weder in der Linkleiste, noch beim Lesen, noch über
+*Öffnen* auf der Karte.
+
 **Behoben: ein zweites Suchergebnis auf derselben Seite sprang nicht.** Wer aus
 der Suche ein Ergebnis öffnete und dann ein zweites auf derselben Seite anklickte,
 blieb stehen, wo er war. Das galt für jeden Sprung, bei dem sich nur die Stelle
