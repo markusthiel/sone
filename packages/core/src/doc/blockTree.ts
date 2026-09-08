@@ -627,3 +627,122 @@ export function mentionsIn(
   walk(pageContent(doc) as unknown as Y.XmlElement, null, 0);
   return out;
 }
+
+/**
+ * Marks a fragment as naming a block rather than a heading anchor.
+ *
+ * The same two characters `paths.ts` writes on the web side. Here rather than
+ * imported because that module is the application's and this package sits
+ * underneath it — a constant shared across that boundary has to live on this
+ * side of it.
+ */
+export const BLOCK_FRAGMENT = 'b-';
+
+/**
+ * The uuid a page address names, and the block it points at (ADR-0174).
+ *
+ * ## Why a uuid in the path is enough, without knowing the host
+ *
+ * A stored internal link comes in three shapes: `/p/<uuid>` written by the `[[`
+ * picker (ADR-0173), `<origin>/p/<uuid>` pasted from the handle menu's
+ * clipboard (ADR-0170), and `/s/<token>/p/<uuid>` from a document old enough to
+ * have been written before that was stopped. All three carry the same uuid in
+ * the same position, so this reads the path and ignores the rest of the
+ * address.
+ *
+ * That means an *external* `https://example.org/p/<uuid>` matches too — and it
+ * is harmless, because **the existence check is the origin check**. A row is
+ * only written for a uuid that names a page in this instance, and a uuid that
+ * names a page here is a page here. A foreign address would have to collide
+ * with one of this instance's own uuids to produce anything, which is not a
+ * thing that happens by accident — and it needs no configured hostname, which
+ * is a setting that can be wrong the day somebody moves the instance.
+ */
+const PAGE_HREF =
+  /(?:^|\/)p\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=$|[/?#])/i;
+
+function pageFromHref(href: string): { pageId: string; toBlockId: string | null } | null {
+  // The fragment is split off first: it is not part of the path, and leaving it
+  // on would let `#b-…` be read as a further segment.
+  const hash = href.indexOf('#');
+  const fragment = hash === -1 ? '' : href.slice(hash + 1);
+  const path = hash === -1 ? href : href.slice(0, hash);
+
+  const found = PAGE_HREF.exec(path.split('?')[0] ?? '');
+  if (!found) return null;
+
+  const block = fragment.startsWith(BLOCK_FRAGMENT)
+    ? fragment.slice(BLOCK_FRAGMENT.length)
+    : '';
+  return { pageId: found[1]!.toLowerCase(), toBlockId: block === '' ? null : block };
+}
+
+/**
+ * Every page this document links to, with the block the link sits in.
+ *
+ * The reading half of *„wer zeigt hierher"*. The panel that answers *what does
+ * this page link to* reads the document in the browser, which is enough because
+ * that document is open; the pages that point **here** are documents nobody has
+ * open, so the answer has to be projected — and projected from the document
+ * rather than reported by a client, for the reason mentions are (ADR-0085): a
+ * link a client reports is a link a client can forge.
+ *
+ * **One row per page per block.** Somebody who names a page twice in a sentence
+ * has referred to it once as far as this question goes, and the block is what
+ * makes the row stable — editing the words around a link does not make it a
+ * different link.
+ *
+ * A link whose target does not exist in this instance is still returned here.
+ * Whether it becomes a row is the projection's decision, and the projection has
+ * the table of pages to ask.
+ */
+export function linksIn(
+  doc: Y.Doc,
+): Array<{ pageId: string; blockId: string; toBlockId: string | null }> {
+  const out: Array<{ pageId: string; blockId: string; toBlockId: string | null }> = [];
+  const seen = new Set<string>();
+
+  const { blocks } = readBlockTree(doc);
+  const byId = new Map(blocks.map((block) => [block.id, block]));
+
+  const walk = (element: Y.XmlElement, blockId: string | null, depth: number): void => {
+    if (depth > MAX_BLOCK_DEPTH) return;
+    for (let i = 0; i < element.length; i++) {
+      const child: unknown = element.get(i);
+
+      if (child instanceof Y.XmlText) {
+        if (!blockId || !byId.has(blockId)) continue;
+        /*
+         * The delta, because that is where a mark lives. `toString()`
+         * serialises to tags — the mistake `inlineText` above records — and an
+         * href would then have to be parsed back out of an `<a>` in a string.
+         */
+        for (const op of child.toDelta() as Array<{ attributes?: Record<string, unknown> }>) {
+          const mark = op.attributes?.['link'];
+          if (!mark || typeof mark !== 'object') continue;
+          const href = (mark as Record<string, unknown>)['href'];
+          if (typeof href !== 'string') continue;
+
+          const target = pageFromHref(href);
+          if (!target) continue;
+
+          const key = `${target.pageId} ${blockId}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push({ pageId: target.pageId, blockId, toBlockId: target.toBlockId });
+        }
+        continue;
+      }
+
+      if (!(child instanceof Y.XmlElement)) continue;
+      const ownId = child.getAttribute(BLOCK_ATTRS.id);
+      const within = typeof ownId === 'string' && ownId !== '' ? ownId : blockId;
+      walk(child, within, depth + 1);
+    }
+  };
+
+  // Through the same accessor the rest of this file uses, so a document opened
+  // two ways is one document.
+  walk(pageContent(doc) as unknown as Y.XmlElement, null, 0);
+  return out;
+}

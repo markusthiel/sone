@@ -1705,6 +1705,12 @@ export const en = {
   // Where a host would be. A link home has none, and the path alone says
   // nothing anybody reads (ADR-0170).
   'panel.linkInternal': 'In this workspace',
+  // Backlinks (ADR-0174). "Points here", not "backlinks": what somebody wants
+  // to know is which pages refer to this one, and the word for the mechanism is
+  // not the word for the question.
+  'panel.pointsHere': 'Points here',
+  'panel.pointsHereSub': 'Links to this page',
+  'panel.untitled': 'Untitled',
   'panel.noLinks': 'No links yet.',
   // The empty states name the shortcut that fills them, so the code stays out of
   // the message: a translator must not have to preserve `/file` inside a
