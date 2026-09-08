@@ -17,6 +17,8 @@ import { readBlockTree } from '@sone/core';
 import { useEffect, useState } from 'react';
 import type * as Y from 'yjs';
 
+import { showAsFound } from '../lib/found.ts';
+
 export interface OutlineEntry {
   /** Block id, which is also the DOM `data-block-id`, so scrolling can find it. */
   id: string;
@@ -76,15 +78,32 @@ export function useOutline(doc: Y.Doc | null): OutlineEntry[] {
 }
 
 /**
- * Scroll a block into view.
+ * Scroll a block into view, and say which one it is.
  *
  * Finds the element by the `data-block-id` attribute the editor schema emits.
  * Going through the DOM rather than through ProseMirror positions means this
  * works for a read-only render too, and needs no editor reference.
  *
- * `center` rather than `start`: a heading pinned to the very top of the
- * viewport hides the paragraph that follows it, which is what the person
- * actually wanted to read.
+ * ## `start`, not `center` (ADR-0166)
+ *
+ * It centred, and the reason written beside it was backwards: *„a heading
+ * pinned to the very top of the viewport hides the paragraph that follows
+ * it"*. A heading at the top has everything that follows it **below** it,
+ * which is exactly what somebody who pressed a heading wants to read.
+ * Centring is what shows the paragraph *before* it — the one they did not ask
+ * for. Reported as: *„Gewohnheitsmäßig habe ich aber direkt ganz oben am
+ * Bildschirmrand gesucht."*
+ *
+ * The bar is sticky over the first 52 pixels of the scrolling box, so the
+ * stylesheet gives every block a `scroll-margin-block-start`. Without it the
+ * thing somebody asked to see arrives underneath the thing they asked from.
+ *
+ * ## And the flash, which is not the same answer twice
+ *
+ * The scroll decides where to look; the flash says *this one*. They come apart
+ * at the end of a document, where the last paragraph cannot be put at the top
+ * however far the page scrolls — arriving *near* something is not being shown
+ * it.
  */
 export function scrollToBlock(blockId: string): boolean {
   const element = document.querySelector(`[data-block-id="${CSS.escape(blockId)}"]`);
@@ -93,7 +112,8 @@ export function scrollToBlock(blockId: string): boolean {
   // take down the panel that offered the link.
   (element as { scrollIntoView?: (options: ScrollIntoViewOptions) => void }).scrollIntoView?.({
     behavior: 'smooth',
-    block: 'center',
+    block: 'start',
   });
+  showAsFound(element as HTMLElement);
   return true;
 }
