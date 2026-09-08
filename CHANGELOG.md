@@ -13,6 +13,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.12.5
+
+Pull and restart, sonst ist nichts zu tun. Keine Migration.
+
 **Ein Klick in der rechten Leiste bringt den Inhalt jetzt an den oberen Rand —
 und lässt ihn kurz aufleuchten.** Gliederung, Dateien, Bilder, Links, Aufgaben:
 die Stelle sitzt danach oben unter der Leiste statt in der Bildschirmmitte, und
