@@ -10,7 +10,7 @@
  * decisions that were made, kept because those are worth being able to find.
  */
 
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import type * as Y from 'yjs';
 
 import { guestName, isGuestKey } from '@sone/client';
@@ -18,6 +18,7 @@ import { isDetached, type CommentThread } from '@sone/core';
 
 import type { WorkspaceMember } from '../api/client.ts';
 import { useT } from '../i18n/useT.tsx';
+import { FOUND_MS, OPEN_THREAD_EVENT } from '../lib/found.ts';
 import {
   COMMENT_MARK_STYLES,
   type CommentMarkStyle,
@@ -48,6 +49,7 @@ function Thread({
   onReveal,
   open,
   onToggle,
+  found,
 }: {
   thread: CommentThread;
   /**
@@ -66,6 +68,8 @@ function Thread({
   onReveal: (thread: CommentThread) => void;
   open: boolean;
   onToggle: () => void;
+  /** The one somebody just clicked in the writing (ADR-0168). */
+  found: boolean;
 }): ReactElement {
   const { t } = useT();
   const [draft, setDraft] = useState('');
@@ -86,9 +90,26 @@ function Thread({
     setPicked([]);
   };
 
+  /*
+   * Into view when it is the one somebody asked for (ADR-0168).
+   *
+   * `nearest` rather than `start`: this is a scroll *inside the panel*, and a
+   * thread that is already visible should not be moved at all — the block in
+   * the writing is what the eye is following, and shuffling the list under it
+   * would be a second thing moving for one click.
+   */
+  const card = useRef<HTMLLIElement | null>(null);
+  useEffect(() => {
+    if (!found) return;
+    card.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+  }, [found]);
+
   return (
     <li
+      ref={card}
       className="comment-thread"
+      data-thread={thread.id}
+      data-found={found ? '' : undefined}
       data-detached={isDetached(thread) ? 'true' : undefined}
     >
       {/* The words it is about, as they read when it was written. A thread whose
@@ -373,6 +394,34 @@ export function CommentsPanel({
     [files],
   );
 
+  /*
+   * The thread somebody clicked in the writing (ADR-0168).
+   *
+   * Held here rather than passed in: the panel is what knows about threads, and
+   * the two components above it — the shell that opens the panel, the strip
+   * that changes tab — each answer their own part of the same event.
+   *
+   * A folded thread is unfolded while it is the found one, rather than by
+   * changing the fold set: being shown something is not the same as choosing to
+   * keep it open, and the choice belongs to whoever made it.
+   */
+  const [found, setFound] = useState<string | null>(null);
+  useEffect(() => {
+    let letGo: ReturnType<typeof setTimeout> | null = null;
+    const asked = (event: Event): void => {
+      const id = (event as CustomEvent<string>).detail;
+      if (typeof id !== 'string') return;
+      setFound(id);
+      if (letGo) clearTimeout(letGo);
+      letGo = setTimeout(() => setFound(null), FOUND_MS);
+    };
+    window.addEventListener(OPEN_THREAD_EVENT, asked);
+    return () => {
+      window.removeEventListener(OPEN_THREAD_EVENT, asked);
+      if (letGo) clearTimeout(letGo);
+    };
+  }, []);
+
   const { closed, toggle, setAll } = useFoldedThreads(
     pageId,
     comments.threads.map((thread) => thread.id),
@@ -533,8 +582,9 @@ export function CommentsPanel({
               canEdit={canEdit}
               canComment={canComment}
               onReveal={onReveal}
-              open={!closed.has(thread.id)}
+              open={!closed.has(thread.id) || found === thread.id}
               onToggle={() => toggle(thread.id)}
+              found={found === thread.id}
             />
           ))}
         </ul>

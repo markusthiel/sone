@@ -4478,7 +4478,8 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
      is information, and the rule above is about decoration — turning this off
      entirely would answer "show me this" with nothing at all. */
   .pdf-mark[data-found] { animation: none; }
-  [data-block-id][data-found] { animation: none; }
+  [data-block-id][data-found],
+  .comment-thread[data-found] { animation: none; }
 }
 
 /* A checkbox and what it says.
@@ -8383,7 +8384,10 @@ select {
  * read while it is being pointed at.
  */
 .ProseMirror [data-block-id][data-found],
-[data-block-id][data-found] {
+[data-block-id][data-found],
+/* And the thread in the panel that the mark belongs to (ADR-0168): one
+   vocabulary for "this is the one", whichever side of the page it is on. */
+.comment-thread[data-found] {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   outline: 2px solid var(--accent-line);
   outline-offset: 3px;

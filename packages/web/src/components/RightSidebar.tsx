@@ -55,6 +55,7 @@ import {
   type IconProps,
 } from './icons.tsx';
 import { useDocAssets } from '../hooks/useDocAssets.ts';
+import { OPEN_THREAD_EVENT } from '../lib/found.ts';
 import { CommentsPanel } from './CommentsPanel.tsx';
 import { LinksPanel } from './LinksPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
@@ -229,6 +230,21 @@ export function RightSidebar({
     const stored = readTab();
     return tabs.includes(stored) ? stored : (tabs[0] ?? 'outline');
   });
+
+  /*
+   * And a click on a comment mark brings the comments forward (ADR-0168).
+   *
+   * Only if this panel offers them: a shared link's strip has four tabs and
+   * `comments` is deliberately not among them (ADR-0114), and switching to a
+   * tab the strip does not draw is a heading with nothing under it — the fault
+   * the clamp above exists to prevent, arriving from the other side.
+   */
+  useEffect(() => {
+    if (!tabs.includes('comments')) return undefined;
+    const show = (): void => setTab('comments');
+    window.addEventListener(OPEN_THREAD_EVENT, show);
+    return () => window.removeEventListener(OPEN_THREAD_EVENT, show);
+  }, [tabs]);
 
   /*
    * Only a full panel writes the preference back.

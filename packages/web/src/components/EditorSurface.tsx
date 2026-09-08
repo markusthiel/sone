@@ -30,7 +30,7 @@ import {
 } from '@sone/editor';
 
 import { ApiError, api } from '../api/client.ts';
-import { FOUND_EVENT } from '../lib/found.ts';
+import { askForThread, FOUND_EVENT } from '../lib/found.ts';
 import { messageFor } from './Auth.tsx';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -641,7 +641,14 @@ export function EditorSurface({
        * captured list would be the one that existed when the page opened.
        */
       plugins: [
-        commentMarks(() => threadsRef.current, () => markStyleRef.current),
+        commentMarks(
+          () => threadsRef.current,
+          () => markStyleRef.current,
+          // Clicking marked words asks for their thread (ADR-0168). Announced
+          // rather than called up through three components, the same as every
+          // other message between the editor and the panel.
+          askForThread,
+        ),
         // Whose task it is, from a ref for the same reason the marks are: the
         // member list arrives after the editor is built (ADR-0052).
         assignmentChips((userId) => membersRef.current.get(userId) ?? null),

@@ -1286,9 +1286,11 @@ test('the editor resolves an anchor for the page, in one place', () => {
   // constantly — a captured list would be the one that existed on open.
   // Both the threads and the mark style are read on every rebuild rather than
   // captured: the editor is created once and both change while somebody reads.
+  // On separate lines since ADR-0168 gave it a third argument — the way a
+  // click on a mark asks for its thread.
   assert.match(
     surface,
-    /commentMarks\(\(\) => threadsRef\.current, \(\) => markStyleRef\.current\)/,
+    /commentMarks\(\s*\n\s*\(\) => threadsRef\.current,\s*\n\s*\(\) => markStyleRef\.current,/,
   );
 });
 

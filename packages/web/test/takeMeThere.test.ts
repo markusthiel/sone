@@ -153,6 +153,12 @@ describe('taking somebody to a block', () => {
 describe('what the stylesheet does with it', () => {
   const css = stylesOf(new URL('../src/styles.css', import.meta.url));
 
+  /** The body of the rule that draws "found", not the one that quiets it. */
+  const lit =
+    [...css.matchAll(/\.comment-thread\[data-found\] \{([^}]*)\}/g)]
+      .map((match) => match[1] ?? '')
+      .find((body) => body.includes('outline:')) ?? '';
+
   test('the top is under the bar, not under the page edge', () => {
     /*
      * `block: 'start'` puts the block at the top of the scrolling box, and the
@@ -169,14 +175,27 @@ describe('what the stylesheet does with it', () => {
     // ADR-0156's rule, applied to a block: which one you were taken to is
     // information, and this stylesheet switches decoration off for somebody who
     // asked for less motion — not information.
-    assert.match(css, /\[data-block-id\]\[data-found\] \{[^}]*outline: 2px solid var\(--accent-line\)/s);
+    /*
+     * Read from the rule's *body*, found by its last selector, rather than by
+     * gluing a selector to its `{`. The selector list grew a third entry when
+     * the comment threads joined it (ADR-0168), and a pattern that assumed the
+     * brace came next stopped matching a stylesheet that says exactly the right
+     * thing — the second time in two rounds that a greedy-free `[^}]*` was the
+     * thing that broke.
+     */
+    // The *drawing* rule, picked out of the two that name this selector: the
+    // other is the reduced-motion one, and it comes first in the file — so
+    // taking the first match asserted against `animation: none`.
+    assert.ok(lit, 'one rule for "this is the one"');
+    assert.match(css, /\[data-block-id\]\[data-found\],/, 'a block is in its selector list');
+    assert.match(lit, /outline: 2px solid var\(--accent-line\)/);
     assert.match(
       css,
       // Bounded rather than `[^}]*`: the rule sits after the PDF mark's own
       // `animation: none`, so a pattern that cannot cross a closing brace
       // cannot reach it — which is how this assertion first failed against a
       // stylesheet that said exactly the right thing.
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,4000}?\[data-block-id\]\[data-found\] \{ animation: none; \}/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,4000}?\[data-block-id\]\[data-found\],\s*\n\s*\.comment-thread\[data-found\] \{ animation: none; \}/,
     );
   });
 
@@ -184,7 +203,7 @@ describe('what the stylesheet does with it', () => {
     // One keyframe animation named once. Two would be two things to keep in
     // step, and they would drift the first time one of them was tuned.
     assert.equal((css.match(/@keyframes sone-found/g) ?? []).length, 1);
-    assert.match(css, /\[data-block-id\]\[data-found\] \{[^}]*animation: sone-found/s);
+    assert.match(lit, /animation: sone-found/);
   });
 });
 

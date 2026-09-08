@@ -164,6 +164,13 @@ export function commentMarks(
    * editor is created once and this changes while somebody reads.
    */
   markStyle: () => 'highlight' | 'underline' | 'off' = () => 'highlight',
+  /**
+   * Somebody clicked a mark and wants its thread (ADR-0168).
+   *
+   * Optional: a render that offers no panel passes nothing, and then there is
+   * no handler at all rather than one that reports into the void.
+   */
+  onOpen?: (threadId: string) => void,
 ): Plugin<DecorationSet> {
   const build = (state: EditorState): DecorationSet => {
     const sync = ySyncPluginKey.getState(state) as
@@ -224,6 +231,38 @@ export function commentMarks(
     },
     props: {
       decorations: (state) => commentMarksKey.getState(state) ?? DecorationSet.empty,
+      ...(onOpen
+        ? {
+            handleDOMEvents: {
+              /*
+               * The other direction of the panel's own reveal (ADR-0168).
+               *
+               * `closest` from whatever was clicked, because a mark wraps words
+               * and words carry their own formatting: the click usually lands
+               * on an `<em>` or a link inside it, not on the span the
+               * decoration made.
+               *
+               * Scoped to `.sone-commented`, so a PDF mark — which carries
+               * `data-thread` for the same reason and lives inside a node view
+               * in this same DOM — is not answered by the wrong handler.
+               *
+               * **False, always.** The click is not taken away from the text:
+               * the words under a comment mark are ordinary writing and
+               * somebody clicking them is usually about to type. That is the
+               * difference from a link, where following it *instead of*
+               * placing the caret is the whole point (ADR-0157).
+               */
+              click: (_view, event) => {
+                const target = event.target;
+                if (!(target instanceof Element)) return false;
+                const mark = target.closest('.sone-commented[data-thread]');
+                const id = mark?.getAttribute('data-thread');
+                if (id) onOpen(id);
+                return false;
+              },
+            },
+          }
+        : {}),
     },
   });
 }
