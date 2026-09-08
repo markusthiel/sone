@@ -25,6 +25,10 @@ und ein Kürzel im Inhalt wäre ein Zugang, der bei jeder weiteren Freigabe
 mitwandert. Wer über einen Freigabe-Link liest, behält seinen Zugang trotzdem —
 er wird beim Klick aus der Adresszeile ergänzt.
 
+**Behoben: „Öffnen" auf der Linkkarte saß zu hoch.** Es war seit dieser Fassung
+ein Link statt eines Knopfes — und trug damit die Schrift des Browsers für Links
+statt die der drei Knöpfe daneben. Betraf alle Links, auch externe.
+
 **Ein Klick auf einen Link bedeutet überall dasselbe.** Beim Schreiben setzt ein
 einfacher Klick den Cursor ins Wort — bei internen Links jetzt genauso wie bei
 externen; zum Öffnen dient die Karte über dem Link oder Strg/Cmd-Klick. Beim

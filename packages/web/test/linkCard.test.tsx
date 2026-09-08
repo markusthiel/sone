@@ -99,4 +99,39 @@ describe('the card over a link', () => {
     assert.match(toolbar, /rel: 'noopener noreferrer'/);
     assert.doesNotMatch(toolbar, /window\.open\(/);
   });
+
+  test('and it looks like the three buttons beside it (ADR-0172)', () => {
+    /*
+     * `.toolbar-button` was written for a `<button>`, and quietly leaned on
+     * everything a button brings with it: content centred in its box, no
+     * underline, no link colour. ADR-0171 put an anchor in the row wearing the
+     * same class, and it arrived nine pixels high and underlined on hover —
+     * reported as *„das öffnen ist verschoben. Auch bei normalen Links."*
+     *
+     * Measured in a real browser: the box was right (34px, aligned) and the
+     * **text inside it** was not, which is why looking at the element's
+     * rectangle said nothing was wrong.
+     *
+     * So the rule says what it needs rather than inheriting it from an element
+     * it no longer only applies to.
+     */
+    const rule = /\.toolbar-button \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    assert.match(rule, /display: inline-flex/, 'a box that lays its content out');
+    assert.match(rule, /align-items: center/, 'and centres it vertically');
+    assert.match(rule, /justify-content: center/);
+    assert.match(rule, /text-decoration: none/, 'no link underline');
+    // And the underline that arrives on hover from the global `a:hover`.
+    assert.match(css, /\.toolbar-button:hover[^{]*\{[^}]*text-decoration: none/);
+  });
+
+  test('a refused address is dimmed even though a span cannot be :disabled', () => {
+    /*
+     * The refusal is drawn as a `<span aria-disabled="true">`, the shape the
+     * links panel uses. `:disabled` matches neither a span nor an anchor, so
+     * the dimming and the hover suppression have to name the attribute too —
+     * otherwise a row nobody may click still lights up under the pointer.
+     */
+    assert.match(css, /\.toolbar-button\[aria-disabled='true'\]/);
+    assert.match(css, /\.toolbar-button:hover:not\(:disabled\):not\(\[aria-disabled='true'\]\)/);
+  });
 });

@@ -5897,7 +5897,22 @@ select {
   box-shadow: var(--sone-shadow-md);
 }
 
+/* A control in the toolbar, whatever element it happens to be (ADR-0172).
+ *
+ * This was written for a `<button>` and quietly leaned on everything a button
+ * brings with it: its content centred in its box, no underline, no link colour.
+ * An anchor wearing the same class (ADR-0171) got the box and none of the rest
+ * — its text sat nine pixels high and underlined itself on hover, beside three
+ * buttons that did neither.
+ *
+ * So the rule states what it needs. `align-items` rather than a vertical
+ * padding, because the height is a minimum and the label may wrap the day
+ * somebody translates it into a longer word.
+ */
 .toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-inline-size: var(--sone-control-lg);
   min-block-size: var(--sone-control-lg);
   padding-inline: var(--sone-space-3);
@@ -5907,11 +5922,21 @@ select {
   color: var(--sone-text);
   font-size: 0.9rem;
   line-height: 1;
+  text-decoration: none;
   cursor: pointer;
 }
-.toolbar-button:hover:not(:disabled) { background: var(--sone-bg-hover); }
+/* `aria-disabled` beside `:disabled`, because neither a span nor an anchor can
+   carry the property — and the refusal in the link card is a span, the shape
+   the links panel already uses for an address that must not be followed. */
+.toolbar-button:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--sone-bg-hover);
+}
+/* The global `a:hover` underline, which the rule above does not displace: it
+   sets a different property, so both apply. */
+.toolbar-button:hover { text-decoration: none; }
 .toolbar-button[aria-pressed='true'] { background: var(--sone-bg-hover); color: var(--accent-text); }
-.toolbar-button:disabled { opacity: 0.35; cursor: default; }
+.toolbar-button:disabled,
+.toolbar-button[aria-disabled='true'] { opacity: 0.35; cursor: default; }
 
 .toolbar-divider {
   inline-size: 1px;
