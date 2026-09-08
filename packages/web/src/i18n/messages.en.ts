@@ -546,6 +546,11 @@ export const en = {
   'you.profile': 'Profile',
   'you.profile.hint': 'Your name, address and picture',
   'you.signIn': 'Signing in',
+  // Linking a page from the writing (ADR-0173). "Link to a page", not "insert
+  // a page link": the act is linking, and what it produces is a link.
+  'pageLink.pick': 'Link to a page',
+  'pageLink.nothing': 'There is no other page to link to yet.',
+  'pageLink.noMatch': 'No page matches “{query}”.',
   'mention.pick': 'Mention somebody',
   'mention.nobody': 'There is nobody else in this workspace yet.',
   'mention.noMatch': 'Nobody here matches “{query}”.',

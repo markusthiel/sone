@@ -36,6 +36,7 @@ import { CanvasSurface } from './CanvasSurface.tsx';
 import { VersionDiff } from './VersionDiff.tsx';
 import { VersionView } from './VersionView.tsx';
 import { EditorSurface } from './EditorSurface.tsx';
+import type { LinkablePage } from './PageLinkMenu.tsx';
 import { Breadcrumb } from './Breadcrumb.tsx';
 import { EntryCoverHead } from './EntryCover.tsx';
 import { EntryIconView, titleColorStyle } from './EntryIconView.tsx';
@@ -76,6 +77,8 @@ interface PageViewProps {
   trail: PageNode[];
   /** The workspace's people, for assigning a task (ADR-0052). */
   members: Array<{ userId: string; displayName: string }>;
+  /** What `[[` may link to. Empty on a share link (ADR-0173). */
+  linkablePages: readonly LinkablePage[];
   /** A past version to show instead of the body (ADR-0047). */
   viewingVersion: string | null;
   /** Or what that version changed (ADR-0053). */
@@ -108,6 +111,7 @@ export function PageView({
   markStyle,
   trail,
   members,
+  linkablePages,
   viewingVersion,
   comparingVersion,
   onCloseVersion,
@@ -399,6 +403,7 @@ export function PageView({
             // For the address of a block, which wants a slug to be readable by
             // whoever pastes it (ADR-0170). Decorative, as always.
             pageTitle={title}
+            linkablePages={linkablePages}
             threads={threads}
             members={members}
             onComment={onComment}

@@ -47,6 +47,7 @@ import { schema } from './schema.js';
 import { blockLock } from './blockLock.js';
 import { editGuard } from './editGuard.js';
 import { mentionMenu } from './mentionMenu.js';
+import { pageLinkMenu } from './pageLinkMenu.js';
 import { slashMenu, type LocaliseSlashItem } from './slashMenu.js';
 import { tableKeymap, tablePlugins } from './tables.js';
 
@@ -241,6 +242,11 @@ export function createEditorState(opts: EditorOptions): EditorState {
     // takes only Escape: the arrows and Enter belong to the interface, which
     // owns the list of people this package deliberately knows nothing about.
     mentionMenu(),
+    // Linking a page from the writing (ADR-0173). The same arrangement again,
+    // and beside the mentions rather than before them because the two triggers
+    // cannot both be open: `[[` is not `@`, so whichever one matched is the
+    // only one holding a state, and the order between them decides nothing.
+    pageLinkMenu(),
     // One filter for every locked block (ADR-0049). Before the application's
     // own plugins, so a supplied plugin cannot dispatch past it.
     blockLock(),
