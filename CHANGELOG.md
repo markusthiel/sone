@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Behoben: ein Link auf eine Seite in einem anderen Arbeitsbereich ging nicht
+auf.** Er landete auf der richtigen Adresse, aber mit einer Verbindung, die am
+falschen Arbeitsbereich hing — und die Seite meldete „du hast keinen Zugriff
+mehr", was nicht stimmte. Jetzt schaut SONE nach, wo die Seite liegt, schaltet um
+und öffnet sie. Das gilt für jede solche Adresse: eingefügt, aus einer Mail, aus
+einem alten Lesezeichen — auch für eine Seite, die seither in einen anderen
+Arbeitsbereich umgezogen ist. Für Seiten im aktuellen Arbeitsbereich ändert sich
+nichts und es wird nichts zusätzlich abgefragt.
+
 **Die Linkleiste sagt jetzt auch, wer hierher verweist.** Unter *„Worauf zeigt
 diese Seite"* steht ein zweiter Abschnitt *„Verweist hierher"* mit den Seiten,
 die auf die geöffnete verlinken — ein Klick springt an die Stelle, an der der
