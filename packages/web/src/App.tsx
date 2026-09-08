@@ -1656,6 +1656,15 @@ function ShareSession({
    * workspace. A link opens on the page.
    */
   const [rightOpen, setRightOpen] = useState(false);
+  /*
+   * Whether this view has been scrolled (ADR-0163).
+   *
+   * The workspace has had this since ADR-0042 and a shared link never did, so
+   * its bar has been drawing no line at any scroll position — invisible until a
+   * cover could run up under the bar, at which point "not scrolled" would have
+   * meant "always transparent" and the writing would scroll behind nothing.
+   */
+  const { scrolled, ref: mainRef } = useScrolled();
   /** A selection waiting for its first message, exactly as in the workspace. */
   const [pendingComment, setPendingComment] = useState<{
     from: Uint8Array;
@@ -2058,7 +2067,7 @@ function ShareSession({
           </nav>
         </>
       )}
-      <div className="main">
+      <div className="main" ref={mainRef} data-scrolled={scrolled ? 'true' : undefined}>
         <div className="topbar">
           {/* The way back, and the reason the close button is safe to offer.
               Only when there is a list to reopen — on a single-page link this

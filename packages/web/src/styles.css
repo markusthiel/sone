@@ -550,6 +550,18 @@
 }
 
 :root {
+  /* --------------------------------------------------------------------
+   * Two lengths that used to be results and are now decisions (ADR-0163).
+   *
+   * A cover that runs to the top edge is pulled up by exactly the bar's
+   * height plus the page body's top padding. Both were numbers that fell out
+   * of other declarations — the bar was as tall as its tallest control, the
+   * padding was written once in one place — and a second reader turns a
+   * result into a promise. Named here, enforced where they are used.
+   * ------------------------------------------------------------------ */
+  --topbar-block-size: 52px;
+  --page-body-block-start: 24px;
+
   /* Radii follow the control they sit on: a small control with a large radius
      reads as a pill by accident. */
   --sone-radius-sm: 2px;
@@ -1705,6 +1717,12 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .topbar {
   display: flex;
   align-items: center;
+  /* Declared rather than happening (ADR-0163). A cover that runs to the top
+     edge is pulled up by exactly this, so it cannot be a number somebody
+     measured once: the next control added here would make the offset silently
+     wrong. `min-block-size` is the enforcement, and `topbar.test.ts` measures
+     the real bar against it in a browser. */
+  min-block-size: var(--topbar-block-size);
   /* Never wraps. A long status — "Cannot reach the sync server" — used to
      break onto three lines and take the row's height with it, so losing the
      connection also rearranged the page. */
@@ -1745,7 +1763,12 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
    * separates the areas is the sidebar's step, not a page. */
   max-width: 46rem;
   margin-inline: auto;
-  padding: 24px 20px 40vh;
+  padding: 0 20px 40vh;
+  /* Its own declaration because ADR-0163 gave it a second reader — a cover
+     running to the top edge cancels exactly this much — and because a shorthand
+     with one named part and two literal ones is the mixture `density.test.ts`
+     refuses: a density would move one axis of it and not the others. */
+  padding-block-start: var(--page-body-block-start);
 }
 
 /* A page that asked for the whole width (ADR-0028's measure, per page).
@@ -1845,6 +1868,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 }
 
 .entry-cover {
+  block-size: var(--cover-block-size);
   margin-block-end: 18px;
   border-radius: var(--sone-radius-lg, 10px);
   overflow: hidden;
@@ -1866,16 +1890,20 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
  * feature was built under (ADR-0117), and two rules that agree today are two
  * rules that stop agreeing.
  */
+/* A property rather than the declaration itself, since ADR-0163: a band that
+   runs up under the bar adds the bar's height to its own, and `calc()` cannot
+   add to a value it would have to re-derive from a selector. */
 .entry-cover,
 .entry-cover[data-height='medium'] {
-  block-size: clamp(120px, 20vh, 210px);
+  --cover-block-size: clamp(120px, 20vh, 210px);
 }
 .entry-cover[data-height='slim'] {
-  block-size: clamp(72px, 11vh, 120px);
+  --cover-block-size: clamp(72px, 11vh, 120px);
 }
 .entry-cover[data-height='tall'] {
-  block-size: clamp(200px, 38vh, 400px);
+  --cover-block-size: clamp(200px, 38vh, 400px);
 }
+
 
 /*
  * And across the whole page (ADR-0162): „dass das Titelbild auch über die ganze
@@ -1891,7 +1919,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
  * half an indent off centre — which is the mistake it was written to fix,
  * arriving from the other direction.
  */
-.entry-cover[data-width='full'] {
+.entry-cover[data-width='full'],
+.entry-cover[data-width='bleed'] {
   margin-inline: calc(50% - 50cqw);
   inline-size: 100cqw;
   max-inline-size: 100cqw;
@@ -1905,11 +1934,82 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 @media (max-width: 720px) {
   /* Nothing breaks out on a narrow screen: there is no margin to break into,
      and doing it anyway pushes the page sideways. The blocks say this too. */
-  .entry-cover[data-width='full'] {
+  .entry-cover[data-width='full'],
+  .entry-cover[data-width='bleed'] {
     margin-inline: 0;
     inline-size: auto;
     max-inline-size: none;
   }
+}
+
+/*
+ * And up under the bar (ADR-0163), asked for as „dass das Titelbild bis oben zum
+ * Seitenrand läuft".
+ *
+ * Pulled up by the bar **and** by the page body's own top padding, and taller by
+ * the same two — so the band grows into the space it swallows and nothing below
+ * it moves. Without the second half, turning the setting on shifts the heading
+ * and the writing under it up by 24px, which is a setting that moves the text
+ * somebody was reading.
+ *
+ * `.topbar + .page-body`, so a banner between them takes the bleed off by
+ * existing: a stale-bundle notice or a two-factor deadline would otherwise have
+ * the picture slide underneath it. Neither component has to know about the
+ * other for that to be true — the selector is the agreement.
+ */
+.topbar + .page-body .entry-cover[data-width='bleed'] {
+  margin-block-start: calc((var(--topbar-block-size) + var(--page-body-block-start)) * -1);
+  block-size: calc(var(--cover-block-size) + var(--topbar-block-size) + var(--page-body-block-start));
+}
+
+/*
+ * The bar over the picture.
+ *
+ * Transparent only while nothing is above the fold — which is the behaviour the
+ * bar has had since ADR-0042, doing exactly the right thing here for free: at
+ * rest it floats over the band, and the first scroll fills it again, because
+ * from then on there is writing passing behind it.
+ */
+.main:not([data-scrolled='true']):has(.topbar + .page-body .entry-cover[data-width='bleed'])
+  .topbar {
+  background: transparent;
+}
+
+/*
+ * And every control in it brings its own ground.
+ *
+ * This is the half that is not decoration. `readableInk` decides ink against a
+ * *known* ground (ADR-0135), and a photograph has none — it is dark on one side
+ * and light on the other, so no single ink is right across the bar. An opaque
+ * chip under each control puts a known ground back, and it is the rail's own
+ * hover surface: the same pairing `contrast.test.ts` already governs, rather
+ * than a translucent veil that would still leave the ink guessing.
+ *
+ * Asked for in exactly those words: „die könnte man dann abheben mit den selben
+ * Flächen, die man beim Hover auf der schmalen Leiste hat".
+ */
+.main:not([data-scrolled='true']):has(.topbar + .page-body .entry-cover[data-width='bleed'])
+  .topbar
+  :where(.quiet, .status-chip) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-radius: var(--sone-radius);
+}
+
+/* The dot and the words are one chip, because a dot alone on a photograph is a
+   speck nobody can read and the words alone leave it there. */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+  /* The padding is there at every moment, and only the surface comes and goes:
+     a chip that gained room at the same time as its background would move the
+     status text sideways on the first scroll. */
+  padding: 3px 8px;
+  /* So the status text can still be truncated rather than widening the bar —
+     the fault that once made losing the connection rearrange the page. */
+  min-inline-size: 0;
+  overflow: hidden;
 }
 
 .entry-cover-image {

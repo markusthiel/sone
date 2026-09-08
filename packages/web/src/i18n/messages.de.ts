@@ -1718,6 +1718,7 @@ export const de: Record<keyof typeof en, string> = {
   'cover.gradients': 'Farbverlauf',
   'cover.own': 'Eigene Farbe',
   'cover.width': 'Breite',
+  'cover.width.bleed': 'Randlos',
   'cover.height': 'Höhe',
   'cover.height.slim': 'Schmal',
   'cover.height.medium': 'Mittel',

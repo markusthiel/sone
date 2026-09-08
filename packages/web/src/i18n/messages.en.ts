@@ -1619,6 +1619,7 @@ export const en = {
   'cover.gradients': 'Gradient',
   'cover.own': 'A colour of your own',
   'cover.width': 'Width',
+  'cover.width.bleed': 'Edge to edge',
   'cover.height': 'Height',
   'cover.height.slim': 'Slim',
   'cover.height.medium': 'Medium',
