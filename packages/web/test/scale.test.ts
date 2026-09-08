@@ -1189,11 +1189,17 @@ test('the page owns the comment list, not the panel', () => {
 });
 
 test('a thread exists once somebody has written something', () => {
-  // Pressing Comment holds the anchor and opens the panel; the thread is created
-  // on submit. A thread with an empty first message is a highlight over nothing,
-  // and it would arrive on somebody else's screen as exactly that (ADR-0046).
+  // Pressing Comment holds the anchor and brings the comments forward; the
+  // thread is created on submit. A thread with an empty first message is a
+  // highlight over nothing, and it would arrive on somebody else's screen as
+  // exactly that (ADR-0046).
+  //
+  // This read `setRightOpen(true)` until ADR-0169. Opening the panel was never
+  // enough on its own: the composer for that anchor is drawn only on the
+  // comments tab, so the anchor could be held with nothing on screen to put
+  // words into. The announcement does both, and the tab as well.
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
-  assert.match(app, /setPendingComment\(anchor\);\s*\n\s*setRightOpen\(true\);/);
+  assert.match(app, /setPendingComment\(anchor\);\s*\n\s*showComments\(\);/);
   const panel = codeOf(new URL('../src/components/CommentsPanel.tsx', import.meta.url));
   /*
    * Through `send`, which calls `startThread` — the one place that decides

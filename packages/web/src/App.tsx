@@ -47,7 +47,7 @@ import { SearchPanel } from './components/SearchPanel.tsx';
 import { SearchScreen } from './components/Search.tsx';
 import { LocaleProvider, resolveLocale, useT } from './i18n/useT.tsx';
 import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
-import { OPEN_THREAD_EVENT } from './lib/found.ts';
+import { OPEN_THREAD_EVENT, showComments } from './lib/found.ts';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
 import { SharesScreen } from './components/SharesScreen.tsx';
@@ -1107,8 +1107,12 @@ function Workspace({
               // thread with nothing in it. So the anchor is held, the panel
               // opens, and the thread exists once somebody has actually said
               // something (ADR-0046).
+              //
+              // Announced rather than opened by hand: the tab has to come
+              // forward too, and that is the strip's state, not this one's
+              // (ADR-0169). The listener below opens the panel.
               setPendingComment(anchor);
-              setRightOpen(true);
+              showComments();
             }}
             /* A mark is the opposite of the line above: there is nothing to
              * wait for, because there is nothing to say. It goes into the
@@ -2139,8 +2143,10 @@ function ShareSession({
             // the sync room would refuse one to a visitor anyway (ADR-0057).
             internalItemThreads={[]}
             onComment={(anchor) => {
+              // The same wire as the workspace shell's (ADR-0169). A link that
+              // may comment has the comments tab, so the strip answers here too.
               setPendingComment(anchor);
-              setRightOpen(true);
+              showComments();
             }}
             /* Not offered here, and said rather than omitted: a link can only
              * tell two visitors apart by the name they typed (ADR-0046), so a
