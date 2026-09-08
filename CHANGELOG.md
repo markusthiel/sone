@@ -13,6 +13,20 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Links im Text lassen sich jetzt öffnen.** Wer eine Seite nur liest, klickt
+einen Link an und er geht in einem neuen Tab auf. Beim Schreiben bleibt der
+einfache Klick, was er war — er setzt den Cursor ins Wort, sonst wäre ein Link
+eine Stelle, die niemand mehr korrigieren kann. Stattdessen erscheint über dem
+Link eine kleine Karte: die Adresse, und *Öffnen*, *Adresse kopieren*, *Ändern*,
+*Entfernen*. Mit `Cmd`- beziehungsweise `Strg`-Klick geht er auch beim Schreiben
+direkt auf.
+
+**Und dabei ist ein Loch aufgefallen: eingefügte Links wurden nicht geprüft.**
+Eine getippte Adresse mit `javascript:` wurde seit jeher abgelehnt — eine
+*eingefügte* nicht. Wer HTML mit so einem Link in eine Seite kopiert hat, hatte
+ihn danach in der Seite stehen, für alle, die sie öffnen. Jetzt wird beim
+Einfügen dasselbe geprüft: der Text bleibt, der Link fällt weg.
+
 **Ein Klick auf das Zitat bringt dich zur Stelle im PDF.** Bisher tat der Knopf
 in der Kommentarleiste bei einem PDF-Kommentar schlicht nichts. Jetzt scrollt das
 Dokument zur richtigen Seite, der Block rückt ins Bild, und die gemeinte

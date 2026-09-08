@@ -16,8 +16,9 @@
  */
 
 import type { Mark } from 'prosemirror-model';
-import { TextSelection, type Command, type EditorState } from 'prosemirror-state';
+import { Plugin, TextSelection, type Command, type EditorState } from 'prosemirror-state';
 
+import { isFollowable } from './hrefs.js';
 import { schema } from './schema.js';
 
 export interface LinkRange {
@@ -96,15 +97,13 @@ export function normaliseHref(input: string): string | null {
   if (trimmed.length === 0) return null;
 
   // Anything with a scheme is taken as given, except the ones that execute.
+  //
+  // The list moved to `hrefs.ts` (ADR-0157), because the schema needs the same
+  // answer for a *pasted* link and cannot import this file — it is the one this
+  // file imports. Two copies of a security rule is one copy that stops being
+  // updated.
   if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
-    const scheme = trimmed.slice(0, trimmed.indexOf(':')).toLowerCase();
-    // javascript: and data: in a link are a script-execution vector, and a
-    // notes app is full of pasted text. Refused rather than sanitised, because
-    // sanitising a URL scheme correctly is not something to attempt by hand.
-    if (scheme === 'javascript' || scheme === 'data' || scheme === 'vbscript') {
-      return null;
-    }
-    return trimmed;
+    return isFollowable(trimmed) ? trimmed : null;
   }
 
   // Looks like an email address.
@@ -196,3 +195,83 @@ export const selectLink: Command = (state, dispatch) => {
 /** True when a link could be applied: a selection, or a link to edit. */
 export const canLink = (state: EditorState): boolean =>
   !state.selection.empty || linkAt(state) !== null;
+
+/**
+ * Follow a link (ADR-0157).
+ *
+ * Reported as *„wenn man im Text einen Link setzt dann kann man den nicht
+ * öffnen"*, and it was two different absences wearing one coat.
+ *
+ * **A reader.** A page opened through a share link, or any page somebody may
+ * not edit, is a document — and a link in a document is followed by clicking
+ * it. Nothing here was stopping that on purpose; there was simply no handler,
+ * and ProseMirror does not follow links itself.
+ *
+ * **A writer.** Inside an editable view a plain click must still put the caret
+ * in the word, or a link would be a phrase nobody can correct. So the modifier
+ * everything else uses opens it — `Cmd` where that is the platform's key,
+ * `Ctrl` elsewhere — and the plain click is answered by the card the interface
+ * puts over the caret instead.
+ *
+ * The scheme is asked again here even though nothing can now get a refused one
+ * into the document: documents written before that door existed are still out
+ * there, and a CRDT keeps whatever ever reached it.
+ */
+export function followLinks(): Plugin {
+  return new Plugin({
+    props: {
+      /*
+       * `handleDOMEvents.click`, not `handleClick`.
+       *
+       * `handleClick` is called from ProseMirror's own mouse state machine —
+       * mousedown, then mouseup, then a resolved document position — and it is
+       * the position that this does not need: the answer is on the anchor the
+       * click landed in. Going through the DOM event directly also keeps the
+       * behaviour the same in a read-only view, where that state machine has
+       * rather less to do.
+       */
+      handleDOMEvents: {
+        click(view, event) {
+          const target = event.target as HTMLElement | null;
+          const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
+          if (!anchor || !view.dom.contains(anchor)) return false;
+
+          /*
+           * `getAttribute`, not `.href`.
+           *
+           * The property is resolved against the page's own origin, so a
+           * relative link comes back absolute and a refused scheme comes back
+           * looking like something else entirely. The attribute is what the
+           * document says.
+           */
+          const href = anchor.getAttribute('href');
+          if (href === null || !isFollowable(href)) return false;
+
+          // `metaKey` on a Mac and `ctrlKey` everywhere else, which is the pair
+          // every other shortcut in this editor is built from.
+          const asked = event.metaKey || event.ctrlKey;
+          if (view.editable && !asked) return false;
+
+          openLink(href);
+          // Handled, and the browser told so: without this it follows the
+          // anchor as well and a read-only view opens two tabs.
+          event.preventDefault();
+          return true;
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Open one, in a way that cannot reach back.
+ *
+ * `noopener` is the load-bearing word: without it the opened page gets a handle
+ * on the window that opened it and can navigate it somewhere else. The schema
+ * puts the same pair on every rendered anchor; this is the same guarantee for
+ * the path that does not go through one.
+ */
+export function openLink(href: string): void {
+  if (!isFollowable(href)) return;
+  window.open(href, '_blank', 'noopener,noreferrer');
+}

@@ -5688,6 +5688,24 @@ select {
   background: var(--sone-border);
 }
 
+/* Standing in a link (ADR-0157): where it goes, and the four things anybody
+   wants from one. The address is shown rather than summarised because a link's
+   words rarely say where it leads — and because clipboard access can be refused,
+   which leaves reading it off the screen as the way to copy it. */
+.link-card { display: flex; align-items: center; gap: 4px; }
+.link-card-href {
+  max-inline-size: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-inline: var(--sone-space-1);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  /* An address is not prose: the digits and the slashes line up, and a
+     proportional font makes a long one harder to compare at a glance. */
+  font-family: var(--sone-font-mono);
+}
+
 .link-editor { display: flex; align-items: center; gap: 4px; }
 .link-editor input {
   inline-size: 200px;
