@@ -278,6 +278,53 @@ export async function materializeDocument(
     );
   }
 
+
+  /*
+   * Which pages this one points at (ADR-0174).
+   *
+   * Deleted by source and rewritten, the discipline the tags above use and for
+   * the same reason: the document is the truth and a diff would have to decide
+   * what an absent row means. Scoping the delete to `from_page_id` is also what
+   * keeps this out of the trap `writeNotifications` is in — a notification
+   * whose block was deleted keeps its row for ever, because nothing deletes by
+   * page.
+   *
+   * Targets that do not exist here are dropped, the way `page_relations` drops
+   * dangling ones. A link to a page that has not been materialised yet is
+   * ordinary during an import and whenever the other room flushed second, and
+   * the next projection of this page picks it up. It is also what makes the
+   * extractor's rule safe: it matches a uuid in a path without knowing this
+   * instance's hostname, and **the existence check is the origin check**.
+   */
+  await db.query(`DELETE FROM page_links WHERE from_page_id = $1`, [pageId]);
+  if (parsed.links.length > 0) {
+    const wanted = [...new Set(parsed.links.map((link) => link.pageId))];
+    const existing = await queryRows<{ id: string }>(
+      db,
+      `SELECT id FROM pages WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
+      [wanted, opts.workspaceId],
+    );
+    const known = new Set(existing.map((row) => row.id));
+    // And never to itself: a page linking to its own top is a link that lands
+    // where the reader already is, and it would sit in its own panel.
+    const resolvable = parsed.links.filter(
+      (link) => link.pageId !== pageId && known.has(link.pageId),
+    );
+    if (resolvable.length > 0) {
+      await db.query(
+        `INSERT INTO page_links (from_page_id, from_block_id, to_page_id, to_block_id)
+         SELECT $1, unnest($2::text[]), unnest($3::uuid[]), unnest($4::text[])
+         ON CONFLICT DO NOTHING`,
+        [
+          pageId,
+          resolvable.map((link) => link.blockId),
+          resolvable.map((link) => link.pageId),
+          resolvable.map((link) => link.toBlockId),
+        ],
+      );
+    }
+  }
+
   /*
    * Comment threads, replaced wholesale for this page (ADR-0046).
    *
