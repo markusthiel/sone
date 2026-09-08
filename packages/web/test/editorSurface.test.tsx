@@ -17,6 +17,8 @@ import { after, before, describe, test } from 'node:test';
 
 import { JSDOM } from 'jsdom';
 
+import { codeOf } from './helpers/source.ts';
+
 let dom: JSDOM;
 let render: (element: unknown) => Promise<void>;
 let container: HTMLElement;
@@ -510,5 +512,46 @@ describe('editor surface', () => {
       .map((child) => (child as { nodeName?: string }).nodeName ?? 'text');
     console.log('AFTER 400ms:', names.join(','), '| html has video:', /video-block/.test(container.innerHTML));
     assert.doesNotMatch(container.innerHTML, /Uploading clip\.mp4/, 'and the progress went');
+  });
+});
+
+/*
+ * Turning several selected blocks at once (ADR-0165).
+ *
+ * Reported with four lines selected and the toolbar over them: *„Wenn ich
+ * mehrere Zeilen Text markiere würde ich diese gerne auch im Verbund umwandeln
+ * können. … Das geht bisher nur einzeln."*
+ *
+ * What the conversion *does* is decided in `@sone/editor`'s
+ * `turnIntoSelection.test.ts`, against real documents. What is here is the half
+ * that made the command's answer invisible: this menu put the caret back into
+ * its own block before running it, which threw the other three away.
+ */
+describe('the block menu, about more than one block', () => {
+  const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
+
+  test('it asks which blocks the selection covers, not which subtree it is in', () => {
+    /*
+     * `selectedBlockRange` is a block **and its indented children** — the right
+     * answer for dragging, indenting and duplicating, and the wrong one here: it
+     * is larger than one for a bullet with sub-bullets, and says nothing at all
+     * about what is selected. The first version of this guard used it.
+     */
+    assert.match(menu, /const spanned = blocksInSelection\(view\.state\);/);
+  });
+
+  test('and it only restores the caret when the selection is inside one block', () => {
+    // The line that made four selected lines convert one. A selection spanning
+    // blocks is the answer to "which blocks", not something to recover from.
+    assert.match(menu, /if \(spanned\.length <= 1\) \{\s*\n\s*const \$pos/);
+  });
+
+  test('a type is marked current only when every block it acts on is that type', () => {
+    // Marking it from the first of four would say "these are bullets" about a
+    // selection that is one bullet and three paragraphs.
+    assert.match(
+      menu,
+      /spanned\.length > 1\s*\n?\s*\? spanned\.every\(\(one\) => one\.node\.type\.name === name\)/,
+    );
   });
 });

@@ -19,7 +19,7 @@
 import { BLOCK_ATTRS } from '@sone/core';
 import { redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
-import type { NodeType } from 'prosemirror-model';
+import type { Node as PMNode, NodeType } from 'prosemirror-model';
 import {
   baseKeymap,
   chainCommands,
@@ -240,19 +240,101 @@ const paragraphBeforeJoin: Command = (state, dispatch) => {
   return true;
 };
 
-/** Toggle a block between a type and paragraph. Used by menus and shortcuts. */
+/**
+ * Every top-level block the selection touches that can hold writing (ADR-0165).
+ *
+ * Top-level, and it does not descend: a paragraph inside a table cell belongs
+ * to the table, and turning the four cells somebody dragged across into bullets
+ * is not what „diese Zeilen" meant. A block that holds no inline content at all
+ * — a divider, an image, the table itself — is stepped over rather than
+ * refused, because failing the whole conversion over something in the middle of
+ * the selection is a command that does nothing for a reason nobody can see.
+ *
+ * Exported because the block menu has to ask the same question — whether this
+ * menu is about one block or about the four somebody dragged across — and the
+ * answer has to be the same one the command will act on. `selectedBlockRange`
+ * cannot say it: that range is a block **and its indented children**, so it is
+ * larger than one for a bullet with sub-bullets and says nothing about what is
+ * selected.
+ */
+export function blocksInSelection(state: EditorState): Array<{ node: PMNode; pos: number }> {
+  const { from, to } = state.selection;
+  const found: Array<{ node: PMNode; pos: number }> = [];
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isBlock || !node.type.spec.group?.includes('block')) return true;
+    if (node.inlineContent) found.push({ node, pos });
+    return false;
+  });
+  return found;
+}
+
+/**
+ * Toggle a block between a type and paragraph. Used by menus and shortcuts.
+ *
+ * **Every block the selection covers**, not the one the caret happens to be in
+ * (ADR-0165). Reported with four lines selected: *„Wenn ich mehrere Zeilen Text
+ * markiere würde ich diese gerne auch im Verbund umwandeln können."* Its
+ * sibling `setBlockStyle` has always walked the selection, so the block menu was
+ * answering its two questions about the same four lines at two different
+ * scopes.
+ *
+ * A selection inside one block keeps the old path exactly, `currentBlock` and
+ * all — that one climbs out of a table cell to the block it is in, which the
+ * walk above deliberately does not do.
+ */
 export function toggleBlockType(
   type: NodeType,
   attrs: Record<string, unknown> = {},
 ): Command {
   return (state, dispatch) => {
-    const block = currentBlock(state);
     const paragraph = schema.nodes['paragraph'];
-    if (!block || !paragraph) return false;
+    if (!paragraph) return false;
 
-    const alreadyThisType =
-      block.node.type === type &&
-      Object.entries(attrs).every(([key, value]) => block.node.attrs[key] === value);
+    const spanned = blocksInSelection(state);
+    const isThisType = (node: PMNode): boolean =>
+      node.type === type &&
+      Object.entries(attrs).every(([key, value]) => node.attrs[key] === value);
+
+    /*
+     * Made the same, rather than each one flipped.
+     *
+     * Two bullets and two paragraphs, asked to be a bullet list, become four
+     * bullets. Flipping each block on its own would swap the two kinds and
+     * leave the selection exactly as mixed as it was — pressing "bullet list"
+     * and getting a *different* mixture is the one outcome nobody wants. It
+     * turns back only when every selected block is already that type.
+     */
+    if (spanned.length > 1) {
+      // `.every(one => …one.node)`, not `.every(isThisType)`: these are
+      // `{node, pos}` pairs, and handing the pair to a predicate about a node
+      // reads `undefined === type` — false for everything, forever, which made
+      // the toggle a one-way trip.
+      const target = spanned.every((one) => isThisType(one.node)) ? paragraph : type;
+      if (dispatch) {
+        const tr = state.tr;
+        for (const one of spanned) {
+          const preserved = {
+            [BLOCK_ATTRS.id]: one.node.attrs[BLOCK_ATTRS.id],
+            [BLOCK_ATTRS.props]: null,
+            [BLOCK_ATTRS.indent]: one.node.attrs[BLOCK_ATTRS.indent],
+          };
+          // The positions stay valid across the loop: changing a node's type
+          // and attributes leaves its content, and therefore its size, alone.
+          tr.setNodeMarkup(
+            one.pos,
+            target,
+            target === paragraph ? preserved : { ...attrs, ...preserved },
+          );
+        }
+        dispatch(tr.scrollIntoView());
+      }
+      return true;
+    }
+
+    const block = currentBlock(state);
+    if (!block) return false;
+
+    const alreadyThisType = isThisType(block.node);
 
     const target = alreadyThisType ? paragraph : type;
     // Indent is preserved across a type change: converting an indented bullet
