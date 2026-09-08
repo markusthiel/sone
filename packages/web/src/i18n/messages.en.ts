@@ -1685,6 +1685,7 @@ export const en = {
   'panel.loading': 'Loading…',
   'panel.uploading': 'uploading…',
   'panel.noImages': 'No images yet. Drop one into the page.',
+  'panel.linkRefused': 'This address cannot be opened',
   'panel.noLinks': 'No links yet.',
   // The empty states name the shortcut that fills them, so the code stays out of
   // the message: a translator must not have to preserve `/file` inside a
