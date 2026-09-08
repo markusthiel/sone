@@ -39,6 +39,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { subscribeToThreads } from '../lib/threadAnnouncement.ts';
 import { registerHighlighter } from './authorHighlightBridge.ts';
 import { BlockMenu } from './BlockMenu.tsx';
+import { PageLinkMenu, type LinkablePage } from './PageLinkMenu.tsx';
 import { soneNodeViews } from './CollectionNodeView.tsx';
 import { SelectionToolbar } from './SelectionToolbar.tsx';
 import { MentionMenu } from './MentionMenu.tsx';
@@ -84,6 +85,15 @@ interface EditorSurfaceProps {
   markStyle: 'highlight' | 'underline' | 'off';
   /** The workspace's people, for assigning a task (ADR-0052). */
   members: Array<{ userId: string; displayName: string }>;
+  /**
+   * What `[[` may link to (ADR-0173).
+   *
+   * Handed in from the list the sidebar already holds, for the reason `members`
+   * is: one answer to what this workspace contains rather than two. **Empty on
+   * a share link** — a visitor is not a member and must not learn what else the
+   * workspace contains (ADR-0026).
+   */
+  linkablePages: readonly LinkablePage[];
 }
 
 /**
@@ -104,6 +114,7 @@ export function EditorSurface({
   handle,
   pageId,
   pageTitle,
+  linkablePages,
   threads,
   onComment,
   onMark,
@@ -931,6 +942,15 @@ export function EditorSurface({
               assignee picker offers, from the one request this surface already
               makes. */}
           <MentionMenu view={view} revision={revision} people={members} />
+          {/* And linking a page from the writing (ADR-0173). Beside the
+              mentions because it is the same arrangement a third time: a
+              trigger the plugin watches for, and a list only this side has. */}
+          <PageLinkMenu
+            view={view}
+            revision={revision}
+            pages={linkablePages}
+            here={pageId}
+          />
           {videoOpen && (
             <VideoDialog
               onUpload={() => {

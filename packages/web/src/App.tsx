@@ -1085,6 +1085,9 @@ function Workspace({
              * opens as a page with a name and no visible parent at all.
              */
             trail={sidebarVisible ? [] : ancestorNodes(tree, selected?.id ?? '')}
+            // What `[[` may link to, from the list the sidebar already holds
+            // (ADR-0173).
+            linkablePages={pages}
             // Already fetched for the comments panel: assigning a task needs
             // the same list, and fetching it again per menu opening would be a
             // request for something in hand (ADR-0052).
@@ -2167,6 +2170,12 @@ function ShareSession({
             // workspace shell, which is also why there is no trail. Assigning
             // needs the list, so the control is simply not offered here.
             members={[]}
+            /* And nothing to link to, for the same reason and a sharper one: a
+               visitor holding a link is not a member and must not learn what
+               else the workspace contains (ADR-0026). The empty list rather
+               than a filtered one — what a visitor may see is the server's
+               answer to give, not this view's. */
+            linkablePages={[]}
             viewingVersion={null}
             comparingVersion={null}
             onCloseVersion={() => {}}

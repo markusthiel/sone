@@ -1,10 +1,10 @@
 /**
  * Choosing from a list that belongs to a field, with the keyboard (ADR-0142).
  *
- * Six places in this application put a list under a text field: the person
+ * Seven places in this application put a list under a text field: the person
  * picker on the members screen, the two fields in the search panel, the tag
- * field in the properties panel, the `@` menu in a comment and the `@` menu in
- * the editor.
+ * field in the properties panel, the `@` menu in a comment, the `@` menu in
+ * the editor, and the `[[` page picker beside it (ADR-0173).
  *
  * **Two of them had the keys and none of the words; one had all the words and
  * none of the keys.** The mention menus move a highlight with the arrows and
@@ -109,11 +109,16 @@ describe('a list that says what it is, is what it says', () => {
       [
         'MentionDraftInput.tsx',
         'MentionMenu.tsx',
+        // The `[[` page picker (ADR-0173). The seventh list, and the reason
+        // this assertion is a census rather than a pattern: a new one has to
+        // be added here on purpose, which is the moment to notice whether it
+        // went through the hook or grew its own eleven lines.
+        'PageLinkMenu.tsx',
         'SearchPanel.tsx',
         'TagEditor.tsx',
         'WorkspaceMembers.tsx',
       ],
-      'the six lists, in five files — the search panel has two',
+      'the seven lists, in six files — the search panel has two',
     );
   });
 });
