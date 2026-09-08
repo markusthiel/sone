@@ -22,9 +22,8 @@
 import type { ReactElement } from 'react';
 
 import type { PageHandle } from '@sone/client';
-import { isFollowable } from '@sone/editor';
+import { isFollowable, isSameOrigin } from '@sone/editor';
 
-import { isInternal } from '../routes/internalLinks.ts';
 import { useDocAssets } from '../hooks/useDocAssets.ts';
 import { scrollToBlock } from '../hooks/useOutline.ts';
 import { useT } from '../i18n/useT.tsx';
@@ -76,7 +75,7 @@ export function LinksPanel({ handle }: { handle: PageHandle | null }): ReactElem
          * The app's own interception handles it from there, and puts a share
          * visitor's token back on (see `internalLinks.ts`).
          */
-        const internal = isInternal(link.href, window.location.origin);
+        const internal = isSameOrigin(link.href, window.location.origin);
 
         return (
           <li key={key}>

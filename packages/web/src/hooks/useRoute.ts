@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { internalTarget } from '../routes/internalLinks.ts';
+import { answersClick, internalTarget } from '../routes/internalLinks.ts';
 import { parseRoute, type Route } from '../routes/paths.ts';
 
 /**
@@ -114,6 +114,15 @@ export function useLinkInterception(
       if (!href || href.startsWith('#')) return;
       if (anchor.target && anchor.target !== '_self') return;
       if (anchor.hasAttribute('download')) return;
+      /*
+       * A click in text somebody is writing is not ours (ADR-0171).
+       *
+       * Editable text already answers it, and answers it better: the caret goes
+       * into the word and the card offers *open*. This was answering first, so
+       * a link home was followed on a plain click while a link out was not —
+       * one gesture, two meanings, decided by which host the address named.
+       */
+      if (!answersClick(anchor)) return;
 
       const to = internalTarget(href, window.location.origin, shareToken);
       if (to === null) return;
