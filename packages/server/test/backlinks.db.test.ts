@@ -196,10 +196,18 @@ describe(
       assert.deepEqual(await rows(page), []);
     });
 
-    test('a page in another workspace is not a backlink here', async () => {
-      // The panel is about this workspace's own structure. A reader who is not
-      // in the other workspace could not be shown it anyway — this says so
-      // where the row is written rather than only where it is read.
+    test('a page in another workspace is a backlink too (ADR-0176)', async () => {
+      /*
+       * This asserted the opposite until the `[[` picker learned to offer other
+       * workspaces. The old argument — *the panel is about a workspace's own
+       * structure* — stopped holding the moment such links became ordinary: a
+       * reference that exists is one the target's readers should be able to
+       * see.
+       *
+       * Nothing is disclosed by writing the row. What a reader is *told* is
+       * decided where the list is read, by a condition that already refuses a
+       * workspace they are not in — which the two tests below hold.
+       */
       const target = uuid(1);
       const source = uuid(2);
       await project(target, plain('Satzung'));
@@ -212,7 +220,50 @@ describe(
           actorId: other.userId,
         }),
       );
-      assert.deepEqual(await rows(target), []);
+      assert.deepEqual(
+        (await rows(target)).map((row) => row['from_page_id']),
+        [source],
+      );
+    });
+
+    test('but only somebody in that workspace is told about it', async () => {
+      /*
+       * The disclosure the widening could have been. The row exists across the
+       * boundary; the answer must not cross it for a reader who is not a member
+       * there — and `visiblePagesCondition` already refuses that, because
+       * membership is the first thing it asks.
+       */
+      const { visiblePagesCondition } = await import('../src/pages/access.js');
+
+      const target = uuid(1);
+      const source = uuid(2);
+      await project(target, plain('Satzung'));
+
+      const other = await seedWorkspace(db, 'Elsewhere');
+      await withTransaction(db, (client) =>
+        materializeYDoc(client, source, linking('Protokoll', [`/p/${target}`]), {
+          throughSeq: 1,
+          workspaceId: other.workspaceId,
+          actorId: other.userId,
+        }),
+      );
+
+      const outsider = await db.query(
+        `SELECT src.id FROM page_links l JOIN pages src ON src.id = l.from_page_id
+          WHERE l.to_page_id = $1 AND ${visiblePagesCondition('src', '$2')}`,
+        [target, fx.userId],
+      );
+      assert.deepEqual(outsider.rows, [], 'not a member there');
+
+      const member = await db.query(
+        `SELECT src.id FROM page_links l JOIN pages src ON src.id = l.from_page_id
+          WHERE l.to_page_id = $1 AND ${visiblePagesCondition('src', '$2')}`,
+        [target, other.userId],
+      );
+      assert.deepEqual(
+        member.rows.map((row) => row.id),
+        [source],
+      );
     });
 
     test('projecting twice writes the same rows', async () => {

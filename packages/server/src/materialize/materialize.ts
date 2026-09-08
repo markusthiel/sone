@@ -299,10 +299,22 @@ export async function materializeDocument(
   await db.query(`DELETE FROM page_links WHERE from_page_id = $1`, [pageId]);
   if (parsed.links.length > 0) {
     const wanted = [...new Set(parsed.links.map((link) => link.pageId))];
+    /*
+     * Any workspace, since ADR-0176.
+     *
+     * This was scoped to the source page's own workspace, on the argument that
+     * the panel is about a workspace's own structure. Links across workspaces
+     * became ordinary the moment the picker offered them, and a reference that
+     * exists is a reference the target's readers should be able to see.
+     *
+     * Nothing is disclosed by writing the row: what a reader is *told* is
+     * decided where the list is read, by the same condition the tree and search
+     * use — and that condition already refuses a workspace they are not in.
+     */
     const existing = await queryRows<{ id: string }>(
       db,
-      `SELECT id FROM pages WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
-      [wanted, opts.workspaceId],
+      `SELECT id FROM pages WHERE id = ANY($1::uuid[])`,
+      [wanted],
     );
     const known = new Set(existing.map((row) => row.id));
     // And never to itself: a page linking to its own top is a link that lands
