@@ -19,6 +19,7 @@
 import { isPlace, type CommentThread, type PdfMark, type PdfPlace, type PlaceRect } from '@sone/core';
 
 import { resolvedColor } from '../lib/computedColor.ts';
+import { FOUND_MS } from '../lib/found.ts';
 import { burnMarks, conversationText, type Burnable, type BurnableMark } from '../lib/pdfBurn.ts';
 import { linesOf, touches } from '../lib/pdfPlace.ts';
 import { subscribeToPdfMarks, subscribeToThreads } from '../lib/threadAnnouncement.ts';
@@ -277,7 +278,6 @@ export function mountPdfViewer(
   /** The thread the panel asked for, while it is being shown. */
   let wanted: string | null = null;
   /** How long a mark stays found. Long enough to look at, short enough to end. */
-  const FOUND_MS = 1600;
   let stopBeingFound: ReturnType<typeof setTimeout> | null = null;
 
   /**
@@ -404,7 +404,10 @@ export function mountPdfViewer(
     if (typeof detail.page !== 'number' || !Number.isFinite(detail.page)) return;
 
     wanted = typeof detail.thread === 'string' ? detail.thread : null;
-    container.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // `start`, the same as every other "take me there" since ADR-0166: the
+    // thing asked for belongs at the top of what you are looking at, and the
+    // stylesheet keeps it clear of the bar.
+    container.scrollIntoView({ block: 'start', behavior: 'smooth' });
     showPage?.(detail.page);
     // For the pages already drawn; the one being revealed is usually not among
     // them yet, and `drawMarks` reads `wanted` when its turn comes.
