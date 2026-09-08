@@ -1717,6 +1717,11 @@ export const de: Record<keyof typeof en, string> = {
   'cover.colors': 'Farbe',
   'cover.gradients': 'Farbverlauf',
   'cover.own': 'Eigene Farbe',
+  'cover.width': 'Breite',
+  'cover.height': 'Höhe',
+  'cover.height.slim': 'Schmal',
+  'cover.height.medium': 'Mittel',
+  'cover.height.tall': 'Hoch',
   // --- eine Fläche (ADR-0043) ---------------------------------------------
   'canvas.commented': '{count, plural, one {Ein Kommentar} other {# Kommentare}}',
   'canvas.commentedInternal':
