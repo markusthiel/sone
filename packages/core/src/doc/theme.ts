@@ -969,10 +969,52 @@ export function readTitleColor(value: unknown): ChosenColor | null {
  * migration, and a reader that does not know it draws nothing rather than
  * breaking.
  */
-export type EntryCover =
+export type EntryCover = (
   | { kind: 'image'; url: string }
   | { kind: 'color'; color: ChosenColor }
-  | { kind: 'gradient'; from: ChosenColor; to: ChosenColor };
+  | { kind: 'gradient'; from: ChosenColor; to: ChosenColor }
+) &
+  CoverShape;
+
+/**
+ * How wide a cover runs (ADR-0162).
+ *
+ * The **page's** two words rather than a block's three. A block offers a middle
+ * step, and the block menu already refuses to offer it for an image, in these
+ * words: *"all three read as the width of the text, or a bit more. An image is
+ * either in the column with the writing or across the page."* A cover is that
+ * picture, one line higher up.
+ */
+export const COVER_WIDTHS = ['column', 'full'] as const;
+export type CoverWidth = (typeof COVER_WIDTHS)[number];
+
+/**
+ * How tall it is — *„schmal mittel und hoch oder so"*.
+ *
+ * Three named steps rather than a number, because this is a band across a page
+ * and not a picture frame: a height somebody types is a height that can be
+ * three pixels, and every value between the three is a decision nobody needs to
+ * make.
+ */
+export const COVER_HEIGHTS = ['slim', 'medium', 'tall'] as const;
+export type CoverHeight = (typeof COVER_HEIGHTS)[number];
+
+/**
+ * The two settings every kind of cover has.
+ *
+ * Beside `kind` rather than inside it: how tall a band is and how far it runs
+ * are true of a picture, a colour and a gradient alike, and folding them into
+ * the union would make nine members that say three things.
+ *
+ * **Both are absent by default**, the way `template` and `locked` are absent
+ * rather than false. A cover written before this round says nothing about its
+ * shape and has to keep drawing exactly as it did, so the default cannot be a
+ * value that gets written in — it has to be the silence.
+ */
+interface CoverShape {
+  width?: CoverWidth;
+  height?: CoverHeight;
+}
 
 /**
  * A file uploaded to this instance, and nothing else.
@@ -1000,15 +1042,35 @@ export function readEntryCover(value: unknown): EntryCover | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
 
+  /*
+   * The shape, if it says anything about it (ADR-0162).
+   *
+   * A value nobody offers is **dropped rather than refused**: one level up, a
+   * malformed cover loses its cover and not its place in the tree, so a cover
+   * with a height nobody has heard of loses the height and not the picture.
+   *
+   * **And the defaults are dropped too.** `column` and `medium` are what a band
+   * does when it says nothing, so they are never stored as words: two spellings
+   * for one state is a control that has to decide which of them counts as
+   * chosen, and a cover that reads as adjusted while looking exactly like every
+   * cover nobody has touched. The vocabulary below still names all three
+   * heights — one of them is simply written as silence.
+   */
+  const shape: CoverShape = {};
+  if (raw['width'] === 'full') shape.width = 'full';
+  if (COVER_HEIGHTS.includes(raw['height'] as CoverHeight) && raw['height'] !== 'medium') {
+    shape.height = raw['height'] as CoverHeight;
+  }
+
   if (raw['kind'] === 'image') {
     const url = raw['url'];
     if (typeof url !== 'string' || !FILE_URL.test(url)) return null;
-    return { kind: 'image', url };
+    return { kind: 'image', url, ...shape };
   }
 
   if (raw['kind'] === 'color') {
     const color = readChosenColor(raw['color']);
-    return color ? { kind: 'color', color } : null;
+    return color ? { kind: 'color', color, ...shape } : null;
   }
 
   if (raw['kind'] === 'gradient') {
@@ -1016,7 +1078,7 @@ export function readEntryCover(value: unknown): EntryCover | null {
     // default would put a colour on the page that nobody chose.
     const from = readChosenColor(raw['from']);
     const to = readChosenColor(raw['to']);
-    return from && to ? { kind: 'gradient', from, to } : null;
+    return from && to ? { kind: 'gradient', from, to, ...shape } : null;
   }
 
   return null;

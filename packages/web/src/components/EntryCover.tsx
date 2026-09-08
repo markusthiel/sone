@@ -31,6 +31,8 @@ import {
   colorValue,
   coverBackground,
   type ChosenColor,
+  type CoverHeight,
+  type CoverWidth,
   type EntryCover,
 } from '@sone/core';
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
@@ -138,10 +140,54 @@ export function EntryCoverHead({
 
   const background = coverBackground(cover);
 
+  /*
+   * Change one part of the shape, keeping the cover it is the shape of
+   * (ADR-0162).
+   *
+   * The default is written as **absence** — `undefined` deletes the key — the
+   * way `template` and `locked` say the same thing. A cover that spelled out
+   * `width: 'column'` would claim a decision nobody made, and would differ from
+   * every cover written before this round while looking identical.
+   *
+   * And it does not close the picker. Choosing a picture is one act and then
+   * you are done; trying a height is three clicks in a row, and a panel that
+   * shut after each one would have to be reopened twice to answer one question.
+   */
+  const adjust = (part: {
+    width?: CoverWidth | undefined;
+    height?: CoverHeight | undefined;
+  }): void => {
+    if (!cover) return;
+    // Deleted rather than spread: `exactOptionalPropertyTypes` is on, and it is
+    // right to be — `{ width: undefined }` and no width at all are the same
+    // cover to a reader and two different documents to a CRDT.
+    const next: EntryCover = { ...cover };
+    if ('width' in part) {
+      if (part.width) next.width = part.width;
+      else delete next.width;
+    }
+    if ('height' in part) {
+      if (part.height) next.height = part.height;
+      else delete next.height;
+    }
+    setError(null);
+    onChange?.(next);
+  };
+
   return (
     <div className="entry-head" ref={region}>
       {cover && (
-        <div className="entry-cover" data-kind={cover.kind} style={{ background }}>
+        <div
+          className="entry-cover"
+          data-kind={cover.kind}
+          // Absent rather than a default written into the markup: what the
+          // stylesheet draws for a band that says nothing is what a cover has
+          // always looked like, and that has to stay one rule rather than two
+          // that agree.
+          data-width={cover.width}
+          data-height={cover.height}
+          style={{ background }}
+        >
           {cover.kind === 'image' && (
             // An `<img>` rather than a background image: the src is escaped by
             // React, it can carry alternative text, and it can be told to load
@@ -231,6 +277,69 @@ export function EntryCoverHead({
               />
             ))}
           </div>
+
+          {/* How wide it runs and how tall it is (ADR-0162) — offered only
+              once there is a cover, because the width of nothing is nothing. */}
+          {cover && (
+            <>
+              <p className="entry-cover-group">{t('cover.width')}</p>
+              <div className="entry-cover-shape" role="group" aria-label={t('cover.width')}>
+                {/* Two, not the three a block has. The block menu already
+                    refuses the middle step for an image, in its own words:
+                    all three read as the width of the text or a bit more, and
+                    a picture is either in the column or across the page. */}
+                {(
+                  [
+                    { id: undefined, label: 'block.width.column' },
+                    { id: 'full', label: 'block.width.full' },
+                  ] as const
+                ).map((choice) => (
+                  <button
+                    key={choice.label}
+                    type="button"
+                    role="radio"
+                    aria-checked={(cover.width ?? undefined) === choice.id}
+                    className={
+                      (cover.width ?? undefined) === choice.id
+                        ? 'entry-cover-choice current'
+                        : 'entry-cover-choice'
+                    }
+                    onClick={() => adjust({ width: choice.id })}
+                  >
+                    {t(choice.label)}
+                  </button>
+                ))}
+              </div>
+
+              <p className="entry-cover-group">{t('cover.height')}</p>
+              <div className="entry-cover-shape" role="group" aria-label={t('cover.height')}>
+                {(
+                  [
+                    { id: 'slim', label: 'cover.height.slim' },
+                    { id: undefined, label: 'cover.height.medium' },
+                    { id: 'tall', label: 'cover.height.tall' },
+                  ] as const
+                ).map((choice) => (
+                  <button
+                    key={choice.label}
+                    type="button"
+                    role="radio"
+                    // The middle one is the default, so it is the current one
+                    // both when it is chosen and when nothing has been.
+                    aria-checked={(cover.height ?? undefined) === choice.id}
+                    className={
+                      (cover.height ?? undefined) === choice.id
+                        ? 'entry-cover-choice current'
+                        : 'entry-cover-choice'
+                    }
+                    onClick={() => adjust({ height: choice.id })}
+                  >
+                    {t(choice.label)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           {error && <p className="error">{error}</p>}
         </div>
