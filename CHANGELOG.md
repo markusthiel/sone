@@ -11,6 +11,23 @@ version answers "what must I do to upgrade?", not "how much changed?".
 - **MINOR** — pull and restart; migrations run automatically.
 - **MAJOR** — read this file first, there is something to do.
 
+## Unreleased
+
+**`[[` verlinkt eine Seite, ohne dass du die Zeile verlässt.** Zwei eckige
+Klammern tippen, es klappt eine Liste der Seiten auf, weitertippen filtert nach
+Titel, Enter setzt den Link mit dem Seitentitel als Text. Unter jedem Titel steht,
+in welchen Ordnern die Seite liegt — sonst wäre bei drei Seiten namens
+*Protokoll* nicht zu erkennen, welche gemeint ist.
+
+Nicht angeboten werden: die Seite, auf der du gerade schreibst, Seiten im Archiv
+und Einträge, die es nur als Pfad gibt. In Codeblöcken passiert nichts, und ein
+einzelnes `[` löst nichts aus. Über einen Freigabe-Link steht die Liste leer —
+wer einen Link hat, ist kein Mitglied und soll nicht erfahren, was der
+Arbeitsbereich sonst enthält.
+
+Der Knopf im Anfasser bleibt: `[[` trifft eine *Seite*, der Knopf einen
+bestimmten *Block*.
+
 ## 0.12.7
 
 Pull and restart, sonst ist nichts zu tun. Keine Migration.

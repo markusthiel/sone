@@ -2765,6 +2765,22 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   inline-size: 260px;
 }
 
+/* And the page menu is wider than both: a row is a title over the folders it
+   sits in, and that second line is what tells two pages called *Protokoll*
+   apart (ADR-0173). Truncated rather than wrapped, so a deep path costs one
+   line and not four. */
+.page-link-menu {
+  inline-size: 320px;
+}
+.page-link-menu .slash-text { inline-size: 100%; }
+.page-link-menu .slash-title,
+.page-link-menu .slash-hint {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* A mention in the text.
  *
  * Marked, not decorated: it reads as a name in a sentence, and the tint is what

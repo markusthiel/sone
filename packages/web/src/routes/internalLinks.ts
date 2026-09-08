@@ -31,16 +31,34 @@ import { isSameOrigin } from '@sone/editor';
 import { paths } from './paths.ts';
 
 /**
- * The address of a block, or of a page when no block is named.
+ * The address as it is written **into a document** (ADR-0173).
+ *
+ * Relative, and that is the whole difference from the one below. A link inside
+ * a page is followed from wherever that page is being read — behind another
+ * host, through a share link, from an export somebody opened elsewhere — so it
+ * should name no host at all. `normaliseHref` in the editor already states the
+ * rule from its own side: *"a shared page keeps working behind a different
+ * host"*.
+ *
+ * The slug is included when a title is to hand and is decorative as always —
+ * `parseRoute` never reads it, so a page renamed after the link was written
+ * still resolves.
+ */
+export function documentAddress(
+  pageId: string,
+  blockId: string | null,
+  title?: string,
+): string {
+  return paths.page(pageId, title, blockId);
+}
+
+/**
+ * The same address, for **the clipboard**.
  *
  * Absolute, because this is what somebody pastes: into the link editor here,
  * but just as likely into a chat message or an email, where a bare path is not
  * an address at all. The origin is passed in rather than read from `window` so
  * the shape can be stated in a test without a browser.
- *
- * The slug is included when a title is to hand and is decorative as always —
- * `parseRoute` never reads it, so a page renamed after the link was written
- * still resolves.
  */
 export function blockAddress(
   origin: string,
@@ -48,7 +66,7 @@ export function blockAddress(
   blockId: string | null,
   title?: string,
 ): string {
-  return `${origin}${paths.page(pageId, title, blockId)}`;
+  return `${origin}${documentAddress(pageId, blockId, title)}`;
 }
 
 /** Where a click on this href should take us, or null to leave it alone. */
