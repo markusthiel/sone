@@ -1784,6 +1784,7 @@ export const de: Record<keyof typeof en, string> = {
   'panel.loading': 'Wird geladen…',
   'panel.uploading': 'wird hochgeladen…',
   'panel.noImages': 'Noch keine Bilder. Zieh eines in die Seite.',
+  'panel.linkRefused': 'Diese Adresse lässt sich nicht öffnen',
   'panel.noLinks': 'Noch keine Links.',
   'panel.noFiles': 'Noch keine Dateien. Zieh eine in die Seite oder tippe {shortcut}.',
   'panel.noHeadings': 'Noch keine Überschriften. Tippe {shortcut} am Zeilenanfang.',

@@ -56,6 +56,7 @@ import {
 } from './icons.tsx';
 import { useDocAssets } from '../hooks/useDocAssets.ts';
 import { CommentsPanel } from './CommentsPanel.tsx';
+import { LinksPanel } from './LinksPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { Contributors } from './Contributors.tsx';
 import { highlightAuthor } from './authorHighlightBridge.ts';
@@ -488,55 +489,6 @@ function ImagesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
  * called "here" or "the report" says nothing about where it goes, and a list of
  * those is a list of nothing.
  */
-function LinksPanel({ handle }: { handle: PageHandle | null }): ReactElement {
-  const { t } = useT();
-  const { links } = useDocAssets(handle?.doc ?? null);
-
-  if (!handle) return <p className="panel-empty">{t('panel.openForLinks')}</p>;
-  if (links.length === 0) {
-    return <p className="panel-empty">{t('panel.noLinks')}</p>;
-  }
-
-  return (
-    <ul className="asset-list">
-      {links.map((link, at) => (
-        <li key={`${link.blockId}-${at}`}>
-          <a className="asset-row" href={link.href} target="_blank" rel="noreferrer">
-            <ExternalIcon />
-            <span className="asset-name">
-              {link.text.trim() || link.href}
-              <span className="asset-sub">{hostOf(link.href)}</span>
-            </span>
-          </a>
-          <button
-            type="button"
-            className="asset-jump"
-            title={t('panel.showInPage')}
-            aria-label={t('panel.showLinkInPage')}
-            onClick={() => scrollToBlock(link.blockId)}
-          >
-            <PageIcon />
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/**
- * The host of a URL, or the URL itself.
- *
- * A relative link — one page of this instance pointing at another — has no host,
- * and showing an empty line for it would be worse than showing the path.
- */
-function hostOf(href: string): string {
-  try {
-    return new URL(href, window.location.origin).host;
-  } catch {
-    return href;
-  }
-}
-
 function OutlinePanel({ handle }: { handle: PageHandle | null }): ReactElement {
   const { t } = useT();
   const outline = useOutline(handle?.doc ?? null);
