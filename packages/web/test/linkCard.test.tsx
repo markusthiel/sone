@@ -83,10 +83,20 @@ describe('the card over a link', () => {
     assert.match(toolbar, /\{canFormat && \(\s*\n\s*<>\s*\n\s*<button[\s\S]{0,400}format\.linkEdit/);
   });
 
-  test('and opening goes through the one function that refuses a script', () => {
-    // Not `window.open` from here: `openLink` asks `isFollowable` first, which
-    // is the same door the schema and `normaliseHref` stand at (ADR-0157).
-    assert.match(toolbar, /openLink\(existingLink\.href\)/);
+  test('and a script address is not offered as something to open', () => {
+    /*
+     * The door, still the same one (ADR-0157) — the mechanism behind it changed
+     * in ADR-0171. This read `openLink(existingLink.href)`, which asked
+     * `isFollowable` on the way through and then called `window.open(…,
+     * '_blank')`. That second half turned out to be wrong for an address
+     * pointing **home**: a second copy of the application in a second tab.
+     *
+     * So *Öffnen* is a real anchor now, and the two properties that mattered are
+     * kept where a browser looks for them: the refusal is asked before the
+     * anchor is drawn at all, and `noopener noreferrer` is on the element.
+     */
+    assert.match(toolbar, /isFollowable\(existingLink\.href\) \?/);
+    assert.match(toolbar, /rel: 'noopener noreferrer'/);
     assert.doesNotMatch(toolbar, /window\.open\(/);
   });
 });

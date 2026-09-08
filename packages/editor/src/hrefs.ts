@@ -46,3 +46,26 @@ export function isFollowable(href: string): boolean {
   if (!match) return true;
   return !EXECUTES.has(match[1]!.toLowerCase());
 }
+
+/**
+ * Does this address point back into the instance the reader is on?
+ *
+ * Here rather than in the application, for the reason the file's header gives
+ * about `isFollowable`: two places have to agree. The editor asks so it can
+ * leave a link home to be navigated rather than opened in a window of its own
+ * (ADR-0171), and the application asks so it can draw one differently and put
+ * the reader's share credential back on it (ADR-0170). **A rule written in two
+ * packages is a rule that gets updated in one.**
+ *
+ * Parsed rather than compared as text, because the shapes that fool a string
+ * test are exactly the dangerous ones: `//evil.example/p/x` is protocol-relative
+ * and resolves to another host while looking like a path, and `javascript:` has
+ * no origin at all. Both come back as *not ours*.
+ */
+export function isSameOrigin(href: string, origin: string): boolean {
+  try {
+    return new URL(href, origin).origin === origin;
+  } catch {
+    return false;
+  }
+}

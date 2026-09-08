@@ -437,7 +437,7 @@ export {
   setLink,
   type LinkRange,
 } from './links.js';
-export { isFollowable } from './hrefs.js';
+export { isFollowable, isSameOrigin } from './hrefs.js';
 export {
   SLASH_ITEMS,
   closeSlashMenu,

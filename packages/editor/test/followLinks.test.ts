@@ -34,7 +34,17 @@ describe('a link in the text', () => {
   let opened: string[] = [];
 
   before(async () => {
-    dom = new JSDOM('<!doctype html><html><body></body></html>', { pretendToBeVisual: true });
+    /*
+     * With an origin, because the editor now asks whether an address points
+     * home (ADR-0171). A JSDOM with no `url` has the opaque origin `"null"`,
+     * against which nothing resolves and every link looks external — so the
+     * fixture would have agreed with itself about a world the application does
+     * not have.
+     */
+    dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      pretendToBeVisual: true,
+      url: 'https://sone.example/',
+    });
     for (const key of DOM_GLOBALS) {
       Object.defineProperty(globalThis, key, {
         value: (dom.window as unknown as Record<string, unknown>)[key],
@@ -171,18 +181,59 @@ describe('a link in the text', () => {
     }
   });
 
-  test('a relative link stays relative', () => {
+  test('a link home is not opened in a second window', () => {
     /*
-     * The attribute, not the property. `anchor.href` is resolved against the
-     * page's own origin, so a link written to survive being read behind another
-     * host would be opened at this one — and a refused scheme would come back
-     * looking like something else entirely.
+     * This asserted the opposite until ADR-0171, and it was right about the
+     * part it was written for: the **attribute**, not the property, because
+     * `anchor.href` is resolved against the page's own origin and a refused
+     * scheme comes back looking like something else entirely.
+     *
+     * What it also pinned, without meaning to, was `window.open` for an address
+     * pointing back into this instance — a second copy of the application, a
+     * second sync connection, and the place you were reading gone. Internal
+     * links did not exist when it was written, so nothing had to disagree.
+     *
+     * The editor leaves this click alone now. Nothing is prevented, so it
+     * reaches the application's own interception, which navigates in place
+     * (ADR-0170). Here there is no application, which is why the assertion is
+     * that nothing opened.
      */
     opened = [];
     const { view, ydoc, mount } = editorWith('/p/abc/eine-seite', false);
     try {
       clickTheLink(mount as unknown as HTMLElement);
+      assert.deepEqual(opened, [], 'left to the application');
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('and holding the modifier opens one in a new tab, as it does anywhere', () => {
+    /*
+     * The one case where a new window is what was asked for. Cmd-click means
+     * *open this somewhere else* in every browser and every application, and an
+     * address pointing home is not an exception to a gesture that general.
+     */
+    opened = [];
+    const { view, ydoc, mount } = editorWith('/p/abc/eine-seite', false);
+    try {
+      clickTheLink(mount as unknown as HTMLElement, { metaKey: true });
       assert.deepEqual(opened, ['/p/abc/eine-seite']);
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('an external link is still opened by a reader clicking it', () => {
+    // The change above is about where a link points, not about who is reading:
+    // a link out of the instance leaves the instance, in a tab of its own.
+    opened = [];
+    const { view, ydoc, mount } = editorWith('https://example.org/satzung', false);
+    try {
+      clickTheLink(mount as unknown as HTMLElement);
+      assert.deepEqual(opened, ['https://example.org/satzung']);
     } finally {
       view.destroy();
       ydoc.destroy();

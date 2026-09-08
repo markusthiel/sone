@@ -26,6 +26,8 @@
  * reader, not to what is being read.**
  */
 
+import { isSameOrigin } from '@sone/editor';
+
 import { paths } from './paths.ts';
 
 /**
@@ -55,13 +57,10 @@ export function internalTarget(
   origin: string,
   shareToken: string | null,
 ): string | null {
-  let url: URL;
-  try {
-    url = new URL(href, origin);
-  } catch {
-    return null;
-  }
-  if (url.origin !== origin) return null;
+  // The rule about what counts as ours is `isSameOrigin`'s, stated once
+  // (ADR-0171). The parse below is for the parts, not for the question.
+  if (!isSameOrigin(href, origin)) return null;
+  const url = new URL(href, origin);
 
   /*
    * The fragment is kept, and that was the whole first fault.
@@ -87,11 +86,25 @@ export function internalTarget(
   return `/s/${encodeURIComponent(shareToken)}${here}`;
 }
 
-/** Whether this address is one of ours, for a component deciding how to draw it. */
-export function isInternal(href: string, origin: string): boolean {
-  try {
-    return new URL(href, origin).origin === origin;
-  } catch {
-    return false;
-  }
+/**
+ * Is this click the application's to answer? (ADR-0171)
+ *
+ * No, when it landed in text somebody is writing. Editable text already has a
+ * rule for a click on a link and it is the right one: the caret goes into the
+ * word, and the card over it offers *open* — because a link nobody can correct
+ * is worse than one nobody can follow (ADR-0157).
+ *
+ * The application was answering first, so the same gesture did two different
+ * things depending on which host the address named, and **the words of an
+ * internal link could not be edited at all** — clicking into them left the page.
+ *
+ * `contenteditable="true"` rather than a class or a ProseMirror API: it is the
+ * browser's own word for *this is text being written*, it is what makes the
+ * browser refuse to follow the anchor in the first place, and it stays true for
+ * whatever draws editable text here next. A read-only view carries
+ * `contenteditable="false"`, where there is no caret to place and following the
+ * link is the only thing a click can mean.
+ */
+export function answersClick(anchor: Element): boolean {
+  return anchor.closest('[contenteditable="true"]') === null;
 }
