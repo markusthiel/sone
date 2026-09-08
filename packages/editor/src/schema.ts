@@ -17,6 +17,7 @@
  * modelling it as one would make every style change a tree operation.
  */
 
+import { isFollowable } from './hrefs.js';
 import {
   BLOCK_ALIGNMENTS,
   BLOCK_ATTRS,
@@ -675,10 +676,25 @@ const marks: Record<string, MarkSpec> = {
     parseDOM: [
       {
         tag: 'a[href]',
-        getAttrs: (dom) => ({
-          href: (dom as HTMLElement).getAttribute('href'),
-          title: (dom as HTMLElement).getAttribute('title'),
-        }),
+        /*
+         * Refused at the door (ADR-0157).
+         *
+         * `normaliseHref` has always refused `javascript:` and friends for a
+         * link somebody *typed*, and this took a pasted `href` exactly as it
+         * arrived — so a paste could put a script behind a word in the page.
+         * Returning `false` makes ProseMirror ignore the rule: the words stay
+         * and the link is dropped, which is the right trade every time.
+         *
+         * `isFollowable` lives in a module of its own because `normaliseHref`
+         * is in `links.ts`, which imports this file — the rule cannot be asked
+         * for from here without a cycle, and a second copy of it is the copy
+         * that stops being updated.
+         */
+        getAttrs: (dom) => {
+          const href = (dom as HTMLElement).getAttribute('href');
+          if (href === null || !isFollowable(href)) return false;
+          return { href, title: (dom as HTMLElement).getAttribute('title') };
+        },
       },
     ],
     toDOM: (mark) => [

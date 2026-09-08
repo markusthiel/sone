@@ -18,6 +18,7 @@ import {
   canLink,
   codeTextAt,
   linkAt,
+  openLink,
   normaliseHref,
   removeLink,
   schema,
@@ -79,9 +80,25 @@ export function SelectionToolbar({
   const empty = state.selection.empty;
   const existingLink = linkAt(state);
 
+  /**
+   * With nothing selected, a caret inside a link is enough (ADR-0157).
+   *
+   * Reported as *„wenn man im Text einen Link setzt dann kann man den nicht
+   * öffnen"*. In an editable view a plain click has to keep putting the caret
+   * in the word — a link nobody can correct is worse than one nobody can follow
+   * — so the click is answered here instead: the same overlay, over the link,
+   * offering the four things somebody wants from one.
+   *
+   * The same component rather than a second card, because the hard half is the
+   * positioning: measuring against a range that may wrap a line, retrying when
+   * a coordinate is stale for a frame, and following the column when a panel
+   * opens (ADR-0083). A second copy of that is a second copy to get wrong.
+   */
+  const onlyALink = empty && existingLink !== null && !editingLink;
+
   // Kept open across the transaction that selects the link, so Mod-K can leave
   // a selection behind and have the editor appear over it.
-  const visible = !empty || editingLink;
+  const visible = !empty || editingLink || onlyALink;
   const codeText = codeTextAt(state);
 
   // A scroll moves the selection under the toolbar without producing a
@@ -110,8 +127,12 @@ export function SelectionToolbar({
       return;
     }
     try {
-      const start = view.coordsAtPos(state.selection.from);
-      const end = view.coordsAtPos(state.selection.to);
+      // The link's own extent when there is no selection, so the card sits over
+      // the words rather than over the one character the caret is in.
+      const measureFrom = onlyALink && existingLink ? existingLink.from : state.selection.from;
+      const measureTo = onlyALink && existingLink ? existingLink.to : state.selection.to;
+      const start = view.coordsAtPos(measureFrom);
+      const end = view.coordsAtPos(measureTo);
       const height = barRef.current?.offsetHeight ?? 40;
 
       const centre = (start.left + end.right) / 2;
@@ -135,7 +156,7 @@ export function SelectionToolbar({
       return () => cancelAnimationFrame(retry);
     }
     return undefined;
-  }, [view, state, revision, visible, editingLink, retryToken, viewportToken]);
+  }, [view, state, revision, visible, editingLink, onlyALink, existingLink?.from, existingLink?.to, retryToken, viewportToken]);
 
   // Escape closes the link editor without applying, and returns focus to the
   // document — otherwise the caret is lost and the next keystroke goes nowhere.
@@ -190,7 +211,71 @@ export function SelectionToolbar({
       // screen cancels the gesture before the tap can become a click.
       {...keepsEditorSelection}
     >
-      {editingLink && canFormat ? (
+      {onlyALink && existingLink ? (
+        /*
+         * What somebody wants from a link they are standing in (ADR-0157).
+         *
+         * The address is shown because a link's words rarely say where it goes,
+         * and the four verbs are the ones a browser's own context menu offers —
+         * open, copy, change, remove. Nothing here is new vocabulary.
+         *
+         * `Bearbeiten` hands over to the editor below rather than being a fifth
+         * thing: it is the same box `Mod-K` opens, reached by the other door.
+         */
+        <div className="link-card">
+          <span className="link-card-href" title={existingLink.href}>
+            {existingLink.href}
+          </span>
+          <span className="toolbar-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className="toolbar-button"
+            onClick={() => openLink(existingLink.href)}
+          >
+            {t('format.linkOpen')}
+          </button>
+          <button
+            type="button"
+            className="toolbar-button"
+            onClick={() => {
+              void (async () => {
+                try {
+                  await navigator.clipboard.writeText(existingLink.href);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1400);
+                } catch {
+                  // Refused, or plain http where it does not exist at all. The
+                  // address is on screen to copy by hand, which is why it is
+                  // shown rather than summarised.
+                }
+              })();
+            }}
+          >
+            {copied ? t('format.linkCopied') : t('format.linkCopy')}
+          </button>
+          {canFormat && (
+            <>
+              <button
+                type="button"
+                className="toolbar-button"
+                onClick={() => {
+                  setHref(existingLink.href);
+                  setEditingLink(true);
+                }}
+              >
+                {t('format.linkEdit')}
+              </button>
+              <button
+                type="button"
+                className="toolbar-button"
+                onClick={() => run(removeLink)}
+              >
+                {t('format.removeLink')}
+              </button>
+            </>
+          )}
+        </div>
+      ) : editingLink && canFormat ? (
         <div className="link-editor">
           <input
             value={href}

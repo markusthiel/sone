@@ -35,6 +35,7 @@ import { blockIds, type IdGenerator } from './blockIds.js';
 import { soneInputRules } from './inputRules.js';
 import { soneKeymap } from './keymap.js';
 import { codeCopy } from './codeCopy.js';
+import { followLinks } from './links.js';
 import { collapse } from './collapse.js';
 import { listNumbers } from './listNumbers.js';
 import { placeholders } from './placeholders.js';
@@ -214,6 +215,11 @@ export function createEditorState(opts: EditorOptions): EditorState {
     collapse(),
     placeholders(),
     codeCopy(),
+    // Following one (ADR-0157). A plain click in a read-only view, and the
+    // platform's modifier in an editable one — where a plain click has to keep
+    // putting the caret in the word, or a link would be a phrase nobody can
+    // correct.
+    followLinks(),
     ...tablePlugins(),
     markdownPaste(),
     // After markdownPaste: a paste carrying both files and text is an image
@@ -410,13 +416,16 @@ export {
 } from './markdownPaste.js';
 export {
   canLink,
+  followLinks,
   linkAt,
   normaliseHref,
+  openLink,
   removeLink,
   selectLink,
   setLink,
   type LinkRange,
 } from './links.js';
+export { isFollowable } from './hrefs.js';
 export {
   SLASH_ITEMS,
   closeSlashMenu,
