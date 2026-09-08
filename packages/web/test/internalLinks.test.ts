@@ -161,6 +161,8 @@ test('an internal link in the panel stays in this tab', () => {
    * loses the sync connection's warmth and, more to the point, is not what
    * clicking a link to your own document should do.
    */
+  // `isSameOrigin` from the editor package since ADR-0171: the editor asks the
+  // same question, and a rule written in two packages is updated in one.
   const panel = codeOf(new URL('../src/components/LinksPanel.tsx', import.meta.url));
-  assert.match(panel, /isInternal\(/);
+  assert.match(panel, /const internal = isSameOrigin\(link\.href, window\.location\.origin\)/);
 });
