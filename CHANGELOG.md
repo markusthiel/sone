@@ -11,6 +11,25 @@ version answers "what must I do to upgrade?", not "how much changed?".
 - **MINOR** — pull and restart; migrations run automatically.
 - **MAJOR** — read this file first, there is something to do.
 
+## Unreleased
+
+**Interne Links: auf eine Seite und auf einen einzelnen Block.** Im
+Anfasser-Menü eines Blocks steht jetzt *„Link zu diesem Block kopieren"*. Die
+Adresse lässt sich als ganz normaler Link einsetzen — ein Klick darauf öffnet
+die Seite und lässt die Stelle kurz aufleuchten, genau wie der Sprung aus der
+rechten Leiste. Ein solcher Link öffnet keinen neuen Tab mehr, und in der
+Linkleiste steht bei ihm *„In diesem Arbeitsbereich"* statt einer Adresse.
+
+Ein kopierter Link enthält **nie** ein Freigabe-Kürzel: er gehört in den Inhalt,
+und ein Kürzel im Inhalt wäre ein Zugang, der bei jeder weiteren Freigabe
+mitwandert. Wer über einen Freigabe-Link liest, behält seinen Zugang trotzdem —
+er wird beim Klick aus der Adresszeile ergänzt.
+
+**Behoben: ein zweites Suchergebnis auf derselben Seite sprang nicht.** Wer aus
+der Suche ein Ergebnis öffnete und dann ein zweites auf derselben Seite anklickte,
+blieb stehen, wo er war. Das galt für jeden Sprung, bei dem sich nur die Stelle
+und nicht die Seite änderte.
+
 ## 0.12.6
 
 Pull and restart, sonst ist nichts zu tun. Keine Migration.
