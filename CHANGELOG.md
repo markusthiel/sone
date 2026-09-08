@@ -11,7 +11,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 - **MINOR** — pull and restart; migrations run automatically.
 - **MAJOR** — read this file first, there is something to do.
 
-## Unreleased
+## 0.12.7
+
+Pull and restart, sonst ist nichts zu tun. Keine Migration.
+
+Querverweise: eine Seite oder eine einzelne Stelle darin verlinken — und ein
+Klick auf einen Link bedeutet ab jetzt überall dasselbe.
 
 **Interne Links: auf eine Seite und auf einen einzelnen Block.** Im
 Anfasser-Menü eines Blocks steht jetzt *„Link zu diesem Block kopieren"*. Die
@@ -24,10 +29,6 @@ Ein kopierter Link enthält **nie** ein Freigabe-Kürzel: er gehört in den Inha
 und ein Kürzel im Inhalt wäre ein Zugang, der bei jeder weiteren Freigabe
 mitwandert. Wer über einen Freigabe-Link liest, behält seinen Zugang trotzdem —
 er wird beim Klick aus der Adresszeile ergänzt.
-
-**Behoben: „Öffnen" auf der Linkkarte saß zu hoch.** Es war seit dieser Fassung
-ein Link statt eines Knopfes — und trug damit die Schrift des Browsers für Links
-statt die der drei Knöpfe daneben. Betraf alle Links, auch externe.
 
 **Ein Klick auf einen Link bedeutet überall dasselbe.** Beim Schreiben setzt ein
 einfacher Klick den Cursor ins Wort — bei internen Links jetzt genauso wie bei
