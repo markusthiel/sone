@@ -47,6 +47,7 @@ import { SearchPanel } from './components/SearchPanel.tsx';
 import { SearchScreen } from './components/Search.tsx';
 import { LocaleProvider, resolveLocale, useT } from './i18n/useT.tsx';
 import { StaleBundleNotice } from './components/StaleBundleNotice.tsx';
+import { OPEN_THREAD_EVENT } from './lib/found.ts';
 import { AdminScreen } from './components/AdminScreen.tsx';
 import { Settings } from './components/Settings.tsx';
 import { SharesScreen } from './components/SharesScreen.tsx';
@@ -568,6 +569,20 @@ function Workspace({
     />
   );
   const [rightOpen, setRightOpen] = useState(readRightPanelOpen);
+
+  /*
+   * A comment mark in the writing was clicked (ADR-0168).
+   *
+   * The panel's own half — which tab, and lighting the thread — is its own
+   * business; this one owns whether the panel is open at all, so this is all it
+   * answers. Three listeners for one event, each holding exactly the state it
+   * holds anyway.
+   */
+  useEffect(() => {
+    const open = (): void => setRightOpen(true);
+    window.addEventListener(OPEN_THREAD_EVENT, open);
+    return () => window.removeEventListener(OPEN_THREAD_EVENT, open);
+  }, []);
 
   // Remembered per browser: reopening the panel on every navigation is the kind
   // of small friction that makes an app feel inattentive.
@@ -1656,6 +1671,20 @@ function ShareSession({
    * workspace. A link opens on the page.
    */
   const [rightOpen, setRightOpen] = useState(false);
+
+  /*
+   * A comment mark in the writing was clicked (ADR-0168), on a shared link too.
+   *
+   * The panel's own half — which tab, and lighting the thread — is its own
+   * business; this one owns whether the panel is open at all, so this is all it
+   * answers. Three listeners for one event, each holding exactly the state it
+   * holds anyway.
+   */
+  useEffect(() => {
+    const open = (): void => setRightOpen(true);
+    window.addEventListener(OPEN_THREAD_EVENT, open);
+    return () => window.removeEventListener(OPEN_THREAD_EVENT, open);
+  }, []);
   /*
    * Whether this view has been scrolled (ADR-0163).
    *

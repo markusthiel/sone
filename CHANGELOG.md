@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Ein Klick auf einen farbig hinterlegten Kommentar im Text öffnet ihn rechts.**
+Die Leiste geht auf, springt auf *Kommentare*, und der gemeinte Faden leuchtet
+kurz auf — die Gegenrichtung zu dem, was die Leiste schon konnte. Ein
+zugeklappter Faden klappt dabei auf, solange er leuchtet, und ist danach wieder
+so zugeklappt, wie du ihn gelassen hast. Der Klick bleibt dem Text: der Cursor
+landet weiter dort, wo du hingeklickt hast, denn markierte Worte sind Text, in
+dem man gleich weiterschreibt.
+
 **Behoben: der Block leuchtete nicht auf.** Der Sprung aus der rechten Leiste
 scrollte richtig, aber die Stelle blieb unmarkiert — das Aufleuchten wurde vom
 Editor innerhalb eines Wimpernschlags wieder weggeräumt, weil ihm die Absätze
