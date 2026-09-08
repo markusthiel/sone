@@ -21,6 +21,7 @@ import {
   PAGE_KEYS,
   VIEW_KEYS,
   compareSiblings,
+  linksIn,
   mentionsIn,
   readBlockTree,
   type StoredValue,
@@ -148,6 +149,13 @@ export interface ReadDocument {
    * is handed this result and not the document.
    */
   mentions: Array<{ userId: string; blockId: string }>;
+  /**
+   * Every page this one links to, with the block the link sits in (ADR-0174).
+   *
+   * Here for the same reason the mentions are: this is where the document is
+   * open, and a link is a mark in it rather than a row.
+   */
+  links: Array<{ pageId: string; blockId: string; toBlockId: string | null }>;
   /**
    * Who has writing in this page, as the document names them (ADR-0050).
    *
@@ -420,6 +428,9 @@ export function readDocument(doc: Y.Doc, pageId: string | null): ReadDocument {
     authorKeys: [...writersIn(doc).keys()],
     commentThreads: readThreads(doc),
     mentions: mentionsIn(doc),
+    // Which pages this one points at (ADR-0174). Read from the document rather
+    // than reported by a client, for the reason above it.
+    links: linksIn(doc),
     comments: readThreads(doc).map((thread) => ({
       id: thread.id,
       quote: thread.quote,
