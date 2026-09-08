@@ -13,6 +13,44 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.12.4
+
+Pull and restart, sonst ist nichts zu tun. Keine Migration.
+
+**Das Titelbild hat jetzt eine Breite und eine Höhe.** Im selben Menü, in dem es
+gewählt wird, stehen zwei Zeilen: *Spalte*, *Ganze Seite* oder *Randlos*, und
+*Schmal*, *Mittel* oder *Hoch*. Über die ganze Seite läuft das Bild von Kante zu
+Kante und lässt dabei die abgerundeten Ecken und den feinen Rahmen weg — was bis
+an beide Ränder geht, hat kein Ende, das man markieren müsste. Auf einem schmalen
+Bildschirm bleibt alles wie es ist, dort gibt es keinen Rand, in den etwas
+ausbrechen könnte.
+
+Wer nichts einstellt, sieht genau das, was er bisher gesehen hat: *Spalte* und
+*Mittel* sind nicht gespeicherte Werte, sondern das, was ein Titelbild tut, wenn
+es nichts dazu sagt. Gilt für Seiten und für Ordner.
+
+**Und *Randlos* geht bis an den oberen Fensterrand.** Das Bild beginnt dort, wo
+das Fenster beginnt, und die obere Leiste liegt darauf. Damit Knöpfe, *Synced*
+und die Kürzel der Mitlesenden auf einem Foto lesbar bleiben, bekommt jedes
+dieser Bedienelemente dieselbe Fläche unter sich, die es auf der schmalen Leiste
+beim Drüberfahren hat: über einem Bild lässt sich keine lesbare Farbe berechnen,
+also bringt jedes Element seinen eigenen Untergrund mit. Beim ersten Scrollen
+füllt sich die Leiste wieder, wie sie es immer tut. Die beiden Knöpfe zum Ändern
+und Entfernen des Titelbilds rücken dabei unter die Leiste und an die Ecke des
+Bildes.
+
+Das Bild wächst genau um das, was es sich nimmt — die Überschrift und der Text
+darunter bleiben, wo sie waren. Und wenn oben etwas anderes steht (ein Hinweis,
+dass der Browser eine ältere Version geladen hat, oder der Pfad zur Seite),
+bleibt *Randlos* aus: was über dem Bild steht, ist wichtiger als das Foto.
+
+**Der Pfad einer Seite steht jetzt unter dem Titelbild statt darüber.** Sichtbar
+ist er ohnehin nur bei ausgeblendeter Seitenleiste — dort, wo eine Seite sonst
+nicht sagt, wo sie liegt. Unter dem Bild und über dem Titel liest er sich auch
+besser: erst die Ordner, dann der Name.
+
 **Mehrere markierte Zeilen lassen sich jetzt gemeinsam umwandeln.** Vier Zeilen
 markieren, im Blockmenü (⋮⋮ neben einer davon) *Aufzählung* wählen — und alle
 vier werden zu einer. Genauso mit Überschrift, Aufgabe, Zitat und den Tastenwegen
@@ -24,42 +62,6 @@ Aufzählungspunkte und zwei Absätze werden vier Aufzählungspunkte. Zurück in
 Absätze geht es, wenn alle markierten Zeilen schon von der Art sind. Blöcke ohne
 Text — eine Trennlinie etwa — werden dabei übersprungen statt die ganze
 Umwandlung zu verweigern.
-
-**Behoben: die beiden Knöpfe auf einem randlosen Titelbild ließen sich nicht
-anklicken** — sie lagen im Streifen der oberen Leiste, und die nimmt dort jeden
-Klick entgegen. Sie stehen jetzt darunter und außerdem an der Ecke des *Bildes*
-statt an der Kante der Textspalte, wo sie mitten im Bild schwebten.
-
-**Behoben: mit ausgeblendeter Seitenleiste begann ein randloses Titelbild nicht
-mehr ganz oben.** Ohne Seitenleiste zeigt eine Seite ihren Pfad („Ordner 1 /
-…"), und der stand über dem Bild und hat es um seine eigene Höhe nach unten
-geschoben. Der Pfad steht jetzt unter dem Bild und über dem Titel — wo er sich
-auch besser liest: erst die Ordner, dann der Name.
-
-**Und eine dritte Stufe: randlos bis an den oberen Rand.** In derselben Zeile
-steht jetzt *Spalte*, *Ganze Seite* und *Randlos* — bei der letzten beginnt das
-Bild dort, wo das Fenster beginnt, und die obere Leiste liegt darauf. Damit
-Knöpfe, *Synced* und die Kürzel der Mitlesenden auf einem Foto lesbar bleiben,
-bekommt jedes dieser Bedienelemente dieselbe Fläche unter sich, die es auf der
-schmalen Leiste beim Drüberfahren hat: über einem Bild lässt sich keine lesbare
-Farbe berechnen, also bringt jedes Element seinen eigenen Untergrund mit. Beim
-ersten Scrollen füllt sich die Leiste wieder, wie sie es immer tut.
-
-Das Bild wächst dabei genau um das, was es sich nimmt — die Überschrift und der
-Text darunter bleiben, wo sie waren. Und wenn oben ein Hinweis steht (etwa dass
-der Browser eine ältere Version geladen hat), bleibt *Randlos* aus: der Hinweis
-ist wichtiger als das Foto.
-
-**Das Titelbild hat jetzt eine Breite und eine Höhe.** Im selben Menü, in dem es
-gewählt wird, stehen zwei Zeilen: *Spalte* oder *Ganze Seite*, und *Schmal*,
-*Mittel* oder *Hoch*. Über die ganze Seite läuft das Bild von Kante zu Kante und
-lässt dabei die abgerundeten Ecken und den feinen Rahmen weg — was bis an beide
-Ränder geht, hat kein Ende, das man markieren müsste. Auf einem schmalen Bildschirm
-bleibt alles wie es ist, dort gibt es keinen Rand, in den etwas ausbrechen könnte.
-
-Wer nichts einstellt, sieht genau das, was er bisher gesehen hat: *Spalte* und
-*Mittel* sind nicht gespeicherte Werte, sondern das, was ein Titelbild tut, wenn
-es nichts dazu sagt. Gilt für Seiten und für Ordner.
 
 ## 0.12.3
 
