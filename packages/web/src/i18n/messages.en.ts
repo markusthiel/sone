@@ -1442,6 +1442,11 @@ export const en = {
   'block.outdent': 'Outdent',
   'block.indent': 'Indent',
   'block.duplicate': 'Duplicate',
+  // The address of this block, to paste as a link (ADR-0170). "Copy link to
+  // this block" rather than "copy internal URL": what somebody wants is a link
+  // to *this*, and "internal" describes the implementation rather than the act.
+  'block.copyLink': 'Copy link to this block',
+  'block.linkCopied': 'Link copied',
   'block.assignee': 'Assigned to',
   'block.assignee.nobody': 'Nobody',
   'block.lock': 'Lock this block',
@@ -1692,6 +1697,9 @@ export const en = {
   'panel.uploading': 'uploading…',
   'panel.noImages': 'No images yet. Drop one into the page.',
   'panel.linkRefused': 'This address cannot be opened',
+  // Where a host would be. A link home has none, and the path alone says
+  // nothing anybody reads (ADR-0170).
+  'panel.linkInternal': 'In this workspace',
   'panel.noLinks': 'No links yet.',
   // The empty states name the shortcut that fills them, so the code stays out of
   // the message: a translator must not have to preserve `/file` inside a

@@ -96,7 +96,10 @@ import { AcceptInvitation } from './components/AcceptInvitation.tsx';
 
 export function App(): ReactElement {
   const { route, navigate } = useRoute();
-  useLinkInterception(navigate);
+  // The token from the address bar, so a visitor following an internal link
+  // keeps their credential — the link itself carries none, on purpose
+  // (ADR-0170).
+  useLinkInterception(navigate, route.kind === 'share' ? route.token : null);
   const { state, reload, logout, selectWorkspace } = useSession();
 
   /**

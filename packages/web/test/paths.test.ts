@@ -282,7 +282,17 @@ test('a search result lands on the block, and the page waits for it', () => {
   assert.match(search, /pageLink\(result\.pageId, result\.title, result\.blockId\)/);
 
   const page = codeOf(new URL('../src/components/PageView.tsx', import.meta.url));
-  assert.match(page, /blockFromHash\(window\.location\.hash\)/);
+  /*
+   * From `useLocationHash()` rather than from `window` since ADR-0170.
+   *
+   * This assertion read `window.location.hash` and was right about it — the
+   * fragment is where the block is named. What neither it nor the comment above
+   * the effect could see is that the effect's dependency list held only the
+   * page, so **following a second result on the page you are already reading
+   * never scrolled**. Reading the fragment as state is what makes it re-run.
+   */
+  assert.match(page, /blockFromHash\(hash\)/);
+  assert.match(page, /const hash = useLocationHash\(\);/);
   assert.match(page, /attempts > 20/, 'gives up rather than retrying forever');
 });
 
