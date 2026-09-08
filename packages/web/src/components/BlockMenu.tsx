@@ -41,6 +41,8 @@ import {
 } from '@sone/editor';
 import { en, type MessageKey } from '../i18n/messages.en.ts';
 import { BLOCK_MARKS } from './blockMarks.ts';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard.ts';
+import { blockAddress } from '../routes/internalLinks.ts';
 import { useT } from '../i18n/useT.tsx';
 import { BLOCK_COLORS } from '@sone/core';
 import type { Command } from 'prosemirror-state';
@@ -76,6 +78,10 @@ interface BlockMenuProps {
    * be a request for something already in hand.
    */
   members: Array<{ userId: string; displayName: string }>;
+  /** The page these blocks are on, for the address of one (ADR-0170). */
+  pageId: string;
+  /** Its title, which is the decorative half of that address. */
+  pageTitle: string;
 }
 
 interface Action {
@@ -518,8 +524,15 @@ interface PMNodeLike {
   attrs: Record<string, unknown>;
 }
 
-export function BlockMenu({ view, revision, members }: BlockMenuProps): ReactElement | null {
+export function BlockMenu({
+  view,
+  revision,
+  members,
+  pageId,
+  pageTitle,
+}: BlockMenuProps): ReactElement | null {
   const { t } = useT();
+  const { copy, copied } = useCopyToClipboard();
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const [retryToken, setRetryToken] = useState(0);
@@ -665,6 +678,15 @@ export function BlockMenu({ view, revision, members }: BlockMenuProps): ReactEle
   })();
 
   /**
+   * The block's own id, which is what an internal link points at (ADR-0170).
+   *
+   * Empty for the moment between a block appearing and `blockIds` assigning it
+   * one — a plugin pass, not a render — and the entry is left out rather than
+   * offering an address that names nothing.
+   */
+  const blockId = String(range.node.attrs['id'] ?? '');
+
+  /**
    * What can be done to the block, as one row of six.
    *
    * Six full-width rows of text was most of the menu's height before anything
@@ -798,6 +820,41 @@ export function BlockMenu({ view, revision, members }: BlockMenuProps): ReactEle
               );
             })}
           </div>
+
+          {/* The address of this block, to paste as a link (ADR-0170).
+            *
+            * Asked for here in so many words: *„dass man dazu bei einem
+            * vorhandenen Content Element auf dem Anfasser einen Button hat mit
+            * «Interne URL kopieren»"*.
+            *
+            * Not in the icon row above, and not because it would not fit: every
+            * item in that row is a `Command` the editor can refuse, and this one
+            * changes nothing about the document. A row whose members are all one
+            * kind of thing is a row somebody can reason about.
+            *
+            * The menu is left open, unlike everything else here, so the label
+            * has somewhere to say *copied*. A confirmation on a menu that has
+            * already closed is a confirmation nobody sees. */}
+          {blockId !== '' && (
+            <div className="block-menu-group">
+              <button
+                type="button"
+                role="menuitem"
+                className="block-menu-item"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void copy(
+                    blockAddress(window.location.origin, pageId, blockId, pageTitle),
+                    blockId,
+                  );
+                }}
+              >
+                {copied === blockId ? t('block.linkCopied') : t('block.copyLink')}
+              </button>
+            </div>
+          )}
 
           {/* How this block looks.
             *
