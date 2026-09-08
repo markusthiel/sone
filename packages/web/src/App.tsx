@@ -59,6 +59,7 @@ import { WorkspaceMenu } from './components/WorkspaceMenu.tsx';
 import { WorkspaceSettingsScreen } from './components/WorkspaceSettingsScreen.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { usePage, useSoneClient } from './hooks/useSoneClient.ts';
+import { usePageWhereabouts } from './hooks/usePageWhereabouts.ts';
 import { useLinkInterception, useRoute } from './hooks/useRoute.ts';
 import { usePages } from './hooks/usePages.ts';
 import { resolveScheme } from '@sone/core';
@@ -604,7 +605,45 @@ function Workspace({
   // a request to find out would delay the render for nothing.
   const selected = routePageId ? findNode(tree, routePageId) : null;
   const isFolder = selected?.kind === 'folder';
-  const pageId = isFolder ? null : routePageId;
+
+  /*
+   * Which workspace this address lives in (ADR-0175).
+   *
+   * A page address carries none, on purpose (ADR-0016), and the sync
+   * connection is built with one — so an address naming a page elsewhere used
+   * to open the right URL on the wrong connection and be told, falsely, that
+   * this person no longer has access. The tree answers for free in the ordinary
+   * case; the server is asked only for an address the tree does not account
+   * for.
+   */
+  const where = usePageWhereabouts({
+    pageId: routePageId,
+    inTree: selected !== null,
+    treeLoaded: !pagesLoading,
+    workspaceId,
+  });
+
+  useEffect(() => {
+    if (where.status !== 'elsewhere') return;
+    /*
+     * The same address, on a connection bound to the workspace that holds it.
+     *
+     * The path alone: the switch keeps the address it is given, and passing one
+     * that already matches means no navigation and no history entry that
+     * changes nothing — which is what the guard inside it is for. The fragment
+     * stays in the address bar untouched, so landing on the block still
+     * happens (ADR-0170).
+     */
+    onSwitchWorkspace(where.workspaceId, window.location.pathname);
+  }, [where, onSwitchWorkspace]);
+
+  /*
+   * Opened only once its workspace is settled.
+   *
+   * This is what keeps the connection from ever being asked for a room it will
+   * be refused — the refusal that produced the false message above.
+   */
+  const pageId = isFolder || where.status !== 'here' ? null : routePageId;
   const handle = usePage(client, pageId);
   /**
    * The page's comment threads (ADR-0046).
