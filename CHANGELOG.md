@@ -13,13 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-**Die Linkliste rechts kann jetzt, was die Karte im Text kann.** Neben jedem
-Link steht ein Knopf, der die Adresse kopiert — auch bei einer Adresse, die sich
-nicht öffnen lässt: die ansehen zu wollen ist ein guter Grund. Und die Liste
-prüft die Adresse jetzt selbst: ein Link mit `javascript:` steht weiter in der
-Liste, mit Text und Adresse, aber er ist nichts, worauf man klicken kann. Eine
-Liste, die einen Link der Seite stillschweigend weglässt, wäre eine falsche
-Liste.
+Nothing yet.
+
+## 0.12.3
+
+Pull and restart, sonst ist nichts zu tun. Keine Migration.
 
 **Links im Text lassen sich jetzt öffnen.** Wer eine Seite nur liest, klickt
 einen Link an und er geht in einem neuen Tab auf. Beim Schreiben bleibt der
@@ -34,6 +32,14 @@ Eine getippte Adresse mit `javascript:` wurde seit jeher abgelehnt — eine
 *eingefügte* nicht. Wer HTML mit so einem Link in eine Seite kopiert hat, hatte
 ihn danach in der Seite stehen, für alle, die sie öffnen. Jetzt wird beim
 Einfügen dasselbe geprüft: der Text bleibt, der Link fällt weg.
+
+**Die Linkliste rechts kann jetzt, was die Karte im Text kann.** Neben jedem
+Link steht ein Knopf, der die Adresse kopiert — auch bei einer Adresse, die sich
+nicht öffnen lässt: die ansehen zu wollen ist ein guter Grund. Und die Liste
+prüft die Adresse jetzt selbst: ein Link mit `javascript:` steht weiter in der
+Liste, mit Text und Adresse, aber er ist nichts, worauf man klicken kann. Eine
+Liste, die einen Link der Seite stillschweigend weglässt, wäre eine falsche
+Liste.
 
 **Ein Klick auf das Zitat bringt dich zur Stelle im PDF.** Bisher tat der Knopf
 in der Kommentarleiste bei einem PDF-Kommentar schlicht nichts. Jetzt scrollt das
