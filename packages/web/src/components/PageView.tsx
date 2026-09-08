@@ -453,20 +453,31 @@ export function PageStatus({ handle, connectionState, failure }: {
 
   return (
     <>
-      <span
-        className="status-dot"
-        data-state={persistent ? 'closed' : dot}
-        aria-hidden="true"
-      />
-      <span
-        // status-text so the bar can truncate it. A long status — "Cannot reach
-        // the sync server" — wrapped onto three lines and took the row's height
-        // with it, so losing the connection also rearranged the page.
-        className={`status-text ${persistent ? 'error' : 'muted'}`}
-        style={{ fontSize: '0.85rem' }}
-        title={persistent ? FAILURE_DETAIL[persistent.kind] : label}
-      >
-        {label}
+      {/*
+       * The dot and the words are one element (ADR-0163).
+       *
+       * They were two siblings of the bar until a cover could run up under it.
+       * Over a photograph each control needs an opaque ground of its own, and a
+       * dot with its own little pill beside a separate pill of words is two
+       * chips where there is one fact. The wrapper is the chip; on a plain bar
+       * it draws nothing.
+       */}
+      <span className="status-chip">
+        <span
+          className="status-dot"
+          data-state={persistent ? 'closed' : dot}
+          aria-hidden="true"
+        />
+        <span
+          // status-text so the bar can truncate it. A long status — "Cannot reach
+          // the sync server" — wrapped onto three lines and took the row's height
+          // with it, so losing the connection also rearranged the page.
+          className={`status-text ${persistent ? 'error' : 'muted'}`}
+          style={{ fontSize: '0.85rem' }}
+          title={persistent ? FAILURE_DETAIL[persistent.kind] : label}
+        >
+          {label}
+        </span>
       </span>
       {peers.length > 0 && (
         <div className="peers" aria-label={t('page.otherPeopleHere', { count: peers.length })}>

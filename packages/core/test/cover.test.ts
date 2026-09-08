@@ -137,6 +137,24 @@ describe('the shape of the band (ADR-0162)', () => {
     });
   });
 
+  test('and a third step: up under the bar (ADR-0163)', () => {
+    /*
+     * *„Eine weitere Einstellung dass das Titelbild bis oben zum Seitenrand
+     * läuft."*
+     *
+     * A third value in the same field rather than a second field, because
+     * „bis oben" is the widest of three steps and not a second question: a
+     * band in the reading column that also ran under the bar would put the
+     * page's controls over the page's own background, which is where they
+     * already are.
+     */
+    assert.deepEqual(readEntryCover({ kind: 'image', url: FILE, width: 'bleed' }), {
+      kind: 'image',
+      url: FILE,
+      width: 'bleed',
+    });
+  });
+
   test('the default has one spelling, and it is silence', () => {
     /*
      * `column` and `medium` are what a cover does when it says nothing, so the
