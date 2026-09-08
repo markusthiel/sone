@@ -56,6 +56,14 @@ interface EditorSurfaceProps {
   handle: PageHandle;
   /** Needed to upload files, which are authorised through their page. */
   pageId: string;
+  /**
+   * The page's title, for the address of a block (ADR-0170).
+   *
+   * Only the slug depends on it, and the slug is decorative — `parseRoute`
+   * never reads it back. Passed rather than read from the document here because
+   * the page already holds it in state and observes its changes.
+   */
+  pageTitle: string;
   /** The threads to mark, read by the page (ADR-0046). */
   threads: DrawnThread[];
   /** A selection somebody wants to comment on. */
@@ -95,6 +103,7 @@ function unplayableNotice(file: File): string {
 export function EditorSurface({
   handle,
   pageId,
+  pageTitle,
   threads,
   onComment,
   onMark,
@@ -932,7 +941,13 @@ export function EditorSurface({
               onClose={() => setVideoOpen(false)}
             />
           )}
-          <BlockMenu view={view} revision={revision} members={members} />
+          <BlockMenu
+            view={view}
+            revision={revision}
+            members={members}
+            pageId={pageId}
+            pageTitle={pageTitle}
+          />
           <TableToolbar view={view} revision={revision} />
         </>
       )}

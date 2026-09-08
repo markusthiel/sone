@@ -28,6 +28,7 @@ import { usePageLink } from '../routes/pageLink.tsx';
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 
 import { blockFromHash } from '../routes/paths.ts';
+import { useLocationHash } from '../hooks/useRoute.ts';
 import { scrollToBlock } from '../hooks/useOutline.ts';
 import type { CommentAnchor, DrawnThread } from '@sone/editor';
 
@@ -152,6 +153,8 @@ export function PageView({
   const [title, setTitle] = useState<string>(
     () => (pageMap.get(PAGE_KEYS.title) as string | undefined) ?? '',
   );
+  /** The fragment, so landing on a block re-runs when only that changed. */
+  const hash = useLocationHash();
 
   /**
    * The page's own icon and colours (ADR-0030), read from the document.
@@ -229,7 +232,7 @@ export function PageView({
    * about a failed scroll would be about a convenience.
    */
   useEffect(() => {
-    const wanted = blockFromHash(window.location.hash);
+    const wanted = blockFromHash(hash);
     if (!wanted) return;
 
     let attempts = 0;
@@ -246,9 +249,18 @@ export function PageView({
     return () => {
       if (timer) clearTimeout(timer);
     };
-    // Per page: following a second result from the same search has to scroll
-    // again, and the hash is what changed.
-  }, [pageId]);
+    /*
+     * The fragment is in the list, and it was not (ADR-0170).
+     *
+     * The note here already said *"following a second result from the same
+     * search has to scroll again, and the hash is what changed"* — beside a
+     * dependency list holding only the page, which does not change when the
+     * fragment does. **A comment describing behaviour the dependency list
+     * cannot produce.** So the second search result never scrolled, and neither
+     * would a link to a block on the page you are already reading, which is the
+     * ordinary case for linking one passage to another.
+     */
+  }, [pageId, hash]);
 
   const commitTitle = (next: string): void => {
     setTitle(next);
@@ -384,6 +396,9 @@ export function PageView({
           <EditorSurface
             handle={handle}
             pageId={pageId}
+            // For the address of a block, which wants a slug to be readable by
+            // whoever pastes it (ADR-0170). Decorative, as always.
+            pageTitle={title}
             threads={threads}
             members={members}
             onComment={onComment}

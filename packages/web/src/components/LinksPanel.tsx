@@ -24,6 +24,7 @@ import type { ReactElement } from 'react';
 import type { PageHandle } from '@sone/client';
 import { isFollowable } from '@sone/editor';
 
+import { isInternal } from '../routes/internalLinks.ts';
 import { useDocAssets } from '../hooks/useDocAssets.ts';
 import { scrollToBlock } from '../hooks/useOutline.ts';
 import { useT } from '../i18n/useT.tsx';
@@ -63,6 +64,19 @@ export function LinksPanel({ handle }: { handle: PageHandle | null }): ReactElem
         const key = `${link.blockId}-${at}`;
         const label = link.text.trim() || link.href;
         const followable = isFollowable(link.href);
+        /*
+         * A link home does not open a second copy of the application
+         * (ADR-0170).
+         *
+         * `target="_blank"` is right for a link *out* and wrong for one that
+         * points back into this instance: a new tab means a second sync
+         * connection, a second document, and losing the place you were reading
+         * — for what a click was supposed to do in this window.
+         *
+         * The app's own interception handles it from there, and puts a share
+         * visitor's token back on (see `internalLinks.ts`).
+         */
+        const internal = isInternal(link.href, window.location.origin);
 
         return (
           <li key={key}>
@@ -70,17 +84,24 @@ export function LinksPanel({ handle }: { handle: PageHandle | null }): ReactElem
               <a
                 className="asset-row"
                 href={link.href}
-                target="_blank"
-                // Both words. `noreferrer` implies the other in every browser
-                // that matters, and the schema writes the pair on every anchor
-                // it renders — a rule that is written one way in one place and
-                // another way in the next is a rule nobody can check.
-                rel="noopener noreferrer"
+                {...(internal
+                  ? {}
+                  : {
+                      target: '_blank',
+                      // Both words. `noreferrer` implies the other in every
+                      // browser that matters, and the schema writes the pair on
+                      // every anchor it renders — a rule written one way in one
+                      // place and another way in the next is a rule nobody can
+                      // check.
+                      rel: 'noopener noreferrer',
+                    })}
               >
                 <ExternalIcon />
                 <span className="asset-name">
                   {label}
-                  <span className="asset-sub">{hostOf(link.href)}</span>
+                  <span className="asset-sub">
+                    {internal ? t('panel.linkInternal') : hostOf(link.href)}
+                  </span>
                 </span>
               </a>
             ) : (
