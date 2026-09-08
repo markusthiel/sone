@@ -13,6 +13,20 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Und eine dritte Stufe: randlos bis an den oberen Rand.** In derselben Zeile
+steht jetzt *Spalte*, *Ganze Seite* und *Randlos* — bei der letzten beginnt das
+Bild dort, wo das Fenster beginnt, und die obere Leiste liegt darauf. Damit
+Knöpfe, *Synced* und die Kürzel der Mitlesenden auf einem Foto lesbar bleiben,
+bekommt jedes dieser Bedienelemente dieselbe Fläche unter sich, die es auf der
+schmalen Leiste beim Drüberfahren hat: über einem Bild lässt sich keine lesbare
+Farbe berechnen, also bringt jedes Element seinen eigenen Untergrund mit. Beim
+ersten Scrollen füllt sich die Leiste wieder, wie sie es immer tut.
+
+Das Bild wächst dabei genau um das, was es sich nimmt — die Überschrift und der
+Text darunter bleiben, wo sie waren. Und wenn oben ein Hinweis steht (etwa dass
+der Browser eine ältere Version geladen hat), bleibt *Randlos* aus: der Hinweis
+ist wichtiger als das Foto.
+
 **Das Titelbild hat jetzt eine Breite und eine Höhe.** Im selben Menü, in dem es
 gewählt wird, stehen zwei Zeilen: *Spalte* oder *Ganze Seite*, und *Schmal*,
 *Mittel* oder *Hoch*. Über die ganze Seite läuft das Bild von Kante zu Kante und

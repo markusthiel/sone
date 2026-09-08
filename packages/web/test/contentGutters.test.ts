@@ -57,7 +57,16 @@ test('there is one reading column, and it has a gutter', () => {
    */
   const columns = [...css.matchAll(/max-(?:width|inline-size): 46rem/g)];
   assert.equal(columns.length, 1, 'a second reading column is a second measure');
-  assert.match(block('.page-body'), /padding: 24px 20px/, 'and the column has its gutter');
+  // The top one is `--page-body-block-start` since ADR-0163, because a cover
+  // that runs to the top edge cancels exactly that much and a number written
+  // twice is a number that stops agreeing with itself. The side gutter — the
+  // thing this test is about — is still written here.
+  assert.match(block('.page-body'), /padding: 0 20px 40vh/, 'and the column has its gutter');
+  assert.match(
+    block('.page-body'),
+    /padding-block-start: var\(--page-body-block-start\)/,
+    'with the top one named, because a cover to the top edge cancels it',
+  );
 });
 
 test('every screen in the content area sits in it', () => {
