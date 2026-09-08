@@ -11,7 +11,12 @@ version answers "what must I do to upgrade?", not "how much changed?".
 - **MINOR** — pull and restart; migrations run automatically.
 - **MAJOR** — read this file first, there is something to do.
 
-## Unreleased
+## 0.12.6
+
+Pull and restart, sonst ist nichts zu tun. Keine Migration.
+
+Eine Runde über eine einzige Geste: *zeig mir die Stelle, die ich meine* — und
+zwar in beide Richtungen zwischen dem Text und der rechten Leiste.
 
 **„Kommentieren" bringt die Kommentare nach vorne.** Bisher ging die rechte
 Leiste zwar auf, blieb aber auf dem zuletzt gewählten Reiter stehen — stand der
