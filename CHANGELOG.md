@@ -13,7 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Ein Klick in der rechten Leiste bringt den Inhalt jetzt an den oberen Rand —
+und lässt ihn kurz aufleuchten.** Gliederung, Dateien, Bilder, Links, Aufgaben:
+die Stelle sitzt danach oben unter der Leiste statt in der Bildschirmmitte, und
+sie bekommt für anderthalb Sekunden einen Ring und einen leichten Farbton, damit
+klar ist, welche gemeint war.
+
+Beides zusammen, weil es zwei verschiedene Dinge sind: das Scrollen sagt, wo man
+hinschauen soll, das Aufleuchten sagt *diese hier*. Am Ende eines Dokuments kann
+die Seite nämlich nicht weiter scrollen — der letzte Absatz landet dann trotzdem
+in der Mitte, und dort ist das Aufleuchten die ganze Antwort. Wer weniger
+Bewegung eingestellt hat, bekommt den Ring ohne das Pulsieren.
 
 ## 0.12.4
 
