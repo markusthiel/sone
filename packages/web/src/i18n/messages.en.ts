@@ -1618,6 +1618,11 @@ export const en = {
   'cover.colors': 'Colour',
   'cover.gradients': 'Gradient',
   'cover.own': 'A colour of your own',
+  'cover.width': 'Width',
+  'cover.height': 'Height',
+  'cover.height.slim': 'Slim',
+  'cover.height.medium': 'Medium',
+  'cover.height.tall': 'Tall',
   // --- a canvas (ADR-0043) ------------------------------------------------
   'canvas.commented': '{count, plural, one {One comment} other {# comments}}',
   'canvas.commentedInternal':

@@ -13,7 +13,16 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nothing yet.
+**Das Titelbild hat jetzt eine Breite und eine Höhe.** Im selben Menü, in dem es
+gewählt wird, stehen zwei Zeilen: *Spalte* oder *Ganze Seite*, und *Schmal*,
+*Mittel* oder *Hoch*. Über die ganze Seite läuft das Bild von Kante zu Kante und
+lässt dabei die abgerundeten Ecken und den feinen Rahmen weg — was bis an beide
+Ränder geht, hat kein Ende, das man markieren müsste. Auf einem schmalen Bildschirm
+bleibt alles wie es ist, dort gibt es keinen Rand, in den etwas ausbrechen könnte.
+
+Wer nichts einstellt, sieht genau das, was er bisher gesehen hat: *Spalte* und
+*Mittel* sind nicht gespeicherte Werte, sondern das, was ein Titelbild tut, wenn
+es nichts dazu sagt. Gilt für Seiten und für Ordner.
 
 ## 0.12.3
 

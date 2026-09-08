@@ -2624,6 +2624,41 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.deepEqual(await storedCover(folder), { kind: 'color', color: 'red' });
   });
 
+  test('and the shape of the band travels with it (ADR-0162)', async () => {
+    /*
+     * A folder's cover goes through this route, so a folder's *width and
+     * height* do too — and they only do because the route stores whatever
+     * `readEntryCover` returns rather than picking fields out by name. That is
+     * the half worth a test: a validator that listed `kind`, `url`, `color`,
+     * `from` and `to` would have passed every other test in this file while
+     * quietly dropping the two new fields on the folder half alone.
+     */
+    const session = await setup();
+    const page = await createPage(session, 'Konzept');
+
+    await expectStatus(
+      await patchEntry(session, page, {
+        cover: { kind: 'color', color: 'blue', width: 'full', height: 'tall' },
+      }),
+      200,
+    );
+    assert.deepEqual(await storedCover(page), {
+      kind: 'color',
+      color: 'blue',
+      width: 'full',
+      height: 'tall',
+    });
+
+    // And the defaults have one spelling here too, which is silence.
+    await expectStatus(
+      await patchEntry(session, page, {
+        cover: { kind: 'color', color: 'blue', width: 'column', height: 'medium' },
+      }),
+      200,
+    );
+    assert.deepEqual(await storedCover(page), { kind: 'color', color: 'blue' });
+  });
+
   test('a picture from somewhere else is refused, and changes nothing', async () => {
     /*
      * „nur eigene Bilder, kein Unsplash", enforced on the value rather than in
