@@ -26,9 +26,11 @@ import {
   highlightClients,
   insertImageUpload,
   seedEmptyPage,
+  showFoundBlock,
 } from '@sone/editor';
 
 import { ApiError, api } from '../api/client.ts';
+import { FOUND_EVENT } from '../lib/found.ts';
 import { messageFor } from './Auth.tsx';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -492,6 +494,27 @@ export function EditorSurface({
     };
     window.addEventListener('sone:reveal-comment', reveal);
     return () => window.removeEventListener('sone:reveal-comment', reveal);
+  }, []);
+
+  /**
+   * The block the right sidebar took somebody to, lit for a moment (ADR-0167).
+   *
+   * The same arrangement as `sone:reveal-comment` above, and for the reason
+   * ADR-0166 got wrong: only the editor can put something on a block and have
+   * it stay there. Writing `data-found` onto the element from outside worked
+   * for one tick, which is what „leuchtet nicht auf" was.
+   */
+  useEffect(() => {
+    const lightUp = (event: Event): void => {
+      const id = (event as CustomEvent<string | null>).detail;
+      const view = viewRef.current;
+      // Checked rather than believed, as everywhere a window event is read: it
+      // is a channel anything on the page can shout down.
+      if (!view || (id !== null && typeof id !== 'string')) return;
+      showFoundBlock(view, id);
+    };
+    window.addEventListener(FOUND_EVENT, lightUp);
+    return () => window.removeEventListener(FOUND_EVENT, lightUp);
   }, []);
 
   /**
