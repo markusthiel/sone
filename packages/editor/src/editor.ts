@@ -369,7 +369,13 @@ export function jsonToFragment(
 export { schema } from './schema.js';
 export { readProps, writeProps, BLOCK_TYPE_ORDER } from './schema.js';
 export { blockIds, assignMissingIds, collectBlockIds } from './blockIds.js';
-export { soneKeymap, toggleBlockType, toggleTodo, insertDivider } from './keymap.js';
+export {
+  blocksInSelection,
+  soneKeymap,
+  toggleBlockType,
+  toggleTodo,
+  insertDivider,
+} from './keymap.js';
 export {
   blockRangeAt,
   deleteBlockSubtree,

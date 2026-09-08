@@ -17,6 +17,7 @@
 import {
   BLOCK_TYPE_ORDER,
   TABLE_ACTIONS,
+  blocksInSelection,
   isInTable,
   openSlashMenu,
   deleteBlockSubtree,
@@ -526,6 +527,14 @@ export function BlockMenu({ view, revision, members }: BlockMenuProps): ReactEle
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const range = selectedBlockRange(view.state);
+  /*
+   * Which blocks a type change will act on (ADR-0165).
+   *
+   * Not `range`: that is a block and its indented children, which is the right
+   * answer for dragging, indenting and duplicating, and the wrong one for "the
+   * four lines I selected".
+   */
+  const spanned = blocksInSelection(view.state);
   const from = range?.from ?? null;
   const size = range ? range.endIndex - range.index : 0;
 
@@ -858,7 +867,14 @@ export function BlockMenu({ view, revision, members }: BlockMenuProps): ReactEle
             {BLOCK_TYPE_ORDER.map((name) => {
               const type = schema.nodes[name];
               if (!type) return null;
-              const active = range.node.type.name === name;
+              // Current when *every* block this will act on is already that
+              // type — the same rule the command toggles on. Marking it from
+              // the first of four would say "these are bullets" about a
+              // selection that is one bullet and three paragraphs.
+              const active =
+                spanned.length > 1
+                  ? spanned.every((one) => one.node.type.name === name)
+                  : range.node.type.name === name;
               return (
                 <button
                   key={name}
@@ -867,10 +883,26 @@ export function BlockMenu({ view, revision, members }: BlockMenuProps): ReactEle
                   className="block-menu-item"
                   aria-current={active}
                   {...popupItem(() => {
-                    // Restore the caret into the block first: the type change
-                    // acts on the selection, and a tap may have moved it.
-                    const $pos = view.state.doc.resolve(range.from + 1);
-                    view.dispatch(view.state.tr.setSelection(TextSelection.near($pos)));
+                    /*
+                     * Restore the caret into the block first: the type change
+                     * acts on the selection, and a tap may have moved it.
+                     *
+                     * **Only when the selection is inside one block**
+                     * (ADR-0165). Putting the caret back into the handle's own
+                     * block threw the other three away, which is why turning
+                     * four selected lines into a list turned one. A selection
+                     * that spans blocks is the answer to "which blocks", not
+                     * something to recover from.
+                     *
+                     * Asked of `blocksInSelection` rather than of `size`: that
+                     * one counts a block **and its indented children**, so it
+                     * is larger than one for a bullet with sub-bullets and says
+                     * nothing about what is selected.
+                     */
+                    if (spanned.length <= 1) {
+                      const $pos = view.state.doc.resolve(range.from + 1);
+                      view.dispatch(view.state.tr.setSelection(TextSelection.near($pos)));
+                    }
                     run(toggleBlockType(type));
                   })}
                 >
