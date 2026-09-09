@@ -13,6 +13,13 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Behoben: beim Abmelden blieben Seitentitel im Speicher des Browsers.** Die
+Liste, aus der `[[` auswählt, umfasst alle Arbeitsbereiche und wird einmal pro
+Sitzung geladen — sie überdauerte das Abmelden, weil dabei die Seite nicht neu
+lädt. Wer sich danach im selben Tab anmeldete und `[[` tippte, bekam die
+Arbeitsbereiche und Seitentitel des Vorgängers zu sehen. Die Liste wird jetzt
+zusammen mit den lokalen Dokumenten verworfen.
+
 **Ein eingefügter interner Link wird ohne Adressteil gespeichert.** Wenn du eine
 Adresse dieser SONE-Instanz als Link einsetzt — etwa die aus *„Link zu diesem
 Block kopieren"* —, landet nur noch der Pfad im Dokument. Damit funktioniert der
