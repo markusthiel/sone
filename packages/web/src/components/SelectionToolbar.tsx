@@ -25,6 +25,7 @@ import {
   schema,
   setLink,
 } from '@sone/editor';
+import { forClipboard } from '../routes/internalLinks.ts';
 import { useT } from '../i18n/useT.tsx';
 import { anchorFromSelection, type CommentAnchor } from '@sone/editor';
 import { toggleMark } from 'prosemirror-commands';
@@ -268,7 +269,12 @@ export function SelectionToolbar({
             onClick={() => {
               void (async () => {
                 try {
-                  await navigator.clipboard.writeText(existingLink.href);
+                  // With the host back on: a stored internal link is relative
+                  // (ADR-0177) and a bare path is not something to paste into
+                  // an email.
+                  await navigator.clipboard.writeText(
+                    forClipboard(existingLink.href, window.location.origin),
+                  );
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1400);
                 } catch {
