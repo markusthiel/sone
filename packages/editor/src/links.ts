@@ -18,7 +18,7 @@
 import type { Mark } from 'prosemirror-model';
 import { Plugin, TextSelection, type Command, type EditorState } from 'prosemirror-state';
 
-import { isFollowable, isSameOrigin } from './hrefs.js';
+import { currentOrigin, homeRelative, isFollowable, isSameOrigin } from './hrefs.js';
 import { schema } from './schema.js';
 
 export interface LinkRange {
@@ -103,7 +103,15 @@ export function normaliseHref(input: string): string | null {
   // file imports. Two copies of a security rule is one copy that stops being
   // updated.
   if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
-    return isFollowable(trimmed) ? trimmed : null;
+    if (!isFollowable(trimmed)) return null;
+    /*
+     * An address pointing back here keeps the path and drops the host
+     * (ADR-0177), so the sentence four lines below is true of a pasted link as
+     * well as of a typed one — the handle menu's clipboard address is absolute
+     * on purpose (ADR-0170), and it is the likeliest way an internal link is
+     * made.
+     */
+    return homeRelative(trimmed, currentOrigin());
   }
 
   // Looks like an email address.

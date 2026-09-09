@@ -69,6 +69,27 @@ export function blockAddress(
   return `${origin}${documentAddress(pageId, blockId, title)}`;
 }
 
+/**
+ * The same address, for **the clipboard** — whatever shape it is in (ADR-0177).
+ *
+ * A link stored in a document is relative on purpose: it is followed from
+ * wherever the document is read. A bare path is not an address to paste into an
+ * email, which is the argument `blockAddress` above is built on — so the two
+ * copy buttons that hand somebody an existing link put the host back on.
+ *
+ * The reverse of `homeRelative` in the editor, and it has to exist because that
+ * one now runs on every link that arrives: without this, making internal links
+ * uniform would have made copying one worse.
+ */
+export function forClipboard(href: string, origin: string): string {
+  if (!isSameOrigin(href, origin)) return href;
+  try {
+    return new URL(href, origin).toString();
+  } catch {
+    return href;
+  }
+}
+
 /** Where a click on this href should take us, or null to leave it alone. */
 export function internalTarget(
   href: string,
