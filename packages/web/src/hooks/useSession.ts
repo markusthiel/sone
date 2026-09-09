@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, api, type InstanceInfo, type SessionInfo } from '../api/client.ts';
 import { clearLocalDocs } from '../storage/localDocs.ts';
+import { forgetLinkTargets } from './useLinkTargets.ts';
 
 export type SessionState =
   | { status: 'loading' }
@@ -98,6 +99,16 @@ export function useSession(): {
     // failure this guards against: the next person at that machine would find
     // them in storage, readable without any credential at all.
     await clearLocalDocs();
+    /*
+     * And the pages a `[[` picker was holding (ADR-0178).
+     *
+     * Titles from every workspace this person was a member of, cached at module
+     * scope so the picker never pauses while somebody types (ADR-0176) — and a
+     * logout is not a reload, so that cache outlives it. The next person to
+     * type `[[` in this tab would be offered somebody else's workspace, which
+     * is the failure the line above is about, in memory rather than in storage.
+     */
+    forgetLinkTargets();
     await reload();
   }, [reload]);
 
