@@ -17,7 +17,7 @@
  * modelling it as one would make every style change a tree operation.
  */
 
-import { isFollowable } from './hrefs.js';
+import { currentOrigin, homeRelative, isFollowable } from './hrefs.js';
 import {
   BLOCK_ALIGNMENTS,
   BLOCK_ATTRS,
@@ -693,7 +693,13 @@ const marks: Record<string, MarkSpec> = {
         getAttrs: (dom) => {
           const href = (dom as HTMLElement).getAttribute('href');
           if (href === null || !isFollowable(href)) return false;
-          return { href, title: (dom as HTMLElement).getAttribute('title') };
+          // And one pointing back here keeps its path and drops the host
+          // (ADR-0177), the same answer `normaliseHref` gives a typed address —
+          // asked from the module that exists so this file can ask.
+          return {
+            href: homeRelative(href, currentOrigin()),
+            title: (dom as HTMLElement).getAttribute('title'),
+          };
         },
       },
     ],

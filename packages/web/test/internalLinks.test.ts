@@ -25,7 +25,7 @@ import { test } from 'node:test';
 
 import { codeOf } from './helpers/source.ts';
 
-import { blockAddress, internalTarget } from '../src/routes/internalLinks.ts';
+import { blockAddress, forClipboard, internalTarget } from '../src/routes/internalLinks.ts';
 
 const PAGE = '00000000-0000-4000-8000-000000000001';
 const BLOCK = '11111111-1111-4111-8111-111111111111';
@@ -165,4 +165,35 @@ test('an internal link in the panel stays in this tab', () => {
   // same question, and a rule written in two packages is updated in one.
   const panel = codeOf(new URL('../src/components/LinksPanel.tsx', import.meta.url));
   assert.match(panel, /const internal = isSameOrigin\(link\.href, window\.location\.origin\)/);
+});
+
+test('copying an existing link puts the host back on (ADR-0177)', () => {
+  /*
+   * A link stored in a document is relative on purpose, and since ADR-0177 an
+   * absolute one pasted in becomes relative too — so both copy buttons would
+   * have handed somebody a bare path, which is exactly what `blockAddress`
+   * exists to avoid.
+   *
+   * Making the document uniform must not make copying worse, so the reverse
+   * runs where a link leaves for the clipboard.
+   */
+  assert.equal(forClipboard(`/p/${PAGE}#b-${BLOCK}`, ORIGIN), `${ORIGIN}/p/${PAGE}#b-${BLOCK}`);
+});
+
+test('and leaves a link out of the instance exactly as it is', () => {
+  assert.equal(forClipboard('https://example.org/x', ORIGIN), 'https://example.org/x');
+  assert.equal(forClipboard('mailto:markus@example.org', ORIGIN), 'mailto:markus@example.org');
+});
+
+test('an absolute one of ours is already what the clipboard wants', () => {
+  // Nothing in a document produces one any more, and a document keeps whatever
+  // ever reached it.
+  assert.equal(forClipboard(`${ORIGIN}/p/${PAGE}`, ORIGIN), `${ORIGIN}/p/${PAGE}`);
+});
+
+test('both copy buttons ask, rather than copying the stored text', () => {
+  const toolbar = codeOf(new URL('../src/components/SelectionToolbar.tsx', import.meta.url));
+  const panel = codeOf(new URL('../src/components/LinksPanel.tsx', import.meta.url));
+  assert.match(toolbar, /forClipboard\(existingLink\.href, window\.location\.origin\)/);
+  assert.match(panel, /forClipboard\(link\.href, window\.location\.origin\)/);
 });

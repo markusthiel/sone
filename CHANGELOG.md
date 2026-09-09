@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Ein eingefügter interner Link wird ohne Adressteil gespeichert.** Wenn du eine
+Adresse dieser SONE-Instanz als Link einsetzt — etwa die aus *„Link zu diesem
+Block kopieren"* —, landet nur noch der Pfad im Dokument. Damit funktioniert der
+Link auch, wenn die Instanz später unter einem anderen Namen erreichbar ist, und
+alle internen Links haben dieselbe Form. Externe Adressen bleiben unverändert.
+
+*„Adresse kopieren"* liefert weiterhin die vollständige Adresse mit Servernamen —
+ein nackter Pfad wäre nichts, was man in eine Mail einfügen kann. Bestehende
+Links werden nicht angefasst; sie funktionieren wie bisher und nehmen die neue
+Form an, sobald man sie das nächste Mal bearbeitet.
+
 **`[[` findet jetzt Seiten aus allen deinen Arbeitsbereichen.** Oben stehen die
 Treffer aus dem Arbeitsbereich, in dem du gerade bist — ohne Überschrift, denn da
 bist du ja. Darunter je ein Abschnitt pro weiterem Arbeitsbereich, mit seinem
