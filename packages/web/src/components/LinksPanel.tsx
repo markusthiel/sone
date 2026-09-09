@@ -25,6 +25,7 @@ import type { PageHandle } from '@sone/client';
 import { isFollowable, isSameOrigin } from '@sone/editor';
 
 import { api } from '../api/client.ts';
+import { forClipboard } from '../routes/internalLinks.ts';
 import { useDocAssets } from '../hooks/useDocAssets.ts';
 import { usePageLink } from '../routes/pageLink.tsx';
 import { scrollToBlock } from '../hooks/useOutline.ts';
@@ -230,7 +231,8 @@ export function LinksPanel({
               className="asset-jump"
               title={copied === key ? t('format.linkCopied') : t('format.linkCopy')}
               aria-label={t('format.linkCopy')}
-              onClick={() => void copy(link.href, key)}
+              // With the host back on, for the reason above it (ADR-0177).
+              onClick={() => void copy(forClipboard(link.href, window.location.origin), key)}
             >
               <DuplicateIcon />
             </button>
