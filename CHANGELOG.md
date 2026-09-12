@@ -38,6 +38,14 @@ seine Seiten standardmäßig gibt. Umgekehrt sehen Mitglieder mit einer
 selbst definierten Rolle die internen Fäden jetzt korrekt, statt auf jeder Seite
 eine Fehlermeldung zu bekommen.
 
+**Sicherheit: die Position einer Seite ändert nur der Server.** Verschieben,
+Umsortieren, Archivieren und der Seitentyp laufen über die dafür vorgesehenen
+Aktionen, die die Berechtigung am Ziel prüfen. Ein Client konnte diese Angaben
+bisher direkt über die Synchronisierung ins Dokument schreiben und so eine Seite
+an den Prüfungen vorbei verschieben; solche Änderungen werden jetzt serverseitig
+zurückgesetzt. Titel und Titelbild — was der Editor regulär schreibt — bleiben
+unberührt. Kein Handeln nötig.
+
 **Sicherheit: Anhänge bleiben an ihre Seite gebunden.** Ein Export zog bisher
 jede referenzierte Datei nur nach Arbeitsbereich und ID heran — wer die ID einer
 Datei einer nicht lesbaren Seite kannte und sie in einer lesbaren Seite
