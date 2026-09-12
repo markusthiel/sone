@@ -24,9 +24,13 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 
 import type { Pool } from 'pg';
 
+import { appendBlocks } from '@sone/core';
+import * as Y from 'yjs';
+
 import { createSession } from '../src/auth/session.js';
 import { hashPassword } from '../src/auth/password.js';
 import { createShareLink } from '../src/auth/share.js';
+import { applyToDocument } from '../src/doc/docStore.js';
 import { buildArchive } from '../src/export/build.js';
 import { SESSION_COOKIE } from '../src/http/auth.js';
 import { registerShareRoutes } from '../src/http/share.js';
@@ -168,6 +172,63 @@ describe(
       });
 
       assert.equal(archive.pages, 1, 'the ordinary page only');
+    });
+
+    test('an export does not carry an attachment from a page the asker cannot read (ADR-0184)', async () => {
+      // The builder collected file ids from the exported pages' blocks, then
+      // loaded every file with that id in the workspace — without checking the
+      // file's own page. So an editor could reference a file id from the
+      // restricted page in an ordinary one and pull its bytes out through the
+      // export. Now each attachment is authorised through its own page, the
+      // same test the direct download applies.
+      const anna = await makeMember('anna@example.org');
+
+      // A file that lives on the restricted page, which Anna cannot read.
+      const secretFile = await db.query<{ id: string }>(
+        `INSERT INTO files
+           (workspace_id, page_id, filename, mime_type, size_bytes, sha256,
+            storage, storage_key, variant)
+         VALUES ($1,$2,'secret.png','image/png',3,'\\x00'::bytea,'local','secret-key','original')
+         RETURNING id`,
+        [fx.workspaceId, SECRET],
+      );
+      const secretId = secretFile.rows[0]!.id;
+
+      // Anna references that file id from a block on the ordinary page she can.
+      await applyToDocument(
+        db,
+        ORDINARY,
+        (doc: Y.Doc) => {
+          appendBlocks(doc, [
+            { id: uuid(50), type: 'image', props: { fileId: secretId } },
+          ]);
+        },
+        null,
+      );
+
+      const fetched: string[] = [];
+      const recordingStore = {
+        put: async () => ({ key: 'k', sizeBytes: 0 }),
+        get: async (key: string) => {
+          fetched.push(key);
+          return Buffer.from('x');
+        },
+      } as never;
+
+      const archive = await buildArchive(db, recordingStore, {
+        workspaceId: fx.workspaceId,
+        rootId: null,
+        viewer: { userId: anna },
+        withAttachments: true,
+        maxPages: 100,
+      });
+
+      assert.equal(archive.pages, 1, 'the ordinary page only');
+      assert.equal(archive.attachments, 0, 'and none of its smuggled attachments');
+      assert.ok(
+        !fetched.includes('secret-key'),
+        'the restricted page’s file must never be read from the store',
+      );
     });
 
     test('and an export asked for by nobody contains nothing', async () => {

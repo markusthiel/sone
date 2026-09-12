@@ -170,9 +170,19 @@ export async function buildArchive(
   if (fileIds.size > 0) {
     const files = await queryRows<{ id: string; storage_key: string; size_bytes: string }>(
       pool,
-      `SELECT id, storage_key, size_bytes FROM files
-        WHERE workspace_id = $1 AND id = ANY($2::uuid[])`,
-      [request.workspaceId, [...fileIds]],
+      // Authorised through the page each file hangs on, exactly as the direct
+      // download is (ADR-0184). The old query loaded any file in the workspace
+      // whose id appeared in an exported page's blocks — so an editor could put
+      // a file id from a page they cannot read into a page they can, and export
+      // it out. Now a file counts only if its own page is one this viewer may
+      // see, which is the same test `GET /api/files/:id` applies.
+      `SELECT f.id, f.storage_key, f.size_bytes
+         FROM files f
+         JOIN pages p ON p.id = f.page_id
+        WHERE f.workspace_id = $1
+          AND f.id = ANY($2::uuid[])
+          AND ${visiblePagesCondition('p', '$3')}`,
+      [request.workspaceId, [...fileIds], request.viewer.userId],
     );
 
     let bytes = 0;
