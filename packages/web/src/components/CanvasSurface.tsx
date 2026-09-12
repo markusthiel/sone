@@ -23,7 +23,14 @@ import React, {
 } from 'react';
 
 import type { PageHandle } from '@sone/client';
-import { acts, gestures, readPenSeen, rememberPenSeen } from './canvasInput.ts';
+import {
+  acts,
+  gestures,
+  readHandDraws,
+  readPenSeen,
+  rememberHandDraws,
+  rememberPenSeen,
+} from './canvasInput.ts';
 import {
   THEME_COLORS,
   colorValue,
@@ -184,10 +191,14 @@ export function CanvasSurface({
    *
    * In a ref rather than in state: they are read inside the pointer handlers
    * and nothing is drawn from them, so a render per finger would be a render
-   * for nothing. `penSeen` is state as well, because the toolbar says so.
+   * for nothing. `penSeen` is state as well, because the toolbar draws from it:
+   * the switch that turns the rule off (ADR-0181) only exists once a pen has
+   * been seen, so the first pen stroke has to cause a render.
    */
   const touches = useRef(new Map<number, { x: number; y: number }>());
   const [penSeen, setPenSeen] = useState(readPenSeen);
+  /** Whether somebody has asked for the finger to draw anyway (ADR-0181). */
+  const [handDraws, setHandDraws] = useState(readHandDraws);
   /** A two-finger pinch in progress: what it started from. */
   const pinch = useRef<{ span: number; zoom: number; x: number; y: number; panX: number; panY: number } | null>(
     null,
@@ -314,6 +325,7 @@ export function CanvasSurface({
     const contact = {
       pointerType: event.pointerType || 'mouse',
       penSeen: seen,
+      handDraws,
       touches: touches.current.size,
     };
 
@@ -749,6 +761,37 @@ export function CanvasSurface({
           >
             <ImageIcon />
           </button>
+
+          {/* Who may draw here, once a pen has been seen (ADR-0181).
+            *
+            * Absent before that, because there is no rule to turn off yet and a
+            * control that changes nothing is one somebody presses twice looking
+            * for what it did.
+            *
+            * Ticked is the rule as ADR-0179 states it: only the pen works the
+            * tools. Unticking gives the finger the tools back on this device —
+            * for the pencil left at the office, and for the board somebody
+            * wants to drag something around on with a thumb.
+            *
+            * A word rather than a mark, against the rest of this bar. The marks
+            * here are each the thing they make, and there is no picture that
+            * means *only the pen draws*: a pencil already sits two buttons away
+            * meaning the pen tool, and a hand means the pan tool. Two pencils
+            * in one bar is a bar somebody has to learn. */}
+          {penSeen && (
+            <label className="canvas-pen-only" title={t('canvas.penOnly.hint')}>
+              <input
+                type="checkbox"
+                checked={!handDraws}
+                onChange={(event) => {
+                  const next = !event.target.checked;
+                  rememberHandDraws(next);
+                  setHandDraws(next);
+                }}
+              />
+              {t('canvas.penOnly')}
+            </label>
+          )}
 
           {/* How the board is ruled. Beside the tools rather than in a settings
               panel: it is a property of this board that somebody changes while

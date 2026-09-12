@@ -1671,6 +1671,10 @@ export const en = {
   'canvas.colour.default': 'The theme\u2019s own',
   'canvas.colour.own': 'A colour of your own',
   'canvas.thickness': 'Thickness',
+  /* Only on a board that has met a pen (ADR-0181). */
+  'canvas.penOnly': 'Pen only',
+  'canvas.penOnly.hint':
+    'On this device, only the pen works the tools and fingers move the view. Untick to let a finger draw again.',
   'canvas.tool.erase': 'Eraser',
   'canvas.tool.rect': 'Rectangle',
   'canvas.tool.ellipse': 'Ellipse',
