@@ -4341,6 +4341,19 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 }
 .canvas-ink-width input { inline-size: 80px; min-block-size: 0; padding: 0; }
 
+/* „Nur Stift" — only on a board that has met a pen (ADR-0181). A word, because
+   no mark in this bar could mean it without colliding with the pen tool. */
+.canvas-pen-only {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sone-space-2);
+  color: var(--sone-text-muted);
+  font-size: var(--sone-text-xs);
+  white-space: nowrap;
+}
+/* Large enough to hit with the hand this is about. */
+.canvas-pen-only input { inline-size: 18px; block-size: 18px; min-block-size: 0; margin: 0; }
+
 /* While a picture is going up. Not a spinner over the plane: the drop landed
    somewhere specific and the rest of the board stays usable. */
 .canvas-surface[data-busy='true'] { cursor: progress; }
