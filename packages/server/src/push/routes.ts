@@ -14,8 +14,11 @@ import type { Pool } from 'pg';
 
 import { requireSession } from '../http/auth.js';
 import type { Router } from '../http/router.js';
-import { queryRows } from '../db/pool.js';
+import { queryOne, queryRows } from '../db/pool.js';
 import { pushKeys } from './send.js';
+
+/** Devices one account may register (ADR-0187). */
+const MAX_SUBSCRIPTIONS_PER_USER = 20;
 
 export interface PushDeps {
   pool: Pool;
@@ -67,6 +70,31 @@ export function registerPushRoutes(router: Router, deps: PushDeps): void {
     }
     if (audience !== 'https:') {
       ctx.fail(422, 'invalid_endpoint');
+      return;
+    }
+
+    /*
+     * A ceiling on devices per account (ADR-0187).
+     *
+     * Each subscription is an endpoint the server later posts to, so an
+     * unbounded number of them is an unbounded fan-out one account can point
+     * wherever it likes. Re-registering an endpoint this account already has is
+     * not a new device — it refreshes the row — so it is only the *new* endpoint
+     * past the limit that is refused.
+     */
+    const existing = await queryOne<{ n: string; here: boolean }>(
+      deps.pool,
+      `SELECT count(*)::text AS n,
+              bool_or(endpoint = $2) AS here
+         FROM push_subscriptions WHERE user_id = $1`,
+      [session.userId, endpoint],
+    );
+    if (
+      existing &&
+      existing.here !== true &&
+      Number(existing.n) >= MAX_SUBSCRIPTIONS_PER_USER
+    ) {
+      ctx.fail(422, 'too_many_devices');
       return;
     }
 

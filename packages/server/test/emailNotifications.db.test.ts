@@ -14,9 +14,9 @@ import { claimForEmail, EMAIL_DELAY_MINUTES } from '../src/jobs/emailNotificatio
 // `./support/db.js`, which is where every other database test gets its pool.
 // `./helpers/database.js` was a path I assumed rather than read — the third
 // helper I have invented in this session.
-import { getTestPool, resetDatabase, seedWorkspace } from './support/db.js';
+import { getTestPool, hasDatabase, resetDatabase, seedWorkspace } from './support/db.js';
 
-describe('claiming notifications for email', () => {
+describe('claiming notifications for email', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not set' : false }, () => {
   let db: Pool;
   let workspaceId: string;
   let recipient: string;

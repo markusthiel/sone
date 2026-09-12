@@ -6,9 +6,13 @@ A self-hosted workspace: block-based documents, databases with table, board,
 calendar and gallery views, real-time collaborative editing, guest access and
 shareable links with edit rights.
 
-> **Status: pre-alpha.** Not usable yet. This repository currently contains
-> the data model, the database schema, the architecture decisions and the
-> deployment scaffolding. Nothing runs. See the roadmap below.
+> **Status: pre-1.0, and running.** The server builds, runs and is exercised by
+> a full test suite on every push (see Testing below). Tagged container images
+> are published from `main`, and the current version is in
+> [`package.json`](package.json) and the [CHANGELOG](CHANGELOG.md). It is not
+> yet 1.0: schema and documents may still migrate, so do not put anything you
+> care about into an instance without a backup you have tested restoring. See
+> the roadmap below.
 
 ## Why this exists
 
@@ -207,9 +211,16 @@ export SONE_TEST_DATABASE_URL=postgres://sone:sone@localhost:5433/sone_test
 pnpm --filter @sone/server test:db
 ```
 
-The database suites run against a real Postgres rather than a mocked client.
-See [docs/testing.md](docs/testing.md) for why, and for what the first run of
-that suite found.
+Without `SONE_TEST_DATABASE_URL` the database suites skip rather than fail, so
+`pnpm test` is useful on a machine with no Postgres. The database suites run
+against a real Postgres rather than a mocked client. See
+[docs/testing.md](docs/testing.md) for why, and for what the first run of that
+suite found.
+
+Continuous integration runs on Forgejo (`.github/workflows/`): every push and
+pull request builds, type-checks, lints and runs the whole suite — the database
+suites included, against a Postgres service — so a green run has actually
+exercised the access matrix rather than skipped it.
 
 Requires pnpm — the workspace uses `workspace:*` dependencies, which npm does
 not understand.

@@ -204,5 +204,51 @@ describe(
       const headers = seen?.headers as Record<string, string>;
       assert.match(headers['Authorization'] ?? '', /^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]+$/);
     });
+
+    test('a wake will not follow a redirect and carries a timeout (ADR-0187)', async () => {
+      // A push endpoint is a URL the subscriber chose: the server must not chase
+      // a 3xx to wherever it points, and must not hang on one that never
+      // answers.
+      await subscribe('https://push.example/redirecting');
+      let seen: RequestInit | undefined;
+      const watching = (async (_url: string, init?: RequestInit) => {
+        seen = init;
+        return new Response(null, { status: 201 });
+      }) as unknown as typeof fetch;
+
+      await wake(db, [fx.userId], 'https://sone.example', watching);
+      assert.equal(seen?.redirect, 'error', 'a redirect is refused, not followed');
+      assert.ok(seen?.signal instanceof AbortSignal, 'and the request can time out');
+    });
+
+    test('a slow endpoint does not hold up the others (ADR-0187)', async () => {
+      // One endpoint that never answers must not stall the whole fan-out: the
+      // timeout aborts it and the rest are counted.
+      await subscribe('https://push.example/fast');
+      await subscribe('https://push.example/hangs');
+      const mixed = (async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/hangs')) {
+          // Reject the moment the wake's own signal fires, as a real abort would.
+          return await new Promise<Response>((_resolve, reject) => {
+            const signal = init?.signal as AbortSignal | undefined;
+            signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          });
+        }
+        return new Response(null, { status: 201 });
+      }) as unknown as typeof fetch;
+
+      // The wake's own 10s timeout would fire eventually; force it here so the
+      // test does not wait, by aborting through a short-lived override is not
+      // possible, so instead assert the fan-out resolves with the fast one sent
+      // and the hanging one counted as failed once aborted.
+      const result = await Promise.race([
+        wake(db, [fx.userId], 'https://sone.example', mixed),
+        new Promise<never>((_r, reject) =>
+          setTimeout(() => reject(new Error('fan-out did not settle')), 15_000),
+        ),
+      ]);
+      assert.equal(result.sent, 1, 'the reachable endpoint was pushed');
+      assert.equal(result.failed, 1, 'the hanging one was counted, not awaited forever');
+    });
   },
 );
