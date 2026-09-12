@@ -42,6 +42,7 @@ import {
   type ThemePreference,
 } from '../hooks/useAppearance.ts';
 import { LANGUAGE_NAMES, LOCALES, useT, type Locale } from '../i18n/useT.tsx';
+import { pushState, switchOff, switchOn, type PushState } from '../lib/push.ts';
 import { paths } from '../routes/paths.ts';
 import { messageFor } from './Auth.tsx';
 import { resolveSection, type ShellSection } from './SectionNav.tsx';
@@ -904,6 +905,14 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
           in the interface tells them. */}
       <p className="settings-note">{t('you.notifications.contents')}</p>
 
+      {/* On this device, above the mail (ADR-0180).
+        *
+        * First because it is the one answer here that is about *this machine*:
+        * everything below is about an address and follows somebody everywhere,
+        * and this one stops at the iPad it was switched on for. Which is also
+        * why it says so rather than reading as an account-wide switch. */}
+      <OnThisDevice />
+
       {/* A different mail, and a different question (ADR-0062).
         *
         * Below the per-kind answers rather than among them: those are about
@@ -989,6 +998,68 @@ function NotificationSettings({ session }: { session: SessionInfo }): ReactEleme
 
       {error && <p className="error">{messageFor(error)}</p>}
     </section>
+  );
+}
+
+/**
+ * Notifications on this device (ADR-0180).
+ *
+ * Per device, not per account: switching it off on the iPad must not stop the
+ * phone, which is what somebody means by *„auf diesem Gerät"*.
+ *
+ * The four states are told apart because the way out of each differs — and the
+ * two that cannot be acted on say why instead of showing a switch that does
+ * nothing. A refused permission is the sharper one: only the browser's own
+ * settings can undo it, and asking again does nothing at all, silently.
+ */
+function OnThisDevice(): ReactElement | null {
+  const { t } = useT();
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void pushState().then((answer) => {
+      if (live) setState(answer);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // Nothing at all until the answer is in: a switch that flips from off to on a
+  // moment after the screen appears is a switch somebody has already clicked.
+  if (state === null) return null;
+
+  /*
+   * An iPad's Safari tab is the ordinary case here, and the way out is a
+   * sentence rather than a control: iOS shows notifications for a web
+   * application only once it has been added to the home screen. Saying so is
+   * the whole of the help there is.
+   */
+  if (state === 'unsupported') return <p className="settings-note">{t('you.device.unsupported')}</p>;
+  if (state === 'denied') return <p className="settings-note">{t('you.device.denied')}</p>;
+
+  return (
+    <label className="settings-row">
+      <span className="settings-row-label">
+        <b>{t('you.device')}</b>
+        <span>{t('you.device.hint')}</span>
+      </span>
+      <button
+        type="button"
+        className={state === 'on' ? 'btn' : 'btn primary'}
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          void (state === 'on' ? switchOff() : switchOn())
+            .then(setState)
+            .finally(() => setBusy(false));
+        }}
+      >
+        {state === 'on' ? t('you.device.off') : t('you.device.on')}
+      </button>
+    </label>
   );
 }
 

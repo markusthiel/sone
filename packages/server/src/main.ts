@@ -57,6 +57,8 @@ import { registerImportRoutes } from './import/routes.js';
 import { WORKSPACE_EXPORT, workspaceExportHandler } from './export/workspaceJob.js';
 import { registerJobRoutes } from './jobs/routes.js';
 import { registerInboxRoutes } from './notifications/routes.js';
+import { registerPushRoutes } from './push/routes.js';
+import { PUSH_WAKE, pushWakeHandler } from './push/job.js';
 import { RECOMMENDED_COST, passwordCost } from './auth/password.js';
 import { refusedEnvNumbers } from './env.js';
 import { renderHtml, renderText, type Letter } from './mail/letter.js';
@@ -748,6 +750,14 @@ async function main(): Promise<void> {
 
   const jobHandlers = {
     [WORKSPACE_EXPORT]: workspaceExportHandler(pool, fileStore),
+    /*
+     * Waking somebody's devices (ADR-0180).
+     *
+     * The public URL is read per run rather than captured, like every other
+     * setting here: an operator who corrects it while SONE runs should not have
+     * to restart for the next push to name the instance right.
+     */
+    [PUSH_WAKE]: pushWakeHandler(pool, () => config.publicUrl),
     [EMAIL_NOTIFICATIONS]: async (job: Job, ctx: JobContext) =>
       emailNotificationsHandler(pool, await mailSettings())(job, ctx),
   };
@@ -921,6 +931,9 @@ async function main(): Promise<void> {
 
   // Being told when somebody asked you something (ADR-0052).
   registerInboxRoutes(router, { pool });
+
+  // And being told on a device that is not looking (ADR-0180).
+  registerPushRoutes(router, { pool });
 
   registerAdminRoutes(router, {
     pool,
