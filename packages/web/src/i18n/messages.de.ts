@@ -1761,6 +1761,10 @@ export const de: Record<keyof typeof en, string> = {
   'canvas.colour.default': 'Die des Themes',
   'canvas.colour.own': 'Eine eigene Farbe',
   'canvas.thickness': 'Stärke',
+  /* Nur auf einer Fläche, die schon einen Stift gesehen hat (ADR-0181). */
+  'canvas.penOnly': 'Nur Stift',
+  'canvas.penOnly.hint':
+    'Auf diesem Gerät bedient nur der Stift die Werkzeuge, Finger verschieben die Ansicht. Haken entfernen, damit der Finger wieder zeichnet.',
   'canvas.tool.erase': 'Radierer',
   'canvas.tool.rect': 'Rechteck',
   'canvas.tool.ellipse': 'Ellipse',
