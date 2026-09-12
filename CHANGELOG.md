@@ -21,6 +21,15 @@ allen Wegen (Dokument-Sync, Bilder, Anhänge, Kommentare, geteilter Seitenbaum).
 Wer sich regulär anmeldet, nutzt solche Links weiterhin wie bisher, auch ohne
 Mitglied des Arbeitsbereichs zu sein. Kein Handeln nötig.
 
+**Sicherheit: die Zwei-Faktor-Pflicht gilt jetzt überall.** Verlangt eine
+Instanz einen zweiten Faktor und ein Konto hat ihn nach Ablauf der Frist nicht
+eingerichtet, war dieses Konto bisher nur in der Oberfläche gesperrt — über
+direkte Zugriffe (Suche, Export, Dateien, Kommentare, Dokument-Sync) ließ sich
+die Sperre umgehen. Die Prüfung sitzt jetzt an der zentralen Stelle, durch die
+alle diese Wege laufen; ein gesperrtes Konto kann nichts mehr lesen oder ändern,
+bis der zweite Faktor eingerichtet ist. Der Einrichtungs-Bildschirm bleibt
+erreichbar. Betrifft nur Instanzen mit aktiver Zwei-Faktor-Pflicht.
+
 **Sicherheit: interne Kommentare bleiben dem Team vorbehalten.** Ein per
 Gastrolle eingeladenes externes Konto konnte die als *intern* markierten
 Kommentarfäden einer Seite sehen, auf die es Zugriff hatte. Das ist behoben:
