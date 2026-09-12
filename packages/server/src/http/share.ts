@@ -45,7 +45,13 @@ import { decryptShareToken } from '../auth/shareTokenStore.js';
 import { queryOne, queryRows } from '../db/pool.js';
 import { atLeast as pageAtLeast, resolvePageAccess } from '../pages/access.js';
 import { loadWorkspaceStanding } from '../auth/standing.js';
-import { requireSession, sessionTokenFrom, setShareCookie } from './auth.js';
+import {
+  requireSession,
+  sessionTokenFrom,
+  setShareCookie,
+  setShareUnlockCookie,
+  shareUnlocksFrom,
+} from './auth.js';
 import { accountPresent } from '../auth/session.js';
 import type { RequestContext, Router } from './router.js';
 
@@ -253,6 +259,77 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
   });
 
   /**
+   * Unlock a password link for the HTTP side (ADR-0186).
+   *
+   * The sync connection checks the password and opens the document; but an
+   * `<img src>` or an attachment download carries only the cookie, and a
+   * password link's cookie was not proof the password had been given. So after
+   * the sync unlock the client calls this once: it verifies the password again,
+   * mints (or reuses) the share session, and sets the cookies — the token, and
+   * the unlock pair that lets every later HTTP request present that session as
+   * proof. The password itself never travels on those later requests.
+   */
+  router.post('/api/share/:token/unlock', async (ctx) => {
+    const token = ctx.params['token'] ?? '';
+    if (token === '') {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    let body: { password?: string };
+    try {
+      body = await ctx.json();
+    } catch {
+      ctx.fail(400, 'invalid_body');
+      return;
+    }
+    if (!body.password) {
+      ctx.fail(400, 'password_required');
+      return;
+    }
+
+    let resolved;
+    try {
+      resolved = await resolveShareTokenClaims(deps.pool, token, {
+        password: body.password,
+        signedIn: await accountPresent(deps.pool, sessionTokenFrom(ctx)),
+        // A visit: this mints the share session whose id becomes the unlock
+        // proof. The one place on the HTTP side that legitimately does.
+        track: true,
+      });
+    } catch (err) {
+      if (err instanceof AuthError) {
+        // A wrong password, told apart from a missing link so the interface can
+        // say "try again" rather than "gone".
+        ctx.fail(403, 'invalid_credentials');
+        return;
+      }
+      throw err;
+    }
+
+    if (!resolved) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+    if (resolved.signInRequired) {
+      ctx.fail(403, 'sign_in_required');
+      return;
+    }
+    if (resolved.passwordRequired) {
+      // Reached only if the link has no password at all — nothing to unlock.
+      ctx.fail(400, 'no_password');
+      return;
+    }
+
+    setShareCookie(ctx, token, deps.secureCookies);
+    const principal = resolved.claims.principal;
+    const sessionId = principal.kind === 'anonymous' ? principal.sessionId : null;
+    if (sessionId) setShareUnlockCookie(ctx, token, sessionId, deps.secureCookies);
+
+    ctx.send(200, { ok: true });
+  });
+
+  /**
    * What a link actually reaches: its page, and the subtree when it says so.
    *
    * Without this a shared **folder** is a shared nothing. The link view renders
@@ -282,9 +359,12 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
 
     // Told about the account the same way the preview above is told, or a link
     // that requires one answers 404 here to the very people it admits — the
-    // shared folder's tree was empty for them (ADR-0182).
+    // shared folder's tree was empty for them (ADR-0182). And told about a
+    // prior unlock, so a password link's subtree loads once it has been opened
+    // rather than staying empty (ADR-0186).
     const resolved = await resolveShareTokenClaims(deps.pool, token, {
       signedIn: await accountPresent(deps.pool, sessionTokenFrom(ctx)),
+      existingShareSessionId: shareUnlocksFrom(ctx).get(token) ?? null,
     });
     // A link that needs a password or an account grants nothing yet, and its
     // claims carry no grants — so this would fail closed anyway. Said out loud
@@ -395,9 +475,12 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
 
     // Told about the account the same way the preview above is told, or a link
     // that requires one answers 404 here to the very people it admits — the
-    // shared folder's tree was empty for them (ADR-0182).
+    // shared folder's tree was empty for them (ADR-0182). And told about a
+    // prior unlock, so a password link's subtree loads once it has been opened
+    // rather than staying empty (ADR-0186).
     const resolved = await resolveShareTokenClaims(deps.pool, token, {
       signedIn: await accountPresent(deps.pool, sessionTokenFrom(ctx)),
+      existingShareSessionId: shareUnlocksFrom(ctx).get(token) ?? null,
     });
     // A link that needs a password or an account grants nothing yet, and its
     // claims carry no grants — so this would fail closed anyway. Said out loud
