@@ -25,7 +25,7 @@ import * as decoding from 'lib0/decoding';
 import * as encoding from 'lib0/encoding';
 import * as Y from 'yjs';
 
-import { DocumentVersionError, migrateDocument } from '@sone/core';
+import { DOC_KEYS, DocumentVersionError, PAGE_KEYS, migrateDocument } from '@sone/core';
 
 import { withTransaction } from '../db/pool.js';
 import {
@@ -268,6 +268,9 @@ export class DocumentRoom {
     encoding.writeVarUint(full, messageType);
     encoding.writeUint8Array(full, decoding.readTailAsUint8Array(decoder));
 
+    // The structural keys as they stand before the client's update (ADR-0185).
+    const before = this.readStructuralKeys();
+
     const replyEncoder = encoding.createEncoder();
     syncProtocol.readSyncMessage(
       decoding.createDecoder(encoding.toUint8Array(full)),
@@ -278,10 +281,74 @@ export class DocumentRoom {
       subscriberId,
     );
 
+    // A client's update may not change where a page sits or what it is — those
+    // keys are the server's (ADR-0185). If one changed, put it back.
+    this.revertStructuralChanges(before);
+
     const reply = encoding.length(replyEncoder) > 0
       ? encoding.toUint8Array(replyEncoder)
       : null;
     return { reply, rejectedWrite: false };
+  }
+
+  /**
+   * The page keys a client is not allowed to write (ADR-0185).
+   *
+   * `parentPageId` and `idx` are placement, `kind` and `collectionId` are what
+   * a page *is*, `archivedAt` is whether it is in the trash. Every one of them
+   * is changed only by a server operation — the HTTP move, reorder, create,
+   * archive and restore routes, which write through their own authorisation —
+   * and never by the editor: the client's Yjs writes to the page map are the
+   * title and the cover, nothing else. An inbound update that touches one is
+   * either a bug or an attempt to make a move the HTTP route would refuse
+   * (ADR-0019), so it is undone rather than trusted.
+   */
+  private static readonly STRUCTURAL_KEYS: readonly string[] = [
+    PAGE_KEYS.parentPageId,
+    PAGE_KEYS.idx,
+    PAGE_KEYS.kind,
+    PAGE_KEYS.collectionId,
+    PAGE_KEYS.archivedAt,
+  ];
+
+  /** Snapshot the structural keys, or null for a document that has no page. */
+  private readStructuralKeys(): Map<string, unknown> | null {
+    // An internal-comments document is threads, not a page — it has no
+    // structural keys to guard, and its `page` map is empty.
+    if (this.commentsFor !== null) return null;
+    const page = this.doc.getMap<unknown>(DOC_KEYS.page);
+    const snapshot = new Map<string, unknown>();
+    for (const key of DocumentRoom.STRUCTURAL_KEYS) {
+      snapshot.set(key, page.get(key));
+    }
+    return snapshot;
+  }
+
+  /**
+   * Undo any change a client update made to a structural key.
+   *
+   * Written back in a `'server'` transaction, so the correction is persisted
+   * and fans out to every subscriber — including the one that sent the change,
+   * whose optimistic move snaps back. These are primitive values (a string,
+   * null, a boolean), so an identity comparison is enough to tell a real change
+   * from an untouched key.
+   */
+  private revertStructuralChanges(before: Map<string, unknown> | null): void {
+    if (!before) return;
+    const page = this.doc.getMap<unknown>(DOC_KEYS.page);
+
+    const changed: Array<[string, unknown]> = [];
+    for (const [key, was] of before) {
+      if (page.get(key) !== was) changed.push([key, was]);
+    }
+    if (changed.length === 0) return;
+
+    this.doc.transact(() => {
+      for (const [key, was] of changed) {
+        if (was === undefined) page.delete(key);
+        else page.set(key, was);
+      }
+    }, 'server');
   }
 
   /**
