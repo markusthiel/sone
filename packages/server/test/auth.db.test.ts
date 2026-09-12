@@ -50,6 +50,7 @@ import {
   type AccessClaims,
 } from '../src/auth/claims.js';
 import { createShareLink, listShareLinks, revokeShareLink } from '../src/auth/share.js';
+import { installSecondFactorGate } from '../src/auth/secondFactorGate.js';
 import {
   closeTestPool,
   getTestPool,
@@ -642,6 +643,36 @@ describe('auth (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL not s
     const claims = await resolveSessionClaims(db, session.token, fx.workspaceId);
     assert.equal(effectiveRole(claims!, (await loadPageLocation(db, uuid(1)))!), 'editor');
     assert.equal(effectiveRole(claims!, (await loadPageLocation(db, uuid(2)))!), null);
+  });
+
+  test('a second-factor block refuses claims, not only requireSession (ADR-0183)', async () => {
+    // The requirement was enforced in requireSession alone, so search, files,
+    // comments, export and sync — which all resolve claims and never touch
+    // requireSession — served a blocked account. The gate now sits in the
+    // claims resolver, so a blocked account resolves to nothing everywhere.
+    const userId = await makeUser('owes-a-factor@example.org', 'member');
+    const session = await createSession(db, userId);
+    await makePage(uuid(1));
+
+    // With no gate installed the account resolves as usual.
+    assert.ok(await resolveSessionClaims(db, session.token, fx.workspaceId));
+
+    // A gate that blocks exactly this account, as the deployed one would once
+    // the deadline has passed for a password account with no factor.
+    try {
+      installSecondFactorGate(async (_db, uid) =>
+        uid === userId ? 'second_factor_required' : null,
+      );
+      const claims = await resolveSessionClaims(db, session.token, fx.workspaceId);
+      assert.equal(claims, null, 'a blocked account must resolve to no claims');
+    } finally {
+      // Restore the open behaviour for the rest of the file (no uninstall by
+      // design — an instance either has a gate or does not).
+      installSecondFactorGate(async () => null);
+    }
+
+    // And with the block lifted, the same session resolves again.
+    assert.ok(await resolveSessionClaims(db, session.token, fx.workspaceId));
   });
 
   test('a non-member of the workspace resolves to no claims', async () => {

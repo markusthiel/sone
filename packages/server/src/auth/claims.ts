@@ -24,6 +24,7 @@ import { queryOne, queryRows } from '../db/pool.js';
 import { AuthError, hashToken } from './password.js';
 import { resolveSession } from './session.js';
 import { loadWorkspaceStanding } from './standing.js';
+import { secondFactorGate } from './secondFactorGate.js';
 
 export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'guest';
 
@@ -226,6 +227,21 @@ export async function resolveSessionClaims(
 ): Promise<AccessClaims | null> {
   const session = await resolveSession(db, sessionToken);
   if (!session) return null;
+
+  /*
+   * The second-factor requirement, at the door every non-`requireSession` path
+   * comes through (ADR-0183).
+   *
+   * `requireSession` gated only itself, so search, files, comments, export and
+   * the whole sync path resolved claims for an account that owed a factor and
+   * had not set one up. The block was a screen in the client, not a rule on the
+   * server. Here it is a rule: a blocked account resolves to no claims, which
+   * every caller already turns into a refusal. The enrolment, session and
+   * logout routes do not come through claims, so they are unaffected — and the
+   * path argument they need has no meaning here, so it is empty.
+   */
+  const gate = secondFactorGate();
+  if (gate && (await gate(db, session.user.userId, ''))) return null;
 
   // The standing rather than the role: it carries what the role means on a
   // page, which is the thing `effectiveRole` needs and the thing a `switch`
@@ -753,6 +769,12 @@ export async function revalidateClaims(
       [credential.sessionId, workspaceId],
     );
     if (!row) return null;
+
+    // Same gate as the first resolution (ADR-0183): a requirement that comes
+    // into force, or a factor deadline that passes, must close a live
+    // connection at its next revalidation, not only refuse the next new one.
+    const gate = secondFactorGate();
+    if (gate && (await gate(db, row.user_id, ''))) return null;
 
     const standing = await loadWorkspaceStanding(db, row.user_id, workspaceId);
     if (!standing.isMember) return null;

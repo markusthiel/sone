@@ -37,6 +37,7 @@ import {
   revokeSession,
   SESSION_TTL_DAYS,
 } from '../auth/session.js';
+import { installSecondFactorGate, secondFactorGate } from '../auth/secondFactorGate.js';
 import {
   bootstrapInstance,
   inspectInvitation,
@@ -366,25 +367,6 @@ export interface AuthenticatedRequest {
  * Returning null rather than throwing keeps the happy path in each route free
  * of try/catch, and the 401 shape identical everywhere.
  */
-/**
- * The requirement check, installed by the server rather than imported here.
- *
- * `requireSession` is used by every module, and having it reach into the
- * settings store would make half the codebase depend on it. The server sets
- * this once at startup; without it — in a test that registers routes by hand —
- * the gate is simply absent, which is the behaviour of an instance that does
- * not require anything.
- */
-let secondFactorGate:
-  | ((pool: Pool, userId: string, path: string) => Promise<string | null>)
-  | null = null;
-
-export function installSecondFactorGate(
-  gate: (pool: Pool, userId: string, path: string) => Promise<string | null>,
-): void {
-  secondFactorGate = gate;
-}
-
 export async function requireSession(
   pool: Pool,
   ctx: RequestContext,
@@ -410,8 +392,9 @@ export async function requireSession(
    * requirement is actually switched on — a check that runs on every request
    * has to be free when the feature is off.
    */
-  if (secondFactorGate) {
-    const refusal = await secondFactorGate(pool, resolved.user.userId, ctx.url.pathname);
+  const gate = secondFactorGate();
+  if (gate) {
+    const refusal = await gate(pool, resolved.user.userId, ctx.url.pathname);
     if (refusal) {
       // 403 and a named code, not 401: the session is valid and signing in
       // again would change nothing. The interface reads the code and shows the
