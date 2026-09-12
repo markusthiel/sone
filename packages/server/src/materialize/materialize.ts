@@ -111,57 +111,116 @@ async function loadFieldMeta(
  * The cost lands here: moving a page must rewrite the array for its whole
  * subtree. Rare operation, hot read path — the right trade.
  *
- * Cycles are possible if a client is buggy or malicious (page A's parent set
- * to its own descendant), so the walk is bounded and reports rather than
- * hangs.
+ * The parent comes from the document, and a document is written by clients —
+ * so `parentPageId` is attacker-controlled (ADR-0182). An editor can set it
+ * over Yjs to a page in another workspace, or to the page's own descendant,
+ * neither of which the HTTP move would allow (ADR-0019). So this decides the
+ * *effective* parent as well as the path: a parent it will not accept is not
+ * written, the page keeps the parent it had, and the bad value never reaches
+ * the row. Returning the path with a parent the row does not carry would be
+ * the two disagreeing.
+ *
+ * The cycle case is the one that mattered: it used to null the ancestors but
+ * write the cyclic parent anyway, and `cascadeAncestors` then recursed on a
+ * page that was its own child — an unbounded query with no timeout, holding a
+ * pool connection until it was killed by hand (ADR-0182).
  */
 async function computeAncestors(
   db: PoolClient,
   pageId: string,
   parentPageId: string | null,
+  workspaceId: string,
+  existingParentId: string | null,
   warnings: string[],
-): Promise<string[]> {
-  if (!parentPageId) return [];
+): Promise<{ parentPageId: string | null; ancestorIds: string[] }> {
+  if (!parentPageId) return { parentPageId: null, ancestorIds: [] };
 
-  const row = await queryOne<{ ancestor_ids: string[] }>(
+  const row = await queryOne<{ ancestor_ids: string[]; workspace_id: string }>(
     db,
-    `SELECT ancestor_ids FROM pages WHERE id = $1`,
+    `SELECT ancestor_ids, workspace_id FROM pages WHERE id = $1`,
     [parentPageId],
   );
 
   // Parent not materialised yet: record the shallow path and let the parent's
-  // own materialisation cascade down to fix it.
+  // own materialisation cascade down to fix it. Legitimate during import, which
+  // writes children before their parents exist as rows.
   if (!row) {
     warnings.push(
       `parent ${parentPageId} not materialised yet; ancestor path is provisional`,
     );
-    return [parentPageId];
+    return { parentPageId, ancestorIds: [parentPageId] };
+  }
+
+  // A parent in another workspace is not a move the API can make (a page never
+  // changes workspace), so an update that claims one is rejected: keep the
+  // parent the row has rather than let `ancestor_ids` fill with ids that
+  // belong to somebody else's tree.
+  if (row.workspace_id !== workspaceId) {
+    warnings.push(
+      `parent ${parentPageId} is in another workspace; keeping existing parent`,
+    );
+    return keepExisting(db, pageId, existingParentId);
   }
 
   const path = [...row.ancestor_ids, parentPageId];
   if (path.includes(pageId)) {
+    // A page under itself. Not written: the cascade below would never finish.
     warnings.push(
-      `cycle detected: page ${pageId} appears in its own ancestor path; treating as root`,
+      `cycle detected: page ${pageId} appears in its own ancestor path; keeping existing parent`,
     );
-    return [];
+    return keepExisting(db, pageId, existingParentId);
   }
   if (path.length > 128) {
     warnings.push(`ancestor path exceeds 128 levels; truncated`);
-    return path.slice(-128);
+    return { parentPageId, ancestorIds: path.slice(-128) };
   }
-  return path;
+  return { parentPageId, ancestorIds: path };
 }
 
-/** Rewrite ancestor paths for everything below a page. Returns affected ids. */
+/**
+ * Fall back to the parent the row already has, rather than an untrusted one.
+ *
+ * The existing parent is itself already-validated state, so its path is
+ * recomputed from it directly — one step, no walk — and if it too is somehow
+ * unusable the page becomes a root, which is the safe floor.
+ */
+async function keepExisting(
+  db: PoolClient,
+  pageId: string,
+  existingParentId: string | null,
+): Promise<{ parentPageId: string | null; ancestorIds: string[] }> {
+  if (!existingParentId) return { parentPageId: null, ancestorIds: [] };
+  const row = await queryOne<{ ancestor_ids: string[] }>(
+    db,
+    `SELECT ancestor_ids FROM pages WHERE id = $1`,
+    [existingParentId],
+  );
+  if (!row) return { parentPageId: null, ancestorIds: [] };
+  const path = [...row.ancestor_ids, existingParentId];
+  if (path.includes(pageId)) return { parentPageId: null, ancestorIds: [] };
+  return { parentPageId: existingParentId, ancestorIds: path.slice(-128) };
+}
+
+/**
+ * Rewrite ancestor paths for everything below a page. Returns affected ids.
+ *
+ * The walk carries a depth and stops at 128, the same ceiling `computeAncestors`
+ * puts on a path. A cyclic `parent_page_id` should never reach a row now that
+ * the writer refuses one (ADR-0182), but a recursive `UNION ALL` on a cycle is
+ * an unbounded query holding a connection with no `statement_timeout`, and a
+ * projection is not the place to trust that the row it is reading is sane. The
+ * bound makes the query terminate whatever the data is.
+ */
 async function cascadeAncestors(db: PoolClient, pageId: string): Promise<string[]> {
   const rows = await queryRows<{ id: string }>(
     db,
     `WITH RECURSIVE subtree AS (
-       SELECT id, ancestor_ids FROM pages WHERE parent_page_id = $1
+       SELECT id, ancestor_ids, 0 AS depth FROM pages WHERE parent_page_id = $1
        UNION ALL
-       SELECT p.id, p.ancestor_ids
+       SELECT p.id, p.ancestor_ids, s.depth + 1
          FROM pages p
          JOIN subtree s ON p.parent_page_id = s.id
+        WHERE s.depth < 128
      )
      UPDATE pages p
         SET ancestor_ids = (
@@ -198,15 +257,21 @@ export async function materializeDocument(
     `SELECT parent_page_id FROM pages WHERE id = $1`,
     [pageId],
   );
-  const parentChanged =
-    existing !== null && existing.parent_page_id !== parsed.page.parentPageId;
 
-  const ancestors = await computeAncestors(
-    db,
-    pageId,
-    parsed.page.parentPageId,
-    warnings,
-  );
+  // The parent as the document asks for it is attacker-controlled; this is the
+  // parent the row will actually carry (ADR-0182), which is the same one unless
+  // the ask was a cross-workspace move or a cycle.
+  const { parentPageId: effectiveParentId, ancestorIds: ancestors } =
+    await computeAncestors(
+      db,
+      pageId,
+      parsed.page.parentPageId,
+      opts.workspaceId,
+      existing?.parent_page_id ?? null,
+      warnings,
+    );
+  const parentChanged =
+    existing !== null && existing.parent_page_id !== effectiveParentId;
 
   await db.query(
     `INSERT INTO pages (
@@ -235,7 +300,7 @@ export async function materializeDocument(
     [
       pageId,
       opts.workspaceId,
-      parsed.page.parentPageId,
+      effectiveParentId,
       // Which collection this entry *belongs to*, not which it holds.
       //
       // For a row, the collection it is a record of (ADR-0021). For everything

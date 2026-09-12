@@ -29,6 +29,7 @@ import {
   createSession,
   recentFailures,
   recordAttempt,
+  accountPresent,
   changePassword,
   listSessions,
   login,
@@ -171,7 +172,14 @@ export function parseCookies(header: string | undefined): Record<string, string>
     if (eq < 1) continue;
     const name = part.slice(0, eq).trim();
     const value = part.slice(eq + 1).trim();
-    if (name) out[name] = decodeURIComponent(value);
+    if (!name) continue;
+    // A value that cannot be decoded is dropped, not thrown (ADR-0182). The
+    // router would catch this one; the sync server's copy had nothing to.
+    try {
+      out[name] = decodeURIComponent(value);
+    } catch {
+      continue;
+    }
   }
   return out;
 }
@@ -719,11 +727,14 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
       is_owner: boolean;
       default_locale: string;
       icon: unknown;
+      page_level: string | null;
     }>(
       deps.pool,
       // The standing, not the old enum word (ADR-0102). The same fragment
       // /api/workspaces uses, for the same reason as the order clause below.
-      `SELECT w.id, w.name, w.default_locale, w.icon, ${STANDING_COLUMNS}
+      // Plus the role's page level, which is what decides whether the internal
+      // comment room is this person's to open (ADR-0182).
+      `SELECT w.id, w.name, w.default_locale, w.icon, mr.page_level, ${STANDING_COLUMNS}
          FROM workspace_members m
          JOIN workspaces w ON w.id = m.workspace_id
          ${STANDING_JOIN}
@@ -851,6 +862,15 @@ export function registerAuthRoutes(router: Router, deps: AuthDeps): void {
         default_locale: row.default_locale,
         defaultLocale: row.default_locale,
         icon: row.icon ?? null,
+        /*
+         * What the role gives on a page carrying no rules of its own — null
+         * for `guest` and for a custom role defined that way (ADR-0087). Sent
+         * so the client can know, before asking, whether the server will open
+         * the internal comment room to this person (ADR-0182). It decided
+         * from `isGuest` before, which is a fact about the account and not
+         * about this workspace, and is false for every guest there is.
+         */
+        pageLevel: row.page_level,
       })),
     });
   });
@@ -1346,12 +1366,15 @@ export async function claimsForRequest(
     /*
      * Signed in, but not into this workspace — which a link with
      * `allow_anonymous: false` still admits (ADR-0101). The session was tried
-     * first above and gave nothing here; that it exists at all is the fact this
-     * link asks for.
+     * first above and gave nothing here, and „nothing" covers two cases that
+     * are not the same: a member of some other workspace, and a cookie that is
+     * not a session at all. This asked `Boolean(sessionToken)` and could not
+     * tell them apart, so an invented cookie was an account (ADR-0182). The
+     * second query is paid only on this branch, which a member never reaches.
      */
     const resolved = await resolveShareTokenClaims(pool, shareToken, {
       track: false,
-      signedIn: Boolean(sessionToken),
+      signedIn: await accountPresent(pool, sessionToken),
     });
     // A link needing a password is not authenticated by the cookie alone. The
     // sync connection handles unlocking; an ordinary request is not the place to.
