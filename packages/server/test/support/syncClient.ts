@@ -41,10 +41,24 @@ export class TestClient {
     });
   }
 
-  static async connect(url: string): Promise<TestClient> {
-    const socket = new WebSocket(url);
+  static async connect(
+    url: string,
+    opts?: { headers?: Record<string, string> },
+  ): Promise<TestClient> {
+    const socket = new WebSocket(url, opts?.headers ? { headers: opts.headers } : undefined);
     await once(socket, 'open');
     return new TestClient(socket);
+  }
+
+  /**
+   * Open a raw socket without waiting for `open`, returning the socket itself.
+   *
+   * For the one test that sends a header the server rejects at the handshake,
+   * or wants to see the connection fail rather than succeed — `connect` above
+   * awaits `open` and would throw before the test could look.
+   */
+  static rawSocket(url: string, opts?: { headers?: Record<string, string> }): WebSocket {
+    return new WebSocket(url, opts?.headers ? { headers: opts.headers } : undefined);
   }
 
   send(data: Uint8Array): void {

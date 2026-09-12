@@ -13,6 +13,34 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Sicherheit: „Anmeldung erforderlich" verlangt jetzt wirklich eine Anmeldung.**
+Ein Freigabelink mit dieser Option ließ sich bisher öffnen, indem der Browser
+irgendeinen `sone_session`-Cookie mitschickte — der musste zu keiner echten
+Sitzung gehören. Jetzt wird der Cookie gegen eine gültige Sitzung geprüft, an
+allen Wegen (Dokument-Sync, Bilder, Anhänge, Kommentare, geteilter Seitenbaum).
+Wer sich regulär anmeldet, nutzt solche Links weiterhin wie bisher, auch ohne
+Mitglied des Arbeitsbereichs zu sein. Kein Handeln nötig.
+
+**Sicherheit: interne Kommentare bleiben dem Team vorbehalten.** Ein per
+Gastrolle eingeladenes externes Konto konnte die als *intern* markierten
+Kommentarfäden einer Seite sehen, auf die es Zugriff hatte. Das ist behoben:
+interne Kommentare sind nur noch für Konten sichtbar, denen der Arbeitsbereich
+seine Seiten standardmäßig gibt. Umgekehrt sehen Mitglieder mit einer
+selbst definierten Rolle die internen Fäden jetzt korrekt, statt auf jeder Seite
+eine Fehlermeldung zu bekommen.
+
+**Stabilität: eine fehlerhafte Anfrage kann den Server nicht mehr beenden.** Ein
+defekt kodierter Cookie beim Verbindungsaufbau brachte den Serverprozess zum
+Neustart — ohne Anmeldung auslösbar. Solche Anfragen werden jetzt sauber
+verworfen, und eine fehlerhafte Sync-Nachricht schließt nur noch die betroffene
+Verbindung statt unbemerkt verworfen zu werden. Kein Handeln nötig.
+
+**Stabilität: eine Seite lässt sich nicht mehr in eine Endlosschleife bringen.**
+Wurde einer Seite über die Synchronisierung ihr eigener Platz in der
+Seitenhierarchie als Elternteil untergeschoben (oder ein Elternteil aus einem
+fremden Arbeitsbereich), hängte das die Projektion dieser Seite dauerhaft. Solche
+Werte werden jetzt abgewiesen; die Seite behält den Platz, den sie hatte.
+
 **Whiteboards: „Nur Stift" lässt sich jetzt abschalten.** Sobald auf einem
 Gerät einmal ein Stift benutzt wurde, erscheint in der Werkzeugleiste ein
 Häkchen *Nur Stift*. Gesetzt gilt die Regel von vorher — nur der Stift bedient

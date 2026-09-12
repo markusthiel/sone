@@ -136,7 +136,14 @@ export function WorkspaceSettingsScreen({
         // is a claim, and this one reached the screen as the literal string
         // `unknown` in a German interface. The absence is what is true, and the
         // fallback says it in the reader's language (ADR-0143).
-        { ...fetched, role: '', roleName: '', rights: [] as string[], isOwner: false }
+        {
+          ...fetched,
+          role: '',
+          roleName: '',
+          rights: [] as string[],
+          isOwner: false,
+          pageLevel: null,
+        }
       : undefined);
   const canAdminister =
     session.user.isInstanceAdmin || session.user.canManageWorkspaces;

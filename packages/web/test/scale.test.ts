@@ -2271,10 +2271,14 @@ test('internal threads are one list with a word, and a reply goes to their own d
   // disclosure.
   assert.match(panel, /t\('comment\.internal'\)/);
 
-  // Asked for only by a member: the server refuses a share session that room,
-  // and asking anyway is an error frame on every page a guest opens.
+  // Asked for only by somebody the workspace stands behind on its pages — a
+  // role with a page level (ADR-0182). The server refuses everybody else that
+  // room, and asking anyway is an error frame on every page. Read from the
+  // workspace's own standing, not from `isGuest`: the guest that exists is a
+  // role on an ordinary account, which that flag never marks.
   const app = codeOf(new URL('../src/App.tsx', import.meta.url));
-  assert.match(app, /const canSeeInternal = !session\.user\.isGuest/);
+  assert.match(app, /\.pageLevel != null/);
+  assert.doesNotMatch(app, /const canSeeInternal = !session\.user\.isGuest/);
   assert.match(app, /asInternalRequest\(pageId\)/);
 });
 
