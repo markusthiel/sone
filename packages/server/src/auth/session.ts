@@ -271,6 +271,29 @@ export async function resolveSessionId(
   return row?.id ?? null;
 }
 
+/**
+ * Whether a session cookie's value is an account, right now (ADR-0182).
+ *
+ * The one answer to `signedIn` for a share link that requires an account
+ * (ADR-0101). Three callers used to answer it three ways: the link's preview
+ * asked `resolveSessionId`, and both the file route and the sync server asked
+ * `Boolean(cookie)` — which is to say they asked whether the browser had sent
+ * *a string*. Any string. A link marked „Anmeldung erforderlich" admitted
+ * whoever typed `Cookie: sone_session=x`.
+ *
+ * `resolveSession`, not `resolveSessionId`, because the weaker one ignores the
+ * idle window and a disabled account, and „an account is present" has to mean
+ * the same thing here as on every other door. A null token is no account, so
+ * the callers can hand over whatever the cookie jar held.
+ */
+export async function accountPresent(
+  db: Pool | PoolClient,
+  token: string | null,
+): Promise<boolean> {
+  if (!token) return false;
+  return (await resolveSession(db, token)) !== null;
+}
+
 export async function revokeSession(db: Pool | PoolClient, sessionId: string): Promise<void> {
   await db.query(
     `UPDATE sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL`,

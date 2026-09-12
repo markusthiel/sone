@@ -203,6 +203,13 @@ export interface SessionInfo {
     rights: string[];
     /** Transferring and deleting the workspace. Not a right (ADR-0087). */
     isOwner: boolean;
+    /**
+     * What the role gives on a page with no rules of its own; null means
+     * nothing without an explicit grant, which is what `guest` is (ADR-0087).
+     * The internal comment room is open to a person exactly when this is not
+     * null (ADR-0182).
+     */
+    pageLevel: string | null;
     default_locale: string;
     /** Null until somebody chooses one (ADR-0030). */
     icon: WorkspaceIcon | null;

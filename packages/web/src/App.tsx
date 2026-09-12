@@ -668,11 +668,18 @@ function Workspace({
   /*
    * Whether this person could open the internal room at all.
    *
-   * `isGuest` marks a share-link session, which the server refuses that room —
-   * so asking anyway would produce an error frame on every page a guest opens,
-   * and a console full of refusals is how somebody stops reading them.
+   * The server opens it to somebody the workspace gives its pages to by
+   * default — a role with a page level (ADR-0182) — and refuses everybody
+   * else, so asking anyway would produce an error frame on every page, and a
+   * console full of refusals is how somebody stops reading them.
+   *
+   * This read `isGuest`, a fact about the account that no invitation ever
+   * sets: the guest that exists is a *role*, held by an ordinary account, and
+   * the check above let it open the room and the panel then showed the
+   * threads. Same rule as the server's, from the same column.
    */
-  const canSeeInternal = !session.user.isGuest;
+  const canSeeInternal =
+    session.workspaces.find((one) => one.id === workspaceId)?.pageLevel != null;
   const internalId = canSeeInternal && pageId ? asInternalRequest(pageId) : null;
   const internalHandle = usePage(client, internalId);
 

@@ -260,6 +260,54 @@ describe('materialiser (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_U
     assert.deepEqual(rows.rows[0]!.ancestor_ids, [uuid(99)]);
   });
 
+  test('a page made its own parent keeps its parent, and does not hang (ADR-0182)', async () => {
+    // A client can set `parentPageId` to the page's own id over Yjs, which the
+    // HTTP move refuses. This used to null the ancestors but write the cyclic
+    // parent anyway, and the cascade then recursed on a page that was its own
+    // child — an unbounded query holding a connection. The parent must be
+    // refused: the row keeps the parent it had.
+    const parent = uuid(1);
+    const child = uuid(2);
+    await project(parent, pageDoc({ title: 'Parent' }));
+    await project(child, pageDoc({ title: 'Child', parentPageId: parent }));
+
+    const result = await project(child, pageDoc({ title: 'Child', parentPageId: child }), 5);
+    assert.ok(result.warnings.some((w) => w.includes('cycle detected')));
+
+    const rows = await db.query<{ parent_page_id: string | null; ancestor_ids: string[] }>(
+      `SELECT parent_page_id, ancestor_ids FROM pages WHERE id = $1`,
+      [child],
+    );
+    assert.equal(rows.rows[0]!.parent_page_id, parent, 'the cyclic parent must not be written');
+    assert.deepEqual(rows.rows[0]!.ancestor_ids, [parent]);
+  });
+
+  test('a parent in another workspace is refused (ADR-0182)', async () => {
+    // A page never changes workspace, so a `parentPageId` pointing into another
+    // one is not a move the API can make. Adopting it would fill `ancestor_ids`
+    // with ids from a tree this workspace has no business in.
+    const other = await seedWorkspace(db, 'Other workspace');
+    const foreignParent = uuid(50);
+    await withTransaction(db, (client) =>
+      materializeYDoc(client, foreignParent, pageDoc({ title: 'Foreign' }), {
+        throughSeq: 1,
+        workspaceId: other.workspaceId,
+        actorId: other.userId,
+      }),
+    );
+
+    const here = uuid(1);
+    const result = await project(here, pageDoc({ title: 'Here', parentPageId: foreignParent }), 2);
+    assert.ok(result.warnings.some((w) => w.includes('another workspace')));
+
+    const rows = await db.query<{ parent_page_id: string | null; ancestor_ids: string[] }>(
+      `SELECT parent_page_id, ancestor_ids FROM pages WHERE id = $1`,
+      [here],
+    );
+    assert.equal(rows.rows[0]!.parent_page_id, null, 'a foreign parent must not be written');
+    assert.deepEqual(rows.rows[0]!.ancestor_ids, []);
+  });
+
   // --- collections ---------------------------------------------------------
 
   async function seedCollection(pageId: string, collectionId: string) {
