@@ -615,6 +615,64 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.close();
   });
 
+  test('a client cannot move a page by writing its parent over sync (ADR-0185)', async () => {
+    // The HTTP move checks write access to the target and the folder rule; the
+    // sync path checks neither, so a structural key set over Yjs must be undone
+    // by the server rather than trusted. The title, which the client does write,
+    // must survive — the guard is narrow.
+    await makePage(uuid(1)); // the page, at the root (parentPageId null)
+    await makePage(uuid(2)); // some other folder the client will try to move into
+    const userId = await makeMember('mover@example.org', 'admin');
+    const session = await createSession(db, userId);
+    const client = await connectAs(session.token);
+    const { handle } = await openDoc(client, uuid(1), 1);
+
+    // Sync from the server so the local doc shares the page map's item ids and a
+    // set on it causally follows — otherwise the write is a conflicting guess.
+    const local = new Y.Doc();
+    {
+      const enc = encoding.createEncoder();
+      encoding.writeVarUint(enc, ClientMessage.Sync);
+      encoding.writeVarUint(enc, handle);
+      const inner = encoding.createEncoder();
+      syncProtocol.writeSyncStep1(inner, local);
+      encoding.writeVarUint8Array(enc, encoding.toUint8Array(inner));
+      client.send(encoding.toUint8Array(enc));
+    }
+    await sleep(200);
+    for (const frame of client.frames) {
+      if (frame.type === ServerMessage.Sync && frame.handle === handle) {
+        applyServerSync(local, frame.payload);
+      }
+    }
+    assert.equal(
+      local.getMap(DOC_KEYS.page).get(PAGE_KEYS.parentPageId) ?? null,
+      null,
+      'the local doc now mirrors the server: the page is at the root',
+    );
+
+    // The move the client is not allowed to make, plus a title change it is.
+    const before = Y.encodeStateVector(local);
+    local.getMap(DOC_KEYS.page).set(PAGE_KEYS.parentPageId, uuid(2));
+    local.getMap(DOC_KEYS.page).set(PAGE_KEYS.title, 'Renamed by the client');
+    client.send(syncUpdateFrame(handle, Y.encodeStateAsUpdate(local, before)));
+
+    // Let the write apply, the revert fan out, and the flush project.
+    await sleep(900);
+
+    const row = await db.query<{ parent_page_id: string | null; title: string }>(
+      `SELECT parent_page_id, title FROM pages WHERE id = $1`,
+      [uuid(1)],
+    );
+    assert.equal(row.rows[0]!.parent_page_id, null, 'the move must have been undone');
+    assert.equal(
+      row.rows[0]!.title,
+      'Renamed by the client',
+      'but the title, which the client may write, must stand',
+    );
+    client.close();
+  });
+
   test('opening the same page twice returns the same handle', async () => {
     await makePage(uuid(1));
     const userId = await makeMember('twice@example.org');
