@@ -1931,6 +1931,27 @@ export const api = {
       }>;
     }>(`/api/pages/${pageId}/backlinks`),
 
+  /**
+   * Notifications on a device that is not looking (ADR-0180).
+   *
+   * The key a browser subscribes against, the endpoint it got back, and what
+   * this server believes is switched on. Asking for the key is what makes the
+   * instance's keypair, so an instance nobody switches this on for never has
+   * one.
+   */
+  pushKey: () => request<{ key: string }>('/api/push/key'),
+  pushSubscriptions: () => request<{ endpoints: string[] }>('/api/push/subscriptions'),
+  pushSubscribe: (endpoint: string) =>
+    post<{ ok: true }>('/api/push/subscriptions', { endpoint }),
+  /**
+   * A POST rather than a DELETE, because the endpoint is the body.
+   *
+   * It is long, it contains characters a path would have to escape, and a
+   * subscription address in a URL is a subscription address in an access log.
+   */
+  pushUnsubscribe: (endpoint: string) =>
+    post<{ ok: true }>('/api/push/subscriptions/remove', { endpoint }),
+
   /** The shapes a page can be started from in this workspace (ADR-0045). */
   templates: (workspaceId: string) =>
     request<{
