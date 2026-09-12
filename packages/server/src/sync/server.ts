@@ -28,7 +28,7 @@ import {
   type ConnectionCredential,
 } from '../auth/claims.js';
 import { AuthError } from '../auth/password.js';
-import { resolveSessionId } from '../auth/session.js';
+import { accountPresent, resolveSessionId } from '../auth/session.js';
 import { UpdateBus, fetchUpdatesSince } from './bus.js';
 import {
   ClientMessage,
@@ -406,7 +406,20 @@ export class SyncServer {
         return;
       }
       this.armIdleTimer(conn);
-      void this.onMessage(conn, toUint8Array(data));
+      /*
+       * Caught here, not left to `unhandledRejection` (ADR-0182).
+       *
+       * `onMessage` guards the *outer* frame; whatever a handler throws past
+       * that used to become a rejected promise nobody held. The process-wide
+       * handler only logs, so the connection stayed open having silently
+       * dropped a message it was never told about. A peer whose message
+       * cannot be handled is told, and let go.
+       */
+      this.onMessage(conn, toUint8Array(data)).catch((err) => {
+        this.log('error', `message handling failed on connection ${conn.id}`, err);
+        conn.send(encodeError(0, SyncError.Internal));
+        conn.socket.close(1011, 'internal error');
+      });
     });
 
     socket.on('close', () => {
@@ -526,8 +539,11 @@ export class SyncServer {
            * auth message, and the **cookie** travels regardless — so somebody
            * signed in who opens a link that requires an account is admitted
            * here for the same reason the HTTP route admits them.
+           *
+           * Admitted once the cookie *is* a session. The first version asked
+           * whether one had been sent, which admitted any string (ADR-0182).
            */
-          signedIn: Boolean(conn.cookieSessionToken),
+          signedIn: await accountPresent(this.pool, conn.cookieSessionToken),
         });
         if (!resolved) {
           conn.send(encodeError(0, SyncError.AuthFailed));
@@ -648,16 +664,25 @@ export class SyncServer {
       workspaceId = authorized.page.workspaceId;
 
       /*
-       * Internal comments require membership, not read access.
+       * Internal comments require standing in the workspace, not read access.
        *
        * The page's own room accepts anybody with `viewer`, which includes a
        * share-link visitor — and that is the whole reason this document exists.
        * Refused rather than served empty: a room that opens and stays empty is
        * a room somebody spends an afternoon debugging (ADR-0057).
+       *
+       * „Standing" is `pageLevel`, not the role's name (ADR-0182). This asked
+       * `workspaceRole !== null`, which is true of the `guest` role — the one
+       * role that exists for people outside the team (ADR-0110) — and false of
+       * every custom role, member or not. So the external collaborator read
+       * the team's internal threads and the custom-role member got an error
+       * frame per page. What „internal" draws a line around is the people the
+       * workspace gives its pages to by default, and that is what `pageLevel`
+       * says, for the four system roles and for any role somebody defines.
        */
       if (
         internal &&
-        (conn.claims!.principal.kind !== 'user' || conn.claims!.workspaceRole === null)
+        (conn.claims!.principal.kind !== 'user' || conn.claims!.pageLevel === null)
       ) {
         conn.send(encodeError(requestId, SyncError.NotAuthorized));
         return;
@@ -784,11 +809,21 @@ export class SyncServer {
      */
     if (canWrite) doc.room.setActor(actorIdOf(conn.claims!));
 
-    const { reply, rejectedWrite } = doc.room.handleSyncMessage(
-      doc.subscriberId,
-      payload,
-      canWrite,
-    );
+    let outcome: ReturnType<DocumentRoom['handleSyncMessage']>;
+    try {
+      outcome = doc.room.handleSyncMessage(doc.subscriberId, payload, canWrite);
+    } catch (err) {
+      /*
+       * The inner payload is a second protocol, and it throws on its own
+       * terms — `lib0` on a truncated varint, for one (ADR-0182). Answered
+       * like a malformed outer frame is answered above: the peer cannot frame
+       * a message, and keeping it costs a slot. Not logged as an error: a
+       * viewer can send this, and a log anybody can fill is not a log.
+       */
+      this.refuseMalformed(conn, err);
+      return;
+    }
+    const { reply, rejectedWrite } = outcome;
 
     if (rejectedWrite) {
       // Explicit refusal, not silence: a client whose edit is dropped without
@@ -807,7 +842,24 @@ export class SyncServer {
     }
     // Presence is permitted for readers: a viewer's cursor is useful and
     // touches no document state.
-    doc.room.handleAwarenessMessage(doc.subscriberId, payload);
+    try {
+      doc.room.handleAwarenessMessage(doc.subscriberId, payload);
+    } catch (err) {
+      // Same second protocol, same answer — see `handleSync`.
+      this.refuseMalformed(conn, err);
+    }
+  }
+
+  /** A payload the inner protocol could not read: say so, close (ADR-0182). */
+  private refuseMalformed(conn: Connection, err: unknown): void {
+    conn.send(
+      encodeError(
+        0,
+        SyncError.ProtocolViolation,
+        err instanceof Error ? err.message : 'malformed payload',
+      ),
+    );
+    conn.socket.close(1002, 'protocol error');
   }
 
   private handleCloseDocument(conn: Connection, handle: number): void {
@@ -1067,7 +1119,20 @@ function sessionCookieFrom(request: IncomingMessage): string | null {
     if (eq < 1) continue;
     if (part.slice(0, eq).trim() !== 'sone_session') continue;
     const value = part.slice(eq + 1).trim();
-    return value ? decodeURIComponent(value) : null;
+    if (!value) return null;
+    /*
+     * A cookie that cannot be decoded is no cookie (ADR-0182).
+     *
+     * This ran inside `ws`'s `connection` event, which fires synchronously
+     * from the HTTP upgrade — so `URIError` from `sone_session=%` reached
+     * `uncaughtException`, and that handler shuts the process down. One
+     * request, no credential needed, every connection gone.
+     */
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return null;
+    }
   }
   return null;
 }

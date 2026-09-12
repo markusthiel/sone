@@ -46,7 +46,7 @@ import { queryOne, queryRows } from '../db/pool.js';
 import { atLeast as pageAtLeast, resolvePageAccess } from '../pages/access.js';
 import { loadWorkspaceStanding } from '../auth/standing.js';
 import { requireSession, sessionTokenFrom, setShareCookie } from './auth.js';
-import { resolveSessionId } from '../auth/session.js';
+import { accountPresent } from '../auth/session.js';
 import type { RequestContext, Router } from './router.js';
 
 export interface ShareDeps {
@@ -188,10 +188,7 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
      * refuses a nameless visitor, so the resolver has to be told which this is.
      * Resolved before the token so there is one answer for both branches below.
      */
-    const sessionToken = sessionTokenFrom(ctx);
-    const signedIn = sessionToken
-      ? (await resolveSessionId(deps.pool, sessionToken)) !== null
-      : false;
+    const signedIn = await accountPresent(deps.pool, sessionTokenFrom(ctx));
 
     const resolved = await resolveShareTokenClaims(deps.pool, token, { signedIn });
     if (!resolved) {
@@ -283,7 +280,12 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       return;
     }
 
-    const resolved = await resolveShareTokenClaims(deps.pool, token);
+    // Told about the account the same way the preview above is told, or a link
+    // that requires one answers 404 here to the very people it admits — the
+    // shared folder's tree was empty for them (ADR-0182).
+    const resolved = await resolveShareTokenClaims(deps.pool, token, {
+      signedIn: await accountPresent(deps.pool, sessionTokenFrom(ctx)),
+    });
     // A link that needs a password or an account grants nothing yet, and its
     // claims carry no grants — so this would fail closed anyway. Said out loud
     // because "it happens to be empty" is a reason that stops being true
@@ -391,7 +393,12 @@ export function registerShareRoutes(router: Router, deps: ShareDeps): void {
       return;
     }
 
-    const resolved = await resolveShareTokenClaims(deps.pool, token);
+    // Told about the account the same way the preview above is told, or a link
+    // that requires one answers 404 here to the very people it admits — the
+    // shared folder's tree was empty for them (ADR-0182).
+    const resolved = await resolveShareTokenClaims(deps.pool, token, {
+      signedIn: await accountPresent(deps.pool, sessionTokenFrom(ctx)),
+    });
     // A link that needs a password or an account grants nothing yet, and its
     // claims carry no grants — so this would fail closed anyway. Said out loud
     // because "it happens to be empty" is a reason that stops being true

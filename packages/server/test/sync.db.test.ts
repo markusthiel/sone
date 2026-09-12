@@ -125,10 +125,16 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     role: 'owner' | 'admin' | 'member' | 'guest' = 'member',
   ): Promise<string> {
     const hash = await hashPassword('correct-horse-battery-staple');
+    // `is_guest` is always false: a guest is a *role* held by an ordinary
+    // account, and nothing in the product sets the account flag (ADR-0182).
+    // The fixture used to key it off the role, which is the exact state that
+    // never occurs in production and the reason the internal-comment gate
+    // looked correct — a role-guest came out as `principal.kind === 'guest'`
+    // in tests and as `'user'` in reality.
     const user = await db.query<{ id: string }>(
       `INSERT INTO users (email, display_name, password_hash, is_guest)
-       VALUES ($1,$2,$3,$4) RETURNING id`,
-      [email, email.split('@')[0], hash, role === 'guest'],
+       VALUES ($1,$2,$3,false) RETURNING id`,
+      [email, email.split('@')[0], hash],
     );
     const userId = user.rows[0]!.id;
     await db.query(
@@ -470,6 +476,142 @@ describe('sync server (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_UR
     client.send(encodeOpen(2, asInternalRequest(uuid(1))));
     const frame = await client.waitFor((m) => m.type === ServerMessage.Error);
     assert.equal(frame.type, ServerMessage.Error);
+    client.close();
+  });
+
+  test('a member graded guest is refused the internal comments (ADR-0182)', async () => {
+    // The guest role is for people outside the team (ADR-0110), and it is an
+    // ordinary account — `is_guest` is false. The gate used to admit it because
+    // its `workspaceRole` is not null; the rule is the page level, which the
+    // guest role does not have. It opens the page (a viewer grant), so the
+    // refusal is about the internal document alone.
+    await makePage(uuid(1));
+    const userId = await makeMember('rolled@example.org', 'guest');
+    const session = await createSession(db, userId);
+    await db.query(
+      `INSERT INTO page_permissions (page_id, user_id, role, include_subtree, granted_by)
+       VALUES ($1,$2,'viewer',false,$3)`,
+      [uuid(1), userId, fx.userId],
+    );
+    const client = await connectAs(session.token);
+
+    await openDoc(client, uuid(1), 1);
+    client.send(encodeOpen(2, asInternalRequest(uuid(1))));
+    const frame = await client.waitFor((m) => m.type === ServerMessage.Error);
+    assert.equal(frame.type, ServerMessage.Error);
+    if (frame.type === ServerMessage.Error) assert.equal(frame.code, 'not_authorized');
+    client.close();
+  });
+
+  test('a share link that requires an account refuses an invented session cookie (ADR-0182)', async () => {
+    // „Anmeldung erforderlich" (allow_anonymous: false) admits somebody with an
+    // account and refuses a nameless visitor. It read the *presence* of the
+    // session cookie as the account, so `Cookie: sone_session=anything` walked
+    // in. The cookie must resolve to a live session.
+    await makePage(uuid(1));
+    const link = await createShareLink(db, {
+      pageId: uuid(1),
+      createdBy: fx.userId,
+      role: 'viewer',
+      allowAnonymous: false,
+    });
+
+    const client = await TestClient.connect(url, {
+      headers: { Cookie: 'sone_session=not-a-real-token' },
+    });
+    client.send(
+      encodeAuth({
+        protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
+        workspaceId: fx.workspaceId,
+        shareToken: link.token,
+        displayName: 'Reader',
+      }),
+    );
+    const err = await client.waitForType(ServerMessage.Error);
+    assert.equal(err.type, ServerMessage.Error);
+    if (err.type === ServerMessage.Error) {
+      assert.equal(err.code, 'auth_failed');
+      assert.equal(err.detail, 'sign_in_required');
+    }
+    client.close();
+  });
+
+  test('a share link that requires an account admits a real session cookie (ADR-0182)', async () => {
+    // The other half: the feature still works. A member's live cookie is an
+    // account, and the link lets accounts in even when they are not members of
+    // this workspace (ADR-0101).
+    await makePage(uuid(1));
+    const outsider = await makeMember('outsider-acct@example.org');
+    const session = await createSession(db, outsider);
+    const link = await createShareLink(db, {
+      pageId: uuid(1),
+      createdBy: fx.userId,
+      role: 'viewer',
+      allowAnonymous: false,
+    });
+
+    const client = await TestClient.connect(url, {
+      headers: { Cookie: `sone_session=${session.token}` },
+    });
+    client.send(
+      encodeAuth({
+        protocolVersion: PROTOCOL_VERSION,
+        documentSchemaVersion: SCHEMA_VERSION,
+        workspaceId: fx.workspaceId,
+        shareToken: link.token,
+        displayName: 'Reader',
+      }),
+    );
+    await client.waitForType(ServerMessage.AuthAck);
+    const { role } = await openDoc(client, uuid(1), 1);
+    assert.equal(role, 'viewer');
+    client.close();
+  });
+
+  test('a malformed inner sync payload closes only that connection (ADR-0182)', async () => {
+    // A frame the outer decoder accepts but the inner one cannot read — the
+    // three bytes [Sync, handle, <empty>]. It used to throw past `onMessage`
+    // into an unhandled rejection the process-wide handler merely logged, so
+    // the connection lived on having silently dropped the frame. Now it is
+    // refused, that socket closes, and a second one is untouched.
+    await makePage(uuid(1));
+    const a = await makeMember('inner-a@example.org');
+    const b = await makeMember('inner-b@example.org');
+    const clientA = await connectAs((await createSession(db, a)).token);
+    const clientB = await connectAs((await createSession(db, b)).token);
+    const { handle } = await openDoc(clientA, uuid(1), 1);
+    const okB = await openDoc(clientB, uuid(1), 2);
+
+    // [Sync, handle, 0] — a Sync message whose inner payload has length zero.
+    clientA.send(new Uint8Array([2, handle, 0]));
+
+    const err = await clientA.waitForType(ServerMessage.Error);
+    assert.equal(err.type, ServerMessage.Error);
+    if (err.type === ServerMessage.Error) assert.equal(err.code, 'protocol_violation');
+
+    // B still works: it can open another document and get an ack.
+    await makePage(uuid(2));
+    const okAgain = await openDoc(clientB, uuid(2), 3);
+    assert.equal(typeof okAgain.handle, 'number');
+    void okB;
+    clientA.close();
+    clientB.close();
+  });
+
+  test('a malformed session cookie does not take the server down (ADR-0182)', async () => {
+    // The upgrade's cookie was decoded with `decodeURIComponent`, uncaught, in
+    // a synchronous handler — so `sone_session=%` threw a URIError that reached
+    // `uncaughtException`, which shuts the process down. No credential needed.
+    // The connection should simply come up with no session cookie seen.
+    const socket = TestClient.rawSocket(url, { headers: { Cookie: 'sone_session=%' } });
+    await once(socket, 'open');
+    socket.close();
+
+    // The proof the process is alive: an ordinary connection still authenticates.
+    const userId = await makeMember('after-bad-cookie@example.org');
+    const session = await createSession(db, userId);
+    const client = await connectAs(session.token);
     client.close();
   });
 
