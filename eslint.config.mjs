@@ -88,6 +88,25 @@ export default tseslint.config(
   },
 
   {
+    /*
+     * The service worker runs somewhere else (ADR-0180).
+     *
+     * Not a window and not Node: its global is `self`, it has `clients` and a
+     * `registration`, and it is plain JavaScript in `public/` rather than
+     * something the build touches — a worker served from a hashed path would
+     * control that path and nothing else.
+     *
+     * So the globals are declared rather than the rule turned off: `self` being
+     * known is the point, and an undefined name in a file nobody compiles is
+     * exactly the mistake worth keeping the rule for.
+     */
+    files: ['packages/web/public/*.js'],
+    languageOptions: {
+      globals: { self: 'readonly', fetch: 'readonly', Response: 'readonly' },
+    },
+  },
+
+  {
     // Scripts and tests are run by a person watching the output.
     files: ['scripts/**', 'packages/*/test/**', 'packages/*/scripts/**'],
     rules: { 'no-console': 'off' },

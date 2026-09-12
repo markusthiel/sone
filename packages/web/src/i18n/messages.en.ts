@@ -145,6 +145,10 @@ export const en = {
   'action.save': 'Save',
   'action.create': 'Create',
   'error.invalid_value': 'That value does not fit this column.',
+  // What a browser handed over as its push address was not one (ADR-0180).
+  // Somebody sees this only if their browser produced something the server
+  // could not post to, which is a browser problem stated plainly.
+  'error.invalid_endpoint': 'This browser gave an address SONE cannot send to.',
   'error.empty_message': 'A comment needs something in it.',
   'error.message_too_long': 'That comment is longer than a comment can be.',
   'error.invalid_anchor': 'That comment lost the passage it was about. Select the text again.',
@@ -574,6 +578,17 @@ export const en = {
   'you.notifications.contents':
     'A notification email says who did what and on which page, with a link. It ' +
     'never contains the comment itself — a mailbox is not a permission system.',
+  // Notifications on the machine somebody is reading on (ADR-0180). "On this
+  // device", because that is what it is: switching it off here must not stop
+  // the phone, and a label that read "notifications" would promise otherwise.
+  'you.device': 'On this device',
+  'you.device.hint': 'A notification while SONE is closed. Per device.',
+  'you.device.on': 'Switch on',
+  'you.device.off': 'Switch off',
+  'you.device.unsupported':
+    'This browser cannot show notifications. On an iPhone or iPad, add SONE to the home screen first — iOS only allows them there.',
+  'you.device.denied':
+    'This browser has been told not to show notifications for SONE. Only its own settings can undo that.',
   'you.when.immediately': 'Email me at once',
   'you.when.daily': 'In the daily mail',
   'you.when.off': 'No email',

@@ -16,6 +16,7 @@ import type { PoolClient } from 'pg';
 import { isGuestKey, type CommentThread } from '@sone/core';
 
 import { visiblePagesCondition } from '../pages/access.js';
+import { queueWake } from '../push/job.js';
 
 /** A few words, so an inbox can be read without opening every page. */
 /**
@@ -362,7 +363,7 @@ export async function writeNotifications(
     .map((one) => (isAccountId(one.actorId) ? one : { ...one, actorId: null }));
   if (candidates.length === 0) return 0;
 
-  const { rowCount } = await db.query(
+  const { rowCount, rows: told } = await db.query<{ user_id: string }>(
     `INSERT INTO notifications
        (user_id, workspace_id, page_id, kind, thread_id, message_id, excerpt, actor_id)
      SELECT c.user_id, $2, $1, c.kind, c.thread_id, c.message_id, c.excerpt, c.actor_id
@@ -374,7 +375,11 @@ export async function writeNotifications(
       WHERE ${visiblePagesCondition('p', 'c.user_id')}
      -- Made once per message. A page is reprojected whenever anything in it
      -- changes, so without this every edit would create the mention again.
-     ON CONFLICT (user_id, kind, thread_id, message_id) DO NOTHING`,
+     ON CONFLICT (user_id, kind, thread_id, message_id) DO NOTHING
+     -- Who was *newly* told, which is exactly who has a device worth waking
+     -- (ADR-0180). The conflict clause above already makes this the honest
+     -- list: a reprojection tells nobody and so wakes nobody.
+     RETURNING user_id`,
     [
       pageId,
       workspaceId,
@@ -386,6 +391,15 @@ export async function writeNotifications(
       candidates.map((one) => one.actorId),
     ],
   );
+
+  /*
+   * And wake whatever devices those people switched on (ADR-0180).
+   *
+   * On the same client, so the job commits with the notification: a push about
+   * a notification that was rolled back is a notification somebody opens the
+   * application to find gone.
+   */
+  await queueWake(db, workspaceId, told.map((row) => row.user_id));
 
   return rowCount ?? 0;
 }
