@@ -75,6 +75,9 @@ export interface PushResult {
  * the job that calls this is retried as a whole, and a push is a nudge whose
  * worth expires quickly.
  */
+/** How long to wait on a push endpoint before giving up (ADR-0187). */
+const PUSH_TIMEOUT_MS = 10_000;
+
 export async function wake(
   db: Db,
   userIds: readonly string[],
@@ -121,6 +124,19 @@ export async function wake(
             // a notification never arrives about something from yesterday.
             TTL: '3600',
           },
+          /*
+           * A push endpoint is a URL the subscriber chose (ADR-0187). Two
+           * limits on what the server will do with it:
+           *
+           * - A hard timeout, so one slow or hanging endpoint cannot tie up a
+           *   request for undici's 300-second header default while the others
+           *   in this `Promise.all` wait on nothing.
+           * - No redirects. A push service answers directly; a 3xx would send
+           *   this POST somewhere the subscriber did not register, which is the
+           *   move an SSRF wants. `error` rejects it instead of following.
+           */
+          signal: AbortSignal.timeout(PUSH_TIMEOUT_MS),
+          redirect: 'error',
         });
         if (answer.ok) {
           worked.push(row.endpoint);

@@ -113,7 +113,10 @@ test('the guard fails on a number read straight from the environment', () => {
   try {
     const { code, err } = run(dir);
     assert.equal(code, 1, 'the build stops');
-    assert.match(err, /jobs\/runner\.ts:1/, 'and names the line');
+    // Either separator: the guard prints a path, and on Windows that is a
+    // backslash. The assertion was `/` only, so the suite failed there for a
+    // reason that has nothing to do with what it checks (ADR-0187).
+    assert.match(err, /jobs[\\/]runner\.ts:1/, 'and names the line');
     assert.match(err, /envNumber/, 'and what to use instead');
   } finally {
     rmSync(dir, { recursive: true, force: true });
