@@ -177,6 +177,55 @@ describe(
         body: new Uint8Array(bytes),
       });
 
+    test('a variant cannot be attached to an original on another page (ADR-0184)', async () => {
+      // The attack: an editor of page A, knowing a file id on page B, uploads a
+      // variant to A pointed at B's original and changes what B's readers see.
+      // The original must be on the same page the variant is uploaded to.
+      const session = await setup();
+
+      // A second page, and an original uploaded to it.
+      const folder = await db.query<{ id: string }>(
+        `SELECT id FROM pages WHERE workspace_id = $1 AND kind = 'folder' LIMIT 1`,
+        [session.workspaceId],
+      );
+      const pageBRes = await fetch(`${base}/api/workspaces/${session.workspaceId}/pages`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ title: 'Page B', parentPageId: folder.rows[0]!.id }),
+      });
+      const pageB = await expectJson<{ id: string }>(pageBRes, 201);
+      const originalOnB = await expectJson<{ id: string }>(
+        await upload(session.cookie, pageB.id, PNG),
+        201,
+      );
+
+      // Upload a variant to the first page, pointed at B's original.
+      const res = await fetch(
+        `${base}/api/pages/${session.pageId}/files?filename=web.png&variantOf=${originalOnB.id}`,
+        {
+          method: 'POST',
+          headers: { cookie: session.cookie, 'content-type': 'application/octet-stream' },
+          body: new Uint8Array(PNG),
+        },
+      );
+      assert.equal(res.status, 422, 'a cross-page variant is refused');
+
+      // And a variant on the same page as its original is accepted.
+      const originalOnA = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PNG),
+        201,
+      );
+      const ok = await fetch(
+        `${base}/api/pages/${session.pageId}/files?filename=web.png&variantOf=${originalOnA.id}`,
+        {
+          method: 'POST',
+          headers: { cookie: session.cookie, 'content-type': 'application/octet-stream' },
+          body: new Uint8Array(PNG),
+        },
+      );
+      assert.equal(ok.status, 201, 'a same-page variant is accepted');
+    });
+
     // --- byte ranges (ADR-0037) --------------------------------------------
 
     test('a download says it accepts ranges', async () => {

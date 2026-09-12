@@ -141,3 +141,32 @@ test('too many entries says how many, and how many are allowed', () => {
     },
   );
 });
+
+test('an entry that lies about its uncompressed size is refused (ADR-0184)', () => {
+  // A zip bomb declares a small (or zero) uncompressed size in the directory
+  // and inflates to far more. The size limit used to sum the *declared* sizes,
+  // so declaring zero slipped past it. Build an honest archive, then patch its
+  // central-directory size to zero: the reader must reject it on the actual
+  // output, not accept a megabyte because the directory claimed nothing.
+  const archive = zip([{ name: 'bomb.md', body: Buffer.alloc(1_000_000), at }]);
+
+  // Walk the central directory (signature 0x02014b50) and zero each entry's
+  // uncompressed-size field (offset +24).
+  for (let i = 0; i + 4 <= archive.length; i += 1) {
+    if (archive.readUInt32LE(i) === 0x0201_4b50) {
+      archive.writeUInt32LE(0, i + 24);
+    }
+  }
+
+  assert.throws(
+    () => unzip(archive),
+    (error: unknown) => {
+      assert.ok(error instanceof ArchiveError);
+      // Either verdict is a refusal on the real bytes rather than the declared
+      // ones: "lies about its size" when the inflate finishes under the cap,
+      // "too_large" when it would run past it.
+      assert.ok(error.code === 'not_an_archive' || error.code === 'too_large', error.code);
+      return true;
+    },
+  );
+});
