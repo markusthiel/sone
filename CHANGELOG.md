@@ -13,6 +13,21 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Whiteboards mit Stift: die aufliegende Hand zeichnet nicht mehr mit.** Sobald
+auf einem Gerät einmal ein Stift benutzt wurde, bedienen nur noch der Stift die
+Werkzeuge — Finger und Handballen verschieben stattdessen die Ansicht. Zwei
+Finger zoomen und verschieben, auf dem Punkt zwischen ihnen. Ein Gerät ohne
+Stift ändert sich nicht: dort zeichnet der Finger wie bisher.
+
+**Behoben: ein abgebrochener Strich wurde gespeichert.** Wenn das System eine
+Berührung für sich beansprucht — beim iPad regelmäßig —, wurde der angefangene
+Strich trotzdem geschrieben. Er wird jetzt verworfen.
+
+Feine Striche werden feiner: der Browser liefert zwischen zwei Bildern mehr
+Punkte, als er meldet, und die werden jetzt mitgenommen (ab iOS 18.2; ältere
+Geräte zeichnen wie bisher). Druck und Neigung wirken noch nicht auf die
+Strichstärke.
+
 **Behoben: beim Abmelden blieben Seitentitel im Speicher des Browsers.** Die
 Liste, aus der `[[` auswählt, umfasst alle Arbeitsbereiche und wird einmal pro
 Sitzung geladen — sie überdauerte das Abmelden, weil dabei die Seite nicht neu
