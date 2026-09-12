@@ -348,6 +348,69 @@ describe(
       assert.equal(res.headers.get('set-cookie'), null);
     });
 
+    test('unlocking a password link hands back the cookies, a wrong password does not (ADR-0186)', async () => {
+      // The sync connection opens the document; this route is what lets the HTTP
+      // side — images, attachments, the shared subtree — work afterwards, by
+      // proving the password once and setting a cookie the later requests carry.
+      const session = await setup();
+      const created = await expectJson<{ token: string }>(
+        await create(session.cookie, session.pageId, { password: 'a-long-enough-one' }),
+        201,
+      );
+
+      const wrong = await fetch(`${base}/api/share/${created.token}/unlock`, json({ password: 'nope' }));
+      assert.equal(wrong.status, 403, 'a wrong password is refused');
+      assert.equal(wrong.headers.get('set-cookie'), null, 'and sets nothing');
+
+      const ok = await fetch(
+        `${base}/api/share/${created.token}/unlock`,
+        json({ password: 'a-long-enough-one' }),
+      );
+      assert.equal(ok.status, 200);
+      const header = ok.headers.get('set-cookie') ?? '';
+      assert.match(header, /sone_share=/, 'the token cookie');
+      assert.match(header, /sone_share_unlock=/, 'and the unlock proof');
+    });
+
+    test('a password link’s subtree loads once it has been unlocked (ADR-0186)', async () => {
+      // Before the unlock reached the HTTP side, the shared folder’s tree was
+      // empty for a password link even after the document opened.
+      const session = await setup();
+      // A child under the shared folder, so the subtree has something to list.
+      await fetch(`${base}/api/workspaces/${session.workspaceId}/pages`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ title: 'Child', parentPageId: session.pageId }),
+      });
+      const created = await expectJson<{ token: string }>(
+        await create(session.cookie, session.pageId, {
+          password: 'a-long-enough-one',
+          includeSubtree: true,
+        }),
+        201,
+      );
+
+      // Without the unlock, the subtree is withheld like the password branch.
+      const locked = await fetch(`${base}/api/share/${created.token}/pages`);
+      assert.equal(locked.status, 404, 'locked: nothing is listed');
+
+      // Unlock, capture the cookies, and the subtree is served.
+      const unlock = await fetch(
+        `${base}/api/share/${created.token}/unlock`,
+        json({ password: 'a-long-enough-one' }),
+      );
+      const setCookies = unlock.headers.getSetCookie?.() ?? [unlock.headers.get('set-cookie') ?? ''];
+      const cookie = setCookies
+        .map((c) => c.split(';')[0] ?? '')
+        .filter((c) => c.startsWith('sone_share'))
+        .join('; ');
+
+      const opened = await fetch(`${base}/api/share/${created.token}/pages`, {
+        headers: { cookie },
+      });
+      assert.equal(opened.status, 200, 'unlocked: the tree is served');
+    });
+
     test('a token resolves to the page it opens', async () => {
       // The fix for every link already sent out: those carry no page in the
       // path, and without this the client had a credential and nothing to open.

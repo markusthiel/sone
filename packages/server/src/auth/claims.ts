@@ -343,8 +343,27 @@ export async function resolveShareTokenClaims(
   );
   if (!row) return null;
 
-  if (row.password_hash !== null) {
-    if (!opts.password) {
+  if (row.password_hash !== null && !opts.password) {
+    /*
+     * No password on this request — but a share session bound to this token is
+     * proof the password was already given (ADR-0186).
+     *
+     * A `share_sessions` row is minted only after a correct password (the branch
+     * below throws otherwise), so presenting a live one is a bearer proof of a
+     * prior unlock. This is what lets an ordinary HTTP request on a password
+     * link — an image, an attachment — succeed after the sync connection has
+     * unlocked it, without the password travelling on every request.
+     */
+    const unlocked = opts.existingShareSessionId
+      ? await queryOne<{ id: string }>(
+          db,
+          `SELECT id FROM share_sessions
+            WHERE id = $1 AND share_token_id = $2 AND expires_at > now()`,
+          [opts.existingShareSessionId, row.id],
+        )
+      : null;
+
+    if (!unlocked) {
       // Report the requirement without leaking anything about the target.
       return {
         passwordRequired: true,
@@ -362,6 +381,8 @@ export async function resolveShareTokenClaims(
         },
       };
     }
+    // Unlocked: fall through as if the password had been given.
+  } else if (row.password_hash !== null && opts.password) {
     const { verifyPassword } = await import('./password.js');
     const { valid } = await verifyPassword(opts.password, row.password_hash);
     if (!valid) throw new AuthError('incorrect link password', 'invalid_credentials');

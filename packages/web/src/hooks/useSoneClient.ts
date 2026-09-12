@@ -153,6 +153,22 @@ export function useSoneClient(credentials: ClientCredentials | null): {
     submitPassword: (password: string) => {
       setPasswordRequired(false);
       clientRef.current?.connection.retryAuth(password);
+      // The sync connection unlocks the document; this unlocks the HTTP side
+      // (ADR-0186). Without it the page opens but its images, attachments and
+      // shared subtree stay 401, because a password link's cookie is not proof
+      // the password was given. Fire-and-forget: the sync path is what shows the
+      // content, and a failed unlock simply leaves those requests as they were.
+      const shareToken = credentials?.shareToken;
+      if (shareToken) {
+        void fetch(`/api/share/${encodeURIComponent(shareToken)}/unlock`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ password }),
+        }).catch(() => {
+          // The document is already open over sync; the images retry on reload.
+        });
+      }
     },
   };
 }

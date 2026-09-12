@@ -289,27 +289,101 @@ export const sessionTokenFrom = (ctx: RequestContext): string | null =>
  */
 export const SHARE_COOKIE = 'sone_share';
 
-export const shareTokenFrom = (ctx: RequestContext): string | null =>
-  parseCookies(ctx.req.headers['cookie'])[SHARE_COOKIE] ?? null;
+/**
+ * The unlock cookie: which share sessions this browser holds, by token.
+ *
+ * A password link's password is checked on the sync connection and mints a
+ * `share_sessions` row; an HTTP request carrying only the token cookie could
+ * not prove the password had been given, so images and attachments on a
+ * password link failed (ADR-0186). This cookie carries `<token>:<sessionId>`
+ * pairs — the session id is proof of a prior unlock, since one is minted only
+ * after a correct password — so the ordinary HTTP requests can present it.
+ */
+export const SHARE_UNLOCK_COOKIE = 'sone_share_unlock';
+
+/** How many links one browser may carry at once. Old ones fall off the front. */
+const MAX_SHARE_TOKENS = 8;
 
 /**
- * Give the browser the share token.
+ * Every share token this browser carries, oldest first (ADR-0186).
+ *
+ * One `sone_share` cookie held a single token, so opening a second link in a
+ * second tab overwrote the first, and the first tab's images then 401'd. The
+ * cookie is a space-separated list now; a legacy single-token value parses as a
+ * one-element list, so nothing has to migrate.
+ */
+export function shareTokensFrom(ctx: RequestContext): string[] {
+  const raw = parseCookies(ctx.req.headers['cookie'])[SHARE_COOKIE];
+  if (!raw) return [];
+  const seen = new Set<string>();
+  for (const token of raw.split(' ')) {
+    const trimmed = token.trim();
+    if (trimmed) seen.add(trimmed);
+  }
+  return [...seen];
+}
+
+/** The most recently added share token, or null. Kept for single-token callers. */
+export const shareTokenFrom = (ctx: RequestContext): string | null =>
+  shareTokensFrom(ctx).at(-1) ?? null;
+
+/** The share-session id this browser holds for each token (ADR-0186). */
+export function shareUnlocksFrom(ctx: RequestContext): Map<string, string> {
+  const raw = parseCookies(ctx.req.headers['cookie'])[SHARE_UNLOCK_COOKIE];
+  const out = new Map<string, string>();
+  if (!raw) return out;
+  for (const pair of raw.split(' ')) {
+    const colon = pair.indexOf(':');
+    if (colon < 1) continue;
+    const token = pair.slice(0, colon).trim();
+    const sessionId = pair.slice(colon + 1).trim();
+    if (token && sessionId) out.set(token, sessionId);
+  }
+  return out;
+}
+
+function appendSetCookie(ctx: RequestContext, cookie: string): void {
+  /*
+   * Appended, not set.
+   *
+   * `setHeader` replaces, and the OIDC callback clears its pending cookie
+   * immediately before setting the share cookie — so the clearing cookie was
+   * thrown away and the pending blob survived a successful sign-in for its full
+   * ten minutes (ADR-0082).
+   */
+  const existing = ctx.res.getHeader('set-cookie');
+  ctx.res.setHeader(
+    'set-cookie',
+    Array.isArray(existing)
+      ? [...existing, cookie]
+      : typeof existing === 'string'
+        ? [existing, cookie]
+        : cookie,
+  );
+}
+
+/**
+ * Add a share token to the browser's list (ADR-0186).
  *
  * Scoped to the whole site rather than to /s/, because the requests that need
- * it — `/api/files/...`, `/api/share/...` — are not under that prefix.
- *
- * HttpOnly, so a script cannot read it: the token is a bearer credential and
- * script access buys nothing the page cannot already do. SameSite=Lax, so it is
- * sent when somebody follows the link from an email, which is the normal way a
- * share link is used.
+ * it — `/api/files/...`, `/api/share/...` — are not under that prefix. HttpOnly,
+ * because the token is a bearer credential and script access buys nothing the
+ * page cannot already do; SameSite=Lax, so it survives following the link from
+ * an email. The token is merged into the list already on the request rather
+ * than replacing it, so a second link does not evict the first (the bug this
+ * fixes), capped so the header cannot grow without bound.
  */
 export function setShareCookie(
   ctx: RequestContext,
   token: string,
   secure: boolean,
 ): void {
+  const tokens = shareTokensFrom(ctx).filter((t) => t !== token);
+  tokens.push(token);
+  const value = tokens.slice(-MAX_SHARE_TOKENS).join(' ');
+
   const attrs = [
-    `${SHARE_COOKIE}=${encodeURIComponent(token)}`,
+    `${SHARE_COOKIE}=${value}`,
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
@@ -317,24 +391,36 @@ export function setShareCookie(
     // outlives the browser would leave a credential behind on a shared machine.
   ];
   if (secure) attrs.push('Secure');
-  /*
-   * Appended, not set.
-   *
-   * `setHeader` replaces, and the OIDC callback clears its pending cookie
-   * immediately before calling this — so the clearing cookie was thrown away
-   * and the pending blob survived a successful sign-in for its full ten
-   * minutes (ADR-0082). Nothing else sets a cookie alongside this one today,
-   * which is exactly why the collision went unseen.
-   */
-  const existing = ctx.res.getHeader('set-cookie');
-  ctx.res.setHeader(
-    'set-cookie',
-    Array.isArray(existing)
-      ? [...existing, attrs.join('; ')]
-      : typeof existing === 'string'
-        ? [existing, attrs.join('; ')]
-        : attrs.join('; '),
-  );
+  appendSetCookie(ctx, attrs.join('; '));
+}
+
+/**
+ * Record that this browser has unlocked a password link (ADR-0186).
+ *
+ * Merged into the pair list like the token list above, and keyed by token so
+ * two unlocked links do not evict each other.
+ */
+export function setShareUnlockCookie(
+  ctx: RequestContext,
+  token: string,
+  sessionId: string,
+  secure: boolean,
+): void {
+  const pairs = shareUnlocksFrom(ctx);
+  pairs.set(token, sessionId);
+  const value = [...pairs.entries()]
+    .slice(-MAX_SHARE_TOKENS)
+    .map(([t, s]) => `${t}:${s}`)
+    .join(' ');
+
+  const attrs = [
+    `${SHARE_UNLOCK_COOKIE}=${value}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+  ];
+  if (secure) attrs.push('Secure');
+  appendSetCookie(ctx, attrs.join('; '));
 }
 
 /** Truncated client address, for the rate-limit ledger. See ADR-0010. */
@@ -1330,9 +1416,9 @@ export async function claimsForRequest(
   | { kind: 'rejected' }
 > {
   const sessionToken = sessionTokenFrom(ctx);
-  const shareToken = shareTokenFrom(ctx);
+  const shareTokens = shareTokensFrom(ctx);
 
-  if (!sessionToken && !shareToken) return { kind: 'anonymous' };
+  if (!sessionToken && shareTokens.length === 0) return { kind: 'anonymous' };
 
   if (sessionToken) {
     const claims = await resolveSessionClaims(pool, sessionToken, workspaceId);
@@ -1342,31 +1428,47 @@ export async function claimsForRequest(
     if (claims) return { kind: 'ok', claims };
   }
 
-  if (shareToken) {
-    // Not a visit: this is a picture loading or a comment being posted, and it
-    // cannot say which visitor it belongs to. See `track` for what tracking it
-    // anyway cost.
-    /*
-     * Signed in, but not into this workspace — which a link with
-     * `allow_anonymous: false` still admits (ADR-0101). The session was tried
-     * first above and gave nothing here, and „nothing" covers two cases that
-     * are not the same: a member of some other workspace, and a cookie that is
-     * not a session at all. This asked `Boolean(sessionToken)` and could not
-     * tell them apart, so an invented cookie was an account (ADR-0182). The
-     * second query is paid only on this branch, which a member never reaches.
-     */
-    const resolved = await resolveShareTokenClaims(pool, shareToken, {
-      track: false,
-      signedIn: await accountPresent(pool, sessionToken),
-    });
-    // A link needing a password is not authenticated by the cookie alone. The
-    // sync connection handles unlocking; an ordinary request is not the place to.
-    // Neither a password nor an account still owing: both are "this link has
-    // not admitted anybody yet" (ADR-0101).
-    if (resolved && !resolved.passwordRequired && !resolved.signInRequired) {
-      if (resolved.claims.workspaceId === workspaceId) {
-        return { kind: 'ok', claims: resolved.claims };
+  if (shareTokens.length > 0) {
+    // Whether an account is present is the same answer for every token, so it is
+    // resolved once (ADR-0182). A link with `allow_anonymous: false` admits an
+    // account that is not a member of this workspace (ADR-0101).
+    const signedIn = await accountPresent(pool, sessionToken);
+    // The unlock cookie says which of these tokens this browser has a password
+    // session for (ADR-0186).
+    const unlocks = shareUnlocksFrom(ctx);
+
+    // A browser may hold several links (ADR-0186), and which one grants the
+    // resource is not decided here — this returns claims and the caller runs
+    // `effectiveRole` against the page it is about. So the grants of *every*
+    // token that reaches this workspace are merged, and the caller picks the one
+    // that reaches the page. Returning just the first token's claims would 404 a
+    // file that a different held link grants. Not a visit — a picture loading, a
+    // comment posted — so `track: false`.
+    let base: AccessClaims | null = null;
+    const grants: AccessClaims['grants'] = [];
+    for (const shareToken of shareTokens) {
+      const resolved = await resolveShareTokenClaims(pool, shareToken, {
+        track: false,
+        signedIn,
+        // A password link carries no password on an ordinary request; a valid
+        // share session for the token is the proof it was unlocked (ADR-0186).
+        existingShareSessionId: unlocks.get(shareToken) ?? null,
+      });
+      // A link still needing a password or an account grants nothing yet
+      // (ADR-0101).
+      if (
+        resolved &&
+        !resolved.passwordRequired &&
+        !resolved.signInRequired &&
+        resolved.claims.workspaceId === workspaceId
+      ) {
+        base ??= resolved.claims;
+        grants.push(...resolved.claims.grants);
       }
+    }
+    if (base) {
+      // Caps are workspace-wide, so any matching token's copy is the same set.
+      return { kind: 'ok', claims: { ...base, grants } };
     }
   }
 
