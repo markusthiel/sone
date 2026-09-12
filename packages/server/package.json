@@ -8,24 +8,25 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc -b ../core && tsc -p tsconfig.test.json --noEmit",
-    "test": "tsc -b ../core && SONE_PASSWORD_COST=12 tsx --test test/*.test.ts",
+    "test": "tsc -b ../core && cross-env SONE_PASSWORD_COST=12 tsx --test test/*.test.ts",
     "migrate": "tsx scripts/migrate.mjs",
     "rematerialize": "tsx scripts/rematerialize.mjs",
-    "test:db": "SONE_PASSWORD_COST=12 tsx --test test/*.db.test.ts"
+    "test:db": "cross-env SONE_PASSWORD_COST=12 tsx --test test/*.db.test.ts"
   },
   "dependencies": {
     "@sone/core": "workspace:*",
-    "pg": "^8.13.0",
-    "yjs": "13.6.32",
-    "ws": "^8.18.0",
     "lib0": "0.2.117",
-    "y-protocols": "1.0.7"
+    "pg": "^8.13.0",
+    "ws": "^8.18.0",
+    "y-protocols": "1.0.7",
+    "yjs": "13.6.32"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/pg": "^8.11.10",
+    "@types/ws": "^8.5.13",
+    "cross-env": "^7.0.3",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
-    "@types/ws": "^8.5.13"
+    "typescript": "^5.7.0"
   }
 }

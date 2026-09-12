@@ -38,6 +38,11 @@ seine Seiten standardmäßig gibt. Umgekehrt sehen Mitglieder mit einer
 selbst definierten Rolle die internen Fäden jetzt korrekt, statt auf jeder Seite
 eine Fehlermeldung zu bekommen.
 
+**Push-Benachrichtigungen: Zeitlimit, kein Weiterleiten, Gerätegrenze.** Der
+Server spricht ein Push-Ziel jetzt mit einem festen Zeitlimit an, sodass ein
+langsames Ziel die übrigen nicht aufhält, und folgt keiner Weiterleitung mehr.
+Pro Konto sind höchstens 20 Geräte möglich. Kein Handeln nötig.
+
 **Passwortgeschützte Freigabelinks laden jetzt vollständig.** Bisher öffnete sich
 bei einem Link mit Passwort zwar das Dokument, aber Bilder, Anhänge, Kommentare
 über HTTP und der geteilte Seitenbaum blieben leer — der HTTP-Teil hatte keinen
