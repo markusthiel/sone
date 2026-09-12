@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Whiteboards: „Nur Stift" lässt sich jetzt abschalten.** Sobald auf einem
+Gerät einmal ein Stift benutzt wurde, erscheint in der Werkzeugleiste ein
+Häkchen *Nur Stift*. Gesetzt gilt die Regel von vorher — nur der Stift bedient
+die Werkzeuge, Finger und Handballen verschieben die Ansicht. Häkchen weg, und
+der Finger zeichnet wieder mit: für den Stift, der im Büro liegt. Die
+Einstellung gilt pro Gerät und bleibt erhalten. Zwei Finger zoomen und
+verschieben weiterhin in beiden Fällen.
+
 **App-Benachrichtigungen auf dem Handy und am Tablet — pro Gerät ein- und
 ausschaltbar.** Im Profil unter *Benachrichtigungen* steht jetzt ganz oben ein
 Schalter für *dieses Gerät*: einmal einschalten, und SONE meldet sich auf dem

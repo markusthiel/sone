@@ -26,20 +26,20 @@ import { test } from 'node:test';
 import { acts, gestures } from '../src/components/canvasInput.ts';
 
 test('a pen always draws', () => {
-  assert.equal(acts({ pointerType: 'pen', penSeen: false, touches: 1 }), true);
-  assert.equal(acts({ pointerType: 'pen', penSeen: true, touches: 1 }), true);
+  assert.equal(acts({ pointerType: 'pen', penSeen: false, handDraws: false, touches: 1 }), true);
+  assert.equal(acts({ pointerType: 'pen', penSeen: true, handDraws: false, touches: 1 }), true);
 });
 
 test('and is never part of a two-finger gesture', () => {
   // It cannot be: a pen and a finger down together is a hand resting while
   // somebody writes, which is the case this exists for.
-  assert.equal(gestures({ pointerType: 'pen', penSeen: true, touches: 2 }), false);
+  assert.equal(gestures({ pointerType: 'pen', penSeen: true, handDraws: false, touches: 2 }), false);
 });
 
 test('a mouse is unaffected by any of this', () => {
   // A desktop has no palm. Everything a mouse did, it goes on doing.
-  assert.equal(acts({ pointerType: 'mouse', penSeen: true, touches: 1 }), true);
-  assert.equal(gestures({ pointerType: 'mouse', penSeen: true, touches: 1 }), false);
+  assert.equal(acts({ pointerType: 'mouse', penSeen: true, handDraws: false, touches: 1 }), true);
+  assert.equal(gestures({ pointerType: 'mouse', penSeen: true, handDraws: false, touches: 1 }), false);
 });
 
 test('with no pen ever seen, one finger works the tools', () => {
@@ -48,14 +48,14 @@ test('with no pen ever seen, one finger works the tools', () => {
    * would take drawing away from everybody who has no pen — the rule has to
    * earn its way in by a pen actually appearing.
    */
-  assert.equal(acts({ pointerType: 'touch', penSeen: false, touches: 1 }), true);
+  assert.equal(acts({ pointerType: 'touch', penSeen: false, handDraws: false, touches: 1 }), true);
 });
 
 test('once a pen has been seen, one finger only moves the view', () => {
   // The rule, in one line. A palm is a touch, so a palm moves the view by zero
   // pixels and draws nothing.
-  assert.equal(acts({ pointerType: 'touch', penSeen: true, touches: 1 }), false);
-  assert.equal(gestures({ pointerType: 'touch', penSeen: true, touches: 1 }), true);
+  assert.equal(acts({ pointerType: 'touch', penSeen: true, handDraws: false, touches: 1 }), false);
+  assert.equal(gestures({ pointerType: 'touch', penSeen: true, handDraws: false, touches: 1 }), true);
 });
 
 test('two fingers are a gesture whether or not there is a pen', () => {
@@ -68,6 +68,59 @@ test('two fingers are a gesture whether or not there is a pen', () => {
     assert.equal(gestures({ pointerType: 'touch', penSeen, touches: 2 }), true, `pen ${penSeen}`);
     assert.equal(acts({ pointerType: 'touch', penSeen, touches: 2 }), false);
   }
+});
+
+test('and the rule can be switched off on this device (ADR-0181)', () => {
+  /*
+   * Asked for after ADR-0179 shipped without it: the switch was recorded as
+   * *worth having* and then not built, which is a different thing from a
+   * decision not to build it.
+   *
+   * The pencil is at the office, or the board is being pushed around with a
+   * thumb — and once a pen has been seen here, none of that works any more.
+   */
+  assert.equal(acts({ pointerType: 'touch', penSeen: true, handDraws: true, touches: 1 }), true);
+  assert.equal(gestures({ pointerType: 'touch', penSeen: true, handDraws: true, touches: 1 }), false);
+});
+
+test('switching it off does not make two fingers a tool', () => {
+  // The override is about the *palm* rule, not about the pinch. Two contacts
+  // are never a tool, and a board that stopped zooming because somebody let
+  // their finger draw would be a worse trade than the one they made.
+  assert.equal(gestures({ pointerType: 'touch', penSeen: true, handDraws: true, touches: 2 }), true);
+  assert.equal(acts({ pointerType: 'touch', penSeen: true, handDraws: true, touches: 2 }), false);
+});
+
+test('and the pen goes on working either way', () => {
+  assert.equal(acts({ pointerType: 'pen', penSeen: true, handDraws: true, touches: 1 }), true);
+});
+
+test('the switch is only there once a pen has been seen', async () => {
+  /*
+   * Guarded by `penSeen` in the markup: before a pen, the rule is not in force
+   * and a control that changes nothing is one somebody presses twice looking
+   * for what it did.
+   *
+   * A source assertion, because the thing being claimed is that the guard is
+   * around the control — mounting shows a board with no pen and proves the
+   * absence, not the reason for it.
+   */
+  const { codeOf } = await import('./helpers/source.ts');
+  const surface = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(surface, /\{penSeen && \(\s*<label className="canvas-pen-only"/);
+  assert.match(surface, /rememberHandDraws\(next\)/);
+});
+
+test('and what it is set to reaches the rule', async () => {
+  /*
+   * The one that would have caught ADR-0178's mistake in this shape: a piece of
+   * remembered state that nothing ever reads is a switch that does nothing.
+   */
+  const { codeOf } = await import('./helpers/source.ts');
+  const surface = codeOf(new URL('../src/components/CanvasSurface.tsx', import.meta.url));
+  assert.match(surface, /const \[handDraws, setHandDraws\] = useState\(readHandDraws\)/);
+  // Handed to the contact the rules are asked about, not merely held.
+  assert.match(surface, /penSeen: seen,\s*\n\s*handDraws,/);
 });
 
 test('the surface asks rather than deciding again', async () => {
