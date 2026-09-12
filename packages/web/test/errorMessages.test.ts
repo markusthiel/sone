@@ -65,6 +65,13 @@ const UNMESSAGED = new Set([
   'not_configured',
   'not_found',
   'not_ready',
+  // The share-link unlock route (ADR-0186) answers a fire-and-forget fetch: the
+  // client submits the password to the sync connection, calls unlock to set the
+  // HTTP cookie, and ignores the reply — the sync path is what shows an error to
+  // the person. So these three are never rendered.
+  'no_password',
+  'password_required',
+  'sign_in_required',
   'option_needs_an_id',
   'session_not_found',
   'state_mismatch',

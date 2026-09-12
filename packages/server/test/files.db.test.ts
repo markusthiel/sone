@@ -693,6 +693,59 @@ describe(
       assert.equal(res.headers.get('content-type'), 'image/png');
     });
 
+    test('two share links open in one browser do not evict each other (ADR-0186)', async () => {
+      // The sone_share cookie held a single token, so opening a second link
+      // overwrote the first and the first tab's images then 401'd. The cookie is
+      // a token list now: both must resolve.
+      const session = await setup();
+
+      // A second page in the same workspace, each with its own link and file.
+      const folder = await db.query<{ id: string }>(
+        `SELECT id FROM pages WHERE workspace_id = $1 AND kind = 'folder' LIMIT 1`,
+        [session.workspaceId],
+      );
+      const pageBRes = await fetch(`${base}/api/workspaces/${session.workspaceId}/pages`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: session.cookie },
+        body: JSON.stringify({ title: 'Page B', parentPageId: folder.rows[0]!.id }),
+      });
+      const pageB = await expectJson<{ id: string }>(pageBRes, 201);
+
+      const fileA = await expectJson<{ id: string }>(
+        await upload(session.cookie, session.pageId, PNG),
+        201,
+      );
+      const fileB = await expectJson<{ id: string }>(
+        await upload(session.cookie, pageB.id, PNG),
+        201,
+      );
+
+      for (const [page, raw] of [
+        [session.pageId, 'token-a'],
+        [pageB.id, 'token-b'],
+      ] as const) {
+        await db.query(
+          `INSERT INTO share_tokens
+             (workspace_id, scope_page_id, include_subtree, role, token_hash,
+              allow_anonymous, created_by)
+           VALUES ($1,$2,false,'viewer',$3,true,$4)`,
+          [
+            session.workspaceId,
+            page,
+            createHash('sha256').update(raw, 'utf8').digest(),
+            session.userId,
+          ],
+        );
+      }
+
+      // Both tokens in one cookie, the way two open tabs would leave it.
+      const cookie = 'sone_share=token-a token-b';
+      const a = await fetch(`${base}/api/files/${fileA.id}`, { headers: { cookie } });
+      const b = await fetch(`${base}/api/files/${fileB.id}`, { headers: { cookie } });
+      await expectStatus(a, 200);
+      await expectStatus(b, 200);
+    });
+
     test('a share visitor can load a PDF, not only an image', async () => {
       // Reported from a shared link: the viewer showed {"error":"internal"}
       // where the document should be. An image in the same page worked, so the
