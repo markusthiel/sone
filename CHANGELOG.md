@@ -38,6 +38,19 @@ seine Seiten standardmäßig gibt. Umgekehrt sehen Mitglieder mit einer
 selbst definierten Rolle die internen Fäden jetzt korrekt, statt auf jeder Seite
 eine Fehlermeldung zu bekommen.
 
+**Passwortgeschützte Freigabelinks laden jetzt vollständig.** Bisher öffnete sich
+bei einem Link mit Passwort zwar das Dokument, aber Bilder, Anhänge, Kommentare
+über HTTP und der geteilte Seitenbaum blieben leer — der HTTP-Teil hatte keinen
+Nachweis, dass das Passwort eingegeben wurde. Nach der Passworteingabe wird der
+Link jetzt auch für diese Anfragen freigeschaltet. Das Passwort selbst wird dabei
+nicht bei jedem Bildabruf mitgeschickt.
+
+**Mehrere Freigabelinks gleichzeitig im selben Browser funktionieren nun.** Zwei
+in verschiedenen Tabs geöffnete Links haben sich bisher gegenseitig das
+Freigabe-Cookie überschrieben, sodass im jeweils anderen Tab Bilder und Anhänge
+mit einem Fehler fehlschlugen. Der Browser merkt sich jetzt mehrere Links
+nebeneinander.
+
 **Sicherheit: die Position einer Seite ändert nur der Server.** Verschieben,
 Umsortieren, Archivieren und der Seitentyp laufen über die dafür vorgesehenen
 Aktionen, die die Berechtigung am Ziel prüfen. Ein Client konnte diese Angaben
