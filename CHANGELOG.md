@@ -38,6 +38,22 @@ seine Seiten standardmäßig gibt. Umgekehrt sehen Mitglieder mit einer
 selbst definierten Rolle die internen Fäden jetzt korrekt, statt auf jeder Seite
 eine Fehlermeldung zu bekommen.
 
+**Sicherheit: Anhänge bleiben an ihre Seite gebunden.** Ein Export zog bisher
+jede referenzierte Datei nur nach Arbeitsbereich und ID heran — wer die ID einer
+Datei einer nicht lesbaren Seite kannte und sie in einer lesbaren Seite
+referenzierte, konnte sie so mitnehmen. Ebenso ließ sich beim Hochladen eine
+verkleinerte Variante an das Original einer fremden Seite hängen und das dort
+Angezeigte verändern. Beide Wege prüfen jetzt die Leseberechtigung auf der
+Ursprungsseite bzw. binden Variante und Original an dieselbe Seite. Kein Handeln
+nötig.
+
+**Stabilität: ein manipuliertes Import-Archiv kann den Speicher nicht mehr
+sprengen.** Die Größengrenze beim ZIP-Import verließ sich auf die im Archiv
+angegebenen Größen; eine „ZIP-Bombe" gibt kleine Größen an und entpackt sich zu
+sehr viel mehr. Der Import begrenzt jetzt die tatsächlich entpackte Größe und
+weist Einträge ab, die etwas anderes angeben, als sie enthalten. Kein Handeln
+nötig.
+
 **Stabilität: eine fehlerhafte Anfrage kann den Server nicht mehr beenden.** Ein
 defekt kodierter Cookie beim Verbindungsaufbau brachte den Serverprozess zum
 Neustart — ohne Anmeldung auslösbar. Solche Anfragen werden jetzt sauber

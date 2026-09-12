@@ -14,11 +14,16 @@ describe('image variants (database)', { concurrency: 1, skip: !hasDatabase }, ()
   /** The query the download route runs, with the flag it takes from the URL. */
   const chosen = async (fileId: string, wantsOriginal: boolean): Promise<string | undefined> => {
     const row = await db.query<{ storage_key: string }>(
+      // A faithful copy of the source query, page clause included (ADR-0184):
+      // only a variant on the same page as its original is chosen, oldest first.
       `SELECT COALESCE(web.storage_key, f.storage_key) AS storage_key
          FROM files f
          LEFT JOIN LATERAL (
            SELECT v.storage_key FROM files v
-            WHERE v.variant_of = f.id AND v.variant = 'web' LIMIT 1
+            WHERE v.variant_of = f.id AND v.variant = 'web'
+              AND v.page_id IS NOT DISTINCT FROM f.page_id
+            ORDER BY v.created_at, v.id
+            LIMIT 1
          ) web ON NOT $2
         WHERE f.id = $1`,
       [fileId, wantsOriginal],
@@ -26,16 +31,28 @@ describe('image variants (database)', { concurrency: 1, skip: !hasDatabase }, ()
     return row.rows[0]?.storage_key;
   };
 
-  const file = async (key: string, variantOf: string | null): Promise<string> => {
+  const file = async (
+    key: string,
+    variantOf: string | null,
+    pageId: string | null = null,
+  ): Promise<string> => {
     const row = await db.query<{ id: string }>(
       `INSERT INTO files
-         (workspace_id, filename, mime_type, size_bytes, sha256, storage,
+         (workspace_id, page_id, filename, mime_type, size_bytes, sha256, storage,
           storage_key, variant, variant_of)
-       VALUES ($1,'photo.jpg','image/jpeg',1,$2,'local',$3,$4,$5)
+       VALUES ($1,$2,'photo.jpg','image/jpeg',1,$3,'local',$4,$5,$6)
        RETURNING id`,
-      [workspace, `${key}-hash`, key, variantOf ? 'web' : 'original', variantOf],
+      [workspace, pageId, `${key}-hash`, key, variantOf ? 'web' : 'original', variantOf],
     );
     return row.rows[0]!.id;
+  };
+
+  const page = async (id: string): Promise<string> => {
+    await db.query(
+      `INSERT INTO pages (id, workspace_id, idx) VALUES ($1, $2, 'a0')`,
+      [id, workspace],
+    );
+    return id;
   };
 
   before(async () => {
@@ -67,6 +84,27 @@ describe('image variants (database)', { concurrency: 1, skip: !hasDatabase }, ()
     const only = await file('only', null);
     assert.equal(await chosen(only, false), 'only');
     assert.equal(await chosen(only, true), 'only');
+  });
+
+  test('a variant on another page is not chosen (ADR-0184)', async () => {
+    // The attack the same-page rule closes: a variant uploaded to page B and
+    // pointed at an original on page A used to be served to A's readers. Bound
+    // to the same page, an original on A with no variant of its own serves
+    // itself, and the intruder variant on B is ignored.
+    const a = await page('11111111-1111-1111-1111-111111111111');
+    const b = await page('22222222-2222-2222-2222-222222222222');
+    const original = await file('orig-on-a', null, a);
+    await file('intruder-on-b', original, b);
+
+    assert.equal(
+      await chosen(original, false),
+      'orig-on-a',
+      'a foreign-page variant must not be served',
+    );
+
+    // A legitimate variant, on the same page, is served.
+    await file('web-on-a', original, a);
+    assert.equal(await chosen(original, false), 'web-on-a');
   });
 
   test('deleting an original takes its variant with it', async () => {

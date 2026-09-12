@@ -210,17 +210,21 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
     // not remove the other's image.
     // A web-sized copy of something already uploaded (ADR-0029).
     //
-    // Checked rather than trusted: the id has to name a file in this workspace,
-    // or a caller could attach a variant to somebody else's image and change
-    // what everybody sees on a page they cannot reach.
+    // The original must be on the *same page* this variant is being uploaded to
+    // (ADR-0184). Checking only the workspace let an editor of page A attach a
+    // variant to an original on page B — a page they may not write — and change
+    // what its readers saw. The client only ever makes a variant on the page it
+    // just uploaded the original to, so the same-page rule costs no real case;
+    // it means the write access already checked for `pageId` above is also the
+    // access to the original.
     const variantOfParam = ctx.url.searchParams.get('variantOf');
     let variantOf: string | null = null;
     if (variantOfParam) {
       const original = await queryOne<{ id: string }>(
         deps.pool,
         `SELECT id FROM files
-          WHERE id = $1 AND workspace_id = $2 AND variant_of IS NULL`,
-        [variantOfParam, page.workspaceId],
+          WHERE id = $1 AND workspace_id = $2 AND page_id = $3 AND variant_of IS NULL`,
+        [variantOfParam, page.workspaceId, pageId],
       );
       if (!original) {
         ctx.fail(422, 'unknown_original');
@@ -303,6 +307,11 @@ export function registerFileRoutes(router: Router, deps: FileDeps): void {
            SELECT v.id, v.mime_type, v.size_bytes, v.storage_key
              FROM files v
             WHERE v.variant_of = f.id AND v.variant = 'web'
+              -- Only a variant that hangs on the same page as its original
+              -- (ADR-0184), and the oldest one when somehow there are several,
+              -- so the answer is stable rather than whatever the heap returns.
+              AND v.page_id IS NOT DISTINCT FROM f.page_id
+            ORDER BY v.created_at, v.id
             LIMIT 1
          ) web ON NOT $2
         WHERE f.id = $1`,

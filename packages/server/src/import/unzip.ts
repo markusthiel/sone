@@ -125,11 +125,12 @@ export function unzip(archive: Buffer): ArchiveEntry[] {
       throw new ArchiveError(`entry ${name} uses compression method ${method}`, 'unsupported');
     }
 
-    total += size;
-    if (total > MAX_TOTAL_BYTES) {
-      // Checked against the *uncompressed* sizes from the directory, before
-      // inflating anything: a zip bomb is a small file that becomes a large
-      // one, so a limit on what arrives is not a limit at all.
+    // The directory's declared size is a hint, not a promise (ADR-0184): a zip
+    // bomb declares nothing and inflates to gigabytes, so an early check on the
+    // declared total is a check on a number the attacker chose. It is still
+    // worth doing — an honest large archive is refused before any work — but
+    // the real limit is enforced on the *actual* output below.
+    if (size > MAX_TOTAL_BYTES || total + size > MAX_TOTAL_BYTES) {
       throw new ArchiveError('archive is too large uncompressed', 'too_large');
     }
 
@@ -146,12 +147,34 @@ export function unzip(archive: Buffer): ArchiveEntry[] {
     const start = localOffset + 30 + localNameLength + localExtraLength;
     const stored = archive.subarray(start, start + compressedSize);
 
+    // What is left of the total budget, plus one byte: a stored (uncompressed)
+    // entry is bounded by `stored.length`, a deflated one by `maxOutputLength`,
+    // and zlib throws ERR_BUFFER_TOO_LARGE the moment it would exceed it rather
+    // than allocating the whole bomb first.
+    const remaining = MAX_TOTAL_BYTES - total;
     let body: Buffer;
     try {
-      body = method === 8 ? inflateRawSync(stored) : Buffer.from(stored);
-    } catch {
+      body =
+        method === 8
+          ? inflateRawSync(stored, { maxOutputLength: remaining + 1 })
+          : Buffer.from(stored);
+    } catch (err) {
+      if (err instanceof RangeError && /ERR_BUFFER_TOO_LARGE|maxOutputLength/.test(err.message)) {
+        throw new ArchiveError('archive is too large uncompressed', 'too_large');
+      }
       throw new ArchiveError(`entry ${name} could not be decompressed`, 'not_an_archive');
     }
+
+    // The actual output, not the declared size, is what counts against the
+    // budget — and an entry whose real length does not match what it declared
+    // is refused rather than trusted (ADR-0184).
+    if (body.length > remaining) {
+      throw new ArchiveError('archive is too large uncompressed', 'too_large');
+    }
+    if (body.length !== size) {
+      throw new ArchiveError(`entry ${name} lies about its size`, 'not_an_archive');
+    }
+    total += body.length;
 
     entries.push({ name: safeName(name), body });
   }
