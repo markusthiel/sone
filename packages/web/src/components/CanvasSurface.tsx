@@ -23,6 +23,7 @@ import React, {
 } from 'react';
 
 import type { PageHandle } from '@sone/client';
+import { acts, gestures, readPenSeen, rememberPenSeen } from './canvasInput.ts';
 import {
   THEME_COLORS,
   colorValue,
@@ -177,6 +178,20 @@ export function CanvasSurface({
    * wrong.
    */
   const [zoom, setZoom] = useState(1);
+
+  /**
+   * The contacts currently down, and whether a pen has ever been one (ADR-0179).
+   *
+   * In a ref rather than in state: they are read inside the pointer handlers
+   * and nothing is drawn from them, so a render per finger would be a render
+   * for nothing. `penSeen` is state as well, because the toolbar says so.
+   */
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const [penSeen, setPenSeen] = useState(readPenSeen);
+  /** A two-finger pinch in progress: what it started from. */
+  const pinch = useRef<{ span: number; zoom: number; x: number; y: number; panX: number; panY: number } | null>(
+    null,
+  );
   /** A rubber band, while one is being dragged. In canvas coordinates. */
   const [band, setBand] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const bandFrom = useRef<{ x: number; y: number } | null>(null);
@@ -280,6 +295,53 @@ export function CanvasSurface({
   );
 
   const onSurfaceDown = (event: PointerEvent<HTMLDivElement>): void => {
+    /*
+     * What this contact is (ADR-0179).
+     *
+     * A pen marks the device for good: from then on a finger moves the view and
+     * only the pen works the tools, which is what keeps a resting hand from
+     * drawing, erasing and selecting.
+     */
+    if (event.pointerType === 'touch') {
+      touches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+    let seen = penSeen;
+    if (event.pointerType === 'pen' && !penSeen) {
+      rememberPenSeen();
+      setPenSeen(true);
+      seen = true;
+    }
+    const contact = {
+      pointerType: event.pointerType || 'mouse',
+      penSeen: seen,
+      touches: touches.current.size,
+    };
+
+    if (gestures(contact)) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      if (touches.current.size === 2) {
+        // A pinch replaces whatever one finger had started: two contacts are a
+        // gesture about the view, and the first was never a tool.
+        const [a, b] = [...touches.current.values()];
+        if (a && b) {
+          pinch.current = {
+            span: Math.hypot(b.x - a.x, b.y - a.y),
+            zoom,
+            x: (a.x + b.x) / 2,
+            y: (a.y + b.y) / 2,
+            panX: pan.x,
+            panY: pan.y,
+          };
+        }
+        panning.current = null;
+      } else {
+        panning.current = { x: event.clientX, y: event.clientY, left: pan.x, top: pan.y };
+      }
+      return;
+    }
+    // A contact that neither works the tools nor moves the view is a palm.
+    if (!acts(contact)) return;
+
     // Panning first, and before the edit check: moving the view is reading, not
     // writing, so somebody with read-only access can still get around the board.
     //
@@ -355,6 +417,38 @@ export function CanvasSurface({
   };
 
   const onSurfaceMove = (event: PointerEvent<HTMLDivElement>): void => {
+    if (event.pointerType === 'touch' && touches.current.has(event.pointerId)) {
+      touches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+
+    /*
+     * Two fingers move and scale the plane together (ADR-0179).
+     *
+     * Anchored on the midpoint, so the board grows around what is between the
+     * fingers rather than around a corner — which is the difference between a
+     * zoom somebody can aim and one they have to chase with a pan afterwards.
+     */
+    const grip = pinch.current;
+    if (grip && touches.current.size >= 2) {
+      const [a, b] = [...touches.current.values()];
+      if (a && b) {
+        const span = Math.hypot(b.x - a.x, b.y - a.y);
+        // A pinch that has not opened yet would divide by nothing.
+        if (grip.span > 1) {
+          const next = Math.min(3, Math.max(0.25, (grip.zoom * span) / grip.span));
+          const midX = (a.x + b.x) / 2;
+          const midY = (a.y + b.y) / 2;
+          const scale = next / grip.zoom;
+          setZoom(next);
+          setPan({
+            x: midX - (grip.x - grip.panX) * scale,
+            y: midY - (grip.y - grip.panY) * scale,
+          });
+        }
+      }
+      return;
+    }
+
     const grab = panning.current;
     if (grab) {
       // In screen units, not canvas ones: the plane moves under the pointer by
@@ -369,8 +463,27 @@ export function CanvasSurface({
     const point = at(event);
 
     if (drawing) {
-      // Every point while the pen is down, in local state only.
-      setDrawing((current) => (current ? [...current, point.x, point.y] : current));
+      /*
+       * Every point while the pen is down, in local state only — and every
+       * point the browser *had*, not only the one it woke us for.
+       *
+       * A pen reports faster than a frame, and `getCoalescedEvents` is where
+       * the ones in between are kept. Without it a quick stroke is a polygon
+       * with a corner per frame, which is exactly the thing that makes writing
+       * by hand feel wrong.
+       */
+      const more =
+        typeof event.nativeEvent.getCoalescedEvents === 'function'
+          ? event.nativeEvent.getCoalescedEvents()
+          : [];
+      const points =
+        more.length > 1
+          ? more.flatMap((one) => {
+              const p = at(one as unknown as PointerEvent<HTMLDivElement>);
+              return [p.x, p.y];
+            })
+          : [point.x, point.y];
+      setDrawing((current) => (current ? [...current, ...points] : current));
       return;
     }
     const shaping_ = shaping.current;
@@ -433,7 +546,34 @@ export function CanvasSurface({
     setPan((current) => ({ x: current.x - event.deltaX, y: current.y - event.deltaY }));
   };
 
-  const onSurfaceUp = (): void => {
+  /** A contact let go of, whatever it was doing. */
+  const forget = (event: PointerEvent<HTMLDivElement>): void => {
+    touches.current.delete(event.pointerId);
+    if (touches.current.size < 2) pinch.current = null;
+  };
+
+  /**
+   * The system took the contact back (ADR-0179).
+   *
+   * This ran `onSurfaceUp`, which **commits** the stroke — so a touch Safari
+   * reclaimed mid-gesture wrote a line. That is the palm arriving by a second
+   * door, and it was there before any of this: a cancel is the strongest
+   * rejection signal a browser gives, and it was being read as a signature.
+   */
+  const onSurfaceCancel = (event: PointerEvent<HTMLDivElement>): void => {
+    forget(event);
+    panning.current = null;
+    dragging.current = null;
+    sizing.current = null;
+    shaping.current = null;
+    bandFrom.current = null;
+    setShape(null);
+    setBand(null);
+    setDrawing(null);
+  };
+
+  const onSurfaceUp = (event?: PointerEvent<HTMLDivElement>): void => {
+    if (event) forget(event);
     panning.current = null;
     dragging.current = null;
     sizing.current = null;
@@ -764,7 +904,7 @@ export function CanvasSurface({
         onPointerDown={onSurfaceDown}
         onPointerMove={onSurfaceMove}
         onPointerUp={onSurfaceUp}
-        onPointerCancel={onSurfaceUp}
+        onPointerCancel={onSurfaceCancel}
         onWheel={onWheel}
         // The grid, moved with the board and spaced by the zoom — the plane has
         // no size to paint it on, and a grid that stays put makes a moving board
