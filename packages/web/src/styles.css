@@ -4216,7 +4216,16 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
      strokes, and plain is no image at all rather than a white one. */
   background-image:
     radial-gradient(circle, var(--border-subtle) 1px, transparent 1px);
+  /* The browser keeps its hands off every gesture here: without this it claims
+     the drag first and the stroke never starts, and on iPadOS a pinch zooms the
+     interface rather than the board. The component does the panning and the
+     pinching itself (ADR-0179). */
   touch-action: none;
+  /* And the two that come with it on a touch device. A long press on a board is
+     somebody thinking, not somebody selecting text — and the callout that
+     iPadOS raises over one puts a menu where the drawing was. */
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .canvas-surface[data-tool='pen'] { cursor: crosshair; }
 .canvas-surface[data-tool='text'] { cursor: text; }
