@@ -157,6 +157,7 @@ export const de: Record<keyof typeof en, string> = {
   'action.save': 'Speichern',
   'action.create': 'Anlegen',
   'error.invalid_value': 'Dieser Wert passt nicht in diese Spalte.',
+  'error.invalid_endpoint': 'Dieser Browser hat eine Adresse geliefert, an die SONE nicht senden kann.',
   'error.empty_message': 'Ein Kommentar braucht einen Inhalt.',
   'error.message_too_long': 'Dieser Kommentar ist länger, als ein Kommentar sein kann.',
   'error.invalid_anchor': 'Die Stelle, um die es ging, ist verloren gegangen. Bitte den Text noch einmal auswählen.',
@@ -611,6 +612,16 @@ export const de: Record<keyof typeof en, string> = {
     'Eine Benachrichtigungsmail sagt, wer was auf welcher Seite getan hat, mit ' +
     'einem Link. Sie enthält nie den Kommentar selbst — ein Postfach ist kein ' +
     'Berechtigungssystem.',
+  'you.device': 'Auf diesem Gerät',
+  'you.device.hint': 'Eine Benachrichtigung, auch wenn SONE geschlossen ist. Pro Gerät.',
+  'you.device.on': 'Einschalten',
+  'you.device.off': 'Ausschalten',
+  // Beugt sich nach der Anredeform (ADR-0041): eine Instanz, die „Sie" gewählt
+  // hat, darf hier nicht duzen.
+  'you.device.unsupported':
+    'Dieser Browser kann keine Benachrichtigungen anzeigen. Auf iPhone und iPad {address, select, formal {müssen Sie} other {musst du}} SONE zuerst zum Home-Bildschirm hinzufügen — iOS erlaubt sie nur dort.',
+  'you.device.denied':
+    'Diesem Browser wurde untersagt, Benachrichtigungen für SONE anzuzeigen. Das lässt sich nur in seinen eigenen Einstellungen zurücknehmen.',
   // Diese drei sprechen von „mich" und „mir" — die eigene Person, nicht die
   // angesprochene. Das ist in beiden Anredeformen gleich.
   'you.when.immediately': 'Sofort per E-Mail',

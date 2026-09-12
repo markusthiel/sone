@@ -13,6 +13,29 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**App-Benachrichtigungen auf dem Handy und am Tablet — pro Gerät ein- und
+ausschaltbar.** Im Profil unter *Benachrichtigungen* steht jetzt ganz oben ein
+Schalter für *dieses Gerät*: einmal einschalten, und SONE meldet sich auf dem
+Sperrbildschirm, wenn jemand dich erwähnt oder dir antwortet — auch bei
+geschlossener App. Das Ausschalten auf dem iPad lässt das Handy in Ruhe, denn
+der Schalter gilt immer nur für das Gerät, an dem du gerade sitzt.
+
+Auf dem iPhone und iPad zeigt iOS solche Meldungen nur, wenn SONE **zum
+Home-Bildschirm hinzugefügt** wurde (in Safari über *Teilen → Zum Home-Bildschirm*).
+In einem gewöhnlichen Safari-Tab steht an der Stelle ein entsprechender Hinweis
+statt eines Schalters. Wurden Mitteilungen einmal abgelehnt, hilft nur noch die
+Einstellung des Browsers selbst — auch das sagt die Stelle.
+
+Was auf dem Weg dorthin übertragen wird: nichts. Die Meldung selbst kommt leer
+bei Apple oder Google an, und erst das Gerät fragt bei deiner SONE-Instanz nach,
+worum es geht. Seitentitel, Textauszüge und Namen verlassen den Server also
+nicht.
+
+Beim Upgrade läuft die Migration `0078` automatisch mit. Für Betreiber gibt es
+nichts einzurichten — kein Schlüssel, keine Einstellung: das Schlüsselpaar
+entsteht beim ersten Einschalten von selbst. Eine Instanz, auf der das niemand
+einschaltet, erzeugt auch keines.
+
 **Whiteboards mit Stift: die aufliegende Hand zeichnet nicht mehr mit.** Sobald
 auf einem Gerät einmal ein Stift benutzt wurde, bedienen nur noch der Stift die
 Werkzeuge — Finger und Handballen verschieben stattdessen die Ansicht. Zwei
