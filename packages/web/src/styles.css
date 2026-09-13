@@ -1,3 +1,34 @@
+/* Personally delegated tasks: text lives in React, never in the note document. */
+.sote-settings { max-inline-size: 48rem; }
+.sote-settings section { padding-block: 1.25rem; border-block-end: 1px solid var(--border-subtle); }
+.sote-settings h2 { font-size: 1.1rem; }
+.sote-settings form, .sote-task-form { display: grid; gap: .8rem; }
+.sote-settings label:not(.sote-check), .sote-task-form label:not(.sote-check) { display: grid; gap: .35rem; min-inline-size: 0; }
+.sote-settings input:not([type=checkbox]), .sote-task-form input:not([type=checkbox]), .sote-task-form textarea, .sote-task-form select { inline-size: 100%; min-inline-size: 0; box-sizing: border-box; }
+.sote-check { display: flex; align-items: center; gap: .5rem; min-block-size: 2.75rem; }
+.sote-block { margin-block: 1rem; }
+.sote-embed { border: 1px solid var(--border-subtle); border-radius: .75rem; background: var(--surface-raised); padding: 1rem; font-size: .9rem; }
+.sote-embed-head { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; color: var(--text-secondary); }
+.sote-embed-head > strong { display: inline-flex; align-items: center; gap: .5rem; flex: 1; color: var(--text-primary); }
+.sote-task { padding-block: .65rem; border-block-start: 1px solid var(--border-subtle); }
+.sote-task-row { display: flex; align-items: center; gap: .65rem; }
+.sote-task-row > a { flex: 1; min-inline-size: 0; overflow-wrap: anywhere; }
+.sote-task small { display: block; color: var(--text-secondary); margin-inline-start: 1.8rem; }
+.sote-embed button, .sote-settings button { min-block-size: 2.75rem; }
+.sote-settings button + button { margin-inline-start: .5rem; }
+.sote-settings input:not([type=checkbox]), .sote-task-form input:not([type=checkbox]), .sote-task-form select, .sote-task-form textarea { font: inherit; color: var(--text-primary); background: var(--surface-sunken); border: 1px solid var(--border-subtle); border-radius: .35rem; padding: .65rem .75rem; }
+.sote-task-form textarea { min-block-size: 5rem; resize: vertical; }
+.sote-time { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: .75rem; }
+.sote-embed details { margin-block-start: .75rem; }
+.sote-embed summary { cursor: pointer; min-block-size: 2.75rem; align-content: center; }
+.sote-embed [role=alert], .sote-settings [role=alert] { color: var(--text-primary); border-inline-start: 3px solid var(--accent-500); padding-inline-start: .75rem; }
+@media (max-width: 540px) {
+ .sote-time { grid-template-columns: 1fr; }
+ .sote-embed { padding: .75rem; }
+ .sote-task-row { flex-wrap: wrap; }
+ .sote-task-row > a { flex-basis: calc(100% - 3rem); }
+}
+
 /*
  * SONE web — base styles.
  *

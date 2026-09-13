@@ -43,6 +43,7 @@ import { installSecondFactorGate } from './auth/secondFactorGate.js';
 import { factsFor, reachableWhileBlocked, standingOf } from './auth/requirement.js';
 import { registerHealthRoutes, SONE_COMMIT, SONE_VERSION } from './http/health.js';
 import { registerPageRoutes } from './http/pages.js';
+import { registerSoteRoutes } from './integrations/sote.js';
 import { registerCommentRoutes } from './comments/routes.js';
 import { serveRefusal } from './http/refusal.js';
 import { Router } from './http/router.js';
@@ -525,6 +526,7 @@ async function main(): Promise<void> {
     secureCookies: config.publicUrl.startsWith('https://'),
   });
   registerPageRoutes(router, { pool });
+  registerSoteRoutes(router, { pool, secretKey: config.secretKey, publicUrl: config.publicUrl });
   registerCommentRoutes(router, { pool });
   registerWorkspaceRoutes(router, { pool });
   registerFavouriteRoutes(router, { pool });

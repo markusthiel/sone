@@ -55,7 +55,7 @@ test('every icon-only button has a name', () => {
   for (const file of readdirSync(directory)) {
     if (!file.endsWith('.tsx')) continue;
     const source = readFileSync(new URL(file, directory), 'utf8');
-    for (const match of source.matchAll(/<button\b((?:[^>]|\n)*?)>((?:.|\n){0,200}?)<\/button>/g)) {
+    for (const match of source.matchAll(/<button\b([^>]*?)>((?:.|\n){0,200}?)<\/button>/g)) {
       const attrs = match[1] ?? '';
       const body = (match[2] ?? '').replace(/\{\/\*(?:.|\n)*?\*\/\}/g, '');
       const icons = /<[A-Z]\w*Icon\s*\/?>/.test(body);

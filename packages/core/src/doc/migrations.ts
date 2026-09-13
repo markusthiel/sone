@@ -121,6 +121,7 @@ export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [
     // was under discussion (ADR-0046).
     migrate: () => {},
   },
+  { from: 4, to: 5, description: 'SOTE references are opaque task blocks; older clients must not discard them', migrate: () => {} },
 ];
 
 /*

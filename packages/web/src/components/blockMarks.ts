@@ -33,6 +33,9 @@ import {
 
 export const BLOCK_MARKS: Record<string, (props: { size?: number }) => ReactElement> = {
   paragraph: TextIcon,
+  'sote-list': CheckSquareIcon,
+  'sote-single': CheckSquareIcon,
+  soteTasks: CheckSquareIcon,
   heading: HashIcon,
   'heading-1': HashIcon,
   'heading-2': HashIcon,
