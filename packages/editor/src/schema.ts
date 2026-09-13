@@ -497,6 +497,12 @@ const nodes: Record<string, NodeSpec> = {
     ],
   },
 
+  soteTasks: {
+    group: 'block', atom: true, isolating: true,
+    attrs: { ...blockAttrs, serverId: {default: null}, projectId: {default: null}, taskId: {default: null}, mode: {default: 'list'} },
+    parseDOM: [{tag: 'div[data-sone-sote]'}],
+    toDOM: node => ['div', {...blockDOMAttrs(node), 'data-sone-sote': 'true'}, 'SOTE'],
+  },
   collectionView: {
     group: 'block',
     attrs: {

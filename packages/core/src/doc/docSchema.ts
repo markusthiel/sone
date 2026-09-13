@@ -332,6 +332,7 @@ export const INDENTABLE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'image',
   'divider',
   'collectionView',
+  'soteTasks',
 ]);
 
 /** Retained for compatibility with existing imports; prefer the two above. */

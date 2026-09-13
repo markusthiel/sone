@@ -41,6 +41,7 @@ import { registerHighlighter } from './authorHighlightBridge.ts';
 import { BlockMenu } from './BlockMenu.tsx';
 import { PageLinkMenu, type LinkablePage } from './PageLinkMenu.tsx';
 import { soneNodeViews } from './CollectionNodeView.tsx';
+import { soteNodeView } from './SoteIntegration.tsx';
 import { SelectionToolbar } from './SelectionToolbar.tsx';
 import { MentionMenu } from './MentionMenu.tsx';
 import { SlashMenu } from './SlashMenu.tsx';
@@ -710,7 +711,7 @@ export function EditorSurface({
       // mounts there.
       // A protected section is a document of its own, so opening one is
       // navigating to it rather than expanding something here.
-      nodeViews: soneNodeViews(
+      nodeViews: { ...soneNodeViews(
         (containerId) => {
           window.location.assign(pageLink(containerId));
         },
@@ -747,7 +748,7 @@ export function EditorSurface({
           // the workspace's people, not a second one for the same question.
           nameOf: (author: string) => membersRef.current.get(author) ?? '',
         },
-      ),
+      ), soteTasks: soteNodeView(pageId, () => canEditRef.current && !lockedRef.current, t) },
     });
     viewRef.current = created;
     setView(created);

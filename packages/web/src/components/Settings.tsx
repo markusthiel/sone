@@ -21,6 +21,7 @@
  */
 
 import qr from 'qrcode-generator';
+import { SoteSettings } from './SoteIntegration.tsx';
 import { roleLabel } from '../workspaceRights.ts';
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 
@@ -80,6 +81,7 @@ export const SECTIONS = [
    * nothing.
    */
   { id: 'notifications', label: 'you.notifications', hint: 'you.notifications.hint' },
+  { id: 'sote', label: 'sote.heading', hint: 'sote.hint' },
   { id: 'about', label: 'you.about', hint: 'you.about.hint' },
 ] as const;
 
@@ -104,6 +106,7 @@ export function Settings({
   return (
     <div className="settings-body">
       <h1 className="page-title">{t(SECTIONS.find((e) => e.id === current)?.label ?? 'area.you')}</h1>
+      {current === 'sote' && <SoteSettings workspaceId={workspaceId} />}
       {current === 'profile' && <Profile session={session} workspaceId={workspaceId} />}
       {current === 'sign-in' && (
         <>

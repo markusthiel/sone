@@ -77,6 +77,8 @@ const node = (name: string) => schema.nodes[name];
 
 /** The items, in the order they are offered. */
 export const SLASH_ITEMS: readonly SlashItem[] = [
+  { id: 'sote-list', title: 'SOTE task list', hint: 'Show and edit a SOTE project', keywords: ['sote','tasks','aufgaben','projekt'], group: 'blocks', action: {kind:'insert',build:()=>node('soteTasks')!.create({mode:'list'})}},
+  { id: 'sote-single', title: 'SOTE task', hint: 'Link or create one task', keywords: ['sote','task','aufgabe'], group: 'blocks', action: {kind:'insert',build:()=>node('soteTasks')!.create({mode:'single'})}},
   {
     id: 'paragraph',
     title: 'Text',
