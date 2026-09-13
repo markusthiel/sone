@@ -102,14 +102,24 @@ test('every text block core knows about has a spelling, not a fence', () => {
   // writer does not handle falls through to a fenced block — correct for a
   // table or an embed, and wrong for a heading.
   const spelled = [...INDENTABLE_BLOCK_TYPES].filter(
-    (type) => type !== 'collectionView' && type !== 'image',
+    (type) => type !== 'collectionView' && type !== 'image' && type !== 'soteTasks',
   );
   for (const type of spelled) {
     const out = pageToMarkdown('P', [block(type, 'Words', { level: 1 })]);
     assert.doesNotMatch(out, /```sone-/, `${type} has a Markdown spelling`);
   }
 
-  // And the two that deliberately do not: a collection has no Markdown, and an
+  // Embedded collections and SOTE tasks have no Markdown spelling, and an
   // image has one but is a link rather than text.
   assert.match(pageToMarkdown('P', [block('collectionView', '')]), /```sone-collectionView/);
+});
+
+test('an embedded SOTE task exports its reference without fetching private task details', () => {
+  const reference = { serverId: 'server-1', projectId: 'project-1', taskId: 'task-1', mode: 'single' };
+  const out = pageToMarkdown('P', [block('soteTasks', '', reference)]);
+  assert.match(out, /```sone-soteTasks/);
+  assert.match(out, /"taskId":"task-1"/);
+  assert.match(out, /"projectId":"project-1"/);
+  assert.match(out, /"serverId":"server-1"/);
+  assert.match(out, /"mode":"single"/);
 });

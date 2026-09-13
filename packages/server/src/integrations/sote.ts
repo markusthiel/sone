@@ -52,7 +52,7 @@ export function registerSoteRoutes(router: Router, { pool, secretKey, publicUrl 
 }) {
     const seal = (value: string) => encryptShareToken('sote:' + value, secretKey);
     const open = (value: Buffer) => { const result = decryptShareToken(value, secretKey); need(result?.startsWith('sote:'), 'Verbindung bitte neu einrichten.', 401); return result!.slice(5); };
-    const server = async () => { const s = await queryOne<Server>(pool, 'SELECT * FROM sote_servers'); need(s, 'SOTE wurde noch nicht eingerichtet.', 409); return s!; };
+    const server = async () => { const s = await queryOne<Server>(pool, 'SELECT * FROM sote_servers WHERE singleton=true'); need(s, 'SOTE wurde noch nicht eingerichtet.', 409); return s!; };
     const call = async <T>(s: Server, path: string, token: string | null, method = 'GET', body?: unknown): Promise<T> => {
         let res: Response;
         try {
@@ -112,7 +112,7 @@ export function registerSoteRoutes(router: Router, { pool, secretKey, publicUrl 
         const who = await session(ctx);
         if (!who)
             return;
-        const s = await queryOne<Server>(pool, 'SELECT * FROM sote_servers');
+        const s = await queryOne<Server>(pool, 'SELECT * FROM sote_servers WHERE singleton=true');
         const a = s ? await queryOne<{
             expires_at: Date;
         }>(pool, 'SELECT expires_at FROM sote_accounts WHERE user_id=$1 AND server_id=$2', [who.userId, s.id]) : undefined;
