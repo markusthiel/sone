@@ -62,6 +62,7 @@ export const de: Record<keyof typeof en, string> = {
   "sote.task": "Aufgabe",
   "sote.newTask": "Neue Aufgabe",
   "sote.embed": "Einbetten",
+  "sote.continueWriting": "Weiter schreiben",
   "sote.readWrite": "Lesen und Schreiben",
   "sote.readOnly": "Nur Lesen",
   "sote.showDone": "Erledigte anzeigen",

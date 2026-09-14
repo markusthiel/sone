@@ -421,6 +421,34 @@ describe('editor mounting', () => {
     ydoc.destroy();
   });
 
+  for (const id of ['sote-list', 'sote-single']) {
+    for (const prefix of ['', 'Existing writing ']) {
+      test(id + ' leaves the caret in a writable line after insertion: ' + prefix, async () => {
+        const { runSlashItem, SLASH_ITEMS } = await import('../src/slashMenu.js');
+        const ydoc = new Y.Doc();
+        const fragment = pageContent(ydoc);
+        seedEmptyPage(fragment);
+        const view = createEditor(mountPoint(), { fragment, editable: () => true });
+        try {
+          for (const character of prefix + '/sote') view.dispatch(view.state.tr.insertText(character));
+          assert.equal(runSlashItem(view, SLASH_ITEMS.find(item => item.id === id)!), true);
+          const types = view.state.doc.children.map(node => node.type.name);
+          assert.deepEqual(types, prefix ? ['paragraph', 'soteTasks', 'paragraph'] : ['soteTasks', 'paragraph']);
+          assert.equal(view.state.selection.$from.parent.type.name, 'paragraph');
+          assert.equal(view.state.selection.$from.index(0), types.length - 1);
+          view.dispatch(view.state.tr.insertText('Continue here'));
+          assert.equal(view.state.doc.lastChild!.textContent, 'Continue here');
+          const { blocks } = readBlockTree(ydoc);
+          assert.equal(blocks.at(-1)?.text, 'Continue here');
+          if (prefix) assert.equal(view.state.doc.firstChild!.textContent, prefix);
+        } finally {
+          view.destroy();
+          ydoc.destroy();
+        }
+      });
+    }
+  }
+
   test('two editors on the same document converge', () => {
     // Two tabs on one page. Both bind to the same fragment through separate
     // Y.Docs, as two clients would.

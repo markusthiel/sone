@@ -24,6 +24,7 @@
  */
 
 import { BLOCK_ATTRS } from '@sone/core';
+import { continueAfterSote } from './soteContinuation.js';
 import type { Node as PMNode } from 'prosemirror-model';
 import {
   Plugin,
@@ -592,6 +593,9 @@ export function runSlashItem(view: EditorView, item: SlashItem): boolean {
       tr.insert(block.pos + block.node.nodeSize, node);
     } else {
       tr.replaceWith(block.pos, block.pos + block.node.nodeSize, node);
+    }
+    if (node.type.name === 'soteTasks') {
+      continueAfterSote(tr, hasContent ? block.pos + block.node.nodeSize : block.pos);
     }
     view.dispatch(tr.scrollIntoView());
     view.focus();

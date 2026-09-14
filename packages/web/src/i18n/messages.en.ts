@@ -56,6 +56,7 @@ export const en = {
   "sote.task": "Task",
   "sote.newTask": "New task",
   "sote.embed": "Embed",
+  "sote.continueWriting": "Continue writing",
   "sote.readWrite": "Read and write",
   "sote.readOnly": "Read only",
   "sote.showDone": "Show completed",
