@@ -82,3 +82,66 @@ test('deleting a task list with another open editor does not recreate it', async
     first.destroy(); second.destroy(); mounts.forEach(mount => mount.remove());
   }
 });
+
+test('deleting a selected task shared by two surfaces of the same document stays deleted', async () => {
+  const { act } = await import('react');
+  const Y = await import('yjs');
+  const { createEditor, deleteBlockSubtree } = await import('@sone/editor');
+  const { pageContent, readBlockTree } = await import('@sone/core');
+  const { NodeSelection } = await import('prosemirror-state');
+  const { soteNodeView } = await import('../src/components/SoteIntegration.tsx');
+  const first = new Y.Doc(), second = first;
+  const block = new Y.XmlElement('soteTasks');
+  for (const [key, value] of Object.entries({ id: 'shared-task', serverId: 'server', projectId: 'project', mode: 'list' })) block.setAttribute(key, value);
+  pageContent(first).insert(0, [block]);
+  Y.applyUpdate(second, Y.encodeStateAsUpdate(first));
+
+
+  const mounts = [document.createElement('div'), document.createElement('div')];
+  mounts.forEach(mount => document.body.append(mount));
+  const views: ReturnType<typeof createEditor>[] = [];
+  try {
+    await act(async () => {
+      for (const [index, doc] of [first, second].entries()) views.push(createEditor(mounts[index]!, { fragment: pageContent(doc), editable: () => true, nodeViews: { soteTasks: soteNodeView('page', () => true, ((key: string) => key) as never) } }));
+      views.forEach(view => view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0))));
+    });
+    await act(async () => { deleteBlockSubtree(views[0]!.state, views[0]!.dispatch); views[0]!.focus(); });
+    await act(async () => { views[1]!.dispatch(views[1]!.state.tr.insertText('Continue after deletion')); });
+    for (const doc of [first, second]) assert.equal(readBlockTree(doc).blocks.some(b => b.type === 'soteTasks'), false);
+    for (const view of views) assert.equal(view.state.doc.children.some(n => n.type.name === 'soteTasks'), false);
+  } finally {
+    await act(async () => views.forEach(view => view.destroy()));
+    first.destroy(); mounts.forEach(mount => mount.remove());
+  }
+});
+
+test('a late recovery response cannot restore a deleted task block', async () => {
+  const { act } = await import('react');
+  const Y = await import('yjs');
+  const { createEditor, deleteBlockSubtree } = await import('@sone/editor');
+  const { pageContent, readBlockTree } = await import('@sone/core');
+  const { NodeSelection } = await import('prosemirror-state');
+  const { soteNodeView } = await import('../src/components/SoteIntegration.tsx');
+  const savedFetch = globalThis.fetch;
+  let release: ((response: Response) => void) | undefined;
+  globalThis.fetch = () => new Promise<Response>(resolve => { release = resolve; });
+  sessionStorage.setItem('sone:sote-operation:page:pending-task', 'pending-operation');
+  const doc = new Y.Doc();
+  const block = new Y.XmlElement('soteTasks');
+  for (const [key, value] of Object.entries({ id: 'pending-task', serverId: 'server', projectId: 'project', mode: 'single' })) block.setAttribute(key, value);
+  pageContent(doc).insert(0, [block]);
+  const mount = document.createElement('div'); document.body.append(mount);
+  const view = createEditor(mount, { fragment: pageContent(doc), editable: () => true, nodeViews: { soteTasks: soteNodeView('page', () => true, ((key: string) => key) as never) } });
+  try {
+    await act(async () => { view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0))); });
+    assert.ok(release);
+    await act(async () => { deleteBlockSubtree(view.state, view.dispatch); });
+    globalThis.fetch = savedFetch;
+    await act(async () => { release!(new Response(JSON.stringify({ task: { id: 'recovered-task' } }), { headers: { 'content-type': 'application/json' } })); });
+    assert.equal(readBlockTree(doc).blocks.some(b => b.type === 'soteTasks'), false);
+    assert.equal(mount.querySelector('.sote-block'), null);
+  } finally {
+    await act(async () => view.destroy());
+    doc.destroy(); mount.remove(); globalThis.fetch = savedFetch; sessionStorage.clear();
+  }
+});

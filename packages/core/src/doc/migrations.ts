@@ -122,6 +122,16 @@ export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [
     migrate: () => {},
   },
   { from: 4, to: 5, description: 'SOTE references are opaque task blocks; older clients must not discard them', migrate: () => {} },
+  {
+    from: 5,
+    to: 6,
+    description: 'deleted block selections must not be restored by an older editor',
+    // The stored blocks are unchanged. Schema 5 clients can keep a stale
+    // ProseMirror document after a remotely deleted NodeSelection and write
+    // its contents back on the next selection change. The existing handshake
+    // must exclude these clients as well as clients missing a block type.
+    migrate: () => {},
+  },
 ];
 
 /*

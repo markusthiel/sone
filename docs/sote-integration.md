@@ -12,7 +12,7 @@ Die Schnittstelle prüft Seitenrechte, Seitensperre, gespeicherten Block, Zuordn
 
 Sichtbare Tabs gleichen ungefähr alle 15 Sekunden ab. Gleichzeitige Änderungen verlangen eine Prüfung des aktuellen Stands. Anlagevorgänge sind idempotent; im Sitzungsspeicher bleibt lediglich die Vorgangs-ID für eine Wiederaufnahme. Ungespeicherter Formulartext wird nicht dauerhaft gespeichert.
 
-Migration **0079_sote_integration** ergänzt die Verbindungstabellen; Dokumentformat **5** schützt die neuen Editor-Blöcke vor alten Clients. Zuerst SOTE mit Migration 0047, dann SONE aktualisieren und Browser-Tabs neu laden. Es werden keine neuen Umgebungsvariablen benötigt. SONE verschlüsselt Zugangsdaten mit dem vorhandenen `SONE_SECRET_KEY`.
+Migration **0079_sote_integration** ergänzt die Verbindungstabellen; Dokumentformat **6** schützt die Editor-Blöcke zusätzlich vor älteren Clients, die entfernte Auswahlen zurückschreiben können. Die Umstellung erhält sämtliche Notizinhalte. Zuerst SOTE mit Migration 0047, dann SONE aktualisieren und Browser-Tabs neu laden. Es werden keine neuen Umgebungsvariablen benötigt. SONE verschlüsselt Zugangsdaten mit dem vorhandenen `SONE_SECRET_KEY`.
 
 Der private Freigabeablauf nutzt einen einmaligen Code, S256-PKCE und eine sitzungsgebundene Rückkehr. Er ist kein allgemeiner OAuth-/OpenID-Provider. Automatische Token-Erneuerung, Webhooks, zusätzliche Filter, mehrere Quellen, Rückvorschauen und Offline-Schreiben folgen später. Geschützte Abschnitte sind noch nicht unterstützt. Beim Entfernen der Instanz auch deren Registrierung in SOTE widerrufen.
 
