@@ -102,6 +102,7 @@ interface SidebarProps {
     parentPageId: string | null,
     kind: 'page' | 'folder' | 'canvas',
     templateId?: string,
+    title?: string,
   ) => void;
   onRename: (pageId: string, title: string) => void;
   onDelete: (pageId: string, descendants: number) => void;
@@ -316,6 +317,44 @@ export function Sidebar({
   };
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [adding, setAdding] = useState<{
+    parentPageId: string | null;
+    kind: 'page' | 'folder' | 'canvas';
+    templateId?: string;
+  } | null>(null);
+  const startAdding = (
+    parentPageId: string | null,
+    kind: 'page' | 'folder' | 'canvas',
+    templateId?: string,
+  ): void => {
+    setRenaming(null);
+    setSectionsOpen((previous) => ({ ...previous, folders: true }));
+    if (parentPageId) {
+      setCollapsed((previous) => {
+        const next = new Set(previous);
+        for (const id of [...findAncestors(tree, parentPageId), parentPageId]) next.delete(id);
+        return next;
+      });
+    }
+    setAdding({ parentPageId, kind, ...(templateId ? { templateId } : {}) });
+  };
+  const newEntry = adding && {
+    parentPageId: adding.parentPageId,
+    field: (
+      <div className="tree-row" key={`new-${adding.parentPageId}-${adding.kind}`}>
+        <span className="tree-twisty" aria-hidden="true" />
+        <RenameField
+          initial=""
+          label={t('sidebar.entryName')}
+          onCommit={(title) => {
+            setAdding(null);
+            onCreatePage(adding.parentPageId, adding.kind, adding.templateId, title);
+          }}
+          onCancel={() => setAdding(null)}
+        />
+      </div>
+    ),
+  };
   // One drag at a time, and every row has to know about it — so it belongs
   // here rather than in a row.
   const drag = useTreeDrag({
@@ -547,10 +586,11 @@ export function Sidebar({
           open={sectionsOpen.folders}
           count={tree.length}
           onToggle={() => toggleSection('folders')}
-          onAdd={() => onCreatePage(null, 'folder')}
+          onAdd={() => startAdding(null, 'folder')}
           addLabel={t('sidebar.newFolder')}
         >
-          {tree.length === 0 ? (
+          {newEntry?.parentPageId === null && newEntry.field}
+          {tree.length === 0 && !adding ? (
             // The empty case matters more now that the large button at the foot
             // is gone: it says where to press rather than only that there is
             // nothing here.
@@ -563,7 +603,8 @@ export function Sidebar({
             collapsed={collapsed}
             renaming={renaming}
             onToggle={toggle}
-            onCreatePage={onCreatePage}
+            onCreatePage={startAdding}
+            newEntry={newEntry}
             onRename={(pageId, title) => {
               setRenaming(null);
               onRename(pageId, title);
@@ -660,7 +701,9 @@ function TreeLevel({
   onMove,
   drag,
   workspaceId,
+  newEntry,
 }: {
+  newEntry: { parentPageId: string | null; field: ReactNode } | null;
   nodes: PageNode[];
   /** For the list of templates the `+` offers (ADR-0045). */
   workspaceId: string;
@@ -878,13 +921,15 @@ function TreeLevel({
               )}
             </div>
 
-            {hasChildren && !isCollapsed && (
+            {(hasChildren || newEntry?.parentPageId === node.id) && !isCollapsed && (
               // Children are nested in the markup rather than flattened with a
               // margin per depth, so a guide line can be drawn down the branch.
               // Depth-as-margin gave no element spanning a level, which is why
               // the tree read as a flat list of differently indented rows.
               <div className="tree-children">
+                {newEntry?.parentPageId === node.id && newEntry.field}
                 <TreeLevel
+                  newEntry={newEntry}
                   workspaceId={workspaceId}
                   nodes={node.children}
                   currentPageId={currentPageId}
@@ -931,10 +976,12 @@ function TreeLevel({
  */
 function RenameField({
   initial,
+  label,
   onCommit,
   onCancel,
 }: {
   initial: string;
+  label?: string;
   onCommit: (title: string) => void;
   onCancel: () => void;
 }): ReactElement {
@@ -970,7 +1017,8 @@ function RenameField({
         }
       }}
       onFocus={(event) => event.currentTarget.select()}
-      aria-label={t('sidebar.rename')}
+      aria-label={label ?? t('sidebar.rename')}
+      placeholder={label}
     />
   );
 }

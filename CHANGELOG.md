@@ -13,6 +13,27 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.13.0
+
+Aktualisieren und neu starten; die Migrationen 0077–0079 laufen automatisch.
+Browser-Tabs anschließend neu laden: das Dokumentformat steigt auf Version 5.
+Für die SOTE-Anbindung zuerst SOTE mit Migration 0047 aktualisieren und die
+Verbindung gemäß [Anleitung](docs/sote-integration.md) einrichten.
+
+**Neue Einträge direkt im Seitenbaum benennen.** Beim Anlegen eines Ordners,
+einer Seite oder einer Fläche erhält das Namensfeld sofort den Fokus. Enter oder
+ein Klick außerhalb bestätigt; Escape oder ein leerer Name bricht ab, ohne einen
+leeren Eintrag anzulegen. Zugeklappte Zielordner öffnen sich automatisch. Neue
+Einträge stehen vor vorhandenen Geschwistern; Ordner, Seiten und Flächen folgen
+im Baum gemeinsam der gespeicherten Reihenfolge. Ausgewählte Vorlagen werden
+beim Anlegen korrekt übernommen.
+
+**SOTE-Aufgaben in Notizen.** Einzelne Aufgaben und Aufgabenlisten lassen sich
+mit persönlicher Projektfreigabe in SONE einbetten und bearbeiten. Die Notiz
+speichert ausschließlich Referenzen; Zugriffsrechte werden bei jedem Abruf
+geprüft. Einrichtung und Grenzen beschreibt die
+[Anleitung zur SOTE-Anbindung](docs/sote-integration.md).
+
 **Sicherheit: „Anmeldung erforderlich" verlangt jetzt wirklich eine Anmeldung.**
 Ein Freigabelink mit dieser Option ließ sich bisher öffnen, indem der Browser
 irgendeinen `sone_session`-Cookie mitschickte — der musste zu keiner echten

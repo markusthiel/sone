@@ -1110,7 +1110,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     assert.equal(row.rows[0]!.schema_version, SCHEMA_VERSION);
   });
 
-  test('sibling pages get increasing fractional indexes', async () => {
+  test('new sibling pages are stored before existing pages', async () => {
     const session = await setup();
     const first = await createPage(session, 'A');
     const second = await createPage(session, 'B');
@@ -1123,9 +1123,35 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     );
     assert.deepEqual(
       rows.rows.map((r) => r.id),
-      [first, second],
+      [second, first],
     );
     assert.ok(rows.rows[0]!.idx < rows.rows[1]!.idx);
+  });
+
+  test('new folders and canvases prepend across entry kinds and parent levels', async () => {
+    const session = await setup();
+    const originalRoot = await defaultFolder(session);
+    const parent = await createFolder(session, 'New root');
+    const page = await createPage(session, 'Page', parent);
+    const folder = await createFolder(session, 'Folder', parent);
+    const canvas = await expectJson<{ id: string }>(await fetch(
+      `${base}/api/workspaces/${session.workspaceId}/pages`,
+      auth(session, json({ title: 'Canvas', kind: 'canvas', parentPageId: parent })),
+    ), 201);
+    const newest = await createPage(session, 'Newest page', parent);
+
+    const ordered = async (parentId: string | null) => {
+      const rows = await db.query<{ id: string }>(
+        `SELECT id FROM pages WHERE workspace_id = $1
+          AND parent_page_id IS NOT DISTINCT FROM $2 ORDER BY idx, id`,
+        [session.workspaceId, parentId],
+      );
+      return rows.rows.map((row) => row.id);
+    };
+    assert.deepEqual(await ordered(null), [parent, originalRoot]);
+    assert.deepEqual(await ordered(parent), [newest, canvas.id, folder, page]);
+    await rematerialize(db, newest, session.workspaceId);
+    assert.deepEqual(await ordered(parent), [newest, canvas.id, folder, page]);
   });
 
   test('the page tree returns parent relationships', async () => {
@@ -1754,8 +1780,8 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const second = await createPage(session, 'Second', folder);
     const third = await createPage(session, 'Third', folder);
 
-    await expectStatus(await moveAfter(session, third, folder, first), 200);
-    assert.deepEqual(await order(session, folder), [first, third, second]);
+    await expectStatus(await moveAfter(session, first, folder, third), 200);
+    assert.deepEqual(await order(session, folder), [third, first, second]);
   });
 
   test('an entry can be placed first', async () => {
@@ -1766,8 +1792,8 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const first = await createPage(session, 'First', folder);
     const second = await createPage(session, 'Second', folder);
 
-    await expectStatus(await moveAfter(session, second, folder, null), 200);
-    assert.deepEqual(await order(session, folder), [second, first]);
+    await expectStatus(await moveAfter(session, first, folder, null), 200);
+    assert.deepEqual(await order(session, folder), [first, second]);
   });
 
   test('a move without a position still lands last', async () => {
@@ -1779,7 +1805,7 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const arriving = await createPage(session, 'Arriving', other);
 
     await expectStatus(await move(session, arriving, folder), 200);
-    assert.deepEqual(await order(session, folder), [first, second, arriving]);
+    assert.deepEqual(await order(session, folder), [second, first, arriving]);
   });
 
   test('reordering only rewrites the entry that moved', async () => {
@@ -1832,11 +1858,11 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     const first = await createPage(session, 'First', folder);
     const second = await createPage(session, 'Second', folder);
 
-    await moveAfter(session, second, folder, null);
+    await moveAfter(session, first, folder, null);
     const { rebuild } = await import('../src/materialize/rebuild.js');
     await rebuild(db, { workspaceId: session.workspaceId, log: () => {} });
 
-    assert.deepEqual(await order(session, folder), [second, first]);
+    assert.deepEqual(await order(session, folder), [first, second]);
   });
 
   test('a destination in another workspace is refused', async () => {

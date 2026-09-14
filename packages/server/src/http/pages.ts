@@ -610,6 +610,7 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
 
     const created = await createEntry(deps.pool, {
       workspaceId,
+      position: 'first',
       kind,
       title: body.title ?? '',
       parentPageId,

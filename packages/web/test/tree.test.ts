@@ -15,7 +15,7 @@ const page = (
   idx: string,
   parentPageId: string | null = null,
   title = id,
-  kind: 'page' | 'folder' = 'page',
+  kind: 'page' | 'folder' | 'canvas' = 'page',
 ): PageSummary => ({
   id,
   parentPageId,
@@ -101,23 +101,21 @@ test('every page appears exactly once', () => {
 });
 
 
-test('folders sort before pages at the same level', () => {
-  // What makes the sidebar read as a filing system rather than a mixed pile,
-  // which is the point of having folders at all (ADR-0019).
+test('all entry kinds follow the saved order at the same level', () => {
   const tree = buildPageTree([
     page('page-a', 'a1', null, 'page-a', 'page'),
     page('folder-b', 'a2', null, 'folder-b', 'folder'),
-    page('page-c', 'a3', null, 'page-c', 'page'),
+    page('canvas-c', 'a3', null, 'canvas-c', 'canvas'),
     page('folder-d', 'a4', null, 'folder-d', 'folder'),
   ]);
   assert.deepEqual(
     tree.map((n) => n.id),
-    ['folder-b', 'folder-d', 'page-a', 'page-c'],
-    'folders first, then each group by index',
+    ['page-a', 'folder-b', 'canvas-c', 'folder-d'],
+    'the entry kind must not override the saved position',
   );
 });
 
-test('folders sort before pages inside a folder too', () => {
+test('a newly prepended page stays before existing folders after rebuilding the tree', () => {
   const tree = buildPageTree([
     page('root', 'a1', null, 'root', 'folder'),
     page('inner-page', 'a1', 'root', 'inner-page', 'page'),
@@ -125,6 +123,6 @@ test('folders sort before pages inside a folder too', () => {
   ]);
   assert.deepEqual(
     tree[0]!.children.map((n) => n.id),
-    ['inner-folder', 'inner-page'],
+    ['inner-page', 'inner-folder'],
   );
 });

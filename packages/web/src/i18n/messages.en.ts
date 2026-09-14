@@ -164,6 +164,7 @@ export const en = {
   'sidebar.newFolder': 'New folder',
   'sidebar.empty': 'No pages yet.',
   'sidebar.rename': 'Rename',
+  'sidebar.entryName': 'Enter a name',
   'sidebar.newPageIn': 'New page inside {title}',
   'sidebar.addIn': 'Add something inside {title}',
   'sidebar.removeFavourite': 'Remove {title}',

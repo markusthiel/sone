@@ -822,9 +822,10 @@ function Workspace({
     kind: 'page' | 'folder' | 'canvas',
     // A shape to start from, when one was chosen (ADR-0045).
     templateId?: string,
+    title = '',
   ): Promise<void> => {
     const id = await createPage({
-      title: '',
+      title,
       parentPageId,
       kind,
       ...(templateId ? { templateId } : {}),
@@ -962,7 +963,9 @@ function Workspace({
         currentPageId={pageId}
         open={sidebarVisible}
         onClose={closeSidebar}
-        onCreatePage={(parent, kind) => void onCreateEntry(parent, kind)}
+        onCreatePage={(parent, kind, templateId, title) =>
+          void onCreateEntry(parent, kind, templateId, title)
+        }
         onRename={(id, title) => void renameEntry(id, title)}
         onStartMove={setMovingId}
         onStartMoveToWorkspace={setMovingToWorkspaceId}
