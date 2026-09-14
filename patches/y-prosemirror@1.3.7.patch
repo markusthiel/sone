@@ -1,0 +1,38 @@
+diff --git a/dist/y-prosemirror.cjs b/dist/y-prosemirror.cjs
+index de4d1e6609bba2ffbc2a57048023cdf5bad44b18..7515505cdd82c5672cbbce4e8eceb16d8e05995c 100644
+--- a/dist/y-prosemirror.cjs
++++ b/dist/y-prosemirror.cjs
+@@ -331,7 +331,13 @@ const restoreRelativeSelection = (tr, relSel, binding) => {
+         relSel.anchor,
+         binding.mapping
+       );
+-      tr.setSelection(prosemirrorState.NodeSelection.create(tr.doc, anchor));
++      // A selected node may have been removed in another editor. Keep the
++      // incoming document and move the selection to a surviving position.
++      const pos = Math.max(0, Math.min(anchor ?? 0, tr.doc.content.size));
++      const $anchor = tr.doc.resolve(pos);
++      tr.setSelection($anchor.nodeAfter && prosemirrorState.NodeSelection.isSelectable($anchor.nodeAfter)
++        ? prosemirrorState.NodeSelection.create(tr.doc, pos)
++        : prosemirrorState.TextSelection.near($anchor));
+     } else {
+       const anchor = relativePositionToAbsolutePosition(
+         binding.doc,
+diff --git a/src/plugins/sync-plugin.js b/src/plugins/sync-plugin.js
+index dccfb76918c8c70fe5a5b12372cdabcc9d8c58dd..50fc6de18ce74b54a3ba0cc6c96993b73b707d24 100644
+--- a/src/plugins/sync-plugin.js
++++ b/src/plugins/sync-plugin.js
+@@ -257,7 +257,13 @@ const restoreRelativeSelection = (tr, relSel, binding) => {
+         relSel.anchor,
+         binding.mapping
+       )
+-      tr.setSelection(NodeSelection.create(tr.doc, anchor))
++      // A selected node may have been removed in another editor. Keep the
++      // incoming document and move the selection to a surviving position.
++      const pos = Math.max(0, Math.min(anchor ?? 0, tr.doc.content.size))
++      const $anchor = tr.doc.resolve(pos)
++      tr.setSelection($anchor.nodeAfter && NodeSelection.isSelectable($anchor.nodeAfter)
++        ? NodeSelection.create(tr.doc, pos)
++        : TextSelection.near($anchor))
+     } else {
+       const anchor = relativePositionToAbsolutePosition(
+         binding.doc,

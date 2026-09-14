@@ -306,6 +306,41 @@ describe('editor surface', () => {
     assert.match(css, /overscroll-behavior:\s*contain/);
   });
 
+  test('the gutter delete removes an embedded SOTE list permanently', async () => {
+    const { createElement, act } = await import('react');
+    const { EditorSurface } = await import('../src/components/EditorSurface.tsx');
+    const Y = await import('yjs');
+    const { pageContent, readBlockTree } = await import('@sone/core');
+    const handle = await makeHandle({ seed: false }) as { doc: InstanceType<typeof Y.Doc> };
+    const task = new Y.XmlElement('soteTasks');
+    task.setAttribute('id', 'test-sote-list');
+    task.setAttribute('serverId', 'test-server');
+    task.setAttribute('projectId', 'test-project');
+    task.setAttribute('mode', 'list');
+    pageContent(handle.doc).insert(0, [task]);
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify({ tasks: [], next: null, writable: false, baseUrl: 'https://tasks.example.org' }), { headers: { 'content-type': 'application/json' } });
+    try {
+      await render(createElement(EditorSurface as never, { handle, pageId: '00000000-0000-4000-8000-000000000002', threads: [], members: [], onComment: () => {} }));
+      const click = async (element: Element | null) => {
+        assert.ok(element);
+        await act(async () => element.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })));
+      };
+      await click(container.querySelector('.sote-embed-head strong'));
+      await click(container.querySelector('.block-handle'));
+      const remove = Array.from(container.querySelectorAll('.block-menu-actions button')).find(button => /delete|löschen/i.test(button.getAttribute('aria-label') ?? ''));
+      assert.ok(remove, container.querySelector('.block-menu-actions')?.innerHTML);
+      await click(remove);
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+      assert.equal(container.querySelector('.sote-block'), null);
+      assert.equal(readBlockTree(handle.doc).blocks.some(block => block.type === 'soteTasks'), false);
+    } finally {
+      await render(null);
+      globalThis.fetch = originalFetch;
+      handle.doc.destroy();
+    }
+  });
+
   test('pressing + opens the slash menu', async () => {
     // Guessed at twice and wrong twice. The editor package's own tests drive
     // openSlashMenu directly and pass, so whatever is broken is here.
