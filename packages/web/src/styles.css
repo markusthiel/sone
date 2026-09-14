@@ -13,7 +13,8 @@
 .sote-access { display: flex; align-items: center; justify-content: space-between; gap: .75rem; font-size: .75rem; color: var(--text-muted); margin-block-end: .25rem; }
 .sote-task { padding-block: .65rem; border-block-start: 1px solid var(--border-subtle); }
 .sote-task-row { display: flex; align-items: flex-start; gap: .6rem; }
-.sote-task-row > input { flex-shrink: 0; margin-block-start: .45rem; accent-color: var(--accent); }
+/* Centre the marker on the first title line; outrank the global checkbox margin reset. */
+.sote-task-row > input[type=checkbox] { flex-shrink: 0; margin-block-start: calc(.925rem - var(--sone-marker) / 2); accent-color: var(--accent); }
 .sote-embed .sote-task-row > a { flex: 1; min-inline-size: 0; overflow-wrap: anywhere; padding-block: .25rem; color: var(--text-primary); text-decoration: none; line-height: 1.5; }
 .sote-embed .sote-task-row > a:hover { color: var(--accent); text-decoration: underline; }
 .sote-task small { display: block; color: var(--text-secondary); margin-inline-start: 1.65rem; font-size: .75rem; }
