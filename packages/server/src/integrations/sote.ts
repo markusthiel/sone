@@ -15,7 +15,7 @@ const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const random = () => randomBytes(32).toString('base64url');
 const uuid = (x: unknown): x is string => typeof x === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
 class Rejected extends Error {
-    constructor(public status: number, message: string) { super(message); }
+    constructor(public status: number, message: string, public code = 'sote_integration') { super(message); }
 }
 const need = (ok: unknown, message = 'Kein Zugriff.', status = 403) => { if (!ok)
     throw new Rejected(status, message); };
@@ -102,7 +102,7 @@ export function registerSoteRoutes(router: Router, { pool, secretKey, publicUrl 
         }
         catch (e) {
             if (e instanceof Rejected)
-                ctx.send(e.status, { error: { code: 'sote_integration', message: e.message } });
+                ctx.send(e.status, { error: { code: e.code, message: e.message } });
             else
                 throw e;
         }
@@ -303,7 +303,7 @@ export function registerSoteRoutes(router: Router, { pool, secretKey, publicUrl 
         try {
             const tree = readBlockTree(loaded.doc).blocks;
             const b = tree.find(b => b.id === blockId && b.type === 'soteTasks');
-            need(b, 'Der Aufgabenblock wird noch gespeichert. Bitte erneut versuchen.', 409);
+            if (!b) throw new Rejected(409, 'Der Aufgabenblock wird noch gespeichert.', 'sote_block_pending');
             let parent = b!.parentId;
             while (parent) {
                 const ancestor = tree.find(item => item.id === parent);
@@ -316,8 +316,11 @@ export function registerSoteRoutes(router: Router, { pool, secretKey, publicUrl 
             loaded.doc.destroy();
         }
         const s = await server();
+        // The editor can request tasks before its new attributes have been persisted.
+        if (!props['serverId']) throw new Rejected(409, 'Der Aufgabenblock wird noch gespeichert.', 'sote_block_pending');
         need(props['serverId'] === s.id, 'Dieser Block gehört zu einer anderen Verbindung.', 409);
         const project = props['projectId'];
+        if (!project) throw new Rejected(409, 'Der Aufgabenblock wird noch gespeichert.', 'sote_block_pending');
         need(uuid(project), 'Bitte ein Projekt auswählen.', 409);
         need(await queryOne(pool, 'SELECT 1 FROM sote_projects WHERE workspace_id=$1 AND server_id=$2 AND project_id=$3', [page!.workspaceId, s.id, project]), 'Dieses Projekt ist hier nicht freigegeben.');
         return { who, s, token: await access(who.userId, s), props, pageId, blockId, project: String(project), editable: canEdit(claims!, page!) && !live!.locked };

@@ -110,6 +110,33 @@ test('personal SOTE grants, note scope and persisted references', { skip: !hasDa
     doc.getXmlFragment(DOC_KEYS.content).push([block]);
     await withTransaction(pool, async (q) => { const seq = await appendUpdate(q, pageId, Y.encodeStateAsUpdate(doc), fx.userId); await materializeYDoc(q, pageId, doc, { throughSeq: seq, workspaceId: fx.workspaceId }); });
     const path = '/pages/' + pageId + '/blocks/' + blockId;
+    // HTTP may see a block before the editor's configuration update is persisted.
+    const persist = async () => withTransaction(pool, async q => {
+        const seq = await appendUpdate(q, pageId, Y.encodeStateAsUpdate(doc), fx.userId);
+        await materializeYDoc(q, pageId, doc, { throughSeq: seq, workspaceId: fx.workspaceId });
+    });
+    const expectPending = async (target: string) => {
+        const result = await expectJson<{ error: { code: string } }>(await request(target), 409);
+        assert.equal(result.error.code, 'sote_block_pending');
+    };
+    await expectPending('/pages/' + pageId + '/blocks/' + randomUUID());
+    block.setAttribute('serverId', '');
+    block.setAttribute('projectId', '');
+    await persist();
+    await expectPending(path);
+    await expectStatus(await request(path, 'POST', { operationId: randomUUID(), fields: { title: 'Too early' } }), 409);
+    assert.equal(writes, 0, 'pending configuration cannot write tasks');
+    block.setAttribute('serverId', connection.id);
+    await persist();
+    await expectPending(path);
+    block.setAttribute('serverId', randomUUID());
+    block.setAttribute('projectId', project);
+    await persist();
+    const mismatch = await expectJson<{ error: { code: string; message: string } }>(await request(path), 409);
+    assert.equal(mismatch.error.code, 'sote_integration');
+    assert.match(mismatch.error.message, /anderen Verbindung/);
+    block.setAttribute('serverId', connection.id);
+    await persist();
     const data = await expectJson<{
         tasks: unknown[];
         writable: boolean;
