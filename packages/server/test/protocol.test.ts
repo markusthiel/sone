@@ -360,3 +360,9 @@ test('a client speaking a different document format is refused, with its own rea
     );
   }
 });
+
+
+test('schema 5 SOTE editors must reload before they can rewrite a deleted block', () => {
+  const frame = encodeAuth({ protocolVersion: PROTOCOL_VERSION, documentSchemaVersion: 5, workspaceId: WORKSPACE, sessionToken: 'abc123' });
+  assert.throws(() => decodeClientMessage(frame), (err: unknown) => err instanceof ProtocolError && err.code === SyncError.DocumentSchemaMismatch && /Reload the page/.test(err.message));
+});

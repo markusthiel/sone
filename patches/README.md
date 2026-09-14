@@ -14,3 +14,12 @@ the Docker dependency stage copies patches before installing.
 Regression: packages/web/test/soteNodeView.test.tsx connects two real editor
 views with separate Y.Docs, selects the task block in both and deletes it in one.
 The test throws in restoreRelativeSelection without this patch.
+
+## Deployment compatibility
+
+Document compatibility version 6 excludes schema 5 clients at the existing sync
+handshake. Applying the library fix only to newly loaded tabs is insufficient:
+an older connected tab can still rewrite its stale document and remove the
+replacement paragraph. The 5-to-6 migration changes only metadata, preserving
+all block contents. Reload all SONE tabs after deploying the new server and web
+bundle; previous clients receive the existing schema-mismatch reload message.

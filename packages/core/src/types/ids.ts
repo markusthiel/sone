@@ -60,7 +60,8 @@ export const asTimestamp = (d: Date = new Date()) =>
  * an optional field does not require a bump. Renaming, removing or changing
  * the meaning of a field does.
  */
-export const SCHEMA_VERSION = 5 as const;
+// Version 6 also fences off editors that can restore remotely deleted blocks.
+export const SCHEMA_VERSION = 6 as const;
 export type SchemaVersion = number;
 
 export interface DocMeta {
