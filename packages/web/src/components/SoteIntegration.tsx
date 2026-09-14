@@ -1,10 +1,11 @@
 import { useEffect, useState, useId } from 'react';
 import { createRoot } from 'react-dom/client';
 import { NodeSelection } from 'prosemirror-state';
+import { continueAfterSote } from '@sone/editor';
 import { applyBlockAttrs } from './blockAttrs.ts';
 import type { NodeView, EditorView } from 'prosemirror-view';
 import { useT } from '../i18n/useT.tsx';
-import { CheckSquareIcon, ArrowUturnIcon } from './icons.tsx';
+import { CheckSquareIcon, ArrowUturnIcon, PlusIcon } from './icons.tsx';
 type Translate = ReturnType<typeof useT>['t'];
 type Project = {
     id: string;
@@ -122,13 +123,14 @@ function TaskForm({ task, current, t, save, busy }: {
   <label>{t('sote.note')}<textarea value={note} onChange={e => setNote(e.target.value)}/></label>{error ? <p role="alert">{error}</p> : null}<button className="btn" disabled={busy || !!(task && current && current.revision !== revision)}>{task ? t('sote.save') : t('sote.create')}</button>
  </form>;
 }
-function SoteBlock({ pageId, blockId, config, change, t, editable }: {
+function SoteBlock({ pageId, blockId, config, change, t, editable, continueWriting }: {
     pageId: string;
     blockId: string;
     config: Config;
     change: (c: Config) => void;
     t: Translate;
     editable: () => boolean;
+    continueWriting: () => void;
 }) {
     const [options, setOptions] = useState<{
         serverId: string;
@@ -250,6 +252,7 @@ function SoteBlock({ pageId, blockId, config, change, t, editable }: {
    {data.next !== null && config.mode !== 'single' ? <button className="btn" disabled={busy} onClick={() => { setBusy(true); void request<NonNullable<typeof data>>(endpoint + '?offset=' + data.next).then(next => setData({ ...next, tasks: [...data.tasks, ...next.tasks] })).catch(e => setError(e.message)).finally(() => setBusy(false)); }}>{t('sote.more')}</button> : null}
    {data.writable && editable() && !config.taskId ? <details open={config.mode === 'single' || !!operation}><summary>{t('sote.newTask')}</summary>{operation ? <p>{t('sote.retryHint')}</p> : null}<TaskForm t={t} busy={busy} save={f => update(f)}/></details> : null}
   </> : null}
+  {editable() ? <button className="btn" type="button" onClick={continueWriting}><PlusIcon size={16}/> {t('sote.continueWriting')}</button> : null}
   {!configured && !editable() ? <p>{t('sote.notConfigured')}</p> : null}
  </div>;
 }
@@ -263,7 +266,15 @@ export function soteNodeView(pageId: string, editable: () => boolean, t: Transla
         dom.addEventListener('click', event => { const target = event.target as HTMLElement | null; if (target?.closest('input,textarea,select,button,a,summary'))
             return; const pos = getPos(); if (pos !== undefined)
             view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos))); });
-        const render = () => { applyBlockAttrs(dom, current.attrs); const id = String(current.attrs['id'] ?? ''); dom.dataset['blockId'] = id; root.render(<SoteBlock key={id} pageId={pageId} blockId={id} config={current.attrs as Config} t={t} editable={editable} change={config => { const pos = getPos(); if (pos === undefined || !editable())
+        const render = () => { applyBlockAttrs(dom, current.attrs); const id = String(current.attrs['id'] ?? ''); dom.dataset['blockId'] = id; root.render(<SoteBlock key={id} pageId={pageId} blockId={id} config={current.attrs as Config} t={t} editable={editable} continueWriting={() => {
+            const pos = getPos();
+            if (pos === undefined || !editable() || !view.editable) return;
+            const tr = view.state.tr;
+            if (continueAfterSote(tr, pos)) {
+                view.dispatch(tr.scrollIntoView());
+                view.focus();
+            }
+        }} change={config => { const pos = getPos(); if (pos === undefined || !editable())
             return; view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, ...config })); }}/>); };
         render();
         return { dom, update(next) { if (next.type !== current.type)
