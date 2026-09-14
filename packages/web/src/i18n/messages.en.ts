@@ -26,6 +26,8 @@ export const en = {
   "sote.loadingTasks": "Loading tasks …",
   "sote.savingBlock": "Saving task block …",
   "sote.saveDelayed": "The task block has not finished saving. Please check the page sync status. Tasks will be loaded again automatically.",
+  "sote.invalidDuration": "Enter a duration between 1 and 10080 minutes.",
+  "sote.clearDate": "Remove date",
   "sote.heading": "Connected applications",
   "sote.hint": "Tasks from SOTE",
   "sote.intro": "Connect SOTE to work on tasks inside your notes. Each person keeps their own access rights.",
