@@ -206,3 +206,73 @@ for (const scenario of ['saved', 'wrong-connection', 'timeout', 'deleted']) {
     }
   });
 }
+
+test('compact composer keeps popup fields after closing and retries the draft after an error', async () => {
+  const { act } = await import('react');
+  const Y = await import('yjs');
+  const { createEditor, schema } = await import('@sone/editor');
+  const { pageContent } = await import('@sone/core');
+  const { soteNodeView } = await import('../src/components/SoteIntegration.tsx');
+  const savedFetch = globalThis.fetch;
+  const sent: Array<{ fields: Record<string, unknown> }> = [];
+  globalThis.fetch = async (_url, init) => {
+    if (init?.method === 'POST') {
+      sent.push(JSON.parse(String(init.body)));
+      return sent.length === 1
+        ? new Response(JSON.stringify({ error: { message: 'Please retry' } }), { status: 400 })
+        : new Response(JSON.stringify({ task: { id: 'new-task' } }));
+    }
+    return new Response(JSON.stringify({ task: null, tasks: [], next: null, writable: true, baseUrl: 'https://tasks.example.org' }));
+  };
+  const doc = new Y.Doc(), mount = document.createElement('div'); document.body.append(mount);
+  const view = createEditor(mount, { fragment: pageContent(doc), editable: () => true, nodeViews: { soteTasks: soteNodeView('page', () => true, ((key: string) => key) as never) } });
+  const click = async (selector: string) => {
+    const element = document.querySelector<HTMLElement>(selector); assert.ok(element, selector);
+    await act(async () => element.click());
+  };
+  const fill = async (selector: string, value: string) => {
+    const element = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector); assert.ok(element, selector);
+    await act(async () => {
+      const prototype = element.tagName === 'TEXTAREA' ? dom.window.HTMLTextAreaElement.prototype : dom.window.HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(prototype, 'value')!.set!.call(element, value);
+      element.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    });
+  };
+  try {
+    await act(async () => view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, schema.nodes['soteTasks']!.create({ id: 'compose', serverId: 'server', projectId: 'project', mode: 'list' }))));
+    await fill('.sote-compose-title', 'My task');
+    await click('button[aria-label="sote.planned"]');
+    assert.ok(document.querySelector('[role="dialog"]'));
+    await fill('input[name="planned"]', '2026-09-16T14:30');
+    await click('.sote-popover .sote-check input');
+    assert.equal(document.querySelector<HTMLInputElement>('input[name="planned"]')!.value, '2026-09-16');
+    await act(async () => document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    assert.equal(document.querySelector('[role="dialog"]'), null);
+    assert.equal(document.activeElement?.getAttribute('aria-label'), 'sote.planned');
+    await click('button[aria-label="sote.duration"]');
+    await click('.sote-duration-presets button:nth-child(2)');
+    await click('.sote-popover > button:last-child');
+    await click('button[aria-label="sote.note"]');
+    await fill('.sote-popover textarea', 'Keep this note');
+    await click('.sote-popover > button:last-child');
+    await click('button[aria-label="sote.create"]');
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0]!.fields['title'], 'My task');
+    assert.equal(sent[0]!.fields['duration'], 30);
+    assert.equal(sent[0]!.fields['plannedAllDay'], true);
+    assert.equal(sent[0]!.fields['planned'], new Date('2026-09-16T00:00').toISOString());
+    assert.equal(sent[0]!.fields['note'], 'Keep this note');
+    assert.equal(document.querySelector<HTMLInputElement>('.sote-compose-title')!.value, 'My task');
+    await click('button[aria-label="sote.create"]');
+    assert.equal(sent.length, 2);
+    assert.deepEqual(sent[1]!.fields, sent[0]!.fields);
+    assert.equal(document.querySelector<HTMLInputElement>('.sote-compose-title')!.value, '');
+    assert.equal(document.querySelector('.sote-compose-meta'), null);
+    await click('button[aria-label="sote.note"]');
+    await act(async () => view.destroy());
+    assert.equal(document.querySelector('[role="dialog"]'), null, 'removing the block cleans up its portal');
+  } finally {
+    if (!view.isDestroyed) await act(async () => view.destroy());
+    doc.destroy(); mount.remove(); globalThis.fetch = savedFetch;
+  }
+});

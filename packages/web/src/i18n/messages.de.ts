@@ -32,6 +32,8 @@ export const de: Record<keyof typeof en, string> = {
   "sote.loadingTasks": "Aufgaben werden geladen …",
   "sote.savingBlock": "Aufgabenblock wird gespeichert …",
   "sote.saveDelayed": "Der Aufgabenblock wurde noch nicht vollständig gespeichert. Bitte die Synchronisierung der Seite prüfen. Die Aufgaben werden automatisch erneut geladen.",
+  "sote.invalidDuration": "Bitte eine Dauer zwischen 1 und 10080 Minuten eingeben.",
+  "sote.clearDate": "Termin entfernen",
   "sote.heading": "Verbundene Anwendungen",
   "sote.hint": "Aufgaben aus SOTE",
   "sote.intro": "Mit SOTE lassen sich Aufgaben direkt in Notizen bearbeiten. Die persönlichen Zugriffsrechte bleiben erhalten.",

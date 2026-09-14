@@ -1,11 +1,12 @@
-import { useEffect, useState, useId } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useId, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { NodeSelection } from 'prosemirror-state';
 import { continueAfterSote } from '@sone/editor';
 import { applyBlockAttrs } from './blockAttrs.ts';
 import type { NodeView, EditorView } from 'prosemirror-view';
 import { useT } from '../i18n/useT.tsx';
-import { CheckSquareIcon, ArrowUturnIcon, PlusIcon } from './icons.tsx';
+import { CheckSquareIcon, ArrowUturnIcon, PlusIcon, CalendarIcon, ClockIcon, TextIcon, PencilIcon, LinkIcon, ArrowUpIcon } from './icons.tsx';
 type Translate = ReturnType<typeof useT>['t'];
 type Project = {
     id: string;
@@ -93,35 +94,103 @@ export function SoteSettings({ workspaceId }: {
 }
 function localDate(value: string | null, allDay: boolean) { if (!value)
     return ''; const d = new Date(value), p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}${allDay ? '' : `T${p(d.getHours())}:${p(d.getMinutes())}`}`; }
+function TaskPopover({ anchor, title, children, close, t }: {
+    anchor: HTMLElement; title: string; children: ReactNode; close: () => void; t: Translate;
+}) {
+    const panel = useRef<HTMLDivElement>(null);
+    const label = useId();
+    const closeRef = useRef(close);
+    closeRef.current = close;
+    useLayoutEffect(() => {
+        const element = panel.current!;
+        const position = () => {
+            const box = anchor.getBoundingClientRect(), popup = element.getBoundingClientRect();
+            element.style.left = Math.max(12, Math.min(box.right - popup.width, window.innerWidth - popup.width - 12)) + 'px';
+            const below = box.bottom + 8;
+            element.style.top = Math.max(12, below + popup.height <= window.innerHeight - 12 ? below : box.top - popup.height - 8) + 'px';
+        };
+        position();
+        element.querySelector<HTMLElement>('input, textarea, button')?.focus();
+        const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(position);
+        observer?.observe(element);
+        const outside = (event: Event) => {
+            if (event.target instanceof Node && !element.contains(event.target) && !anchor.contains(event.target)) closeRef.current();
+        };
+        const escape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); anchor.focus(); closeRef.current(); }
+        };
+        document.addEventListener('pointerdown', outside);
+        document.addEventListener('focusin', outside);
+        document.addEventListener('keydown', escape, true);
+        window.addEventListener('resize', position);
+        window.addEventListener('scroll', position, true);
+        return () => {
+            observer?.disconnect();
+            document.removeEventListener('pointerdown', outside);
+            document.removeEventListener('focusin', outside);
+            document.removeEventListener('keydown', escape, true);
+            window.removeEventListener('resize', position);
+            window.removeEventListener('scroll', position, true);
+        };
+    }, [anchor]);
+    return createPortal(<div ref={panel} className="sote-popover" role="dialog" aria-labelledby={label}>
+        <strong id={label}>{title}</strong>{children}
+        <button className="btn quiet" type="button" onClick={() => { anchor.focus(); close(); }}>{t('action.done')}</button>
+    </div>, document.body);
+}
 function TaskForm({ task, current, t, save, busy }: {
-    task?: Task;
-    current?: Task;
-    t: Translate;
-    save: (fields: Record<string, unknown>, revision?: string) => Promise<void>;
-    busy: boolean;
+    task?: Task; current?: Task; t: Translate;
+    save: (fields: Record<string, unknown>, revision?: string) => Promise<void>; busy: boolean;
 }) {
     const [revision, setRevision] = useState(task?.revision);
-    const durationId = useId();
-    const [title, setTitle] = useState(task?.title ?? ''), [note, setNote] = useState(task?.note ?? ''), [allDay, setAllDay] = useState(task?.plannedAllDay ?? false), [date, setDate] = useState(localDate(task?.planned ?? null, task?.plannedAllDay ?? false)), [duration, setDuration] = useState(task?.duration?.toString() ?? ''), [error, setError] = useState('');
-    return <form className="sote-task-form" onSubmit={e => { e.preventDefault(); const chosenDate = String(new FormData(e.currentTarget).get('planned') ?? ''); void (async () => { setError(''); try {
-        const parsed = chosenDate ? new Date(allDay ? chosenDate + 'T00:00' : chosenDate) : null;
-        if (parsed && (!Number.isFinite(+parsed) || localDate(parsed.toISOString(), allDay) !== chosenDate))
-            throw new Error(t('sote.invalidDate'));
-        await save({ title, note, planned: parsed?.toISOString() ?? null, plannedAllDay: allDay, duration: duration ? Number(duration) : null }, revision);
-        if (!task) {
-            setTitle('');
-            setNote('');
-        }
-    }
-    catch (e) {
-        setError(e instanceof Error ? e.message : t('sote.failed'));
-    } })(); }}>
-  <label>{t('sote.title')}<input required maxLength={1000} value={title} onChange={e => setTitle(e.target.value)}/></label>
-  <div className="sote-time"><label>{t('sote.planned')}<input name="planned" type={allDay ? 'date' : 'datetime-local'} value={date} onInput={e => setDate(e.currentTarget.value)} onChange={e => setDate(e.target.value)}/></label><label>{t('sote.duration')}<input type="number" list={durationId} min={1} max={10080} value={duration} onChange={e => setDuration(e.target.value)}/><datalist id={durationId}><option value="15"/><option value="30"/><option value="60"/><option value="120"/></datalist></label></div>
-  <label className="sote-check"><input type="checkbox" checked={allDay} onChange={e => { setAllDay(e.target.checked); setDate(date ? (e.target.checked ? date.slice(0, 10) : date + 'T09:00') : ''); }}/>{t('sote.allDay')}</label>
-  {task && current && current.revision !== revision ? <div role="alert"><p>{t('sote.conflict')}</p><p>{current.title}<br />{current.planned ? new Date(current.planned).toLocaleString() : t('sote.unplanned')}{current.duration ? ` · ${current.duration} min` : ''}</p><p>{current.note}</p><button className="btn" type="button" onClick={() => setRevision(current.revision)}>{t('sote.reviewed')}</button></div> : null}
-  <label>{t('sote.note')}<textarea value={note} onChange={e => setNote(e.target.value)}/></label>{error ? <p role="alert">{error}</p> : null}<button className="btn" disabled={busy || !!(task && current && current.revision !== revision)}>{task ? t('sote.save') : t('sote.create')}</button>
- </form>;
+    const [title, setTitle] = useState(task?.title ?? ''), [note, setNote] = useState(task?.note ?? '');
+    const [allDay, setAllDay] = useState(task?.plannedAllDay ?? false);
+    const [date, setDate] = useState(localDate(task?.planned ?? null, task?.plannedAllDay ?? false));
+    const [duration, setDuration] = useState(task?.duration?.toString() ?? ''), [error, setError] = useState('');
+    const [popup, setPopup] = useState<{ kind: 'date' | 'duration' | 'note'; anchor: HTMLElement } | null>(null);
+    const titleInput = useRef<HTMLInputElement>(null);
+    const conflict = !!(task && current && current.revision !== revision);
+    const field = (kind: 'date' | 'duration' | 'note', label: string, icon: ReactNode, filled: boolean) =>
+        <button className="sote-icon" type="button" aria-label={label} title={label} aria-haspopup="dialog" aria-expanded={popup?.kind === kind} data-filled={filled}
+            onClick={event => setPopup(popup?.kind === kind ? null : { kind, anchor: event.currentTarget })}>{icon}</button>;
+    return <form className="sote-composer" onSubmit={event => {
+        event.preventDefault(); if (busy || conflict || !title.trim()) return;
+        void (async () => { setError(''); try {
+            const parsed = date ? new Date(allDay ? date + 'T00:00' : date) : null;
+            if (parsed && (!Number.isFinite(+parsed) || localDate(parsed.toISOString(), allDay) !== date)) throw new Error(t('sote.invalidDate'));
+            const minutes = duration ? Number(duration) : null;
+            if (minutes !== null && (!Number.isInteger(minutes) || minutes < 1 || minutes > 10080)) throw new Error(t('sote.invalidDuration'));
+            await save({ title: title.trim(), note, planned: parsed?.toISOString() ?? null, plannedAllDay: allDay, duration: minutes }, revision);
+            if (!task) { setTitle(''); setNote(''); setDate(''); setDuration(''); setAllDay(false); setPopup(null); titleInput.current?.focus(); }
+        } catch (e) { setError(e instanceof Error ? e.message : t('sote.failed')); } })();
+    }}>
+        <div className="sote-compose-line">
+            <input ref={titleInput} className="sote-compose-title" aria-label={t('sote.title')} placeholder={t('sote.newTask')} required maxLength={1000} value={title} onChange={e => setTitle(e.target.value)}/>
+            <div className="sote-compose-tools">
+                {field('date', t('sote.planned'), <CalendarIcon size={17}/>, !!date)}
+                {field('duration', t('sote.duration'), <ClockIcon size={17}/>, !!duration)}
+                {field('note', t('sote.note'), <TextIcon size={17}/>, !!note)}
+                <button className="sote-icon sote-submit" type="submit" aria-label={task ? t('sote.save') : t('sote.create')} title={task ? t('sote.save') : t('sote.create')} disabled={busy || conflict || !title.trim()}><ArrowUpIcon size={18}/></button>
+            </div>
+        </div>
+        {date || duration || note ? <div className="sote-compose-meta">
+            {date ? <span><CalendarIcon size={13}/>{date.replace('T', ' · ')}{allDay ? ' · ' + t('sote.allDay') : ''}</span> : null}
+            {duration ? <span><ClockIcon size={13}/>{duration} min</span> : null}
+            {note ? <span><TextIcon size={13}/>{t('sote.note')}</span> : null}
+        </div> : null}
+        {popup ? <TaskPopover anchor={popup.anchor} title={t(popup.kind === 'date' ? 'sote.planned' : popup.kind === 'duration' ? 'sote.duration' : 'sote.note')} close={() => setPopup(null)} t={t}>
+            {popup.kind === 'date' ? <>
+                <label>{t('sote.planned')}<input aria-label={t('sote.planned')} name="planned" type={allDay ? 'date' : 'datetime-local'} value={date} onInput={e => setDate(e.currentTarget.value)} onChange={e => setDate(e.target.value)}/></label>
+                <label className="sote-check"><input type="checkbox" checked={allDay} onChange={e => { setAllDay(e.target.checked); setDate(date ? (e.target.checked ? date.slice(0, 10) : date + 'T09:00') : ''); }}/>{t('sote.allDay')}</label>
+                <button className="btn quiet" type="button" onClick={() => { setDate(''); setAllDay(false); }}>{t('sote.clearDate')}</button>
+            </> : popup.kind === 'duration' ? <>
+                <div className="sote-duration-presets">{[15, 30, 60, 120].map(value => <button className="btn quiet" key={value} type="button" aria-pressed={duration === String(value)} onClick={() => setDuration(String(value))}>{value} min</button>)}</div>
+                <label>{t('sote.duration')}<input aria-label={t('sote.duration')} type="number" min={1} max={10080} value={duration} onChange={e => setDuration(e.target.value)}/></label>
+            </> : <label>{t('sote.note')}<textarea aria-label={t('sote.note')} rows={4} value={note} onChange={e => setNote(e.target.value)}/></label>}
+        </TaskPopover> : null}
+        {conflict && current ? <div role="alert"><p>{t('sote.conflict')}</p><p>{current.title}<br/>{current.planned ? new Date(current.planned).toLocaleString() : t('sote.unplanned')}{current.duration ? ' · ' + current.duration + ' min' : ''}</p><p>{current.note}</p><button className="btn quiet" type="button" onClick={() => setRevision(current.revision)}>{t('sote.reviewed')}</button></div> : null}
+        {error ? <p role="alert">{error}</p> : null}
+    </form>;
 }
 function SoteBlock({ pageId, blockId, config, change, t, editable, continueWriting }: {
     pageId: string;
@@ -268,23 +337,23 @@ function SoteBlock({ pageId, blockId, config, change, t, editable, continueWriti
             setBusy(false);
         }
     };
-    return <div className="sote-embed"><div className="sote-embed-head"><strong><CheckSquareIcon size={16}/> SOTE</strong><a href="/settings/sote">{t('sote.settings')}</a>{configured ? <button className="btn" type="button" aria-label={t('sote.refresh')} title={t('sote.refresh')} onClick={() => setReload(value => value + 1)}><ArrowUturnIcon size={16}/></button> : null}</div>
+    return <div className="sote-embed"><div className="sote-embed-head"><strong><CheckSquareIcon size={16}/> SOTE</strong><a className="sote-icon" href="/settings/sote" aria-label={t('sote.settings')} title={t('sote.settings')}><LinkIcon size={16}/></a>{configured ? <button className="sote-icon" type="button" aria-label={t('sote.refresh')} title={t('sote.refresh')} onClick={() => setReload(value => value + 1)}><ArrowUturnIcon size={16}/></button> : null}</div>
   {error ? <p role="alert">{error}</p> : null}
   {loading ? <p role="status">{t(loading === 'saving' ? 'sote.savingBlock' : 'sote.loadingTasks')}</p> : null}
   {!configured && editable() ? <div className="sote-task-form"><p>{t('sote.chooseProject')}</p><label>{t('sote.project')}<select value={project} onChange={e => { setProject(e.target.value); setSelected(''); }}><option value="">—</option>{options?.projects.map(p => <option key={p.id} value={p.id}>{p.workspaceName} · {p.name}</option>)}</select></label>
    {config.mode === 'single' ? <label>{t('sote.task')}<select value={selected} onChange={e => setSelected(e.target.value)}><option value="">{t('sote.newTask')}</option>{options?.tasks?.map(task => <option key={task.id} value={task.id}>{task.title}</option>)}</select></label> : null}
    <button className="btn" disabled={!options || !project} onClick={() => change({ ...config, serverId: options!.serverId, projectId: project, taskId: selected })}>{t('sote.embed')}</button>
   </div> : null}
-  {data ? <><div className="sote-embed-head"><span>{data.writable ? t('sote.readWrite') : t('sote.readOnly')}</span><label className="sote-check"><input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)}/>{t('sote.showDone')}</label></div>
-   {data.tasks.filter(task => showDone || !task.completed).map(task => <div className="sote-task" key={task.id}><div className="sote-task-row"><input type="checkbox" aria-label={task.title} disabled={busy || !data.writable || !editable()} checked={!!task.completed} onChange={e => void update({ completed: e.target.checked }, task).catch(() => { })}/><a href={data.baseUrl + '/a/' + task.id} target="_blank" rel="noopener noreferrer">{task.title}</a>{data.writable && editable() ? <button className="btn" disabled={busy} onClick={() => setEdit(edit?.id === task.id ? null : task)}>{t('sote.edit')}</button> : null}</div>
+  {data ? <><div className="sote-access"><span>{data.writable && editable() ? t('sote.readWrite') : t('sote.readOnly')}</span><button className="sote-icon" type="button" aria-label={t('sote.showDone')} title={t('sote.showDone')} aria-pressed={showDone} onClick={() => setShowDone(!showDone)}><CheckSquareIcon size={16}/></button></div>
+   {data.tasks.filter(task => showDone || !task.completed).map(task => <div className="sote-task" key={task.id}><div className="sote-task-row"><input type="checkbox" aria-label={task.title} disabled={busy || !data.writable || !editable()} checked={!!task.completed} onChange={e => void update({ completed: e.target.checked }, task).catch(() => { })}/><a href={data.baseUrl + '/a/' + task.id} target="_blank" rel="noopener noreferrer">{task.title}</a>{data.writable && editable() ? <button className="sote-icon" type="button" disabled={busy} aria-label={t('sote.edit')} title={t('sote.edit')} aria-expanded={edit?.id === task.id} onClick={() => setEdit(edit?.id === task.id ? null : task)}><PencilIcon size={16}/></button> : null}</div>
     {task.planned ? <small>{new Date(task.planned).toLocaleDateString()} · {task.plannedAllDay ? t('sote.allDay') : new Date(task.planned).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{task.duration ? ` · ${task.duration} min` : ''}</small> : null}
     {edit?.id === task.id ? <TaskForm key={task.id} task={edit} current={task} t={t} save={(f, revision) => update(f, { ...edit, revision: revision ?? edit.revision })} busy={busy}/> : null}
    </div>)}
    {!data.tasks.length ? <p>{t('sote.empty')}</p> : null}
    {data.next !== null && config.mode !== 'single' ? <button className="btn" disabled={busy} onClick={() => { setBusy(true); void request<NonNullable<typeof data>>(endpoint + '?offset=' + data.next).then(next => setData({ ...next, tasks: [...data.tasks, ...next.tasks] })).catch(e => setError(e.message)).finally(() => setBusy(false)); }}>{t('sote.more')}</button> : null}
-   {data.writable && editable() && !config.taskId ? <details open={config.mode === 'single' || !!operation}><summary>{t('sote.newTask')}</summary>{operation ? <p>{t('sote.retryHint')}</p> : null}<TaskForm t={t} busy={busy} save={f => update(f)}/></details> : null}
+   {data.writable && editable() && !config.taskId ? <div className="sote-new-task">{operation ? <p>{t('sote.retryHint')}</p> : null}<TaskForm t={t} busy={busy} save={f => update(f)}/></div> : null}
   </> : null}
-  {editable() ? <button className="btn" type="button" onClick={continueWriting}><PlusIcon size={16}/> {t('sote.continueWriting')}</button> : null}
+  {editable() ? <button className="sote-continue" type="button" onClick={continueWriting}><PlusIcon size={16}/> {t('sote.continueWriting')}</button> : null}
   {!configured && !editable() ? <p>{t('sote.notConfigured')}</p> : null}
  </div>;
 }
