@@ -6,7 +6,7 @@ import { continueAfterSote } from '@sone/editor';
 import { applyBlockAttrs } from './blockAttrs.ts';
 import type { NodeView, EditorView } from 'prosemirror-view';
 import { useT } from '../i18n/useT.tsx';
-import { CheckSquareIcon, ArrowUturnIcon, PlusIcon, CalendarIcon, ClockIcon, TextIcon, PencilIcon, LinkIcon, ArrowUpIcon } from './icons.tsx';
+import { CheckSquareIcon, ArrowUturnIcon, PlusIcon, CalendarIcon, ClockIcon, TextIcon, PencilIcon, LinkIcon } from './icons.tsx';
 type Translate = ReturnType<typeof useT>['t'];
 type Project = {
     id: string;
@@ -170,7 +170,7 @@ function TaskForm({ task, current, t, save, busy }: {
                 {field('date', t('sote.planned'), <CalendarIcon size={17}/>, !!date)}
                 {field('duration', t('sote.duration'), <ClockIcon size={17}/>, !!duration)}
                 {field('note', t('sote.note'), <TextIcon size={17}/>, !!note)}
-                <button className="sote-icon sote-submit" type="submit" aria-label={task ? t('sote.save') : t('sote.create')} title={task ? t('sote.save') : t('sote.create')} disabled={busy || conflict || !title.trim()}><ArrowUpIcon size={18}/></button>
+                <button className="sote-icon sote-submit" type="submit" aria-label={task ? t('sote.save') : t('sote.create')} title={task ? t('sote.save') : t('sote.create')} disabled={busy || conflict || !title.trim()}><CheckSquareIcon size={18}/></button>
             </div>
         </div>
         {date || duration || note ? <div className="sote-compose-meta">
