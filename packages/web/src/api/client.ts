@@ -2188,14 +2188,12 @@ export function buildPageTree(pages: PageSummary[]): PageNode[] {
     else roots.push(node);
   }
 
-  // Folders before pages, then by (idx, id).
+  // All entry kinds share the saved order, so a new page can precede a folder.
   //
   // The tie-breaker matters wherever fractional indices are used, because a
   // midpoint is deterministic and two offline clients can produce the same key
-  // (ADR-0015). Folders first is what makes the sidebar read as a filing system
-  // rather than a mixed pile — the point of having folders at all (ADR-0019).
+  // (ADR-0015).
   const compare = (a: PageNode, b: PageNode): number => {
-    if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
     if (a.idx !== b.idx) return a.idx < b.idx ? -1 : 1;
     return a.id < b.id ? -1 : 1;
   };

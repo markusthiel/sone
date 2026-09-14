@@ -174,6 +174,7 @@ export const de: Record<keyof typeof en, string> = {
   'sidebar.newFolder': 'Neuer Ordner',
   'sidebar.empty': 'Noch keine Seiten.',
   'sidebar.rename': 'Umbenennen',
+  'sidebar.entryName': 'Name eingeben',
   'sidebar.newPageIn': 'Neue Seite in {title}',
   'sidebar.addIn': 'Etwas in {title} anlegen',
   'sidebar.removeFavourite': '{title} entfernen',

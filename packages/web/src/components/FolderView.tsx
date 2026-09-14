@@ -169,9 +169,8 @@ export function FolderView({
         </p>
       ) : (
         <>
-          {/* Folders before pages, matching the sidebar. A filing system that
-              orders one way in one place and another way elsewhere makes people
-              hunt. */}
+          {/* The overview groups entry kinds into sections; each section keeps
+              the saved order used by the sidebar. */}
           {folders.length > 0 && (
             <section>
               <h2 className="folder-section">{t('folder.folders')}</h2>

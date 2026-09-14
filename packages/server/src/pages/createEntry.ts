@@ -42,6 +42,8 @@ export interface CreateEntryInput {
   kind: EntryKind;
   title: string;
   parentPageId: string | null;
+  /** Interactive creation prepends; imports keep their source order. */
+  position?: 'first' | 'last';
   /** Null for an entry created by the system rather than by a person. */
   actorId: string | null;
 }
@@ -55,7 +57,7 @@ export interface CreatedEntry {
 }
 
 /**
- * The index that places a new entry last among its siblings.
+ * The index that places a new entry before or after its siblings.
  *
  * Sorted by `(idx, id)`: a fractional-index midpoint is deterministic, so two
  * clients inserting concurrently can produce the same key and the id breaks the
@@ -65,24 +67,26 @@ async function nextIndex(
   db: Pool | PoolClient,
   workspaceId: string,
   parentPageId: string | null,
+  position: 'first' | 'last',
 ): Promise<string> {
   const siblings = await queryRows<{ idx: string }>(
     db,
     `SELECT idx FROM pages
       WHERE workspace_id = $1
         AND parent_page_id IS NOT DISTINCT FROM $2
-      ORDER BY idx DESC, id DESC
+      ORDER BY idx ${position === 'first' ? 'ASC' : 'DESC'}, id ${position === 'first' ? 'ASC' : 'DESC'}
       LIMIT 1`,
     [workspaceId, parentPageId],
   );
-  return generateKeyBetween(siblings[0]?.idx ?? null, null);
+  const edge = siblings[0]?.idx ?? null;
+  return position === 'first' ? generateKeyBetween(null, edge) : generateKeyBetween(edge, null);
 }
 
 export async function createEntry(
   pool: Pool,
   input: CreateEntryInput,
 ): Promise<CreatedEntry> {
-  const idx = await nextIndex(pool, input.workspaceId, input.parentPageId);
+  const idx = await nextIndex(pool, input.workspaceId, input.parentPageId, input.position ?? 'last');
   const id = crypto.randomUUID();
   const title = input.title.trim().slice(0, 512);
 

@@ -83,9 +83,7 @@ test('every ancestor of a deep page is listed', () => {
 
 // --- folder contents -------------------------------------------------------
 
-test('a folder view separates folders from pages', () => {
-  // Folders before pages, matching the sidebar. A filing system that orders one
-  // way in one place and another way elsewhere makes people hunt.
+test('the tree keeps mixed entries in index order, with ids breaking ties', () => {
   const mixed = buildPageTree([
     page('root', null, 'folder'),
     page('a-page', 'root', 'page'),
@@ -96,8 +94,8 @@ test('a folder view separates folders from pages', () => {
   const children = mixed[0]!.children;
   assert.deepEqual(
     children.map((child) => child.kind),
-    ['folder', 'page', 'page'],
-    'folders come first in the tree the folder view renders from',
+    ['page', 'folder', 'page'],
+    'entry kinds do not override the saved order',
   );
 });
 
