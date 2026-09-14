@@ -145,3 +145,64 @@ test('a late recovery response cannot restore a deleted task block', async () =>
     doc.destroy(); mount.remove(); globalThis.fetch = savedFetch; sessionStorage.clear();
   }
 });
+
+for (const scenario of ['saved', 'wrong-connection', 'timeout', 'deleted']) {
+  test('new task block loading: ' + scenario, async (t) => {
+    const { act } = await import('react');
+    const Y = await import('yjs');
+    const { createEditor, schema, deleteBlockSubtree } = await import('@sone/editor');
+    const { pageContent } = await import('@sone/core');
+    const { NodeSelection } = await import('prosemirror-state');
+    const { soteNodeView } = await import('../src/components/SoteIntegration.tsx');
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const savedFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls++;
+      if (scenario === 'saved' && calls > 1) return new Response(JSON.stringify({ tasks: [{ id: 'task', title: 'Ready task' }], writable: false, next: null, baseUrl: 'https://tasks.example.org' }));
+      return new Response(JSON.stringify({ error: { code: scenario === 'wrong-connection' ? 'sote_integration' : 'sote_block_pending', message: scenario === 'wrong-connection' ? 'Different connection' : 'Still saving' } }), { status: 409 });
+    };
+    const doc = new Y.Doc(), mount = document.createElement('div');
+    document.body.append(mount);
+    const view = createEditor(mount, { fragment: pageContent(doc), editable: () => true, nodeViews: { soteTasks: soteNodeView('page', () => true, ((key: string) => key) as never) } });
+    try {
+      await act(async () => {
+        view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, schema.nodes['soteTasks']!.create({ id: 'new-block', serverId: 'server', projectId: 'project' })));
+      });
+      assert.equal(calls, 1);
+      if (scenario === 'wrong-connection') {
+        assert.equal(mount.querySelector('[role="alert"]')?.textContent, 'Different connection');
+        assert.equal(mount.querySelector('[role="status"]'), null);
+        await act(async () => { t.mock.timers.tick(1000); });
+        assert.equal(calls, 1, 'real conflicts do not trigger saving retries');
+      } else {
+        assert.equal(mount.querySelector('[role="alert"]'), null);
+        assert.equal(mount.querySelector('[role="status"]')?.textContent, 'sote.savingBlock');
+        if (scenario === 'deleted') {
+          await act(async () => {
+            view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0)));
+            deleteBlockSubtree(view.state, view.dispatch);
+            t.mock.timers.tick(30000);
+          });
+          assert.equal(calls, 1, 'deleting the block cancels its retry');
+        } else if (scenario === 'saved') {
+          await act(async () => { t.mock.timers.tick(1000); });
+          assert.equal(calls, 2);
+          assert.equal(mount.querySelector('[role="alert"]'), null);
+          assert.equal(mount.querySelector('[role="status"]'), null);
+          assert.ok(mount.textContent?.includes('Ready task'));
+        } else {
+          for (let i = 0; i < 10; i++) await act(async () => { t.mock.timers.tick(1000); });
+          assert.equal(mount.querySelector('[role="status"]'), null);
+          assert.equal(mount.querySelector('[role="alert"]')?.textContent, 'sote.saveDelayed');
+          assert.equal(calls, 11);
+          await act(async () => { t.mock.timers.tick(1000); });
+          assert.equal(calls, 11, 'quick retries stop after ten seconds');
+        }
+      }
+    } finally {
+      await act(async () => view.destroy());
+      doc.destroy(); mount.remove(); globalThis.fetch = savedFetch;
+    }
+  });
+}

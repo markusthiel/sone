@@ -29,6 +29,9 @@ export const de: Record<keyof typeof en, string> = {
   'slash.sote-single.hint': 'Eine Aufgabe verknüpfen oder anlegen',
   'slash.sote-single.keywords': 'sote,aufgabe',
 
+  "sote.loadingTasks": "Aufgaben werden geladen …",
+  "sote.savingBlock": "Aufgabenblock wird gespeichert …",
+  "sote.saveDelayed": "Der Aufgabenblock wurde noch nicht vollständig gespeichert. Bitte die Synchronisierung der Seite prüfen. Die Aufgaben werden automatisch erneut geladen.",
   "sote.heading": "Verbundene Anwendungen",
   "sote.hint": "Aufgaben aus SOTE",
   "sote.intro": "Mit SOTE lassen sich Aufgaben direkt in Notizen bearbeiten. Die persönlichen Zugriffsrechte bleiben erhalten.",

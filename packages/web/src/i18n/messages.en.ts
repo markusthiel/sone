@@ -23,6 +23,9 @@ export const en = {
   'slash.sote-single.hint': 'Link or create one task',
   'slash.sote-single.keywords': 'sote,task',
 
+  "sote.loadingTasks": "Loading tasks …",
+  "sote.savingBlock": "Saving task block …",
+  "sote.saveDelayed": "The task block has not finished saving. Please check the page sync status. Tasks will be loaded again automatically.",
   "sote.heading": "Connected applications",
   "sote.hint": "Tasks from SOTE",
   "sote.intro": "Connect SOTE to work on tasks inside your notes. Each person keeps their own access rights.",

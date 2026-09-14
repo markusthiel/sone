@@ -32,13 +32,13 @@ type Config = {
     mode?: string;
 };
 class ConnectionError extends Error {
-    constructor(public status: number, message: string) { super(message); }
+    constructor(public status: number, message: string, public code?: string) { super(message); }
 }
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
     const res = await fetch('/api/integrations/sote' + path, { method, headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     const out = await res.json();
     if (!res.ok)
-        throw new ConnectionError(res.status, out.error?.message ?? 'SOTE connection unavailable.');
+        throw new ConnectionError(res.status, out.error?.message ?? 'SOTE connection unavailable.', out.error?.code);
     return out as T;
 }
 export function SoteSettings({ workspaceId }: {
@@ -160,7 +160,17 @@ function SoteBlock({ pageId, blockId, config, change, t, editable, continueWriti
     const [pendingFields, setPendingFields] = useState<Record<string, unknown> | null>(null);
     const endpoint = '/pages/' + pageId + '/blocks/' + blockId;
     const configured = !!config.serverId && !!config.projectId;
-    useEffect(() => { let active = true; const run = async () => { try {
+    const [loading, setLoading] = useState<'loading' | 'saving' | null>(configured ? 'loading' : null);
+    const [reload, setReload] = useState(0);
+    useEffect(() => { setData(undefined); }, [pageId, blockId, config.serverId, config.projectId, config.taskId]);
+    useEffect(() => {
+        let active = true, pendingRetries = 0;
+        let timer: ReturnType<typeof setTimeout>;
+        setError('');
+        setLoading(configured && !data ? 'loading' : null);
+        const run = async () => {
+        let delay = 15000;
+        try {
         if (!configured) {
             const o = await request<NonNullable<typeof options>>('/pages/' + pageId + '/options' + (project ? '?projectId=' + project : ''));
             if (active)
@@ -184,10 +194,13 @@ function SoteBlock({ pageId, blockId, config, change, t, editable, continueWriti
                         change({ ...config, taskId: recovered.task.id });
                 }
             }
+            if (!active) return;
             const d = await request<NonNullable<typeof data>>(endpoint);
             if (active) {
                 setData(d);
                 setError('');
+                setLoading(null);
+                pendingRetries = 0;
             }
         }
     }
@@ -195,11 +208,30 @@ function SoteBlock({ pageId, blockId, config, change, t, editable, continueWriti
         if (active) {
             if (e instanceof ConnectionError && e.status < 500)
                 setData(undefined);
-            setError(e instanceof Error ? e.message : t('sote.failed'));
+            if (e instanceof ConnectionError && e.code === 'sote_block_pending') {
+                if (pendingRetries++ < 10) {
+                    setError('');
+                    setLoading('saving');
+                    delay = 1000;
+                } else {
+                    setLoading(null);
+                    setError(t('sote.saveDelayed'));
+                }
+            } else {
+                setLoading(null);
+                setError(e instanceof Error ? e.message : t('sote.failed'));
+            }
         }
-    } }; void run(); const timer = setInterval(() => { if (document.visibilityState === 'visible')
-        void run(); }, 15000); return () => { active = false; clearInterval(timer); }; }, [pageId, blockId, config.serverId, config.projectId, config.taskId, project, operation]);
-    const load = async () => { const d = await request<NonNullable<typeof data>>(endpoint); setData(d); setError(''); };
+    } finally {
+        const next = () => {
+            if (!active) return;
+            if (document.visibilityState === 'visible') void run();
+            else timer = setTimeout(next, 15000);
+        };
+        if (active) timer = setTimeout(next, delay);
+    }
+    }; void run(); return () => { active = false; clearTimeout(timer); }; }, [pageId, blockId, config.serverId, config.projectId, config.taskId, project, operation, reload]);
+    const load = async () => { const d = await request<NonNullable<typeof data>>(endpoint); setData(d); setError(''); setLoading(null); };
     const update = async (fields: Record<string, unknown>, task?: Task) => {
         setBusy(true);
         setError('');
@@ -236,9 +268,9 @@ function SoteBlock({ pageId, blockId, config, change, t, editable, continueWriti
             setBusy(false);
         }
     };
-    return <div className="sote-embed"><div className="sote-embed-head"><strong><CheckSquareIcon size={16}/> SOTE</strong><a href="/settings/sote">{t('sote.settings')}</a>{configured ? <button className="btn" type="button" aria-label={t('sote.refresh')} title={t('sote.refresh')} onClick={() => void load().catch(e => { if (e instanceof ConnectionError && e.status < 500)
-        setData(undefined); setError(e.message); })}><ArrowUturnIcon size={16}/></button> : null}</div>
+    return <div className="sote-embed"><div className="sote-embed-head"><strong><CheckSquareIcon size={16}/> SOTE</strong><a href="/settings/sote">{t('sote.settings')}</a>{configured ? <button className="btn" type="button" aria-label={t('sote.refresh')} title={t('sote.refresh')} onClick={() => setReload(value => value + 1)}><ArrowUturnIcon size={16}/></button> : null}</div>
   {error ? <p role="alert">{error}</p> : null}
+  {loading ? <p role="status">{t(loading === 'saving' ? 'sote.savingBlock' : 'sote.loadingTasks')}</p> : null}
   {!configured && editable() ? <div className="sote-task-form"><p>{t('sote.chooseProject')}</p><label>{t('sote.project')}<select value={project} onChange={e => { setProject(e.target.value); setSelected(''); }}><option value="">—</option>{options?.projects.map(p => <option key={p.id} value={p.id}>{p.workspaceName} · {p.name}</option>)}</select></label>
    {config.mode === 'single' ? <label>{t('sote.task')}<select value={selected} onChange={e => setSelected(e.target.value)}><option value="">{t('sote.newTask')}</option>{options?.tasks?.map(task => <option key={task.id} value={task.id}>{task.title}</option>)}</select></label> : null}
    <button className="btn" disabled={!options || !project} onClick={() => change({ ...config, serverId: options!.serverId, projectId: project, taskId: selected })}>{t('sote.embed')}</button>
