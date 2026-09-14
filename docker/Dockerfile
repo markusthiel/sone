@@ -22,6 +22,7 @@ COPY packages/client/package.json   packages/client/
 COPY packages/editor/package.json   packages/editor/
 COPY packages/server/package.json   packages/server/
 COPY packages/web/package.json      packages/web/
+COPY patches/ patches/
 RUN pnpm install --frozen-lockfile
 
 COPY . .
