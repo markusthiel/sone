@@ -55,6 +55,54 @@ describe('import execution (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABA
     );
   }
 
+  test('an entry arrives with the symbol and colours it left with (ADR-0190)', async () => {
+    const destination = await createEntry(db, {
+      workspaceId,
+      kind: 'folder',
+      title: 'Look',
+      parentPageId: null,
+      actorId: userId,
+    });
+    const icon = {
+      kind: 'icon',
+      value: 'rocket',
+      color: 'blue',
+      titleColor: '#aa1122',
+    };
+    const entries = unzip(
+      zip([
+        { name: 'Bunt/index.md', body: Buffer.from(pageToMarkdown('Bunt', [], { icon })), at },
+        {
+          name: 'Bunt/Seite.md',
+          body: Buffer.from(
+            pageToMarkdown('Seite', [{ id: 'a', parentId: null, type: 'paragraph', plainText: 'Hi', props: {} }], {
+              icon: { kind: 'icon', value: 'star' },
+            }),
+          ),
+          at,
+        },
+      ]),
+    );
+    const result = await executePlan(db, planImport(entries, { byPath: new Map() }), {
+      workspaceId,
+      parentPageId: destination.id,
+      actorId: userId,
+      onCollision: 'skip',
+    });
+    assert.deepEqual(result.failed, []);
+
+    const rows = await queryRows<{ title: string; icon: unknown }>(
+      db,
+      `SELECT title, icon FROM pages WHERE parent_page_id = $1 OR parent_page_id IN
+         (SELECT id FROM pages WHERE parent_page_id = $1) ORDER BY title`,
+      [destination.id],
+    );
+    assert.deepEqual(rows, [
+      { title: 'Bunt', icon },
+      { title: 'Seite', icon: { kind: 'icon', value: 'star' } },
+    ]);
+  });
+
   test('an archive becomes pages, and the words survive the trip', async () => {
     const destination = await createEntry(db, {
       workspaceId,

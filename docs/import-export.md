@@ -57,6 +57,11 @@ attachments/
   `ubersicht-2026.md`.
 - A **folder** becomes a directory with an `index.md` in it, because a folder has
   a name and an icon of its own that would otherwise be lost.
+- An entry's **symbol and colours** — the icon, its colour, the title's colour —
+  are written as an HTML comment right under the title, `<!-- sone-entry … -->`.
+  Other readers do not show it; SONE reads it back on import. An entry with the
+  default look has no such line. A divider's line and symbol travel the same way,
+  as `<!-- sone-divider … -->` under its `---`.
 - Pictures and files land in `attachments/`, named by id, and the Markdown links
   to them. Two pictures both called `screenshot.png` would be one file in a flat
   directory; the id avoids that.
@@ -80,6 +85,8 @@ attachments/
 | Page history | An archive is one moment. The versions are in SONE. |
 | Who wrote what | Attribution is per character in the document; a Markdown file has no place for it. |
 | Permissions | Who may read a page is a fact about SONE, not about the text. |
+| A canvas's drawing | A canvas arrives as an empty page. Its pictures are in `attachments/`, the arrangement is not. |
+| Cover, width, template flag, lock | Not yet. The icon and colours are; these would go in the same line. |
 | Bold and italic **inside** a re-import | They export correctly. See the note under importing. |
 
 ---

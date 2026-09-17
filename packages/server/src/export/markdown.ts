@@ -58,13 +58,31 @@ function fence(type: string, props: Record<string, unknown>, text: string): stri
  * trailing whitespace, so a file that has not changed does not appear to have
  * changed when somebody puts an export under version control.
  */
-export function pageToMarkdown(title: string, blocks: ExportBlock[]): string {
+/** What an entry is, apart from its title and its blocks. */
+export interface ExportEntry {
+  /** The `icon` value from the page map: symbol, symbol colour, title colour. */
+  icon?: unknown;
+}
+
+export function pageToMarkdown(
+  title: string,
+  blocks: ExportBlock[],
+  entry?: ExportEntry,
+): string {
   const depth = depths(blocks);
   const lines: string[] = [];
 
   // The title as a level-one heading, and nothing else at that level: a page has
   // one name, and a reader that builds a table of contents should see it.
   lines.push(`# ${title || 'Untitled'}`);
+
+  // The entry's own look — its symbol, the symbol's colour, the title's colour
+  // — as an HTML comment right under the title, which Markdown renderers drop
+  // and our importer reads (ADR-0190). Only when there is something to say: a
+  // page with the default look gets no comment at all.
+  if (entry?.icon !== undefined && entry.icon !== null) {
+    lines.push(`<!-- sone-entry ${JSON.stringify({ icon: entry.icon })} -->`);
+  }
 
   let numbering = 0;
   for (const block of blocks) {

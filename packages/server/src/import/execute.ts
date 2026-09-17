@@ -15,7 +15,14 @@ import crypto from 'node:crypto';
 import type { Pool } from 'pg';
 import * as Y from 'yjs';
 
-import { BLOCK_ATTRS, DOC_KEYS, serialiseProps } from '@sone/core';
+import {
+  BLOCK_ATTRS,
+  DOC_KEYS,
+  PAGE_KEYS,
+  readEntryIcon,
+  readTitleColor,
+  serialiseProps,
+} from '@sone/core';
 
 import { applyToDocument } from '../doc/docStore.js';
 import { detectType, type FileStore } from '../files/store.js';
@@ -178,6 +185,25 @@ export async function executePlan(
         parentPageId: parent,
         actorId: options.actorId,
       });
+
+      // The look it had (ADR-0190): through the same readers the icon route
+      // uses, so an archive cannot write a shape the interface would not.
+      const look = page.entry?.icon;
+      const icon = readEntryIcon(look);
+      const titleColor = readTitleColor(look);
+      if (icon || titleColor) {
+        await applyToDocument(
+          pool,
+          created.id,
+          (doc) => {
+            doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.icon, {
+              ...(icon ?? {}),
+              ...(titleColor ? { titleColor } : {}),
+            });
+          },
+          options.actorId,
+        );
+      }
 
       if (!page.isFolder && page.markdown.trim() !== '') {
         // The files this page refers to, uploaded before its body is written so

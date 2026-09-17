@@ -26,6 +26,8 @@ export interface PlannedPage {
   markdown: string;
   /** An existing page of the same name in the same place, if any. */
   collidesWith: string | null;
+  /** The look the archive carries for it, or null (ADR-0190). */
+  entry?: { icon: unknown } | null;
 }
 
 export interface PlannedAttachment {
@@ -81,7 +83,28 @@ export function titleFrom(markdown: string, fallback: string): string {
  * heading under it.
  */
 export function bodyWithoutTitle(markdown: string): string {
-  return markdown.replace(/^#\s+.+\n+/, '');
+  return markdown.replace(/^#\s+.+\n+/, '').replace(ENTRY_COMMENT, '');
+}
+
+/** The look our export writes under the title (ADR-0190). */
+const ENTRY_COMMENT = /^<!--\s*sone-entry\s+(\{.*\})\s*-->\n*/m;
+
+/**
+ * The entry's look, if the archive carries one: the raw `icon` value, to be
+ * validated by the same readers the icon route uses when it is written.
+ */
+export function entryFrom(markdown: string): { icon: unknown } | null {
+  const match = ENTRY_COMMENT.exec(markdown);
+  if (!match) return null;
+  try {
+    const parsed: unknown = JSON.parse(match[1] ?? '{}');
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'icon' in parsed) {
+      return { icon: (parsed as { icon: unknown }).icon };
+    }
+  } catch {
+    // A comment we wrote and cannot read back: the page keeps its default look.
+  }
+  return null;
 }
 
 export function planImport(entries: ArchiveEntry[], existing: Existing): ImportPlan {
@@ -132,6 +155,7 @@ export function planImport(entries: ArchiveEntry[], existing: Existing): ImportP
       isFolder: isIndex,
       markdown: bodyWithoutTitle(markdown),
       collidesWith: existing.byPath.get(key(path)) ?? null,
+      entry: entryFrom(markdown),
     });
   }
 
