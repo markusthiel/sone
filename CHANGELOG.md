@@ -13,7 +13,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nichts zu tun.
+## 0.14.1
+
+Aktualisieren und neu starten, sonst nichts. Wer nach einem Import Seiten im
+Papierkorb vermisst: den gelöschten Sammelordner wiederherstellen, dann kommen
+sie mit zurück.
 
 **Ein verschobener Ordner nimmt seine Enkel richtig mit.** Wer einen Ordner
 verschob, bekam bei dessen Kindern den neuen Pfad, bei den Enkeln aber den
