@@ -13,6 +13,20 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nichts zu tun — außer der Container kommt mit `[migrate] failed: Invalid URL`
+nicht hoch. Dann enthält `POSTGRES_PASSWORD` in der `.env` ein `/`, `#` oder
+`%`: Kennwort durch eines aus `openssl rand -hex 32` ersetzen und die Datenbank
+bei einer frischen Installation mit `docker compose down -v` zurücksetzen (bei
+vorhandenen Daten stattdessen `ALTER USER sone PASSWORD` im db-Container).
+
+**Ein unbrauchbares Datenbankkennwort wird beim Start benannt.** Bisher meldete
+der Server nur „Invalid URL“ und startete neu, ohne zu sagen, welche Variable
+gemeint war. Jetzt nennt er `SONE_DATABASE_URL`, die Ursache (Sonderzeichen aus
+`openssl rand -base64` im Kennwort) und den Weg heraus. `.env.example` empfiehlt
+für `POSTGRES_PASSWORD` nun `openssl rand -hex 32` und führt `SONE_IMAGE` auf,
+das bisher nur in `docker-compose.yml` und der Anleitung stand: ohne die Zeile
+zieht compose stillschweigend `:latest`.
+
 ## 0.13.0
 
 Aktualisieren und neu starten; die Migrationen 0077–0079 laufen automatisch.
