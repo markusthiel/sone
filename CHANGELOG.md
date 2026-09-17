@@ -13,6 +13,16 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+**Mail über Microsoft 365 geht.** Der Testversand an `smtp.office365.com` (oder
+`smtp-mail.outlook.com`) endete mit `AUTH: 504 5.7.4 Unrecognized authentication
+type`, was nach einem falschen Passwort aussah und keins war: Exchange Online
+nimmt ein Passwort nur als `AUTH LOGIN` an, SONE hat unbesehen `AUTH PLAIN`
+geschickt. Jetzt liest der Client, welche Verfahren das Relay nach dem
+Verschlüsseln anbietet, und spricht LOGIN, wo es PLAIN nicht gibt. Bietet ein
+Relay weder das eine noch das andere an — ein Tenant, der nur noch OAuth
+zulässt —, nennt die Fehlermeldung, was es stattdessen anbietet. Nichts zu tun;
+wer den Testversand deshalb liegen gelassen hat, kann ihn wiederholen.
+
 Aktualisieren und neu starten; Browser-Tabs anschließend neu laden: das
 Dokumentformat steigt auf Version 7. Bestehende Hinweise sehen aus wie bisher.
 
