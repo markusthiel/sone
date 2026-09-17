@@ -13,8 +13,16 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Aktualisieren und neu starten; Browser-Tabs anschließend neu laden: das
-Dokumentformat steigt auf Version 7. Bestehende Hinweise sehen aus wie bisher.
+## 0.14.0
+
+Aktualisieren und neu starten; keine neuen Migrationen. Browser-Tabs
+anschließend neu laden: das Dokumentformat steigt auf Version 7. Bestehende
+Hinweise und Trenner sehen aus wie bisher. Kommt der Container mit
+`[migrate] failed: Invalid URL` nicht hoch, enthält `POSTGRES_PASSWORD` in der
+`.env` ein `/`, `#` oder `%`: Kennwort durch eines aus `openssl rand -hex 32`
+ersetzen und die Datenbank bei einer frischen Installation mit
+`docker compose down -v` zurücksetzen (bei vorhandenen Daten stattdessen
+`ALTER USER sone PASSWORD` im db-Container).
 
 **Mail über Microsoft 365 geht.** Der Testversand an `smtp.office365.com` (oder
 `smtp-mail.outlook.com`) endete mit `AUTH: 504 5.7.4 Unrecognized authentication
@@ -56,12 +64,6 @@ Import zurückliest (ADR-0189).
 „Verbundene Anwendungen“ einen SOTE-Server hinterlegt hat. Ohne Server fehlen
 die Einträge ganz; Einträge für etwas, das nicht funktionieren kann, sind ein
 Versprechen, das das Menü nicht halten kann.
-
-Nichts zu tun — außer der Container kommt mit `[migrate] failed: Invalid URL`
-nicht hoch. Dann enthält `POSTGRES_PASSWORD` in der `.env` ein `/`, `#` oder
-`%`: Kennwort durch eines aus `openssl rand -hex 32` ersetzen und die Datenbank
-bei einer frischen Installation mit `docker compose down -v` zurücksetzen (bei
-vorhandenen Daten stattdessen `ALTER USER sone PASSWORD` im db-Container).
 
 **Ein unbrauchbares Datenbankkennwort wird beim Start benannt.** Bisher meldete
 der Server nur „Invalid URL“ und startete neu, ohne zu sagen, welche Variable
