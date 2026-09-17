@@ -13,6 +13,20 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.14.4
+
+Aktualisieren und neu starten, sonst nichts. Seiten, die vor diesem Update
+gelöscht wurden und wieder auftauchen, einmal erneut löschen — dann bleiben
+sie im Papierkorb.
+
+**Gelöschte Seiten bleiben gelöscht.** Ab und zu stand eine gelöschte Seite
+wieder im Baum, und erneutes Löschen half nicht immer. Das Löschen schrieb nur
+in die Projektionstabelle, nicht ins Dokument; die Tabelle wird aber aus dem
+Dokument neu aufgebaut, sobald sich daran etwas ändert — ein noch offener Tab,
+ein Sync, die Wartung — und dort stand „nicht gelöscht“. Löschen und
+Wiederherstellen schreiben jetzt zuerst ins Dokument, auch für alle Unterseiten
+(ADR-0192).
+
 ## 0.14.3
 
 Aktualisieren und neu starten, sonst nichts. Wer eine Fläche übertragen will, exportiert den Workspace nach

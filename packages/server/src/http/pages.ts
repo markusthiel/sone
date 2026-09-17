@@ -293,6 +293,39 @@ const SIMILARITY_FLOOR = 0.4;
  */
 const PREVIEW_BLOCKS = 40;
 
+/**
+ * Write `archivedAt` into a page's document and every descendant's (ADR-0192).
+ *
+ * `null` clears it. The descendants are found through `ancestor_ids`, which
+ * is what the row update uses too, so the two agree about what "the subtree"
+ * is. One document at a time: a folder of sixty pages is sixty small updates,
+ * and a projection that agrees with its documents is worth that.
+ */
+export async function setArchivedInDocuments(
+  pool: Pool,
+  pageId: string,
+  archivedAt: string | null,
+  actorId: string | null,
+): Promise<void> {
+  const rows = await queryRows<{ id: string }>(
+    pool,
+    `SELECT id FROM pages WHERE id = $1 OR $1 = ANY(ancestor_ids)`,
+    [pageId],
+  );
+  for (const row of rows) {
+    await applyToDocument(
+      pool,
+      row.id,
+      (doc) => {
+        const page = doc.getMap(DOC_KEYS.page);
+        if (archivedAt === null) page.delete(PAGE_KEYS.archivedAt);
+        else page.set(PAGE_KEYS.archivedAt, archivedAt);
+      },
+      actorId,
+    );
+  }
+}
+
 export function registerPageRoutes(router: Router, deps: PageDeps): void {
   /**
    * The page tree for a workspace.
@@ -1740,13 +1773,29 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       return;
     }
 
-    // The subtree goes with it, or archiving a parent leaves its children
-    // reachable from search but not from the tree.
+    /*
+     * Into the document first, then the row (ADR-0192).
+     *
+     * `archivedAt` is one of the page keys the server owns (ADR-0185), and the
+     * projection is rebuilt from the document: `materializeDocument` writes
+     * `archived_at = <what the document says>`. This route used to write only
+     * the row, so the document went on saying "not archived" — and the next
+     * materialisation of any of these pages, from a tab that was still open,
+     * a sync update, or the maintenance pass, put it back in the tree. That is
+     * the page that "sometimes came back after deleting".
+     *
+     * The subtree goes with it, or archiving a parent leaves its children
+     * reachable from search but not from the tree. Each descendant's document
+     * gets the key too, because each is materialised on its own.
+     */
+    const actorId = claims!.principal.kind === 'anonymous' ? null : claims!.principal.userId;
+    const when = new Date().toISOString();
+    await setArchivedInDocuments(deps.pool, pageId, when, actorId);
     await deps.pool.query(
-      `UPDATE pages SET archived_at = now()
+      `UPDATE pages SET archived_at = $2
         WHERE archived_at IS NULL
           AND (id = $1 OR $1 = ANY(ancestor_ids))`,
-      [pageId],
+      [pageId, when],
     );
     ctx.sendEmpty(204);
   });
@@ -2084,6 +2133,15 @@ export function registerPageRoutes(router: Router, deps: PageDeps): void {
       }
     }
 
+    // The documents first, for the reason the archive route gives (ADR-0192):
+    // a row restored while its document still says "archived" is restored
+    // until the next materialisation.
+    await setArchivedInDocuments(
+      deps.pool,
+      pageId,
+      null,
+      claims!.principal.kind === 'anonymous' ? null : claims!.principal.userId,
+    );
     await deps.pool.query(
       `UPDATE pages SET archived_at = NULL
         WHERE archived_at IS NOT NULL
