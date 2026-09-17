@@ -4,6 +4,7 @@ export * from './doc/canvas.js';
 export * from './doc/comments.js';
 export * from './doc/pdfMarks.js';
 export * from './doc/docSchema.js';
+export * from './doc/inlineMarkdown.js';
 export * from './doc/blockTree.js';
 export * from './doc/tags.js';
 export * from './doc/collection.js';

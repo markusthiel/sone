@@ -19,15 +19,33 @@
  * present than one where half of them vanished into a mark I got wrong.
  */
 
-import { calloutToneFromLabel } from '@sone/core';
+import { calloutToneFromLabel, markdownToOps, opsToText, type InlineOp } from '@sone/core';
 
 export interface ParsedBlock {
   type: string;
+  /** The words alone. */
   text: string;
+  /** The words with their marks (ADR-0191), for blocks that hold prose. */
+  rich?: InlineOp[];
   props: Record<string, unknown>;
   /** Nesting, from list indentation. Zero for a top-level block. */
   indent: number;
 }
+
+/** Block types whose text is prose and may carry marks. */
+const PROSE_BLOCKS = new Set([
+  'paragraph',
+  'heading',
+  'bulletList',
+  'numberedList',
+  'todo',
+  'quote',
+  'callout',
+  'toggle',
+]);
+
+/** What our export writes under a block that Markdown could not say (ADR-0191). */
+const BLOCK_COMMENT = /^<!--\s*sone-block\s+(\{.*\})\s*-->$/;
 
 /** A divider's shape, as our export writes it after the rule (ADR-0189). */
 const DIVIDER_SHAPE = /^<!--\s*sone-divider\s+(\{.*\})\s*-->$/;
@@ -36,6 +54,53 @@ const DIVIDER_SHAPE = /^<!--\s*sone-divider\s+(\{.*\})\s*-->$/;
 const SONE_FENCE = /^```sone-([A-Za-z][\w-]*)\s*$/;
 
 export function markdownToBlocks(markdown: string): ParsedBlock[] {
+  const blocks = rawBlocks(markdown);
+
+  for (const block of blocks) {
+    if (!PROSE_BLOCKS.has(block.type)) continue;
+    /*
+     * The marks, read (ADR-0191). This used to be the honest limit of the
+     * importer — `**bold**` arrived as those characters — because a Markdown
+     * inline parser is a second parser. It is a small one, it speaks only the
+     * spellings our export writes, and the alternative was that no emphasis
+     * and no link survived a round trip through our own archive.
+     */
+    const rich = markdownToOps(block.text);
+    block.text = opsToText(rich);
+    if (rich.some((op) => op.attributes)) block.rich = rich;
+  }
+  return blocks;
+}
+
+/**
+ * Attach what our export said about the block above (ADR-0191): its colour,
+ * alignment or width, and for a few types the truth about what it is — a
+ * toggle is a bold line otherwise, a file is a link otherwise.
+ */
+function applyBlockComment(block: ParsedBlock, shape: Record<string, unknown>): void {
+  const { type, ...rest } = shape;
+  if (type === 'toggle' && block.type === 'paragraph') {
+    block.type = 'toggle';
+    // The bold was the spelling, not the summary's own emphasis.
+    block.text = block.text.replace(/^\*\*(.*)\*\*$/, '$1');
+  }
+  if (type === 'file' && block.type === 'paragraph') {
+    const link = /^\[((?:\\.|[^\]\\])*)\]\((attachments\/[^)\s]+|[^)\s]+)\)$/.exec(block.text.trim());
+    if (link) {
+      block.type = 'file';
+      const target = link[2] ?? '';
+      const attachment = /^attachments\/(.+)$/.exec(target);
+      if (attachment) block.props['attachmentRef'] = attachment[1];
+      if (typeof rest['filename'] !== 'string') block.props['filename'] = link[1] ?? '';
+      block.text = '';
+    }
+  }
+  for (const [key, value] of Object.entries(rest)) {
+    if (value !== undefined && value !== null) block.props[key] = value;
+  }
+}
+
+function rawBlocks(markdown: string): ParsedBlock[] {
   const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
   const blocks: ParsedBlock[] = [];
   let at = 0;
@@ -45,6 +110,25 @@ export function markdownToBlocks(markdown: string): ParsedBlock[] {
 
     if (line.trim() === '') {
       at += 1;
+      continue;
+    }
+
+    // What our export said about the block above; any other comment is
+    // somebody else's and shows nothing, so it becomes nothing here too.
+    if (line.trim().startsWith('<!--') && line.trim().endsWith('-->')) {
+      at += 1;
+      const comment = BLOCK_COMMENT.exec(line.trim());
+      const last = blocks[blocks.length - 1];
+      if (comment && last) {
+        try {
+          const parsed: unknown = JSON.parse(comment[1] ?? '{}');
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            applyBlockComment(last, parsed as Record<string, unknown>);
+          }
+        } catch {
+          // Ours and unreadable: the block keeps its Markdown shape.
+        }
+      }
       continue;
     }
 
@@ -232,6 +316,7 @@ function isBlockStart(line: string): boolean {
     /^\s*[-*+]\s/.test(line) ||
     /^\s*\d+[.)]\s/.test(line) ||
     line.startsWith('>') ||
+    /^<!--.*-->\s*$/.test(line.trim()) ||
     /^(-{3,}|\*{3,}|_{3,})\s*$/.test(line.trim())
   );
 }

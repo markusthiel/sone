@@ -17,14 +17,66 @@
  * nobody trusts.
  */
 
-import { CALLOUT_TONE_LABELS, type CalloutTone } from '@sone/core';
+import {
+  CALLOUT_TONE_LABELS,
+  SHARED_NODE_ATTRS,
+  type CalloutTone,
+  type EntryCover,
+} from '@sone/core';
 
 export interface ExportBlock {
   id: string;
   parentId: string | null;
   type: string;
   plainText: string;
+  /** The text with its marks, as Markdown (ADR-0191). Falls back to plainText. */
+  markdown?: string;
   props: Record<string, unknown>;
+}
+
+/** A file id out of the address the editor stores for a picture. */
+export function fileIdFromUrl(url: unknown): string | null {
+  if (typeof url !== 'string') return null;
+  const match = /^\/api\/files\/([0-9a-f-]{36})(?:[/?#]|$)/.exec(url);
+  return match?.[1] ?? null;
+}
+
+/**
+ * What a block carries that its Markdown spelling does not (ADR-0191): the
+ * shared presentation (colour, alignment, width) for any block, and for a few
+ * types the attributes Markdown has no place for. Written as one HTML comment
+ * on the line after the block, which renderers drop and the importer attaches
+ * to the block above it. Nothing to say, no comment.
+ */
+function blockComment(block: ExportBlock): string | null {
+  const shape: Record<string, unknown> = {};
+  for (const key of SHARED_NODE_ATTRS) {
+    const value = props(block)[key];
+    if (typeof value === 'string' && value !== '') shape[key] = value;
+  }
+  switch (block.type) {
+    case 'toggle':
+      // A toggle is a bold line in Markdown, which is what a paragraph in bold
+      // is too. The comment is what tells them apart on the way back.
+      shape['type'] = 'toggle';
+      if (props(block)['collapsed'] === true) shape['collapsed'] = true;
+      break;
+    case 'file':
+      shape['type'] = 'file';
+      for (const key of ['filename', 'mimeType', 'category', 'sizeBytes', 'display']) {
+        const value = props(block)[key];
+        if (value !== undefined && value !== null && value !== '') shape[key] = value;
+      }
+      break;
+    case 'image': {
+      const display = props(block)['display'];
+      if (typeof display === 'string') shape['display'] = display;
+      break;
+    }
+    default:
+      break;
+  }
+  return Object.keys(shape).length > 0 ? `<!-- sone-block ${JSON.stringify(shape)} -->` : null;
 }
 
 /** How deep a block sits, for the indentation lists need. */
@@ -62,6 +114,12 @@ function fence(type: string, props: Record<string, unknown>, text: string): stri
 export interface ExportEntry {
   /** The `icon` value from the page map: symbol, symbol colour, title colour. */
   icon?: unknown;
+  /** The band above the title, if any (ADR-0117). */
+  cover?: EntryCover | null;
+  /** 'column' or 'full'; null for the reader's default. */
+  width?: string | null;
+  template?: boolean;
+  locked?: boolean;
 }
 
 export function pageToMarkdown(
@@ -80,8 +138,21 @@ export function pageToMarkdown(
   // — as an HTML comment right under the title, which Markdown renderers drop
   // and our importer reads (ADR-0190). Only when there is something to say: a
   // page with the default look gets no comment at all.
-  if (entry?.icon !== undefined && entry.icon !== null) {
-    lines.push(`<!-- sone-entry ${JSON.stringify({ icon: entry.icon })} -->`);
+  if (entry) {
+    const look: Record<string, unknown> = {};
+    if (entry.icon !== undefined && entry.icon !== null) look['icon'] = entry.icon;
+    if (entry.cover) {
+      // A picture cover names its file the way an image block does, so the
+      // importer can map it to the copy it uploads.
+      const file = entry.cover.kind === 'image' ? fileIdFromUrl(entry.cover.url) : null;
+      look['cover'] = file ? { kind: 'image', url: `attachments/${file}` } : entry.cover;
+    }
+    if (entry.width) look['width'] = entry.width;
+    if (entry.template) look['template'] = true;
+    if (entry.locked) look['locked'] = true;
+    if (Object.keys(look).length > 0) {
+      lines.push(`<!-- sone-entry ${JSON.stringify(look)} -->`);
+    }
   }
 
   let numbering = 0;
@@ -89,7 +160,8 @@ export function pageToMarkdown(
     // The depth itself, not depth minus one: a top-level block has no parent
     // and so depth zero, and subtracting made a child of it indent by nothing.
     const indent = '  '.repeat(depth.get(block.id) ?? 0);
-    const text = block.plainText;
+    // With its marks, where there are any (ADR-0191); code is text alone.
+    const text = block.type === 'code' ? block.plainText : (block.markdown ?? block.plainText);
 
     if (block.type !== 'numberedList') numbering = 0;
 
@@ -176,9 +248,16 @@ export function pageToMarkdown(
         lines.push(`**${text}**`);
         break;
       case 'image': {
-        const alt = String(props(block)['alt'] ?? text ?? '');
-        const file = props(block)['fileId'];
-        lines.push(file ? `![${alt}](attachments/${String(file)})` : `![${alt}]()`);
+        // A picture's file is in its address — `/api/files/<id>` — not in a
+        // `fileId`, which an image block never had. Read from the address;
+        // every exported picture used to come out as `![alt]()`, a frame
+        // around nothing, and the file was never put in the archive.
+        const alt = String(props(block)['alt'] ?? '');
+        const file = props(block)['fileId'] ?? fileIdFromUrl(props(block)['url']);
+        const url = typeof props(block)['url'] === 'string' ? String(props(block)['url']) : '';
+        lines.push(
+          file ? `![${alt}](attachments/${String(file)})` : url ? `![${alt}](${url})` : `![${alt}]()`,
+        );
         break;
       }
       case 'file': {
@@ -193,6 +272,10 @@ export function pageToMarkdown(
         lines.push(fence(block.type, block.props, text));
         break;
     }
+
+    // On the line right under the block, the way the divider's shape is.
+    const comment = blockComment(block);
+    if (comment && lines.length > 0) lines[lines.length - 1] += `\n${comment}`;
   }
 
   return lines.join('\n\n').replace(/[ \t]+$/gm, '') + '\n';

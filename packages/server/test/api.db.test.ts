@@ -771,13 +771,16 @@ describe('http api (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABASE_URL n
     );
     assert.equal(done.created, 1);
 
-    const blocks = await db.query<{ type: string; props: { fileId?: string } }>(
+    const blocks = await db.query<{ type: string; props: { url?: string } }>(
       `SELECT b.type, b.props FROM blocks b JOIN pages p ON p.id = b.page_id
         WHERE p.title = 'Seite' AND p.workspace_id = $1`,
       [session.workspaceId],
     );
     assert.equal(blocks.rows[0]?.type, 'image', 'a picture, not a paragraph');
-    const fileId = blocks.rows[0]?.props.fileId;
+    // A picture is addressed, not identified (ADR-0191): the block's `url` is
+    // what the editor draws, and this test used to assert a `fileId` the
+    // editor never read.
+    const fileId = /^\/api\/files\/(.+)$/.exec(blocks.rows[0]?.props.url ?? '')?.[1];
     assert.ok(fileId, 'and it names a file that exists here');
 
     const file = await db.query<{ mime_type: string; page_id: string }>(

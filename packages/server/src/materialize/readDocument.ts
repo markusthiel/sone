@@ -50,6 +50,8 @@ export interface ReadBlock {
   idx: string;
   props: Record<string, unknown>;
   plainText: string;
+  /** The inline text with its marks, as Markdown (ADR-0191). */
+  markdown: string;
 }
 
 export interface ReadPage {
@@ -261,6 +263,7 @@ function readBlocks(doc: Y.Doc, warnings: string[]): ReadBlock[] {
     idx: String(block.position).padStart(6, '0'),
     props: block.props,
     plainText: normaliseText([block.text, propsToText(block.type, block.props)].join(' ')),
+    markdown: block.markdown,
   }));
 }
 
