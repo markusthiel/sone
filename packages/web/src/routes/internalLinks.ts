@@ -100,6 +100,15 @@ export function internalTarget(
   // (ADR-0171). The parse below is for the parts, not for the question.
   if (!isSameOrigin(href, origin)) return null;
   const url = new URL(href, origin);
+  /*
+   * Same origin, but not a place in the application.
+   *
+   * An export's download link is `/api/jobs/…/download`: the server answers it
+   * with a zip. The interception took it for a route, the router had none, and
+   * the person saw "Not found" where a file should have started downloading.
+   * Anything under `/api/` is a resource the browser fetches, never a screen.
+   */
+  if (url.pathname.startsWith('/api/')) return null;
 
   /*
    * The fragment is kept, and that was the whole first fault.

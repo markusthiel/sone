@@ -3986,6 +3986,8 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .job-when { font-size: var(--sone-text-sm); font-variant-numeric: tabular-nums; }
 .job-detail { color: var(--sone-text-muted); font-size: var(--sone-text-xs); }
 .job-list .btn { margin-inline-start: auto; }
+/* The download keeps the right edge; removing sits beside it, quieter. */
+.job-list .job-remove { margin-inline-start: 0; }
 
 /* --- importing an archive (ADR-0044) --- */
 
