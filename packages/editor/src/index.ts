@@ -1,5 +1,6 @@
 export * from './schema.js';
 export * from './calloutTones.js';
+export * from './dividerOrnaments.js';
 export * from './blockIds.js';
 export * from './inputRules.js';
 export * from './keymap.js';

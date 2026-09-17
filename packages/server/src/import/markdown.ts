@@ -29,6 +29,9 @@ export interface ParsedBlock {
   indent: number;
 }
 
+/** A divider's shape, as our export writes it after the rule (ADR-0189). */
+const DIVIDER_SHAPE = /^<!--\s*sone-divider\s+(\{.*\})\s*-->$/;
+
 /** A fenced block our own export wrote, carrying its own data. */
 const SONE_FENCE = /^```sone-([A-Za-z][\w-]*)\s*$/;
 
@@ -96,7 +99,31 @@ export function markdownToBlocks(markdown: string): ParsedBlock[] {
 
     if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line.trim())) {
       at += 1;
-      blocks.push({ type: 'divider', text: '', props: {}, indent: 0 });
+      // `***` is the printer's section break and comes back as one (ADR-0189),
+      // the way the editor treats it when typed.
+      const props: Record<string, unknown> = line.trim().startsWith('*')
+        ? { ornament: 'asterism' }
+        : {};
+      // How our export says which line and symbol a divider had: a comment on
+      // the next line, which every other Markdown reader ignores.
+      const shape = DIVIDER_SHAPE.exec((lines[at] ?? '').trim());
+      if (shape) {
+        at += 1;
+        try {
+          const parsed: unknown = JSON.parse(shape[1] ?? '{}');
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            for (const key of ['rule', 'ornament', 'ornamentAt'] as const) {
+              const value = (parsed as Record<string, unknown>)[key];
+              if (typeof value === 'string') props[key] = value;
+              else delete props[key];
+            }
+          }
+        } catch {
+          // A comment we wrote and cannot read back: the divider stays a
+          // divider, plain — nothing is lost that a reader would miss.
+        }
+      }
+      blocks.push({ type: 'divider', text: '', props, indent: 0 });
       continue;
     }
 

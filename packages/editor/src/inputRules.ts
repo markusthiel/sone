@@ -9,6 +9,7 @@
  * containing "Title" rather than a paragraph containing "# Title".
  */
 
+import { BLOCK_ATTRS } from '@sone/core';
 import {
   InputRule,
   inputRules,
@@ -46,10 +47,13 @@ const containerRule = (pattern: RegExp, type: NodeType): InputRule =>
 /** `---` on its own line becomes a divider. */
 const dividerRule = new InputRule(
   /^(?:---|—-|___\s|\*\*\*)$/,
-  (state, _match, start, end) => {
+  (state, match, start, end) => {
     const divider = schema.nodes['divider'];
     if (!divider) return null;
-    const tr = state.tr.replaceRangeWith(start, end, divider.create());
+    // Three stars typed are three stars drawn: `***` is the printer's section
+    // break, and the asterism is its symbol (ADR-0189).
+    const attrs = match[0] === '***' ? { [BLOCK_ATTRS.ornament]: 'asterism' } : undefined;
+    const tr = state.tr.replaceRangeWith(start, end, divider.create(attrs));
     // A divider is an atom, so the caret has nowhere to sit inside it. A fresh
     // paragraph after it is what the user expects to keep typing into.
     const paragraph = schema.nodes['paragraph'];

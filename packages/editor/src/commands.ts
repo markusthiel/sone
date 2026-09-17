@@ -12,6 +12,9 @@ import {
   type BlockColor,
   type BlockWidth,
   type CalloutTone,
+  type DividerOrnament,
+  type DividerOrnamentPlace,
+  type DividerRule,
 } from '@sone/core';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { Command, EditorState } from 'prosemirror-state';
@@ -40,6 +43,9 @@ export function setBlockStyle(changes: {
   color?: BlockColor | null;
   tone?: CalloutTone | null;
   source?: string | null;
+  rule?: DividerRule | null;
+  ornament?: DividerOrnament | null;
+  ornamentAt?: DividerOrnamentPlace | null;
 }): Command {
   return (state, dispatch) => {
     const { from, to } = state.selection;
@@ -74,6 +80,19 @@ export function setBlockStyle(changes: {
         const trimmed = changes.source?.trim() ?? '';
         attrs[BLOCK_ATTRS.source] = trimmed === '' ? null : trimmed;
       }
+      // The divider's three (ADR-0189), each with its default stored as absence.
+      if ('rule' in changes && declares(BLOCK_ATTRS.rule)) {
+        attrs[BLOCK_ATTRS.rule] = changes.rule && changes.rule !== 'solid' ? changes.rule : null;
+      }
+      if ('ornament' in changes && declares(BLOCK_ATTRS.ornament)) {
+        attrs[BLOCK_ATTRS.ornament] = changes.ornament ?? null;
+        // No symbol, no place for it.
+        if (!changes.ornament) attrs[BLOCK_ATTRS.ornamentAt] = null;
+      }
+      if ('ornamentAt' in changes && declares(BLOCK_ATTRS.ornamentAt)) {
+        attrs[BLOCK_ATTRS.ornamentAt] =
+          changes.ornamentAt && changes.ornamentAt !== 'center' ? changes.ornamentAt : null;
+      }
       tr.setNodeMarkup(target.pos, undefined, attrs);
     }
 
@@ -89,6 +108,9 @@ export function currentBlockStyle(state: EditorState): {
   color: string | null;
   tone: string | null;
   source: string | null;
+  rule: string | null;
+  ornament: string | null;
+  ornamentAt: string | null;
 } {
   const { from, to } = state.selection;
   let align: string | null = null;
@@ -96,6 +118,9 @@ export function currentBlockStyle(state: EditorState): {
   let color: string | null = null;
   let tone: string | null = null;
   let source: string | null = null;
+  let rule: string | null = null;
+  let ornament: string | null = null;
+  let ornamentAt: string | null = null;
   let seen = false;
 
   state.doc.nodesBetween(from, to, (node) => {
@@ -105,6 +130,9 @@ export function currentBlockStyle(state: EditorState): {
     const nodeColor = (node.attrs[BLOCK_ATTRS.color] as string | null) ?? null;
     const nodeTone = (node.attrs[BLOCK_ATTRS.tone] as string | null) ?? null;
     const nodeSource = (node.attrs[BLOCK_ATTRS.source] as string | null) ?? null;
+    const nodeRule = (node.attrs[BLOCK_ATTRS.rule] as string | null) ?? null;
+    const nodeOrnament = (node.attrs[BLOCK_ATTRS.ornament] as string | null) ?? null;
+    const nodeOrnamentAt = (node.attrs[BLOCK_ATTRS.ornamentAt] as string | null) ?? null;
 
     if (!seen) {
       align = nodeAlign;
@@ -112,6 +140,9 @@ export function currentBlockStyle(state: EditorState): {
       color = nodeColor;
       tone = nodeTone;
       source = nodeSource;
+      rule = nodeRule;
+      ornament = nodeOrnament;
+      ornamentAt = nodeOrnamentAt;
       seen = true;
       return true;
     }
@@ -122,10 +153,13 @@ export function currentBlockStyle(state: EditorState): {
     if (nodeColor !== color) color = null;
     if (nodeTone !== tone) tone = null;
     if (nodeSource !== source) source = null;
+    if (nodeRule !== rule) rule = null;
+    if (nodeOrnament !== ornament) ornament = null;
+    if (nodeOrnamentAt !== ornamentAt) ornamentAt = null;
     return true;
   });
 
-  return { align, width, color, tone, source };
+  return { align, width, color, tone, source, rule, ornament, ornamentAt };
 }
 
 /** How a file block is drawn. */

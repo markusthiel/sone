@@ -30,6 +30,17 @@ umstellen. Im Markdown-Export steht die Art als fette erste Zeile
 „Quelle“; der Eintrag erscheint als gedämpfte Zeile mit Gedankenstrich unter
 dem Zitat und wandert mit in den Export.
 
+**Trennlinien haben eine Form.** Die Linie eines Trenners lässt sich im
+Block-Menü unter „Darstellung“ als durchgezogen, gestrichelt, gepunktet,
+doppelt, kräftig, Verlauf, kurz, Welle oder senkrechte Striche zeichnen; auf
+der Linie kann ein Symbol sitzen — dreißig zur Auswahl, von Punkt, Raute und
+Asterismus über Blatt, Stern und Mond bis Kaffeetasse, Schere und den zwölf
+Hinweis-Symbolen — am Anfang, in der Mitte oder am Ende. Eine Blockfarbe färbt
+jetzt auch die Linie (bisher blieb sie grau). `***` getippt ergibt einen
+Trenner mit Asterismus, `---` weiter den schlichten. Im Markdown-Export bleibt
+jeder Trenner `---`; die Form steht in einem HTML-Kommentar dahinter, den der
+Import zurückliest (ADR-0189).
+
 **SOTE-Blöcke nur, wo es einen SOTE-Server gibt.** „SOTE-Aufgabenliste“ und
 „SOTE-Aufgabe“ stehen im `/`-Menü erst, wenn ein Administrator unter
 „Verbundene Anwendungen“ einen SOTE-Server hinterlegt hat. Ohne Server fehlen

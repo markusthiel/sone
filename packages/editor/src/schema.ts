@@ -18,6 +18,7 @@
  */
 
 import { calloutMarkSpec } from './calloutTones.js';
+import { dividerMarkSpec } from './dividerOrnaments.js';
 import { currentOrigin, homeRelative, isFollowable } from './hrefs.js';
 import {
   BLOCK_ALIGNMENTS,
@@ -25,7 +26,11 @@ import {
   BLOCK_COLORS,
   BLOCK_WIDTHS,
   CALLOUT_TONES,
+  DIVIDER_ORNAMENTS,
+  DIVIDER_ORNAMENT_PLACES,
+  DIVIDER_RULES,
   type CalloutTone,
+  type DividerOrnament,
   serialiseProps,
 } from '@sone/core';
 import { Schema, type MarkSpec, type Node as PMNode, type NodeSpec } from 'prosemirror-model';
@@ -75,6 +80,22 @@ function blockDOMAttrs(node: PMNode): Record<string, string> {
   const source = node.attrs[BLOCK_ATTRS.source];
   if (typeof source === 'string' && source.trim() !== '') {
     attrs['data-source'] = source.trim();
+  }
+  // A divider's line, symbol and place (ADR-0189), each a closed set.
+  const rule = node.attrs[BLOCK_ATTRS.rule];
+  if (typeof rule === 'string' && (DIVIDER_RULES as readonly string[]).includes(rule)) {
+    attrs['data-rule'] = rule;
+  }
+  const ornament = node.attrs[BLOCK_ATTRS.ornament];
+  if (
+    typeof ornament === 'string' &&
+    (DIVIDER_ORNAMENTS as readonly string[]).includes(ornament)
+  ) {
+    attrs['data-ornament'] = ornament;
+  }
+  const at = node.attrs[BLOCK_ATTRS.ornamentAt];
+  if (typeof at === 'string' && (DIVIDER_ORNAMENT_PLACES as readonly string[]).includes(at)) {
+    attrs['data-ornament-at'] = at;
   }
 
   return attrs;
@@ -313,11 +334,21 @@ const nodes: Record<string, NodeSpec> = {
 
   divider: {
     group: 'block',
-    attrs: blockAttrs,
+    attrs: {
+      ...blockAttrs,
+      [BLOCK_ATTRS.rule]: { default: null as string | null },
+      [BLOCK_ATTRS.ornament]: { default: null as string | null },
+      [BLOCK_ATTRS.ornamentAt]: { default: null as string | null },
+    },
     parseDOM: [{ tag: 'hr' }],
     // Wrapped so the indent attribute has somewhere to live: an hr cannot
     // carry children and CSS cannot indent a replaced element consistently.
-    toDOM: (node) => ['div', blockDOMAttrs(node), ['hr']],
+    // The symbol, when there is one, is a sibling of the rule (ADR-0189).
+    toDOM: (node) => {
+      const attrs = blockDOMAttrs(node);
+      const ornament = attrs['data-ornament'] as DividerOrnament | undefined;
+      return ['div', attrs, ['hr'], ...(ornament ? [dividerMarkSpec(ornament)] : [])] as never;
+    },
   },
 
   image: {

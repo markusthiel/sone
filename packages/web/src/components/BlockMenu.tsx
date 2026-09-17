@@ -44,7 +44,13 @@ import { BLOCK_MARKS } from './blockMarks.ts';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard.ts';
 import { blockAddress } from '../routes/internalLinks.ts';
 import { useT } from '../i18n/useT.tsx';
-import { BLOCK_COLORS, CALLOUT_TONES } from '@sone/core';
+import {
+  BLOCK_COLORS,
+  CALLOUT_TONES,
+  DIVIDER_ORNAMENTS,
+  DIVIDER_ORNAMENT_PLACES,
+  DIVIDER_RULES,
+} from '@sone/core';
 import type { Command } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -63,7 +69,7 @@ import {
   AlignAutoIcon,
   AlignCentreIcon,
   AlignLeftIcon,
-  AlignRightIcon, GripIcon, PlusIcon, ToneIcon } from './icons.tsx';
+  AlignRightIcon, GripIcon, PlusIcon, ToneIcon, OrnamentIcon } from './icons.tsx';
 import { keepsEditorSelection, popupItem } from './popup.ts';
 
 interface BlockMenuProps {
@@ -287,6 +293,88 @@ function BlockAppearance({
             );
           })}
         </div>
+      )}
+
+      {/* How a divider is drawn (ADR-0189): the line, a symbol on it, and where
+          the symbol sits. The line choices are drawn by the same stylesheet
+          rules as the line itself, so each button shows what it does. */}
+      {node.type.name === 'divider' && (
+        <>
+          <div className="block-menu-choices block-menu-rules" role="group" aria-label={t('block.rule')}>
+            {DIVIDER_RULES.map((rule) => {
+              const chosen = (current.rule ?? 'solid') === rule;
+              const label = t(`block.rule.${rule}` as MessageKey);
+              return (
+                <button
+                  key={rule}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={chosen}
+                  className={chosen ? 'block-menu-choice block-menu-rule current' : 'block-menu-choice block-menu-rule'}
+                  title={label}
+                  aria-label={label}
+                  {...popupItem(() => run(setBlockStyle({ rule })))}
+                >
+                  <span className="divider-preview" data-rule={rule}>
+                    <hr />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="block-menu-choices block-menu-ornaments" role="group" aria-label={t('block.ornament')}>
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={current.ornament === null}
+              aria-label={t('block.ornament.none')}
+              title={t('block.ornament.none')}
+              className={
+                current.ornament === null
+                  ? 'block-menu-choice block-menu-ornament none current'
+                  : 'block-menu-choice block-menu-ornament none'
+              }
+              {...popupItem(() => run(setBlockStyle({ ornament: null })))}
+            />
+            {DIVIDER_ORNAMENTS.map((ornament) => {
+              const chosen = current.ornament === ornament;
+              const label = t(`block.ornament.${ornament}` as MessageKey);
+              return (
+                <button
+                  key={ornament}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={chosen}
+                  className={chosen ? 'block-menu-choice block-menu-ornament current' : 'block-menu-choice block-menu-ornament'}
+                  title={label}
+                  aria-label={label}
+                  {...popupItem(() => run(setBlockStyle({ ornament })))}
+                >
+                  <OrnamentIcon ornament={ornament} />
+                </button>
+              );
+            })}
+          </div>
+          {current.ornament !== null && (
+            <div className="block-menu-choices" role="group" aria-label={t('block.ornamentAt')}>
+              {DIVIDER_ORNAMENT_PLACES.map((place) => {
+                const chosen = (current.ornamentAt ?? 'center') === place;
+                return (
+                  <button
+                    key={place}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={chosen}
+                    className={chosen ? 'block-menu-choice current' : 'block-menu-choice'}
+                    {...popupItem(() => run(setBlockStyle({ ornamentAt: place })))}
+                  >
+                    {t(`block.ornamentAt.${place}` as MessageKey)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Who said it (ADR-0188). One line under the quote; empty removes it. */}

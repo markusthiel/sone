@@ -21,8 +21,8 @@
  * migration, not a refactor.
  */
 
-import type { CalloutTone } from '@sone/core';
-import { CALLOUT_TONE_PATHS } from '@sone/editor';
+import type { CalloutTone, DividerOrnament } from '@sone/core';
+import { CALLOUT_TONE_PATHS, DIVIDER_ORNAMENT_PATHS } from '@sone/editor';
 import type { ReactElement, SVGProps } from 'react';
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
@@ -776,6 +776,18 @@ export function ToneIcon(props: IconProps & { tone: CalloutTone }): ReactElement
   return (
     <svg {...base(rest)}>
       {CALLOUT_TONE_PATHS[tone].map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  );
+}
+
+/** A divider's symbol (ADR-0189), from the paths the editor draws into the block. */
+export function OrnamentIcon(props: IconProps & { ornament: DividerOrnament }): ReactElement {
+  const { ornament, ...rest } = props;
+  return (
+    <svg {...base(rest)}>
+      {DIVIDER_ORNAMENT_PATHS[ornament].map((d) => (
         <path key={d} d={d} />
       ))}
     </svg>

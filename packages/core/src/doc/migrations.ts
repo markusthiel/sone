@@ -135,7 +135,8 @@ export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [
   {
     from: 6,
     to: 7,
-    description: 'callouts carry a tone and quotes a source; an older editor would strip both',
+    description:
+      'callouts carry a tone, quotes a source, dividers a rule and an ornament; an older editor would strip them all',
     // The stored blocks are unchanged, and an older client would open them
     // fine — that is not the danger. y-prosemirror writes a node back by
     // comparing its ProseMirror attributes with the shared element's, and
@@ -143,6 +144,8 @@ export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [
     // A schema that does not know `tone` builds the node without it, so the
     // first keystroke in that callout, from that client, deletes the tone for
     // everybody. An optional field is only optional if nothing erases it.
+    // The divider's attributes (ADR-0189) arrived in the same release and
+    // share the step.
     migrate: () => {},
   },
 ];

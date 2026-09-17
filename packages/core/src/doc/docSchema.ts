@@ -208,6 +208,58 @@ export function calloutToneFromLabel(label: string): CalloutTone | null {
   return null;
 }
 
+/**
+ * How a divider's line is drawn (ADR-0189). `solid` is the default and is
+ * stored as the attribute's absence, like `note` for a callout.
+ */
+export const DIVIDER_RULES = [
+  'solid',
+  'dashed',
+  'dotted',
+  'double',
+  'thick',
+  'fade',
+  'short',
+  'wave',
+  'bars',
+] as const;
+export type DividerRule = (typeof DIVIDER_RULES)[number];
+
+/**
+ * A symbol that can sit on a divider's line (ADR-0189). None by default.
+ *
+ * Four families in one list: geometric marks, things from nature, a few
+ * playful ones, and the twelve callout tones — so a page can end a section
+ * with the same triangle its warnings wear. Names, like every other stored
+ * choice; the drawings live with the editor.
+ */
+export const DIVIDER_ORNAMENTS = [
+  'dot',
+  'diamond',
+  'ellipsis',
+  'asterism',
+  'circle',
+  'square',
+  'leaf',
+  'star',
+  'sun',
+  'moon',
+  'wave',
+  'flower',
+  'heart',
+  'coffee',
+  'anchor',
+  'quill',
+  'scissors',
+  'arrow',
+  ...CALLOUT_TONES,
+] as const;
+export type DividerOrnament = (typeof DIVIDER_ORNAMENTS)[number];
+
+/** Where the symbol sits. `center` is the default and stored as absence. */
+export const DIVIDER_ORNAMENT_PLACES = ['start', 'center', 'end'] as const;
+export type DividerOrnamentPlace = (typeof DIVIDER_ORNAMENT_PLACES)[number];
+
 export const ENTRY_KINDS = ['page', 'folder', 'row', 'container', 'canvas'] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
@@ -334,6 +386,14 @@ export const BLOCK_ATTRS = {
    * not searched as the speaker's words and not continued by Enter.
    */
   source: 'source',
+  /**
+   * A divider's line, symbol and where the symbol sits (ADR-0189): one of
+   * DIVIDER_RULES, one of DIVIDER_ORNAMENTS, one of DIVIDER_ORNAMENT_PLACES.
+   * Absent means solid, none, center.
+   */
+  rule: 'rule',
+  ornament: 'ornament',
+  ornamentAt: 'ornamentAt',
   /** JSON-encoded block-specific settings. Never derived values. */
   props: 'props',
   /**
