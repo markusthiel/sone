@@ -13,6 +13,23 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nichts zu tun. Wer einen Workspace schon einmal übertragen hat, exportiert ihn
+am besten noch einmal: erst dieses Archiv enthält die Bilder.
+
+**Ein Archiv trägt jetzt, was auf der Seite steht.** Der Abgleich Block für
+Block nach ADR-0190 ergab eine lange Liste: Bilder fehlten im Archiv ganz (der
+Export las eine Datei-Kennung, die ein Bildblock nie hatte), Überschriften kamen
+in Standardgröße an, erledigte Aufgaben offen, Code ohne Sprache, Umschalter als
+fette Absätze, Dateiblöcke als Links — weil der Import alles in einen Bereich
+schrieb, den der Editor nicht liest. Fett, kursiv, durchgestrichen, Code im
+Text und Links standen nicht einmal im Export. Blockfarben, Ausrichtung und
+Breite hatten keine Schreibweise. Jetzt kommt all das zurück, dazu Titelbild,
+Seitenbreite, Vorlagen- und Sperrflag. Was Markdown nicht sagen kann, steht in
+einer Kommentarzeile unter dem Block, die andere Leser nicht anzeigen. Auch
+Markdown aus anderen Werkzeugen liest sich besser: `**fett**` kommt fett an,
+ein Link als Link (ADR-0191). Nicht mitgenommen bleiben Kommentare, Verlauf,
+Autorenschaft, Rechte und die Zeichnung eines Canvas.
+
 ## 0.14.1
 
 Aktualisieren und neu starten, sonst nichts. Wer nach einem Import Seiten im

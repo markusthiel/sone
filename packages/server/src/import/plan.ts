@@ -26,8 +26,8 @@ export interface PlannedPage {
   markdown: string;
   /** An existing page of the same name in the same place, if any. */
   collidesWith: string | null;
-  /** The look the archive carries for it, or null (ADR-0190). */
-  entry?: { icon: unknown } | null;
+  /** The look the archive carries for it, or null (ADR-0190, ADR-0191). */
+  entry?: ImportedEntry | null;
 }
 
 export interface PlannedAttachment {
@@ -93,13 +93,28 @@ const ENTRY_COMMENT = /^<!--\s*sone-entry\s+(\{.*\})\s*-->\n*/m;
  * The entry's look, if the archive carries one: the raw `icon` value, to be
  * validated by the same readers the icon route uses when it is written.
  */
-export function entryFrom(markdown: string): { icon: unknown } | null {
+export interface ImportedEntry {
+  icon?: unknown;
+  cover?: unknown;
+  width?: unknown;
+  template?: boolean;
+  locked?: boolean;
+}
+
+export function entryFrom(markdown: string): ImportedEntry | null {
   const match = ENTRY_COMMENT.exec(markdown);
   if (!match) return null;
   try {
     const parsed: unknown = JSON.parse(match[1] ?? '{}');
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'icon' in parsed) {
-      return { icon: (parsed as { icon: unknown }).icon };
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const raw = parsed as Record<string, unknown>;
+      const entry: ImportedEntry = {};
+      if ('icon' in raw) entry.icon = raw['icon'];
+      if ('cover' in raw) entry.cover = raw['cover'];
+      if ('width' in raw) entry.width = raw['width'];
+      if (raw['template'] === true) entry.template = true;
+      if (raw['locked'] === true) entry.locked = true;
+      return Object.keys(entry).length > 0 ? entry : null;
     }
   } catch {
     // A comment we wrote and cannot read back: the page keeps its default look.

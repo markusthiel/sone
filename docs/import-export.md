@@ -57,11 +57,16 @@ attachments/
   `ubersicht-2026.md`.
 - A **folder** becomes a directory with an `index.md` in it, because a folder has
   a name and an icon of its own that would otherwise be lost.
-- An entry's **symbol and colours** — the icon, its colour, the title's colour —
-  are written as an HTML comment right under the title, `<!-- sone-entry … -->`.
-  Other readers do not show it; SONE reads it back on import. An entry with the
-  default look has no such line. A divider's line and symbol travel the same way,
-  as `<!-- sone-divider … -->` under its `---`.
+- An entry's **look** — the icon, its colour, the title's colour, the cover, the
+  width, the template flag and the lock — is written as an HTML comment right
+  under the title, `<!-- sone-entry … -->`. Other readers do not show it; SONE
+  reads it back on import. An entry with the default look has no such line.
+- What Markdown cannot say about a **block** — its colour, alignment or width,
+  that a bold line is a toggle, that a link is a file with a type and size — is
+  a comment right under the block, `<!-- sone-block … -->`. A divider's line
+  and symbol travel the same way, as `<!-- sone-divider … -->` under its `---`.
+- **Bold, italic, strikethrough, inline code and links** are written as
+  Markdown and read back on import. A mention is written as `@Name`.
 - Pictures and files land in `attachments/`, named by id, and the Markdown links
   to them. Two pictures both called `screenshot.png` would be one file in a flat
   directory; the id avoids that.
@@ -86,8 +91,6 @@ attachments/
 | Who wrote what | Attribution is per character in the document; a Markdown file has no place for it. |
 | Permissions | Who may read a page is a fact about SONE, not about the text. |
 | A canvas's drawing | A canvas arrives as an empty page. Its pictures are in `attachments/`, the arrangement is not. |
-| Cover, width, template flag, lock | Not yet. The icon and colours are; these would go in the same line. |
-| Bold and italic **inside** a re-import | They export correctly. See the note under importing. |
 
 ---
 
@@ -147,18 +150,19 @@ what the reader understands.
 | ```` ```ts ```` | a code block, language kept |
 | `---` | a divider |
 | `![alt](attachments/x)` | a picture, with the file |
+| `![alt](https://…)` | a picture that stays where it is on the web |
+| `[name](attachments/x)` with a `sone-block` comment | a file block, with the file |
 | ```` ```sone-… ```` | the block it was, with its settings |
+| `<!-- sone-… -->` | what the block or page above could not say in Markdown |
+| Any other `<!-- comment -->` | nothing, as in every other reader |
 | Anything else | a paragraph, with its text intact |
 
-**Bold, italic and links inside a line are not read.** `**bold**` arrives as
-those exact characters, asterisks included. This is the honest limit of the
-current importer: marks live inside the document's own formatting, and applying
-them means a second parser and decisions about overlapping ranges. A page whose
-words are all present is better than one where half of them vanished into a mark
-that was read wrongly.
-
-They *do* survive a SONE export in the file — so the text is not lost, only its
-emphasis, and only on the way back in.
+**Bold, italic, strikethrough, inline code and links are read** (ADR-0191):
+`**bold**` arrives bold, `[text](url)` arrives as a link. The reader is small
+and deliberate rather than a full Markdown implementation — `*` opens emphasis
+only before a letter and closes only after one, `_` inside a word is a letter,
+and an opener with no closer is just a character — so `2 * 3 * 4` stays
+arithmetic and `snake_case` stays a name.
 
 ### Names that already exist
 

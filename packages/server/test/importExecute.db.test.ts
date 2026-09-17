@@ -16,6 +16,14 @@ import { executePlan } from '../src/import/execute.js';
 import { planImport } from '../src/import/plan.js';
 import { unzip } from '../src/import/unzip.js';
 import { createEntry } from '../src/pages/createEntry.js';
+import { LocalFileStore } from '../src/files/store.js';
+import { loadDoc } from '../src/doc/docStore.js';
+import { readDocument } from '../src/materialize/readDocument.js';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import * as Y from 'yjs';
+import { DOC_KEYS } from '@sone/core';
 import { queryRows } from '../src/db/pool.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase, seedWorkspace } from './support/db.js';
 
@@ -101,6 +109,74 @@ describe('import execution (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABA
       { title: 'Bunt', icon },
       { title: 'Seite', icon: { kind: 'icon', value: 'star' } },
     ]);
+  });
+
+  test('a picture, a heading, a task and bold words arrive as themselves, and export again (ADR-0191)', async () => {
+    const destination = await createEntry(db, {
+      workspaceId,
+      kind: 'folder',
+      title: 'Alles',
+      parentPageId: null,
+      actorId: userId,
+    });
+    // A one-pixel PNG: the eight-byte signature is what the type detector reads.
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const fileId = '11111111-1111-4111-8111-111111111111';
+    const body = pageToMarkdown('Bunt', [
+      { id: 'a', parentId: null, type: 'heading', plainText: 'Kapitel', props: { level: 3 } },
+      { id: 'b', parentId: null, type: 'paragraph', plainText: 'Fett und Link', markdown: '**Fett** und [Link](https://example.org)', props: { color: 'blue' } },
+      { id: 'c', parentId: null, type: 'todo', plainText: 'Erledigt', props: { checked: true } },
+      { id: 'd', parentId: null, type: 'image', plainText: '', props: { alt: 'Punkt', url: `/api/files/${fileId}` } },
+      { id: 'e', parentId: null, type: 'code', plainText: 'x = 1', props: { language: 'py' } },
+    ]);
+    const entries = unzip(
+      zip([
+        { name: 'Seite.md', body: Buffer.from(body), at },
+        { name: `attachments/${fileId}`, body: png, at },
+      ]),
+    );
+    const store = new LocalFileStore(mkdtempSync(path.join(tmpdir(), 'sone-import-')));
+    const result = await executePlan(db, planImport(entries, { byPath: new Map() }), {
+      workspaceId,
+      parentPageId: destination.id,
+      actorId: userId,
+      onCollision: 'skip',
+      store,
+      attachments: new Map([[fileId, png]]),
+    });
+    assert.deepEqual(result.failed, []);
+    const pageId = result.created[0]!;
+
+    // The document, as the editor would build it: attributes on the elements.
+    const loaded = await loadDoc(db, pageId);
+    try {
+      const elements = loaded.doc.getXmlFragment(DOC_KEYS.content).toArray() as Y.XmlElement[];
+      const byType = (type: string) => elements.find((el) => el.nodeName === type)!;
+      assert.strictEqual(byType('heading').getAttribute('level'), 3 as unknown as string, 'a number, as the editor writes it');
+      assert.strictEqual(byType('todo').getAttribute('checked'), true as unknown as string);
+      assert.equal(byType('code').getAttribute('language'), 'py');
+      assert.equal(byType('paragraph').getAttribute('color'), 'blue');
+      const url = byType('image').getAttribute('url');
+      assert.match(String(url), /^\/api\/files\/[0-9a-f-]{36}$/, 'the picture points at the copy stored here');
+      assert.notEqual(url, `/api/files/${fileId}`);
+      const words = byType('paragraph').get(0) as Y.XmlText;
+      assert.deepEqual(words.toDelta(), [
+        { insert: 'Fett', attributes: { strong: {} } },
+        { insert: ' und ' },
+        { insert: 'Link', attributes: { link: { href: 'https://example.org', title: null } } },
+      ]);
+
+      // And out again: the projection reads the marks back into Markdown.
+      const parsed = readDocument(loaded.doc, pageId);
+      const paragraph = parsed.blocks.find((one) => one.type === 'paragraph')!;
+      assert.equal(paragraph.markdown, '**Fett** und [Link](https://example.org)');
+      assert.equal(paragraph.plainText, 'Fett und Link');
+    } finally {
+      loaded.doc.destroy();
+    }
   });
 
   test('an archive becomes pages, and the words survive the trip', async () => {

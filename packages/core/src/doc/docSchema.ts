@@ -260,6 +260,46 @@ export type DividerOrnament = (typeof DIVIDER_ORNAMENTS)[number];
 export const DIVIDER_ORNAMENT_PLACES = ['start', 'center', 'end'] as const;
 export type DividerOrnamentPlace = (typeof DIVIDER_ORNAMENT_PLACES)[number];
 
+/**
+ * Which of a block's properties are ProseMirror node attributes, per type
+ * (ADR-0191) — as opposed to keys inside the `props` JSON.
+ *
+ * The distinction matters to anything that *writes* a block without the
+ * editor: the importer, chiefly. y-prosemirror builds a node from the shared
+ * element's attributes and never looks inside `props`, so a heading whose
+ * `level` was written into the JSON is a heading at the default size, and an
+ * image whose `url` was written there is an empty frame — which is what every
+ * imported heading and picture was. The reader (`readAllProps`) merges both
+ * places; the writer has to know which is which.
+ *
+ * The shared ones (`BLOCK_ATTRS` minus id, props and indent) apply to every
+ * type. An editor test holds this table to the schema, so a new attribute
+ * cannot be added to one without the other.
+ */
+export const BLOCK_NODE_ATTRS: Record<string, readonly string[]> = {
+  paragraph: [],
+  heading: ['level'],
+  bulletList: [],
+  numberedList: [],
+  todo: ['checked'],
+  toggle: ['collapsed'],
+  quote: ['source'],
+  callout: ['tone'],
+  code: ['language'],
+  divider: ['rule', 'ornament', 'ornamentAt'],
+  image: ['url', 'alt'],
+  file: ['fileId', 'filename', 'mimeType', 'category', 'sizeBytes', 'display'],
+  video: ['source', 'fileId', 'url', 'title', 'display'],
+  protectedSection: ['containerId'],
+  soteTasks: ['serverId', 'projectId', 'taskId', 'mode'],
+  collectionView: ['collectionId', 'viewId', 'display'],
+  columns: [],
+  table: [],
+};
+
+/** The attributes every block type has and a writer must place as attributes. */
+export const SHARED_NODE_ATTRS = ['align', 'width', 'color'] as const;
+
 export const ENTRY_KINDS = ['page', 'folder', 'row', 'container', 'canvas'] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 

@@ -11,6 +11,7 @@
  * malformed element degrades that element and nothing else.
  */
 
+import { opsToMarkdown, type InlineOp } from './inlineMarkdown.js';
 import * as Y from 'yjs';
 
 import { authorsByClient } from './attribution.js';
@@ -36,6 +37,8 @@ export interface TreeBlock {
   props: Record<string, unknown>;
   /** Inline text, flattened. Empty for atoms and structural containers. */
   text: string;
+  /** The same text with its marks, as Markdown (ADR-0191). */
+  markdown: string;
   /** Ids of direct children, in order. */
   childIds: string[];
 }
@@ -220,6 +223,39 @@ function inlineText(element: Y.XmlElement, depth = 0): string {
 }
 
 /**
+ * The inline text with its marks, as Markdown (ADR-0191).
+ *
+ * The same walk as `inlineText`, but the delta's attributes are kept and
+ * spelled: `**bold**`, `[a link](href)`. A mention is its name with an @, the
+ * way `inlineText` already reads it.
+ */
+function inlineMarkdown(element: Y.XmlElement, depth = 0): string {
+  if (depth > MAX_BLOCK_DEPTH) return '';
+  const ops: InlineOp[] = [];
+
+  for (let i = 0; i < element.length; i++) {
+    const child: unknown = element.get(i);
+    if (child instanceof Y.XmlText) {
+      for (const op of child.toDelta() as Array<{ insert?: unknown; attributes?: Record<string, unknown> }>) {
+        if (typeof op.insert !== 'string') continue;
+        ops.push(op.attributes ? { insert: op.insert, attributes: op.attributes } : { insert: op.insert });
+      }
+    } else if (child instanceof Y.XmlElement) {
+      if (child.getAttribute(BLOCK_ATTRS.id)) continue;
+      const mentioned = child.nodeName === MENTION_NODE ? mentionLabel(child) : null;
+      if (mentioned !== null) {
+        ops.push({ insert: `@${mentioned}` });
+        continue;
+      }
+      // Any other inline element contributes its words; the schema has none
+      // today besides the mention.
+      ops.push({ insert: inlineText(child, depth + 1) });
+    }
+  }
+  return opsToMarkdown(ops);
+}
+
+/**
  * Read the indent attribute, tolerating anything malformed.
  *
  * A missing or unparseable value reads as 0 rather than throwing: an indent is
@@ -323,6 +359,7 @@ export function readBlockTree(doc: Y.Doc): TreeReadResult {
         depth: baseDepth + stack.length,
         props: readAllProps(child, warnings, id),
         text: inlineText(child),
+        markdown: inlineMarkdown(child),
         childIds: [],
       };
       blocks.push(block);

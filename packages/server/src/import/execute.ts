@@ -17,15 +17,18 @@ import * as Y from 'yjs';
 
 import {
   BLOCK_ATTRS,
+  BLOCK_NODE_ATTRS,
   DOC_KEYS,
   PAGE_KEYS,
+  SHARED_NODE_ATTRS,
+  readEntryCover,
   readEntryIcon,
   readTitleColor,
   serialiseProps,
 } from '@sone/core';
 
 import { applyToDocument } from '../doc/docStore.js';
-import { detectType, type FileStore } from '../files/store.js';
+import { categoryOf, detectType, type FileStore } from '../files/store.js';
 import { queryOne } from '../db/pool.js';
 import { createEntry } from '../pages/createEntry.js';
 import { rematerialize } from '../materialize/rematerialize.js';
@@ -76,7 +79,7 @@ export interface ImportOptions {
  * second opinion about the document format, held by the one module that only
  * ever writes and never reads it back.
  */
-function writeBlocks(doc: Y.Doc, markdown: string, files: Map<string, string>): void {
+function writeBlocks(doc: Y.Doc, markdown: string, files: Map<string, UploadedFile>): void {
   const fragment = doc.getXmlFragment(DOC_KEYS.content);
   const blocks = markdownToBlocks(markdown);
 
@@ -91,40 +94,66 @@ function writeBlocks(doc: Y.Doc, markdown: string, files: Map<string, string>): 
      * next. A reference with no uploaded file keeps its `attachmentRef` and no
      * `fileId`, which is a picture the editor draws as missing — true, and
      * better than a `fileId` pointing at nothing.
+     *
+     * A picture is addressed, not identified: the image block has a `url` of
+     * `/api/files/<id>` and no `fileId`, so that is what it gets. A file block
+     * has the id, and the type and size the upload found out.
      */
     if (typeof block.props['attachmentRef'] === 'string') {
       const mapped = files.get(block.props['attachmentRef']);
       if (mapped) {
         delete block.props['attachmentRef'];
-        block.props['fileId'] = mapped;
+        if (block.type === 'image') {
+          block.props['url'] = `/api/files/${mapped.id}`;
+        } else {
+          block.props['fileId'] = mapped.id;
+          if (typeof block.props['mimeType'] !== 'string') block.props['mimeType'] = mapped.mime;
+          if (typeof block.props['sizeBytes'] !== 'number') block.props['sizeBytes'] = mapped.sizeBytes;
+          if (typeof block.props['category'] !== 'string') block.props['category'] = mapped.category;
+        }
       }
     }
 
     /*
-     * A callout's tone, a quote's source and a divider's shape are schema
-     * attributes, not props (ADR-0188, ADR-0189): the editor reads them from the
-     * stylesheet from `data-tone`, neither of which looks inside the JSON.
-     * Written where they are read, or an imported warning is a grey box.
+     * A node's attributes go where the editor reads them (ADR-0191).
+     *
+     * y-prosemirror builds a node from the element's attributes and never
+     * looks inside `props`. Everything here used to go into the JSON — so an
+     * imported heading was a heading at the default size, a ticked task was
+     * open, a code block had no language, and a picture was an empty frame
+     * with its address in a place nothing reads. `BLOCK_NODE_ATTRS` says, per
+     * type, which keys are attributes; they are written with the type they
+     * have (a level is a number, `checked` a boolean), because that is what
+     * the editor writes and compares against.
      */
-    for (const key of [
-      BLOCK_ATTRS.tone,
-      BLOCK_ATTRS.source,
-      BLOCK_ATTRS.rule,
-      BLOCK_ATTRS.ornament,
-      BLOCK_ATTRS.ornamentAt,
-    ]) {
+    const attrNames = new Set<string>([
+      ...SHARED_NODE_ATTRS,
+      ...(BLOCK_NODE_ATTRS[block.type] ?? []),
+    ]);
+    for (const key of attrNames) {
       const value = block.props[key];
-      if (typeof value === 'string' && value !== '') {
-        element.setAttribute(key, value);
-        delete block.props[key];
-      }
+      if (value === undefined || value === null || value === '') continue;
+      // Yjs types the setter as string and stores whatever it is given, which
+      // is how y-prosemirror itself writes a number or a boolean.
+      element.setAttribute(key, value as string);
+      delete block.props[key];
     }
 
     const props = serialiseProps(block.props);
     if (props) element.setAttribute(BLOCK_ATTRS.props, props);
     if (block.indent > 0) element.setAttribute(BLOCK_ATTRS.indent, String(block.indent));
 
-    if (block.text !== '') {
+    if (block.rich && block.rich.length > 0) {
+      // With its marks: the delta shape is the one y-prosemirror writes.
+      const text = new Y.XmlText();
+      text.applyDelta(
+        block.rich.map((op) => ({
+          insert: op.insert,
+          ...(op.attributes ? { attributes: op.attributes } : {}),
+        })),
+      );
+      element.insert(0, [text]);
+    } else if (block.text !== '') {
       const text = new Y.XmlText();
       text.insert(0, block.text);
       element.insert(0, [text]);
@@ -151,8 +180,8 @@ export async function executePlan(
   options: ImportOptions,
 ): Promise<ImportResult> {
   const result: ImportResult = { created: [], collided: [], failed: [] };
-  /** Archive name → our file id, so a picture used twice is stored once. */
-  const uploaded = new Map<string, string>();
+  /** Archive name → our file, so a picture used twice is stored once. */
+  const uploaded = new Map<string, UploadedFile>();
   /** Which page each planned path became, so children can find their parent. */
   const madeByPath = new Map<string, string>();
 
@@ -191,15 +220,36 @@ export async function executePlan(
       const look = page.entry?.icon;
       const icon = readEntryIcon(look);
       const titleColor = readTitleColor(look);
-      if (icon || titleColor) {
+      // A cover that is a picture names its file the way an image block does
+      // (ADR-0191); it is uploaded like the page's other files and the address
+      // rewritten to the copy stored here.
+      let coverRaw: unknown = page.entry?.cover;
+      const coverUrl =
+        coverRaw && typeof coverRaw === 'object' && (coverRaw as { kind?: unknown }).kind === 'image'
+          ? (coverRaw as { url?: unknown }).url
+          : undefined;
+      const coverRef = typeof coverUrl === 'string' ? /^attachments\/(.+)$/.exec(coverUrl) : null;
+      if (coverRef) {
+        const files = await uploadFor(pool, `](attachments/${coverRef[1]})`, options, uploaded, created.id);
+        const mapped = files.get(coverRef[1] ?? '');
+        coverRaw = mapped ? { ...(coverRaw as object), url: `/api/files/${mapped.id}` } : null;
+      }
+      const cover = readEntryCover(coverRaw);
+      const width =
+        page.entry?.width === 'full' || page.entry?.width === 'column' ? page.entry.width : null;
+      if (icon || titleColor || cover || width || page.entry?.template || page.entry?.locked) {
         await applyToDocument(
           pool,
           created.id,
           (doc) => {
-            doc.getMap(DOC_KEYS.page).set(PAGE_KEYS.icon, {
-              ...(icon ?? {}),
-              ...(titleColor ? { titleColor } : {}),
-            });
+            const map = doc.getMap(DOC_KEYS.page);
+            if (icon || titleColor) {
+              map.set(PAGE_KEYS.icon, { ...(icon ?? {}), ...(titleColor ? { titleColor } : {}) });
+            }
+            if (cover) map.set(PAGE_KEYS.cover, cover);
+            if (width) map.set(PAGE_KEYS.width, width);
+            if (page.entry?.template) map.set(PAGE_KEYS.template, true);
+            if (page.entry?.locked) map.set(PAGE_KEYS.locked, true);
           },
           options.actorId,
         );
@@ -244,15 +294,23 @@ export async function executePlan(
  * `uploaded` cache across the import: an archive where a logo appears on twenty
  * pages should store one file, not twenty copies of it.
  */
+/** What an archive's file became here. */
+interface UploadedFile {
+  id: string;
+  mime: string;
+  sizeBytes: number;
+  category: string;
+}
+
 async function uploadFor(
   pool: Pool,
   markdown: string,
   options: ImportOptions,
-  uploaded: Map<string, string>,
+  uploaded: Map<string, UploadedFile>,
   pageId: string,
-): Promise<Map<string, string>> {
+): Promise<Map<string, UploadedFile>> {
   const { store, attachments } = options;
-  const mapping = new Map<string, string>();
+  const mapping = new Map<string, UploadedFile>();
   if (!store || !attachments || attachments.size === 0) return mapping;
 
   for (const [, reference] of markdown.matchAll(/\]\(attachments\/([^)]+)\)/g)) {
@@ -298,8 +356,14 @@ async function uploadFor(
         ],
       );
       if (row) {
-        uploaded.set(name, row.id);
-        mapping.set(name, row.id);
+        const file: UploadedFile = {
+          id: row.id,
+          mime: detected.mime,
+          sizeBytes: stored.sizeBytes,
+          category: categoryOf(detected.mime),
+        };
+        uploaded.set(name, file);
+        mapping.set(name, file);
       }
     } catch {
       // One file's failure is one missing picture, not a failed import.

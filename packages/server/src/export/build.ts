@@ -20,7 +20,7 @@ import { loadDoc } from '../doc/docStore.js';
 import type { FileStore } from '../files/store.js';
 import { readDocument } from '../materialize/readDocument.js';
 import { visiblePagesCondition } from '../pages/access.js';
-import { fileNameFor, pageToMarkdown } from './markdown.js';
+import { fileIdFromUrl, fileNameFor, pageToMarkdown } from './markdown.js';
 import { MAX_ARCHIVE_BYTES, zip } from './zip.js';
 
 export class ExportTooLarge extends Error {
@@ -129,11 +129,18 @@ export async function buildArchive(
           parentId: block.parentId,
           type: block.type,
           plainText: block.plainText,
+          markdown: block.markdown,
           props: block.props,
         })),
         // A folder has a name and an icon of its own (the comment above the
         // entries said so, and only the name was ever written).
-        { icon: parsed.page.icon },
+        {
+          icon: parsed.page.icon,
+          cover: parsed.page.cover,
+          width: parsed.page.width,
+          template: parsed.page.template,
+          locked: parsed.page.locked,
+        },
       );
 
       const path = pathOf(page.id);
@@ -148,9 +155,13 @@ export async function buildArchive(
 
       if (request.withAttachments) {
         for (const block of parsed.blocks) {
-          const fileId = block.props['fileId'];
+          const fileId = block.props['fileId'] ?? fileIdFromUrl(block.props['url']);
           if (typeof fileId === 'string') fileIds.add(fileId);
         }
+        // The cover's picture is the page's file too.
+        const coverFile =
+          parsed.page.cover?.kind === 'image' ? fileIdFromUrl(parsed.page.cover.url) : null;
+        if (coverFile) fileIds.add(coverFile);
         // A canvas's pictures too: they are the page's files, and an archive
         // with the notes and not the drawings would be a strange thing to have.
         for (const item of readCanvas(loaded.doc)) {

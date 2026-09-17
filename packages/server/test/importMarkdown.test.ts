@@ -82,14 +82,20 @@ test('a nested list keeps its depth', () => {
   );
 });
 
-test('inline marks are not parsed, and the words are all there', () => {
-  // The honest limit of this pass: marks live in a Yjs text's formatting, and
-  // applying them means a second parser and decisions about overlapping ranges.
-  // Better a page whose words are all present than one where half of them
-  // vanished into a mark I got wrong.
+test('inline marks are read, and the words are all there (ADR-0191)', () => {
+  // This used to assert the opposite — that `**bold**` arrived as those
+  // characters — as the honest limit of a first pass. The limit is lifted: the
+  // marks the schema has are read, and the words are still all present.
   const read = markdownToBlocks('This is **bold** and this is *not*.\n');
   assert.equal(read[0]?.type, 'paragraph');
-  assert.equal(read[0]?.text, 'This is **bold** and this is *not*.');
+  assert.equal(read[0]?.text, 'This is bold and this is not.');
+  assert.deepEqual(read[0]?.rich, [
+    { insert: 'This is ' },
+    { insert: 'bold', attributes: { strong: {} } },
+    { insert: ' and this is ' },
+    { insert: 'not', attributes: { em: {} } },
+    { insert: '.' },
+  ]);
 });
 
 test('an unterminated fence takes the rest rather than refusing the file', () => {
@@ -125,7 +131,8 @@ test('a toned callout and a sourced quote survive the round trip (ADR-0188)', ()
 test('a bold first line that is not a tone stays a quote', () => {
   const read = markdownToBlocks('> **Chapter one**\n>\n> It was a dark night.');
   assert.equal(read[0]?.type, 'quote');
-  assert.equal(read[0]?.text, '**Chapter one**\n\nIt was a dark night.');
+  assert.equal(read[0]?.text, 'Chapter one\n\nIt was a dark night.');
+  assert.deepEqual(read[0]?.rich?.[0], { insert: 'Chapter one', attributes: { strong: {} } });
 });
 
 test('a divider keeps its line, symbol and place, and *** is an asterism (ADR-0189)', () => {
@@ -160,4 +167,44 @@ test('an entry keeps its symbol and colours in a comment under the title (ADR-01
   const plain = pageToMarkdown('Plain', [block('paragraph', 'Words')], { icon: null });
   assert.equal(plain.includes('sone-entry'), false, 'the default look says nothing');
   assert.equal(entryFrom(plain), null);
+});
+
+test('a page with every kind of content comes back the way it left (ADR-0191)', () => {
+  const original: ExportBlock[] = [
+    { ...block('paragraph', 'Bold and a link', { color: 'red', align: 'center' }), markdown: '**Bold** and [a link](https://example.org)' },
+    block('heading', 'Deeper', { level: 3 }),
+    block('todo', 'Done', { checked: true }),
+    block('toggle', 'Summary', { collapsed: true }),
+    block('image', '', { alt: 'A cat', url: '/api/files/11111111-1111-4111-8111-111111111111' }),
+    block('image', '', { alt: 'Elsewhere', url: 'https://example.org/cat.png' }),
+    block('file', '', { fileId: '22222222-2222-4222-8222-222222222222', filename: 'plan.pdf', mimeType: 'application/pdf', category: 'document', sizeBytes: 1234, display: 'card' }),
+    block('code', 'const x = **not bold**;', { language: 'ts' }),
+  ];
+  const markdown = pageToMarkdown('Everything', original);
+  assert.match(markdown, /^\*\*Bold\*\* and \[a link\]\(https:\/\/example.org\)\n<!-- sone-block \{"align":"center","color":"red"\} -->$/m);
+  assert.match(markdown, /!\[A cat\]\(attachments\/11111111-1111-4111-8111-111111111111\)/, 'the picture names its file');
+  assert.match(markdown, /!\[Elsewhere\]\(https:\/\/example.org\/cat.png\)/);
+  assert.match(markdown, /\[plan.pdf\]\(attachments\/22222222-2222-4222-8222-222222222222\)\n<!-- sone-block \{"type":"file"/);
+  assert.match(markdown, /\*\*Summary\*\*\n<!-- sone-block \{"type":"toggle","collapsed":true\} -->/);
+
+  const read = markdownToBlocks(bodyWithoutTitle(markdown));
+  assert.deepEqual(
+    read.map((one) => [one.type, one.text, one.props]),
+    [
+      ['paragraph', 'Bold and a link', { align: 'center', color: 'red' }],
+      ['heading', 'Deeper', { level: 3 }],
+      ['todo', 'Done', { checked: true }],
+      ['toggle', 'Summary', { collapsed: true }],
+      ['image', '', { alt: 'A cat', attachmentRef: '11111111-1111-4111-8111-111111111111' }],
+      ['image', '', { alt: 'Elsewhere', url: 'https://example.org/cat.png' }],
+      ['file', '', { attachmentRef: '22222222-2222-4222-8222-222222222222', filename: 'plan.pdf', mimeType: 'application/pdf', category: 'document', sizeBytes: 1234, display: 'card' }],
+      ['code', 'const x = **not bold**;', { language: 'ts' }],
+    ],
+  );
+  assert.deepEqual(read[0]?.rich, [
+    { insert: 'Bold', attributes: { strong: {} } },
+    { insert: ' and ' },
+    { insert: 'a link', attributes: { link: { href: 'https://example.org', title: null } } },
+  ]);
+  assert.equal(read[3]?.rich, undefined, 'the toggle summary is not bold, the bold was the spelling');
 });
