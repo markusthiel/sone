@@ -212,22 +212,44 @@ async function keepExisting(
  * bound makes the query terminate whatever the data is.
  */
 async function cascadeAncestors(db: PoolClient, pageId: string): Promise<string[]> {
+  /*
+   * The new path is carried *down the recursion*, not looked up per row.
+   *
+   * The previous shape looked each descendant's path up from its parent's row
+   * — `parent.ancestor_ids || parent.id` — inside the same UPDATE. A statement
+   * sees the table as it was when the statement began, so a child read the
+   * moved page's new path (that row was written a statement earlier) and every
+   * grandchild read its parent's *old* path. Move folder A out of folder I and
+   * A's children were right while A's grandchildren still named I as an
+   * ancestor. Nothing looked wrong in the tree, which hangs off
+   * parent_page_id. Then somebody trashed the now-empty I, and
+   * `$1 = ANY(ancestor_ids)` archived every grandchild of A along with it —
+   * which is how an imported workspace lost most of its pages the moment its
+   * import folder was tidied away. The same stale path decided share-link
+   * scope and subtree grants.
+   *
+   * So the recursion starts from the moved page's own (already updated) path
+   * and appends one id per level; each row's new path is a value computed in
+   * the CTE, and the snapshot no longer matters.
+   */
   const rows = await queryRows<{ id: string }>(
     db,
     `WITH RECURSIVE subtree AS (
-       SELECT id, ancestor_ids, 0 AS depth FROM pages WHERE parent_page_id = $1
+       SELECT c.id, moved.ancestor_ids || moved.id AS path, 0 AS depth
+         FROM pages moved
+         JOIN pages c ON c.parent_page_id = moved.id
+        WHERE moved.id = $1
        UNION ALL
-       SELECT p.id, p.ancestor_ids, s.depth + 1
+       SELECT p.id, s.path || s.id, s.depth + 1
          FROM pages p
          JOIN subtree s ON p.parent_page_id = s.id
         WHERE s.depth < 128
      )
      UPDATE pages p
-        SET ancestor_ids = (
-              SELECT parent.ancestor_ids || parent.id
-                FROM pages parent WHERE parent.id = p.parent_page_id
-            )
-      WHERE p.id IN (SELECT id FROM subtree)
+        SET ancestor_ids = s.path
+       FROM subtree s
+      WHERE p.id = s.id
+        AND p.ancestor_ids IS DISTINCT FROM s.path
       RETURNING p.id`,
     [pageId],
   );

@@ -131,6 +131,9 @@ export async function buildArchive(
           plainText: block.plainText,
           props: block.props,
         })),
+        // A folder has a name and an icon of its own (the comment above the
+        // entries said so, and only the name was ever written).
+        { icon: parsed.page.icon },
       );
 
       const path = pathOf(page.id);

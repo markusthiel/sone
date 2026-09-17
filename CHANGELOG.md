@@ -15,6 +15,23 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 Nichts zu tun.
 
+**Ein verschobener Ordner nimmt seine Enkel richtig mit.** Wer einen Ordner
+verschob, bekam bei dessen Kindern den neuen Pfad, bei den Enkeln aber den
+alten — unsichtbar, weil der Baum an der Elternangabe hängt. Sichtbar wurde es
+beim Aufräumen: Wer einen Workspace in einen Sammelordner importierte, die
+Hauptordner herauszog und den leeren Sammelordner löschte, verlor damit die
+meisten Seiten ab der zweiten Ebene in den Papierkorb, weil ihr Pfad den
+Sammelordner noch nannte. Dieselbe Angabe entschied über Freigabelinks und
+Rechte auf Unterbäume. Der Pfad wird jetzt für jede Ebene neu berechnet
+(ADR-0190). Betroffene Seiten liegen im Papierkorb des Ziel-Workspace und
+lassen sich wiederherstellen; bestehende falsche Pfade korrigiert ein Neuaufbau
+der Projektion.
+
+**Export und Import nehmen Symbol und Farben mit.** Das Icon eines Ordners oder
+einer Seite, seine Farbe und die Titelfarbe stehen im Archiv als Kommentarzeile
+unter dem Titel und kommen beim Import zurück. Bisher kam alles im Standardlook
+an. Titelbild, Breite, Vorlagen- und Sperrflag reisen weiterhin nicht mit.
+
 **Der Workspace-Export lässt sich herunterladen, zeigt seinen Fortschritt und
 lässt sich löschen.** Drei Fehler an einer Stelle: Die Seite blieb nach dem
 Klick auf „Ein Archiv vorbereiten“ bei „Wartet auf den Start…“ stehen, weil sie

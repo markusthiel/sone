@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { pageToMarkdown, type ExportBlock } from '../src/export/markdown.js';
-import { bodyWithoutTitle } from '../src/import/plan.js';
+import { bodyWithoutTitle, entryFrom, titleFrom } from '../src/import/plan.js';
 import { markdownToBlocks } from '../src/import/markdown.js';
 
 const block = (
@@ -146,4 +146,18 @@ test('a divider keeps its line, symbol and place, and *** is an asterism (ADR-01
     ],
   );
   assert.deepEqual(markdownToBlocks('***')[0]?.props, { ornament: 'asterism' });
+});
+
+test('an entry keeps its symbol and colours in a comment under the title (ADR-0190)', () => {
+  const icon = { kind: 'icon', value: 'rocket', color: 'blue', titleColor: '#aa1122' };
+  const markdown = pageToMarkdown('Projekte', [block('paragraph', 'Words')], { icon });
+  assert.match(markdown, /^# Projekte\n\n<!-- sone-entry \{"icon":/m);
+  assert.equal(titleFrom(markdown, 'x'), 'Projekte');
+  assert.deepEqual(entryFrom(markdown), { icon });
+  assert.equal(bodyWithoutTitle(markdown).includes('sone-entry'), false, 'the comment is not body text');
+  assert.deepEqual(markdownToBlocks(bodyWithoutTitle(markdown)).map((one) => one.text), ['Words']);
+
+  const plain = pageToMarkdown('Plain', [block('paragraph', 'Words')], { icon: null });
+  assert.equal(plain.includes('sone-entry'), false, 'the default look says nothing');
+  assert.equal(entryFrom(plain), null);
 });
