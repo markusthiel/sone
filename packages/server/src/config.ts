@@ -85,6 +85,39 @@ const oneOf = <T extends string>(
   return value as T;
 };
 
+/**
+ * The connection string, checked before `pg` gets to see it.
+ *
+ * `pg` parses it with the WHATWG URL parser and, when that fails, reports
+ * "Invalid URL" — two words, no variable name, no hint. An operator saw exactly
+ * that, once per restart, from a container that would not come up.
+ *
+ * The cause was the password. `docker-compose.yml` splices `POSTGRES_PASSWORD`
+ * into the URL unencoded, and `.env.example` recommended `openssl rand -base64
+ * 32` for it. Base64 contains `/`; a `/` in the userinfo ends the host and the
+ * URL no longer parses. About every second generated password had one, so the
+ * same instructions worked on one server and not on the next.
+ *
+ * The example now recommends hex. This check is for everybody who already has
+ * a `.env`, and it names the fix.
+ */
+const databaseUrl = (env: NodeJS.ProcessEnv): string => {
+  const value = required(env, 'SONE_DATABASE_URL');
+  try {
+    new URL(value);
+  } catch {
+    throw new ConfigError(
+      'SONE_DATABASE_URL is not a valid URL. In the docker-compose setup it is ' +
+        'built from POSTGRES_PASSWORD, and a password containing /, #, %, ? or ' +
+        'a space breaks the URL (openssl rand -base64 produces such characters). ' +
+        'Use a password from `openssl rand -hex 32`, or percent-encode the ' +
+        'special characters — and remember the database itself keeps the ' +
+        'password it was first created with.',
+    );
+  }
+  return value;
+};
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const secretKey = required(env, 'SONE_SECRET_KEY');
   if (secretKey.length < 32) {
@@ -161,7 +194,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
 
   return {
-    databaseUrl: required(env, 'SONE_DATABASE_URL'),
+    databaseUrl: databaseUrl(env),
     // An escape hatch, not a setting. See FenceOptions in db/version.ts.
     allowDowngrade: optional(env, 'SONE_ALLOW_DOWNGRADE', 'false') === 'true',
     secretKey,
