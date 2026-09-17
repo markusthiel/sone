@@ -13,7 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nichts zu tun. Wer eine Fläche übertragen will, exportiert den Workspace nach
+## 0.14.3
+
+Aktualisieren und neu starten, sonst nichts. Wer eine Fläche übertragen will, exportiert den Workspace nach
 dem Update noch einmal.
 
 **Flächen reisen mit.** Eine Fläche kam bisher als leere Seite an — ihr Bild
