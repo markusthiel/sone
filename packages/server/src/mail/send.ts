@@ -106,9 +106,25 @@ class SmtpError extends Error {
  * EHLO in one line and hangs against every real one, which is why the fake
  * server in the tests answers in four.
  */
+interface Reply {
+  code: number;
+  /** The last line's text — the one a client acts on. */
+  text: string;
+  /**
+   * Every line's text, continuation lines included.
+   *
+   * An EHLO reply is the one place this matters: `250-AUTH LOGIN XOAUTH2` is a
+   * continuation line, and it is the line that says which mechanisms the relay
+   * accepts. The first version of this client kept only the last line and
+   * knew nothing about the ones before it.
+   */
+  lines: string[];
+}
+
 class Session {
   private buffer = '';
-  private waiting: ((reply: { code: number; text: string }) => void) | null = null;
+  private lines: string[] = [];
+  private waiting: ((reply: Reply) => void) | null = null;
   private failed: ((error: Error) => void) | null = null;
 
   constructor(private socket: Socket | TLSSocket) {
@@ -127,14 +143,17 @@ class Session {
         // stay in the buffer until the final one arrives.
         if (line.length >= 4 && line[3] === '-') {
           this.buffer = this.buffer.slice(end + 2);
+          this.lines.push(line.slice(4));
           continue;
         }
         this.buffer = this.buffer.slice(end + 2);
         const code = Number.parseInt(line.slice(0, 3), 10);
+        const lines = [...this.lines, line.slice(4)];
+        this.lines = [];
         const resolve = this.waiting;
         this.waiting = null;
         this.failed = null;
-        resolve?.({ code, text: line.slice(4) });
+        resolve?.({ code, text: line.slice(4), lines });
         return;
       }
     });
@@ -152,10 +171,11 @@ class Session {
     this.socket.removeAllListeners('error');
     this.socket = socket;
     this.buffer = '';
+    this.lines = [];
     this.attach();
   }
 
-  reply(): Promise<{ code: number; text: string }> {
+  reply(): Promise<Reply> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.waiting = null;
@@ -174,11 +194,18 @@ class Session {
     });
   }
 
-  async say(line: string, expect: number[]): Promise<{ code: number; text: string }> {
+  /**
+   * Send one line, expect one of the given codes.
+   *
+   * `label` names the step in the error when the line itself must not: the
+   * credential lines of AUTH LOGIN are the password, base64 — and the error
+   * ends up on an administrator's screen and in the log.
+   */
+  async say(line: string, expect: number[], label = line.split(' ')[0]): Promise<Reply> {
     this.socket.write(`${line}\r\n`);
     const reply = await this.reply();
     if (!expect.includes(reply.code)) {
-      throw new SmtpError(`${line.split(' ')[0]}: ${reply.code} ${reply.text}`, reply.code);
+      throw new SmtpError(`${label}: ${reply.code} ${reply.text}`, reply.code);
     }
     return reply;
   }
@@ -219,21 +246,90 @@ function headerSafe(value: string): string {
   return value.replace(/[\r\n]+/g, ' ').slice(0, 200);
 }
 
-export async function sendMail(relay: Relay, message: Message, now = new Date()): Promise<void> {
+/**
+ * Open the connection a relay's settings describe, and wait until it is up.
+ *
+ * Separate from the conversation so a test can hand in a socket to a fake that
+ * speaks no TLS and still exercise the part of the conversation that only ever
+ * happens over TLS — the authentication. That part was the one part the fake
+ * never heard, and it was wrong (see `authenticate`).
+ */
+export type Dial = (relay: Relay) => Promise<Socket | TLSSocket>;
+
+const dialRelay: Dial = async (relay) => {
   const socket: Socket | TLSSocket =
     relay.security === 'tls'
       ? tlsConnect({ host: relay.host, port: relay.port })
       : createConnection({ host: relay.host, port: relay.port });
+  await new Promise<void>((resolve, reject) => {
+    socket.once(relay.security === 'tls' ? 'secureConnect' : 'connect', () => resolve());
+    socket.once('error', reject);
+  });
+  return socket;
+};
 
+/**
+ * The mechanisms a relay said it accepts, read off its EHLO reply.
+ *
+ * `null` when the relay did not say: the extension is optional to advertise,
+ * and a relay that keeps quiet is not one that refuses.
+ */
+export function offeredAuth(ehlo: string[]): string[] | null {
+  for (const line of ehlo) {
+    // `AUTH PLAIN LOGIN` per RFC 4954; `AUTH=PLAIN LOGIN` is the older form some
+    // relays still send alongside it.
+    const match = /^AUTH[ =](.+)$/i.exec(line.trim());
+    if (match?.[1]) return match[1].split(/\s+/).filter(Boolean).map((m) => m.toUpperCase());
+  }
+  return null;
+}
+
+/**
+ * Hand over the password, the way this relay wants it.
+ *
+ * PLAIN when it is offered: one round trip. LOGIN when only that is: two
+ * challenges, user then password, each base64. Exchange Online is the relay
+ * that made the second one necessary — after STARTTLS it announces
+ * `AUTH LOGIN XOAUTH2` and answers PLAIN with `504 5.7.4 Unrecognized
+ * authentication type`, which reads like a wrong password and is not one.
+ *
+ * A relay that announces neither gets told so, with what it did announce: an
+ * operator whose tenant has switched to OAuth-only sees the word XOAUTH2 in the
+ * error rather than a 504 to search for.
+ */
+async function authenticate(session: Session, relay: Relay, ehlo: string[]): Promise<void> {
+  const offered = offeredAuth(ehlo);
+  const b64 = (value: string) => Buffer.from(value, 'utf8').toString('base64');
+
+  // A relay that did not say is tried with PLAIN, as before this was read at all.
+  if (offered === null || offered.includes('PLAIN')) {
+    await session.say(`AUTH PLAIN ${b64(`\0${relay.user}\0${relay.password}`)}`, [235]);
+    return;
+  }
+  if (offered.includes('LOGIN')) {
+    await session.say('AUTH LOGIN', [334]);
+    await session.say(b64(relay.user), [334], 'AUTH');
+    await session.say(b64(relay.password), [235], 'AUTH');
+    return;
+  }
+  throw new SmtpError(
+    `the relay accepts a password by none of the mechanisms SONE speaks (PLAIN, LOGIN); ` +
+      `it offers: ${offered.join(' ') || 'nothing'}`,
+    null,
+  );
+}
+
+export async function sendMail(
+  relay: Relay,
+  message: Message,
+  now = new Date(),
+  dial: Dial = dialRelay,
+): Promise<void> {
+  const socket = await dial(relay);
   const session = new Session(socket);
   try {
-    await new Promise<void>((resolve, reject) => {
-      socket.once(relay.security === 'tls' ? 'secureConnect' : 'connect', () => resolve());
-      socket.once('error', reject);
-    });
-
     await session.reply(); // the greeting
-    await session.say('EHLO sone', [250]);
+    let ehlo = await session.say('EHLO sone', [250]);
 
     if (relay.security === 'starttls') {
       await session.say('STARTTLS', [220]);
@@ -245,19 +341,16 @@ export async function sendMail(relay: Relay, message: Message, now = new Date())
       session.upgrade(secure);
       // EHLO again after the upgrade: the capability list before it was sent in
       // the clear and cannot be trusted, and the specification requires it.
-      await session.say('EHLO sone', [250]);
+      ehlo = await session.say('EHLO sone', [250]);
     }
 
     if (relay.user !== '') {
-      // AUTH PLAIN, which is one round trip. Only over an encrypted connection:
-      // a password in the clear is worse than no mail.
+      // Only over an encrypted connection: a password in the clear is worse
+      // than no mail.
       if (relay.security === 'none') {
         throw new SmtpError('refusing to send a password over an unencrypted connection', null);
       }
-      const credential = Buffer.from(`\0${relay.user}\0${relay.password}`, 'utf8').toString(
-        'base64',
-      );
-      await session.say(`AUTH PLAIN ${credential}`, [235]);
+      await authenticate(session, relay, ehlo.lines);
     }
 
     /*
