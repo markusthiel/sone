@@ -13,14 +13,14 @@
 
 import type { Pool, PoolClient } from 'pg';
 
-import { readCanvas } from '@sone/core';
+import { readBackground, readCanvas } from '@sone/core';
 
 import { queryRows } from '../db/pool.js';
 import { loadDoc } from '../doc/docStore.js';
 import type { FileStore } from '../files/store.js';
 import { readDocument } from '../materialize/readDocument.js';
 import { visiblePagesCondition } from '../pages/access.js';
-import { fileIdFromUrl, fileNameFor, pageToMarkdown } from './markdown.js';
+import { canvasToMarkdown, fileIdFromUrl, fileNameFor, pageToMarkdown } from './markdown.js';
 import { MAX_ARCHIVE_BYTES, zip } from './zip.js';
 
 export class ExportTooLarge extends Error {
@@ -122,26 +122,36 @@ export async function buildArchive(
     const loaded = await loadDoc(pool, page.id);
     try {
       const parsed = readDocument(loaded.doc, page.id);
-      const markdown = pageToMarkdown(
-        parsed.page.title,
-        parsed.blocks.map((block) => ({
-          id: block.id,
-          parentId: block.parentId,
-          type: block.type,
-          plainText: block.plainText,
-          markdown: block.markdown,
-          props: block.props,
-        })),
-        // A folder has a name and an icon of its own (the comment above the
-        // entries said so, and only the name was ever written).
-        {
-          icon: parsed.page.icon,
-          cover: parsed.page.cover,
-          width: parsed.page.width,
-          template: parsed.page.template,
-          locked: parsed.page.locked,
-        },
-      );
+      // A folder has a name and an icon of its own (the comment above the
+      // entries said so, and only the name was ever written).
+      const entry = {
+        kind: parsed.page.kind,
+        icon: parsed.page.icon,
+        cover: parsed.page.cover,
+        width: parsed.page.width,
+        template: parsed.page.template,
+        locked: parsed.page.locked,
+      };
+      const markdown =
+        parsed.page.kind === 'canvas'
+          ? // A board is its items, not blocks (ADR-0191).
+            canvasToMarkdown(
+              parsed.page.title,
+              { background: readBackground(loaded.doc), items: readCanvas(loaded.doc) },
+              entry,
+            )
+          : pageToMarkdown(
+              parsed.page.title,
+              parsed.blocks.map((block) => ({
+                id: block.id,
+                parentId: block.parentId,
+                type: block.type,
+                plainText: block.plainText,
+                markdown: block.markdown,
+                props: block.props,
+              })),
+              entry,
+            );
 
       const path = pathOf(page.id);
       // A folder becomes a directory with an index rather than nothing: it has a

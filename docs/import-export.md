@@ -67,6 +67,10 @@ attachments/
   and symbol travel the same way, as `<!-- sone-divider … -->` under its `---`.
 - **Bold, italic, strikethrough, inline code and links** are written as
   Markdown and read back on import. A mention is written as `@Name`.
+- A **canvas** is one file like any page — its title, its entry comment with
+  `"kind":"canvas"`, and one `sone-canvas` fence holding every item: texts,
+  strokes, shapes and pictures with their positions, sizes and stacking. The
+  pictures are in `attachments/`. It comes back as a canvas.
 - Pictures and files land in `attachments/`, named by id, and the Markdown links
   to them. Two pictures both called `screenshot.png` would be one file in a flat
   directory; the id avoids that.
@@ -90,7 +94,6 @@ attachments/
 | Page history | An archive is one moment. The versions are in SONE. |
 | Who wrote what | Attribution is per character in the document; a Markdown file has no place for it. |
 | Permissions | Who may read a page is a fact about SONE, not about the text. |
-| A canvas's drawing | A canvas arrives as an empty page. Its pictures are in `attachments/`, the arrangement is not. |
 
 ---
 
