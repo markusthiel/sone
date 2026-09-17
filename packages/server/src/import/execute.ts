@@ -18,7 +18,14 @@ import * as Y from 'yjs';
 import {
   BLOCK_ATTRS,
   BLOCK_NODE_ATTRS,
+  CANVAS_BACKGROUNDS,
+  CANVAS_ITEM_KINDS,
   DOC_KEYS,
+  addItem,
+  setBackground,
+  type CanvasBackground,
+  type CanvasItemKind,
+  type NewItem,
   PAGE_KEYS,
   SHARED_NODE_ATTRS,
   readEntryCover,
@@ -174,6 +181,70 @@ function writeBlocks(doc: Y.Doc, markdown: string, files: Map<string, UploadedFi
   fragment.insert(0, elements);
 }
 
+/**
+ * Build a board from the fence our export wrote (ADR-0191).
+ *
+ * Items are added in their stacking order, front last, so `addItem`'s
+ * "put it on top" reproduces the order they had. Each gets a fresh id: an id
+ * is only unique within its document, and this is a new document.
+ */
+function writeCanvas(doc: Y.Doc, markdown: string, files: Map<string, UploadedFile>): void {
+  const fenced = markdownToBlocks(markdown).find((block) => block.type === 'canvas');
+  if (!fenced) return;
+  const background = fenced.props['background'];
+  if ((CANVAS_BACKGROUNDS as readonly unknown[]).includes(background)) {
+    setBackground(doc, background as CanvasBackground);
+  }
+  const items = Array.isArray(fenced.props['items']) ? (fenced.props['items'] as unknown[]) : [];
+  const sorted = items
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+    .sort((a, b) => String(a['z'] ?? '').localeCompare(String(b['z'] ?? '')));
+  for (const item of sorted) {
+    const kind = item['kind'];
+    if (typeof kind !== 'string' || !(CANVAS_ITEM_KINDS as readonly string[]).includes(kind)) continue;
+    const number = (key: string): number | undefined =>
+      typeof item[key] === 'number' && Number.isFinite(item[key]) ? (item[key] as number) : undefined;
+    const string = (key: string): string | undefined =>
+      typeof item[key] === 'string' ? (item[key] as string) : undefined;
+    const ref = string('attachmentRef');
+    const mapped = ref ? files.get(ref) : undefined;
+    // A picture whose file the archive did not carry is left out rather than
+    // drawn as a broken frame in the middle of a board.
+    if (kind === 'image' && !mapped) continue;
+    const fresh: NewItem = { id: crypto.randomUUID(), kind: kind as CanvasItemKind, x: number('x') ?? 0, y: number('y') ?? 0 };
+    const w = number('w');
+    const h = number('h');
+    const text = string('text');
+    const colour = string('colour');
+    const width = number('width');
+    const fill = string('fill');
+    const size = number('size');
+    const filename = string('filename');
+    if (w !== undefined) fresh.w = w;
+    if (h !== undefined) fresh.h = h;
+    if (text !== undefined) fresh.text = text;
+    if (mapped) {
+      fresh.fileId = mapped.id;
+      fresh.sizeBytes = mapped.sizeBytes;
+    }
+    if (Array.isArray(item['points'])) {
+      fresh.points = (item['points'] as unknown[]).filter((n): n is number => typeof n === 'number');
+    }
+    if (colour !== undefined) fresh.colour = colour;
+    if (width !== undefined) fresh.width = width;
+    if (fill !== undefined) fresh.fill = fill;
+    if (size !== undefined) fresh.size = size;
+    if (filename !== undefined) fresh.filename = filename;
+    addItem(doc, fresh);
+    if (item['locked'] === true) {
+      const map = doc.getMap<Y.Map<unknown>>(DOC_KEYS.canvas);
+      const last = [...map.keys()].at(-1);
+      const entry = last ? map.get(last) : undefined;
+      if (entry) entry.set('locked', true);
+    }
+  }
+}
+
 export async function executePlan(
   pool: Pool,
   plan: ImportPlan,
@@ -207,9 +278,10 @@ export async function executePlan(
     }
 
     try {
+      const isCanvas = !page.isFolder && page.entry?.kind === 'canvas';
       const created = await createEntry(pool, {
         workspaceId: options.workspaceId,
-        kind: page.isFolder ? 'folder' : 'page',
+        kind: page.isFolder ? 'folder' : isCanvas ? 'canvas' : 'page',
         title: page.title,
         parentPageId: parent,
         actorId: options.actorId,
@@ -255,7 +327,17 @@ export async function executePlan(
         );
       }
 
-      if (!page.isFolder && page.markdown.trim() !== '') {
+      if (isCanvas) {
+        // A board: its items out of the fence, its pictures uploaded like a
+        // page's, each item added the way the editor adds one (ADR-0191).
+        const files = await uploadFor(pool, page.markdown, options, uploaded, created.id);
+        await applyToDocument(
+          pool,
+          created.id,
+          (doc) => writeCanvas(doc, page.markdown, files),
+          options.actorId,
+        );
+      } else if (!page.isFolder && page.markdown.trim() !== '') {
         // The files this page refers to, uploaded before its body is written so
         // the blocks can name them. Per page rather than all at once, because a
         // file belongs to the page it hangs on — that is how files are
@@ -313,7 +395,13 @@ async function uploadFor(
   const mapping = new Map<string, UploadedFile>();
   if (!store || !attachments || attachments.size === 0) return mapping;
 
-  for (const [, reference] of markdown.matchAll(/\]\(attachments\/([^)]+)\)/g)) {
+  // Two spellings: a link's `](attachments/<name>)`, and a board fence's
+  // `"attachmentRef":"<name>"` (ADR-0191).
+  const references = [
+    ...markdown.matchAll(/\]\(attachments\/([^)]+)\)/g),
+    ...markdown.matchAll(/"attachmentRef":"([^"]+)"/g),
+  ];
+  for (const [, reference] of references) {
     const name = reference ?? '';
     const already = uploaded.get(name);
     if (already) {

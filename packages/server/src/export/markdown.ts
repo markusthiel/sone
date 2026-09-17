@@ -21,6 +21,7 @@ import {
   CALLOUT_TONE_LABELS,
   SHARED_NODE_ATTRS,
   type CalloutTone,
+  type CanvasItem,
   type EntryCover,
 } from '@sone/core';
 
@@ -112,6 +113,8 @@ function fence(type: string, props: Record<string, unknown>, text: string): stri
  */
 /** What an entry is, apart from its title and its blocks. */
 export interface ExportEntry {
+  /** What the entry is, when not a page or a folder: a canvas. */
+  kind?: string;
   /** The `icon` value from the page map: symbol, symbol colour, title colour. */
   icon?: unknown;
   /** The band above the title, if any (ADR-0117). */
@@ -120,6 +123,50 @@ export interface ExportEntry {
   width?: string | null;
   template?: boolean;
   locked?: boolean;
+}
+
+/**
+ * A canvas as a file (ADR-0191).
+ *
+ * A board has no Markdown spelling — its items have positions, not an order —
+ * so the whole board goes in one fence our importer reads back, with the
+ * pictures referring to `attachments/<id>` the way an image block does. The
+ * title and the entry comment above it are what every other page has, so a
+ * board sits in the archive like any page and a Markdown reader sees its
+ * name, its texts (in the fence), and a code block.
+ */
+export function canvasToMarkdown(
+  title: string,
+  canvas: { background: string; items: CanvasItem[] },
+  entry?: ExportEntry,
+): string {
+  const lines: string[] = [];
+  lines.push(`# ${title || 'Untitled'}`);
+  const look = entryLook({ ...entry, kind: 'canvas' });
+  if (look) lines.push(look);
+  const items = canvas.items.map(({ fileId, ...item }) =>
+    fileId ? { ...item, attachmentRef: fileId } : item,
+  );
+  lines.push(fence('canvas', { background: canvas.background, items }, ''));
+  return lines.join('\n\n') + '\n';
+}
+
+/** The entry comment, or null when the look is the default one. */
+function entryLook(entry: ExportEntry | undefined): string | null {
+  if (!entry) return null;
+  const look: Record<string, unknown> = {};
+  if (entry.kind && entry.kind !== 'page' && entry.kind !== 'folder') look['kind'] = entry.kind;
+  if (entry.icon !== undefined && entry.icon !== null) look['icon'] = entry.icon;
+  if (entry.cover) {
+    // A picture cover names its file the way an image block does, so the
+    // importer can map it to the copy it uploads.
+    const file = entry.cover.kind === 'image' ? fileIdFromUrl(entry.cover.url) : null;
+    look['cover'] = file ? { kind: 'image', url: `attachments/${file}` } : entry.cover;
+  }
+  if (entry.width) look['width'] = entry.width;
+  if (entry.template) look['template'] = true;
+  if (entry.locked) look['locked'] = true;
+  return Object.keys(look).length > 0 ? `<!-- sone-entry ${JSON.stringify(look)} -->` : null;
 }
 
 export function pageToMarkdown(
@@ -138,22 +185,8 @@ export function pageToMarkdown(
   // — as an HTML comment right under the title, which Markdown renderers drop
   // and our importer reads (ADR-0190). Only when there is something to say: a
   // page with the default look gets no comment at all.
-  if (entry) {
-    const look: Record<string, unknown> = {};
-    if (entry.icon !== undefined && entry.icon !== null) look['icon'] = entry.icon;
-    if (entry.cover) {
-      // A picture cover names its file the way an image block does, so the
-      // importer can map it to the copy it uploads.
-      const file = entry.cover.kind === 'image' ? fileIdFromUrl(entry.cover.url) : null;
-      look['cover'] = file ? { kind: 'image', url: `attachments/${file}` } : entry.cover;
-    }
-    if (entry.width) look['width'] = entry.width;
-    if (entry.template) look['template'] = true;
-    if (entry.locked) look['locked'] = true;
-    if (Object.keys(look).length > 0) {
-      lines.push(`<!-- sone-entry ${JSON.stringify(look)} -->`);
-    }
-  }
+  const look = entryLook(entry);
+  if (look) lines.push(look);
 
   let numbering = 0;
   for (const block of blocks) {

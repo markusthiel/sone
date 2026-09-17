@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nichts zu tun. Wer eine Fläche übertragen will, exportiert den Workspace nach
+dem Update noch einmal.
+
+**Flächen reisen mit.** Eine Fläche kam bisher als leere Seite an — ihr Bild
+lag zwar im Archiv, die Zeichnung darauf nicht, und die Seite hatte den
+falschen Typ. Jetzt schreibt der Export die ganze Fläche in einen eigenen
+Block: Hintergrund, Texte, Striche, Formen und Bilder mit Lage, Größe und
+Stapelreihenfolge. Der Import legt daraus wieder eine Fläche an (ADR-0191).
+
 ## 0.14.2
 
 Aktualisieren und neu starten, sonst nichts. Wer einen Workspace schon einmal übertragen hat, exportiert ihn

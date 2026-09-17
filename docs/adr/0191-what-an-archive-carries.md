@@ -77,6 +77,16 @@ block the truth about what they are — a toggle is a bold line in Markdown,
 which a bold paragraph is too; a file is a link, which a link is too. Nothing
 to say, no comment.
 
+**A canvas is a fence.** A board has no order to write as Markdown, so the
+whole board — background and every item with its position, size, stacking
+index, text, points, colours and picture reference — goes in one
+`sone-canvas` fence, under the title and an entry comment saying
+`"kind":"canvas"`. The importer creates a canvas entry and adds each item
+the way the editor does, in stacking order, with the pictures uploaded like a
+page's. This is the one place an archive holds a code block a Markdown reader
+cannot do much with, and it is the honest one: the alternative was an empty
+page where a board had been.
+
 **The entry comment carries more.** `<!-- sone-entry {…} -->` now holds the
 cover (a picture cover names its file the way an image block does, and is
 uploaded with the page's other files), the width, the template flag and the
@@ -89,8 +99,7 @@ headings at their sizes, its tasks ticked, its pictures and files present, its
 emphasis and links intact, its coloured paragraphs coloured, its toggles as
 toggles, and its cover on. The list of what does not travel is now short:
 comments, history, attribution, permissions — the things ADR-0044 named as
-facts about SONE rather than about the text — and a canvas's drawing, which
-has no Markdown spelling and would be a fence of its own.
+facts about SONE rather than about the text.
 
 Other tools' Markdown reads better too: `**bold**` from Obsidian is bold
 here, and a link is a link.

@@ -94,6 +94,8 @@ const ENTRY_COMMENT = /^<!--\s*sone-entry\s+(\{.*\})\s*-->\n*/m;
  * validated by the same readers the icon route uses when it is written.
  */
 export interface ImportedEntry {
+  /** 'canvas' when the file is a board, not a page (ADR-0191). */
+  kind?: 'canvas';
   icon?: unknown;
   cover?: unknown;
   width?: unknown;
@@ -109,6 +111,7 @@ export function entryFrom(markdown: string): ImportedEntry | null {
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const raw = parsed as Record<string, unknown>;
       const entry: ImportedEntry = {};
+      if (raw['kind'] === 'canvas') entry.kind = 'canvas';
       if ('icon' in raw) entry.icon = raw['icon'];
       if ('cover' in raw) entry.cover = raw['cover'];
       if ('width' in raw) entry.width = raw['width'];

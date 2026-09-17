@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import type { Pool } from 'pg';
 
-import { pageToMarkdown } from '../src/export/markdown.js';
+import { canvasToMarkdown, pageToMarkdown } from '../src/export/markdown.js';
 import { zip } from '../src/export/zip.js';
 import { executePlan } from '../src/import/execute.js';
 import { planImport } from '../src/import/plan.js';
@@ -23,7 +23,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import * as Y from 'yjs';
-import { DOC_KEYS } from '@sone/core';
+import { DOC_KEYS, readBackground, readCanvas } from '@sone/core';
 import { queryRows } from '../src/db/pool.js';
 import { closeTestPool, getTestPool, hasDatabase, resetDatabase, seedWorkspace } from './support/db.js';
 
@@ -174,6 +174,79 @@ describe('import execution (database)', { skip: !hasDatabase ? 'SONE_TEST_DATABA
       const paragraph = parsed.blocks.find((one) => one.type === 'paragraph')!;
       assert.equal(paragraph.markdown, '**Fett** und [Link](https://example.org)');
       assert.equal(paragraph.plainText, 'Fett und Link');
+    } finally {
+      loaded.doc.destroy();
+    }
+  });
+
+  test('a board comes back as a board: its picture, its stroke, its words, its background (ADR-0191)', async () => {
+    const destination = await createEntry(db, {
+      workspaceId,
+      kind: 'folder',
+      title: 'Boards',
+      parentPageId: null,
+      actorId: userId,
+    });
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const fileId = '33333333-3333-4333-8333-333333333333';
+    const body = canvasToMarkdown(
+      'Skizze',
+      {
+        background: 'squares',
+        items: [
+          { id: 'i', kind: 'image', x: 10, y: 20, w: 300, h: 200, z: 'a0', fileId, filename: 'foto.png', sizeBytes: 70 },
+          { id: 'p', kind: 'path', x: 0, y: 0, w: 50, h: 50, z: 'a1', points: [0, 0, 10, 10, 20, 5], colour: '#ff0000', width: 3 },
+          { id: 't', kind: 'text', x: 40, y: 60, w: 200, h: 80, z: 'a2', text: 'Hier anfangen', size: 18, locked: true },
+        ],
+      },
+      { kind: 'canvas' },
+    );
+    assert.match(body, /<!-- sone-entry \{"kind":"canvas"\} -->/);
+    assert.match(body, /```sone-canvas/);
+    assert.doesNotMatch(body, new RegExp(fileId + '"[^}]*"fileId"'), 'the file is a reference, not our id');
+
+    const entries = unzip(
+      zip([
+        { name: 'Skizze.md', body: Buffer.from(body), at },
+        { name: `attachments/${fileId}`, body: png, at },
+      ]),
+    );
+    const store = new LocalFileStore(mkdtempSync(path.join(tmpdir(), 'sone-import-')));
+    const result = await executePlan(db, planImport(entries, { byPath: new Map() }), {
+      workspaceId,
+      parentPageId: destination.id,
+      actorId: userId,
+      onCollision: 'skip',
+      store,
+      attachments: new Map([[fileId, png]]),
+    });
+    assert.deepEqual(result.failed, []);
+    const pageId = result.created[0]!;
+
+    const row = await queryRows<{ kind: string }>(db, `SELECT kind FROM pages WHERE id = $1`, [pageId]);
+    assert.equal(row[0]?.kind, 'canvas', 'a board, not a page');
+
+    const loaded = await loadDoc(db, pageId);
+    try {
+      assert.equal(readBackground(loaded.doc), 'squares');
+      const items = readCanvas(loaded.doc);
+      assert.deepEqual(items.map((one) => one.kind), ['image', 'path', 'text'], 'in their stacking order');
+      const [image, stroke, words] = items;
+      assert.ok(image!.fileId && image!.fileId !== fileId, 'the picture is the copy stored here');
+      assert.equal(image!.filename, 'foto.png');
+      assert.deepEqual([image!.x, image!.y, image!.w, image!.h], [10, 20, 300, 200]);
+      assert.deepEqual(stroke!.points, [0, 0, 10, 10, 20, 5]);
+      assert.equal(stroke!.colour, '#ff0000');
+      assert.equal(stroke!.width, 3);
+      assert.equal(words!.text, 'Hier anfangen');
+      assert.equal(words!.size, 18);
+      assert.equal(words!.locked, true);
+
+      const file = await queryRows<{ mime_type: string }>(db, `SELECT mime_type FROM files WHERE id = $1`, [image!.fileId]);
+      assert.equal(file[0]?.mime_type, 'image/png');
     } finally {
       loaded.doc.destroy();
     }
