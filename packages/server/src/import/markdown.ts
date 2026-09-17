@@ -19,6 +19,8 @@
  * present than one where half of them vanished into a mark I got wrong.
  */
 
+import { calloutToneFromLabel } from '@sone/core';
+
 export interface ParsedBlock {
   type: string;
   text: string;
@@ -173,12 +175,7 @@ export function markdownToBlocks(markdown: string): ParsedBlock[] {
         parts.push((lines[at] ?? '').replace(/^>\s?/, ''));
         at += 1;
       }
-      blocks.push({
-        type: 'quote',
-        text: parts.join('\n').trim(),
-        props: {},
-        indent: 0,
-      });
+      blocks.push(quoteOrCallout(parts));
       continue;
     }
 
@@ -229,4 +226,53 @@ function readFence(lines: string[], from: number): { body: string[]; next: numbe
   // this only touches the truncated case.
   while (at >= lines.length && body.at(-1)?.trim() === '') body.pop();
   return { body, next: at + 1 };
+}
+
+/**
+ * A blockquote is a quote — unless it is the shape our export writes for a
+ * callout or for a quote with a source (ADR-0188).
+ *
+ *     > **Warning**        → a callout with tone `warning`
+ *     >
+ *     > Mind the gap
+ *
+ *     > Less is more       → a quote whose source is "Somebody"
+ *     >
+ *     > — Somebody
+ *
+ * A bold first line that is not one of the tone words stays part of the quote:
+ * somebody quoting a heading in bold did not mean a callout. The dash for the
+ * source is the em dash the export writes, or the hyphen most keyboards have.
+ */
+function quoteOrCallout(parts: string[]): ParsedBlock {
+  const trimmed = parts.map((part) => part.trim());
+  while (trimmed.length > 0 && trimmed[0] === '') trimmed.shift();
+  while (trimmed.length > 0 && trimmed[trimmed.length - 1] === '') trimmed.pop();
+
+  const label = /^\*\*([^*]+)\*\*$/.exec(trimmed[0] ?? '');
+  const tone = label ? calloutToneFromLabel(label[1] ?? '') : null;
+  if (tone) {
+    const body = trimmed.slice(1);
+    while (body.length > 0 && body[0] === '') body.shift();
+    return {
+      type: 'callout',
+      text: body.join('\n').trim(),
+      props: tone === 'note' ? {} : { tone },
+      indent: 0,
+    };
+  }
+
+  const source = /^(?:—|-{1,2})\s+(.+)$/.exec(trimmed[trimmed.length - 1] ?? '');
+  if (source && trimmed.length > 1) {
+    const body = trimmed.slice(0, -1);
+    while (body.length > 0 && body[body.length - 1] === '') body.pop();
+    return {
+      type: 'quote',
+      text: body.join('\n').trim(),
+      props: { source: (source[1] ?? '').trim() },
+      indent: 0,
+    };
+  }
+
+  return { type: 'quote', text: trimmed.join('\n').trim(), props: {}, indent: 0 };
 }

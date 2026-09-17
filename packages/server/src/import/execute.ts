@@ -93,6 +93,20 @@ function writeBlocks(doc: Y.Doc, markdown: string, files: Map<string, string>): 
       }
     }
 
+    /*
+     * A callout's tone and a quote's source are schema attributes, not props
+     * (ADR-0188): the editor reads `tone` from the node's attributes and the
+     * stylesheet from `data-tone`, neither of which looks inside the JSON.
+     * Written where they are read, or an imported warning is a grey box.
+     */
+    for (const key of [BLOCK_ATTRS.tone, BLOCK_ATTRS.source]) {
+      const value = block.props[key];
+      if (typeof value === 'string' && value !== '') {
+        element.setAttribute(key, value);
+        delete block.props[key];
+      }
+    }
+
     const props = serialiseProps(block.props);
     if (props) element.setAttribute(BLOCK_ATTRS.props, props);
     if (block.indent > 0) element.setAttribute(BLOCK_ATTRS.indent, String(block.indent));

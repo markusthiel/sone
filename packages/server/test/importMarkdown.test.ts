@@ -97,3 +97,33 @@ test('an unterminated fence takes the rest rather than refusing the file', () =>
   assert.equal(read[0]?.type, 'code');
   assert.equal(read[0]?.text, 'const x = 1;');
 });
+
+test('a toned callout and a sourced quote survive the round trip (ADR-0188)', () => {
+  const original: ExportBlock[] = [
+    block('callout', 'Mind the gap', { tone: 'warning' }),
+    block('callout', 'Just a note'),
+    block('quote', 'Less is more', { source: 'Somebody, 1999' }),
+    block('quote', 'No source here'),
+  ];
+
+  const markdown = pageToMarkdown('The page', original);
+  assert.match(markdown, /> \*\*Warning\*\*\n>\n> Mind the gap/);
+  assert.match(markdown, /> Less is more\n>\n> — Somebody, 1999/);
+
+  const read = markdownToBlocks(bodyWithoutTitle(markdown));
+  assert.deepEqual(
+    read.map((one) => [one.type, one.text, one.props]),
+    [
+      ['callout', 'Mind the gap', { tone: 'warning' }],
+      ['callout', 'Just a note', {}],
+      ['quote', 'Less is more', { source: 'Somebody, 1999' }],
+      ['quote', 'No source here', {}],
+    ],
+  );
+});
+
+test('a bold first line that is not a tone stays a quote', () => {
+  const read = markdownToBlocks('> **Chapter one**\n>\n> It was a dark night.');
+  assert.equal(read[0]?.type, 'quote');
+  assert.equal(read[0]?.text, '**Chapter one**\n\nIt was a dark night.');
+});

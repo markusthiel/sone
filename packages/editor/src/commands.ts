@@ -11,6 +11,7 @@ import {
   type BlockAlignment,
   type BlockColor,
   type BlockWidth,
+  type CalloutTone,
 } from '@sone/core';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { Command, EditorState } from 'prosemirror-state';
@@ -25,11 +26,20 @@ import type { Command, EditorState } from 'prosemirror-state';
  *
  * Applies to every block the selection touches, so setting a width on three
  * selected paragraphs does not silently do one.
+ *
+ * `tone` and `source` are the two that are not shared by every type (ADR-0188):
+ * a tone belongs to a callout and a source to a quote. They are written only
+ * to blocks whose type declares the attribute, so setting a tone across a
+ * mixed selection tones the callouts in it and leaves the paragraphs alone —
+ * ProseMirror would drop the unknown attribute anyway, but silently, and a
+ * command should know what it is doing.
  */
 export function setBlockStyle(changes: {
   align?: BlockAlignment | null;
   width?: BlockWidth | null;
   color?: BlockColor | null;
+  tone?: CalloutTone | null;
+  source?: string | null;
 }): Command {
   return (state, dispatch) => {
     const { from, to } = state.selection;
@@ -53,6 +63,17 @@ export function setBlockStyle(changes: {
       if ('align' in changes) attrs[BLOCK_ATTRS.align] = changes.align ?? null;
       if ('width' in changes) attrs[BLOCK_ATTRS.width] = changes.width ?? null;
       if ('color' in changes) attrs[BLOCK_ATTRS.color] = changes.color ?? null;
+      const declares = (name: string) => target.node.type.spec.attrs?.[name] !== undefined;
+      if ('tone' in changes && declares(BLOCK_ATTRS.tone)) {
+        // `note` is the default and is stored as its absence, like a cleared
+        // colour: a callout that says "note" out loud cannot follow a design
+        // that later decides what a plain callout looks like.
+        attrs[BLOCK_ATTRS.tone] = changes.tone && changes.tone !== 'note' ? changes.tone : null;
+      }
+      if ('source' in changes && declares(BLOCK_ATTRS.source)) {
+        const trimmed = changes.source?.trim() ?? '';
+        attrs[BLOCK_ATTRS.source] = trimmed === '' ? null : trimmed;
+      }
       tr.setNodeMarkup(target.pos, undefined, attrs);
     }
 
@@ -66,11 +87,15 @@ export function currentBlockStyle(state: EditorState): {
   align: string | null;
   width: string | null;
   color: string | null;
+  tone: string | null;
+  source: string | null;
 } {
   const { from, to } = state.selection;
   let align: string | null = null;
   let width: string | null = null;
   let color: string | null = null;
+  let tone: string | null = null;
+  let source: string | null = null;
   let seen = false;
 
   state.doc.nodesBetween(from, to, (node) => {
@@ -78,11 +103,15 @@ export function currentBlockStyle(state: EditorState): {
     const nodeAlign = (node.attrs[BLOCK_ATTRS.align] as string | null) ?? null;
     const nodeWidth = (node.attrs[BLOCK_ATTRS.width] as string | null) ?? null;
     const nodeColor = (node.attrs[BLOCK_ATTRS.color] as string | null) ?? null;
+    const nodeTone = (node.attrs[BLOCK_ATTRS.tone] as string | null) ?? null;
+    const nodeSource = (node.attrs[BLOCK_ATTRS.source] as string | null) ?? null;
 
     if (!seen) {
       align = nodeAlign;
       width = nodeWidth;
       color = nodeColor;
+      tone = nodeTone;
+      source = nodeSource;
       seen = true;
       return true;
     }
@@ -91,10 +120,12 @@ export function currentBlockStyle(state: EditorState): {
     if (nodeAlign !== align) align = null;
     if (nodeWidth !== width) width = null;
     if (nodeColor !== color) color = null;
+    if (nodeTone !== tone) tone = null;
+    if (nodeSource !== source) source = null;
     return true;
   });
 
-  return { align, width, color };
+  return { align, width, color, tone, source };
 }
 
 /** How a file block is drawn. */

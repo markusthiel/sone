@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useId, type ReactNode } from 'react';
+import { forgetSoteAvailability } from '../hooks/useSoteAvailable.ts';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { NodeSelection } from 'prosemirror-state';
@@ -87,7 +88,7 @@ export function SoteSettings({ workspaceId }: {
         }>('/connect', 'POST', {}); location.assign(r.url); })}>{state.connected ? t('sote.renew') : t('sote.connect')}</button>
    {state.connected ? <button className="btn" type="button" disabled={busy} onClick={() => void act(async () => { await request('/account', 'DELETE'); await load(); })}>{t('sote.disconnect')}</button> : null}</> : <p>{t('sote.setupRequired')}</p>}</section>
   {mapping ? <section><h2>{t('sote.projects')}</h2><p>{t('sote.projectsHint')}</p>{mapping.projects.filter(p => !mapping.manage || p.manageable).map(p => <label className="sote-check" key={p.id}><input type="checkbox" disabled={!mapping.manage || busy} checked={chosen.includes(p.id)} onChange={e => setChosen(e.target.checked ? [...chosen, p.id] : chosen.filter(id => id !== p.id))}/>{p.workspaceName} · {p.name}</label>)}{mapping.manage ? <button className="btn" disabled={busy} onClick={() => void act(async () => { await request('/workspaces/' + workspaceId, 'PUT', { projects: chosen }); await load(); })}>{t('sote.save')}</button> : null}</section> : null}
-  {state?.admin ? <section><h2>{t('sote.server')}</h2>{state.server ? <><p>{t('sote.disconnectServerHint')}</p><button className="btn" disabled={busy} onClick={() => void act(async () => { await request('/server', 'DELETE'); await load(); })}>{t('sote.disconnectServer')}</button></> : <form onSubmit={e => { e.preventDefault(); void act(async () => { await request('/server', 'POST', { baseUrl: base, clientId: client, secret }); setSecret(''); await load(); }); }}>
+  {state?.admin ? <section><h2>{t('sote.server')}</h2>{state.server ? <><p>{t('sote.disconnectServerHint')}</p><button className="btn" disabled={busy} onClick={() => void act(async () => { await request('/server', 'DELETE'); forgetSoteAvailability(); await load(); })}>{t('sote.disconnectServer')}</button></> : <form onSubmit={e => { e.preventDefault(); void act(async () => { await request('/server', 'POST', { baseUrl: base, clientId: client, secret }); setSecret(''); forgetSoteAvailability(); await load(); }); }}>
    <p>{t('sote.setupHint')}</p><label>{t('sote.address')}<input type="url" required value={base} onChange={e => setBase(e.target.value)}/></label><label>Client-ID<input required value={client} onChange={e => setClient(e.target.value)}/></label><label>{t('sote.secret')}<input type="password" autoComplete="new-password" required value={secret} onChange={e => setSecret(e.target.value)}/></label><button className="btn" disabled={busy}>{t('sote.save')}</button>
   </form>}</section> : null}
  </div>;

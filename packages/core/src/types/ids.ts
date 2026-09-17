@@ -61,7 +61,8 @@ export const asTimestamp = (d: Date = new Date()) =>
  * the meaning of a field does.
  */
 // Version 6 also fences off editors that can restore remotely deleted blocks.
-export const SCHEMA_VERSION = 6 as const;
+// Version 7 adds attributes an older editor would strip (see migrations.ts).
+export const SCHEMA_VERSION = 7 as const;
 export type SchemaVersion = number;
 
 export interface DocMeta {

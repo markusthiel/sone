@@ -49,6 +49,7 @@ import { TableToolbar } from './TableToolbar.tsx';
 import { VideoDialog } from './VideoDialog.tsx';
 import type { MessageKey } from '../i18n/messages.en.ts';
 import { usePageLocked } from '../hooks/usePageWidth.ts';
+import { soteAvailableNow } from '../hooks/useSoteAvailable.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
 import { usePageLink } from '../routes/pageLink.tsx';
@@ -681,6 +682,10 @@ export function EditorSurface({
       //
       // The English keywords stay and are matched as well: "h1" and "ul" are
       // typed by people in every language.
+      // The SOTE blocks only where a SOTE server exists (ADR-0188). Asked each
+      // time the menu is built, so the answer — which arrives after the editor
+      // does — is honoured without a reload.
+      offersSlashItem: (item) => !item.id.startsWith('sote-') || soteAvailableNow(),
       localiseSlashItem: (item) => {
         const key = `slash.${item.id}` as MessageKey;
         const extra = t(`${key}.keywords` as MessageKey)
