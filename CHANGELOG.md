@@ -13,7 +13,9 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Nichts zu tun. Wer einen Workspace schon einmal übertragen hat, exportiert ihn
+## 0.14.2
+
+Aktualisieren und neu starten, sonst nichts. Wer einen Workspace schon einmal übertragen hat, exportiert ihn
 am besten noch einmal: erst dieses Archiv enthält die Bilder.
 
 **Ein Archiv trägt jetzt, was auf der Seite steht.** Der Abgleich Block für
