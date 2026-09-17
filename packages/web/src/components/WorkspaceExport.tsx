@@ -46,6 +46,21 @@ export function WorkspaceExport({ workspaceId }: { workspaceId: string }): React
     return result.jobs as JobRow[];
   }, [workspaceId]);
 
+  /*
+   * Whether anything is being packed right now — the one fact the polling
+   * follows.
+   *
+   * It used to be decided once, on mount: the effect polled if the *first*
+   * answer held a running job and otherwise never asked again. So somebody who
+   * opened this screen, pressed the button and watched saw "waiting to start"
+   * for ever, because the job they had just started was not in the answer the
+   * decision was made from. Reloading showed it finished. Keyed on the list
+   * instead, the polling begins when a job appears and ends when the last one
+   * is done.
+   */
+  const busy = jobs?.some((job) => job.state === 'queued' || job.state === 'running') ?? false;
+  const unloaded = jobs === null;
+
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -64,12 +79,21 @@ export function WorkspaceExport({ workspaceId }: { workspaceId: string }): React
       }
     };
 
-    void tick();
+    if (unloaded) void tick();
+    else if (busy) timer = setTimeout(() => void tick(), 2000);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [load]);
+  }, [load, busy, unloaded]);
+
+  const remove = (jobId: string): void => {
+    setError(null);
+    void api
+      .deleteJob(jobId)
+      .then(() => load())
+      .catch((err: unknown) => setError(err instanceof ApiError ? err.code : 'network_error'));
+  };
 
   return (
     <section className="settings-section">
@@ -139,7 +163,7 @@ export function WorkspaceExport({ workspaceId }: { workspaceId: string }): React
                       Content-Disposition and the browser knows what to do with
                       it. And when it has expired the download says so — which
                       is why the link stays rather than disappearing. */}
-                  <a className="btn" href={`/api/jobs/${job.id}/download`}>
+                  <a className="btn" href={`/api/jobs/${job.id}/download`} download>
                     {t('export.download')}
                   </a>
                   {job.expiresAt && (
@@ -165,6 +189,23 @@ export function WorkspaceExport({ workspaceId }: { workspaceId: string }): React
                 <span className="job-detail error">
                   {job.error ?? t('workspace.export.failed')}
                 </span>
+              )}
+
+              {/* Gone when asked, not only when it expires. An archive of a
+                  whole workspace is the most complete copy of it there is, and
+                  the person who made one may want it not to sit on the server
+                  for a day. A running job cannot be removed: what would be
+                  removed is still being written. */}
+              {(job.state === 'done' || job.state === 'failed') && (
+                <button
+                  type="button"
+                  className="btn quiet job-remove"
+                  onClick={() => remove(job.id)}
+                  aria-label={t('workspace.export.remove')}
+                  title={t('workspace.export.remove')}
+                >
+                  {t('workspace.export.remove')}
+                </button>
               )}
             </li>
           ))}

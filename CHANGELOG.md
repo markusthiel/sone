@@ -13,6 +13,18 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Nichts zu tun.
+
+**Der Workspace-Export lässt sich herunterladen, zeigt seinen Fortschritt und
+lässt sich löschen.** Drei Fehler an einer Stelle: Die Seite blieb nach dem
+Klick auf „Ein Archiv vorbereiten“ bei „Wartet auf den Start…“ stehen, weil sie
+nur beim Öffnen entschied, ob sie nachfragt — jetzt fragt sie nach, solange
+etwas gepackt wird, und hört auf, wenn es fertig ist. „Herunterladen“ führte auf
+„Not found“, weil der Link als Seite der Anwendung verstanden wurde statt als
+Datei vom Server; Adressen unter `/api/` gelten jetzt nie als Seite. Und ein
+fertiges oder fehlgeschlagenes Archiv hat einen Knopf „Löschen“, der Datei und
+Eintrag entfernt, ohne auf den Ablauf am nächsten Tag zu warten.
+
 ## 0.14.0
 
 Aktualisieren und neu starten; keine neuen Migrationen. Browser-Tabs

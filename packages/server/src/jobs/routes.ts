@@ -1,7 +1,7 @@
 /**
  * SONE server — asking for a job and fetching what it produced (ADR-0044).
  *
- * Three routes: ask, watch, fetch. The middle one is polled, so it is
+ * Four routes: ask, watch, fetch, remove. The second is polled, so it is
  * deliberately cheap — one row, no joins — and reports a sentence rather than a
  * percentage, because a job that does not know how much is left cannot honestly
  * report a fraction.
@@ -188,5 +188,62 @@ export function registerJobRoutes(router: Router, deps: JobRouteDeps): void {
       'cache-control': 'no-store',
     });
     ctx.res.end(bytes);
+  });
+
+  /**
+   * Remove what a job produced, before it expires on its own.
+   *
+   * The asker only, for the reason the download is: it is their snapshot. A
+   * job still queued or running is refused with 409 rather than removed —
+   * the runner holds it, and deleting the row under a running job would leave
+   * a file in the store that no row remembers. The file goes first and the
+   * row second; if the store refuses, the row stays and the sweep gets another
+   * try at both when the job expires.
+   */
+  router.delete('/api/jobs/:jobId', async (ctx) => {
+    const jobId = ctx.params['jobId'] ?? '';
+    if (!sessionTokenFrom(ctx)) {
+      ctx.fail(401, 'not_authenticated');
+      return;
+    }
+
+    const job = await queryOne<{
+      workspace_id: string;
+      created_by: string | null;
+      state: string;
+      result: { key?: string } | null;
+    }>(deps.pool, `SELECT workspace_id, created_by, state, result FROM jobs WHERE id = $1`, [
+      jobId,
+    ]);
+    if (!job) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    const claims = await claimsOrNull(deps.pool, ctx, job.workspace_id);
+    if (
+      !claims ||
+      claims.principal.kind === 'anonymous' ||
+      claims.principal.userId !== job.created_by
+    ) {
+      ctx.fail(404, 'not_found');
+      return;
+    }
+
+    if (job.state === 'queued' || job.state === 'running') {
+      ctx.fail(409, 'job_running');
+      return;
+    }
+
+    if (typeof job.result?.key === 'string') {
+      try {
+        await deps.store.delete(job.result.key);
+      } catch {
+        // Already gone — an expiry sweep that took the file and not the row.
+        // The row is then the only thing left to remove.
+      }
+    }
+    await deps.pool.query(`DELETE FROM jobs WHERE id = $1`, [jobId]);
+    ctx.send(200, { ok: true });
   });
 }

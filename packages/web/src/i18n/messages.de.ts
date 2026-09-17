@@ -367,6 +367,7 @@ export const de: Record<keyof typeof en, string> = {
   'workspace.export.waiting': 'Wartet auf den Start\u2026',
   'workspace.export.ready': '{pages} Seiten, {size}',
   'workspace.export.until': 'verfügbar bis {when}',
+  'workspace.export.remove': 'Löschen',
   'workspace.export.failed': 'Es ist nicht fertig geworden.',
   'import.title': 'Importieren',
   'import.where': 'Nach {title}.',
@@ -2131,6 +2132,7 @@ export const de: Record<keyof typeof en, string> = {
     '{address, select, formal {Ihr Konto ist} other {Dein Konto ist}} noch in keinem ' +
     'Workspace Mitglied.',
   'error.network_error': 'Der Server ist nicht erreichbar.',
+  'error.job_running': 'Das Archiv wird noch gepackt und kann erst danach gelöscht werden.',
   'error.invalid_role': 'Ein Freigabe-Link kann diese Rolle nicht vergeben.',
   'error.too_many_rows': 'Das sind mehr als fünfzig Einträge. Bitte in kleineren Stücken einfügen.',
   'error.not_archived': 'Dieser Eintrag ist nicht im Papierkorb.',

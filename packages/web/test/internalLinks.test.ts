@@ -78,6 +78,9 @@ test('following an internal link keeps the block it names', () => {
 
 test('a link out of the instance is left to the browser', () => {
   assert.equal(internalTarget('https://example.org/p/x', ORIGIN, null), null);
+  // Ours, but a file, not a screen: the export's download must reach the server.
+  assert.equal(internalTarget(`${ORIGIN}/api/jobs/abc/download`, ORIGIN, null), null);
+  assert.equal(internalTarget('/api/jobs/abc/download', ORIGIN, 'tok123'), null);
 });
 
 test('a visitor keeps their credential when they follow one', () => {

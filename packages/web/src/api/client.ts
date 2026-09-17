@@ -1863,6 +1863,9 @@ export const api = {
       {},
     ),
 
+  /** Remove a finished export: the archive and its row. The asker only. */
+  deleteJob: (jobId: string) => request<{ ok: true }>(`/api/jobs/${jobId}`, { method: 'DELETE' }),
+
   /** What this person has asked for in this workspace, newest first. */
   jobs: (workspaceId: string) =>
     request<{
