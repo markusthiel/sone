@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ApiError, api, type InstanceInfo, type SessionInfo } from '../api/client.ts';
 import { clearLocalDocs } from '../storage/localDocs.ts';
 import { forgetLinkTargets } from './useLinkTargets.ts';
+import { forgetSoteAvailability } from './useSoteAvailable.ts';
 
 export type SessionState =
   | { status: 'loading' }
@@ -109,6 +110,9 @@ export function useSession(): {
      * is the failure the line above is about, in memory rather than in storage.
      */
     forgetLinkTargets();
+    // Whether the instance has a SOTE server — answered by a route that needs
+    // a session, so the answer belongs to the session (ADR-0188).
+    forgetSoteAvailability();
     await reload();
   }, [reload]);
 

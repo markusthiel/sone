@@ -132,6 +132,19 @@ export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [
     // must exclude these clients as well as clients missing a block type.
     migrate: () => {},
   },
+  {
+    from: 6,
+    to: 7,
+    description: 'callouts carry a tone and quotes a source; an older editor would strip both',
+    // The stored blocks are unchanged, and an older client would open them
+    // fine — that is not the danger. y-prosemirror writes a node back by
+    // comparing its ProseMirror attributes with the shared element's, and
+    // *removes* every shared attribute the ProseMirror node does not have.
+    // A schema that does not know `tone` builds the node without it, so the
+    // first keystroke in that callout, from that client, deletes the tone for
+    // everybody. An optional field is only optional if nothing erases it.
+    migrate: () => {},
+  },
 ];
 
 /*

@@ -143,6 +143,71 @@ export const BLOCK_COLORS = [
 ] as const;
 export type BlockColor = (typeof BLOCK_COLORS)[number];
 
+/**
+ * What a callout is *about*, as a closed set (ADR-0188).
+ *
+ * A callout used to be one box in one grey. Anybody who wanted a warning to
+ * look like a warning coloured the text, which is the wrong lever: colour on
+ * the words says nothing about the box, and a page with five callouts in five
+ * text colours is five decisions the reader has to decode.
+ *
+ * A tone is one word — what kind of aside this is — and the stylesheet decides
+ * what that looks like: a tinted background, a symbol on the right, in the
+ * tone's colour. Names rather than colours or icons, for the same reason block
+ * colours are names: a name survives a theme change, and an icon renamed is a
+ * migration.
+ *
+ * `note` is the neutral one and the default; a callout without a tone is a
+ * note, so every existing callout keeps looking the way it did.
+ */
+export const CALLOUT_TONES = [
+  'note',
+  'info',
+  'tip',
+  'warning',
+  'error',
+  'alarm',
+  'exclaim',
+  'question',
+  'success',
+  'memo',
+  'example',
+  'quote',
+] as const;
+export type CalloutTone = (typeof CALLOUT_TONES)[number];
+
+/**
+ * The word a Markdown export writes for each tone, and the importer reads back.
+ *
+ * English, because an export is a file that leaves the instance and Markdown
+ * has no callout of its own: the first line of the blockquote names the kind,
+ * in bold, and any reader understands `> **Warning**` without knowing SONE.
+ * Matched case-insensitively on the way back in.
+ */
+export const CALLOUT_TONE_LABELS: Record<CalloutTone, string> = {
+  note: 'Note',
+  info: 'Info',
+  tip: 'Tip',
+  warning: 'Warning',
+  error: 'Error',
+  alarm: 'Alarm',
+  exclaim: 'Important',
+  question: 'Question',
+  success: 'Success',
+  memo: 'Memo',
+  example: 'Example',
+  quote: 'Quote',
+};
+
+/** The tone a Markdown label stands for, or null for a word that is not one. */
+export function calloutToneFromLabel(label: string): CalloutTone | null {
+  const wanted = label.trim().toLowerCase();
+  for (const tone of CALLOUT_TONES) {
+    if (CALLOUT_TONE_LABELS[tone].toLowerCase() === wanted) return tone;
+  }
+  return null;
+}
+
 export const ENTRY_KINDS = ['page', 'folder', 'row', 'container', 'canvas'] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
@@ -253,6 +318,22 @@ export const BLOCK_ATTRS = {
    */
   locked: 'locked',
   color: 'color',
+  /**
+   * One of CALLOUT_TONES, on a callout (ADR-0188). Absent means `note`.
+   *
+   * First-class for the reason `color` is: it has to reach the DOM so the
+   * stylesheet can tint the box and pick the symbol.
+   */
+  tone: 'tone',
+  /**
+   * Where a quote is from, as one line of text under it (ADR-0188).
+   *
+   * An attribute rather than a second text region because a quote is a flat
+   * inline block (ADR-0018) — a block cannot hold both inline text and a
+   * child block — and because the source is not part of the quotation: it is
+   * not searched as the speaker's words and not continued by Enter.
+   */
+  source: 'source',
   /** JSON-encoded block-specific settings. Never derived values. */
   props: 'props',
   /**

@@ -21,6 +21,8 @@
  * migration, not a refactor.
  */
 
+import type { CalloutTone } from '@sone/core';
+import { CALLOUT_TONE_PATHS } from '@sone/editor';
 import type { ReactElement, SVGProps } from 'react';
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
@@ -761,6 +763,21 @@ export function QuoteIcon(props: IconProps): ReactElement {
     <svg {...base(props)}>
       <path d="M4.5 5v14" />
       <path d="M9 8h11M9 12h11M9 16h7" />
+    </svg>
+  );
+}
+
+/**
+ * The symbol of a callout tone (ADR-0188), drawn from the same paths the editor
+ * puts into the block itself — so the menu shows exactly what the box will.
+ */
+export function ToneIcon(props: IconProps & { tone: CalloutTone }): ReactElement {
+  const { tone, ...rest } = props;
+  return (
+    <svg {...base(rest)}>
+      {CALLOUT_TONE_PATHS[tone].map((d) => (
+        <path key={d} d={d} />
+      ))}
     </svg>
   );
 }

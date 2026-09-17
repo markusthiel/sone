@@ -17,6 +17,8 @@
  * nobody trusts.
  */
 
+import { CALLOUT_TONE_LABELS, type CalloutTone } from '@sone/core';
+
 export interface ExportBlock {
   id: string;
   parentId: string | null;
@@ -105,14 +107,29 @@ export function pageToMarkdown(title: string, blocks: ExportBlock[]): string {
       case 'todo':
         lines.push(`${indent}- [${props(block)['checked'] === true ? 'x' : ' '}] ${text}`);
         break;
-      case 'quote':
-        lines.push(`> ${text}`);
+      case 'quote': {
+        // The source, when there is one, as a last line set off by a dash —
+        // the way a quotation is attributed in print, and what the importer
+        // reads back (ADR-0188).
+        const source = props(block)['source'];
+        lines.push(
+          typeof source === 'string' && source.trim() !== ''
+            ? `> ${text}\n>\n> — ${source.trim()}`
+            : `> ${text}`,
+        );
         break;
-      case 'callout':
+      }
+      case 'callout': {
         // A blockquote with its first line naming what it is. Markdown has no
         // callout, and every dialect that invented one disagrees with the others.
-        lines.push(`> **${String(props(block)['tone'] ?? 'Note')}**\n>\n> ${text}`);
+        const tone = props(block)['tone'];
+        const label =
+          typeof tone === 'string' && tone in CALLOUT_TONE_LABELS
+            ? CALLOUT_TONE_LABELS[tone as CalloutTone]
+            : CALLOUT_TONE_LABELS.note;
+        lines.push(`> **${label}**\n>\n> ${text}`);
         break;
+      }
       case 'code': {
         const language = String(props(block)['language'] ?? '');
         lines.push('```' + language + '\n' + text + '\n```');

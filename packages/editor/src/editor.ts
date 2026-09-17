@@ -48,7 +48,7 @@ import { blockLock } from './blockLock.js';
 import { editGuard } from './editGuard.js';
 import { mentionMenu } from './mentionMenu.js';
 import { pageLinkMenu } from './pageLinkMenu.js';
-import { slashMenu, type LocaliseSlashItem } from './slashMenu.js';
+import { slashMenu, type LocaliseSlashItem, type OffersSlashItem } from './slashMenu.js';
 import { tableKeymap, tablePlugins } from './tables.js';
 
 export interface EditorOptions {
@@ -88,6 +88,14 @@ export interface EditorOptions {
    * while the menu shows "Überschrift 1".
    */
   localiseSlashItem?: LocaliseSlashItem;
+  /**
+   * Which `/` menu items exist on this instance at all.
+   *
+   * Asked each time the menu is built, so an answer that arrives after the
+   * editor was created — whether a SOTE server is configured, say — takes
+   * effect without a reload.
+   */
+  offersSlashItem?: OffersSlashItem;
   /**
    * A change made *here*.
    *
@@ -237,7 +245,7 @@ export function createEditorState(opts: EditorOptions): EditorState {
     // first while it is open. ProseMirror asks plugins in order and stops at
     // the first that handles a key; the other way round, Enter would split the
     // block instead of picking an item.
-    slashMenu(opts.localiseSlashItem),
+    slashMenu(opts.localiseSlashItem, opts.offersSlashItem),
     // Naming somebody in the text (ADR-0085). After the slash menu, and it
     // takes only Escape: the arrows and Enter belong to the interface, which
     // owns the list of people this package deliberately knows nothing about.

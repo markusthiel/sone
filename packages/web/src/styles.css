@@ -381,6 +381,24 @@
   /* Used at three call sites with two different fallbacks, and declared at
      none. Warm amber: not danger, but not nothing either. */
   --sone-warning: #a86a12;
+
+  /* The callout tones (ADR-0188). One colour per kind of aside; the box takes
+     a tenth of it as background and the symbol takes all of it. Text keeps
+     --sone-text, so a warning is a warning without becoming harder to read.
+     Error and alarm are both red on purpose — an alarm is an error that
+     cannot wait — and alarm is told apart by depth and by a bar. */
+  --sone-tone-note: var(--sone-text-muted);
+  --sone-tone-info: #2563eb;
+  --sone-tone-tip: #0d9488;
+  --sone-tone-warning: #d97706;
+  --sone-tone-error: #dc2626;
+  --sone-tone-alarm: #9f1239;
+  --sone-tone-exclaim: #ea580c;
+  --sone-tone-question: #7c3aed;
+  --sone-tone-success: #16a34a;
+  --sone-tone-memo: #6a675f;
+  --sone-tone-example: #64748b;
+  --sone-tone-quote: #92400e;
 }
 
 [data-theme='dark'] {
@@ -435,6 +453,20 @@
   --sone-shadow-lg: 0 12px 32px rgb(0 0 0 / 48%);
   --sone-shadow-floating: var(--sone-shadow-md);
   --sone-warning: #d8a33a;
+
+  /* Lighter steps of the same tones: the light values sink into a dark page. */
+  --sone-tone-note: var(--sone-text-muted);
+  --sone-tone-info: #60a5fa;
+  --sone-tone-tip: #2dd4bf;
+  --sone-tone-warning: #fbbf24;
+  --sone-tone-error: #f87171;
+  --sone-tone-alarm: #fb7185;
+  --sone-tone-exclaim: #fb923c;
+  --sone-tone-question: #a78bfa;
+  --sone-tone-success: #4ade80;
+  --sone-tone-memo: #a3a094;
+  --sone-tone-example: #94a3b8;
+  --sone-tone-quote: #d4a373;
 }
 
 :root {
@@ -743,6 +775,20 @@
     --sone-shadow-lg: 0 12px 32px rgb(0 0 0 / 48%);
     --sone-shadow-floating: var(--sone-shadow-md);
     --sone-warning: #d8a33a;
+
+    /* Lighter steps of the same tones: the light values sink into a dark page. */
+    --sone-tone-note: var(--sone-text-muted);
+    --sone-tone-info: #60a5fa;
+    --sone-tone-tip: #2dd4bf;
+    --sone-tone-warning: #fbbf24;
+    --sone-tone-error: #f87171;
+    --sone-tone-alarm: #fb7185;
+    --sone-tone-exclaim: #fb923c;
+    --sone-tone-question: #a78bfa;
+    --sone-tone-success: #4ade80;
+    --sone-tone-memo: #a3a094;
+    --sone-tone-example: #94a3b8;
+    --sone-tone-quote: #d4a373;
   }
 }
 
@@ -2662,10 +2708,77 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   color: var(--sone-text-muted);
 }
 
+/* A callout (ADR-0188): a tinted box with its symbol at the end.
+ *
+ * The tone sets one custom property and everything else reads it: the
+ * background is a tenth of the tone over the page, the symbol is the tone
+ * itself, and the words are left alone — `--sone-text`, or whatever colour the
+ * block was given. A callout without a tone is a note and looks the way it
+ * always did. */
 .ProseMirror aside[data-block] {
+  position: relative;
   padding: 10px 12px;
+  /* Room for the symbol, so a long line does not run under it. */
+  padding-inline-end: 46px;
   border-radius: var(--sone-radius);
   background: var(--sone-bg-subtle);
+}
+.ProseMirror aside[data-block][data-tone] {
+  background: color-mix(in srgb, var(--callout-tone) 10%, var(--sone-bg));
+}
+/* The one that cannot wait: deeper, and with a bar so it reads from across
+   the room. */
+.ProseMirror aside[data-block][data-tone='alarm'] {
+  background: color-mix(in srgb, var(--callout-tone) 16%, var(--sone-bg));
+  box-shadow: inset 3px 0 0 var(--callout-tone);
+}
+.ProseMirror aside[data-block] .callout-body { min-inline-size: 0; }
+.ProseMirror aside[data-block] .callout-mark {
+  position: absolute;
+  inset-inline-end: 12px;
+  inset-block-start: 9px;
+  inline-size: 22px;
+  block-size: 22px;
+  color: var(--callout-tone);
+  pointer-events: none;
+  user-select: none;
+}
+.ProseMirror aside[data-block] .callout-mark svg { inline-size: 100%; block-size: 100%; display: block; }
+/* The placeholder sits where the first word will, not in the box's corner. */
+.ProseMirror aside[data-block].sone-has-placeholder::after {
+  inset-inline-start: 12px;
+  inset-block-start: 10px;
+}
+
+/* One property per tone, wherever a tone is named — the box in the editor and
+   the choice in the block menu draw from the same value. All at one
+   specificity, and the note default with them: a default declared on the
+   aside itself would outrank these and win every time. */
+.ProseMirror aside[data-block]:not([data-tone]),
+[data-tone='note'] { --callout-tone: var(--sone-tone-note); }
+[data-tone='info'] { --callout-tone: var(--sone-tone-info); }
+[data-tone='tip'] { --callout-tone: var(--sone-tone-tip); }
+[data-tone='warning'] { --callout-tone: var(--sone-tone-warning); }
+[data-tone='error'] { --callout-tone: var(--sone-tone-error); }
+[data-tone='alarm'] { --callout-tone: var(--sone-tone-alarm); }
+[data-tone='exclaim'] { --callout-tone: var(--sone-tone-exclaim); }
+[data-tone='question'] { --callout-tone: var(--sone-tone-question); }
+[data-tone='success'] { --callout-tone: var(--sone-tone-success); }
+[data-tone='memo'] { --callout-tone: var(--sone-tone-memo); }
+[data-tone='example'] { --callout-tone: var(--sone-tone-example); }
+[data-tone='quote'] { --callout-tone: var(--sone-tone-quote); }
+
+/* Where a quote is from (ADR-0188): one quiet line under it, set off by a
+   dash. Not while the placeholder is showing — both are ::after. */
+.ProseMirror blockquote[data-block][data-source]:not(.sone-has-placeholder)::after {
+  content: '— ' attr(data-source);
+  display: block;
+  margin-block-start: 0.35em;
+  font-size: 0.85em;
+  font-style: normal;
+  text-align: end;
+  color: var(--sone-text-muted);
+  opacity: 0.85;
 }
 
 .ProseMirror pre[data-block] {
@@ -8290,6 +8403,37 @@ select {
   border-color: var(--accent-line);
   color: var(--sone-text);
   font-weight: 600;
+}
+
+/* The tones (ADR-0188): twelve symbols, each in its own colour, six to a row.
+   The chosen one gets the tone as a tint behind it, the way the box will. */
+.block-menu-tones { display: grid; grid-template-columns: repeat(6, 1fr); }
+.block-menu-tone {
+  flex: none;
+  padding-inline: 0;
+  color: var(--callout-tone);
+}
+.block-menu-tone svg { inline-size: 18px; block-size: 18px; }
+.block-menu-tone:hover { color: var(--callout-tone); }
+.block-menu-tone.current {
+  color: var(--callout-tone);
+  background: color-mix(in srgb, var(--callout-tone) 12%, transparent);
+  border-color: var(--callout-tone);
+}
+
+/* A text field in the menu: the quote's source. */
+.block-menu-field { display: block; padding-block-end: var(--sone-space-2); }
+.block-menu-input {
+  display: block;
+  inline-size: calc(100% - 2 * var(--sone-space-2));
+  margin-inline: var(--sone-space-2);
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--sone-radius-sm);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--sone-text-sm);
 }
 
 /* Ten swatches: "as designed", the eight colours, and one of your own.

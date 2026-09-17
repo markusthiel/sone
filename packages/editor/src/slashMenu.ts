@@ -23,7 +23,7 @@
  * is the classic bug in this kind of component.
  */
 
-import { BLOCK_ATTRS } from '@sone/core';
+import { BLOCK_ATTRS, type CalloutTone } from '@sone/core';
 import { continueAfterSote } from './soteContinuation.js';
 import type { Node as PMNode } from 'prosemirror-model';
 import {
@@ -70,11 +70,41 @@ export interface SlashItem {
    * before finding anything.
    */
   keywords: string[];
-  group: 'text' | 'lists' | 'blocks';
+  group: 'text' | 'lists' | 'blocks' | 'callouts';
   action: SlashAction;
 }
 
 const node = (name: string) => schema.nodes[name];
+
+/**
+ * The toned callouts (ADR-0188), one `/` entry each.
+ *
+ * Their own group rather than eleven more rows under "Blocks": somebody typing
+ * `/` to insert a table should not scroll past a wall of coloured boxes. The
+ * plain callout stays where it was, under Blocks, and is the neutral `note`.
+ *
+ * Every entry has a `callout` keyword, so typing "callout" (or the German
+ * keyword the interface adds) lists the whole family — the way people will
+ * find a tone whose name they do not know yet.
+ */
+export const TONED_CALLOUTS: readonly {
+  tone: Exclude<CalloutTone, 'note'>;
+  title: string;
+  hint: string;
+  keywords: string[];
+}[] = [
+  { tone: 'info', title: 'Info', hint: 'Something worth knowing', keywords: ['info', 'information'] },
+  { tone: 'tip', title: 'Tip', hint: 'A better way to do it', keywords: ['tip', 'hint', 'idea'] },
+  { tone: 'warning', title: 'Warning', hint: 'Something that can go wrong', keywords: ['warning', 'caution', 'attention'] },
+  { tone: 'error', title: 'Error', hint: 'Something that has gone wrong', keywords: ['error', 'failure', 'bug'] },
+  { tone: 'alarm', title: 'Alarm', hint: 'Needs attention now', keywords: ['alarm', 'urgent', 'critical'] },
+  { tone: 'exclaim', title: 'Exclamation', hint: 'Not to be missed', keywords: ['exclamation', 'important', '!'] },
+  { tone: 'question', title: 'Question', hint: 'Open, to be answered', keywords: ['question', 'open', '?'] },
+  { tone: 'success', title: 'Success', hint: 'Done, or went well', keywords: ['success', 'done', 'check'] },
+  { tone: 'memo', title: 'Memo', hint: 'A note in the margin', keywords: ['memo', 'note', 'remark'] },
+  { tone: 'example', title: 'Example', hint: 'Shows how it looks in practice', keywords: ['example', 'sample'] },
+  { tone: 'quote', title: 'Quotation box', hint: 'A quotation as a box', keywords: ['quote', 'citation', 'saying'] },
+];
 
 /** The items, in the order they are offered. */
 export const SLASH_ITEMS: readonly SlashItem[] = [
@@ -273,7 +303,16 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
   },
   { id: 'sote-list', title: 'SOTE task list', hint: 'Show and edit a SOTE project', keywords: ['sote','tasks','aufgaben','projekt'], group: 'blocks', action: {kind:'insert',build:()=>node('soteTasks')!.create({mode:'list'})}},
   { id: 'sote-single', title: 'SOTE task', hint: 'Link or create one task', keywords: ['sote','task','aufgabe'], group: 'blocks', action: {kind:'insert',build:()=>node('soteTasks')!.create({mode:'single'})}},
+  ...TONED_CALLOUTS.map(({ tone, title, hint, keywords }) => ({
+    id: `callout-${tone}`,
+    title,
+    hint,
+    keywords: ['callout', ...keywords],
+    group: 'callouts' as const,
+    action: { kind: 'convert' as const, type: 'callout', attrs: { [BLOCK_ATTRS.tone]: tone } },
+  })),
 ];
+
 
 /**
  * Filter items by query.
@@ -378,10 +417,24 @@ interface SlashMeta {
  */
 export type LocaliseSlashItem = (item: SlashItem) => SlashItem;
 
+/**
+ * Whether an item is offered at all, asked every time the list is built.
+ *
+ * For blocks that only mean something once the instance has been set up for
+ * them: a SOTE task block on an instance with no SOTE server is a block that
+ * cannot work, and offering it teaches people the menu promises things it
+ * cannot do. Asked each time rather than once, because the answer arrives from
+ * the server after the editor exists — and because an administrator can
+ * change it while a page is open.
+ */
+export type OffersSlashItem = (item: SlashItem) => boolean;
+
 export function slashMenu(
   localise: LocaliseSlashItem = (item) => item,
+  offers: OffersSlashItem = () => true,
 ): Plugin<SlashMenuState | null> {
-  const items = SLASH_ITEMS.map(localise);
+  const all = SLASH_ITEMS.map(localise);
+  const items = () => all.filter(offers);
   return new Plugin<SlashMenuState | null>({
     key: slashMenuPluginKey,
 
@@ -420,7 +473,8 @@ export function slashMenu(
           // `items` above, which is every item — the two were the same variable
           // before there was a list to localise, and the checks below mean the
           // *matching* ones.
-          const found = filterSlashItems(query, items);
+          const offered = items();
+          const found = filterSlashItems(query, offered);
 
           // A space with nothing matching closes it. Without this, ordinary
           // prose containing a slash leaves a dead menu capturing Enter.
@@ -434,7 +488,7 @@ export function slashMenu(
             items: found,
             // Clamped rather than reset: someone who has moved down two items
             // and types another character should stay near where they were.
-            index: Math.min(previous.index, Math.max(0, items.length - 1)),
+            index: Math.min(previous.index, Math.max(0, offered.length - 1)),
           };
         }
 
@@ -448,7 +502,7 @@ export function slashMenu(
         if (newState.doc.textBetween(head - 1, head) !== '/') return null;
         if (!slashOpensMenu(newState, head - 1)) return null;
 
-        return { from: head - 1, query: '', index: 0, items: filterSlashItems('', items) };
+        return { from: head - 1, query: '', index: 0, items: filterSlashItems('', items()) };
       },
     },
 

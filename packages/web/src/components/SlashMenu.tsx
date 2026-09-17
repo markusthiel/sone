@@ -12,6 +12,7 @@
  * moment the document reflows.
  */
 
+import type { CalloutTone } from '@sone/core';
 import {
   CalloutIcon,
   CheckSquareIcon,
@@ -28,6 +29,7 @@ import {
   TextIcon,
   ToggleIcon,
   VideoIcon,
+  ToneIcon,
 } from './icons.tsx';
 import { BLOCK_MARKS } from './blockMarks.ts';
 import { useT } from '../i18n/useT.tsx';
@@ -339,7 +341,8 @@ const MARKS = BLOCK_MARKS;
 
 function Mark({ item }: { item: SlashItem }): ReactElement {
   const { t } = useT();
-  const Icon = MARKS[item.id];
+  const tone = item.id.startsWith('callout-') ? (item.id.slice('callout-'.length) as CalloutTone) : null;
+  const Icon = tone ? () => <ToneIcon tone={tone} /> : MARKS[item.id];
   // The box is kept whether or not there is an icon, so the names stay in one
   // column: a list where some rows are indented and others are not is harder to
   // scan than a list with no icons at all.
@@ -350,6 +353,7 @@ const GROUP_LABELS: Record<SlashItem['group'], string> = {
   text: 'Text',
   lists: 'Lists',
   blocks: 'Blocks',
+  callouts: 'Callouts',
 };
 
 /**

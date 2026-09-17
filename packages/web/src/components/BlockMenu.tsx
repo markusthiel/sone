@@ -44,7 +44,7 @@ import { BLOCK_MARKS } from './blockMarks.ts';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard.ts';
 import { blockAddress } from '../routes/internalLinks.ts';
 import { useT } from '../i18n/useT.tsx';
-import { BLOCK_COLORS } from '@sone/core';
+import { BLOCK_COLORS, CALLOUT_TONES } from '@sone/core';
 import type { Command } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -63,7 +63,7 @@ import {
   AlignAutoIcon,
   AlignCentreIcon,
   AlignLeftIcon,
-  AlignRightIcon, GripIcon, PlusIcon } from './icons.tsx';
+  AlignRightIcon, GripIcon, PlusIcon, ToneIcon } from './icons.tsx';
 import { keepsEditorSelection, popupItem } from './popup.ts';
 
 interface BlockMenuProps {
@@ -259,6 +259,62 @@ function BlockAppearance({
             </button>
           ))}
         </div>
+      )}
+
+      {/* What kind of callout this is (ADR-0188). Symbols in the tone's colour,
+          because the symbol *is* the tone: the box will show this exact mark.
+          Before the colour swatches, since the tone decides the background and
+          the colour only the words. */}
+      {node.type.name === 'callout' && (
+        <div className="block-menu-choices block-menu-tones" role="group" aria-label={t('block.tone')}>
+          {CALLOUT_TONES.map((tone) => {
+            const chosen = (current.tone ?? 'note') === tone;
+            const label = t(`block.tone.${tone}` as MessageKey);
+            return (
+              <button
+                key={tone}
+                type="button"
+                role="menuitemradio"
+                aria-checked={chosen}
+                data-tone={tone}
+                className={chosen ? 'block-menu-choice block-menu-tone current' : 'block-menu-choice block-menu-tone'}
+                title={label}
+                aria-label={label}
+                {...popupItem(() => run(setBlockStyle({ tone })))}
+              >
+                <ToneIcon tone={tone} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Who said it (ADR-0188). One line under the quote; empty removes it. */}
+      {node.type.name === 'quote' && (
+        <label className="block-menu-field">
+          <span className="block-menu-label">{t('block.source')}</span>
+          <input
+            type="text"
+            className="block-menu-input"
+            placeholder={t('block.source.placeholder')}
+            defaultValue={current.source ?? ''}
+            // The panel prevents mousedown to keep the editor's selection; a
+            // text field needs that event to take focus. The editor keeps its
+            // selection in state regardless, which is what the command reads.
+            onMouseDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              // The menu's arrow keys and Enter belong to the field while it
+              // has focus; only Escape is left to close the menu.
+              if (event.key !== 'Escape') event.stopPropagation();
+              if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
+            }}
+            onBlur={(event) => {
+              if (event.target.value.trim() !== (current.source ?? '')) {
+                run(setBlockStyle({ source: event.target.value }));
+              }
+            }}
+          />
+        </label>
       )}
 
       {applies.color && (

@@ -60,6 +60,13 @@ test('and the pages a picker was holding go with them', () => {
   assert.match(logout(), /forgetLinkTargets\(\)/);
 });
 
+test('and whether there is a SOTE server goes', () => {
+  // Answered by a route that requires a session, and cached at module scope
+  // so the `/` menu can ask synchronously (ADR-0188). Not about a person, but
+  // learned as one — so it is let go with the rest.
+  assert.match(logout(), /forgetSoteAvailability\(\)/);
+});
+
 test('every module-level cache in the app is in that list', () => {
   /*
    * The census, and the reason this test is worth more than the three above.
@@ -76,5 +83,5 @@ test('every module-level cache in the app is in that list', () => {
     // A mutable binding at column zero: module scope, and it survives a remount.
     return /^let [a-zA-Z]/m.test(source);
   });
-  assert.deepEqual(withCache.sort(), ['useLinkTargets.ts'], 'caches to let go of');
+  assert.deepEqual(withCache.sort(), ['useLinkTargets.ts', 'useSoteAvailable.ts'], 'caches to let go of');
 });

@@ -17,12 +17,15 @@
  * modelling it as one would make every style change a tree operation.
  */
 
+import { calloutMarkSpec } from './calloutTones.js';
 import { currentOrigin, homeRelative, isFollowable } from './hrefs.js';
 import {
   BLOCK_ALIGNMENTS,
   BLOCK_ATTRS,
   BLOCK_COLORS,
   BLOCK_WIDTHS,
+  CALLOUT_TONES,
+  type CalloutTone,
   serialiseProps,
 } from '@sone/core';
 import { Schema, type MarkSpec, type Node as PMNode, type NodeSpec } from 'prosemirror-model';
@@ -61,6 +64,17 @@ function blockDOMAttrs(node: PMNode): Record<string, string> {
   const color = node.attrs[BLOCK_ATTRS.color];
   if (typeof color === 'string' && (BLOCK_COLORS as readonly string[]).includes(color)) {
     attrs['data-color'] = color;
+  }
+  const tone = node.attrs[BLOCK_ATTRS.tone];
+  if (typeof tone === 'string' && (CALLOUT_TONES as readonly string[]).includes(tone)) {
+    attrs['data-tone'] = tone;
+  }
+  // Free text, not a closed set — but it goes into an attribute value, not a
+  // selector, and the stylesheet reads it back with attr(), so no value can
+  // do anything but be displayed.
+  const source = node.attrs[BLOCK_ATTRS.source];
+  if (typeof source === 'string' && source.trim() !== '') {
+    attrs['data-source'] = source.trim();
   }
 
   return attrs;
@@ -256,17 +270,31 @@ const nodes: Record<string, NodeSpec> = {
   quote: {
     group: 'block',
     content: 'inline*',
-    attrs: blockAttrs,
-    parseDOM: [{ tag: 'blockquote' }],
+    attrs: { ...blockAttrs, [BLOCK_ATTRS.source]: { default: null as string | null } },
+    parseDOM: [
+      {
+        tag: 'blockquote',
+        getAttrs: (dom) => ({ [BLOCK_ATTRS.source]: dom.getAttribute('data-source') }),
+      },
+    ],
     toDOM: (node) => ['blockquote', blockDOMAttrs(node), 0],
   },
 
   callout: {
     group: 'block',
     content: 'inline*',
-    attrs: blockAttrs,
-    parseDOM: [{ tag: 'aside' }],
-    toDOM: (node) => ['aside', blockDOMAttrs(node), 0],
+    attrs: { ...blockAttrs, [BLOCK_ATTRS.tone]: { default: null as string | null } },
+    parseDOM: [
+      { tag: 'aside', getAttrs: (dom) => ({ [BLOCK_ATTRS.tone]: dom.getAttribute('data-tone') }) },
+    ],
+    // The words in a wrapper and the symbol beside it (ADR-0188). A wrapper,
+    // because ProseMirror's content hole must be its parent's only child, and
+    // the symbol is a sibling the caret can never enter.
+    toDOM: (node) => {
+      const attrs = blockDOMAttrs(node);
+      const tone = (attrs['data-tone'] ?? 'note') as CalloutTone;
+      return ['aside', attrs, ['div', { class: 'callout-body' }, 0], calloutMarkSpec(tone)] as never;
+    },
   },
 
   code: {
