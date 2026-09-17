@@ -307,6 +307,13 @@ Everything *else* about a mail server — host, port, encryption, user, sender �
 can be set in Settings → Instance, which is where an operator will look. Only
 the password has to be in `.env`.
 
+For a Microsoft 365 mailbox the host is `smtp.office365.com`, port 587,
+STARTTLS, user and sender both the mailbox address, and the password is an app
+password if the account has a second factor. Exchange Online accepts a password
+only as `AUTH LOGIN`, which SONE speaks; a tenant that has switched SMTP to
+OAuth only will refuse any password, and the test mail then says so and names
+what the relay offers instead.
+
 **And `.env` alone is not enough.** Compose does not forward the host's
 environment: a variable has to be named in the service's `environment:` block to
 reach the container. Both secrets are named there now, along with the workspace
