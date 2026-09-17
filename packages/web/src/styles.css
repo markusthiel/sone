@@ -2790,11 +2790,119 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   overflow-x: auto;
 }
 
-.ProseMirror [data-block='divider'] hr {
-  border: 0;
-  border-block-start: 1px solid var(--sone-border);
-  margin-block: 1em;
+/* A divider (ADR-0189): a line, drawn one of nine ways, and a symbol that may
+ * sit on it at the start, the middle or the end.
+ *
+ * Selected by `:is([data-block='divider'], .divider-preview)` without the editor prefix on purpose:
+ * the block menu draws each line choice with a `.divider-preview` carrying the
+ * same attributes, so the button shows exactly what the block will — one set
+ * of rules, two places they apply.
+ *
+ * Two colours. The line is the border colour, or the block's own colour when
+ * one was chosen (`[data-color]` sets `color`, and the line follows it). The
+ * symbol is muted text by default — a symbol in border grey is a symbol you
+ * cannot see — and the block's colour when there is one.
+ */
+:is([data-block='divider'], .divider-preview) {
+  --divider-color: var(--sone-border);
+  --divider-mark-color: var(--sone-text-muted);
+  position: relative;
 }
+:is([data-block='divider'], .divider-preview)[data-color] {
+  --divider-color: currentColor;
+  --divider-mark-color: currentColor;
+}
+:is([data-block='divider'], .divider-preview) hr {
+  border: 0;
+  border-block-start: 1px solid var(--divider-color);
+  margin-block: 1em;
+  /* The browser gives an hr a grey `color` of its own, which is what
+     `currentColor` above would otherwise resolve to: the block's colour has to
+     reach the line. */
+  color: inherit;
+}
+/* A symbol needs height a line does not have, and the padding also keeps the
+   line's margins from collapsing into a neighbour's. */
+:is([data-block='divider'], .divider-preview)[data-ornament] { padding-block: 4px; }
+:is([data-block='divider'], .divider-preview)[data-rule='dashed'] hr { border-block-start-style: dashed; }
+:is([data-block='divider'], .divider-preview)[data-rule='dotted'] hr {
+  border-block-start-style: dotted;
+  border-block-start-width: 2px;
+}
+:is([data-block='divider'], .divider-preview)[data-rule='double'] hr { border-block-start: 3px double var(--divider-color); }
+:is([data-block='divider'], .divider-preview)[data-rule='thick'] hr {
+  border-block-start-width: 3px;
+  border-radius: 2px;
+}
+/* Present in the middle, gone at the edges. */
+:is([data-block='divider'], .divider-preview)[data-rule='fade'] hr {
+  border: 0;
+  block-size: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--divider-color) 25%,
+    var(--divider-color) 75%,
+    transparent
+  );
+}
+/* A third of the column, centred: the section break of a printed book. */
+:is([data-block='divider'], .divider-preview)[data-rule='short'] hr {
+  inline-size: 33%;
+  margin-inline: auto;
+}
+/* A wave, as a mask over the colour: the drawing is a repeating 24×8 tile, and
+   the colour is whatever --divider-color says, so it follows the theme and the
+   block colour the way a border would. */
+:is([data-block='divider'], .divider-preview)[data-rule='wave'] hr {
+  border: 0;
+  block-size: 8px;
+  background-color: var(--divider-color);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 8'%3E%3Cpath d='M0 4c3-4 6-4 9 0s6 4 9 0 4-3 6 0' fill='none' stroke='%23000' stroke-width='1.2'/%3E%3C/svg%3E")
+    repeat-x center / 24px 8px;
+}
+/* Upright strokes, one every four pixels: |||||||| */
+:is([data-block='divider'], .divider-preview)[data-rule='bars'] hr {
+  border: 0;
+  block-size: 10px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--divider-color) 0 1px,
+    transparent 1px 4px
+  );
+}
+
+/* The symbol sits on the line and covers it with the page, so the line pauses
+   for the symbol rather than running through it. */
+:is([data-block='divider'], .divider-preview) .divider-mark {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  transform: translate(-50%, -50%);
+  padding-inline: 10px;
+  line-height: 0;
+  background: var(--sone-bg);
+  color: var(--divider-mark-color);
+  pointer-events: none;
+  user-select: none;
+}
+:is([data-block='divider'], .divider-preview) .divider-mark svg { inline-size: 22px; block-size: 22px; }
+:is([data-block='divider'], .divider-preview)[data-ornament-at='start'] .divider-mark {
+  inset-inline-start: 0;
+  transform: translateY(-50%);
+  padding-inline-start: 0;
+}
+:is([data-block='divider'], .divider-preview)[data-ornament-at='end'] .divider-mark {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  transform: translateY(-50%);
+  padding-inline-end: 0;
+}
+/* A short line does not reach the edges, so a symbol at its start or end sits
+   where the line begins or ends, not at the column's edge. */
+:is([data-block='divider'], .divider-preview)[data-rule='short'][data-ornament-at='start'] .divider-mark { inset-inline-start: 33%; }
+:is([data-block='divider'], .divider-preview)[data-rule='short'][data-ornament-at='end'] .divider-mark { inset-inline-end: 33%; }
+[dir='rtl'] :is([data-block='divider'], .divider-preview) .divider-mark { transform: translate(50%, -50%); }
 
 .ProseMirror [data-block='image'] img { max-width: 100%; border-radius: var(--sone-radius); }
 
@@ -8420,6 +8528,33 @@ select {
   background: color-mix(in srgb, var(--callout-tone) 12%, transparent);
   border-color: var(--callout-tone);
 }
+
+/* A divider's line choices (ADR-0189): each button is the line it stands for,
+   drawn by the divider's own rules through `.divider-preview`. Three to a row,
+   so a dashed line has room to be seen as dashed. */
+.block-menu-rules { display: grid; grid-template-columns: repeat(3, 1fr); }
+.block-menu-rule { flex: none; padding-inline: var(--sone-space-2); }
+.divider-preview {
+  display: block;
+  inline-size: 100%;
+  color: var(--sone-text-muted);
+}
+.divider-preview hr { margin-block: 0; }
+.block-menu-rule.current .divider-preview,
+.block-menu-rule:hover .divider-preview { color: var(--sone-text); }
+.block-menu-rule .divider-preview { --divider-color: currentColor; }
+
+/* The symbols, six to a row, and "none" first as a slash like the colours. */
+.block-menu-ornaments { display: grid; grid-template-columns: repeat(6, 1fr); }
+.block-menu-ornament { flex: none; padding-inline: 0; min-block-size: var(--sone-control); }
+.block-menu-ornament svg { inline-size: 18px; block-size: 18px; }
+.block-menu-ornament.none {
+  background:
+    linear-gradient(to bottom right,
+      transparent calc(50% - 1px), var(--sone-text-muted) calc(50% - 1px),
+      var(--sone-text-muted) calc(50% + 1px), transparent calc(50% + 1px));
+}
+.block-menu-ornament.none.current { background-color: var(--sone-bg-hover); }
 
 /* A text field in the menu: the quote's source. */
 .block-menu-field { display: block; padding-block-end: var(--sone-space-2); }

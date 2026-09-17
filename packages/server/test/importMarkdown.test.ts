@@ -127,3 +127,23 @@ test('a bold first line that is not a tone stays a quote', () => {
   assert.equal(read[0]?.type, 'quote');
   assert.equal(read[0]?.text, '**Chapter one**\n\nIt was a dark night.');
 });
+
+test('a divider keeps its line, symbol and place, and *** is an asterism (ADR-0189)', () => {
+  const original: ExportBlock[] = [
+    block('divider'),
+    block('divider', '', { rule: 'dashed', ornament: 'leaf', ornamentAt: 'start' }),
+  ];
+  const markdown = pageToMarkdown('The page', original);
+  assert.match(markdown, /---\n<!-- sone-divider \{"rule":"dashed","ornament":"leaf","ornamentAt":"start"\} -->/);
+  assert.equal((markdown.match(/^---$/gm) ?? []).length, 2, 'both are still a rule for any reader');
+
+  const read = markdownToBlocks(bodyWithoutTitle(markdown));
+  assert.deepEqual(
+    read.map((one) => [one.type, one.props]),
+    [
+      ['divider', {}],
+      ['divider', { rule: 'dashed', ornament: 'leaf', ornamentAt: 'start' }],
+    ],
+  );
+  assert.deepEqual(markdownToBlocks('***')[0]?.props, { ornament: 'asterism' });
+});

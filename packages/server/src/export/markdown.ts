@@ -135,9 +135,22 @@ export function pageToMarkdown(title: string, blocks: ExportBlock[]): string {
         lines.push('```' + language + '\n' + text + '\n```');
         break;
       }
-      case 'divider':
-        lines.push('---');
+      case 'divider': {
+        // `---` for every reader; the line, symbol and place (ADR-0189) in an
+        // HTML comment on the next line, which Markdown renderers drop and our
+        // importer reads. A plain divider gets no comment at all.
+        const shape: Record<string, string> = {};
+        for (const key of ['rule', 'ornament', 'ornamentAt'] as const) {
+          const value = props(block)[key];
+          if (typeof value === 'string' && value !== '') shape[key] = value;
+        }
+        lines.push(
+          Object.keys(shape).length > 0
+            ? `---\n<!-- sone-divider ${JSON.stringify(shape)} -->`
+            : '---',
+        );
         break;
+      }
       case 'toggle':
         // The summary as a bold line and the children after it, which is what a
         // reader without HTML sees anyway. `<details>` renders in some places
