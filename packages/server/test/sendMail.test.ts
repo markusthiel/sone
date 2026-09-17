@@ -16,7 +16,9 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:net';
 import { test } from 'node:test';
 
-import { sendMail } from '../src/mail/send.js';
+import { createConnection } from 'node:net';
+
+import { offeredAuth, sendMail } from '../src/mail/send.js';
 
 interface FakeRelay {
   server: Server;
@@ -28,12 +30,25 @@ interface FakeRelay {
   close: () => Promise<void>;
 }
 
-async function fakeRelay(options: { multilineEhlo?: boolean } = {}): Promise<FakeRelay> {
+async function fakeRelay(
+  options: {
+    multilineEhlo?: boolean;
+    /** The AUTH line this relay advertises; `null` for a relay that says nothing. */
+    auth?: string | null;
+    /** Rejects any mechanism outside its own AUTH line, the way a real one does. */
+    accepts?: { user: string; password: string };
+  } = {},
+): Promise<FakeRelay> {
   const state: { said: string[]; data: string } = { said: [], data: '' };
+  const authLine = options.auth === undefined ? 'AUTH PLAIN LOGIN' : options.auth;
+  const mechanisms = authLine ? authLine.replace(/^AUTH[ =]/, '').split(' ') : ['PLAIN', 'LOGIN'];
+  const b64 = (value: string) => Buffer.from(value, 'utf8').toString('base64');
 
   const server = createServer((socket) => {
     let inData = false;
     let buffer = '';
+    // Where an AUTH LOGIN stands: waiting for the user, then the password.
+    let login: 'user' | 'password' | null = null;
     socket.setEncoding('utf8');
     socket.write('220 fake ESMTP\r\n');
 
@@ -58,6 +73,23 @@ async function fakeRelay(options: { multilineEhlo?: boolean } = {}): Promise<Fak
         }
 
         state.said.push(line);
+
+        if (login !== null) {
+          // The two challenges of AUTH LOGIN, answered one line at a time.
+          if (login === 'user') {
+            login = line === b64(options.accepts?.user ?? '') ? 'password' : null;
+            socket.write(login ? `334 ${b64('Password:')}\r\n` : '535 5.7.8 bad user\r\n');
+          } else {
+            login = null;
+            socket.write(
+              line === b64(options.accepts?.password ?? '')
+                ? '235 2.7.0 Authentication successful\r\n'
+                : '535 5.7.8 Authentication credentials invalid\r\n',
+            );
+          }
+          continue;
+        }
+
         const verb = line.split(' ')[0]?.toUpperCase() ?? '';
         if (verb === 'EHLO') {
           // A real relay answers with its capabilities across several lines,
@@ -66,8 +98,28 @@ async function fakeRelay(options: { multilineEhlo?: boolean } = {}): Promise<Fak
           socket.write(
             options.multilineEhlo === false
               ? '250 fake\r\n'
-              : '250-fake greets you\r\n250-SIZE 10240000\r\n250-8BITMIME\r\n250 AUTH PLAIN LOGIN\r\n',
+              : `250-fake greets you\r\n250-SIZE 10240000\r\n250-8BITMIME\r\n` +
+                  (authLine ? `250-${authLine}\r\n` : '') +
+                  `250 SMTPUTF8\r\n`,
           );
+        } else if (verb === 'AUTH') {
+          const mechanism = line.split(' ')[1]?.toUpperCase() ?? '';
+          if (!mechanisms.includes(mechanism)) {
+            // Word for word what Exchange Online answers to `AUTH PLAIN`.
+            socket.write('504 5.7.4 Unrecognized authentication type\r\n');
+          } else if (mechanism === 'LOGIN') {
+            login = 'user';
+            socket.write(`334 ${b64('Username:')}\r\n`);
+          } else {
+            const [, user, password] = Buffer.from(line.split(' ')[2] ?? '', 'base64')
+              .toString('utf8')
+              .split('\0');
+            socket.write(
+              user === options.accepts?.user && password === options.accepts?.password
+                ? '235 2.7.0 Authentication successful\r\n'
+                : '535 5.7.8 Authentication credentials invalid\r\n',
+            );
+          }
         } else if (verb === 'MAIL' || verb === 'RCPT') {
           socket.write('250 ok\r\n');
         } else if (verb === 'DATA') {
@@ -114,6 +166,29 @@ const relay = (port: number) => ({
   from: 'sone@example.org',
   security: 'none' as const,
 });
+
+/**
+ * A connection the client believes is TLS, to a fake that speaks none.
+ *
+ * Authentication only ever happens over an encrypted connection, so without
+ * this the fake never heard the AUTH step — and the AUTH step was the one that
+ * was wrong. The handshake is not what these tests are about; the conversation
+ * after it is.
+ */
+const pretendTls = (port: number) =>
+  new Promise<import('node:net').Socket>((resolve, reject) => {
+    const socket = createConnection({ host: '127.0.0.1', port });
+    socket.once('connect', () => resolve(socket));
+    socket.once('error', reject);
+  });
+
+const withPassword = (port: number) => ({
+  ...relay(port),
+  user: 'info@example.org',
+  password: 'sixteen-chars-pw',
+  security: 'tls' as const,
+});
+const message = { to: 'a@example.org', subject: 'x', body: 'y' };
 
 test('a mail goes through the conversation a relay expects', async () => {
   const fake = await fakeRelay();
@@ -198,6 +273,116 @@ test('a password is refused over an unencrypted connection', async () => {
   } finally {
     await fake.close();
   }
+});
+
+// --- which way the password goes -------------------------------------------
+
+test('a relay offering PLAIN gets AUTH PLAIN, in one round trip', async () => {
+  const fake = await fakeRelay({
+    auth: 'AUTH PLAIN LOGIN',
+    accepts: { user: 'info@example.org', password: 'sixteen-chars-pw' },
+  });
+  try {
+    const r = withPassword(fake.port);
+    await sendMail(r, message, new Date(), () => pretendTls(r.port));
+    const auth = fake.said.filter((line) => line.startsWith('AUTH'));
+    assert.equal(auth.length, 1);
+    assert.match(auth[0]!, /^AUTH PLAIN /);
+    assert.ok(fake.said.includes('QUIT'), 'and the mail went through');
+  } finally {
+    await fake.close();
+  }
+});
+
+test('a relay offering only LOGIN gets AUTH LOGIN, user and password each on their own line', async () => {
+  /*
+   * Exchange Online, after STARTTLS: `250-AUTH LOGIN XOAUTH2`. The client sent
+   * `AUTH PLAIN` regardless — it never read the capability lines, the session
+   * dropped them — and got `504 5.7.4 Unrecognized authentication type`, which
+   * an operator reads as a wrong password. The password was right.
+   */
+  const fake = await fakeRelay({
+    auth: 'AUTH LOGIN XOAUTH2',
+    accepts: { user: 'info@example.org', password: 'sixteen-chars-pw' },
+  });
+  try {
+    const r = withPassword(fake.port);
+    await sendMail(r, message, new Date(), () => pretendTls(r.port));
+    const at = fake.said.indexOf('AUTH LOGIN');
+    assert.notEqual(at, -1, 'LOGIN was chosen');
+    assert.ok(!fake.said.some((line) => line.startsWith('AUTH PLAIN')), 'PLAIN was not tried');
+    assert.equal(fake.said[at + 1], Buffer.from('info@example.org').toString('base64'));
+    assert.equal(fake.said[at + 2], Buffer.from('sixteen-chars-pw').toString('base64'));
+    assert.ok(fake.said.includes('QUIT'), 'and the mail went through');
+  } finally {
+    await fake.close();
+  }
+});
+
+test('a relay offering neither says so, naming what it does offer', async () => {
+  // The tenant that has moved to OAuth only. The error should contain the word
+  // an operator can act on, not a 504 to search for.
+  const fake = await fakeRelay({ auth: 'AUTH XOAUTH2' });
+  try {
+    const r = withPassword(fake.port);
+    await assert.rejects(
+      sendMail(r, message, new Date(), () => pretendTls(r.port)),
+      /PLAIN, LOGIN.*offers: XOAUTH2/,
+    );
+    assert.ok(!fake.said.some((line) => line.startsWith('AUTH')), 'nothing was attempted');
+  } finally {
+    await fake.close();
+  }
+});
+
+test('a relay that advertises nothing is tried with PLAIN, as before', async () => {
+  // Advertising the extension is optional; a relay that keeps quiet is not one
+  // that refuses, and this is how every relay was treated before any of this
+  // was read.
+  const fake = await fakeRelay({
+    auth: null,
+    accepts: { user: 'info@example.org', password: 'sixteen-chars-pw' },
+  });
+  try {
+    const r = withPassword(fake.port);
+    await sendMail(r, message, new Date(), () => pretendTls(r.port));
+    assert.ok(fake.said.some((line) => line.startsWith('AUTH PLAIN')));
+  } finally {
+    await fake.close();
+  }
+});
+
+test('a wrong password under LOGIN fails without the password in the error', async () => {
+  // The failing line *is* the password, base64 — and the error lands on an
+  // administrator's screen and in the log.
+  const fake = await fakeRelay({
+    auth: 'AUTH LOGIN',
+    accepts: { user: 'info@example.org', password: 'something-else' },
+  });
+  try {
+    const r = withPassword(fake.port);
+    await assert.rejects(
+      sendMail(r, message, new Date(), () => pretendTls(r.port)),
+      (err: Error) => {
+        assert.match(err.message, /^AUTH: 535/);
+        assert.doesNotMatch(err.message, new RegExp(Buffer.from(r.password).toString('base64')));
+        return true;
+      },
+    );
+  } finally {
+    await fake.close();
+  }
+});
+
+test('the AUTH line is read whether it says AUTH or AUTH=', () => {
+  assert.deepEqual(offeredAuth(['fake greets you', 'SIZE 1', 'AUTH LOGIN XOAUTH2']), [
+    'LOGIN',
+    'XOAUTH2',
+  ]);
+  assert.deepEqual(offeredAuth(['AUTH=PLAIN LOGIN']), ['PLAIN', 'LOGIN']);
+  assert.equal(offeredAuth(['fake', 'STARTTLS']), null);
+  // `AUTHENTICATE`-style lines or a bare `AUTH` are not a mechanism list.
+  assert.equal(offeredAuth(['AUTHORITY x']), null);
 });
 
 test('a reply address becomes a Reply-To, and changes what the mail admits to being', async () => {
