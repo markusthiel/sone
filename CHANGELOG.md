@@ -13,6 +13,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.14.6
+
 Aktualisieren und neu starten, sonst nichts.
 
 **Das Fenster für Bild und Video sieht jetzt nach etwas aus.** In 0.14.5 lagen
