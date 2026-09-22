@@ -13,6 +13,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.14.5
+
 Aktualisieren und neu starten, sonst nichts.
 
 **Ein Bild oder ein Video öffnet sich über der Seite statt in einem neuen Tab.**
