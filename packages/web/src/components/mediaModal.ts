@@ -91,14 +91,19 @@ export function openMediaModal(options: MediaModalOptions): HTMLDialogElement {
   // inline often cannot, because the player's own menu is the provider's idea of
   // one. An explicit link is the same gesture for both and needs no menu.
   const download = document.createElement('a');
-  download.className = 'btn media-modal-download';
+  // Its own class rather than `.btn`: that rule is written `button.btn`, so an
+  // anchor carrying it gets the cursor and nothing else — which is how the
+  // first version shipped a bare blue link beside a styled button. And these
+  // two sit on a near-black backdrop, where the page's button colours are the
+  // wrong ones in both themes anyway.
+  download.className = 'media-modal-button media-modal-download';
   download.href = options.url;
   download.setAttribute('download', options.name);
   download.textContent = options.labels.download;
 
   const close = document.createElement('button');
   close.type = 'button';
-  close.className = 'btn media-modal-close';
+  close.className = 'media-modal-button media-modal-close';
   close.setAttribute('aria-label', options.labels.close);
   close.textContent = '✕';
   close.addEventListener('click', dismiss);
@@ -117,6 +122,7 @@ export function openMediaModal(options: MediaModalOptions): HTMLDialogElement {
     body.append(picture);
   } else {
     const player = document.createElement('video');
+    player.className = 'media-modal-player';
     player.controls = true;
     // Not `metadata` as the block does: somebody who opened this came to watch
     // it, so the browser may as well start. Not `autoplay` either — sound
@@ -126,7 +132,33 @@ export function openMediaModal(options: MediaModalOptions): HTMLDialogElement {
     body.append(player);
   }
 
-  dialog.append(head, body);
+  /*
+   * A panel between the dialog and its contents, and it is what was missing.
+   *
+   * The first version put the bar and the picture straight into the dialog,
+   * whose box is the whole viewport — so the name sat in the far top-left
+   * corner, the download and the close in the far top-right, and the picture
+   * floated somewhere in the middle with no visible relation to any of them.
+   * Three things on a dark field rather than one object.
+   *
+   * The panel is as wide as what it holds (`fit-content`), so the bar is
+   * exactly as wide as the picture and sits on its top edge.
+   *
+   * It also takes the focus. A modal dialog moves focus to the first focusable
+   * thing inside it, which was the download link — a focus ring around
+   * "Herunterladen" on opening, reading as though that button were about to be
+   * pressed. `autofocus` on something that is not a control puts it nowhere
+   * instead, and Escape still reaches the dialog.
+   */
+  const panel = document.createElement('div');
+  panel.className = 'media-modal-panel';
+  panel.tabIndex = -1;
+  // The attribute, not the property: `autofocus` reflects from any element only
+  // in newer engines, and setting the property where it does not silently does
+  // nothing — which puts the ring back on the download link.
+  panel.setAttribute('autofocus', '');
+  panel.append(head, body);
+  dialog.append(panel);
 
   // A click on the backdrop closes. The backdrop is the dialog element itself —
   // its box is the whole viewport and the visible panel is a child — so the test
