@@ -45,8 +45,9 @@ was registered, and the only check was that it is `https:`. Three consequences:
 - The README's status line said "pre-alpha … Nothing runs", while the repository
   is at `0.12.8-dev`, has a CHANGELOG, a release process, published images and a
   CI pipeline that runs the whole suite on every push. The reviewer also
-  reported finding no CI — because they looked in `.github`, and the pipeline is
-  Forgejo's, in `.github/workflows/`.
+  reported finding no CI — because they looked in `.github`, and the pipeline at
+  the time was Forgejo's, in its own directory. (It has since moved to
+  `.github/workflows/`, which is where they looked.)
 
 ## Decisions
 
@@ -77,7 +78,7 @@ accepts either separator.
 **README: say what this is.** The status line now says pre-1.0 and running, with
 CI, releases and images — and still warns that schema and documents may migrate
 before 1.0, which is the part of the old warning that was true. The Testing
-section states the skip-without-a-database contract and points at the Forgejo
+section states the skip-without-a-database contract and points at the CI
 pipeline, so the next reader does not conclude there is no CI.
 
 ## Consequences

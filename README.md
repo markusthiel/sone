@@ -217,7 +217,7 @@ against a real Postgres rather than a mocked client. See
 [docs/testing.md](docs/testing.md) for why, and for what the first run of that
 suite found.
 
-Continuous integration runs on Forgejo (`.github/workflows/`): every push and
+Continuous integration runs on GitHub Actions (`.github/workflows/`): every push and
 pull request builds, type-checks, lints and runs the whole suite — the database
 suites included, against a Postgres service — so a green run has actually
 exercised the access matrix rather than skipped it.
