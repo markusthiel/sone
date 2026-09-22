@@ -13,6 +13,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.14.7
+
 Aktualisieren und neu starten, sonst nichts.
 
 **Ein hochgeladenes Video steht jetzt unter „Dateien" in der Seitenleiste.** Es
