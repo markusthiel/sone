@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Aktualisieren und neu starten, sonst nichts.
+
+**Das Fenster für Bild und Video sieht jetzt nach etwas aus.** In 0.14.5 lagen
+Dateiname, Herunterladen und Schließen in den äußersten Ecken des Bildschirms und
+das Bild irgendwo dazwischen; der Herunterladen-Knopf war gar keiner, sondern ein
+blanker Link, und beim Öffnen lag ein Fokusring darauf. Jetzt eine Leiste über
+dem Bild, zwei gleich aussehende Knöpfe darin und eine feine Kante um das Bild,
+damit ein dunkles Foto auf dunklem Grund sichtbar aufhört (ADR-0193).
+
 ## 0.14.5
 
 Aktualisieren und neu starten, sonst nichts.

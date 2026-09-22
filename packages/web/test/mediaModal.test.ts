@@ -20,7 +20,7 @@ import { test } from 'node:test';
 
 import { JSDOM } from 'jsdom';
 
-import { codeOf } from './helpers/source.ts';
+import { codeOf, stylesOf } from './helpers/source.ts';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
 for (const name of ['window', 'document', 'Event', 'HTMLElement'] as const) {
@@ -108,4 +108,46 @@ test('the block views open it instead of leaving the page', () => {
   // that is the one thing this must not swallow.
   assert.match(video, /this\.renderCard\(display, this\.title\(\) \|\| 'Video', 'Uploaded video', href, true\)/);
   assert.match(video, /this\.renderCard\(display, name, providerName\(read\.provider\), read\.pageUrl\)/);
+});
+
+test('the bar is a band over the picture, not three things in three corners', () => {
+  /*
+   * How the first version looked, reported as *„irgendwie fehlt da optisch was"*:
+   * the dialog's box is the viewport, and the name, the buttons and the picture
+   * were put straight into it — so the name sat in the far top-left corner, the
+   * controls in the far top-right, and the picture floated in between with no
+   * visible relation to either.
+   *
+   * `inline-size: fit-content` on a panel around them was the obvious repair and
+   * does not work: a portrait photo is held back by the room under the bar, not
+   * by its own width, so the panel measured 900px around a picture drawn 459px
+   * wide. Measured in Chromium at 1400 × 900. Hence a band of its own width.
+   */
+  const css = stylesOf(new URL('../src/styles.css', import.meta.url));
+
+  assert.match(css, /\.media-modal-panel \{[^}]*flex-direction: column/);
+  assert.match(css, /\.media-modal-head \{[^}]*inline-size: min\(1200px, 100%\)/);
+  assert.match(css, /\.media-modal-head \{[^}]*margin-inline: auto/);
+
+  // The two controls carry their own rule. `.btn` is written `button.btn`, so
+  // the download — an anchor — got the cursor and nothing else, which shipped as
+  // a bare blue link beside a styled button.
+  assert.match(css, /\.media-modal-button \{/);
+  assert.doesNotMatch(codeOf(new URL('../src/components/mediaModal.ts', import.meta.url)), /'btn /);
+
+  // And the picture has an edge: a dark photograph on a dark field otherwise
+  // has nothing saying where it stops.
+  assert.match(css, /\.media-modal-body img,\s*\n\.media-modal-body video \{[^}]*outline: 1px solid/);
+});
+
+test('opening puts the focus nowhere rather than on the download', () => {
+  // A modal dialog moves focus to the first focusable thing inside it, which was
+  // the download link — a ring around "Herunterladen" on opening, reading as
+  // though it were about to be pressed.
+  const modal = openMediaModal({ kind: 'image', url: '/api/files/c', name: 'c.png', labels });
+  const panel = modal.querySelector<HTMLElement>('.media-modal-panel');
+  assert.ok(panel, 'there is a panel between the dialog and its contents');
+  assert.equal(panel.tabIndex, -1);
+  assert.ok(panel.hasAttribute('autofocus'));
+  closeMediaModal();
 });

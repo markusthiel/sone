@@ -106,3 +106,54 @@ order of pictures in a document that has a canvas is not obvious.
 does nothing, and opening the modal there would be a second meaning for a click
 that currently selects the block (ADR-0171). Worth doing; not worth deciding
 alongside three bug reports.
+
+---
+
+## Nachtrag: „irgendwie fehlt da optisch was" (dieselbe Runde, eine Stunde später)
+
+Es ging auf, und es sah nach nichts aus. Drei Fehler, alle im Aufbau, keiner in
+der Mechanik.
+
+**Der Dialog ist der ganze Bildschirm.** Leiste und Bild lagen direkt darin, also
+stand der Dateiname in der äußersten linken oberen Ecke, Herunterladen und
+Schließen in der rechten, und das Bild schwebte irgendwo dazwischen — drei Dinge
+auf dunklem Grund statt eines Gegenstands.
+
+`inline-size: fit-content` auf einer Hülle darum ist die naheliegende Reparatur
+und **tut es nicht**: ein Hochformat wird von der Höhe unter der Leiste
+beschränkt, nicht von seiner eigenen Breite, also maß die Hülle 900px um ein
+Bild, das 459px breit gezeichnet wurde. Gemessen in Chromium, 1400 × 900:
+
+| | Leiste | Bild |
+|---|---|---|
+| `fit-content`, Hochformat | 569 … 831 | 700 … 700 *(0 breit, Messfehler)* |
+| `fit-content`, Hochformat, geladen | 250 … 1150 | 467 … 933 |
+| **Band, Hochformat** | **100 … 1300** | 471 … 930 |
+| **Band, Querformat** | **100 … 1300** | **100 … 1300** |
+
+Die letzte Zeile ist das Argument: bei einem Querformat liegen Leiste und Bild
+exakt übereinander, weil beide dieselbe Spalte von `min(1200px, 100%)` nehmen.
+Bei einem Hochformat ist die Leiste breiter — aber ein Band liest sich als
+Werkzeugleiste, und eine Leiste von willkürlicher dritter Breite liest sich als
+Fehler.
+
+**Die Knöpfe waren keine.** `.btn` steht im Stylesheet als `button.btn`, also bekam
+das Herunterladen — ein `<a>` — den Zeiger und sonst nichts: ein blanker blauer
+Link neben einem Kasten. Und beide stehen auf fast schwarzem Grund, wo die
+Knopffarben der Seite in beiden Themes die falschen sind. Eigene Regel,
+durchscheinendes Weiß.
+
+**Der Fokus saß auf dem Herunterladen.** Ein modaler Dialog schiebt den Fokus auf
+das erste bedienbare Element darin; beim Öffnen lag also ein Ring um
+„Herunterladen", als sei der Knopf im Begriff gedrückt zu werden. Jetzt trägt die
+Hülle `tabindex="-1"` und `autofocus` — als Attribut, nicht als Eigenschaft: die
+spiegelt nur in neueren Engines und tut sonst stillschweigend nichts.
+
+**Und das Bild hat eine Kante.** Ein dunkles Foto auf dunklem Grund hörte
+nirgends sichtbar auf. Ein Haarstrich Licht per `outline` (kein `border`, der
+rechnet mit; kein zweiter `box-shadow`, den gehört der Schattentoken, ADR-0132).
+
+Zwei Wächter haben dabei mitentschieden, beide zu Recht: Schatten sind Token,
+keine Literale — und eine zweite Regel für `.media-modal-body video` ist derselbe
+Selektor zweimal, also hat der Player jetzt eine eigene Klasse statt eines
+Nachtrags.

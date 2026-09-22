@@ -7463,13 +7463,36 @@ select {
 
 .media-modal::backdrop { background: rgb(0 0 0 / 72%); }
 
+/* The dialog is the whole viewport; this is the object in it: a bar, and under
+ * it the picture.
+ *
+ * The bar is a band of its own width rather than one fitted to the picture.
+ * `fit-content` was tried and does not do it — a portrait photo is held back by
+ * the room under the bar, not by its own width, so the panel measured 900px
+ * around a picture drawn 466px wide and the two did not line up at all.
+ * Measured in Chromium at 1400 × 900. A band reads as a toolbar; a bar of an
+ * arbitrary third width reads as a mistake. */
+.media-modal-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-4);
+  inline-size: 100%;
+  block-size: 100%;
+  margin-inline: auto;
+}
+
+.media-modal-panel:focus { outline: none; }
+
 .media-modal-head {
   display: flex;
   align-items: center;
   gap: var(--sone-space-3);
-  max-inline-size: min(1200px, 100%);
+  inline-size: min(1200px, 100%);
   margin-inline: auto;
-  margin-block-end: var(--sone-space-3);
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: var(--sone-radius);
+  background: rgb(255 255 255 / 8%);
   /* White, and not a token: the backdrop is the same near-black in both
      themes, so this text has one correct colour rather than a themed one —
      `--sone-inverse-ink` flips with the theme and would turn dark on dark. */
@@ -7485,23 +7508,73 @@ select {
   font-size: var(--sone-text-sm);
 }
 
+/* The two controls, which cannot borrow the page's button styles: `button.btn`
+   does not reach an anchor, and both are standing on near-black rather than on
+   a surface. Translucent white reads on any picture behind them. */
+.media-modal-button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sone-space-2);
+  min-block-size: var(--sone-control-lg);
+  padding-inline: var(--sone-space-4);
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: var(--sone-radius);
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+  font-size: var(--sone-text-sm);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.media-modal-button:hover { background: rgb(255 255 255 / 22%); text-decoration: none; }
+.media-modal-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Square, because it holds one glyph and a label-width box beside a worded
+   button reads as a second worded button with its word missing. */
+.media-modal-close {
+  inline-size: var(--sone-control-lg);
+  padding-inline: 0;
+}
+
 .media-modal-body {
+  flex: 1;
+  min-block-size: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* What is left of the dialog once the bar has had its line. The picture is
-   * sized by the box rather than the box by the picture, so a portrait photo
-   * and a landscape one open at the same size instead of the window jumping. */
-  block-size: calc(100% - 3rem);
 }
 
 .media-modal-body img,
 .media-modal-body video {
   max-inline-size: min(1200px, 100%);
+  /* The picture may not be taller than the room left under the bar; without
+     this a portrait photo pushes the bar off the top of the screen, which is
+     how the close button ends up unreachable. */
   max-block-size: 100%;
   border-radius: var(--sone-radius);
-  background: #000;
   object-fit: contain;
+  /* An edge, because the alternative is a dark photograph bleeding into a dark
+     field with nothing saying where it stops. A hairline of light, not a frame
+     — and an outline rather than a border, which would take part in the layout,
+     or a second box-shadow, which the shadow token owns (ADR-0132). */
+  outline: 1px solid rgb(255 255 255 / 14%);
+  outline-offset: -1px;
+  box-shadow: var(--sone-shadow-lg);
+}
+
+/* Only behind a player: a black box is what a video shows before its first
+   frame arrives, and a picture needs no backing — a PNG with transparency on
+   black would be a decision nobody made. Its own class rather than a second
+   rule for the same element, which is a selector declared twice. */
+.media-modal-player { background: #000; }
+
+/* On a phone the picture takes the width and the bar keeps its own line; the
+   name is the first thing to give up room. */
+@media (max-width: 600px) {
+  .media-modal { padding: var(--sone-space-3); }
+  .media-modal-button { padding-inline: var(--sone-space-3); }
 }
 
 /* "This browser is running an older build."
