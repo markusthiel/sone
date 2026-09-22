@@ -7401,6 +7401,109 @@ select {
    uploaded, it is in the page, and it may be perfect for the person it is for. */
 .editor-notice { margin-block: var(--sone-space-3); font-size: var(--sone-text-sm); }
 
+/* An upload on its way (ADR-0193).
+ *
+ * Sticky, because the sentence this replaces was drawn above the editor and a
+ * page is written at its bottom: "nothing happened" was a true report of a
+ * message two screens up. `top` clears the topbar, which owns the first 52px
+ * (ADR-0164) and is the other sticky thing in this column. */
+.editor-upload {
+  position: sticky;
+  /* The topbar owns the first 52px of this column and declares it (ADR-0163),
+     so this reads that number rather than repeating it. */
+  inset-block-start: calc(var(--topbar-block-size) + var(--sone-space-2));
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+  margin-block: var(--sone-space-3);
+  padding: var(--sone-space-2) var(--sone-space-3);
+  border: 1px solid var(--sone-border);
+  border-radius: var(--sone-radius-lg);
+  background: var(--sone-bg);
+  box-shadow: var(--sone-shadow-sm);
+  font-size: var(--sone-text-sm);
+}
+
+.editor-upload-name {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-upload-bar { flex: none; inline-size: 8rem; block-size: 0.5rem; }
+
+/* Fixed width, so the strip does not jump a pixel sideways on every percent. */
+.editor-upload-share {
+  flex: none;
+  inline-size: 3ch;
+  text-align: end;
+  color: var(--sone-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- one picture or one video, large (ADR-0193) --- */
+
+/* A native <dialog>: the backdrop, the focus trap and Escape come with it.
+ * The element's own box is the whole viewport — that is what makes a click on
+ * it, rather than inside the panel, a click on the backdrop. */
+.media-modal {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  block-size: 100%;
+  max-block-size: 100%;
+  margin: 0;
+  padding: var(--sone-space-6);
+  border: 0;
+  background: none;
+  overflow: hidden;
+}
+
+.media-modal::backdrop { background: rgb(0 0 0 / 72%); }
+
+.media-modal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sone-space-3);
+  max-inline-size: min(1200px, 100%);
+  margin-inline: auto;
+  margin-block-end: var(--sone-space-3);
+  /* White, and not a token: the backdrop is the same near-black in both
+     themes, so this text has one correct colour rather than a themed one —
+     `--sone-inverse-ink` flips with the theme and would turn dark on dark. */
+  color: #fff;
+}
+
+.media-modal-name {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sone-text-sm);
+}
+
+.media-modal-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* What is left of the dialog once the bar has had its line. The picture is
+   * sized by the box rather than the box by the picture, so a portrait photo
+   * and a landscape one open at the same size instead of the window jumping. */
+  block-size: calc(100% - 3rem);
+}
+
+.media-modal-body img,
+.media-modal-body video {
+  max-inline-size: min(1200px, 100%);
+  max-block-size: 100%;
+  border-radius: var(--sone-radius);
+  background: #000;
+  object-fit: contain;
+}
+
 /* "This browser is running an older build."
  *
  * A strip under the topbar rather than a corner of Settings: three debugging

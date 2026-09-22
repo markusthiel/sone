@@ -21,6 +21,7 @@
 
 import { NodeSelection } from 'prosemirror-state';
 
+import { openMediaModal, type MediaModalLabels } from './mediaModal.ts';
 import { mountPdfViewer, type PdfViewerHandle } from './pdfViewer.ts';
 
 /**
@@ -54,6 +55,8 @@ export interface FileViewLabels {
     download: string;
     markedSuffix: string;
   };
+  /** The bar over a picture shown large (ADR-0193). */
+  media: MediaModalLabels;
 }
 
 /**
@@ -307,6 +310,32 @@ class FileNodeView implements NodeView {
     link.href = url;
     link.textContent = name;
     link.className = 'file-name';
+
+    if (category === 'image') {
+      /*
+       * A picture opens over the page, not in a tab of its own (ADR-0193).
+       *
+       * This block is a card or a line *because somebody chose that* — the
+       * picture is the content and they wanted the page to read as a list. A
+       * new tab for it leaves the page to show one image with no name and no
+       * way back; the modal is the same click without the leaving.
+       *
+       * The address stays on the link and the default is prevented rather than
+       * the href being dropped: ⌘-click, middle-click and "open in new tab" go
+       * on working, and a reader who wants the file itself still has it.
+       */
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.addEventListener('click', (event) => {
+        if (event.defaultPrevented) return;
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
+        openMediaModal({ kind: 'image', url, name, labels: this.labels.media });
+      });
+      return link;
+    }
 
     if (viewable(category)) {
       link.target = '_blank';

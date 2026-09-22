@@ -49,6 +49,16 @@ export interface DocImage {
   url: string;
   alt: string;
   /**
+   * True for a picture the document holds as a *file* block (ADR-0193).
+   *
+   * Choosing "card" or "line" for an image converts the block — an image is a
+   * file with a special way of being looked at, and the three layouts are the
+   * file block's. The picture is still in the page, so it is still in this
+   * list; the flag is here because the panel cannot offer the same things for
+   * it — there is no picture on screen to jump to, only a row naming one.
+   */
+  asFile?: boolean;
+  /**
    * True for a picture placed on a canvas.
    *
    * It has no block, so there is nowhere to scroll to — the panel offers no
@@ -171,12 +181,36 @@ export function readDocAssets(doc: Y.Doc): DocAssets {
 
   for (const block of blocks) {
     if (block.type === 'file') {
+      const fileId = text(block.props['fileId']) || null;
+      const category = text(block.props['category'], 'document');
+
+      /*
+       * A picture shown as a card or a line is still a picture (ADR-0193).
+       *
+       * Reported as: "it does not appear in the sidebar — as a card or a line.
+       * As a proper image I see it there." Both blocks hold the same upload;
+       * the panel was reading the block's *type* where the question is what the
+       * page is carrying. An image that leaves the image list the moment it is
+       * shown smaller reads as the list being wrong, which is the same
+       * reasoning that already put a board's pictures in it.
+       */
+      if (category === 'image' && fileId) {
+        images.push({
+          blockId: block.id,
+          asFile: true,
+          url: `/api/files/${fileId}`,
+          // The name it was uploaded with: a card names the file, so that is
+          // what somebody recognises this row by.
+          alt: text(block.props['filename']),
+        });
+      }
+
       files.push({
         blockId: block.id,
-        fileId: text(block.props['fileId']) || null,
+        fileId,
         filename: text(block.props['filename']),
         mimeType: text(block.props['mimeType']),
-        category: text(block.props['category'], 'document'),
+        category,
         sizeBytes: number(block.props['sizeBytes']),
         // Absent means a card, which is what a file block was before it could
         // be anything else.

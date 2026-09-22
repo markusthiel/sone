@@ -13,6 +13,30 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Aktualisieren und neu starten, sonst nichts.
+
+**Ein Bild oder ein Video öffnet sich über der Seite statt in einem neuen Tab.**
+Wer ein Bild als Karte oder Zeile eingebunden hat, bekommt beim Klick jetzt ein
+Fenster über der Seite mit dem Bild in voller Größe, dem Dateinamen und einem
+Knopf zum Herunterladen; Escape, ein Klick daneben oder das ✕ schließen es
+wieder. Dasselbe für ein hochgeladenes Video, dort mit Player. Für ein
+eingebettetes Video (YouTube, Vimeo, PeerTube) führt die Karte weiter zur Seite
+des Anbieters — nur dessen eigener Player darf es abspielen. Mit ⌘- oder
+Mittelklick öffnet die Datei weiterhin im neuen Tab (ADR-0193).
+
+**Behoben: ein Bild verschwand aus der Seitenleiste, sobald es als Karte oder
+Zeile gezeigt wurde.** Ein Bild kleiner zu zeigen macht aus dem Block einen
+Datei-Block — die Bilderliste las den Blocktyp statt dessen, was die Seite
+trägt. Solche Bilder stehen jetzt wieder im Bilder-Reiter; ein Klick darauf
+öffnet das Bild, statt zu einer Karte zu springen, auf der nichts zu sehen ist
+(ADR-0193).
+
+**Ein Upload zeigt jetzt einen Fortschrittsbalken.** Bisher stand ein Satz über
+dem Editor — auf einer Seite, die man unten schreibt, also außerhalb des
+Bildschirms — und ohne jede Zahl: bei einem Video passierte gefühlt nichts, bis
+plötzlich der Player da war. Der Balken klebt jetzt unter der Kopfzeile und sagt
+die Prozente (ADR-0193).
+
 ## 0.14.4
 
 Aktualisieren und neu starten, sonst nichts. Seiten, die vor diesem Update

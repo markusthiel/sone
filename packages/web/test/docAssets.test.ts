@@ -268,3 +268,64 @@ test('the jump control is de-emphasised, never hidden', () => {
   assert.match(css, /\.asset-jump \{[^}]*opacity: 0\.45/);
   assert.match(css, /@media \(hover: none\) \{\s*\.asset-jump \{ opacity: 0\.7; \}/);
 });
+
+test('a picture shown as a card or a line is still one of the page\'s pictures', () => {
+  /*
+   * Reported as: *„Außerdem erscheint es nicht in der Seitenleiste. Zumindest
+   * wenn ich es als Karte oder Zeile einbinde. Wenn ich es als richtiges Bild
+   * einbinde sehe ich es auch in der Leiste."* (ADR-0193)
+   *
+   * Choosing "card" or "line" for an image converts the block: an image is a
+   * file with a special way of being looked at, and the three layouts are the
+   * file block's. This read the block's *type* where the question is what the
+   * page is carrying — the same reasoning that already put a board's pictures
+   * in the list.
+   */
+  const doc = docWith(
+    block('file', 'b1', {
+      fileId: 'f-1',
+      filename: 'Neckar.jpg',
+      mimeType: 'image/jpeg',
+      category: 'image',
+      sizeBytes: 480000,
+      display: 'card',
+    }),
+    block('file', 'b2', {
+      fileId: 'f-2',
+      filename: 'Rechnung.pdf',
+      mimeType: 'application/pdf',
+      category: 'pdf',
+      display: 'line',
+    }),
+  );
+
+  const { images, files } = readDocAssets(doc);
+
+  // In both lists, because it is both: a file on the page and a picture in it.
+  assert.deepEqual(files.map((file) => file.blockId), ['b1', 'b2']);
+  assert.deepEqual(images, [
+    { blockId: 'b1', asFile: true, url: '/api/files/f-1', alt: 'Neckar.jpg' },
+  ]);
+});
+
+test('a picture still uploading as a file is not offered as a thumbnail', () => {
+  // No id yet means no address, and a thumbnail pointing at /api/files/null is
+  // a broken image where the panel promises a picture. The row is in the files
+  // list all the same, which is where "it is uploading" is already said.
+  const doc = docWith(
+    block('file', 'b1', { filename: 'Neckar.jpg', mimeType: 'image/jpeg', category: 'image' }),
+  );
+
+  assert.deepEqual(readDocAssets(doc).images, []);
+  assert.equal(readDocAssets(doc).files.length, 1);
+});
+
+test('the panel opens such a picture rather than pretending to scroll to it', () => {
+  // There is a block to jump to, but nothing to look at once you are there —
+  // the page holds a card naming the file. So this row opens it (ADR-0193).
+  assert.match(panel, /if \(image\.asFile\) \{/);
+  assert.match(panel, /openMediaModal\(\{/);
+  for (const key of ['media.close', 'media.download']) {
+    assert.ok(key in en, `${key} has a message`);
+  }
+});
