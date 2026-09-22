@@ -409,7 +409,27 @@ function FilesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
       {files.map((file) => (
         <li key={file.blockId}>
           {file.fileId ? (
-            <a className="asset-row" href={`/api/files/${file.fileId}`} target="_blank" rel="noreferrer">
+            <a
+              className="asset-row"
+              href={`/api/files/${file.fileId}`}
+              target="_blank"
+              rel="noreferrer"
+              // A picture or a video opens over the page, as it does from the
+              // block (ADR-0193); everything else is handed to the browser,
+              // which is what a PDF or a spreadsheet wants. The address stays
+              // on the link, so ⌘-click still reaches the file itself.
+              onClick={(event) => {
+                if (file.category !== 'image' && file.category !== 'video') return;
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                event.preventDefault();
+                openMediaModal({
+                  kind: file.category === 'video' ? 'video' : 'image',
+                  url: `/api/files/${file.fileId ?? ''}`,
+                  name: file.filename || t('panel.untitledFile'),
+                  labels: { close: t('media.close'), download: t('media.download') },
+                });
+              }}
+            >
               <PaperclipIcon />
               <span className="asset-name">{file.filename || t('panel.untitledFile')}</span>
               <span className="asset-meta">{describeFile(file.category, file.sizeBytes)}</span>

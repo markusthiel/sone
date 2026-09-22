@@ -2922,6 +2922,25 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
 .ProseMirror code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
 .ProseMirror a { text-decoration: underline; }
 
+/* Except where the link *is* the block (ADR-0193).
+ *
+ * The rule above is about a link in a sentence, which has to be visible as a
+ * link among the words around it. A file card and a video card are links with
+ * nothing around them: the whole tile responds, it already lifts on hover, and
+ * a video's name carries a ▶ beside it — an underline there reads as a second,
+ * smaller thing inside the tile rather than as the tile being clickable.
+ *
+ * On hover too, which is why `a:hover` is named: the tile's own background
+ * change is the feedback. */
+.ProseMirror .file-name,
+.ProseMirror .video-card,
+.ProseMirror .video-line,
+.ProseMirror .file-name:hover,
+.ProseMirror .video-card:hover,
+.ProseMirror .video-line:hover {
+  text-decoration: none;
+}
+
 /* --- empty state --- */
 
 /* A placeholder only on a genuinely empty document. Showing one on every empty
