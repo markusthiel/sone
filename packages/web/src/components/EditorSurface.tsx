@@ -210,8 +210,11 @@ export function EditorSurface({
       const editor = viewRef.current;
       if (!editor) return;
 
+      setUpload({ name: file.name, fraction: null });
       try {
-        const uploaded = await api.uploadFile(pageId, file);
+        const uploaded = await api.uploadFile(pageId, file, undefined, (fraction) =>
+          setUpload({ name: file.name, fraction }),
+        );
         insertFileBlock({
           fileId: uploaded.id,
           filename: uploaded.filename,
@@ -223,6 +226,11 @@ export function EditorSurface({
         setError(null);
       } catch (err) {
         setError(err instanceof ApiError ? err.code : 'network_error');
+      } finally {
+        // In a `finally`, because the strip has to go whichever way this ended:
+        // a failure says so in `error`, and a bar left on screen under it would
+        // claim the upload is still running.
+        setUpload(null);
       }
     },
     [pageId],
@@ -251,21 +259,23 @@ export function EditorSurface({
       const probe = document.createElement('video');
       const verdict = file.type ? probe.canPlayType(file.type) : '';
 
-      // Said while it happens, and this is the part that was missing.
+      // Said while it happens, and shown where it happens (ADR-0193).
       //
       // A video is the first thing this application sends whole: a photograph is
       // shrunk in the browser first (ADR-0029) and a document is usually small,
-      // so until now an upload was over before anybody looked. Eight megabytes
-      // is seconds, and seconds with nothing on screen is indistinguishable from
-      // nothing happening — which is exactly how it was reported.
-      setNotice(
-        verdict === ''
-          ? `Uploading ${file.name}… ${unplayableNotice(file)}`
-          : `Uploading ${file.name}…`,
-      );
+      // so until now an upload was over before anybody looked. The sentence this
+      // used to set was true and off the screen; the strip below carries a bar
+      // and sticks to the top of the column.
+      //
+      // The warning about a file this browser cannot play stays a notice: it is
+      // not about progress, and it outlives the upload.
+      setUpload({ name: file.name, fraction: null });
+      setNotice(verdict === '' ? unplayableNotice(file) : null);
 
       try {
-        const uploaded = await api.uploadFile(pageId, file);
+        const uploaded = await api.uploadFile(pageId, file, undefined, (fraction) =>
+          setUpload({ name: file.name, fraction }),
+        );
         insertVideoBlock({
           source: 'file',
           fileId: uploaded.id,
@@ -273,11 +283,11 @@ export function EditorSurface({
         })(editor.state, editor.dispatch);
         editor.focus();
         setError(null);
-        // The warning outlives the upload; the progress does not.
-        setNotice(verdict === '' ? unplayableNotice(file) : null);
       } catch (err) {
         setNotice(null);
         setError(err instanceof ApiError ? err.code : 'network_error');
+      } finally {
+        setUpload(null);
       }
     },
     [pageId],
@@ -412,6 +422,21 @@ export function EditorSurface({
    * page, and it may play perfectly for the person it was put there for.
    */
   const [notice, setNotice] = useState<string | null>(null);
+  /**
+   * An upload on its way, and how far it has got (ADR-0193).
+   *
+   * Reported as "I uploaded an MP4, nothing happened, and then the player
+   * suddenly appeared". There *was* a sentence — `editor-notice`, above the
+   * editor — and on a page somebody is writing at the bottom of, that sentence
+   * is off the screen. So this is a strip that sticks to the top of the reading
+   * column, and it carries a bar rather than only words.
+   *
+   * `fraction` starts at null rather than 0: a bar at zero claims to know that
+   * nothing has gone out yet, and until the first progress event we do not know
+   * anything. Indeterminate is the honest shape, and `<progress>` with no value
+   * draws exactly that.
+   */
+  const [upload, setUpload] = useState<{ name: string; fraction: number | null } | null>(null);
   /**
    * Whether the "add a video" dialog is up (ADR-0037).
    *
@@ -737,10 +762,14 @@ export function EditorSurface({
             download: t('file.pdfDownloadMarked'),
             markedSuffix: t('file.pdfMarkedSuffix'),
           },
+          // The bar over a picture or a video shown large (ADR-0193). Handed to
+          // both views, because it is the same modal.
+          media: { close: t('media.close'), download: t('media.download') },
           video: {
             hlsFailed: t('video.hlsFailed'),
             dashOnly: t('video.dashOnly'),
             openStream: t('video.openStream'),
+            media: { close: t('media.close'), download: t('media.download') },
           },
         },
         // Read from a ref, because the editor is created once and this is a
@@ -825,6 +854,22 @@ export function EditorSurface({
   return (
     <>
       {error && <p className="error">{messageFor(error)}</p>}
+      {upload && (
+        <p className="editor-upload" role="status" aria-live="polite">
+          <span className="editor-upload-name">
+            {t('upload.sending', { filename: upload.name })}
+          </span>
+          {/* No `value` while we have none: an indeterminate bar says "working"
+              without claiming a number it does not have. */}
+          <progress
+            className="editor-upload-bar"
+            {...(upload.fraction === null ? {} : { value: upload.fraction, max: 1 })}
+          />
+          <span className="editor-upload-share">
+            {upload.fraction === null ? '' : `${Math.round(upload.fraction * 100)}%`}
+          </span>
+        </p>
+      )}
       {notice && (
         <p className="muted editor-notice">
           {notice}{' '}

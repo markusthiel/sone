@@ -208,6 +208,9 @@ export const de: Record<keyof typeof en, string> = {
     'Link herausgegeben ist.',
   'share.heading': '„{title}“ teilen',
   'file.pdfAllPages': 'Original öffnen',
+  'media.close': 'Schließen',
+  'media.download': 'Herunterladen',
+  'upload.sending': '{filename} wird hochgeladen…',
   'video.hlsFailed': 'Dieser Stream konnte hier nicht abgespielt werden. ',
   'video.dashOnly':
     'DASH-Streams laufen nur in Browsern mit eigener Unterstützung. ',

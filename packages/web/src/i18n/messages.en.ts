@@ -196,6 +196,9 @@ export const en = {
     'out.',
   'share.heading': 'Share “{title}”',
   'file.pdfAllPages': 'Open the original',
+  'media.close': 'Close',
+  'media.download': 'Download',
+  'upload.sending': 'Uploading {filename}…',
   'video.hlsFailed':
     'This stream could not be played here. ',
   'video.dashOnly': 'DASH streams play only in browsers with their own support. ',

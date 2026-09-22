@@ -26,6 +26,7 @@ import { NodeSelection } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 
 import { applyBlockAttrs } from './blockAttrs.ts';
+import { openMediaModal, type MediaModalLabels } from './mediaModal.ts';
 
 /** The little of a ProseMirror node this needs; see CollectionNodeView. */
 interface PMNodeLike {
@@ -66,6 +67,8 @@ export interface VideoViewLabels {
   hlsFailed: string;
   dashOnly: string;
   openStream: string;
+  /** The bar over a video played large (ADR-0193). */
+  media: MediaModalLabels;
 }
 
 class VideoNodeView implements NodeView {
@@ -220,7 +223,16 @@ class VideoNodeView implements NodeView {
 
     const href = `/api/files/${fileId}`;
     if (display === 'link' || display === 'card') {
-      this.renderCard(display, this.title() || 'Video', 'Uploaded video', href);
+      /*
+       * An uploaded video opens in a player over the page (ADR-0193).
+       *
+       * Only an upload: an embed's card goes to the provider's page, because
+       * the provider's player is the only thing that may play it — and a stream
+       * has no card at all. So the modal is offered exactly where this
+       * application holds the bytes and can answer a byte range for them, which
+       * is what makes seeking work.
+       */
+      this.renderCard(display, this.title() || 'Video', 'Uploaded video', href, true);
       return;
     }
 
@@ -393,12 +405,32 @@ class VideoNodeView implements NodeView {
 
   // --- the smaller shapes --------------------------------------------------
 
-  private renderCard(display: string, name: string, kind: string, href: string): void {
+  private renderCard(
+    display: string,
+    name: string,
+    kind: string,
+    href: string,
+    /** Whether we hold the file and can play it here (ADR-0193). */
+    playable = false,
+  ): void {
     const link = document.createElement('a');
     link.className = display === 'card' ? 'video-card' : 'video-line';
     link.href = href;
     link.target = '_blank';
     link.rel = 'noreferrer';
+
+    // The address stays, and only the default is prevented: ⌘-click and
+    // middle-click keep working, and so does the file itself.
+    if (playable) {
+      link.addEventListener('click', (event) => {
+        if (event.defaultPrevented) return;
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
+        openMediaModal({ kind: 'video', url: href, name, labels: this.labels.media });
+      });
+    }
 
     const mark = document.createElement('span');
     mark.className = 'video-card-mark';

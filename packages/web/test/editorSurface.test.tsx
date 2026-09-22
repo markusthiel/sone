@@ -474,27 +474,55 @@ describe('editor surface', () => {
     const { EditorSurface } = await import('../src/components/EditorSurface.tsx');
     const handle = (await makeHandle()) as { doc: import('yjs').Doc };
 
-    let resolveUpload: (() => void) | null = null;
-    const held = new Promise<void>((resolve) => {
-      resolveUpload = resolve;
+    /*
+     * An XMLHttpRequest rather than a fetch, because the upload is one now
+     * (ADR-0193): `fetch` reports nothing while a body goes out, and the report
+     * behind this test was silence during exactly that.
+     *
+     * The stub holds the response until the test releases it, and exposes the
+     * progress listener so the bar can be driven — which is the part worth
+     * driving: a percentage that never arrives is the bug this replaces.
+     */
+    let release: (() => void) | null = null;
+    let advance: ((loaded: number, total: number) => void) | null = null;
+    const body = JSON.stringify({
+      id: 'f1',
+      url: '/api/files/f1',
+      filename: 'clip.mp4',
+      mimeType: 'video/mp4',
+      sizeBytes: 8388640,
+      inline: true,
+      category: 'video',
     });
-    (globalThis as unknown as { fetch: unknown }).fetch = async () => {
-      await held;
-      return {
-        status: 201,
-        ok: true,
-        text: async () =>
-          JSON.stringify({
-            id: 'f1',
-            url: '/api/files/f1',
-            filename: 'clip.mp4',
-            mimeType: 'video/mp4',
-            sizeBytes: 8388640,
-            inline: true,
-            category: 'video',
-          }),
-      };
-    };
+
+    class FakeUpload {
+      private readonly listeners = new Map<string, (event: unknown) => void>();
+      addEventListener(name: string, handler: (event: unknown) => void): void {
+        this.listeners.set(name, handler);
+      }
+      progress(loaded: number, total: number): void {
+        this.listeners.get('progress')?.({ lengthComputable: true, loaded, total });
+      }
+    }
+
+    class FakeRequest {
+      readonly upload = new FakeUpload();
+      status = 201;
+      responseText = body;
+      withCredentials = false;
+      private readonly listeners = new Map<string, () => void>();
+      open(): void {}
+      setRequestHeader(): void {}
+      addEventListener(name: string, handler: () => void): void {
+        this.listeners.set(name, handler);
+      }
+      send(): void {
+        advance = (loaded, total) => this.upload.progress(loaded, total);
+        release = () => this.listeners.get('load')?.();
+      }
+    }
+
+    (globalThis as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = FakeRequest;
 
     await render(
       createElement(EditorSurface as never, {
@@ -527,8 +555,16 @@ describe('editor surface', () => {
     // thing sent whole — a photograph is shrunk first — so seconds of silence
     // read as nothing happening.
     assert.match(container.innerHTML, /Uploading clip\.mp4/);
+    // And with no number yet, the bar is indeterminate rather than sitting at
+    // zero: nothing has been measured, so nothing is claimed (ADR-0193).
+    assert.match(container.innerHTML, /<progress class="editor-upload-bar"><\/progress>/);
 
-    resolveUpload?.();
+    await reactAct(async () => {
+      advance?.(4194320, 8388640);
+    });
+    assert.match(container.innerHTML, /50%/, 'the bar says how far it has got');
+
+    release?.();
     await reactAct(async () => {
       await new Promise((resolve) => setTimeout(resolve, 40));
     });

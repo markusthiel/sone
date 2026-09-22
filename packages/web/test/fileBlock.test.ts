@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { codeOf } from './helpers/source.ts';
+import { codeOf, stylesOf } from './helpers/source.ts';
 
 const source = codeOf(new URL('../src/components/FileNodeView.ts', import.meta.url));
 
@@ -73,7 +73,7 @@ test('the document picker is separate from the image one', () => {
   );
   assert.match(surface, /docInputRef/);
   assert.match(surface, /fileInputRef/);
-  const uploadAt = surface.indexOf('await api.uploadFile(pageId, file)');
+  const uploadAt = surface.indexOf('await api.uploadFile(pageId, file,');
   const insertAt = surface.indexOf('insertFileBlock({');
   assert.ok(uploadAt > 0 && insertAt > uploadAt, 'the upload comes first');
 });
@@ -198,4 +198,37 @@ test('an image is never offered a viewer frame', () => {
   // instead.
   const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
   assert.match(menu, /viewable && category !== 'image'/);
+});
+
+test('an upload says how far it has got, which needs an XHR (ADR-0193)', () => {
+  /*
+   * Reported as: *„Ich habe gerade ein MP4 Video hochgeladen, da tut sich
+   * einfach nichts und auf einmal ist dann der Player erschienen."*
+   *
+   * There *was* a sentence — and it was drawn above the editor, which on a page
+   * somebody is writing at the bottom of is off the screen. Two things had to
+   * change: where it is said, and that it carries a number.
+   *
+   * `fetch` with a `File` body reports nothing until it is finished. Streaming
+   * request bodies exist, but need HTTP/2, a duplex flag and a fallback —
+   * `upload.onprogress` has said the same thing everywhere for fifteen years.
+   */
+  const client = codeOf(new URL('../src/api/client.ts', import.meta.url));
+  assert.match(client, /new XMLHttpRequest\(\)/);
+  assert.match(client, /request\.upload\.addEventListener\('progress'/);
+  // The bytes being gone is not the answer arriving, but a bar frozen just
+  // short of the end reads as a stall.
+  assert.match(client, /request\.upload\.addEventListener\('load', \(\) => onProgress\(1\)\)/);
+
+  const surface = codeOf(new URL('../src/components/EditorSurface.tsx', import.meta.url));
+  // Cleared in a `finally`: a strip left under an error claims the upload is
+  // still running.
+  assert.match(surface, /\} finally \{\s*setUpload\(null\);/);
+  assert.match(surface, /editor-upload-bar/);
+
+  // And it sticks to the top of the column, which is the other half of the
+  // report: a message two screens up is a message nobody saw.
+  const css = stylesOf(new URL('../src/styles.css', import.meta.url));
+  assert.match(css, /\.editor-upload \{[^}]*position: sticky/);
+  assert.match(css, /\.editor-upload \{[^}]*inset-block-start: calc\(var\(--topbar-block-size\)/);
 });

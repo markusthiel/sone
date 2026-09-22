@@ -2074,11 +2074,31 @@ export const api = {
       theme: result.settings.brandTheme,
     })),
 
+  /**
+   * Send one file, and say how far it has got (ADR-0193).
+   *
+   * `XMLHttpRequest` rather than `fetch`, and that is the whole reason this one
+   * request is not written like every other: a `fetch` with a `File` body
+   * reports nothing until it is finished. There is a streaming request body in
+   * newer browsers, but it needs HTTP/2, a duplex flag and a fallback for the
+   * browsers without it — three moving parts to learn what `upload.onprogress`
+   * has said everywhere for fifteen years.
+   *
+   * The error handling is the same as before, byte for byte: a proxy that
+   * refuses a large body answers with HTML, and that case has to keep saying so
+   * (a 413 from nginx's `client_max_body_size` is the classic one).
+   */
   uploadFile: async (
     pageId: string,
     file: File,
     /** Marks this upload as the web-sized copy of another (ADR-0029). */
     variantOf?: string,
+    /**
+     * Called with 0…1 as the bytes go out, and once more with 1 when they are
+     * all gone. Absent on a server that does not send a length — which is why
+     * the caller must cope with never hearing from it (see `UploadProgress`).
+     */
+    onProgress?: (fraction: number) => void,
   ): Promise<{
     id: string;
     url: string;
@@ -2089,18 +2109,45 @@ export const api = {
     /** 'image' | 'pdf' | 'text' | 'document' | 'archive'. */
     category: string;
   }> => {
-    const response = await fetch(
+    const url =
       `/api/pages/${pageId}/files?filename=${encodeURIComponent(file.name)}` +
-        (variantOf ? `&variantOf=${encodeURIComponent(variantOf)}` : ''),
-      {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/octet-stream' },
-        body: file,
+      (variantOf ? `&variantOf=${encodeURIComponent(variantOf)}` : '');
+
+    const response = await new Promise<{ ok: boolean; status: number; text: string }>(
+      (resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open('POST', url);
+        request.withCredentials = true;
+        request.setRequestHeader('content-type', 'application/octet-stream');
+
+        if (onProgress) {
+          request.upload.addEventListener('progress', (event) => {
+            if (!event.lengthComputable || event.total === 0) return;
+            onProgress(Math.min(1, event.loaded / event.total));
+          });
+          // The bytes are gone; the server has not answered yet. Said as "all
+          // of it" rather than left at 98%, because the wait that follows is
+          // the server's and a bar frozen just short of the end reads as a
+          // stall.
+          request.upload.addEventListener('load', () => onProgress(1));
+        }
+
+        request.addEventListener('load', () =>
+          resolve({
+            ok: request.status >= 200 && request.status < 300,
+            status: request.status,
+            text: request.responseText,
+          }),
+        );
+        // Network, not HTTP: the same case `fetch` rejects on, and the callers
+        // turn it into 'network_error' exactly as they did.
+        request.addEventListener('error', () => reject(new TypeError('network error')));
+        request.addEventListener('abort', () => reject(new TypeError('upload aborted')));
+        request.send(file);
       },
     );
 
-    const text = await response.text();
+    const text = response.text;
     if (!response.ok) {
       let code: string | null = null;
       let detail: string | undefined;

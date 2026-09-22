@@ -55,6 +55,7 @@ import {
   type IconProps,
 } from './icons.tsx';
 import { useDocAssets } from '../hooks/useDocAssets.ts';
+import { openMediaModal } from './mediaModal.ts';
 import { OPEN_THREAD_EVENT } from '../lib/found.ts';
 import { CommentsPanel } from './CommentsPanel.tsx';
 import { LinksPanel } from './LinksPanel.tsx';
@@ -479,11 +480,26 @@ function ImagesPanel({ handle }: { handle: PageHandle | null }): ReactElement {
           // the file rather than pretending to find it on the page. Saying
           // "show in the page" and doing nothing is worse than doing something
           // else and saying so.
-          title={image.alt || t(image.onCanvas ? 'panel.openImage' : 'panel.showInPage')}
-          aria-label={image.alt || t(image.onCanvas ? 'panel.openImage' : 'panel.showInPage')}
+          title={image.alt || t(image.onCanvas || image.asFile ? 'panel.openImage' : 'panel.showInPage')}
+          aria-label={
+            image.alt || t(image.onCanvas || image.asFile ? 'panel.openImage' : 'panel.showInPage')
+          }
           onClick={() => {
             if (image.onCanvas) {
               window.open(image.url, '_blank', 'noopener');
+              return;
+            }
+            // A picture the page holds as a card or a line has a block to jump
+            // to, but nothing to look at once you are there (ADR-0193). So this
+            // one opens it instead — the panel's promise is "the pictures in
+            // this page", and for this row the picture is the answer.
+            if (image.asFile) {
+              openMediaModal({
+                kind: 'image',
+                url: image.url,
+                name: image.alt || t('panel.untitledFile'),
+                labels: { close: t('media.close'), download: t('media.download') },
+              });
               return;
             }
             scrollToBlock(image.blockId);
