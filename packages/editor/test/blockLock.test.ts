@@ -13,7 +13,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EditorState, TextSelection } from 'prosemirror-state';
+import { BLOCK_ATTRS } from '@sone/core';
 import { blockLock, setBlockLocked, isBlockLocked } from '../src/blockLock.js';
+import { setBlockStyle } from '../src/commands.js';
 import { schema } from '../src/schema.js';
 
 function stateWith(): EditorState {
@@ -56,4 +58,31 @@ test('an unlocked block beside a locked one still takes an edit', () => {
   const at = state.doc.content.size - 1;
   const typed = state.apply(state.tr.insertText('x', at));
   assert.match(typed.doc.textContent, /x/, 'the other block is editable');
+});
+
+test('a locked block refuses a change of its appearance, silently (ADR-0194)', () => {
+  /*
+   * Reported as: *„Ich habe hier einen Info-Block eingesetzt den ich jetzt
+   * nicht mehr bearbeiten kann. Weder Farben noch Typ ändern klappt. Es bleibt
+   * blau."* The block was locked, and this is why nothing happened.
+   *
+   * `setBlockStyle` uses `setNodeMarkup`, which produces a `ReplaceAroundStep`
+   * — the same step the unlock does, and the filter cannot tell them apart
+   * except by the meta the unlock carries. So the refusal is correct: a lock
+   * that let the colour through would be a lock over some of the block.
+   *
+   * What was wrong is that nothing said so. The menu's own dry run asks the
+   * command, and the command would act; the refusal happens one layer on, in
+   * the filter, where a menu cannot ask. Hence the state on the padlock and the
+   * sentence in its place.
+   */
+  let state = stateWith();
+  setBlockLocked(true)(state, (tr) => { state = state.apply(tr); });
+
+  const acted = setBlockStyle({ color: 'red' })(state, (tr) => { state = state.apply(tr); });
+
+  // The command says it acted — that is the trap the menu fell into.
+  assert.equal(acted, true);
+  // And the document did not change.
+  assert.equal(state.doc.child(0).attrs[BLOCK_ATTRS.color] ?? null, null);
 });

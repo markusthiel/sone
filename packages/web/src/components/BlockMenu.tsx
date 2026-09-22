@@ -952,9 +952,31 @@ export function BlockMenu({
                   type="button"
                   role="menuitem"
                   className={
-                    action.destructive ? 'block-menu-action destructive' : 'block-menu-action'
+                    [
+                      'block-menu-action',
+                      action.destructive ? 'destructive' : '',
+                      // The padlock says which way it is standing (ADR-0194).
+                      // One control that only ever said "lock" left somebody
+                      // guessing whether the block already was — the flipped
+                      // label did that in a tooltip, which is where nobody
+                      // looks before clicking.
+                      action.id === 'lock' && lockedHere ? 'current' : '',
+                    ]
+                      .filter((part) => part !== '')
+                      .join(' ')
                   }
-                  disabled={!possible}
+                  aria-pressed={action.id === 'lock' ? lockedHere : undefined}
+                  /*
+                   * Refused by the lock, and said so here (ADR-0194).
+                   *
+                   * The dry run below asks the *command* whether it would act,
+                   * and every one of these would: what refuses them is
+                   * `filterTransaction` in `blockLock`, one layer further on,
+                   * where a menu cannot ask. So moving, duplicating and
+                   * deleting a locked block appeared to be on offer and then
+                   * did nothing at all.
+                   */
+                  disabled={!possible || (lockedHere && action.id !== 'lock')}
                   title={t(action.label)}
                   aria-label={t(action.label)}
                   {...popupItem(() => run(action.command))}
@@ -1007,33 +1029,50 @@ export function BlockMenu({
             * not a thing. A section of controls that have no effect teaches
             * people the panel is decoration.
             */}
+          {/* Why the rest of the menu is not here (ADR-0194).
+            *
+            * Reported as *„Ich habe hier einen Info-Block eingesetzt den ich
+            * jetzt nicht mehr bearbeiten kann. Weder Farben noch Typ ändern
+            * klappt. Es bleibt blau."* — the block was locked, and every
+            * setting below was refused by `blockLock`'s filter without a word.
+            *
+            * The sections are left out rather than greyed: forty disabled
+            * controls are noise, and this menu already says elsewhere that a
+            * section of controls with no effect teaches people the panel is
+            * decoration. One sentence and a padlock that shows its state are
+            * the whole answer. */}
+          {lockedHere && <p className="block-menu-note">{t('block.lockedNote')}</p>}
+
           {/* A file's own actions, where every other block's are.
             *
             * They lived in a `···` button on the block itself, which was a
             * second place to ask the same kind of question — and the gutter is
             * where somebody already looks. */}
-          {range.node.type.name === 'video' && (
+          {!lockedHere && range.node.type.name === 'video' && (
             <VideoActions node={range.node} at={range.from} run={run} />
           )}
 
-          {range.node.type.name === 'file' && (
+          {!lockedHere && range.node.type.name === 'file' && (
             <FileActions view={view} node={range.node} at={range.from} run={run} />
           )}
 
           {/* An image can also be a card or a line: those are the file block's
               own layouts, reached by becoming one. */}
-          {(range.node.type.name === 'image' ||
-            (range.node.type.name === 'file' &&
-              range.node.attrs['category'] === 'image')) && (
+          {!lockedHere &&
+            (range.node.type.name === 'image' ||
+              (range.node.type.name === 'file' &&
+                range.node.attrs['category'] === 'image')) && (
             <ImageDisplay node={range.node} at={range.from} run={run} />
           )}
 
-          <BlockAppearance view={view} node={range.node} members={members} run={run} />
+          {!lockedHere && (
+            <BlockAppearance view={view} node={range.node} members={members} run={run} />
+          )}
 
           {/* Table actions, only inside a table. prosemirror-tables' commands
               refuse elsewhere, and a menu section full of disabled items is
               noise rather than information. */}
-          {isInTable(view.state) && (
+          {!lockedHere && isInTable(view.state) && (
             <div className="block-menu-group">
               <p className="block-menu-label">{t('block.table')}</p>
               {TABLE_ACTIONS.map((action) => {
@@ -1063,6 +1102,7 @@ export function BlockMenu({
             </div>
           )}
 
+          {!lockedHere && (
           <div className="block-menu-group">
             <p className="block-menu-label">{t('block.turnInto')}</p>
             {BLOCK_TYPE_ORDER.map((name) => {
@@ -1121,6 +1161,7 @@ export function BlockMenu({
               );
             })}
           </div>
+          )}
         </div>
       )}
     </>

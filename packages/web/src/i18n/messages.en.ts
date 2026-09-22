@@ -196,6 +196,7 @@ export const en = {
     'out.',
   'share.heading': 'Share “{title}”',
   'file.pdfAllPages': 'Open the original',
+  'block.lockedNote': 'This block is locked. Open the padlock above to change it.',
   'media.close': 'Close',
   'media.download': 'Download',
   'upload.sending': 'Uploading {filename}…',
