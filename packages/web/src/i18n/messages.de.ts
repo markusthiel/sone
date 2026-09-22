@@ -208,6 +208,7 @@ export const de: Record<keyof typeof en, string> = {
     'Link herausgegeben ist.',
   'share.heading': '„{title}“ teilen',
   'file.pdfAllPages': 'Original öffnen',
+  'block.lockedNote': 'Dieser Block ist gesperrt. Zum Ändern oben das Schloss öffnen.',
   'media.close': 'Schließen',
   'media.download': 'Herunterladen',
   'upload.sending': '{filename} wird hochgeladen…',

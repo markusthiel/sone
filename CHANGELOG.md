@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Aktualisieren und neu starten, sonst nichts.
+
+**Ein gesperrter Block sagt jetzt, dass er gesperrt ist.** Bisher bot sein Menü
+alle Einstellungen an — Farbe, Art, Umwandeln — und keine davon tat etwas: die
+Sperre weist solche Änderungen ab, und zwar wortlos. Das Schloss im Menü zeigt
+jetzt seinen Zustand, was abgewiesen würde ist ausgegraut, und an der Stelle der
+Einstellungen steht ein Satz, der auf das Schloss zeigt (ADR-0194).
+
 ## 0.14.7
 
 Aktualisieren und neu starten, sonst nichts.
