@@ -31,7 +31,16 @@ export interface DocFile {
   fileId: string | null;
   filename: string;
   mimeType: string;
-  /** 'image' | 'pdf' | 'text' | 'document' | 'archive', from the server. */
+  /**
+   * 'image' | 'pdf' | 'text' | 'document' | 'archive', from the server — or
+   * 'video' for an uploaded video (ADR-0193).
+   *
+   * The server's categories come from a file block, which a video is not: a
+   * video is its own block with its own node view (ADR-0037). It is still an
+   * upload sitting in the page, counting against the page's storage, and
+   * leaving it out of the file list was the same omission an image shown as a
+   * card had.
+   */
   category: string;
   sizeBytes: number | null;
   /**
@@ -215,6 +224,38 @@ export function readDocAssets(doc: Y.Doc): DocAssets {
         // Absent means a card, which is what a file block was before it could
         // be anything else.
         display: text(block.props['display'], 'card'),
+      });
+      continue;
+    }
+    /*
+     * An uploaded video is a file on the page (ADR-0193).
+     *
+     * Reported alongside the card underlines: *„Unter Dateien in der
+     * Seitenleiste müsste doch auch das Video erscheinen oder?"* — yes. It is
+     * an upload, it is served from the same place, and it is the largest thing
+     * most pages carry.
+     *
+     * Only `source: 'file'`. An embedded video is somebody else's address and a
+     * stream is a manifest; neither is a file this instance holds, and listing
+     * them under "files" would offer a download of something that is not here.
+     * The name is the block's title, which is the filename it was uploaded
+     * with — and 'video' is a category of this list's own making, since the
+     * server's categories belong to a file block.
+     */
+    if (block.type === 'video' && text(block.props['source']) === 'file') {
+      const fileId = text(block.props['fileId']) || null;
+      files.push({
+        blockId: block.id,
+        fileId,
+        filename: text(block.props['title']),
+        mimeType: '',
+        category: 'video',
+        // A video block stores no size: nothing has ever needed it, and it is
+        // not worth a migration to fill this column.
+        sizeBytes: null,
+        // 'player', 'card' or 'link' — never 'full', which is what the comments
+        // panel looks for when it asks which documents have places inside them.
+        display: text(block.props['display'], 'player'),
       });
       continue;
     }

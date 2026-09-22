@@ -157,3 +157,36 @@ Zwei Wächter haben dabei mitentschieden, beide zu Recht: Schatten sind Token,
 keine Literale — und eine zweite Regel für `.media-modal-body video` ist derselbe
 Selektor zweimal, also hat der Player jetzt eine eigene Klasse statt eines
 Nachtrags.
+
+---
+
+## Nachtrag: die Unterstreichung und das fehlende Video
+
+Zwei kleine Dinge, beide mit derselben Form: eine Regel, die für den Normalfall
+richtig ist und am Rand nicht.
+
+**`.ProseMirror a` unterstreicht.** Das gehört so — ein Link in einem Satz muss
+zwischen den Wörtern um ihn herum als Link erkennbar sein. Eine Datei- oder
+Videokarte ist aber ein Link *ohne* Wörter um sich: die ganze Kachel reagiert,
+sie hebt sich beim Überfahren, und beim Video steht ein ▶ daneben. Die
+Unterstreichung liest sich dort als zweites, kleineres Ding *in* der Kachel statt
+als „die Kachel ist anklickbar". Also keine, auch nicht beim Überfahren — die
+Hintergrundänderung der Kachel ist die Rückmeldung.
+
+**Ein hochgeladenes Video stand nicht unter „Dateien".** `readDocAssets` sammelte
+Dateien aus `file`-Blöcken, und ein Video ist ein eigener Block (ADR-0037). Es
+ist trotzdem ein Upload, der in der Seite liegt, vom selben Ort ausgeliefert wird
+und meistens das Größte ist, was eine Seite trägt — dieselbe Auslassung wie beim
+Bild als Karte, nur eine Blockart weiter.
+
+**Nur `source: 'file'`.** Ein eingebettetes Video ist die Adresse eines anderen,
+ein Stream ist ein Manifest; keines davon ist eine Datei, die diese Instanz hält,
+und beide unter „Dateien" zu führen hieße, einen Download für etwas anzubieten,
+das hier nicht liegt. `category: 'video'` ist eine Kategorie dieser Liste selbst —
+die Kategorien des Servers gehören zum Datei-Block. Und `display` ist
+`'player' | 'card' | 'link'`, nie `'full'`: danach fragt die Kommentarleiste, wenn
+sie wissen will, welche Dokumente Stellen *in* sich haben.
+
+In der Leiste öffnet eine solche Zeile jetzt dasselbe Fenster wie die Kachel —
+für Bild und Video. Alles andere bekommt weiterhin der Browser, was für ein PDF
+oder eine Tabelle das Richtige ist.

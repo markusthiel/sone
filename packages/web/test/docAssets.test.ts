@@ -329,3 +329,37 @@ test('the panel opens such a picture rather than pretending to scroll to it', ()
     assert.ok(key in en, `${key} has a message`);
   }
 });
+
+test('an uploaded video is one of the page\'s files', () => {
+  /*
+   * Reported as: *„Unter Dateien in der Seitenleiste müsste doch auch das Video
+   * erscheinen oder?"* — yes. A video is its own block (ADR-0037), so the walk
+   * never looked at it; it is still an upload sitting in the page, served from
+   * the same place, and usually the largest thing the page carries.
+   */
+  const doc = docWith(
+    block('video', 'b1', { source: 'file', fileId: 'f-9', title: 'Kugelwand.mp4', display: 'card' }),
+    block('video', 'b2', { source: 'embed', url: 'https://www.youtube.com/watch?v=abc' }),
+    block('video', 'b3', { source: 'stream', url: 'https://example.org/live.m3u8' }),
+  );
+
+  // Only the upload. An embed is somebody else's address and a stream is a
+  // manifest — offering a download for either would promise a file that is not
+  // here.
+  assert.deepEqual(
+    readDocAssets(doc).files.map((file) => [file.blockId, file.filename, file.category]),
+    [['b1', 'Kugelwand.mp4', 'video']],
+  );
+
+  // Never 'full': that is what the comments panel looks for when it asks which
+  // documents have places inside them to point at.
+  assert.equal(readDocAssets(doc).files[0]?.display, 'card');
+});
+
+test('a card is a link with nothing around it, so it carries no underline', () => {
+  // Reported as *„die Links in den Karten nicht unterstrichen … das sieht sonst
+  // mit dem Player Icon nicht gut aus"*. `.ProseMirror a` underlines a link in a
+  // sentence, which is right; a tile that responds as a whole and lifts on hover
+  // is not one (ADR-0193).
+  assert.match(css, /\.ProseMirror \.file-name,[\s\S]*?\.video-line:hover \{\s*text-decoration: none;/);
+});

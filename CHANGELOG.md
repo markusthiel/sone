@@ -13,6 +13,18 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Aktualisieren und neu starten, sonst nichts.
+
+**Ein hochgeladenes Video steht jetzt unter „Dateien" in der Seitenleiste.** Es
+ist ein eigener Blocktyp und wurde deshalb nie mitgezählt — obwohl es ein Upload
+ist, der in der Seite liegt. Ein Klick darauf öffnet den Player über der Seite.
+Eingebettete Videos und Streams bleiben draußen: das sind Adressen, keine Dateien
+(ADR-0193).
+
+**Datei- und Videokarten sind nicht mehr unterstrichen.** Eine Kachel, die als
+Ganzes reagiert, braucht keinen Unterstrich in sich; beim Video sah er neben dem
+▶ besonders unruhig aus (ADR-0193).
+
 ## 0.14.6
 
 Aktualisieren und neu starten, sonst nichts.
