@@ -15,6 +15,11 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 Aktualisieren und neu starten, sonst nichts.
 
+**Die Abbilder kommen wieder aus der eigenen Registry.** `SONE_IMAGE` zeigt
+wieder auf `forgejo.thiel.tools/thiel/sone`; wer auf ghcr.io umgestellt hatte,
+stellt zurück. GitHub bleibt der öffentliche Spiegel des Quelltextes und baut
+nichts mehr (ADR-0199).
+
 **Eine Adresse im Text wird von selbst zum Link.** Getippt wird sie erkannt,
 sobald das Leerzeichen oder Enter kommt; eingefügt ersetzt sie, was markiert
 war, und ist sofort ein Link. Erkannt wird nur, was eindeutig eine Adresse ist —

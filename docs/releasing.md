@@ -79,17 +79,13 @@ on pull.
    baked in. A tag alone is enough to deploy reproducibly; an image only saves
    the deployment host a build.
 
-   Images live in the GitHub Container Registry, on the same host as the
-   source. One less account for anyone mirroring the project.
-
-   Doing this by hand is the fallback. `.github/workflows/build-image.yml`
-   builds, verifies and pushes the same tags on every version tag, and it needs
-   no credentials of yours — it authenticates with the token Actions issues to
-   the run.
+   Images live in the project's own Forgejo container registry, which is the
+   same host as the source. One less account for anyone mirroring the project,
+   and no dependency on a third party staying friendly.
 
    ```sh
-   REGISTRY=ghcr.io/markusthiel/sone
-   docker login ghcr.io
+   REGISTRY=forgejo.thiel.tools/thiel/sone
+   docker login forgejo.thiel.tools
 
    docker build -f docker/Dockerfile \
      --build-arg SONE_VERSION=0.1.0 \
@@ -105,10 +101,9 @@ on pull.
 
    The registry must be publicly readable, or `docker compose up` fails for
    everyone but the maintainer. Check under Packages → the image → Settings
-   after the first push. A package on ghcr.io starts private regardless of the
-   repository's visibility, and stays private until somebody changes it — so a
-   public repository whose image nobody can pull is the expected first state,
-   not a sign that something went wrong.
+   after the first push; Forgejo inherits visibility from the repository, so a
+   package pushed while the repo was private stays private even after the repo
+   is made public.
 
 9. Bump the root `package.json` to the next `-dev` version on `main`.
 

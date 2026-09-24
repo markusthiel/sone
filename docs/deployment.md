@@ -53,7 +53,7 @@ Until the first release there is nothing to pull, and
 `docker compose up` fails with:
 
 ```
-failed to resolve reference "ghcr.io/markusthiel/sone:latest": not found
+failed to resolve reference "forgejo.thiel.tools/thiel/sone:latest": not found
 ```
 
 Build from source instead:
@@ -110,7 +110,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-`.github/workflows/build-image.yml` builds and pushes on every push to `main`
+`.forgejo/workflows/build-image.yml` builds and pushes on every push to `main`
 (tagged `main`) and on every version tag (`X.Y.Z`, `X.Y`, and `latest` for
 non-pre-releases).
 
@@ -682,7 +682,7 @@ A **locally built** image is the trap worth naming. If the stack was set up with
 - redeploying changes nothing, and neither does a private window.
 
 Every one of those looks like a caching problem and none of them is. Switch to
-`SONE_IMAGE=ghcr.io/markusthiel/sone:main` to follow development, or
+`SONE_IMAGE=forgejo.thiel.tools/thiel/sone:main` to follow development, or
 rebuild on the host from a newer checkout.
 
 ## Redeploying does not re-pull by default
@@ -773,7 +773,7 @@ more important rather than less.
 docker build -f docker/Dockerfile \
   --build-arg SONE_VERSION="$(git describe --tags --always)" \
   --build-arg SONE_COMMIT="$(git rev-parse HEAD)" \
-  -t ghcr.io/markusthiel/sone:local .
+  -t forgejo.thiel.tools/thiel/sone:local .
 ```
 
 The build compiles every package including the web client, and the runtime image

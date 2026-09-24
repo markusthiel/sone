@@ -40,7 +40,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const workflows = path.join(root, '.github', 'workflows');
+
+/*
+ * Wherever the workflows are.
+ *
+ * They have now lived in both directories and moved twice in one week
+ * (ADR-0197, ADR-0199). A check hard-wired to one of them either dies with
+ * ENOENT or, worse, finds nothing and says everything is fine — this one used
+ * to do the first, three minutes after the directory moved.
+ */
+const workflowDirs = ['.forgejo/workflows', '.github/workflows']
+  .map((dir) => path.join(root, dir))
+  .filter((dir) => fs.existsSync(dir));
 const binDir = path.join(root, 'node_modules', '.bin');
 
 const failures = [];
@@ -76,9 +87,20 @@ if (available === null) {
   process.exit(0);
 }
 
-for (const name of fs.readdirSync(workflows).sort()) {
-  if (!name.endsWith('.yml') && !name.endsWith('.yaml')) continue;
-  const file = path.join(workflows, name);
+if (workflowDirs.length === 0) {
+  console.error('[check] no workflow directory — neither .forgejo/workflows nor .github/workflows');
+  process.exit(1);
+}
+
+const files = workflowDirs.flatMap((dir) =>
+  fs
+    .readdirSync(dir)
+    .sort()
+    .filter((name) => name.endsWith('.yml') || name.endsWith('.yaml'))
+    .map((name) => ({ name: `${path.basename(path.dirname(dir))}/${name}`, file: path.join(dir, name) })),
+);
+
+for (const { name, file } of files) {
   const lines = fs.readFileSync(file, 'utf8').split('\n');
 
   lines.forEach((line, index) => {
