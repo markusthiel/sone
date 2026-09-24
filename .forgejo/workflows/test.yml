@@ -84,12 +84,13 @@ jobs:
           pg_dump --version
 
       - name: Check out
-        # The Forgejo version of this workflow cloned by hand, to avoid
-        # depending on that instance's actions mirror resolving
-        # actions/checkout. On GitHub the action is first-party and always
-        # resolves, so the hand-rolled clone buys nothing and loses the
-        # merge-commit handling that pull_request runs want.
-        uses: actions/checkout@v4
+        run: |
+          set -eu
+          # Cloning directly rather than through actions/checkout: one less
+          # thing that has to resolve through the actions mirror.
+          git clone --depth 1 "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" .
+          git fetch --depth 1 origin "${GITHUB_SHA}"
+          git checkout "${GITHUB_SHA}"
 
       - name: Wait for Postgres
         run: |
