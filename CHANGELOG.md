@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Aktualisieren und neu starten, sonst nichts.
+
+**Das Schloss eines gesperrten Blocks ist jetzt rot.** Der graue Kasten, den es
+bisher trug, sah aus wie der Mauszeiger-Zustand jedes anderen Knopfs daneben —
+ausgerechnet am einzigen Knopf der Reihe, der einen Zustand anzeigt. Kasten und
+Symbol tragen jetzt die Warnfarbe der App, auch unter dem Mauszeiger
+(ADR-0195).
+
 ## 0.14.8
 
 Aktualisieren und neu starten, sonst nichts.

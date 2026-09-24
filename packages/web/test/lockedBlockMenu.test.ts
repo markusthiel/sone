@@ -31,6 +31,18 @@ test('the padlock shows which way it is standing', () => {
 
   const css = stylesOf(new URL('../src/styles.css', import.meta.url));
   assert.match(css, /\.block-menu-action\.current \{/);
+
+  /*
+   * And it is red, not the hover grey every other button in the row takes
+   * (ADR-0195). In `--sone-danger`, so the dark theme follows without a second
+   * rule — and with its own hover rule, because `:hover:not(:disabled)` is more
+   * specific and dropped the padlock back to grey exactly when somebody
+   * reached for it, which looks like the unlock already happened.
+   */
+  const locked = /\.block-menu-action\.current \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.match(locked, /--sone-danger/);
+  assert.doesNotMatch(locked, /--sone-bg-hover/);
+  assert.match(css, /\.block-menu-action\.current:hover:not\(:disabled\) \{[^}]*--sone-danger/);
 });
 
 test('moving, duplicating and deleting are not offered on a locked block', () => {

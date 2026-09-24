@@ -5149,10 +5149,22 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
  * The row is grey glyphs by design, and this is the one of them that is a
  * *state* rather than a verb: everything else in it happens and is over. It
  * said so only in its tooltip, where nobody looks before clicking. */
+ *
+ * In the same red as the rest of the app's "careful now", because the grey box
+ * alone read as one more hover state in a row of grey glyphs — the one thing in
+ * the menu that is a state, and it was the least visible thing in it. Tinted
+ * ground and outline rather than a red glyph on grey: the box is what carries at
+ * a glance, the colour is what says which box. */
 .block-menu-action.current {
-  background: var(--sone-bg-hover);
-  color: var(--sone-text);
-  box-shadow: inset 0 0 0 1px var(--sone-border);
+  background: color-mix(in srgb, var(--sone-danger) 12%, transparent);
+  color: var(--sone-danger);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sone-danger) 40%, transparent);
+}
+/* Kept red under the cursor, so hovering the padlock does not look like
+   unlocking it already happened. */
+.block-menu-action.current:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sone-danger) 20%, transparent);
+  color: var(--sone-danger);
 }
 /* The one that cannot be undone by pressing it again keeps its colour, so a row
    of identical grey glyphs still has one that is not. */
