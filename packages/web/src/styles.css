@@ -5148,7 +5148,7 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
  *
  * The row is grey glyphs by design, and this is the one of them that is a
  * *state* rather than a verb: everything else in it happens and is over. It
- * said so only in its tooltip, where nobody looks before clicking. */
+ * said so only in its tooltip, where nobody looks before clicking.
  *
  * In the same red as the rest of the app's "careful now", because the grey box
  * alone read as one more hover state in a row of grey glyphs — the one thing in
