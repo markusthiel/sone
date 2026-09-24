@@ -29,10 +29,10 @@ services:
     # unreleased project.
     #
     # Set SONE_IMAGE to a specific version, such as
-    # ghcr.io/markusthiel/sone:0.1.0, for an image that will never move
+    # forgejo.thiel.tools/thiel/sone:0.1.0, for an image that will never move
     # under you. :main remains the development stream and changes on every push
     # to main; deploying it means accepting that.
-    image: ${SONE_IMAGE:-ghcr.io/markusthiel/sone:latest}
+    image: ${SONE_IMAGE:-forgejo.thiel.tools/thiel/sone:latest}
     restart: unless-stopped
     depends_on:
       db:

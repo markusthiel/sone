@@ -1,18 +1,27 @@
-# CI
+# Forgejo Actions runner
 
-Two workflows exist and they have different jobs:
+Two workflows exist and they have different requirements:
 
-| Workflow | What it does | Triggers |
+| Workflow | Needs | Triggers |
 |---|---|---|
-| `test.yml` | fourteen mechanical checks, typecheck, build, the full suite against a real Postgres, the migration chain from an empty database, and a boot-and-shutdown check | push to `main`, every pull request |
-| `build-image.yml` | builds the container image, verifies it, then publishes it to ghcr.io | push to `main`, tags `v*`, manual |
+| `test.yml` | a runner, and a job container plus a Postgres service | push to `main`, every pull request |
+| `build-image.yml` | a runner **with Docker daemon access** | push to `main`, tags `v*`, manual |
 
-Both run on GitHub-hosted runners and need nothing configured. In particular
-there is **no secret to set up**: the image push authenticates with the token
-Actions issues to the run, which is why the job declares
-`permissions: packages: write`.
+**This page described a state that never shipped.** It said `build-image.yml`
+built with buildah, needed no daemon, and had its push trigger disabled. None of
+that is true of the file in this repository: it uses `docker/setup-buildx-action`
+and `docker/build-push-action`, it runs `docker inspect` and `docker run` to
+verify the image before publishing, and it fires on every push to `main` and
+every version tag. A document that is confidently wrong about what a workflow
+needs costs somebody an afternoon; this one cost a release being cut with
+"no image is possible here" written in the notes, while the runner was building
+one at that moment.
 
-`test.yml` is the one worth having. `build-image.yml` is an optimisation, not a
+`test.yml` is the one worth having: fourteen mechanical checks, typecheck, the
+full suite including the database tests, the migration chain from an empty
+database, and a check that the server actually boots and shuts down cleanly.
+
+`build-image.yml` publishes container images. It is an optimisation, not a
 requirement — `docker-compose.build.yml` builds on the deployment host and needs
 no CI at all.
 
@@ -31,69 +40,189 @@ immediately, and ADR-0077 records why the review habit has to change too. **The
 duration is the tell.** A `test.yml` run that finishes in well under two minutes
 did not run the tests.
 
-## The image is checked before it is published, not after
+## What it is
 
-`build-image.yml` builds with `load: true` rather than `push: true`, inspects
-the result, and only then logs in and pushes. The order is the point: pushing
-first would make a bad image briefly the published one — and for a version tag
-permanently, because a released tag is never moved (ADR-0013).
+Forgejo Actions runs jobs through a separate binary (`forgejo-runner`, formerly
+`act_runner`) that polls Forgejo over HTTP and executes each job in a container.
+It is stateless apart from its registration, so one runner or five, on the
+Forgejo host or elsewhere, is a free choice.
 
-What it checks has all been wrong at some point in this project: a missing
-server entry point, a missing web build, a dropped healthcheck, a version that
-was not baked in, and a container that would have run as root because the
-entrypoint's handover to uid 10001 never happened. The last one is checked by
-running the real entrypoint and asking the process who it is — an image can
-declare a non-root `USER` and still be started as root, and a correct `USER`
-line says nothing about what the entrypoint does afterwards.
+A queued job with no runner is the normal symptom of never having registered
+one: Forgejo shows the workflow as waiting, indefinitely and without an error.
+
+## Labels are the part that catches people
+
+`runs-on:` in a workflow matches a **label**, not a runner name. This project's
+workflow uses `runs-on: ubuntu-latest`, because that is the label the existing
+runner on this instance declares. If you point the project at a runner with
+different labels, change `runs-on` to match — a healthy, connected runner whose
+labels do not include the one a workflow asks for sits idle while the job queues
+forever, which is the most misleading possible symptom.
+
+Label syntax is `name:docker://image`, where the image is what a job runs inside
+by default. A workflow can override it with `container.image`, which
+`build-image.yml` does.
+
+## Security note, read before mounting the socket
+
+The runner needs the Docker socket to build images. That is root-equivalent
+access to the Docker daemon on that host. For a private instance building your
+own code it is a reasonable trade. It stops being reasonable the moment the
+instance accepts pull requests from strangers, because a workflow in a fork
+would run with that access — at that point the runner belongs on a dedicated
+machine with nothing else on it.
+
+## Setup
+
+Get a registration token: **Site Administration → Actions → Runners → Create new
+Runner**, or the same path under a user or organisation for a scoped runner. A
+repository-level runner is usually too restrictive.
+
+Tokens are single-use. If registration fails, generate a new one rather than
+retrying with the same.
+
+```yaml
+# docker-compose.runner.yml — deploy as its own stack
+name: forgejo-runner
+
+services:
+  runner:
+    image: code.forgejo.org/forgejo/runner:6
+    restart: unless-stopped
+    environment:
+      # Must be reachable from inside this container. If Forgejo runs in Docker
+      # on the same host, the container name over a shared network is more
+      # reliable than the public URL, which may hairpin badly through the proxy.
+      FORGEJO_INSTANCE_URL: https://forgejo.thiel.tools
+      FORGEJO_RUNNER_REGISTRATION_TOKEN: ${RUNNER_TOKEN:?set RUNNER_TOKEN}
+      FORGEJO_RUNNER_NAME: thiel-docker-01
+      # `ubuntu-latest` is the label this project's workflow requires. The
+      # image is only the default job container; build-image.yml pins its own.
+      FORGEJO_RUNNER_LABELS: ubuntu-latest:docker://node:22-bookworm
+    volumes:
+      # Persisted, or the container registers as a new runner on every restart
+      # and the runner list fills with dead entries.
+      - runner_data:/data
+      # Root-equivalent access to the daemon. See the security note above.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  runner_data:
+```
+
+```sh
+RUNNER_TOKEN=<token> docker compose -f docker-compose.runner.yml up -d
+docker compose -f docker-compose.runner.yml logs -f
+```
+
+The runner should appear under Actions → Runners within a few seconds, showing
+`docker` among its labels. Once it does, re-run the queued workflow.
+
+Environment variable names differ slightly between runner images. If the
+container starts and does nothing, check its logs for a complaint about a
+missing variable before assuming a Forgejo-side problem — most images also
+accept a mounted `config.yml`, which is the more portable route if the variables
+do not take.
+
+## The Docker daemon inside a job
+
+**Required by `build-image.yml`.** It builds with buildx and then runs the image
+it built, so the job needs a reachable daemon. The runner on this instance has
+one, and the image workflow has been publishing successfully — but if it ever
+reports "no daemon reachable", there are two causes and they need different
+fixes:
+
+**The runner container has no socket at all.** If the runner itself was started
+without `-v /var/run/docker.sock:/var/run/docker.sock`, no amount of runner
+configuration will help — it cannot pass on access it does not have. Add the
+mount to the runner's own compose file and restart it. Check with:
+
+```sh
+docker compose -f docker-compose.runner.yml exec runner ls -l /var/run/docker.sock
+```
+
+**The runner has the socket but does not pass it into job containers.** Forgejo
+Runner's `container.docker_host` defaults to `"-"`, which mounts the host daemon
+socket into each job container automatically. If it has been set to an empty
+value, either restore the default or whitelist the socket so a workflow may
+mount it:
+
+```yaml
+container:
+  valid_volumes:
+    - /var/run/docker.sock
+```
+
+The workflow deliberately does **not** mount the socket itself with `options:`,
+and sets no `container:` at all. Runner rejects volume mounts that are not
+whitelisted, so a workflow requiring one would depend on configuration the
+project cannot see — and overriding the job image is what removed the daemon in
+every earlier attempt here, since the runner's default job image is the one that
+has it.
 
 ## Verifying it works
 
 Push any commit to `main`. The workflow should build and publish
-`ghcr.io/markusthiel/sone:main`. Then:
+`forgejo.thiel.tools/thiel/sone:main`. Then:
 
 ```sh
-docker pull ghcr.io/markusthiel/sone:main
+docker pull forgejo.thiel.tools/thiel/sone:main
 ```
 
-**Check the package is publicly readable**, under the repository → Packages →
-the image → Package settings → Change visibility. A package on ghcr.io starts
-private no matter what the repository's visibility is, and stays private until
-somebody changes it — and then `docker compose up` fails for everyone except
-you, with an authentication error rather than anything informative.
+**Check the package is publicly readable**, under Packages → the image →
+Settings. Forgejo inherits package visibility from the repository, so a package
+first pushed while the repository was private stays private afterwards — and
+then `docker compose up` fails for everyone except you, with an
+authentication error rather than anything informative.
 
-Anonymous pull is the part that is easy to get wrong, so check it without
-credentials:
+Publishing works and has since 0.5.0. Anonymous pull works too, which is the
+part that is easy to get wrong — checked without credentials:
 
 ```sh
-tok=$(curl -s "https://ghcr.io/token?service=ghcr.io&scope=repository:markusthiel/sone:pull" \
+tok=$(curl -s "https://forgejo.thiel.tools/v2/token?service=container_registry&scope=repository:thiel/sone:pull" \
         | sed 's/.*"token":"\([^"]*\)".*/\1/')
-curl -s -H "Authorization: Bearer $tok" https://ghcr.io/v2/markusthiel/sone/tags/list
+curl -s -H "Authorization: Bearer $tok" https://forgejo.thiel.tools/v2/thiel/sone/tags/list
 ```
 
 ## Deploying from an image
 
 Use `docker-compose.yml` rather than `docker-compose.build.yml` and set
-`SONE_IMAGE` to a released tag — `ghcr.io/markusthiel/sone:0.11.0`. That
+`SONE_IMAGE` to a released tag — `forgejo.thiel.tools/thiel/sone:0.11.0`. That
 trades a multi-minute build on the deployment host for a pull. `:main` is the
 development branch and is not for production; `:latest` never points at a
 pre-release.
 
-## If a job fails to start
+## If it stays queued
 
-1. Actions are disabled for the repository. Settings → Actions → General.
-2. A fork's pull request gets a read-only token by default, so the image job
-   cannot push. That is intended: the test workflow is what a fork needs.
-3. `permissions: packages: write` was dropped from the image job. The symptom
-   is a 403 at the push step, after a successful build — which reads like a
-   credentials problem and is not.
+In rough order of likelihood:
 
-## Note on history
+1. No runner registered, or it registered against a different scope than the
+   repository. A user-level runner does not serve an organisation's
+   repositories.
+2. The runner's labels do not include the one the workflow asks for
+   (`ubuntu-latest`). This is the most common cause of a connected, healthy,
+   idle runner.
+3. Actions are disabled for the repository. Settings → Actions, per repository —
+   it is not on by default everywhere.
+4. The runner cannot reach the instance URL from inside its container.
 
-Until this repository moved to GitHub, CI ran on a self-hosted Forgejo instance
-and its workflows lived in a `.forgejo/workflows/` directory. Three things were true there
-and are not here, which is why the workflow files are shorter now: the automatic
-Actions token could not write packages, so a hand-made `REGISTRY_TOKEN` secret
-was required; there was no Actions cache service, so the build ran without a
-layer cache; and the runner was a long-lived machine that filled up with the
-images each run loaded, so every run ended with a cleanup step. A
-GitHub-hosted runner is a fresh VM that is discarded when the job ends.
+
+## The image job gets slower over time
+
+It should take about a minute. If it is taking several, the runner is probably
+full rather than the build being slow.
+
+The image job loads a complete image into the runner's Docker daemon on every
+run, so it can be inspected before it is published. Those images are removed
+again in a cleanup step that runs even when the job fails — but a runner that
+predates that step, or one shared with other repositories, can still be carrying
+a lot:
+
+```sh
+docker system df          # what is actually taking the space
+docker image prune -a -f  # images nothing references
+docker buildx prune -f    # build cache
+```
+
+The job now prints `df -h /` and `docker system df` before building and after
+cleaning up, so the log answers this without anyone logging in.
