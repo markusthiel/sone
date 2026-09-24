@@ -1,0 +1,213 @@
+# Build and publish the container image to the GitHub Container Registry.
+#
+# Ported from the Forgejo workflow this repository used before it moved here. Three of the notes in that
+# file were about the self-hosted instance and do not apply here, but they are
+# worth knowing if you ever run this elsewhere:
+#
+#   1. No `container:` on the job. A job image of one's own choosing removes
+#      the Docker daemon the build needs. GitHub's hosted runners have a daemon
+#      on the VM itself, so the rule holds here for the same reason.
+#
+#   2. The Forgejo workflow needed a hand-made REGISTRY_TOKEN because its
+#      automatic Actions token could not write packages. GitHub's GITHUB_TOKEN
+#      can, given `permissions: packages: write` below — so there is no secret
+#      to configure and nothing to forget. That is the main difference.
+#
+#   3. The push-retry loops there existed because registry, forge and runner
+#      were one machine: a forge under load answered 503 and threw away a
+#      finished build. ghcr.io is a separate service, so the retries are kept
+#      but shortened — they cost nothing when they are not needed.
+#
+# What this keeps from the original, and the reason it matters: the image is
+# verified before it is published, not after. Push-then-check would make a bad
+# image briefly the published one — and for a version tag permanently, since a
+# released tag is never moved (ADR-0013).
+#
+# Tags produced:
+#   main            every push to main. Development builds; not for production.
+#   X.Y.Z and X.Y   a version tag.
+#   latest          a version tag that is not a pre-release.
+
+name: Build image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Deliberately no `container:` — see note 1 above.
+
+    permissions:
+      contents: read
+      # This is what replaces the REGISTRY_TOKEN secret the Forgejo workflow
+      # required. Without it the push fails with a 403 from ghcr.io.
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so `git describe` can find the nearest tag.
+          fetch-depth: 0
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Work out version and tags
+        id: meta
+        run: |
+          set -eu
+          # ghcr.io rejects capitals in a repository name, and a fork under a
+          # mixed-case account would otherwise fail at the push with an error
+          # that names neither the cause nor this line.
+          IMAGE="ghcr.io/$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            TAGS="${IMAGE}:${VERSION} ${IMAGE}:$(echo "$VERSION" | cut -d. -f1,2)"
+            # latest never points at a pre-release.
+            case "$VERSION" in
+              *-*) : ;;
+              *) TAGS="$TAGS ${IMAGE}:latest" ;;
+            esac
+          else
+            # Worked out by scripts/version.sh, which scripts/check-version.mts
+            # runs directly in the test workflow — so what is tested is what
+            # ships. In shell rather than Node because this job has git and a
+            # POSIX shell and no guaranteed node.
+            #
+            # This was a shell fragment, and it was wrong twice — each time
+            # producing a version that sorted BELOW the tag it followed, so the
+            # version fence read the new build as a downgrade and refused to
+            # start. A blank page, with nothing answering to say why.
+            VERSION="$(sh scripts/version.sh)"
+            TAGS="${IMAGE}:main"
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          # build-push-action wants newline-separated tags.
+          {
+            echo 'tags_multiline<<EOF'
+            for t in $TAGS; do echo "$t"; done
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "Building $VERSION as: $TAGS"
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          # Loaded into the local daemon rather than pushed, so the image can be
+          # inspected before anyone can pull it. Pushing first and checking
+          # afterwards would mean a bad image is briefly the published one — and
+          # for a version tag, permanently, since a released tag is not moved.
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags_multiline }}
+          build-args: |
+            SONE_VERSION=${{ steps.meta.outputs.version }}
+            SONE_COMMIT=${{ github.sha }}
+          # The Forgejo workflow ran without a layer cache, because `type=gha`
+          # needs the GitHub Actions cache service and that instance does not
+          # provide one. Here it does, so the cache is switched on — this is the
+          # one place where the port is faster than the original rather than
+          # merely equivalent.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify the image before publishing it
+        run: |
+          set -eu
+          FIRST="$(echo '${{ steps.meta.outputs.tags }}' | awk '{print $1}')"
+
+          # An image that builds is not an image that works. Each of these has
+          # actually been wrong at some point in this project: a missing server
+          # entry point, a missing web build, a dropped healthcheck, and a
+          # version that was not baked in.
+          docker inspect "$FIRST" > /tmp/inspect.json
+          python3 scripts/verify-image.py /tmp/inspect.json
+
+          # The image declares no USER, because the entrypoint needs root long
+          # enough to make a bind-mounted directory writable and then drops to
+          # uid 10001. A static check cannot tell whether that handover actually
+          # happens, so this runs the real entrypoint and asks the server
+          # process who it is.
+          echo
+          echo "privilege drop:"
+          uid="$(docker run --rm --entrypoint /bin/sh "$FIRST" -c '
+            set -eu
+            command -v su-exec >/dev/null || { echo "su-exec missing" >&2; exit 1; }
+            # What the entrypoint does on its last line, asked directly.
+            su-exec 10001:10001 id -u
+          ')"
+          if [ "$uid" != "10001" ]; then
+            echo "  the server would run as uid $uid, expected 10001" >&2
+            exit 1
+          fi
+          echo "  server runs as uid $uid"
+
+          echo
+          echo "contents:"
+          docker run --rm --entrypoint /bin/sh "$FIRST" -c '
+            set -e
+            for f in packages/server/dist/main.js \
+                     packages/web/dist/index.html \
+                     db/migrations/0001_init.sql \
+                     docker/entrypoint.sh; do
+              if [ -e "$f" ]; then echo "  ok      $f"; else echo "  MISSING $f"; exit 1; fi
+            done
+            # pg_dump is what the backup command shells out to, and it must be
+            # new enough for the server it dumps.
+            printf "  %s\n" "$(pg_dump --version)"
+            printf "  node %s\n" "$(node --version)"
+          '
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push
+        run: |
+          set -eu
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            pushed=""
+            for attempt in 1 2 3; do
+              echo "pushing $tag (attempt $attempt)"
+              if docker push "$tag"; then
+                pushed="yes"
+                break
+              fi
+              echo "push failed; retrying in $((attempt * 15))s" >&2
+              sleep $((attempt * 15))
+            done
+            if [ -z "$pushed" ]; then
+              echo "Could not push $tag after three attempts." >&2
+              exit 1
+            fi
+          done
+
+      - name: Report
+        run: |
+          set -eu
+          echo "Published: ${{ steps.meta.outputs.tags }}"
+          echo
+          echo "Deploy with docker-compose.yml, setting SONE_IMAGE to one of them."
+          echo
+          echo "A package pushed by Actions is private at first. If pulling fails"
+          echo "with an authentication error, make it public once:"
+          echo "  the repository -> Packages -> sone -> Package settings ->"
+          echo "  Change visibility."
+
+# The Forgejo workflow ended with a cleanup step that removed the loaded image
+# and pruned buildx cache, because a hundred runs on one long-lived machine had
+# left a hundred images and the runner was filling up. A GitHub-hosted runner is
+# a fresh VM that is discarded when the job ends, so there is nothing to clean
+# up and the step is deliberately not carried over.

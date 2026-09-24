@@ -1,0 +1,293 @@
+# Typecheck and test on every push.
+#
+# This is the workflow that earns its keep. It needs no Docker daemon, so it
+# works with a plain runner — unlike image building, which needs socket access
+# the runner may not have.
+#
+# The database suites run against a real Postgres service container rather than
+# being skipped, because they are the tests that find things: three wrong
+# foreign keys, an information leak in the page API, a revocation that did not
+# affect live connections. Skipping them in CI would mean the suite that
+# actually catches bugs only ever runs on one laptop.
+
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # A ceiling, not an expectation.
+    #
+    # This workflow normally finishes in under two minutes. It has twice sat for
+    # a quarter of an hour and then died — both times because the runner lost
+    # its connection rather than because anything here was slow, and both times
+    # the only visible symptom was a job that appeared to be running.
+    #
+    # Fifteen minutes is far above any honest run and far below "did somebody
+    # forget about this". A stuck job now fails, which is a state a person can
+    # act on; an indefinitely running one is not.
+    timeout-minutes: 15
+
+    container:
+      image: docker.io/node:22-bookworm
+
+    services:
+      db:
+        image: docker.io/postgres:17-alpine
+        env:
+          POSTGRES_DB: sone_test
+          POSTGRES_USER: sone
+          POSTGRES_PASSWORD: sone
+          # Must match production. Fractional indices are compared byte-wise, so
+          # a locale-aware collation would make the ordering tests fail for
+          # reasons unrelated to the code — or worse, pass here and scramble
+          # documents in production (ADR-0011).
+          POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+
+    env:
+      SONE_TEST_DATABASE_URL: postgres://sone:sone@db:5432/sone_test
+
+    steps:
+      - name: Install tools
+        run: |
+          set -eu
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            git ca-certificates curl gnupg
+
+          # postgresql-client-17, from PGDG rather than Debian.
+          #
+          # pg_dump refuses to dump a server newer than itself, and Debian
+          # bookworm ships client 15 while the service container runs Postgres
+          # 17 — so `apt-get install postgresql-client` produces six backup
+          # test failures reading "aborting because of server version
+          # mismatch". The client major version must be at least the server's;
+          # newer is fine, older is refused.
+          #
+          # This must stay in step with the Postgres version in the service
+          # block below and in docker-compose.yml.
+          install -d /usr/share/postgresql-common/pgdg
+          curl -sS --fail \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            > /etc/apt/sources.list.d/pgdg.list
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends postgresql-client-17
+
+          pg_dump --version
+
+      - name: Check out
+        # The Forgejo version of this workflow cloned by hand, to avoid
+        # depending on that instance's actions mirror resolving
+        # actions/checkout. On GitHub the action is first-party and always
+        # resolves, so the hand-rolled clone buys nothing and loses the
+        # merge-commit handling that pull_request runs want.
+        uses: actions/checkout@v4
+
+      - name: Wait for Postgres
+        run: |
+          set -eu
+          # Service containers are started but not necessarily ready. Waiting on
+          # a TCP connect via bash's /dev/tcp avoids installing a Postgres
+          # client just to run pg_isready.
+          for i in $(seq 1 60); do
+            if (echo > /dev/tcp/db/5432) 2>/dev/null; then
+              echo "Postgres accepting connections after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Postgres did not become reachable within 60s" >&2
+          exit 1
+        shell: bash
+
+      - name: Install dependencies
+        run: |
+          set -eu
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Check migrations are well-formed
+        # A migration that does not record itself applies its changes, is never
+        # recorded, and then fails on every restart — the server stops booting
+        # and the only symptom is a blank page. That reached a deployed
+        # instance; it is checked mechanically now.
+        run: node scripts/check-migrations.mjs
+
+      - name: Check every setting reaches the container
+        # Compose does not forward the host's environment. Fourteen variables
+        # the server reads were not named in the service's environment block,
+        # including both secrets and the whole S3 backend — so an operator who
+        # set them in .env got a server that never saw them, with no symptom
+        # beyond the feature not working.
+        run: node scripts/check-env-reaches-container.mjs
+
+      - name: Check every number from the environment is bounded
+        # Number('') is 0 and Number('ten') is NaN, and both typecheck. Six
+        # settings were read that way; one of them turned a typo into every
+        # finished job being recorded as failed, with nothing anywhere pointing
+        # at the environment (ADR-0111).
+        run: node scripts/check-env-numbers.mjs
+
+      - name: Check every page link keeps its credential
+        # A component cannot tell whether it is rendering into the workspace
+        # shell or into somebody's share link. paths.page() always answers the
+        # first, so a click on a subpage inside a shared folder dropped the
+        # token and landed on the login screen (ADR-0113).
+        run: node scripts/check-page-links.mjs
+
+      - name: Check every route is reachable from the interface
+        # Two features were built, tested and recorded as done while being
+        # reachable only with curl — including the only way back for somebody
+        # who has lost both their phone and their recovery codes.
+        run: node scripts/check-routes-reachable.mjs
+
+      - name: Check every right is actually consulted
+        # A role is a name for a set of rights, and the set is edited in a
+        # settings screen. A switch there that gates nothing is worse than a
+        # missing feature: somebody turns it off, believes they have taken
+        # something away, and has not. Nothing in the type system can notice.
+        run: node scripts/check-rights-enforced.mjs
+
+      - name: Check every cited record exists
+        # I cited a record that did not exist, twice, with a wrong number. A
+        # citation is a promise that somebody can go and read the reasoning,
+        # and a dangling one costs the trust of every other citation in the
+        # tree.
+        run: node scripts/check-adr-references.mjs
+
+      - name: Check no record claims to be unbuilt
+        # ADR-0054 said "nothing built yet" for two sessions after the feature
+        # shipped. A status that lies is worse than none: the next reader takes
+        # the whole record for a plan rather than a description.
+        run: node scripts/check-adr-status.mjs
+
+      - name: Check workspace dependency build order
+        # A typecheck script that does not build its workspace dependencies
+        # passes where a build has already run and fails on a clean checkout.
+        # That has happened twice; checked mechanically now.
+        run: node scripts/check-workspace-deps.mjs
+
+      - name: Check for duplicate CRDT copies
+        # Two copies of Yjs in one process break instanceof, so a document made
+        # by one is unrecognisable to the other — documents that silently refuse
+        # to sync. Caught once already by a thirty-line type error that named
+        # neither cause nor fix.
+        run: node scripts/check-single-crdt.mjs
+
+      - name: Check every test file is run
+        # A test nothing runs is worse than no test: it reports nothing, and
+        # its presence says the case is covered. The web package's React tests
+        # went unrun in CI this way.
+        run: node scripts/check-test-globs.mjs
+
+      - name: Check what a workflow may run
+        # This one is here because of the step below it. `npx tsx` sat there for
+        # five days and two hundred and ninety-five red runs: tsx is a
+        # devDependency of all five packages and of none of them at the root, so
+        # a clean checkout has no node_modules/.bin/tsx and the job died on that
+        # line — thirteen steps in, before typecheck, before a single test. It
+        # passed locally only because a global tsx, installed months earlier by
+        # something unrelated, was on the path.
+        run: node scripts/check-ci-tools.mjs
+
+      - name: Check build version ordering
+        # A version that sorts backwards stops a running instance with a blank
+        # page. It has happened twice.
+        #
+        # `pnpm exec`, not `npx`: it takes the binary the workspace installed
+        # and nothing else. npx puts the global bin directory on the path and
+        # falls back to the registry, so it can succeed with a tool that is not
+        # named in any manifest here — which is how this step passed on one
+        # machine while failing on every runner.
+        run: pnpm exec tsx scripts/check-version.mts
+
+      - name: Check the image verifier
+        # It runs only in the image workflow, after a build, so a mistake in it
+        # costs a full build to find. It has cost one.
+        run: node scripts/check-verify-image.mjs
+
+      - name: Typecheck
+        # Each package's typecheck builds its own dependencies first, so this
+        # works on a fresh clone. That was not true at first: @sone/core
+        # resolves through dist/index.d.ts, so typecheck silently depended on
+        # someone having run a build earlier. It passed on a laptop that had,
+        # and failed here on a clean checkout — which is exactly the class of
+        # problem CI exists to catch.
+        run: pnpm -r typecheck
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Test
+        run: pnpm -r test
+
+      - name: Verify the migration chain from empty
+        run: |
+          set -eu
+          # A fresh database, not the one the tests just used. An upgrade path
+          # that only works on a database which grew alongside the code is not
+          # an upgrade path (docs/releasing.md).
+          export PGPASSWORD=sone
+          psql -h db -U sone -d postgres -c 'CREATE DATABASE migration_check OWNER sone;'
+          for file in db/migrations/*.sql; do
+            echo "applying $file"
+            psql -h db -U sone -d migration_check -v ON_ERROR_STOP=1 -q -f "$file"
+          done
+          psql -h db -U sone -d migration_check -c 'SELECT version FROM schema_migrations ORDER BY version;'
+        shell: bash
+
+      - name: Verify the server actually starts
+        run: |
+          set -eu
+          # A typecheck passing does not mean the process boots. This caught a
+          # container that could not start at all: the entrypoint referenced a
+          # dist/main.js that the build never produced.
+          export SONE_DATABASE_URL="postgres://sone:sone@db:5432/migration_check"
+          export SONE_SECRET_KEY="$(head -c 48 /dev/urandom | base64 | tr -d '\n')"
+          export SONE_VERSION="ci"
+          export PORT=3123
+
+          node packages/server/dist/main.js > /tmp/server.log 2>&1 &
+          SERVER_PID=$!
+
+          for i in $(seq 1 30); do
+            if (echo > /dev/tcp/127.0.0.1/3123) 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          echo "--- startup log ---"
+          cat /tmp/server.log
+
+          STATUS="$(node -e "
+            fetch('http://127.0.0.1:3123/api/ready')
+              .then(r => r.json())
+              .then(b => { console.log(b.ready ? 'ready' : 'not-ready'); })
+              .catch(() => console.log('unreachable'))
+          ")"
+          echo "readiness: $STATUS"
+
+          # SIGTERM must flush and exit cleanly: rooms hold unpersisted edits,
+          # so a shutdown that hangs or crashes is data loss on every restart.
+          kill -TERM "$SERVER_PID"
+          for i in $(seq 1 20); do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          if kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "server did not exit on SIGTERM" >&2
+            kill -9 "$SERVER_PID" || true
+            exit 1
+          fi
+
+          tail -3 /tmp/server.log
+          [ "$STATUS" = "ready" ]
+        shell: bash
