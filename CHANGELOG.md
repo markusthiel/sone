@@ -13,19 +13,7 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
-Aktualisieren und neu starten, sonst nichts.
-
-**Die Abbilder kommen wieder aus der eigenen Registry.** `SONE_IMAGE` zeigt
-wieder auf `forgejo.thiel.tools/thiel/sone`; wer auf ghcr.io umgestellt hatte,
-stellt zurück. GitHub bleibt der öffentliche Spiegel des Quelltextes und baut
-nichts mehr (ADR-0199).
-
-**Eine Adresse im Text wird von selbst zum Link.** Getippt wird sie erkannt,
-sobald das Leerzeichen oder Enter kommt; eingefügt ersetzt sie, was markiert
-war, und ist sofort ein Link. Erkannt wird nur, was eindeutig eine Adresse ist —
-mit Schema, mit `www.` oder in Form einer Mailadresse. `z.B.`, `Abs.2` und
-`1.5x` bleiben Text, und der Punkt am Satzende gehört nicht mehr zur Adresse
-(ADR-0198).
+## 0.14.9
 
 Aktualisieren und neu starten, sonst nichts.
 
@@ -34,6 +22,18 @@ bisher trug, sah aus wie der Mauszeiger-Zustand jedes anderen Knopfs daneben —
 ausgerechnet am einzigen Knopf der Reihe, der einen Zustand anzeigt. Kasten und
 Symbol tragen jetzt die Warnfarbe der App, auch unter dem Mauszeiger
 (ADR-0195).
+
+**Eine Adresse im Text wird von selbst zum Link.** Getippt wird sie erkannt,
+sobald das Leerzeichen oder Enter kommt; eingefügt ersetzt sie, was markiert
+war, und ist sofort ein Link. Erkannt wird nur, was eindeutig eine Adresse ist —
+mit Schema, mit `www.` oder in Form einer Mailadresse. `z.B.`, `Abs.2` und
+`1.5x` bleiben Text, und der Punkt am Satzende gehört nicht mehr zur Adresse
+(ADR-0198).
+
+**Die Abbilder kommen wieder aus der eigenen Registry.** `SONE_IMAGE` zeigt
+wieder auf `forgejo.thiel.tools/thiel/sone`; wer zwischendurch auf ghcr.io
+umgestellt hatte, stellt zurück. GitHub bleibt der öffentliche Spiegel des
+Quelltextes und baut nichts mehr (ADR-0199).
 
 ## 0.14.8
 
