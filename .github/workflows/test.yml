@@ -188,13 +188,6 @@ jobs:
         # went unrun in CI this way.
         run: node scripts/check-test-globs.mjs
 
-      - name: Check both test workflows agree
-        # Two forges, two copies of this file, one difference on purpose: how
-        # it checks out (ADR-0196). Everything else must match, or a guard
-        # runs on one forge and not the other — which is how you find out on
-        # the wrong day.
-        run: node scripts/check-workflows-in-step.mjs
-
       - name: Check what a workflow may run
         # This one is here because of the step below it. `npx tsx` sat there for
         # five days and two hundred and ninety-five red runs: tsx is a

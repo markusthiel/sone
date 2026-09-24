@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted. Built. Restores for Forgejo what the move to GitHub Actions removed,
-without giving up the GitHub workflow.
+**Superseded by [ADR-0197](0197-the-red-that-was-a-broken-comment.md).** Built,
+then taken out again the same evening: the failure it was written to explain had
+a different cause, and everything below rests on that wrong reading.
 
 ## Context
 

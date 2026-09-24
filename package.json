@@ -15,7 +15,7 @@
     "test": "pnpm -r test",
     "db:migrate": "node packages/server/scripts/migrate.mjs",
     "db:rematerialize": "node packages/server/scripts/rematerialize.mjs",
-    "check": "node scripts/check-migrations.mjs && node scripts/check-workflows-in-step.mjs && node scripts/check-rights-enforced.mjs && node scripts/check-env-numbers.mjs && node scripts/check-page-links.mjs && node scripts/check-workspace-deps.mjs && node scripts/check-single-crdt.mjs && pnpm -r typecheck && pnpm lint"
+    "check": "node scripts/check-migrations.mjs && node scripts/check-rights-enforced.mjs && node scripts/check-env-numbers.mjs && node scripts/check-page-links.mjs && node scripts/check-workspace-deps.mjs && node scripts/check-single-crdt.mjs && pnpm -r typecheck && pnpm lint"
   },
   "pnpm": {
     "overrides": {
