@@ -36,6 +36,7 @@ import { soneInputRules } from './inputRules.js';
 import { soneKeymap } from './keymap.js';
 import { codeCopy } from './codeCopy.js';
 import { foundBlock } from './foundBlock.js';
+import { autoLink } from './autoLink.js';
 import { followLinks } from './links.js';
 import { collapse } from './collapse.js';
 import { listNumbers } from './listNumbers.js';
@@ -235,6 +236,11 @@ export function createEditorState(opts: EditorOptions): EditorState {
     // correct.
     followLinks(),
     ...tablePlugins(),
+    // An address typed or pasted into the text becomes a link by itself
+    // (ADR-0198). Before markdownPaste, which only looks at text that carries
+    // structure — a bare address carries none and would fall through to a
+    // paragraph of characters.
+    autoLink(),
     markdownPaste(),
     // After markdownPaste: a paste carrying both files and text is an image
     // paste, and the text is usually the filename.
