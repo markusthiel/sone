@@ -42,6 +42,22 @@ jobs:
     timeout-minutes: 25
     # Deliberately no `container:` — see note 1 above.
 
+    # Only on GitHub, because only GitHub can finish it.
+    #
+    # Forgejo falls back to `.github/workflows/` when `.forgejo/workflows/` is
+    # absent (ADR-0197), so the self-hosted instance picks this file up too —
+    # and there the automatic token cannot write to ghcr.io and there is no
+    # secret that could. Every push and every tag has therefore produced a red
+    # run on Forgejo since the move, for a job that was never going to publish
+    # anything from there. A permanently red workflow is worse than none: it
+    # teaches everybody to stop reading the colour, which is the one thing CI
+    # is for.
+    #
+    # Skipped rather than deleted: this is the workflow that builds the image,
+    # it just belongs to the other forge. `github.server_url` is the one thing
+    # in the context that says which forge is asking.
+    if: ${{ github.server_url == 'https://github.com' }}
+
     permissions:
       contents: read
       # This is what replaces the REGISTRY_TOKEN secret the Forgejo workflow
