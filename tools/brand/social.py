@@ -95,7 +95,7 @@ if __name__ == "__main__":
         rast(s, f"social/png/sone-header-1500x500-{suffix}.png", 1500, 500)
 
     # avatar: the tile, four bars, at the sizes profiles ask for
-    av = tile(100, three=False, bg=INK, bar_col=PAPER, acc=ACCENT_DARK, inset=0.18)
+    av = tile(100, bg=INK, bar_col=PAPER, acc=ACCENT_DARK, inset=0.18)
     write("social/svg/sone-avatar.svg", av)
     for s in (400, 512, 1024):
         rast(av, f"social/png/sone-avatar-{s}.png", s, s)

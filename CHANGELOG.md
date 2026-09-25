@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Aktualisieren und neu starten, sonst nichts. Wer SONE als App installiert hat,
+entfernt sie einmal und legt sie neu an — ein installiertes Icon wird vom
+Betriebssystem zwischengespeichert.
+
+**Das App-Icon ist jetzt die Marke.** Es stand auf schwarzem Grund und trug die
+dreibalkige Notfassung für kleine Größen — ausgerechnet dort, wo nichts
+danebensteht, mit dem man es vergleichen könnte. Jetzt vier Balken auf hellem
+Grund, in jeder Größe und in derselben Form wie in SOTE (ADR-0201).
+
 ## 0.14.11
 
 Aktualisieren und neu starten, sonst nichts.

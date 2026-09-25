@@ -46,25 +46,27 @@ print("logo pngs:", count)
 # --------------------------------------------------------------------------
 # 2. Favicons and app icons
 #
-# The tile is the dark one at every size: an icon does not know what is behind
-# it, and #161615 with the light bars holds on a light dock, a dark taskbar and
-# a browser tab alike. Three bars at 64px and below, where the four close up.
+# The shipped tile is the LIGHT one at every size, and four bars at every size
+# (ADR-0201). Both were the other way round and both were wrong in the same
+# way: an installed application showed something that was not the logo — a dark
+# tile beside SOTE's light one, and three bars beside the four the interface
+# draws all day.
 # --------------------------------------------------------------------------
-TILE_DARK = dict(bg=INK, bar_col=PAPER, acc=ACCENT_DARK)
 TILE_LIGHT = dict(bg=PAGE_LIGHT, bar_col=INK, acc=ACCENT_LIGHT)
+TILE_DARK = dict(bg=INK, bar_col=PAPER, acc=ACCENT_DARK)
 
-write("icons/svg/sone-icon-tile-dark.svg", tile(100, three=False, **TILE_DARK))
-write("icons/svg/sone-icon-tile-light.svg", tile(100, three=False, **TILE_LIGHT))
-write("icons/svg/sone-icon-tile-dark-3bar.svg", tile(100, three=True, **TILE_DARK))
-write("icons/svg/favicon.svg", tile(100, three=True, **TILE_DARK))
+# Both tiles stay in the package — somebody putting the mark on a dark surface
+# needs the dark one — but only the light one is shipped as an icon.
+write("icons/svg/sone-icon-tile-light.svg", tile(100, **TILE_LIGHT))
+write("icons/svg/sone-icon-tile-dark.svg", tile(100, **TILE_DARK))
+write("icons/svg/favicon.svg", tile(100, **TILE_LIGHT))
 # maskable: the mark inside the 80% safe circle, so a round or squircle crop
 # never clips a bar.
-write("icons/svg/sone-icon-maskable.svg", tile(100, three=False, inset=0.26, **TILE_DARK))
+write("icons/svg/sone-icon-maskable.svg", tile(100, inset=0.26, **TILE_LIGHT))
 
 ICON_SIZES = [16, 32, 48, 64, 128, 180, 192, 256, 384, 512, 1024]
 for s in ICON_SIZES:
-    three = s <= 64
-    svg_str = tile(100, three=three, **TILE_DARK)
+    svg_str = tile(100, **TILE_LIGHT)
     name = {180: "apple-touch-icon", 192: "icon-192", 512: "icon-512"}.get(s, f"icon-{s}")
     data = png_from_svg_str(svg_str, w=s, h=s)
     p = os.path.join(OUT, f"icons/png/{name}.png")
@@ -73,18 +75,17 @@ for s in ICON_SIZES:
 
 # maskable PWA icons
 for s in (192, 512):
-    data = png_from_svg_str(tile(100, three=False, inset=0.26, **TILE_DARK), w=s, h=s)
+    data = png_from_svg_str(tile(100, inset=0.26, **TILE_LIGHT), w=s, h=s)
     open(os.path.join(OUT, f"icons/png/icon-maskable-{s}.png"), "wb").write(data)
 
 # monochrome / Safari pinned tab and Windows tile
-write("icons/svg/sone-icon-mono-black.svg", signet("black", three=True))
-write("icons/svg/sone-icon-mono-white.svg", signet("white", three=True))
+write("icons/svg/sone-icon-mono-black.svg", signet("black"))
+write("icons/svg/sone-icon-mono-white.svg", signet("white"))
 
-# favicon.ico — 16 and 32 from the three-bar build, 48 from the four-bar one
+# favicon.ico — the same four-bar light tile at all three sizes (ADR-0201).
 ims = []
-for s in (16, 32):
-    ims.append(Image.open(io.BytesIO(png_from_svg_str(tile(100, three=True, **TILE_DARK), s, s))).convert("RGBA"))
-ims.append(Image.open(io.BytesIO(png_from_svg_str(tile(100, three=False, **TILE_DARK), 48, 48))).convert("RGBA"))
+for s in (16, 32, 48):
+    ims.append(Image.open(io.BytesIO(png_from_svg_str(tile(100, **TILE_LIGHT), s, s))).convert("RGBA"))
 ims[0].save(os.path.join(OUT, "icons/favicon.ico"), format="ICO",
             sizes=[(16, 16), (32, 32), (48, 48)], append_images=ims[1:])
 

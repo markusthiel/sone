@@ -20,9 +20,11 @@
  * steps back out, and that step is what makes it a tree rather than a menu.
  *
  * The favicon and the installed icons are the same drawing again, as files
- * under public/ — at 16px the four bars close up, so those carry a three-bar
- * build, and they cannot reference a custom property either, so they carry the
- * default accent rather than the workspace's.
+ * under public/ — four bars there too, on a paper-coloured tile (ADR-0201).
+ * They carried a three-bar build for legibility at 16px, which meant the one
+ * place somebody sees nothing but the small picture showed something that was
+ * not the mark. They cannot reference a custom property either, so they carry
+ * the default accent rather than the workspace's.
  */
 
 import { type ReactElement } from 'react';

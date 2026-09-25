@@ -47,12 +47,14 @@ MODES = {
 # --------------------------------------------------------------------------
 # The mark
 # --------------------------------------------------------------------------
-# four bars, as shipped in Logo.tsx
+# Four bars, as shipped in Logo.tsx — and the only build there is (ADR-0201).
+#
+# A three-bar variant used to live here for 16px and for the icon tiles. It is
+# gone: one mark, at every size, in both applications. What it cost was a
+# favicon that was not the logo, and a sister application that had copied the
+# exception rather than the rule.
 BARS4 = [(12, 16, 76, 9, 0), (28, 37, 60, 9, 0), (44, 58, 44, 9, 1), (28, 79, 60, 9, 0)]
 BOX4 = (12, 16, 88, 88)   # ink bounds
-# three bars, as shipped in public/favicon.svg — for 16px and tiles
-BARS3 = [(10, 20, 80, 14, 0), (32, 48, 58, 14, 0), (54, 76, 36, 14, 1)]
-BOX3 = (10, 20, 90, 90)
 
 
 def bars_svg(bars, box, bar_col, accent_col, scale=1.0, dx=0.0, dy=0.0, indent=2):
@@ -142,8 +144,8 @@ def svg(w, h, body, title):
     )
 
 
-def signet(mode, three=False, adaptive=False):
-    bars, box = (BARS3, BOX3) if three else (BARS4, BOX4)
+def signet(mode, adaptive=False):
+    bars, box = BARS4, BOX4
     if adaptive:
         bar_col, acc = "currentColor", "var(--accent, #2f7d6f)"
     else:
@@ -189,9 +191,9 @@ def lockup(mode, claim=False, vertical=False):
     return svg(w, h, "\n".join(parts), "SONE — Wissen strukturieren. Auf deinem Server.")
 
 
-def tile(size=100, three=False, bg=INK, bar_col=PAPER, acc=ACCENT_DARK, inset=0.14, radius=0.0):
+def tile(size=100, bg=PAGE_LIGHT, bar_col=INK, acc=ACCENT_LIGHT, inset=0.14, radius=0.0):
     """A square app-icon tile: mark centred in the tile with `inset` margin."""
-    bars, box = (BARS3, BOX3) if three else (BARS4, BOX4)
+    bars, box = BARS4, BOX4
     mw, mh = mark_size(box)
     avail = size * (1 - 2 * inset)
     s = min(avail / mw, avail / mh)
@@ -218,7 +220,6 @@ if __name__ == "__main__":
     n = 0
     for mode in MODES:
         n += bool(write(f"logo/svg/sone-signet-{mode}.svg", signet(mode)))
-        n += bool(write(f"logo/svg/sone-signet-3bar-{mode}.svg", signet(mode, three=True)))
         n += bool(write(f"logo/svg/sone-logo-horizontal-{mode}.svg", lockup(mode)))
         n += bool(write(f"logo/svg/sone-logo-horizontal-claim-{mode}.svg", lockup(mode, claim=True)))
         n += bool(write(f"logo/svg/sone-logo-vertical-{mode}.svg", lockup(mode, vertical=True)))

@@ -2,7 +2,7 @@
 """Construction sheet: clear space and minimum sizes, drawn rather than described."""
 import os, cairosvg
 from gen import (
-    OUT, write, text_path, MONO, bars_svg, BARS4, BOX4, BARS3, BOX3,
+    OUT, write, text_path, MONO, bars_svg, BARS4, BOX4,
     INK, PAPER, PAGE_LIGHT, ACCENT_LIGHT, MUTED_LIGHT, W_NAME_100, TRACK,
 )
 
@@ -57,8 +57,7 @@ def sheet():
 
     x = 90
     for cap_label, kind, target_h in (
-        ("SIGNET 4 BALKEN  AB 24 PX", "s4", 24),
-        ("SIGNET 3 BALKEN  BIS 24 PX", "s3", 16),
+        ("SIGNET  AB 24 PX", "s4", 24),
         ("LOCKUP  AB 96 PX BREITE", "lock", 22),
     ):
         if kind == "lock":
@@ -69,7 +68,7 @@ def sheet():
             p.append(f'  <path d="{dn}" fill="{INK}" transform="translate({x+76*s+20*s:.4g} {y2+30+c/2:.4g})"/>')
             w_used = 96
         else:
-            bars, box = (BARS4, BOX4) if kind == "s4" else (BARS3, BOX3)
+            bars, box = BARS4, BOX4
             s = target_h / (box[3] - box[1])
             p.append(bars_svg(bars, box, INK, ACCENT_LIGHT, scale=s, dx=x, dy=y2 + 30 - target_h / 2))
             w_used = (box[2] - box[0]) * s
