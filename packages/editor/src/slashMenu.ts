@@ -642,14 +642,28 @@ export function runSlashItem(view: EditorView, item: SlashItem): boolean {
   if (item.action.kind === 'insert') {
     const node = item.action.build();
     if (!node) return false;
+    const at = hasContent ? block.pos + block.node.nodeSize : block.pos;
     if (hasContent) {
       // After the block, leaving the writing alone.
-      tr.insert(block.pos + block.node.nodeSize, node);
+      tr.insert(at, node);
     } else {
-      tr.replaceWith(block.pos, block.pos + block.node.nodeSize, node);
+      tr.replaceWith(at, block.pos + block.node.nodeSize, node);
     }
-    if (node.type.name === 'soteTasks') {
-      continueAfterSote(tr, hasContent ? block.pos + block.node.nodeSize : block.pos);
+    /*
+     * And the caret where the writing continues (ADR-0200).
+     *
+     * This branch was the only one of the three that set no selection — the
+     * other two do — so an inserted table appeared and what was typed next
+     * went wherever the caret happened to be left. `TextSelection.near` finds
+     * the nearest text position from inside the new block: the first cell of a
+     * table, and for a divider (an atom with no content) the line after it.
+     *
+     * An embedded SOTE block answers this for itself and keeps precedence: it
+     * puts the caret on the blank line *after* the block, which is the whole
+     * point of `continueAfterSote` and not where `near` would land.
+     */
+    if (node.type.name !== 'soteTasks' || !continueAfterSote(tr, at)) {
+      tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(at + 1, tr.doc.content.size))));
     }
     view.dispatch(tr.scrollIntoView());
     view.focus();
