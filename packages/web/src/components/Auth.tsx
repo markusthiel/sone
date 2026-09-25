@@ -11,6 +11,7 @@ import { ApiError, api, type InstanceInfo } from '../api/client.ts';
 import { en, type MessageKey } from '../i18n/messages.en.ts';
 import { useT } from '../i18n/useT.tsx';
 import { paths } from '../routes/paths.ts';
+import { SoneLockup } from './Logo.tsx';
 
 /**
  * The English wording for an error code.
@@ -33,6 +34,29 @@ export const messageFor = (code: string): string =>
  * A hook rather than a function taking `t`, so a call site changes from
  * `messageFor(error)` to `message(error)` and nothing else.
  */
+
+/**
+ * The mark above a logged-out screen (ADR-0202).
+ *
+ * Somebody standing in front of a sign-in form has no other way of knowing what
+ * they are signing in to: there is no rail, no workspace, no page — only this
+ * card. SONE's showed the word "Anmelden" and nothing else, which is the one
+ * screen in the application where the mark is not decoration.
+ *
+ * `SoneLockup` rather than the drawing, so an instance with a logo of its own
+ * shows that logo and its own name (ADR-0123): putting "SONE" over somebody
+ * else's mark would be this software signing their letterhead.
+ */
+function AuthBrand(): ReactElement {
+  const { t } = useT();
+  return (
+    <div className="auth-brand">
+      <SoneLockup size={32} />
+      <p className="auth-claim">{t('auth.claim')}</p>
+    </div>
+  );
+}
+
 export function useMessage(): (code: string) => string {
   const { t } = useT();
   return (code) => {
@@ -84,6 +108,7 @@ export function SetupScreen({ onDone }: AuthFormProps): ReactElement {
   return (
     <div className="centered">
       <form className="card" onSubmit={submit}>
+        <AuthBrand />
         <h1>{t('auth.setup')}</h1>
         <p className="muted">
           {t('auth.setup.note')}
@@ -244,6 +269,7 @@ export function LoginScreen({
   return (
     <div className="centered">
       <form className="card" onSubmit={submit}>
+        <AuthBrand />
         <h1>{t('auth.signIn')}</h1>
         <div className="field">
           <label htmlFor="email">{t('auth.email')}</label>
@@ -408,6 +434,7 @@ export function ResetScreen({
 
   return (
     <div className="centered card">
+      <AuthBrand />
       <h1>{t('reset.askTitle')}</h1>
       <p>{t('reset.askHint')}</p>
       <label>
@@ -666,6 +693,7 @@ export function SignupScreen({
   return (
     <div className="centered">
       <form className="card" onSubmit={submit}>
+        <AuthBrand />
         <h1>{t('auth.createAccount')}</h1>
         <div className="field">
           <label htmlFor="name">{t('auth.yourName')}</label>

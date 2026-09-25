@@ -2408,6 +2408,24 @@ input.page-title:hover:not(:focus) { border-block-end-color: var(--border-subtle
   gap: var(--sone-space-5);
 }
 
+/* Die Marke über einer abgemeldeten Karte (ADR-0202).
+ *
+ * Eigener Block statt Abstände am Lockup: die Karte setzt ihren Rhythmus über
+ * `gap`, und ein Rand am Signet wäre ein zweiter Abstand, der sich mit dem
+ * ersten addiert. Der Claim steht enger am Lockup als die Karte trennt — die
+ * beiden sind eine Einheit und nicht zwei Zeilen.
+ */
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sone-space-2);
+}
+.auth-claim {
+  color: var(--text-muted);
+  font-size: var(--sone-text-sm);
+  margin: 0;
+}
+
 /* A labelled control.
  *
  * Used by every panel that has not been rewritten into cards yet, so it carries

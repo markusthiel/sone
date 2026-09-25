@@ -13,6 +13,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Aktualisieren und neu starten, sonst nichts.
+
+**Die Anmeldeseite sagt jetzt, wessen sie ist.** Signet, Name und ein Satz
+darüber, was das hier ist — auf der Anmeldung, bei der Ersteinrichtung, beim
+Zurücksetzen des Passworts und beim Anlegen eines Kontos. Eine Instanz mit
+eigenem Logo zeigt ihres und ihren Namen. Dieselbe Anordnung wie in SOTE
+(ADR-0202).
+
 ## 0.14.12
 
 Aktualisieren und neu starten, sonst nichts. Wer SONE als App installiert hat,
