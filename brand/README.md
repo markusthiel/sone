@@ -41,16 +41,17 @@ bekommt.
 `sone-signet-adaptive.svg` ist die Ausnahme: es benutzt `currentColor` und
 `var(--accent)` und gehört nur in die Anwendung, nicht in fremde Dokumente.
 
-## Vier Balken, drei Balken
+## Vier Balken
 
-Das Signet hat **vier** Balken. Die dreibalkige Fassung ist keine Variante,
-sondern eine Notlösung für kleine Flächen: unter etwa 24 px schließen die vier
-Balken zu einem Block. Sie steckt in `favicon.svg`, in den Icons bis 64 px und
-in `sone-signet-3bar-*.svg`. Überall sonst: vier.
+Das Signet hat **vier** Balken, in jeder Größe und in jeder Datei. Es gab eine
+dreibalkige Notfassung für kleine Flächen — sie steckte im Favicon und in den
+Icons bis 64 px, und sie ist ersatzlos weg.
 
 Drei gestapelte Linien sind ein Burger-Menü. Der vierte Balken, der wieder
-heraustritt, ist der Grund, dass die Marke ein Baum ist und kein Menü — deshalb
-gilt die Ausnahme nur, wo vier physisch nicht mehr lesbar sind.
+heraustritt, ist der Grund, dass die Marke ein Baum ist und kein Menü. Genau
+deshalb war die Ausnahme dort am teuersten, wo sie galt: im Tab, im Dock und auf
+dem Startbildschirm sieht man nur das kleine Bild, und das war dann nicht die
+Marke.
 
 ## Schutzraum und Mindestgrößen
 
@@ -58,8 +59,8 @@ Siehe `guideline/sone-konstruktion.pdf`.
 
 - **Schutzraum**: mindestens ¼ der Signethöhe auf allen vier Seiten. Nichts
   hinein — kein Text, keine Kante, kein zweites Logo.
-- **Signet, vier Balken**: ab 24 px bzw. 8 mm Höhe.
-- **Signet, drei Balken**: bis 24 px.
+- **Signet**: ab 24 px bzw. 8 mm Höhe. Darunter wird es nicht ersetzt, sondern
+  weggelassen — ein Icon-Kachel mit hellem Grund trägt es bis 16 px.
 - **Lockup**: ab 96 px bzw. 30 mm Breite.
 
 ## Nicht

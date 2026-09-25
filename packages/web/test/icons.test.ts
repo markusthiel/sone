@@ -66,13 +66,19 @@ test('/favicon.ico is present whether or not it is declared', () => {
   assert.ok(exists('favicon.ico'));
 });
 
-test('the favicon carries the three-bar build', () => {
-  // Four bars close into a block at tab size. Three is the small-size
-  // exception and lives here and in the icons up to 64px — nowhere else.
+test('the favicon is the mark itself: four bars on the light tile', () => {
+  /*
+   * Both halves of this were wrong until ADR-0201, and both were visible only
+   * where nothing else is: an installed application shows the small picture and
+   * nothing around it. The tile was the ink one, so SONE sat black beside
+   * SOTE's paper white; and the bars were the three-bar emergency build, so the
+   * picture was not the logo the interface draws all day.
+   */
   const svg = read('favicon.svg');
-  assert.equal((svg.match(/<rect/g) ?? []).length, 4, 'a tile plus three bars');
-  assert.match(svg, /fill="#6fc0b0"/, 'the third bar carries the dark-theme accent');
-  assert.match(svg, /fill="#161615"/, 'on the ink tile');
+  assert.equal((svg.match(/<rect/g) ?? []).length, 5, 'a tile plus four bars');
+  assert.match(svg, /<rect width="100" height="100" fill="#faf8f4"\/>/, 'on the paper tile');
+  assert.match(svg, /fill="#2f7d6f"/, 'the third bar carries the light-ground accent');
+  assert.doesNotMatch(svg, /fill="#6fc0b0"/, 'and not the dark-ground one');
 });
 
 test('the social card is served and described', () => {
