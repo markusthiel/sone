@@ -13,6 +13,15 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Aktualisieren und neu starten, sonst nichts.
+
+**Eine getippte Adresse wird nicht mehr buchstabenweise verlinkt.** In 0.14.9
+wurde aus `https://n` sofort ein Link, und der Rest der Adresse lief als
+normaler Text daneben weiter. Verlinkt wird jetzt wieder erst, wenn das
+Leerzeichen kommt oder der Cursor den Block verlässt — so wie es gemeint war
+(ADR-0198). Bereits halb verlinkte Adressen im Text bleiben, wie sie sind; ein
+Klick hinein und das Schloss-Menü setzen sie gerade.
+
 ## 0.14.9
 
 Aktualisieren und neu starten, sonst nichts.

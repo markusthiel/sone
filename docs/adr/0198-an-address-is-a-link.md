@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Built.
+Accepted. Built. The "leaving the block" half was wrong in 0.14.9 and corrected
+in 0.14.10 — see *Correction* at the end.
 
 ## Context
 
@@ -68,3 +69,27 @@ reason some people distrust autolinking altogether.
 - Code blocks are left alone: there an address is being shown, not offered.
 - One keystroke stays one transaction — the space is inserted by the same
   transaction that adds the mark, so undo takes one press.
+
+## Correction, 0.14.10
+
+> Also wenn ich jetzt einen Link eintippe wird schon nach den ersten Buchstaben
+> ein Link gesetzt der dann unvollständig ist und ich tippe weiter und es geht
+> dann mit normalen Text weiter
+
+The decision above is unchanged; the first implementation of it was not what it
+says. "Has the caret left the block" was asked as
+`oldState.selection.$from.parent === newState.selection.$from.parent` — a
+comparison of node *objects*. ProseMirror rebuilds a node on every edit, so two
+structurally identical blocks are never the same object and that condition held
+on every keystroke. The address was linked the instant its first characters
+matched, and the rest was typed outside the mark.
+
+Compared by position now: the old caret, mapped into the new document, is asked
+whether it still sits in the block the caret is in. Typing keeps both in the
+same block; a split moves one of them.
+
+Worth stating plainly, because the test suite had eleven cases and none of them
+caught it: every one drove the plugin through `handleTextInput` or through a
+single split, and the broken path only shows when an *ordinary* keystroke goes
+through `appendTransaction` — which is what the editor does all day and what no
+test did. The regression test types the address one character at a time.

@@ -193,6 +193,39 @@ test('only unmistakable addresses are pasted as links', () => {
   }
 });
 
+test('typing an address does not link it a letter at a time', () => {
+  /*
+   * Reported with a picture: `https://n` was a link and `atec-bw.de` was not,
+   * because the condition for "the caret left the block" compared node
+   * *objects* — and a node is rebuilt on every edit, so it was true on every
+   * keystroke. The address was linked the moment its first character made it
+   * match, and the rest of it was typed outside the mark.
+   */
+  let state = stateWith('https://');
+  for (const character of 'natec-bw.de') {
+    const at = state.selection.from;
+    state = state.apply(state.tr.insertText(character, at));
+    assert.equal(
+      linkOn(state, 'https://'),
+      null,
+      `nothing is linked while "${state.doc.textBetween(1, state.selection.from)}" is still being typed`,
+    );
+  }
+
+  // And then the space settles it, over the whole address.
+  const after = typeSpace(state);
+  assert.equal(linkOn(after, 'https://natec-bw.de'), 'https://natec-bw.de');
+});
+
+test('editing inside a block does not link', () => {
+  // The same mistake from the other side: a change that is not a keystroke at
+  // the end — a deletion here — must not settle anything either.
+  let state = stateWith('https://example.org und mehr');
+  const end = state.selection.from;
+  state = state.apply(state.tr.delete(end - 5, end));
+  assert.equal(linkOn(state, 'https://example.org'), null);
+});
+
 // --- leaving the block -----------------------------------------------------
 
 test('leaving the block links the address the caret just left', () => {
