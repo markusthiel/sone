@@ -13,6 +13,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.14.12
+
 Aktualisieren und neu starten, sonst nichts. Wer SONE als App installiert hat,
 entfernt sie einmal und legt sie neu an — ein installiertes Icon wird vom
 Betriebssystem zwischengespeichert.
