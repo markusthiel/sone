@@ -1,7 +1,7 @@
 {
   "name": "sone",
   "private": true,
-  "version": "0.14.11",
+  "version": "0.14.12-dev",
   "license": "AGPL-3.0-only",
   "packageManager": "pnpm@9.15.0",
   "engines": {
