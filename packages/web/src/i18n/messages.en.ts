@@ -2028,6 +2028,7 @@ export const en = {
   'auth.passwordHint': 'At least 12 characters. Length beats complexity.',
   'auth.createWorkspace': 'Create workspace',
   'auth.creatingWorkspace': 'Setting up…',
+  'auth.claim': 'Structure what you know. On your own server.',
   'auth.signIn': 'Sign in',
   'auth.signingIn': 'Signing in…',
   'auth.createAccount': 'Create an account',

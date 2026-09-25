@@ -2112,6 +2112,8 @@ export const de: Record<keyof typeof en, string> = {
   'auth.passwordHint': 'Mindestens 12 Zeichen. Länge schlägt Komplexität.',
   'auth.createWorkspace': 'Workspace anlegen',
   'auth.creatingWorkspace': 'Wird eingerichtet…',
+  'auth.claim':
+    '{address, select, formal {Wissen strukturieren. Auf Ihrem Server.} other {Wissen strukturieren. Auf deinem Server.}}',
   'auth.signIn': 'Anmelden',
   'auth.signingIn': 'Wird angemeldet…',
   'auth.createAccount': 'Konto anlegen',
