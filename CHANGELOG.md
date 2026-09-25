@@ -13,6 +13,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+Aktualisieren und neu starten, sonst nichts.
+
+**Enter wählt im `/`-Menü wieder den Eintrag aus.** Bisher teilte es stattdessen
+den Absatz, und das getippte `/tabelle` blieb als Text stehen — die Pfeiltasten
+gingen, Enter nicht. Das Menü wird jetzt vor den Tastenbelegungen gefragt; für
+`@` und `[[` gilt dasselbe (ADR-0200).
+
+**Eine eingefügte Tabelle nimmt die Schreibmarke mit.** Sie stand danach noch da,
+wo sie vorher war, und das Nächste landete in irgendeiner Zelle. Jetzt in der
+ersten (ADR-0200).
+
 ## 0.14.10
 
 Aktualisieren und neu starten, sonst nichts.

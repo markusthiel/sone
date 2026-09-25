@@ -216,9 +216,36 @@ export function createEditorState(opts: EditorOptions): EditorState {
       'Shift-Mod-z': yRedo,
     }),
     soneInputRules(),
+    /*
+     * BEFORE the keymaps, not after them (ADR-0200).
+     *
+     * This sat after `soneKeymap` for months, with a comment claiming that is
+     * what lets the menu see Enter and the arrows "first". It is the wrong way
+     * round: `EditorView.someProp` walks the plugins in array order and stops
+     * at the first one that returns true, so a plugin at the back is asked
+     * last. The arrows arrived anyway because the keymap has no binding for
+     * them; Enter did not, because it has one. So with the menu open, Enter
+     * split the block instead of picking the highlighted item, and the typed
+     * `/tabelle` stayed in the text.
+     *
+     * Found in SOTE, which carries a copy of this package and corrected it
+     * there.
+     */
+    slashMenu(opts.localiseSlashItem, opts.offersSlashItem),
+    // Naming somebody in the text (ADR-0085). The same place, for the same
+    // reason. This one takes only Escape: the arrows and Enter belong to the
+    // interface, which owns the list of people this package deliberately knows
+    // nothing about.
+    mentionMenu(),
+    // Linking a page from the writing (ADR-0173). Beside the mentions rather
+    // than before them, because the two triggers cannot both be open: `[[` is
+    // not `@`, so whichever one matched is the only one holding a state, and
+    // the order between them decides nothing.
+    pageLinkMenu(),
     // Before soneKeymap, so Tab moves between cells inside a table instead of
     // indenting the paragraph in a cell. Outside a table goToNextCell refuses
-    // and the block binding takes over.
+    // and the block binding takes over. After the menus, so an open menu takes
+    // Tab to pick an item — it answers Tab only while it is open.
     keymap(tableKeymap),
     ...soneKeymap(),
     blockIds(opts.generateId ? { generateId: opts.generateId } : {}),
@@ -247,20 +274,6 @@ export function createEditorState(opts: EditorOptions): EditorState {
     ...(opts.uploadImage
       ? [imagePaste({ upload: opts.uploadImage, ...(opts.generateId ? { generateId: opts.generateId } : {}) })]
       : []),
-    // After the keymap, so the menu's handleKeyDown sees Enter and the arrows
-    // first while it is open. ProseMirror asks plugins in order and stops at
-    // the first that handles a key; the other way round, Enter would split the
-    // block instead of picking an item.
-    slashMenu(opts.localiseSlashItem, opts.offersSlashItem),
-    // Naming somebody in the text (ADR-0085). After the slash menu, and it
-    // takes only Escape: the arrows and Enter belong to the interface, which
-    // owns the list of people this package deliberately knows nothing about.
-    mentionMenu(),
-    // Linking a page from the writing (ADR-0173). The same arrangement again,
-    // and beside the mentions rather than before them because the two triggers
-    // cannot both be open: `[[` is not `@`, so whichever one matched is the
-    // only one holding a state, and the order between them decides nothing.
-    pageLinkMenu(),
     // One filter for every locked block (ADR-0049). Before the application's
     // own plugins, so a supplied plugin cannot dispatch past it.
     blockLock(),
