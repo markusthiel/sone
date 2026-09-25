@@ -13,6 +13,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.14.11
+
 Aktualisieren und neu starten, sonst nichts.
 
 **Enter wählt im `/`-Menü wieder den Eintrag aus.** Bisher teilte es stattdessen
