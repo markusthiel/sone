@@ -229,13 +229,24 @@ export function autoLink(): Plugin {
     appendTransaction(transactions, oldState, newState) {
       if (!transactions.some((transaction) => transaction.docChanged)) return null;
 
-      const $before = oldState.selection.$from;
-      const $after = newState.selection.$from;
-      if ($before.parent === $after.parent) return null;
-
       // Where the caret was, in the document as it now is.
       let left = oldState.selection.from;
       for (const transaction of transactions) left = transaction.mapping.map(left, -1);
+
+      /*
+       * Still in the same block? Then nothing was left, and there is nothing to
+       * decide yet.
+       *
+       * Compared by *position*, not by node. The first version of this asked
+       * whether `oldState.selection.$from.parent === newState.selection.$from.parent`
+       * — and a node is rebuilt on every edit, so two identical objects are
+       * never the same object. The condition was therefore true on every single
+       * keystroke: typing `https://n` linked those nine characters the moment
+       * they matched, and everything after them stayed outside the link, which
+       * is the report this fixes.
+       */
+      const $left = newState.doc.resolve(left);
+      if ($left.start() === newState.selection.$from.start()) return null;
 
       return linkAddressBefore(newState, left);
     },
