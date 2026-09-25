@@ -13,6 +13,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.14.10
+
 Aktualisieren und neu starten, sonst nichts.
 
 **Eine getippte Adresse wird nicht mehr buchstabenweise verlinkt.** In 0.14.9
