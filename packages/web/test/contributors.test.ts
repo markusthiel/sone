@@ -77,7 +77,15 @@ test('the panel does not reach into the editor itself', () => {
   // It has no view to dispatch on, and handing one across would let any panel
   // dispatch anything into the editor's own update path.
   assert.doesNotMatch(source, /EditorView/);
-  assert.match(source, /onHighlight\?\.\(/);
+  assert.match(source, /chooseAuthor\(/);
+});
+
+test('the chosen person is read, not held here (ADR-0203)', () => {
+  // A copy in this component dies with the tab while the decorations in the
+  // editor live on: the panel comes back saying nobody is chosen over a page
+  // that is still marked, and the next click re-chooses instead of clearing.
+  assert.match(source, /useSyncExternalStore\(subscribeChosenAuthor, chosenAuthor, chosenAuthor\)/);
+  assert.doesNotMatch(source, /useState<string \| null>\(null\)/);
 });
 
 test('the bridge is one command, and is cleared when the editor goes', () => {
@@ -89,8 +97,8 @@ test('the bridge is one command, and is cleared when the editor goes', () => {
     'utf8',
   );
   assert.match(bridge, /export function registerHighlighter/);
-  assert.match(bridge, /export function highlightAuthor/);
-  assert.match(bridge, /current\?\.\(clients\)/, 'a call with no editor does nothing');
+  assert.match(bridge, /export function chooseAuthor/);
+  assert.match(bridge, /current\?\.\(userId \? clients : null\)/, 'a call with no editor does nothing');
 
   const surface = readFileSync(
     new URL('../src/components/EditorSurface.tsx', import.meta.url),
@@ -100,11 +108,25 @@ test('the bridge is one command, and is cleared when the editor goes', () => {
 });
 
 test('the chosen person does not travel to the next page', () => {
-  // A new page means a new editor, which draws nothing until asked — so a
-  // selection left showing would claim a highlight that is not on screen. This
-  // is a way of looking at one document, not a setting.
+  /*
+   * A new page means a new editor, which draws nothing until asked — so a
+   * selection left showing would claim a highlight that is not on screen. This
+   * is a way of looking at one document, not a setting.
+   *
+   * Cleared where the editor is built and torn down, not in this component's
+   * effect: that effect is keyed on the handle, and the handle is rebuilt on
+   * every notification, so clearing there switched the highlight off at
+   * unpredictable moments while somebody was reading one page (ADR-0203).
+   */
+  const bridge = readFileSync(
+    new URL('../src/components/authorHighlightBridge.ts', import.meta.url),
+    'utf8',
+  );
+  const register = bridge.slice(bridge.indexOf('export function registerHighlighter'));
+  assert.match(register.slice(0, 300), /chosen = null/);
+
   const effect = source.slice(source.indexOf('useEffect(() => {'));
-  assert.match(effect.slice(0, 400), /setSelected\(null\)/);
+  assert.doesNotMatch(effect.slice(0, 900), /clearChosenAuthor\(\)/);
 });
 
 test('nothing about the highlight is written to the document', () => {

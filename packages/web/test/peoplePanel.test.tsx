@@ -67,7 +67,7 @@ function sync(a: Y.Doc, b: Y.Doc): void {
   Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
 }
 
-/** What the panel asked the editor to mark. */
+/** What the panel asked the editor to mark, through the real bridge. */
 let highlighted: Array<number[] | null> = [];
 
 describe('the People panel', () => {
@@ -112,24 +112,44 @@ describe('the People panel', () => {
     dom?.window.close();
   });
 
+  /**
+   * Mount the panel over a document, with a fresh editor registered.
+   *
+   * Through the real bridge rather than an injected callback (ADR-0203): the
+   * selection lives there now, and a stub would test a wire that no longer
+   * carries it. Registering stands in for a page opening, which is also what
+   * clears whatever the last test chose.
+   */
   async function mount(doc: Y.Doc): Promise<void> {
-    highlighted = [];
     const { createElement } = await import('react');
     const { Contributors } = await import('../src/components/Contributors.tsx');
-    // Unmounted first: the chosen person lives in the component, so a second
-    // mount over a live one would inherit the previous test's selection.
+    const { registerHighlighter } = await import('../src/components/authorHighlightBridge.ts');
     await render(null);
+    registerHighlighter((clients: number[] | null) => highlighted.push(clients));
+    highlighted = [];
     await render(
       createElement(Contributors as never, {
         handle: { doc },
         workspaceId: 'w1',
-        onHighlight: (clients: number[] | null) => highlighted.push(clients),
       }),
     );
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
   }
+
+  /** Click the first listed writer. */
+  async function clickFirst(): Promise<void> {
+    const button = container.querySelector('button.contributor');
+    assert.ok(button, 'a writer is listed');
+    await act(async () => {
+      button.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    });
+  }
+
+  /** Whether the panel draws that person as chosen. */
+  const pressed = (): string | null =>
+    container.querySelector('button.contributor')?.getAttribute('aria-pressed') ?? null;
 
   /** Every name the panel has drawn. */
   const names = (): string[] =>
@@ -209,13 +229,80 @@ describe('the People panel', () => {
     anna.getXmlFragment(DOC_KEYS.content).insert(0, [new Y.XmlText('etwas')]);
     await mount(anna);
 
-    const button = container.querySelector('button.contributor');
-    assert.ok(button, 'a writer is listed');
-    await act(async () => {
-      button.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    });
+    await clickFirst();
 
     assert.deepEqual(highlighted, [[anna.clientID]]);
+  });
+
+  // --- the switch is always reachable (ADR-0203) ------------------------------
+
+  test('leaving the tab and coming back shows the person still chosen', async () => {
+    /*
+     * The report: a document highlighted from top to bottom, a panel that said
+     * nobody was chosen, and no way off. The panel is one tab of nine and React
+     * unmounts the others, so a selection held here died with the tab while the
+     * decorations — which live in the editor — did not.
+     */
+    const anna = session(ANNA);
+    anna.getXmlFragment(DOC_KEYS.content).insert(0, [new Y.XmlText('etwas')]);
+    await mount(anna);
+    await clickFirst();
+    assert.equal(pressed(), 'true');
+
+    // Switching to another tab, and back.
+    const { createElement } = await import('react');
+    const { Contributors } = await import('../src/components/Contributors.tsx');
+    await render(null);
+    await render(
+      createElement(Contributors as never, { handle: { doc: anna }, workspaceId: 'w1' }),
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    assert.equal(pressed(), 'true', 'the page is still marked, and the panel says so');
+
+    // And one press is enough to stop it, rather than re-choosing the same
+    // person and appearing to do nothing.
+    await clickFirst();
+    assert.equal(pressed(), 'false');
+    assert.deepEqual(highlighted.at(-1), null);
+  });
+
+  test('a page opening clears whoever was chosen on the last one', async () => {
+    // A new editor draws nothing until it is asked, so a selection carried into
+    // it would be a claim about a page nobody has marked.
+    const anna = session(ANNA);
+    anna.getXmlFragment(DOC_KEYS.content).insert(0, [new Y.XmlText('etwas')]);
+    await mount(anna);
+    await clickFirst();
+    assert.equal(pressed(), 'true');
+
+    const { registerHighlighter, chosenAuthor } = await import(
+      '../src/components/authorHighlightBridge.ts'
+    );
+    registerHighlighter(null);
+    assert.equal(chosenAuthor(), null);
+  });
+
+  test('a closed panel marks nobody', async () => {
+    // The panel slides out rather than unmounting, so without this the only
+    // control that unchooses somebody sits off screen, inert, still chosen.
+    const anna = session(ANNA);
+    anna.getXmlFragment(DOC_KEYS.content).insert(0, [new Y.XmlText('etwas')]);
+    await mount(anna);
+    await clickFirst();
+
+    const { clearChosenAuthor, chosenAuthor } = await import(
+      '../src/components/authorHighlightBridge.ts'
+    );
+    await act(async () => {
+      clearChosenAuthor();
+    });
+
+    assert.equal(chosenAuthor(), null);
+    assert.deepEqual(highlighted.at(-1), null, 'and the editor is told');
+    assert.equal(pressed(), 'false', 'and the panel follows');
   });
 
   test('every sentence on it is in the catalogue', async () => {

@@ -61,7 +61,7 @@ import { CommentsPanel } from './CommentsPanel.tsx';
 import { LinksPanel } from './LinksPanel.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { Contributors } from './Contributors.tsx';
-import { highlightAuthor } from './authorHighlightBridge.ts';
+import { clearChosenAuthor } from './authorHighlightBridge.ts';
 
 export const RIGHT_TABS = [
   'outline',
@@ -255,6 +255,20 @@ export function RightSidebar({
    * would quietly reset the workspace's own panel to the outline. A view that
    * cannot offer every tab has no business deciding which one everybody gets.
    */
+  /*
+   * A closed panel marks nobody (ADR-0203).
+   *
+   * The panel slides out rather than unmounting — it is `inert`, not gone — so
+   * the People tab can still be holding a chosen person while the only control
+   * that unchooses them is off screen. That is the shape of the report: a
+   * document highlighted end to end with nothing on screen admitting to it.
+   * The highlight is a way of looking at the page through this panel, so it
+   * ends when the panel does.
+   */
+  useEffect(() => {
+    if (!open) clearChosenAuthor();
+  }, [open]);
+
   const remembers = tabs.length === RIGHT_TABS.length;
   useEffect(() => {
     if (!remembers) return;
@@ -325,11 +339,7 @@ export function RightSidebar({
           {/* Who has written here — not who is here now, which the circles at
               the top of the page show instead (ADR-0022). */}
           {tab === 'people' && (
-            <Contributors
-              handle={handle}
-              workspaceId={workspaceId}
-              onHighlight={highlightAuthor}
-            />
+            <Contributors handle={handle} workspaceId={workspaceId} />
           )}
           {tab === 'files' && <FilesPanel handle={handle} />}
           {tab === 'images' && <ImagesPanel handle={handle} />}

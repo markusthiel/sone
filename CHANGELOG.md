@@ -15,6 +15,14 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 Aktualisieren und neu starten, sonst nichts.
 
+**Die Autoren-Hervorhebung lässt sich wieder abschalten.** Wer in der
+Leute-Leiste eine Person ausgewählt hatte und dann den Reiter wechselte oder die
+Leiste schloss, hatte eine durchgehend eingefärbte Seite ohne sichtbaren
+Schalter dazu — und beim nächsten Versuch wählte der erste Klick dieselbe Person
+erneut aus, statt abzuschalten. Die Auswahl liegt jetzt beim Editor, die Leiste
+zeigt sie nach der Rückkehr korrekt an, ein Klick genügt, und eine geschlossene
+Leiste markiert niemanden ([ADR-0203](docs/adr/0203-die-hervorhebung-lebt-neben-ihrem-schalter.md)).
+
 **Die Anmeldeseite sagt jetzt, wessen sie ist.** Signet, Name und ein Satz
 darüber, was das hier ist — auf der Anmeldung, bei der Ersteinrichtung, beim
 Zurücksetzen des Passworts und beim Anlegen eines Kontos. Eine Instanz mit
