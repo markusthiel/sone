@@ -30,19 +30,12 @@
 import type { PageHandle } from '@sone/client';
 import { useT } from '../i18n/useT.tsx';
 import { guestName, hasUnattributedWriting, isGuestKey, writersIn } from '@sone/client';
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactElement } from 'react';
 
 import { api, type WorkspaceMember } from '../api/client.ts';
+import { chooseAuthor, chosenAuthor, subscribeChosenAuthor } from './authorHighlightBridge.ts';
 
 interface ContributorsProps {
-  /**
-   * Marks one person's writing in the editor, or clears it with null.
-   *
-   * Passed in rather than reached for: the editor view lives in the surface,
-   * and a panel dispatching into it directly would be a second way to change
-   * the document's decorations.
-   */
-  onHighlight?: (clients: number[] | null) => void;
   /**
    * Null while a page is still opening.
    *
@@ -54,13 +47,18 @@ interface ContributorsProps {
   workspaceId: string;
 }
 
-export function Contributors({
-  handle,
-  workspaceId,
-  onHighlight,
-}: ContributorsProps): ReactElement {
+export function Contributors({ handle, workspaceId }: ContributorsProps): ReactElement {
   const { t } = useT();
-  const [selected, setSelected] = useState<string | null>(null);
+  /*
+   * Read, not held (ADR-0203).
+   *
+   * The highlight is drawn by the editor and outlives this component — the
+   * panel has nine tabs and React unmounts the eight that are not showing. A
+   * copy kept here would come back as "nobody" over a page that is still
+   * marked, and the first click would then re-select the same person instead of
+   * switching the marking off.
+   */
+  const selected = useSyncExternalStore(subscribeChosenAuthor, chosenAuthor, chosenAuthor);
   const [userIds, setUserIds] = useState<string[]>(() =>
     handle ? [...writersIn(handle.doc).keys()] : [],
   );
@@ -83,12 +81,21 @@ export function Contributors({
   // From the document, and again whenever it changes: somebody joining and
   // typing should appear without a reload.
   useEffect(() => {
-    // The chosen person does not travel to the next page.
-    //
-    // A new page means a new editor, which draws nothing until it is asked —
-    // so a selection left showing here would claim a highlight that is not on
-    // screen. This is a way of looking at one document, not a setting.
-    setSelected(null);
+    /*
+     * The chosen person does not travel to the next page — and clearing that is
+     * not this component's job (ADR-0203).
+     *
+     * A new page means a new editor, which draws nothing until it is asked, so
+     * a selection carried into it would claim a highlight that is not on
+     * screen. The surface registers the new editor's command as it builds it,
+     * and the bridge clears the selection there: one event, at the moment the
+     * decorations actually go.
+     *
+     * Clearing it *here* was tried and is wrong. This effect is keyed on the
+     * handle, and the handle object is rebuilt on every notification — so the
+     * highlight would switch itself off at unpredictable moments while
+     * somebody was reading one page.
+     */
 
     if (!handle) {
       setUserIds([]);
@@ -174,8 +181,7 @@ export function Contributors({
                   // Selecting the same person again clears it. A highlight with
                   // no way off is a mode somebody gets stuck in.
                   const next = chosen ? null : person.userId;
-                  setSelected(next);
-                  onHighlight?.(next ? (clientsByUser.get(next) ?? []) : null);
+                  chooseAuthor(next, next ? (clientsByUser.get(next) ?? []) : []);
                 }}
               >
                 <span
