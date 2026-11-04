@@ -65,6 +65,23 @@ jsdom does not verify rendering, layout or real input events — those still nee
 a browser. It verifies that the editor mounts, receives its document, accepts a
 transaction, writes back to Yjs, and tears down twice without complaint.
 
+## Editor layout in real browsers
+
+The mobile editor regressions use the real editor and stylesheet with a local
+Yjs document. No demo account or database is needed:
+
+```sh
+pnpm --filter @sone/web exec playwright install --with-deps chromium webkit
+pnpm --filter @sone/web test:browser
+```
+
+These cover clipped block menus, document-wide selection, partly visible blocks,
+touch targets and resizing while a popup is open. Chromium and WebKit both run;
+WebKit uses iPhone and iPad device profiles. Physical iOS keyboards and native
+selection gestures still need device testing. Set `SONE_BROWSER_ARTIFACTS` to
+a directory to save screenshots, or `PLAYWRIGHT_WEBKIT_EXECUTABLE` to use an
+existing WebKit installation.
+
 ## Why no mocked database
 
 The database tests run against a real Postgres. A mocked `pg` client would

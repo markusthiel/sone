@@ -15,6 +15,17 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 Aktualisieren und neu starten, sonst nichts.
 
+**Editor-Menüs bleiben auf dem Bildschirm.** Blockaktionen und Formatierung
+werden innerhalb des sichtbaren Bereichs platziert, auch bei langen Absätzen,
+großer Textauswahl und verkleinertem Sichtbereich. Auf Touchgeräten stehen Plus
+und Blockmenü als getrennte 44-Pixel-Ziele untereinander im Rand.
+
+**Unsichere Linkziele werden auch mit Steuerzeichen abgewiesen.** Tabs oder
+Zeilenumbrüche konnten ein ausführbares URL-Schema am Linkfilter vorbeiführen.
+Solche Ziele werden beim Einfügen abgelehnt; bereits gespeicherte Links werden
+als Text angezeigt und auch beim HTML-Export ohne aktives Ziel ausgegeben.
+Details und Prüfgrenzen: [ADR-0204](docs/adr/0204-editor-menues-und-linkziele.md).
+
 **Die Autoren-Hervorhebung lässt sich wieder abschalten.** Wer in der
 Leute-Leiste eine Person ausgewählt hatte und dann den Reiter wechselte oder die
 Leiste schloss, hatte eine durchgehend eingefärbte Seite ohne sichtbaren

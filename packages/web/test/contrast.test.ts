@@ -33,7 +33,7 @@ import { describe, test } from 'node:test';
 
 import { AA, WORST_GROUND, contrastRatio, luminance, mixSrgb, readableInk, toHex } from '@sone/core';
 
-const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8').replace(
+const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n').replace(
   /\/\*[\s\S]*?\*\//g,
   '',
 );

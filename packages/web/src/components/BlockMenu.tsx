@@ -54,9 +54,10 @@ import {
 import type { Command } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 
 import { useViewportChanges } from '../hooks/useViewportChanges.ts';
+import { editorOverlayBounds, placeEditorOverlay, visibleBlockTop, type OverlayPlacement } from '../lib/editorOverlay.ts';
 
 import {
   LockIcon,
@@ -679,6 +680,7 @@ export function BlockMenu({
   const { copy, copied } = useCopyToClipboard();
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [placement, setPlacement] = useState<OverlayPlacement | null>(null);
   const [retryToken, setRetryToken] = useState(0);
   const gutterRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -700,11 +702,11 @@ export function BlockMenu({
   // The editor's own box as well as the window: the page panel opening narrows
   // the text without any window event, and a stale anchor then puts these
   // controls where the text used to be.
-  const viewportToken = useViewportChanges(from !== null, view.dom as HTMLElement);
+  const viewportToken = useViewportChanges(from !== null, view.dom as HTMLElement, panelRef.current);
 
   // Positioned from the block's own DOM node rather than from the caret, so the
   // button sits beside the block and not beside the cursor within it.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (from === null) {
       setAnchor(null);
       return;
@@ -731,6 +733,13 @@ export function BlockMenu({
 
       const box = blockElement.getBoundingClientRect();
       const editorBox = view.dom.getBoundingClientRect();
+      const bounds = editorOverlayBounds(view.dom);
+      const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+      const top = visibleBlockTop(box, gutterRef.current?.offsetHeight || (touch ? 90 : 26), bounds);
+      if (top === null) {
+        setAnchor(null);
+        return;
+      }
 
       // Placed so its *right* edge stops short of the text, rather than its
       // left edge starting at the editor's.
@@ -750,15 +759,15 @@ export function BlockMenu({
       // Measured when the gutter exists, and otherwise the width the
       // stylesheet gives it. The fallback is only used on the very first
       // placement, and a test keeps the two in step.
-      const gutterWidth = gutterRef.current?.offsetWidth || GUTTER_WIDTH;
+      const gutterWidth = gutterRef.current?.offsetWidth || (touch ? 44 : GUTTER_WIDTH);
       const textStart = editorBox.left + (Number.isFinite(padding) ? padding : 0);
 
       setAnchor({
-        top: box.top,
+        top,
         // Clamped to the viewport: on a narrow screen there may genuinely be no
         // room beside the text, and a control pushed off the left edge is worse
         // than one that overlaps slightly.
-        left: Math.max(2, textStart - gutterWidth - GUTTER_GAP),
+        left: Math.max(bounds.left + 2, textStart - gutterWidth - GUTTER_GAP),
       });
     } catch {
       // A stale position for a frame after a document change. Retried on the
@@ -770,6 +779,21 @@ export function BlockMenu({
     }
     return undefined;
   }, [view, from, revision, retryToken, viewportToken]);
+
+  useLayoutEffect(() => {
+    if (!open || !anchor) {
+      setPlacement(null);
+      return;
+    }
+    const panel = panelRef.current;
+    setPlacement(placeEditorOverlay(
+      { top: anchor.top, bottom: anchor.top, left: anchor.left + (gutterRef.current?.offsetWidth || GUTTER_WIDTH) + 2 },
+      { width: panel?.offsetWidth || 220, height: panel ? panel.scrollHeight + 2 : 480 },
+      editorOverlayBounds(view.dom),
+      false,
+      0,
+    ));
+  }, [view, open, anchor, revision, viewportToken]);
 
   useEffect(() => {
     if (!open) return;
@@ -929,7 +953,7 @@ export function BlockMenu({
           ref={panelRef}
           // Offset past both gutter buttons, so the menu does not cover the
           // control that opened it.
-          style={{ top: anchor.top, left: anchor.left + 56 }}
+          style={placement ?? { visibility: 'hidden' }}
           role="menu"
           {...keepsEditorSelection}
         >

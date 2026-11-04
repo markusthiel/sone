@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { JSDOM } from 'jsdom';
-import { DOMParser } from 'prosemirror-model';
+import { DOMParser, DOMSerializer } from 'prosemirror-model';
 
 import { isFollowable } from '../src/hrefs.js';
 import { schema } from '../src/schema.js';
@@ -26,6 +26,16 @@ test('an address that executes is not an address', () => {
   // The two shapes a filter written against the whole string gets wrong.
   assert.equal(isFollowable('  JavaScript:alert(1)'), false);
   assert.equal(isFollowable('JAVASCRIPT:alert(1)'), false);
+});
+
+test('URL-parser normalization cannot disguise an executing scheme', () => {
+  for (const href of [
+    'java\tscript:void(0)', 'java\nscript:void(0)', 'java\rscript:void(0)',
+    '\u0000JaVaScRiPt:void(0)', 'da\tta:text/html,x', 'vb\nscript:msgbox',
+  ]) {
+    assert.equal(isFollowable(href), false, JSON.stringify(href));
+  }
+  assert.equal(isFollowable('https://['), false, 'malformed addresses are refused');
 });
 
 test('and everything anybody actually links to is', () => {
@@ -80,6 +90,26 @@ test('a pasted link that executes keeps its words and loses its link', () => {
     'no link mark at all',
   );
   assert.deepEqual(hrefsAfterPaste('<p><a href="data:text/html,x">daten</a></p>'), []);
+});
+
+test('HTML character references cannot smuggle an executable link through paste', () => {
+  for (const separator of ['&#9;', '&#10;', '&#13;', '\t', '\n', '\r']) {
+    assert.deepEqual(hrefsAfterPaste(`<p><a href="java${separator}script:void(0)">text</a></p>`), []);
+  }
+});
+
+test('unsafe links already stored in a document render as text, including HTML export', () => {
+  const dom = new JSDOM('<!doctype html><body></body>');
+  try {
+    for (const href of ['javascript:void(0)', 'java\tscript:void(0)', 'data:text/html,x']) {
+      const node = schema.node('paragraph', null, [schema.text('keep these words', [schema.mark('link', { href })])]);
+      const element = DOMSerializer.fromSchema(schema).serializeNode(node, { document: dom.window.document }) as HTMLElement;
+      assert.equal(element.textContent, 'keep these words');
+      assert.equal(element.querySelector('a[href]'), null, href);
+    }
+  } finally {
+    dom.window.close();
+  }
 });
 
 test('and the ordinary ones come through untouched', () => {

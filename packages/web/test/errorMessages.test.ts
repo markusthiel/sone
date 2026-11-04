@@ -137,7 +137,7 @@ test('the German catalogue says the same things as the English one', () => {
  */
 test('a message asks for nothing its callers do not supply', () => {
   const catalogue = (file: string): Map<string, Set<string> | null> => {
-    const source = readFileSync(new URL(`../src/i18n/${file}`, import.meta.url), 'utf8');
+    const source = readFileSync(new URL(`../src/i18n/${file}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
     const out = new Map<string, Set<string> | null>();
     for (const match of source.matchAll(/^ {2}'([\w.]+)':((?:.|\n)*?)(?=\n {2}'[\w.]+':|\n\};)/gm)) {
       const body = match[2] ?? '';

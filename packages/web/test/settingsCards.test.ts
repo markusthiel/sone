@@ -54,7 +54,7 @@ test('the gutter re-measures when the text moves, not only when the window does'
   // what is asserted now is the re-measure, and that the subtraction is gone.
   const menu = codeOf(new URL('../src/components/BlockMenu.tsx', import.meta.url));
   assert.doesNotMatch(menu, /originX|closest\('\.main'\)/);
-  assert.match(menu, /useViewportChanges\(from !== null, view\.dom as HTMLElement\)/);
+  assert.match(menu, /useViewportChanges\(from !== null, view\.dom as HTMLElement, panelRef\.current\)/);
 
   const hook = codeOf(new URL('../src/hooks/useViewportChanges.ts', import.meta.url));
   assert.match(hook, /new ResizeObserver\(bump\)/);

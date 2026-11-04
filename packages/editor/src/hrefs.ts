@@ -34,17 +34,19 @@ const EXECUTES = new Set(['javascript', 'data', 'vbscript']);
  * shared behind another host needs its own links to stay relative. Only an
  * explicit executing scheme is refused.
  *
- * The comparison is on the scheme alone, lower-cased: `JavaScript:` and
- * `java\tscript:` are the two shapes a filter written against the whole string
- * gets wrong, and neither survives being parsed as a scheme.
+ * Ask the same URL parser as the browser. A regex misses tabs and newlines
+ * inside a scheme, which the browser removes before interpreting it.
  */
 export function isFollowable(href: string): boolean {
   const trimmed = href.trim();
   if (trimmed === '') return false;
 
-  const match = /^([a-z][a-z0-9+.-]*):/i.exec(trimmed);
-  if (!match) return true;
-  return !EXECUTES.has(match[1]!.toLowerCase());
+  try {
+    const protocol = new URL(trimmed, 'https://sone.invalid/').protocol;
+    return !EXECUTES.has(protocol.slice(0, -1));
+  } catch {
+    return false;
+  }
 }
 
 /**

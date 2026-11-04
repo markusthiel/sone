@@ -101,7 +101,7 @@ const files = workflowDirs.flatMap((dir) =>
 );
 
 for (const { name, file } of files) {
-  const lines = fs.readFileSync(file, 'utf8').split('\n');
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
 
   lines.forEach((line, index) => {
     // Comments in these files are prose, and the prose discusses commands.

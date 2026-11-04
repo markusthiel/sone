@@ -1,0 +1,86 @@
+{
+  "date": "2026-11-04",
+  "repoHead": "76c26d4",
+  "deployedAsset": "index-Boi8C1Nk.js",
+  "authorshipBefore": {
+    "colored": 0,
+    "authored": 15,
+    "cursors": [
+      "⁠Markus Thiel⁠",
+      "⁠Editor-Test Gast⁠"
+    ],
+    "localSelection": 0,
+    "text": 2529
+  },
+  "authorshipAfterTab": {
+    "colored": 0,
+    "authored": 15,
+    "cursors": [
+      "⁠Markus Thiel⁠",
+      "⁠Editor-Test Gast⁠"
+    ],
+    "localSelection": 0,
+    "text": 2529
+  },
+  "handleAfterScroll": {
+    "selected": "",
+    "block": "Absatz 3: Dies ist eine Testnotiz für den mobilen Editor. Lange Zeilen",
+    "blockRect": {
+      "x": 60,
+      "y": -51.609375,
+      "width": 310,
+      "height": 138.515625,
+      "bottom": 86.90625
+    },
+    "gutter": {
+      "x": 2,
+      "y": -51.609375,
+      "width": 54,
+      "height": 26,
+      "bottom": -25.609375
+    },
+    "viewport": {
+      "height": 664,
+      "width": 390,
+      "offsetTop": 0,
+      "heightV": 664
+    },
+    "scrolls": [
+      {
+        "class": "main",
+        "top": 530
+      }
+    ]
+  },
+  "selectionToolbar": {
+    "top": 1712.421875,
+    "bottom": 1756.421875,
+    "viewportHeight": 664,
+    "selectionLength": 2530
+  },
+  "landscape": {
+    "blockTop": 418.96875,
+    "gutterTop": 418.96875,
+    "width": 1080,
+    "height": 810
+  },
+  "blockMenu": {
+    "iphone": {
+      "width": 390,
+      "height": 664,
+      "top": 478.390625,
+      "bottom": 943.1875
+    },
+    "ipad": {
+      "width": 810,
+      "height": 1080,
+      "top": 968.828125,
+      "bottom": 1554.078125
+    }
+  },
+  "guestTextPersisted": true,
+  "javascriptErrors": [
+    "webkit: /app-lzqhfqr0rbsaqlul6g2ntwht.apps.nlvbw.de/api/workspaces/b1bf3a0b-a69c-4d7a-8098-d177edaaec75/pages due to access control checks.",
+    "webkit: /app-lzqhfqr0rbsaqlul6g2ntwht.apps.nlvbw.de/api/workspaces/b1bf3a0b-a69c-4d7a-8098-d177edaaec75/pages due to access control checks."
+  ]
+}

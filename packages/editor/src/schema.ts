@@ -768,7 +768,9 @@ const marks: Record<string, MarkSpec> = {
         },
       },
     ],
-    toDOM: (mark) => [
+    // Existing CRDT documents do not pass through parseDOM on load. Render an
+    // old unsafe link as text too, including in exported HTML.
+    toDOM: (mark) => !isFollowable(String(mark.attrs['href'] ?? '')) ? ['span', 0] : [
       'a',
       {
         href: mark.attrs['href'] as string,

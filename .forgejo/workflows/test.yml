@@ -230,6 +230,11 @@ jobs:
       - name: Test
         run: pnpm -r test
 
+      - name: Test editor layout in Chromium and WebKit
+        run: |
+          pnpm --filter @sone/web exec playwright install --with-deps chromium webkit
+          pnpm --filter @sone/web test:browser
+
       - name: Verify the migration chain from empty
         run: |
           set -eu
