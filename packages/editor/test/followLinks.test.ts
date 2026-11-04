@@ -162,7 +162,7 @@ describe('a link in the text', () => {
     }
   });
 
-  test('an address that executes is not followed, however it got there', () => {
+  test('an address that executes is not rendered as a link, however it got there', () => {
     /*
      * Nothing can put one in a document any more — the schema refuses it at
      * paste and `normaliseHref` refuses it at typing (ADR-0157). But a CRDT
@@ -173,7 +173,24 @@ describe('a link in the text', () => {
     opened = [];
     const { view, ydoc, mount } = editorWith('javascript:alert(1)', false);
     try {
-      clickTheLink(mount as unknown as HTMLElement);
+      assert.equal(mount.querySelector('a[href]'), null);
+      assert.equal(mount.textContent, 'zur Satzung');
+      assert.deepEqual(opened, []);
+    } finally {
+      view.destroy();
+      ydoc.destroy();
+    }
+  });
+
+  test('an unsafe anchor reaching the click handler also cancels native navigation', () => {
+    opened = [];
+    const { view, ydoc, mount } = editorWith('https://example.org', false);
+    try {
+      const anchor = mount.querySelector('a')!;
+      anchor.setAttribute('href', 'java\tscript:void(0)');
+      const event = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true });
+      anchor.dispatchEvent(event);
+      assert.equal(event.defaultPrevented, true);
       assert.deepEqual(opened, []);
     } finally {
       view.destroy();

@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:browser": "tsc -b ../core ../client ../editor && node test/browser/editor.mjs",
     "dev": "vite",
     "build": "tsc -b ../core ../client ../editor && tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
@@ -34,6 +35,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^30.0.1",
+    "playwright": "1.62.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vite": "^6.0.0"

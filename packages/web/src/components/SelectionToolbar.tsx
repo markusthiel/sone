@@ -30,9 +30,10 @@ import { useT } from '../i18n/useT.tsx';
 import { anchorFromSelection, type CommentAnchor } from '@sone/editor';
 import { toggleMark } from 'prosemirror-commands';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 
 import { useViewportChanges } from '../hooks/useViewportChanges.ts';
+import { editorOverlayBounds, placeEditorOverlay, type OverlayPlacement } from '../lib/editorOverlay.ts';
 import { keepsEditorSelection } from './popup.ts';
 
 interface SelectionToolbarProps {
@@ -62,7 +63,6 @@ interface SelectionToolbarProps {
 }
 
 const GAP = 8;
-const MARGIN = 8;
 
 export function SelectionToolbar({
   view,
@@ -71,7 +71,7 @@ export function SelectionToolbar({
   canFormat = true,
 }: SelectionToolbarProps): ReactElement | null {
   const { t } = useT();
-  const [box, setBox] = useState<{ top: number; left: number; above: boolean } | null>(null);
+  const [box, setBox] = useState<OverlayPlacement | null>(null);
   const [editingLink, setEditingLink] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -109,7 +109,7 @@ export function SelectionToolbar({
   // re-centres when the sidebar opens or closes, without any window event and
   // without changing its own width (ADR-0083). Every overlay measured against
   // the text drifts the same way.
-  const viewportToken = useViewportChanges(visible, view.dom as HTMLElement);
+  const viewportToken = useViewportChanges(visible, view.dom as HTMLElement, barRef.current);
 
   const copyCode = async (): Promise<void> => {
     if (codeText === null) return;
@@ -123,7 +123,7 @@ export function SelectionToolbar({
     }
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!visible) {
       setBox(null);
       return;
@@ -138,18 +138,14 @@ export function SelectionToolbar({
       const height = barRef.current?.offsetHeight ?? 40;
 
       const centre = (start.left + end.right) / 2;
-      const spaceAbove = start.top;
-      const above = spaceAbove > height + GAP + MARGIN;
-
       const width = barRef.current?.offsetWidth ?? 260;
-      setBox({
-        top: above ? start.top - height - GAP : end.bottom + GAP,
-        left: Math.min(
-          Math.max(MARGIN, centre - width / 2),
-          Math.max(MARGIN, window.innerWidth - width - MARGIN),
-        ),
-        above,
-      });
+      setBox(placeEditorOverlay(
+        { top: start.top, bottom: end.bottom, left: centre - width / 2 },
+        { width, height },
+        editorOverlayBounds(view.dom),
+        true,
+        GAP,
+      ));
     } catch {
       // A position can be stale for a frame after a document change. Retried,
       // because the toolbar renders hidden while `box` is null and a single
@@ -204,7 +200,7 @@ export function SelectionToolbar({
     <div
       className="selection-toolbar"
       ref={barRef}
-      style={box ? { top: box.top, left: box.left } : { visibility: 'hidden' }}
+      style={box ?? { visibility: 'hidden' }}
       role="toolbar"
       aria-label={t('format.label')}
       // The editor loses focus on mousedown, which would collapse the selection

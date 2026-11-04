@@ -5030,9 +5030,8 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 
 .block-insert,
 .block-handle {
-  /* --sone-control, not --sone-tap: these sit beside a line of text and a 44px
-     square would overlap the lines above and below. The hit area is padded past
-     the box instead. */
+  /* Compact beside desktop text; the touch layout below stacks full targets
+     in the margin so the two hit areas never overlap. */
   inline-size: var(--sone-control);
   min-block-size: var(--sone-control);
   display: inline-flex;
@@ -5065,6 +5064,21 @@ button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97
 .block-handle[aria-expanded='true'] {
   background: var(--sone-bg-hover);
   color: var(--sone-text);
+}
+
+@media (pointer: coarse) {
+  .block-gutter {
+    flex-direction: column;
+    inline-size: var(--sone-tap);
+    gap: var(--sone-space-1);
+  }
+  .block-insert,
+  .block-handle {
+    inline-size: var(--sone-tap);
+    min-block-size: var(--sone-tap);
+  }
+  .block-menu .block-menu-action,
+  .block-menu .block-menu-item { min-block-size: var(--sone-tap); }
 }
 
 /* On a touch device the gutter does not wait to be pointed at.
@@ -6257,6 +6271,9 @@ select {
   position: fixed;
   z-index: 44;
   display: flex;
+  flex-wrap: wrap;
+  overflow: auto;
+  overscroll-behavior: contain;
   align-items: center;
   gap: var(--sone-space-1);
   padding: var(--sone-space-2);
@@ -6318,7 +6335,7 @@ select {
    wants from one. The address is shown rather than summarised because a link's
    words rarely say where it leads — and because clipboard access can be refused,
    which leaves reading it off the screen as the way to copy it. */
-.link-card { display: flex; align-items: center; gap: 4px; }
+.link-card { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-inline-size: 0; }
 .link-card-href {
   max-inline-size: 22ch;
   overflow: hidden;
@@ -6332,9 +6349,10 @@ select {
   font-family: var(--sone-font-mono);
 }
 
-.link-editor { display: flex; align-items: center; gap: 4px; }
+.link-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-inline-size: 0; }
 .link-editor input {
   inline-size: 200px;
+  max-inline-size: 100%;
   min-block-size: 30px;
   padding: var(--sone-space-2) var(--sone-space-4);
   font-size: 0.85rem;

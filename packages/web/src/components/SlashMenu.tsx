@@ -47,10 +47,10 @@ import type { EditorView } from 'prosemirror-view';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 
 import { useViewportChanges } from '../hooks/useViewportChanges.ts';
+import { editorOverlayBounds, placeEditorOverlay, type OverlayPlacement } from '../lib/editorOverlay.ts';
 
 /** Space kept between the caret and the menu, and from the viewport edge. */
 const GAP = 6;
-const MARGIN = 8;
 const MENU_WIDTH = 288;
 const MAX_HEIGHT = 320;
 
@@ -103,11 +103,7 @@ export function SlashMenu({
   const { t } = useT();
   const menu = slashMenuState(view.state);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const [placement, setPlacement] = useState<{
-    top: number;
-    left: number;
-    above: boolean;
-  } | null>(null);
+  const [placement, setPlacement] = useState<OverlayPlacement | null>(null);
   // Bumped to re-run positioning after a failure. Without it a single stale
   // position left the menu permanently invisible.
   const [retryToken, setRetryToken] = useState(0);
@@ -117,7 +113,7 @@ export function SlashMenu({
   // Re-place when the page moves: a scroll produces no transaction, so nothing
   // else would tell this component that the caret is no longer where it was.
   // The editor's element too — see the note in useViewportChanges (ADR-0083).
-  const viewportToken = useViewportChanges(from !== null, view.dom as HTMLElement);
+  const viewportToken = useViewportChanges(from !== null, view.dom as HTMLElement, listRef.current);
 
   // Position after layout, so the measured height is the real one. useEffect
   // would paint at the wrong place first and visibly jump.
@@ -142,22 +138,9 @@ export function SlashMenu({
       return () => cancelAnimationFrame(retry);
     }
 
-    const height = listRef.current?.offsetHeight ?? MAX_HEIGHT;
-    const spaceBelow = window.innerHeight - coords.bottom;
-    // Flip above the caret when there is not enough room below — on a phone
-    // with the keyboard up, there rarely is.
-    const above = spaceBelow < height + GAP + MARGIN && coords.top > height + GAP;
-
-    const left = Math.min(
-      Math.max(MARGIN, coords.left),
-      Math.max(MARGIN, window.innerWidth - MENU_WIDTH - MARGIN),
-    );
-
-    setPlacement({
-      top: above ? coords.top - height - GAP : coords.bottom + GAP,
-      left,
-      above,
-    });
+    const height = Math.min(listRef.current ? listRef.current.scrollHeight + 2 : MAX_HEIGHT, MAX_HEIGHT);
+    const next = placeEditorOverlay(coords, { width: MENU_WIDTH, height }, editorOverlayBounds(view.dom), false, GAP);
+    setPlacement({ ...next, maxHeight: Math.min(next.maxHeight, MAX_HEIGHT) });
     // `revision` is in the dependency list because the caret moves without
     // `from` changing — typing inside the query, for instance.
   }, [view, from, revision, retryToken, viewportToken, menu?.items.length]);
@@ -265,7 +248,7 @@ export function SlashMenu({
     <div
       className="slash-menu"
       ref={listRef}
-      style={placement ? { top: placement.top, left: placement.left } : FALLBACK_POSITION}
+      style={placement ?? FALLBACK_POSITION}
       role="listbox"
       aria-label={t('slash.insert')}
       aria-activedescendant={`slash-item-${menu.items[menu.index]?.id ?? ''}`}

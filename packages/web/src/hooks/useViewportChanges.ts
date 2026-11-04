@@ -32,7 +32,7 @@ import { useEffect, useState } from 'react';
  * the text used to be. That is how the block controls ended up inside the first
  * line, and it is not what I said it was when I first "fixed" it.
  */
-export function useViewportChanges(active: boolean, watch?: HTMLElement | null): number {
+export function useViewportChanges(active: boolean, watch?: HTMLElement | null, overlay?: HTMLElement | null): number {
   const [token, setToken] = useState(0);
 
   useEffect(() => {
@@ -93,6 +93,7 @@ export function useViewportChanges(active: boolean, watch?: HTMLElement | null):
       for (let element: HTMLElement | null = watch; element; element = element.parentElement) {
         observer.observe(element);
       }
+      if (overlay) observer.observe(overlay);
     }
 
     return () => {
@@ -103,7 +104,7 @@ export function useViewportChanges(active: boolean, watch?: HTMLElement | null):
       visual?.removeEventListener('scroll', bump);
       observer?.disconnect();
     };
-  }, [active, watch]);
+  }, [active, watch, overlay]);
 
   return token;
 }

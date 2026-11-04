@@ -32,6 +32,7 @@ import { readFileSync } from 'node:fs';
  */
 export function codeOf(url: URL): string {
   return readFileSync(url, 'utf8')
+    .replace(/\r\n/g, '\n')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
 }
@@ -59,5 +60,5 @@ export function codeOf(url: URL): string {
 
 /** The same, for a stylesheet, where only block comments exist. */
 export function stylesOf(url: URL): string {
-  return readFileSync(url, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  return readFileSync(url, 'utf8').replace(/\r\n/g, '\n').replace(/\/\*[\s\S]*?\*\//g, '');
 }

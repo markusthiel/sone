@@ -34,7 +34,7 @@ const raw = readFileSync(
  * to ignore the output. The same mistake was made once before, in the migration
  * checker, on apostrophes.
  */
-const css = raw.replace(/\/\*[\s\S]*?\*\//g, '');
+const css = raw.replace(/\r\n/g, '\n').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('comments are excluded from the scan', () => {
   // The check below would otherwise flag the comment that explains why a

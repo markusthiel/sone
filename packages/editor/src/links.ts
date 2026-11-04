@@ -94,7 +94,7 @@ export function linkAt(state: EditorState): LinkRange | null {
  */
 export function normaliseHref(input: string): string | null {
   const trimmed = input.trim();
-  if (trimmed.length === 0) return null;
+  if (!isFollowable(trimmed)) return null;
 
   // Anything with a scheme is taken as given, except the ones that execute.
   //
@@ -253,7 +253,11 @@ export function followLinks(): Plugin {
            * document says.
            */
           const href = anchor.getAttribute('href');
-          if (href === null || !isFollowable(href)) return false;
+          if (href === null) return false;
+          if (!isFollowable(href)) {
+            event.preventDefault();
+            return true;
+          }
 
           // `metaKey` on a Mac and `ctrlKey` everywhere else, which is the pair
           // every other shortcut in this editor is built from.

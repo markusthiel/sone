@@ -149,6 +149,6 @@ test('the vendored block is still what the engine ships', () => {
 
   // Ours, with its provenance comment taken off — the comment is the part that
   // is ours to write.
-  const mine = vendored.replace(/^\/\*[\s\S]*?\*\/\s*/, '').trim();
+  const mine = vendored.replace(/\r\n/g, '\n').replace(/^\/\*[\s\S]*?\*\/\s*/, '').trim();
   assert.equal(mine, block, 'the vendored text layer has drifted from pdfjs-dist');
 });

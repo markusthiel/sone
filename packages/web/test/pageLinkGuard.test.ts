@@ -45,7 +45,7 @@ test('it fails on a component that builds a member URL', () => {
   try {
     const { code, err } = run(dir);
     assert.equal(code, 1, 'the build stops');
-    assert.match(err, /components\/FolderView\.tsx:1/, 'and names the line');
+    assert.match(err, /components[/\\]FolderView\.tsx:1/, 'and names the line');
     assert.match(err, /usePageLink/, 'and what to use instead');
   } finally {
     rmSync(dir, { recursive: true, force: true });
