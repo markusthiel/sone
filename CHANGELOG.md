@@ -13,6 +13,8 @@ version answers "what must I do to upgrade?", not "how much changed?".
 
 ## Unreleased
 
+## 0.14.13
+
 Aktualisieren und neu starten, sonst nichts.
 
 **Editor-Menüs bleiben auf dem Bildschirm.** Blockaktionen und Formatierung
